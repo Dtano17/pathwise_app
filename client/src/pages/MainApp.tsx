@@ -333,7 +333,7 @@ export default function MainApp({
         <div className="max-w-6xl mx-auto">
           {/* Navigation Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-8 mb-8 bg-muted/30 p-1 h-12">
+            <TabsList className="grid w-full grid-cols-6 mb-8 bg-muted/30 p-1 h-12">
               <TabsTrigger value="input" className="gap-2 text-sm font-medium" data-testid="tab-input">
                 <Mic className="w-4 h-4" />
                 <span className="hidden sm:inline">Goal Input</span>
@@ -343,16 +343,6 @@ export default function MainApp({
                 <CheckSquare className="w-4 h-4" />
                 <span className="hidden sm:inline">Tasks ({pendingTasks.length})</span>
                 <span className="sm:hidden">Tasks</span>
-              </TabsTrigger>
-              <TabsTrigger value="scheduler" className="gap-2 text-sm font-medium" data-testid="tab-scheduler">
-                <Calendar className="w-4 h-4" />
-                <span className="hidden sm:inline">Scheduler</span>
-                <span className="sm:hidden">Schedule</span>
-              </TabsTrigger>
-              <TabsTrigger value="notifications" className="gap-2 text-sm font-medium" data-testid="tab-notifications">
-                <Bell className="w-4 h-4" />
-                <span className="hidden sm:inline">Notifications</span>
-                <span className="sm:hidden">Alerts</span>
               </TabsTrigger>
               <TabsTrigger value="progress" className="gap-2 text-sm font-medium" data-testid="tab-progress">
                 <BarChart3 className="w-4 h-4" />
@@ -1170,20 +1160,6 @@ ChatGPT: I can help you create a plan..."
               </div>
             </TabsContent>
 
-            {/* Smart Scheduler Tab */}
-            <TabsContent value="scheduler" className="space-y-6">
-              <SmartScheduler 
-                userId="demo-user"
-                tasks={tasks}
-              />
-            </TabsContent>
-
-            {/* Notifications Tab */}
-            <TabsContent value="notifications" className="space-y-6">
-              <NotificationManager 
-                userId="demo-user"
-              />
-            </TabsContent>
           </Tabs>
         </div>
       </main>
