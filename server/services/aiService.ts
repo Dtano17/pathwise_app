@@ -22,10 +22,13 @@ const anthropic = new Anthropic({
 });
 
 interface GoalProcessingResult {
+  planTitle?: string;
+  summary?: string;
   tasks: Omit<InsertTask, 'userId'>[];
   goalCategory: string;
   goalPriority: 'low' | 'medium' | 'high';
   estimatedTimeframe: string;
+  motivationalNote?: string;
 }
 
 interface ChatMessage {
@@ -181,7 +184,7 @@ Create actionable tasks from these conversations that can help hold the user acc
         ],
       });
 
-      const result = JSON.parse(response.content[0].text);
+      const result = JSON.parse((response.content[0] as any).text);
       
       return {
         extractedGoals: result.extractedGoals || [],
@@ -225,39 +228,46 @@ Create actionable tasks from these conversations that can help hold the user acc
 
   private async processGoalWithOpenAI(goalText: string): Promise<GoalProcessingResult> {
     try {
-      const prompt = `You are an AI productivity assistant. Transform the user's goal or intention into specific, actionable tasks.
+      const prompt = `You are an AI productivity assistant. Transform the user's goal into a structured, actionable plan like Claude AI would format it - clear, organized, and visually appealing.
 
 User's goal: "${goalText}"
 
-Analyze this goal and respond with JSON in this exact format:
+Create a well-structured plan with the following JSON format:
 {
+  "planTitle": "Clear, motivating title for the plan",
+  "summary": "Brief overview of the approach (1-2 sentences)",
   "tasks": [
     {
-      "title": "Specific task title",
-      "description": "Detailed description of what to do",
-      "category": "Category name",
+      "title": "Specific, actionable task title",
+      "description": "Detailed step-by-step description with context",
+      "category": "Category name", 
       "priority": "high|medium|low",
-      "dueDate": null
+      "timeEstimate": "15 min | 30 min | 1 hour | 2 hours",
+      "dueDate": null,
+      "context": "Why this task matters and tips for success"
     }
   ],
   "goalCategory": "Overall category for the goal",
-  "goalPriority": "high|medium|low", 
-  "estimatedTimeframe": "Time estimate to complete all tasks"
+  "goalPriority": "high|medium|low",
+  "estimatedTimeframe": "Realistic timeframe for the full plan",
+  "motivationalNote": "Encouraging note about achieving this goal"
 }
 
-Guidelines:
-- Break down complex goals into 2-5 specific, actionable tasks
-- Each task should be completable in one session (15 minutes to 2 hours)
-- Use clear, action-oriented language ("Do X", "Complete Y", "Practice Z")
-- Assign realistic priorities based on urgency and importance
-- Categories should be simple: Health, Work, Personal, Learning, Social, Finance, etc.
-- For recurring goals (daily habits), create tasks for the next few instances
-- Make tasks specific enough that completion is clear and measurable
+Guidelines for Claude-style formatting:
+- Create 3-6 specific, actionable tasks that build momentum
+- Each task should have rich context explaining WHY it matters
+- Use motivating, positive language
+- Break complex goals into logical progression steps
+- Include practical tips and time estimates
+- Make tasks feel achievable and rewarding when completed
+- Add context that helps users understand the bigger picture
+- For time-sensitive goals (like "today"), create immediate actionable steps
+- For longer goals (like "2 months"), create milestone-based progression
 
-Examples:
-- "Get healthier" → Tasks for meal prep, workout schedule, sleep routine
-- "Learn programming" → Tasks for course selection, practice projects, skill assessment
-- "Organize life" → Tasks for decluttering spaces, organizing documents, creating systems`;
+Examples of excellent task formatting:
+- "I want to lose 20lbs in 2 months" → Create meal prep plan, establish workout routine, track progress
+- "Go hiking and shopping today" → Research hiking trails, prepare gear, plan shopping list, optimize route
+- "Go on a date tonight" → Choose venue, prepare conversation topics, plan outfit, confirm details`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-5",
@@ -278,6 +288,8 @@ Examples:
       
       // Validate and ensure proper structure
       const processedResult: GoalProcessingResult = {
+        planTitle: result.planTitle || `Plan for: ${goalText}`,
+        summary: result.summary || 'Generated actionable plan from your goal',
         tasks: result.tasks?.map((task: any) => ({
           title: task.title || 'Untitled Task',
           description: task.description || 'No description provided',
@@ -285,11 +297,14 @@ Examples:
           priority: this.validatePriority(task.priority),
           goalId: null,
           completed: false,
-          dueDate: task.dueDate ? new Date(task.dueDate) : null
+          dueDate: task.dueDate ? new Date(task.dueDate) : null,
+          timeEstimate: task.timeEstimate || '30 min',
+          context: task.context || 'Complete this task to progress toward your goal'
         })) || [],
         goalCategory: result.goalCategory || 'Personal',
         goalPriority: this.validatePriority(result.goalPriority),
-        estimatedTimeframe: result.estimatedTimeframe || 'Unknown'
+        estimatedTimeframe: result.estimatedTimeframe || 'Unknown',
+        motivationalNote: result.motivationalNote || 'You got this! Take it one task at a time.'
       };
 
       return processedResult;
@@ -349,7 +364,7 @@ Examples:
         ],
       });
 
-      const result = JSON.parse(response.content[0].text);
+      const result = JSON.parse((response.content[0] as any).text);
       
       // Validate and ensure proper structure
       const processedResult: GoalProcessingResult = {

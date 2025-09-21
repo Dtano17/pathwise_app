@@ -48,6 +48,8 @@ export const tasks = pgTable("tasks", {
   completed: boolean("completed").default(false),
   completedAt: timestamp("completed_at"),
   dueDate: timestamp("due_date"),
+  timeEstimate: text("time_estimate"), // "15 min" | "30 min" | "1 hour" | "2 hours"
+  context: text("context"), // Why this task matters and tips for success
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -336,10 +336,10 @@ export default function MainApp() {
                 <p className="text-sm text-muted-foreground mb-4 text-center">Try these examples:</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
-                    "Eat healthier and workout today",
-                    "Learn programming and build a website", 
-                    "Organize my room and declutter my space",
-                    "Read more books and expand my knowledge"
+                    "I want to lose 20lbs in 2 months",
+                    "Eat healthy and workout today", 
+                    "I will like to go hiking and shopping today",
+                    "I will like to go on a date with someone I just met this evening"
                   ].map((example, index) => (
                     <Button
                       key={index}

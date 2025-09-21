@@ -81,7 +81,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         goal,
         tasks,
+        planTitle: result.planTitle,
+        summary: result.summary,
         estimatedTimeframe: result.estimatedTimeframe,
+        motivationalNote: result.motivationalNote,
         message: `Created ${tasks.length} actionable tasks from your goal!`
       });
     } catch (error) {
