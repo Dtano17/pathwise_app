@@ -30,7 +30,23 @@ interface ProgressData {
   lifestyleSuggestions?: string[];
 }
 
-export default function MainApp() {
+interface MainAppProps {
+  selectedTheme: string;
+  onThemeSelect: (theme: string) => void;
+  showThemeSelector: boolean;
+  onShowThemeSelector: (show: boolean) => void;
+  showLocationDatePlanner: boolean;
+  onShowLocationDatePlanner: (show: boolean) => void;
+}
+
+export default function MainApp({ 
+  selectedTheme, 
+  onThemeSelect,
+  showThemeSelector,
+  onShowThemeSelector,
+  showLocationDatePlanner,
+  onShowLocationDatePlanner 
+}: MainAppProps) {
   const [activeTab, setActiveTab] = useState("input");
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -49,10 +65,7 @@ export default function MainApp() {
     motivationalNote?: string;
   } | null>(null);
 
-  // Theme and interactive features state
-  const [selectedTheme, setSelectedTheme] = useState<string>('');
-  const [showThemeSelector, setShowThemeSelector] = useState(false);
-  const [showLocationDatePlanner, setShowLocationDatePlanner] = useState(false);
+  // These states are now managed in App.tsx and passed as props
 
   // Fetch tasks
   const { data: tasks = [], isLoading: tasksLoading, error: tasksError, refetch: refetchTasks } = useQuery<Task[]>({
@@ -311,50 +324,8 @@ export default function MainApp() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-7xl mx-auto flex gap-8">
-          {/* Sidebar with Theme Widget */}
-          <aside className="hidden lg:block w-80 space-y-6">
-            <ThemeSelector
-              selectedTheme={selectedTheme}
-              onThemeSelect={setSelectedTheme}
-              onGenerateGoal={(goal) => processGoalMutation.mutate(goal)}
-              compact={true}
-            />
-            
-            {/* Quick Actions Card */}
-            <Card className="p-4">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-primary" />
-                Quick Actions
-              </h3>
-              <div className="space-y-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowLocationDatePlanner(true)}
-                  className="w-full justify-start gap-2"
-                  data-testid="sidebar-date-planner"
-                >
-                  <Heart className="w-4 h-4" />
-                  Plan a Date
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowThemeSelector(true)}
-                  className="w-full justify-start gap-2"
-                  data-testid="sidebar-theme-selector"
-                >
-                  <Target className="w-4 h-4" />
-                  Change Theme
-                </Button>
-              </div>
-            </Card>
-          </aside>
-
-          {/* Main Content Area */}
-          <div className="flex-1">
+      <main className="container mx-auto px-4 py-8 h-full overflow-auto">
+        <div className="max-w-6xl mx-auto">
           {/* Navigation Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-6 mb-8">
@@ -407,7 +378,7 @@ export default function MainApp() {
                   {/* Quick Action Buttons */}
                   <div className="flex justify-center gap-4 mb-6">
                     <Button
-                      onClick={() => setShowThemeSelector(true)}
+                      onClick={() => onShowThemeSelector(true)}
                       variant="outline"
                       className="gap-2"
                       data-testid="button-theme-selector"
@@ -416,7 +387,7 @@ export default function MainApp() {
                       Set Daily Theme
                     </Button>
                     <Button
-                      onClick={() => setShowLocationDatePlanner(true)}
+                      onClick={() => onShowLocationDatePlanner(true)}
                       variant="outline"
                       className="gap-2"
                       data-testid="button-date-planner"
@@ -465,7 +436,7 @@ export default function MainApp() {
               )}
 
               {/* Theme Selector Modal */}
-              <Dialog open={showThemeSelector} onOpenChange={setShowThemeSelector}>
+              <Dialog open={showThemeSelector} onOpenChange={onShowThemeSelector}>
                 <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Set Your Daily Theme</DialogTitle>
@@ -475,17 +446,17 @@ export default function MainApp() {
                   </DialogHeader>
                   <ThemeSelector
                     selectedTheme={selectedTheme}
-                    onThemeSelect={setSelectedTheme}
+                    onThemeSelect={onThemeSelect}
                     onGenerateGoal={(goal) => {
                       processGoalMutation.mutate(goal);
-                      setShowThemeSelector(false);
+                      onShowThemeSelector(false);
                     }}
                   />
                 </DialogContent>
               </Dialog>
 
               {/* Location Date Planner Modal */}
-              <Dialog open={showLocationDatePlanner} onOpenChange={setShowLocationDatePlanner}>
+              <Dialog open={showLocationDatePlanner} onOpenChange={onShowLocationDatePlanner}>
                 <DialogContent className="max-w-4xl">
                   <DialogHeader>
                     <DialogTitle>Plan Your Perfect Date</DialogTitle>
@@ -496,7 +467,7 @@ export default function MainApp() {
                   <LocationDatePlanner
                     onPlanGenerated={(plan) => {
                       processGoalMutation.mutate(plan);
-                      setShowLocationDatePlanner(false);
+                      onShowLocationDatePlanner(false);
                     }}
                   />
                 </DialogContent>
@@ -1171,7 +1142,6 @@ ChatGPT: I can help you create a plan..."
               </div>
             </TabsContent>
           </Tabs>
-          </div>
         </div>
       </main>
     </div>
