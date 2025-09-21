@@ -23,7 +23,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <SidebarProvider style={style as React.CSSProperties}>
+        <SidebarProvider defaultOpen={false} style={style as React.CSSProperties}>
           <div className="flex h-screen w-full">
             <AppSidebar 
               selectedTheme={selectedTheme}

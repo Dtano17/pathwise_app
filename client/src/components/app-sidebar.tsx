@@ -7,6 +7,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,10 @@ export function AppSidebar({
   return (
     <Sidebar>
       <SidebarContent>
+        {/* Toggle Button at the top */}
+        <div className="flex justify-end p-2 border-b">
+          <SidebarTrigger data-testid="button-sidebar-toggle" />
+        </div>
         {/* Today's Theme Section */}
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center gap-2">
