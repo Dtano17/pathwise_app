@@ -12,7 +12,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const themes = [
   { id: 'work', name: 'Work Focus', icon: Briefcase, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
@@ -36,6 +38,7 @@ export function AppSidebar({
   onShowThemeSelector,
   onShowDatePlanner 
 }: AppSidebarProps) {
+  const { user, isAuthenticated, isLoading, login, logout, isLoggingOut } = useAuth();
   const selectedThemeData = selectedTheme ? themes.find(t => t.id === selectedTheme) : null;
 
   const handleThemeSelect = (themeId: string) => {
@@ -49,6 +52,69 @@ export function AppSidebar({
         <div className="flex justify-end p-2 border-b">
           <SidebarTrigger data-testid="button-sidebar-toggle" />
         </div>
+
+        {/* Authentication Section */}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            {isLoading ? (
+              <div className="p-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-muted rounded-full animate-pulse" />
+                  <div className="flex-1">
+                    <div className="h-4 bg-muted rounded animate-pulse mb-1" />
+                    <div className="h-3 bg-muted rounded animate-pulse w-3/4" />
+                  </div>
+                </div>
+              </div>
+            ) : isAuthenticated && user ? (
+              <div className="p-3 bg-muted/30 rounded-lg mx-2 mb-2">
+                <div className="flex items-center gap-3 mb-3">
+                  <Avatar className="w-8 h-8">
+                    <AvatarImage src={user.profileImageUrl} alt={user.firstName || user.email || 'User'} />
+                    <AvatarFallback>
+                      {user.firstName ? user.firstName.charAt(0).toUpperCase() : 
+                       user.email ? user.email.charAt(0).toUpperCase() : 
+                       <User className="w-4 h-4" />}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email}
+                    </p>
+                    {user.firstName && user.email && (
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={logout}
+                  disabled={isLoggingOut}
+                  className="w-full gap-2"
+                  data-testid="button-logout"
+                >
+                  <LogOut className="w-4 h-4" />
+                  {isLoggingOut ? 'Signing out...' : 'Sign out'}
+                </Button>
+              </div>
+            ) : (
+              <div className="p-3">
+                <Button
+                  onClick={login}
+                  className="w-full gap-2"
+                  data-testid="button-login"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Sign in
+                </Button>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  Sign in with Google, GitHub, or email
+                </p>
+              </div>
+            )}
+          </SidebarGroupContent>
+        </SidebarGroup>
         {/* Today's Theme Section */}
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center gap-2">

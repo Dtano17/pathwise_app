@@ -1,6 +1,6 @@
 // Replit Auth integration - from blueprint:javascript_log_in_with_replit
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { isUnauthorizedError } from "@lib/authUtils";
+import { isUnauthorizedError } from "@/lib/authUtils";
 
 interface User {
   id: string;
