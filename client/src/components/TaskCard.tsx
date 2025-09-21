@@ -89,10 +89,17 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
             <div className="flex items-center gap-3">
               <CheckCircle className="w-6 h-6 text-green-600" />
               <div className="flex-1">
-                <h3 className="font-semibold text-green-800 dark:text-green-200 line-through">
+                <h3 className="font-semibold text-green-800 dark:text-green-200 line-through decoration-2 decoration-green-600">
                   {task.title}
                 </h3>
-                <p className="text-sm text-green-600 dark:text-green-300">Task completed! 🎉</p>
+                {task.description && (
+                  <p className="text-sm text-green-700 dark:text-green-300 line-through decoration-1 decoration-green-500 opacity-80 mt-1">
+                    {task.description}
+                  </p>
+                )}
+                <p className="text-sm text-green-600 dark:text-green-300 font-medium mt-2">
+                  ✓ Task completed! 🎉
+                </p>
               </div>
             </div>
           </Card>

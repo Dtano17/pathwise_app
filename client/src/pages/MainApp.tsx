@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import VoiceInput from '@/components/VoiceInput';
 import TaskCard from '@/components/TaskCard';
 import ProgressDashboard from '@/components/ProgressDashboard';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users } from 'lucide-react';
 import { type Task, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -287,7 +287,7 @@ export default function MainApp() {
         <div className="max-w-6xl mx-auto">
           {/* Navigation Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 mb-8">
+            <TabsList className="grid w-full grid-cols-6 mb-8">
               <TabsTrigger value="input" className="gap-2" data-testid="tab-input">
                 <Mic className="w-4 h-4" />
                 Goal Input
@@ -299,6 +299,10 @@ export default function MainApp() {
               <TabsTrigger value="progress" className="gap-2" data-testid="tab-progress">
                 <BarChart3 className="w-4 h-4" />
                 Progress
+              </TabsTrigger>
+              <TabsTrigger value="groups" className="gap-2" data-testid="tab-groups">
+                <Users className="w-4 h-4" />
+                Groups
               </TabsTrigger>
               <TabsTrigger value="sync" className="gap-2" data-testid="tab-sync">
                 <RefreshCw className="w-4 h-4" />
@@ -620,6 +624,161 @@ ChatGPT: I can help you create a plan..."
               </div>
             </TabsContent>
 
+            {/* Groups Tab */}
+            <TabsContent value="groups" className="space-y-6">
+              <div className="max-w-4xl mx-auto">
+                <div className="text-center mb-8">
+                  <h2 className="text-3xl font-bold text-foreground mb-4">
+                    👥 Group Goals & Shared Accountability
+                  </h2>
+                  <p className="text-xl text-muted-foreground">
+                    Create groups, share goals, and celebrate progress together!
+                  </p>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Create New Group */}
+                  <Card className="p-6">
+                    <div className="text-center">
+                      <Users className="w-12 h-12 text-primary mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold mb-2">Create New Group</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Start a new group for shared goals and accountability
+                      </p>
+                      <Button 
+                        className="w-full" 
+                        data-testid="button-create-group"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Group
+                      </Button>
+                    </div>
+                  </Card>
+
+                  {/* Join Existing Group */}
+                  <Card className="p-6">
+                    <div className="text-center">
+                      <Target className="w-12 h-12 text-primary mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold mb-2">Join Group</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Enter an invite code to join an existing group
+                      </p>
+                      <div className="space-y-2">
+                        <Input 
+                          placeholder="Enter invite code"
+                          data-testid="input-invite-code"
+                        />
+                        <Button 
+                          className="w-full" 
+                          variant="outline"
+                          data-testid="button-join-group"
+                        >
+                          Join Group
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* My Groups Section */}
+                <div className="mt-8">
+                  <h3 className="text-2xl font-semibold mb-4">My Groups</h3>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {/* Example Group Cards */}
+                    <Card className="p-4 hover-elevate">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold">Family Trip to New Jersey</h4>
+                        <Badge variant="outline">4 members</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Planning our November family vacation together
+                      </p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Progress</span>
+                          <span>7/12 tasks completed</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="bg-primary h-2 rounded-full" style={{width: '58%'}}></div>
+                        </div>
+                      </div>
+                      <Button variant="outline" className="w-full mt-3" size="sm">
+                        View Group
+                      </Button>
+                    </Card>
+
+                    <Card className="p-4 hover-elevate">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold">Fitness Challenge</h4>
+                        <Badge variant="outline">2 members</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Daily workout accountability with best friend
+                      </p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Progress</span>
+                          <span>15/20 tasks completed</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="bg-primary h-2 rounded-full" style={{width: '75%'}}></div>
+                        </div>
+                      </div>
+                      <Button variant="outline" className="w-full mt-3" size="sm">
+                        View Group
+                      </Button>
+                    </Card>
+
+                    {/* Add More Groups Card */}
+                    <Card className="p-4 border-dashed border-2 hover-elevate">
+                      <div className="text-center text-muted-foreground">
+                        <Plus className="w-8 h-8 mx-auto mb-2" />
+                        <p className="text-sm">Create or join more groups</p>
+                      </div>
+                    </Card>
+                  </div>
+                </div>
+
+                {/* Recent Group Activity */}
+                <div className="mt-8">
+                  <h3 className="text-2xl font-semibold mb-4">Recent Group Activity</h3>
+                  <Card className="p-4">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <CheckSquare className="w-5 h-5 text-green-600" />
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            <strong>Sarah</strong> completed <span className="line-through decoration-2 decoration-green-600">"Book hotel reservations"</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">Family Trip to New Jersey • 2 hours ago</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <Target className="w-5 h-5 text-blue-600" />
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            <strong>Mike</strong> added new task "Research hiking trails"
+                          </p>
+                          <p className="text-xs text-muted-foreground">Family Trip to New Jersey • 4 hours ago</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <CheckSquare className="w-5 h-5 text-green-600" />
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            <strong>You</strong> completed <span className="line-through decoration-2 decoration-green-600">"Morning run - 30 minutes"</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">Fitness Challenge • 6 hours ago</p>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
             {/* About Tab */}
             <TabsContent value="about" className="space-y-6">
               <div className="max-w-4xl mx-auto">
@@ -700,6 +859,20 @@ ChatGPT: I can help you create a plan..."
                       <p className="text-muted-foreground">
                         Discover new habits and activities inspired by users with similar goals—like hiking, journaling, cold plunges, or travel routines.
                       </p>
+                    </div>
+
+                    <div className="bg-card p-6 rounded-lg border">
+                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
+                        <Users className="w-5 h-5 text-primary" />
+                        Group Goals & Collaborative Tracking
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Share goals with family and friends! Create group challenges like "Family Trip to New Jersey" where everyone can contribute tasks and strike them out when completed. Perfect for shared accountability and celebrating together.
+                      </p>
+                      <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                        <CheckSquare className="w-4 h-4" />
+                        <span>Real-time strikethrough when goals are completed</span>
+                      </div>
                     </div>
                   </div>
 

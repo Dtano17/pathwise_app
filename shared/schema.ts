@@ -85,6 +85,58 @@ export const chatImports = pgTable("chat_imports", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Groups for shared goals and collaborative tracking
+export const groups = pgTable("groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdBy: varchar("created_by").references(() => users.id),
+  isPrivate: boolean("is_private").default(false),
+  inviteCode: varchar("invite_code").unique(), // Optional invite code for joining
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Group memberships to track users in groups
+export const groupMemberships = pgTable("group_memberships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").references(() => groups.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  role: text("role").default("member"), // 'admin' | 'member'
+  joinedAt: timestamp("joined_at").defaultNow(),
+}, (table) => ({
+  uniqueGroupUser: index("unique_group_user").on(table.groupId, table.userId),
+}));
+
+// Shared goals that belong to groups
+export const sharedGoals = pgTable("shared_goals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").references(() => groups.id, { onDelete: "cascade" }),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull(),
+  priority: text("priority").notNull(), // 'low' | 'medium' | 'high'
+  dueDate: timestamp("due_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Individual task assignments within shared goals
+export const sharedTasks = pgTable("shared_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sharedGoalId: varchar("shared_goal_id").references(() => sharedGoals.id, { onDelete: "cascade" }),
+  assignedTo: varchar("assigned_to").references(() => users.id, { onDelete: "cascade" }), // Who this task is assigned to
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: "cascade" }), // Who created this task
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull(),
+  priority: text("priority").notNull(), // 'low' | 'medium' | 'high'
+  completed: boolean("completed").default(false),
+  completedAt: timestamp("completed_at"),
+  dueDate: timestamp("due_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -124,6 +176,32 @@ export const insertChatImportSchema = createInsertSchema(chatImports).omit({
   processedAt: true,
 });
 
+export const insertGroupSchema = createInsertSchema(groups).omit({
+  id: true,
+  createdBy: true, // Set server-side from authenticated user
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertGroupMembershipSchema = createInsertSchema(groupMemberships).omit({
+  id: true,
+  userId: true, // Set server-side from authenticated user
+  joinedAt: true,
+});
+
+export const insertSharedGoalSchema = createInsertSchema(sharedGoals).omit({
+  id: true,
+  createdBy: true, // Set server-side from authenticated user
+  createdAt: true,
+});
+
+export const insertSharedTaskSchema = createInsertSchema(sharedTasks).omit({
+  id: true,
+  createdBy: true, // Set server-side from authenticated user
+  createdAt: true,
+  completedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -143,3 +221,15 @@ export type InsertProgressStats = z.infer<typeof insertProgressStatsSchema>;
 
 export type ChatImport = typeof chatImports.$inferSelect;
 export type InsertChatImport = z.infer<typeof insertChatImportSchema>;
+
+export type Group = typeof groups.$inferSelect;
+export type InsertGroup = z.infer<typeof insertGroupSchema>;
+
+export type GroupMembership = typeof groupMemberships.$inferSelect;
+export type InsertGroupMembership = z.infer<typeof insertGroupMembershipSchema>;
+
+export type SharedGoal = typeof sharedGoals.$inferSelect;
+export type InsertSharedGoal = z.infer<typeof insertSharedGoalSchema>;
+
+export type SharedTask = typeof sharedTasks.$inferSelect;
+export type InsertSharedTask = z.infer<typeof insertSharedTaskSchema>;
