@@ -175,7 +175,7 @@ export default function MainApp() {
         <div className="max-w-6xl mx-auto">
           {/* Navigation Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsList className="grid w-full grid-cols-4 mb-8">
               <TabsTrigger value="input" className="gap-2" data-testid="tab-input">
                 <Mic className="w-4 h-4" />
                 Goal Input
@@ -187,6 +187,10 @@ export default function MainApp() {
               <TabsTrigger value="progress" className="gap-2" data-testid="tab-progress">
                 <BarChart3 className="w-4 h-4" />
                 Progress
+              </TabsTrigger>
+              <TabsTrigger value="about" className="gap-2" data-testid="tab-about">
+                <Sparkles className="w-4 h-4" />
+                About
               </TabsTrigger>
             </TabsList>
 
@@ -336,6 +340,108 @@ export default function MainApp() {
                   </div>
                 </div>
               )}
+            </TabsContent>
+
+            {/* About Tab */}
+            <TabsContent value="about" className="space-y-6">
+              <div className="max-w-4xl mx-auto">
+                <div className="text-center mb-8">
+                  <h2 className="text-4xl font-bold text-foreground mb-4">
+                    🧭 Transform Goals into Reality Using AI as Your Companion
+                  </h2>
+                  <p className="text-xl text-muted-foreground">
+                    Built for doers. Designed to deliver.
+                  </p>
+                </div>
+
+                <div className="prose prose-lg max-w-none dark:prose-invert">
+                  <p className="text-muted-foreground text-lg leading-relaxed mb-8">
+                    This is more than a productivity tool—it's your lifestyle companion. Whether you're chasing short-term wins or long-term transformations, this AI-powered mobile app helps you turn intentions into actionable plans and holds you accountable every step of the way.
+                  </p>
+
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="bg-card p-6 rounded-lg border">
+                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
+                        <Mic className="w-5 h-5 text-primary" />
+                        Conversational Planning
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Speak or write your goals—"I want to work out, take vitamins, prep for my Dallas trip"—and the app curates a personalized, step-by-step plan.
+                      </p>
+                    </div>
+
+                    <div className="bg-card p-6 rounded-lg border">
+                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
+                        <CheckSquare className="w-5 h-5 text-primary" />
+                        Swipe-Based Accountability
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Receive task reminders as swipeable cards: Swipe right = task completed → logged as a checkpoint. Swipe left = task skipped → logged as missed.
+                      </p>
+                    </div>
+
+                    <div className="bg-card p-6 rounded-lg border">
+                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5 text-primary" />
+                        AI Check-ins & Progress Tracking
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Control how often the app nudges you—hourly, daily, weekly—based on your preferred cadence. Friendly pop-ups keep you on track without overwhelming you.
+                      </p>
+                    </div>
+
+                    <div className="bg-card p-6 rounded-lg border">
+                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
+                        <Target className="w-5 h-5 text-primary" />
+                        Future Projection
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Planning a trip or lifestyle shift? The app anticipates your needs—lodging, transport, packing—and reminds you proactively.
+                      </p>
+                    </div>
+
+                    <div className="bg-card p-6 rounded-lg border">
+                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-primary" />
+                        AI Companion Integration
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Sync with your favorite AI tools like ChatGPT, Claude, or Gemini for deeper insights and conversational support.
+                      </p>
+                    </div>
+
+                    <div className="bg-card p-6 rounded-lg border">
+                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
+                        <RefreshCw className="w-5 h-5 text-primary" />
+                        Smart Sync & Lifestyle Pairing
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Discover new habits and activities inspired by users with similar goals—like hiking, journaling, cold plunges, or travel routines.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-primary/10 to-secondary/10 p-6 rounded-lg mt-8 border">
+                    <h3 className="text-xl font-semibold mb-3">🎯 Coming Soon: Advanced Features</h3>
+                    <ul className="space-y-2 text-muted-foreground">
+                      <li>• <strong>Smart Sync:</strong> Seamless integration with iPhone Notes, Samsung Memo, calendar, and maps</li>
+                      <li>• <strong>Stock Strategy Companion:</strong> AI-powered trading assistant with risk management and alerts</li>
+                      <li>• <strong>Geotagging Accountability:</strong> Location-based task completion verification</li>
+                      <li>• <strong>Contact Integration:</strong> Connect with your phone contacts for shared goals and accountability</li>
+                    </ul>
+                  </div>
+
+                  <div className="text-center mt-8 p-6 bg-muted rounded-lg">
+                    <p className="text-lg font-semibold mb-2">Founded by Dennis Tanaruno</p>
+                    <p className="text-muted-foreground mb-4">Built for those who want to live with intention, structure, and momentum.</p>
+                    <Button asChild variant="outline">
+                      <a href="https://www.linkedin.com/in/dennis-tanaruno" target="_blank" rel="noopener noreferrer">
+                        Connect on LinkedIn
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
