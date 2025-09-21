@@ -9,12 +9,15 @@ import VoiceInput from '@/components/VoiceInput';
 import TaskCard from '@/components/TaskCard';
 import ProgressDashboard from '@/components/ProgressDashboard';
 import ClaudePlanOutput from '@/components/ClaudePlanOutput';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users } from 'lucide-react';
+import ThemeSelector from '@/components/ThemeSelector';
+import LocationDatePlanner from '@/components/LocationDatePlanner';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart } from 'lucide-react';
 import { type Task, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface ProgressData {
   completedToday: number;
@@ -45,6 +48,11 @@ export default function MainApp() {
     estimatedTimeframe?: string;
     motivationalNote?: string;
   } | null>(null);
+
+  // Theme and interactive features state
+  const [selectedTheme, setSelectedTheme] = useState<string>('');
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
+  const [showLocationDatePlanner, setShowLocationDatePlanner] = useState(false);
 
   // Fetch tasks
   const { data: tasks = [], isLoading: tasksLoading, error: tasksError, refetch: refetchTasks } = useQuery<Task[]>({
@@ -304,7 +312,49 @@ export default function MainApp() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto flex gap-8">
+          {/* Sidebar with Theme Widget */}
+          <aside className="hidden lg:block w-80 space-y-6">
+            <ThemeSelector
+              selectedTheme={selectedTheme}
+              onThemeSelect={setSelectedTheme}
+              onGenerateGoal={(goal) => processGoalMutation.mutate(goal)}
+              compact={true}
+            />
+            
+            {/* Quick Actions Card */}
+            <Card className="p-4">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                Quick Actions
+              </h3>
+              <div className="space-y-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowLocationDatePlanner(true)}
+                  className="w-full justify-start gap-2"
+                  data-testid="sidebar-date-planner"
+                >
+                  <Heart className="w-4 h-4" />
+                  Plan a Date
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowThemeSelector(true)}
+                  className="w-full justify-start gap-2"
+                  data-testid="sidebar-theme-selector"
+                >
+                  <Target className="w-4 h-4" />
+                  Change Theme
+                </Button>
+              </div>
+            </Card>
+          </aside>
+
+          {/* Main Content Area */}
+          <div className="flex-1">
           {/* Navigation Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-6 mb-8">
@@ -351,32 +401,103 @@ export default function MainApp() {
                 placeholder="Tell me about your goals... (e.g., 'I want to get healthier', 'Learn to code', 'Organize my life')"
               />
 
-              {/* Example goals */}
-              {!currentPlanOutput && (
-                <div className="max-w-2xl mx-auto">
-                  <p className="text-sm text-muted-foreground mb-4 text-center">Try these examples:</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {[
-                      "I want to lose 20lbs in 2 months",
-                      "Eat healthy and workout today", 
-                      "I will like to go hiking and shopping today",
-                      "I will like to go on a date with someone I just met this evening"
-                    ].map((example, index) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        size="lg"
-                        onClick={() => processGoalMutation.mutate(example)}
-                        disabled={processGoalMutation.isPending}
-                        className="text-left justify-start"
-                        data-testid={`button-example-${index}`}
-                      >
-                        {example}
-                      </Button>
-                    ))}
+              {/* Interactive Options */}
+              {!currentPlanOutput && !showThemeSelector && !showLocationDatePlanner && (
+                <div className="max-w-4xl mx-auto space-y-6">
+                  {/* Quick Action Buttons */}
+                  <div className="flex justify-center gap-4 mb-6">
+                    <Button
+                      onClick={() => setShowThemeSelector(true)}
+                      variant="outline"
+                      className="gap-2"
+                      data-testid="button-theme-selector"
+                    >
+                      <Target className="w-4 h-4" />
+                      Set Daily Theme
+                    </Button>
+                    <Button
+                      onClick={() => setShowLocationDatePlanner(true)}
+                      variant="outline"
+                      className="gap-2"
+                      data-testid="button-date-planner"
+                    >
+                      <Heart className="w-4 h-4" />
+                      Plan a Date
+                    </Button>
+                  </div>
+
+                  {/* Example goals */}
+                  <div className="max-w-2xl mx-auto">
+                    <p className="text-sm text-muted-foreground mb-4 text-center">Or try these quick examples:</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {[
+                        { text: "I want to lose 20lbs in 2 months", theme: "Health & Fitness", icon: "💪" },
+                        { text: "Set my theme for the day - focus on work productivity", theme: "Work Focus", icon: "💼" }, 
+                        { text: "Trade stocks based on all I learned from ChatGPT", theme: "Investment", icon: "📈" },
+                        { text: "Curate a morning devotion plan based on my theology knowledge", theme: "Spiritual", icon: "🙏" },
+                        { text: "I want to go on a date tonight - find perfect places", theme: "Romance", icon: "💕" },
+                        { text: "Plan an adventure day - hiking and exploration", theme: "Adventure", icon: "🏔️" }
+                      ].map((example, index) => (
+                        <Button
+                          key={index}
+                          variant="outline"
+                          size="lg"
+                          onClick={() => processGoalMutation.mutate(example.text)}
+                          disabled={processGoalMutation.isPending}
+                          className="text-left justify-start h-auto p-4 flex-col items-start gap-2"
+                          data-testid={`button-example-${index}`}
+                        >
+                          <div className="flex items-center gap-2 w-full">
+                            <span className="text-lg">{example.icon}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {example.theme}
+                            </Badge>
+                          </div>
+                          <span className="text-sm leading-relaxed">{example.text}</span>
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
+
+              {/* Theme Selector Modal */}
+              <Dialog open={showThemeSelector} onOpenChange={setShowThemeSelector}>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Set Your Daily Theme</DialogTitle>
+                    <DialogDescription>
+                      Choose a focus area to get personalized goal suggestions and themed planning
+                    </DialogDescription>
+                  </DialogHeader>
+                  <ThemeSelector
+                    selectedTheme={selectedTheme}
+                    onThemeSelect={setSelectedTheme}
+                    onGenerateGoal={(goal) => {
+                      processGoalMutation.mutate(goal);
+                      setShowThemeSelector(false);
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
+
+              {/* Location Date Planner Modal */}
+              <Dialog open={showLocationDatePlanner} onOpenChange={setShowLocationDatePlanner}>
+                <DialogContent className="max-w-4xl">
+                  <DialogHeader>
+                    <DialogTitle>Plan Your Perfect Date</DialogTitle>
+                    <DialogDescription>
+                      Let us help you find the perfect spots for your date based on your location
+                    </DialogDescription>
+                  </DialogHeader>
+                  <LocationDatePlanner
+                    onPlanGenerated={(plan) => {
+                      processGoalMutation.mutate(plan);
+                      setShowLocationDatePlanner(false);
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
 
               {/* Claude-style Plan Output */}
               {currentPlanOutput && (
@@ -1047,6 +1168,7 @@ ChatGPT: I can help you create a plan..."
               </div>
             </TabsContent>
           </Tabs>
+          </div>
         </div>
       </main>
     </div>
