@@ -8,8 +8,12 @@ import { useToast } from '@/hooks/use-toast';
 import VoiceInput from '@/components/VoiceInput';
 import TaskCard from '@/components/TaskCard';
 import ProgressDashboard from '@/components/ProgressDashboard';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw } from 'lucide-react';
-import { type Task } from '@shared/schema';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download } from 'lucide-react';
+import { type Task, type ChatImport } from '@shared/schema';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface ProgressData {
   completedToday: number;
@@ -26,6 +30,11 @@ export default function MainApp() {
   const [activeTab, setActiveTab] = useState("tasks");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Chat sync form state
+  const [chatText, setChatText] = useState('');
+  const [chatSource, setChatSource] = useState('chatgpt');
+  const [chatTitle, setChatTitle] = useState('');
 
   // Fetch tasks
   const { data: tasks = [], isLoading: tasksLoading, error: tasksError, refetch: refetchTasks } = useQuery<Task[]>({
@@ -37,6 +46,12 @@ export default function MainApp() {
   const { data: progressData, isLoading: progressLoading, error: progressError, refetch: refetchProgress } = useQuery<ProgressData>({
     queryKey: ['/api/progress'],
     staleTime: 60000, // 1 minute
+  });
+
+  // Fetch chat imports
+  const { data: chatImports = [], isLoading: chatImportsLoading, refetch: refetchChatImports } = useQuery<ChatImport[]>({
+    queryKey: ['/api/chat/imports'],
+    staleTime: 30000, // 30 seconds
   });
 
   // Process goal mutation
@@ -142,6 +157,103 @@ export default function MainApp() {
     }
   });
 
+  // Chat import mutation
+  const importChatMutation = useMutation({
+    mutationFn: async (chatData: {
+      source: string;
+      conversationTitle?: string;
+      chatHistory: Array<{role: 'user' | 'assistant', content: string, timestamp?: string}>;
+    }) => {
+      const response = await apiRequest('POST', '/api/chat/import', chatData);
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/chat/imports'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+      toast({
+        title: "Chat Imported Successfully! 🎯",
+        description: data.message || `Created ${data.tasks?.length || 0} accountability tasks!`,
+      });
+      setChatText('');
+      setChatTitle('');
+      setActiveTab("tasks"); // Switch to tasks view
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.error || error.message || "Failed to import chat history. Please try again.";
+      toast({
+        title: "Import Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleChatImport = () => {
+    if (!chatText.trim()) {
+      toast({
+        title: "Chat Text Required",
+        description: "Please paste your chat conversation",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Parse the chat text into messages
+      const lines = chatText.split('\n').filter(line => line.trim());
+      const chatHistory: Array<{role: 'user' | 'assistant', content: string}> = [];
+      
+      let currentMessage = '';
+      let currentRole: 'user' | 'assistant' = 'user';
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
+        
+        // Detect role markers
+        if (trimmedLine.toLowerCase().startsWith('user:') || trimmedLine.toLowerCase().startsWith('you:')) {
+          if (currentMessage) {
+            chatHistory.push({ role: currentRole, content: currentMessage.trim() });
+          }
+          currentRole = 'user';
+          currentMessage = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();
+        } else if (trimmedLine.toLowerCase().startsWith('assistant:') || trimmedLine.toLowerCase().startsWith('ai:') || trimmedLine.toLowerCase().startsWith('chatgpt:') || trimmedLine.toLowerCase().startsWith('claude:')) {
+          if (currentMessage) {
+            chatHistory.push({ role: currentRole, content: currentMessage.trim() });
+          }
+          currentRole = 'assistant';
+          currentMessage = trimmedLine.substring(trimmedLine.indexOf(':') + 1).trim();
+        } else {
+          currentMessage += (currentMessage ? ' ' : '') + trimmedLine;
+        }
+      }
+      
+      // Add the last message
+      if (currentMessage) {
+        chatHistory.push({ role: currentRole, content: currentMessage.trim() });
+      }
+      
+      // Fallback: if no role markers found, treat entire text as user message
+      if (chatHistory.length === 0) {
+        chatHistory.push({ role: 'user', content: chatText.trim() });
+      }
+
+      importChatMutation.mutate({
+        source: chatSource,
+        conversationTitle: chatTitle || undefined,
+        chatHistory
+      });
+    } catch (error) {
+      console.error('Chat parsing error:', error);
+      toast({
+        title: "Parsing Error",
+        description: "Could not parse chat format. Please check your chat text.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const pendingTasks = tasks.filter(task => !task.completed);
   const completedTasks = tasks.filter(task => task.completed);
 
@@ -175,7 +287,7 @@ export default function MainApp() {
         <div className="max-w-6xl mx-auto">
           {/* Navigation Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-8">
+            <TabsList className="grid w-full grid-cols-5 mb-8">
               <TabsTrigger value="input" className="gap-2" data-testid="tab-input">
                 <Mic className="w-4 h-4" />
                 Goal Input
@@ -187,6 +299,10 @@ export default function MainApp() {
               <TabsTrigger value="progress" className="gap-2" data-testid="tab-progress">
                 <BarChart3 className="w-4 h-4" />
                 Progress
+              </TabsTrigger>
+              <TabsTrigger value="sync" className="gap-2" data-testid="tab-sync">
+                <RefreshCw className="w-4 h-4" />
+                Chat Sync
               </TabsTrigger>
               <TabsTrigger value="about" className="gap-2" data-testid="tab-about">
                 <Sparkles className="w-4 h-4" />
@@ -340,6 +456,167 @@ export default function MainApp() {
                   </div>
                 </div>
               )}
+            </TabsContent>
+
+            {/* Chat Sync Tab */}
+            <TabsContent value="sync" className="space-y-6">
+              <div className="max-w-4xl mx-auto">
+                <div className="text-center mb-6">
+                  <h2 className="text-3xl font-bold text-foreground mb-2">
+                    Import Chat Conversations
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Sync your ChatGPT/Claude conversations to create actionable accountability tasks
+                  </p>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Import Form */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Upload className="w-5 h-5" />
+                        Import New Chat
+                      </CardTitle>
+                      <CardDescription>
+                        Paste your chat conversation and we'll extract goals and create tasks
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Chat Source</label>
+                        <Select value={chatSource} onValueChange={setChatSource}>
+                          <SelectTrigger data-testid="select-chat-source">
+                            <SelectValue placeholder="Select chat source" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="chatgpt">ChatGPT</SelectItem>
+                            <SelectItem value="claude">Claude</SelectItem>
+                            <SelectItem value="manual">Manual Entry</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Conversation Title (Optional)</label>
+                        <Input
+                          placeholder="e.g., Fitness Goals Discussion"
+                          value={chatTitle}
+                          onChange={(e) => setChatTitle(e.target.value)}
+                          data-testid="input-chat-title"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Chat Conversation</label>
+                        <Textarea
+                          placeholder="Paste your chat conversation here...
+
+Format examples:
+User: I want to get healthier
+Assistant: That's a great goal! Here are some steps...
+
+Or:
+You: I need to organize my life
+ChatGPT: I can help you create a plan..."
+                          value={chatText}
+                          onChange={(e) => setChatText(e.target.value)}
+                          className="min-h-[200px] resize-none"
+                          data-testid="textarea-chat-content"
+                        />
+                      </div>
+
+                      <Button
+                        onClick={handleChatImport}
+                        disabled={importChatMutation.isPending || !chatText.trim()}
+                        className="w-full"
+                        data-testid="button-import-chat"
+                      >
+                        {importChatMutation.isPending ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                            Processing Chat...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4 mr-2" />
+                            Import & Create Tasks
+                          </>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  {/* Instructions & Previous Imports */}
+                  <div className="space-y-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <MessageCircle className="w-5 h-5" />
+                          How It Works
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3 text-sm text-muted-foreground">
+                        <div className="flex items-start gap-2">
+                          <span className="w-6 h-6 bg-primary/10 text-primary rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 mt-0.5">1</span>
+                          <div>
+                            <p className="font-medium text-foreground">Copy Your Chat</p>
+                            <p>Copy and paste conversations from ChatGPT, Claude, or any AI assistant</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="w-6 h-6 bg-primary/10 text-primary rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 mt-0.5">2</span>
+                          <div>
+                            <p className="font-medium text-foreground">AI Processes Your Chat</p>
+                            <p>Our AI extracts goals, intentions, and commitments from your conversation</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="w-6 h-6 bg-primary/10 text-primary rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 mt-0.5">3</span>
+                          <div>
+                            <p className="font-medium text-foreground">Get Accountability Tasks</p>
+                            <p>Receive swipeable tasks that help you follow through on your plans</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Download className="w-5 h-5" />
+                          Previous Imports ({chatImports.length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {chatImportsLoading ? (
+                          <p className="text-muted-foreground">Loading imports...</p>
+                        ) : chatImports.length === 0 ? (
+                          <p className="text-muted-foreground">No chat imports yet. Start by importing your first conversation!</p>
+                        ) : (
+                          <div className="space-y-3 max-h-60 overflow-y-auto">
+                            {chatImports.slice(0, 5).map((chatImport) => (
+                              <div key={chatImport.id} className="border rounded-lg p-3">
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="font-medium text-sm">
+                                    {chatImport.conversationTitle || `${chatImport.source} Conversation`}
+                                  </p>
+                                  <Badge variant="outline" className="text-xs">
+                                    {chatImport.source}
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {chatImport.extractedGoals.length} goals extracted • {new Date(chatImport.createdAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </div>
             </TabsContent>
 
             {/* About Tab */}
