@@ -58,9 +58,9 @@ export function AppSidebar({
           <span className="text-lg font-semibold text-foreground">PathWise</span>
         </div>
 
-        {/* Main Navigation */}
+        {/* User Profile Section */}
         <SidebarGroup>
-          <SidebarGroupContent className="flex-1">
+          <SidebarGroupContent>
             {isLoading ? (
               <div className="p-3">
                 <div className="flex items-center gap-3">
@@ -143,7 +143,7 @@ export function AppSidebar({
                   </CollapsibleContent>
                 </div>
               </Collapsible>
-            )}
+            ) : null}
           </SidebarGroupContent>
         </SidebarGroup>
         {/* Today's Theme Section */}
