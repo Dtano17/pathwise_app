@@ -709,6 +709,28 @@ ChatGPT: I can help you create a plan..."
 
                     <Card className="p-4 hover-elevate">
                       <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold">Date Night Ideas</h4>
+                        <Badge variant="outline">2 members</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Planning romantic dates and adventures together
+                      </p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Progress</span>
+                          <span>9/15 tasks completed</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="bg-primary h-2 rounded-full" style={{width: '60%'}}></div>
+                        </div>
+                      </div>
+                      <Button variant="outline" className="w-full mt-3" size="sm">
+                        View Group
+                      </Button>
+                    </Card>
+
+                    <Card className="p-4 hover-elevate">
+                      <div className="flex items-center justify-between mb-3">
                         <h4 className="font-semibold">Fitness Challenge</h4>
                         <Badge variant="outline">2 members</Badge>
                       </div>
@@ -764,6 +786,26 @@ ChatGPT: I can help you create a plan..."
                         </div>
                       </div>
                       
+                      <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <CheckSquare className="w-5 h-5 text-green-600" />
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            <strong>Alex</strong> completed <span className="line-through decoration-2 decoration-green-600">"Make dinner reservations at Italian place"</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">Date Night Ideas • 3 hours ago</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <Target className="w-5 h-5 text-blue-600" />
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            <strong>You</strong> added new task "Pick up flowers for date night"
+                          </p>
+                          <p className="text-xs text-muted-foreground">Date Night Ideas • 5 hours ago</p>
+                        </div>
+                      </div>
+
                       <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                         <CheckSquare className="w-5 h-5 text-green-600" />
                         <div className="flex-1">
