@@ -53,6 +53,21 @@ export class AIService {
     conversationTitle?: string;
     chatHistory: ChatMessage[];
   }): Promise<ChatProcessingResult> {
+    // Use Claude if the source is 'claude' and we have the API key
+    const shouldUseClaude = chatData.source === 'claude' && process.env.ANTHROPIC_API_KEY;
+    
+    if (shouldUseClaude) {
+      return this.processChatHistoryWithClaude(chatData);
+    }
+    
+    return this.processChatHistoryWithOpenAI(chatData);
+  }
+
+  private async processChatHistoryWithOpenAI(chatData: {
+    source: string;
+    conversationTitle?: string;
+    chatHistory: ChatMessage[];
+  }): Promise<ChatProcessingResult> {
     try {
       const prompt = `Analyze this chat conversation and extract actionable goals that the user mentioned or discussed:
 
@@ -114,21 +129,98 @@ Create actionable tasks from these conversations that can help hold the user acc
         summary: result.summary || 'Chat conversation processed'
       };
     } catch (error) {
-      console.error('Chat processing failed:', error);
+      console.error('OpenAI chat processing failed:', error);
+      return this.createFallbackChatResult();
+    }
+  }
+
+  private async processChatHistoryWithClaude(chatData: {
+    source: string;
+    conversationTitle?: string;
+    chatHistory: ChatMessage[];
+  }): Promise<ChatProcessingResult> {
+    try {
+      const prompt = `Analyze this chat conversation and extract actionable goals that the user mentioned or discussed:
+
+Chat History:
+${chatData.chatHistory.map((msg, idx) => `${idx + 1}. ${msg.role}: ${msg.content}`).join('\n\n')}
+
+Respond with JSON in this exact format:
+{
+  "extractedGoals": ["Goal 1", "Goal 2", "Goal 3"],
+  "tasks": [
+    {
+      "title": "Specific task title based on conversation",
+      "description": "Detailed description of what to do",
+      "category": "Category name",
+      "priority": "high|medium|low",
+      "dueDate": null
+    }
+  ],
+  "summary": "Brief summary of what this conversation was about and key action items"
+}
+
+Focus on:
+- Explicit goals or intentions mentioned by the user
+- Problems the user wants to solve
+- Projects or activities they discussed
+- Any commitments or plans they mentioned
+- Things they said they wanted to learn, do, or change
+
+Create actionable tasks from these conversations that can help hold the user accountable.`;
+
+      const response = await anthropic.messages.create({
+        model: DEFAULT_CLAUDE_MODEL, // "claude-sonnet-4-20250514"
+        max_tokens: 1500,
+        system: "You are an accountability assistant who extracts actionable goals from conversations and creates specific tasks to help users follow through on their intentions. Always respond with valid JSON.",
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+      });
+
+      const result = JSON.parse(response.content[0].text);
+      
       return {
-        extractedGoals: ['Follow up on conversation'],
-        tasks: [{
-          title: 'Review and act on chat discussion',
-          description: 'Take action based on your recent conversation',
-          category: 'Personal',
-          priority: 'medium' as const,
+        extractedGoals: result.extractedGoals || [],
+        tasks: result.tasks?.map((task: any) => ({
+          title: task.title || 'Follow up on conversation',
+          description: task.description || 'Take action based on chat discussion',
+          category: task.category || 'Personal',
+          priority: this.validatePriority(task.priority),
           goalId: null,
           completed: false,
-          dueDate: null
-        }],
-        summary: 'Chat imported successfully'
+          dueDate: task.dueDate ? new Date(task.dueDate) : null
+        })) || [],
+        summary: result.summary || 'Chat conversation processed with Claude'
       };
+    } catch (error) {
+      console.error('Claude chat processing failed:', error);
+      // Fallback to OpenAI if available
+      if (process.env.OPENAI_API_KEY) {
+        console.log('Falling back to OpenAI for chat processing');
+        return this.processChatHistoryWithOpenAI(chatData);
+      }
+      return this.createFallbackChatResult();
     }
+  }
+
+  private createFallbackChatResult(): ChatProcessingResult {
+    return {
+      extractedGoals: ['Follow up on conversation'],
+      tasks: [{
+        title: 'Review and act on chat discussion',
+        description: 'Take action based on your recent conversation',
+        category: 'Personal',
+        priority: 'medium' as const,
+        goalId: null,
+        completed: false,
+        dueDate: null
+      }],
+      summary: 'Chat imported successfully'
+    };
   }
 
   private async processGoalWithOpenAI(goalText: string): Promise<GoalProcessingResult> {
