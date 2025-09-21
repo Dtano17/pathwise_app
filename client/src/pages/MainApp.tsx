@@ -11,13 +11,15 @@ import ProgressDashboard from '@/components/ProgressDashboard';
 import ClaudePlanOutput from '@/components/ClaudePlanOutput';
 import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu } from 'lucide-react';
 import { type Task, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import ThemeToggle from '@/components/ThemeToggle';
 
 interface ProgressData {
   completedToday: number;
@@ -305,6 +307,7 @@ export default function MainApp({
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
               <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
                 <Sparkles className="w-6 h-6 text-primary-foreground" />
               </div>
@@ -313,11 +316,12 @@ export default function MainApp({
                 <p className="text-sm text-muted-foreground">Transform Goals into Reality</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Badge variant="secondary" className="gap-1">
                 <Sparkles className="w-3 h-3" />
                 Live Demo
               </Badge>
+              <ThemeToggle />
             </div>
           </div>
         </div>
@@ -328,30 +332,36 @@ export default function MainApp({
         <div className="max-w-6xl mx-auto">
           {/* Navigation Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-6 mb-8">
-              <TabsTrigger value="input" className="gap-2" data-testid="tab-input">
+            <TabsList className="grid w-full grid-cols-6 mb-8 bg-muted/30 p-1 h-12">
+              <TabsTrigger value="input" className="gap-2 text-sm font-medium" data-testid="tab-input">
                 <Mic className="w-4 h-4" />
-                Goal Input
+                <span className="hidden sm:inline">Goal Input</span>
+                <span className="sm:hidden">Input</span>
               </TabsTrigger>
-              <TabsTrigger value="tasks" className="gap-2" data-testid="tab-tasks">
+              <TabsTrigger value="tasks" className="gap-2 text-sm font-medium" data-testid="tab-tasks">
                 <CheckSquare className="w-4 h-4" />
-                Tasks ({pendingTasks.length})
+                <span className="hidden sm:inline">Tasks ({pendingTasks.length})</span>
+                <span className="sm:hidden">Tasks</span>
               </TabsTrigger>
-              <TabsTrigger value="progress" className="gap-2" data-testid="tab-progress">
+              <TabsTrigger value="progress" className="gap-2 text-sm font-medium" data-testid="tab-progress">
                 <BarChart3 className="w-4 h-4" />
-                Progress
+                <span className="hidden sm:inline">Progress</span>
+                <span className="sm:hidden">Stats</span>
               </TabsTrigger>
-              <TabsTrigger value="groups" className="gap-2" data-testid="tab-groups">
+              <TabsTrigger value="groups" className="gap-2 text-sm font-medium" data-testid="tab-groups">
                 <Users className="w-4 h-4" />
-                Groups
+                <span className="hidden sm:inline">Groups</span>
+                <span className="sm:hidden">Groups</span>
               </TabsTrigger>
-              <TabsTrigger value="sync" className="gap-2" data-testid="tab-sync">
+              <TabsTrigger value="sync" className="gap-2 text-sm font-medium" data-testid="tab-sync">
                 <RefreshCw className="w-4 h-4" />
-                Chat Sync
+                <span className="hidden sm:inline">Chat Sync</span>
+                <span className="sm:hidden">Sync</span>
               </TabsTrigger>
-              <TabsTrigger value="about" className="gap-2" data-testid="tab-about">
+              <TabsTrigger value="about" className="gap-2 text-sm font-medium" data-testid="tab-about">
                 <Sparkles className="w-4 h-4" />
-                About
+                <span className="hidden sm:inline">About</span>
+                <span className="sm:hidden">About</span>
               </TabsTrigger>
             </TabsList>
 
@@ -479,7 +489,14 @@ export default function MainApp({
                   <ClaudePlanOutput
                     planTitle={currentPlanOutput.planTitle}
                     summary={currentPlanOutput.summary}
-                    tasks={currentPlanOutput.tasks}
+                    tasks={currentPlanOutput.tasks.map(task => ({
+                      ...task,
+                      description: task.description || '',
+                      priority: (task.priority as 'high' | 'low' | 'medium') || 'medium',
+                      completed: task.completed ?? false,
+                      timeEstimate: task.timeEstimate || undefined,
+                      context: task.context || undefined
+                    }))}
                     estimatedTimeframe={currentPlanOutput.estimatedTimeframe}
                     motivationalNote={currentPlanOutput.motivationalNote}
                     onCompleteTask={(taskId) => completeTaskMutation.mutate(taskId)}

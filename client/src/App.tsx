@@ -3,9 +3,8 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import ThemeToggle from "@/components/ThemeToggle";
 import MainApp from "@/pages/MainApp";
 
 function App() {
@@ -32,23 +31,14 @@ function App() {
               onShowDatePlanner={() => setShowLocationDatePlanner(true)}
             />
             <div className="flex flex-col flex-1">
-              <header className="flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <SidebarTrigger data-testid="button-sidebar-toggle" />
-                <div className="flex items-center gap-4">
-                  <h1 className="text-lg font-semibold">PathWise.ai</h1>
-                  <ThemeToggle />
-                </div>
-              </header>
-              <main className="flex-1 overflow-hidden">
-                <MainApp 
-                  selectedTheme={selectedTheme}
-                  onThemeSelect={setSelectedTheme}
-                  showThemeSelector={showThemeSelector}
-                  onShowThemeSelector={setShowThemeSelector}
-                  showLocationDatePlanner={showLocationDatePlanner}
-                  onShowLocationDatePlanner={setShowLocationDatePlanner}
-                />
-              </main>
+              <MainApp 
+                selectedTheme={selectedTheme}
+                onThemeSelect={setSelectedTheme}
+                showThemeSelector={showThemeSelector}
+                onShowThemeSelector={setShowThemeSelector}
+                showLocationDatePlanner={showLocationDatePlanner}
+                onShowLocationDatePlanner={setShowLocationDatePlanner}
+              />
             </div>
           </div>
         </SidebarProvider>
