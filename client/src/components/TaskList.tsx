@@ -29,7 +29,7 @@ export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onAddTask 
   const [filterPriority, setFilterPriority] = useState<'all' | 'low' | 'medium' | 'high'>('all');
   const [filterCategory, setFilterCategory] = useState('all');
 
-  const categories = [...new Set(tasks.map(task => task.category))];
+  const categories = Array.from(new Set(tasks.map(task => task.category)));
   
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

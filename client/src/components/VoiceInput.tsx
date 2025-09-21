@@ -22,7 +22,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   const [text, setText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   const startRecording = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
