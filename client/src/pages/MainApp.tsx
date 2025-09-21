@@ -11,7 +11,7 @@ import ProgressDashboard from '@/components/ProgressDashboard';
 import ClaudePlanOutput from '@/components/ClaudePlanOutput';
 import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity } from 'lucide-react';
 import { type Task, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -431,31 +431,34 @@ export default function MainApp() {
                     <p className="text-sm text-muted-foreground mb-4 text-center">Or try these quick examples:</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {[
-                        { text: "I want to lose 20lbs in 2 months", theme: "Health & Fitness", icon: "💪" },
-                        { text: "Set my theme for the day - focus on work productivity", theme: "Work Focus", icon: "💼" }, 
-                        { text: "Trade stocks based on all I learned from ChatGPT", theme: "Investment", icon: "📈" },
-                        { text: "Curate a morning devotion plan based on my theology knowledge", theme: "Spiritual", icon: "🙏" },
-                        { text: "I want to go on a date tonight - find perfect places", theme: "Romance", icon: "💕" },
-                        { text: "Plan an adventure day - hiking and exploration", theme: "Adventure", icon: "🏔️" }
-                      ].map((example, index) => (
-                        <Button
-                          key={index}
-                          variant="outline"
-                          size="lg"
-                          onClick={() => processGoalMutation.mutate(example.text)}
-                          disabled={processGoalMutation.isPending}
-                          className="text-left justify-start h-auto p-4 flex-col items-start gap-2"
-                          data-testid={`button-example-${index}`}
-                        >
-                          <div className="flex items-center gap-2 w-full">
-                            <span className="text-lg">{example.icon}</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {example.theme}
-                            </Badge>
-                          </div>
-                          <span className="text-sm leading-relaxed">{example.text}</span>
-                        </Button>
-                      ))}
+                        { text: "Lose 20lbs in 2 months", theme: "Health & Fitness", Icon: Dumbbell },
+                        { text: "Focus on work productivity", theme: "Work Focus", Icon: Briefcase }, 
+                        { text: "Trade stocks using AI insights", theme: "Investment", Icon: TrendingUp },
+                        { text: "Create morning devotion plan", theme: "Spiritual", Icon: BookOpen },
+                        { text: "Plan perfect date night", theme: "Romance", Icon: Heart },
+                        { text: "Explore hiking adventures", theme: "Adventure", Icon: Mountain }
+                      ].map((example, index) => {
+                        const { Icon } = example;
+                        return (
+                          <Button
+                            key={index}
+                            variant="outline"
+                            size="lg"
+                            onClick={() => processGoalMutation.mutate(example.text)}
+                            disabled={processGoalMutation.isPending}
+                            className="text-left justify-start h-auto p-3 flex-col items-start gap-2 min-h-[80px]"
+                            data-testid={`button-example-${index}`}
+                          >
+                            <div className="flex items-center gap-2 w-full">
+                              <Icon className="w-4 h-4 text-primary flex-shrink-0" />
+                              <Badge variant="secondary" className="text-xs">
+                                {example.theme}
+                              </Badge>
+                            </div>
+                            <span className="text-sm leading-tight overflow-hidden text-ellipsis">{example.text}</span>
+                          </Button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
