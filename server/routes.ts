@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { aiService } from "./services/aiService";
-import { insertGoalSchema, insertTaskSchema, insertJournalEntrySchema } from "@shared/schema";
+import { insertGoalSchema, insertTaskSchema, insertJournalEntrySchema, insertChatImportSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -259,6 +259,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Update journal error:', error);
       res.status(500).json({ error: 'Failed to update journal entry' });
+    }
+  });
+
+  // Chat Import routes
+  app.post("/api/chat/import", async (req, res) => {
+    try {
+      const data = insertChatImportSchema.parse(req.body);
+      
+      if (!data.chatHistory || !Array.isArray(data.chatHistory) || data.chatHistory.length === 0) {
+        return res.status(400).json({ error: 'Chat history is required and must be a non-empty array' });
+      }
+
+      // Process the chat history to extract goals and tasks
+      const chatProcessingResult = await aiService.processChatHistory({
+        source: data.source,
+        conversationTitle: data.conversationTitle || 'Imported Conversation',
+        chatHistory: data.chatHistory
+      });
+
+      // Create chat import record
+      const chatImport = await storage.createChatImport({
+        ...data,
+        userId: DEMO_USER_ID,
+        extractedGoals: chatProcessingResult.extractedGoals,
+        processedAt: new Date()
+      });
+
+      // Create tasks from the chat processing
+      const tasks = await Promise.all(
+        chatProcessingResult.tasks.map(task =>
+          storage.createTask({
+            ...task,
+            userId: DEMO_USER_ID,
+          })
+        )
+      );
+
+      res.json({
+        chatImport,
+        extractedGoals: chatProcessingResult.extractedGoals,
+        tasks,
+        summary: chatProcessingResult.summary,
+        message: `Successfully imported chat and created ${tasks.length} accountability tasks!`
+      });
+    } catch (error) {
+      console.error('Chat import error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Invalid chat data format', details: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to import chat history' });
+    }
+  });
+
+  app.get("/api/chat/imports", async (req, res) => {
+    try {
+      const imports = await storage.getUserChatImports(DEMO_USER_ID);
+      res.json(imports);
+    } catch (error) {
+      console.error('Get chat imports error:', error);
+      res.status(500).json({ error: 'Failed to fetch chat imports' });
+    }
+  });
+
+  app.get("/api/chat/imports/:id", async (req, res) => {
+    try {
+      const chatImport = await storage.getChatImport(req.params.id, DEMO_USER_ID);
+      if (!chatImport) {
+        return res.status(404).json({ error: 'Chat import not found' });
+      }
+      res.json(chatImport);
+    } catch (error) {
+      console.error('Get chat import error:', error);
+      res.status(500).json({ error: 'Failed to fetch chat import' });
     }
   });
 

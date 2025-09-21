@@ -57,6 +57,17 @@ export const progressStats = pgTable("progress_stats", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const chatImports = pgTable("chat_imports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  source: text("source").notNull(), // 'chatgpt' | 'claude' | 'manual'
+  conversationTitle: text("conversation_title"),
+  chatHistory: jsonb("chat_history").$type<Array<{role: 'user' | 'assistant', content: string, timestamp?: string}>>().notNull(),
+  extractedGoals: jsonb("extracted_goals").$type<string[]>().default([]),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -89,6 +100,13 @@ export const insertProgressStatsSchema = createInsertSchema(progressStats).omit(
   createdAt: true,
 });
 
+export const insertChatImportSchema = createInsertSchema(chatImports).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  processedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -104,3 +122,6 @@ export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
 
 export type ProgressStats = typeof progressStats.$inferSelect;
 export type InsertProgressStats = z.infer<typeof insertProgressStatsSchema>;
+
+export type ChatImport = typeof chatImports.$inferSelect;
+export type InsertChatImport = z.infer<typeof insertChatImportSchema>;

@@ -12,11 +12,14 @@ import {
   type InsertJournalEntry,
   type ProgressStats,
   type InsertProgressStats,
+  type ChatImport,
+  type InsertChatImport,
   users,
   goals,
   tasks,
   journalEntries,
-  progressStats
+  progressStats,
+  chatImports
 } from "@shared/schema";
 
 const sql = neon(process.env.DATABASE_URL!);
@@ -51,6 +54,12 @@ export interface IStorage {
   createProgressStats(stats: InsertProgressStats & { userId: string }): Promise<ProgressStats>;
   getUserProgressStats(userId: string, date: string): Promise<ProgressStats | undefined>;
   getUserProgressHistory(userId: string, days: number): Promise<ProgressStats[]>;
+
+  // Chat Imports
+  createChatImport(chatImport: InsertChatImport & { userId: string }): Promise<ChatImport>;
+  getUserChatImports(userId: string): Promise<ChatImport[]>;
+  getChatImport(id: string, userId: string): Promise<ChatImport | undefined>;
+  updateChatImport(id: string, updates: Partial<ChatImport>, userId: string): Promise<ChatImport | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -165,6 +174,33 @@ export class DatabaseStorage implements IStorage {
       .where(eq(progressStats.userId, userId))
       .orderBy(desc(progressStats.date))
       .limit(days);
+  }
+
+  // Chat Imports
+  async createChatImport(chatImport: InsertChatImport & { userId: string }): Promise<ChatImport> {
+    const result = await db.insert(chatImports).values(chatImport).returning();
+    return result[0];
+  }
+
+  async getUserChatImports(userId: string): Promise<ChatImport[]> {
+    return await db.select().from(chatImports)
+      .where(eq(chatImports.userId, userId))
+      .orderBy(desc(chatImports.createdAt));
+  }
+
+  async getChatImport(id: string, userId: string): Promise<ChatImport | undefined> {
+    const result = await db.select().from(chatImports)
+      .where(and(eq(chatImports.id, id), eq(chatImports.userId, userId)))
+      .limit(1);
+    return result[0];
+  }
+
+  async updateChatImport(id: string, updates: Partial<ChatImport>, userId: string): Promise<ChatImport | undefined> {
+    const result = await db.update(chatImports)
+      .set(updates)
+      .where(and(eq(chatImports.id, id), eq(chatImports.userId, userId)))
+      .returning();
+    return result[0];
   }
 }
 
