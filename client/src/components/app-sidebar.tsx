@@ -54,98 +54,11 @@ export function AppSidebar({
     <Sidebar>
       <SidebarContent>
         {/* Header */}
-        <div className="p-3 border-b">
+        <div className="flex justify-between items-center p-3 border-b">
           <span className="text-lg font-semibold text-foreground">PathWise</span>
+          <SidebarTrigger data-testid="button-sidebar-toggle-inside" />
         </div>
 
-        {/* User Profile Section */}
-        <SidebarGroup>
-          <SidebarGroupContent>
-            {isLoading ? (
-              <div className="p-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-muted rounded-full animate-pulse" />
-                  <div className="flex-1">
-                    <div className="h-4 bg-muted rounded animate-pulse mb-1" />
-                    <div className="h-3 bg-muted rounded animate-pulse w-3/4" />
-                  </div>
-                </div>
-              </div>
-            ) : isAuthenticated && user ? (
-              <Collapsible open={isProfileExpanded} onOpenChange={setIsProfileExpanded}>
-                <div className="p-3 bg-muted/30 rounded-lg mx-2 mb-2">
-                  <CollapsibleTrigger asChild>
-                    <div className="flex items-center gap-3 mb-3 cursor-pointer hover-elevate rounded-md p-2 -m-2">
-                      <Avatar className="w-8 h-8">
-                        <AvatarImage src={user.profileImageUrl} alt={user.firstName || user.email || 'User'} />
-                        <AvatarFallback>
-                          {user.firstName ? user.firstName.charAt(0).toUpperCase() : 
-                           user.email ? user.email.charAt(0).toUpperCase() : 
-                           <User className="w-4 h-4" />}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email}
-                        </p>
-                        {user.firstName && user.email && (
-                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Settings className="w-4 h-4 text-muted-foreground" />
-                        {isProfileExpanded ? (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </div>
-                    </div>
-                  </CollapsibleTrigger>
-                  
-                  <CollapsibleContent className="space-y-3">
-                    {/* Notifications Section */}
-                    <div className="border-t pt-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Bell className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">Notifications</span>
-                      </div>
-                      <div className="ml-6">
-                        <NotificationManager userId={user.id} />
-                      </div>
-                    </div>
-
-                    {/* Scheduler Section */}
-                    <div className="border-t pt-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">Smart Scheduler</span>
-                      </div>
-                      <div className="ml-6">
-                        <SmartScheduler userId={user.id} tasks={[]} />
-                      </div>
-                    </div>
-
-                    {/* Sign Out Button */}
-                    <div className="border-t pt-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={logout}
-                        disabled={isLoggingOut}
-                        className="w-full gap-2"
-                        data-testid="button-logout"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        {isLoggingOut ? 'Signing out...' : 'Sign out'}
-                      </Button>
-                    </div>
-                  </CollapsibleContent>
-                </div>
-              </Collapsible>
-            ) : null}
-          </SidebarGroupContent>
-        </SidebarGroup>
         {/* Today's Theme Section */}
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center gap-2">
@@ -219,22 +132,126 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Sign In Section - Bottom */}
-        {!isAuthenticated && (
-          <div className="mt-auto p-3 border-t">
-            <Button
-              onClick={login}
-              className="w-full gap-2 mb-2"
-              data-testid="button-login"
-            >
-              <LogIn className="w-4 h-4" />
-              Sign in / Sign up
-            </Button>
-            <p className="text-xs text-muted-foreground text-center">
-              Sign in with Gmail or Facebook
-            </p>
-          </div>
-        )}
+        {/* Settings Section - Bottom */}
+        <div className="mt-auto">
+          <Collapsible open={isProfileExpanded} onOpenChange={setIsProfileExpanded}>
+            <div className="p-3 border-t">
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center gap-3 cursor-pointer hover-elevate rounded-md p-2 -m-2">
+                  {isAuthenticated && user ? (
+                    <>
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src={user.profileImageUrl} alt={user.firstName || user.email || 'User'} />
+                        <AvatarFallback>
+                          {user.firstName ? user.firstName.charAt(0).toUpperCase() : 
+                           user.email ? user.email.charAt(0).toUpperCase() : 
+                           <User className="w-4 h-4" />}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email}
+                        </p>
+                        {user.firstName && user.email && (
+                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Account & Settings</p>
+                        <p className="text-xs text-muted-foreground">Sign in to access features</p>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex items-center gap-1">
+                    <Settings className="w-4 h-4 text-muted-foreground" />
+                    {isProfileExpanded ? (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+              </CollapsibleTrigger>
+              
+              <CollapsibleContent className="space-y-3 mt-3">
+                {isAuthenticated && user ? (
+                  <>
+                    {/* Notifications Section */}
+                    <div className="border-t pt-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Bell className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Notifications</span>
+                      </div>
+                      <div className="ml-6">
+                        <NotificationManager userId={user.id} />
+                      </div>
+                    </div>
+
+                    {/* Scheduler Section */}
+                    <div className="border-t pt-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Smart Scheduler</span>
+                      </div>
+                      <div className="ml-6">
+                        <SmartScheduler userId={user.id} tasks={[]} />
+                      </div>
+                    </div>
+
+                    {/* Sign Out Button */}
+                    <div className="border-t pt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={logout}
+                        disabled={isLoggingOut}
+                        className="w-full gap-2"
+                        data-testid="button-logout"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        {isLoggingOut ? 'Signing out...' : 'Sign out'}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {isLoading ? (
+                      <div className="p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-muted rounded-full animate-pulse" />
+                          <div className="flex-1">
+                            <div className="h-4 bg-muted rounded animate-pulse mb-1" />
+                            <div className="h-3 bg-muted rounded animate-pulse w-3/4" />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border-t pt-3">
+                        <Button
+                          onClick={login}
+                          className="w-full gap-2 mb-2"
+                          data-testid="button-login"
+                        >
+                          <LogIn className="w-4 h-4" />
+                          Sign in / Sign up
+                        </Button>
+                        <p className="text-xs text-muted-foreground text-center">
+                          Sign in with Gmail or Facebook
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
+        </div>
       </SidebarContent>
     </Sidebar>
   );
