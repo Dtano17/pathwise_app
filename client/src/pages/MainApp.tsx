@@ -969,14 +969,57 @@ ChatGPT: I can help you create a plan..."
                     <div className="bg-card p-6 rounded-lg border">
                       <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
                         <Users className="w-5 h-5 text-primary" />
-                        Group Goals & Collaborative Tracking
+                        Group Goals & Shared Journaling
                       </h3>
-                      <p className="text-muted-foreground">
-                        Share goals with family and friends! Create group challenges like "Family Trip to New Jersey" where everyone can contribute tasks and strike them out when completed. Perfect for shared accountability and celebrating together.
+                      <p className="text-muted-foreground mb-4">
+                        Create collaborative spaces where family and friends can join your journey! Share goals, track progress together, and build accountability through collective journaling and real-time updates.
                       </p>
-                      <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                        <CheckSquare className="w-4 h-4" />
-                        <span>Real-time strikethrough when goals are completed</span>
+                      
+                      <div className="space-y-3 text-sm">
+                        <div className="flex items-start gap-3">
+                          <div className="w-2 h-2 bg-primary rounded-full mt-2 shrink-0"></div>
+                          <div>
+                            <p className="font-medium text-foreground">Shared Goal Creation</p>
+                            <p className="text-muted-foreground">Invite members to contribute tasks to group objectives like "Girls Trip to Miami" or "Family Fitness Challenge"</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-start gap-3">
+                          <div className="w-2 h-2 bg-primary rounded-full mt-2 shrink-0"></div>
+                          <div>
+                            <p className="font-medium text-foreground">Real-Time Activity Feed</p>
+                            <p className="text-muted-foreground">See when group members complete tasks with instant strikethrough effects and celebratory notifications</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-start gap-3">
+                          <div className="w-2 h-2 bg-primary rounded-full mt-2 shrink-0"></div>
+                          <div>
+                            <p className="font-medium text-foreground">Collective Progress Tracking</p>
+                            <p className="text-muted-foreground">Visual progress bars show group momentum, completion rates, and milestone achievements</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-start gap-3">
+                          <div className="w-2 h-2 bg-primary rounded-full mt-2 shrink-0"></div>
+                          <div>
+                            <p className="font-medium text-foreground">Shared Reflection Journaling</p>
+                            <p className="text-muted-foreground">Group members can share daily reflections, mood tracking, and achievements with rich context about their journey</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-start gap-3">
+                          <div className="w-2 h-2 bg-primary rounded-full mt-2 shrink-0"></div>
+                          <div>
+                            <p className="font-medium text-foreground">Accountability Insights</p>
+                            <p className="text-muted-foreground">AI-powered insights suggest who might need encouragement and highlights group success patterns</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                        <p className="text-sm text-foreground font-medium mb-1">Perfect for:</p>
+                        <p className="text-xs text-muted-foreground">Family wellness goals • Friend group travel planning • Work team challenges • Study groups • Couples accountability • Fitness partnerships</p>
                       </div>
                     </div>
                   </div>
