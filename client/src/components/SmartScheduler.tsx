@@ -146,7 +146,7 @@ export default function SmartScheduler({ userId, tasks, compact = false }: Smart
               </span>
               <Button
                 onClick={() => acceptSuggestionMutation.mutate(suggestion.id)}
-                disabled={acceptSuggestionMutation.isPending || suggestion.accepted}
+                disabled={acceptSuggestionMutation.isPending || (suggestion.accepted ?? false)}
                 size="icon"
                 variant="ghost"
                 className="h-5 w-5"
