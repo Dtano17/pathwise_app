@@ -53,15 +53,14 @@ export function AppSidebar({
   return (
     <Sidebar>
       <SidebarContent>
-        {/* Toggle Button at the top */}
-        <div className="flex justify-between items-center p-2 border-b">
-          <span className="text-sm font-medium text-muted-foreground">PathWise</span>
-          <SidebarTrigger data-testid="button-sidebar-toggle" />
+        {/* Header */}
+        <div className="p-3 border-b">
+          <span className="text-lg font-semibold text-foreground">PathWise</span>
         </div>
 
-        {/* Authentication Section */}
+        {/* Main Navigation */}
         <SidebarGroup>
-          <SidebarGroupContent>
+          <SidebarGroupContent className="flex-1">
             {isLoading ? (
               <div className="p-3">
                 <div className="flex items-center gap-3">
@@ -144,20 +143,6 @@ export function AppSidebar({
                   </CollapsibleContent>
                 </div>
               </Collapsible>
-            ) : (
-              <div className="p-3">
-                <Button
-                  onClick={login}
-                  className="w-full gap-2"
-                  data-testid="button-login"
-                >
-                  <LogIn className="w-4 h-4" />
-                  Sign in
-                </Button>
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  Sign in with Google, GitHub, or email
-                </p>
-              </div>
             )}
           </SidebarGroupContent>
         </SidebarGroup>
@@ -233,6 +218,23 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Sign In Section - Bottom */}
+        {!isAuthenticated && (
+          <div className="mt-auto p-3 border-t">
+            <Button
+              onClick={login}
+              className="w-full gap-2 mb-2"
+              data-testid="button-login"
+            >
+              <LogIn className="w-4 h-4" />
+              Sign in / Sign up
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              Sign in with Gmail or Facebook
+            </p>
+          </div>
+        )}
       </SidebarContent>
     </Sidebar>
   );

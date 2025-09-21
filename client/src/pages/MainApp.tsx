@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import ThemeToggle from '@/components/ThemeToggle';
 import NotificationManager from '@/components/NotificationManager';
 import SmartScheduler from '@/components/SmartScheduler';
@@ -54,6 +54,7 @@ export default function MainApp({
   const [activeTab, setActiveTab] = useState("input");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { open } = useSidebar();
   
   // Chat sync form state
   const [chatText, setChatText] = useState('');
@@ -309,7 +310,7 @@ export default function MainApp({
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              {!open && <SidebarTrigger data-testid="button-sidebar-toggle" />}
               <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
                 <Sparkles className="w-6 h-6 text-primary-foreground" />
               </div>
