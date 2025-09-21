@@ -204,6 +204,78 @@ export const insertSharedTaskSchema = createInsertSchema(sharedTasks).omit({
   completedAt: true,
 });
 
+// Notification preferences for users
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  enableBrowserNotifications: boolean("enable_browser_notifications").default(true),
+  enableTaskReminders: boolean("enable_task_reminders").default(true),
+  enableDeadlineWarnings: boolean("enable_deadline_warnings").default(true),
+  enableDailyPlanning: boolean("enable_daily_planning").default(false),
+  reminderLeadTime: integer("reminder_lead_time").default(30), // minutes before task
+  dailyPlanningTime: text("daily_planning_time").default("09:00"), // HH:MM format
+  quietHoursStart: text("quiet_hours_start").default("22:00"), // HH:MM format
+  quietHoursEnd: text("quiet_hours_end").default("08:00"), // HH:MM format
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Scheduled reminders for tasks
+export const taskReminders = pgTable("task_reminders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id").references(() => tasks.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  reminderType: text("reminder_type").notNull(), // 'deadline' | 'daily' | 'custom'
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  title: text("title").notNull(),
+  message: text("message"),
+  isSent: boolean("is_sent").default(false),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Smart scheduling suggestions
+export const schedulingSuggestions = pgTable("scheduling_suggestions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  suggestionType: text("suggestion_type").notNull(), // 'daily' | 'weekly' | 'priority_based'
+  targetDate: text("target_date").notNull(), // YYYY-MM-DD format
+  suggestedTasks: jsonb("suggested_tasks").$type<{
+    taskId: string;
+    title: string;
+    priority: string;
+    estimatedTime: string;
+    suggestedStartTime: string; // HH:MM format
+    reason: string;
+  }[]>().default([]),
+  score: integer("score").default(0), // Algorithm confidence score 0-100
+  accepted: boolean("accepted").default(false),
+  acceptedAt: timestamp("accepted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Add schemas and types for the new tables
+export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTaskReminderSchema = createInsertSchema(taskReminders).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  sentAt: true,
+});
+
+export const insertSchedulingSuggestionSchema = createInsertSchema(schedulingSuggestions).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  acceptedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -235,3 +307,12 @@ export type InsertSharedGoal = z.infer<typeof insertSharedGoalSchema>;
 
 export type SharedTask = typeof sharedTasks.$inferSelect;
 export type InsertSharedTask = z.infer<typeof insertSharedTaskSchema>;
+
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
+export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
+
+export type TaskReminder = typeof taskReminders.$inferSelect;
+export type InsertTaskReminder = z.infer<typeof insertTaskReminderSchema>;
+
+export type SchedulingSuggestion = typeof schedulingSuggestions.$inferSelect;
+export type InsertSchedulingSuggestion = z.infer<typeof insertSchedulingSuggestionSchema>;

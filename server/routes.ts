@@ -3,7 +3,17 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { aiService } from "./services/aiService";
-import { insertGoalSchema, insertTaskSchema, insertJournalEntrySchema, insertChatImportSchema } from "@shared/schema";
+import { 
+  insertGoalSchema, 
+  insertTaskSchema, 
+  insertJournalEntrySchema, 
+  insertChatImportSchema,
+  insertNotificationPreferencesSchema,
+  insertTaskReminderSchema,
+  insertSchedulingSuggestionSchema,
+  type Task,
+  type NotificationPreferences
+} from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -355,6 +365,308 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Notification Preferences
+  app.get("/api/notifications/preferences", async (req, res) => {
+    try {
+      let preferences = await storage.getUserNotificationPreferences(DEMO_USER_ID);
+      
+      // Create default preferences if none exist
+      if (!preferences) {
+        preferences = await storage.createNotificationPreferences({
+          userId: DEMO_USER_ID,
+          enableBrowserNotifications: true,
+          enableTaskReminders: true,
+          enableDeadlineWarnings: true,
+          enableDailyPlanning: false,
+          reminderLeadTime: 30,
+          dailyPlanningTime: "09:00",
+          quietHoursStart: "22:00",
+          quietHoursEnd: "08:00"
+        });
+      }
+      
+      res.json(preferences);
+    } catch (error) {
+      console.error('Error fetching notification preferences:', error);
+      res.status(500).json({ error: 'Failed to fetch notification preferences' });
+    }
+  });
+
+  app.patch("/api/notifications/preferences", async (req, res) => {
+    try {
+      const updates = insertNotificationPreferencesSchema.partial().parse(req.body);
+      const preferences = await storage.updateNotificationPreferences(DEMO_USER_ID, updates);
+      
+      if (!preferences) {
+        return res.status(404).json({ error: 'Preferences not found' });
+      }
+      
+      res.json({ success: true, preferences });
+    } catch (error) {
+      console.error('Error updating notification preferences:', error);
+      res.status(500).json({ error: 'Failed to update notification preferences' });
+    }
+  });
+
+  // Get pending reminders
+  app.get("/api/notifications/reminders/pending", async (req, res) => {
+    try {
+      const pendingReminders = await storage.getPendingReminders(DEMO_USER_ID);
+      res.json(pendingReminders);
+    } catch (error) {
+      console.error('Error fetching pending reminders:', error);
+      res.status(500).json({ error: 'Failed to fetch pending reminders' });
+    }
+  });
+
+  // Mark reminder as sent
+  app.patch("/api/notifications/reminders/:id/sent", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.markReminderSent(id, DEMO_USER_ID);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error marking reminder as sent:', error);
+      res.status(500).json({ error: 'Failed to mark reminder as sent' });
+    }
+  });
+
+  // Scheduling Suggestions
+  app.get("/api/scheduling/suggestions", async (req, res) => {
+    try {
+      const date = req.query.date as string;
+      const suggestions = await storage.getUserSchedulingSuggestions(DEMO_USER_ID, date);
+      res.json(suggestions);
+    } catch (error) {
+      console.error('Error fetching scheduling suggestions:', error);
+      res.status(500).json({ error: 'Failed to fetch scheduling suggestions' });
+    }
+  });
+
+  app.post("/api/scheduling/generate", async (req, res) => {
+    try {
+      const { targetDate } = z.object({ targetDate: z.string() }).parse(req.body);
+      
+      if (!targetDate) {
+        return res.status(400).json({ error: 'Target date is required' });
+      }
+      
+      // Generate smart scheduling suggestions
+      const suggestions = await generateSchedulingSuggestions(DEMO_USER_ID, targetDate);
+      
+      res.json({ success: true, suggestions, message: `Generated ${suggestions.length} scheduling suggestions` });
+    } catch (error) {
+      console.error('Error generating scheduling suggestions:', error);
+      res.status(500).json({ error: 'Failed to generate scheduling suggestions' });
+    }
+  });
+
+  app.post("/api/scheduling/suggestions/:suggestionId/accept", async (req, res) => {
+    try {
+      const { suggestionId } = req.params;
+      
+      const suggestion = await storage.acceptSchedulingSuggestion(suggestionId, DEMO_USER_ID);
+      
+      if (!suggestion) {
+        return res.status(404).json({ error: 'Scheduling suggestion not found' });
+      }
+      
+      // Create reminders for each task in the accepted schedule
+      await createRemindersFromSchedule(suggestion, DEMO_USER_ID);
+      
+      res.json({ 
+        success: true, 
+        suggestion,
+        message: 'Schedule accepted and reminders created!' 
+      });
+    } catch (error) {
+      console.error('Error accepting scheduling suggestion:', error);
+      res.status(500).json({ error: 'Failed to accept scheduling suggestion' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
+}
+
+// Helper functions for scheduling
+async function generateSchedulingSuggestions(userId: string, targetDate: string): Promise<any[]> {
+  // Get user's pending tasks
+  const tasks = await storage.getUserTasks(userId);
+  const pendingTasks = tasks.filter(task => !task.completed);
+  
+  if (pendingTasks.length === 0) {
+    return [];
+  }
+
+  // Get user's notification preferences for optimal timing
+  const preferences = await storage.getUserNotificationPreferences(userId);
+  
+  // Smart scheduling algorithm
+  const suggestions = [];
+  
+  // Priority-based scheduling
+  const prioritySchedule = createPriorityBasedSchedule(pendingTasks, targetDate, preferences);
+  if (prioritySchedule.suggestedTasks.length > 0) {
+    const suggestion = await storage.createSchedulingSuggestion({
+      userId,
+      suggestionType: 'priority_based',
+      targetDate,
+      suggestedTasks: prioritySchedule.suggestedTasks,
+      score: prioritySchedule.score
+    });
+    suggestions.push(suggestion);
+  }
+  
+  // Time-optimized scheduling
+  const timeOptimizedSchedule = createTimeOptimizedSchedule(pendingTasks, targetDate, preferences);
+  if (timeOptimizedSchedule.suggestedTasks.length > 0) {
+    const suggestion = await storage.createSchedulingSuggestion({
+      userId,
+      suggestionType: 'daily',
+      targetDate,
+      suggestedTasks: timeOptimizedSchedule.suggestedTasks,
+      score: timeOptimizedSchedule.score
+    });
+    suggestions.push(suggestion);
+  }
+  
+  return suggestions;
+}
+
+function createPriorityBasedSchedule(tasks: Task[], targetDate: string, preferences?: NotificationPreferences) {
+  // Sort by priority and time estimate
+  const priorityOrder = { high: 3, medium: 2, low: 1 };
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] || 1;
+    const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] || 1;
+    return bPriority - aPriority;
+  });
+
+  let currentTime = "09:00"; // Start at 9 AM
+  const suggestedTasks = [];
+  
+  for (const task of sortedTasks.slice(0, 6)) { // Limit to 6 tasks per day
+    const timeInMinutes = getTimeEstimateMinutes(task.timeEstimate || '30 min');
+    
+    suggestedTasks.push({
+      taskId: task.id,
+      title: task.title,
+      priority: task.priority,
+      estimatedTime: task.timeEstimate || '30 min',
+      suggestedStartTime: currentTime,
+      reason: `${task.priority} priority task - tackle important work early`
+    });
+    
+    // Add task duration + 15 min buffer
+    currentTime = addMinutesToTime(currentTime, timeInMinutes + 15);
+    
+    // Don't schedule past 6 PM
+    if (timeToMinutes(currentTime) > timeToMinutes("18:00")) {
+      break;
+    }
+  }
+  
+  return {
+    suggestedTasks,
+    score: Math.min(95, 70 + (suggestedTasks.length * 5)) // Higher score for more tasks scheduled
+  };
+}
+
+function createTimeOptimizedSchedule(tasks: Task[], targetDate: string, preferences?: NotificationPreferences) {
+  // Optimize for total time and natural flow
+  const shortTasks = tasks.filter(task => getTimeEstimateMinutes(task.timeEstimate || '30 min') <= 30);
+  const longTasks = tasks.filter(task => getTimeEstimateMinutes(task.timeEstimate || '30 min') > 30);
+  
+  let currentTime = "10:00"; // Start at 10 AM for time-optimized
+  const suggestedTasks = [];
+  
+  // Start with short tasks for momentum
+  for (const task of shortTasks.slice(0, 3)) {
+    const timeInMinutes = getTimeEstimateMinutes(task.timeEstimate || '30 min');
+    
+    suggestedTasks.push({
+      taskId: task.id,
+      title: task.title,
+      priority: task.priority,
+      estimatedTime: task.timeEstimate || '30 min',
+      suggestedStartTime: currentTime,
+      reason: "Quick wins to build momentum"
+    });
+    
+    currentTime = addMinutesToTime(currentTime, timeInMinutes + 10);
+  }
+  
+  // Add lunch break
+  if (timeToMinutes(currentTime) < timeToMinutes("12:00")) {
+    currentTime = "13:00";
+  }
+  
+  // Add longer tasks after lunch
+  for (const task of longTasks.slice(0, 2)) {
+    if (timeToMinutes(currentTime) > timeToMinutes("17:00")) break;
+    
+    const timeInMinutes = getTimeEstimateMinutes(task.timeEstimate || '30 min');
+    
+    suggestedTasks.push({
+      taskId: task.id,
+      title: task.title,
+      priority: task.priority,
+      estimatedTime: task.timeEstimate || '30 min',
+      suggestedStartTime: currentTime,
+      reason: "Focus time for complex tasks"
+    });
+    
+    currentTime = addMinutesToTime(currentTime, timeInMinutes + 20);
+  }
+  
+  return {
+    suggestedTasks,
+    score: Math.min(90, 60 + (suggestedTasks.length * 8))
+  };
+}
+
+async function createRemindersFromSchedule(suggestion: any, userId: string) {
+  const preferences = await storage.getUserNotificationPreferences(userId);
+  const leadTime = preferences?.reminderLeadTime || 30;
+  
+  for (const taskSuggestion of suggestion.suggestedTasks) {
+    // Calculate reminder time
+    const taskDateTime = new Date(`${suggestion.targetDate}T${taskSuggestion.suggestedStartTime}`);
+    const reminderTime = new Date(taskDateTime.getTime() - (leadTime * 60 * 1000));
+    
+    // Only create reminder if it's in the future
+    if (reminderTime > new Date()) {
+      await storage.createTaskReminder({
+        userId,
+        taskId: taskSuggestion.taskId,
+        reminderType: 'custom',
+        scheduledAt: reminderTime,
+        title: `Upcoming: ${taskSuggestion.title}`,
+        message: `Your task "${taskSuggestion.title}" is scheduled to start in ${leadTime} minutes.`
+      });
+    }
+  }
+}
+
+// Utility functions
+function getTimeEstimateMinutes(timeEstimate: string): number {
+  if (timeEstimate.includes('hour')) {
+    const hours = parseFloat(timeEstimate);
+    return hours * 60;
+  } else {
+    return parseInt(timeEstimate) || 30;
+  }
+}
+
+function timeToMinutes(timeString: string): number {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+function addMinutesToTime(timeString: string, minutesToAdd: number): string {
+  const totalMinutes = timeToMinutes(timeString) + minutesToAdd;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }

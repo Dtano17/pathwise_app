@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import MainApp from "@/pages/MainApp";
+import NotificationService from "@/components/NotificationService";
 
 function App() {
   // Shared state for sidebar and main app communication
@@ -42,6 +43,7 @@ function App() {
             </div>
           </div>
         </SidebarProvider>
+        <NotificationService userId="demo-user" />
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
