@@ -1,22 +1,39 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 import { aiService } from "./services/aiService";
 import { insertGoalSchema, insertTaskSchema, insertJournalEntrySchema, insertChatImportSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth middleware - Replit Auth integration
+  await setupAuth(app);
+
+  // Auth routes - from blueprint:javascript_log_in_with_replit
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
   // Temporary user ID for demo - in real app this would come from authentication
   const DEMO_USER_ID = "demo-user";
 
-  // Create demo user if not exists
+  // Create demo user if not exists (for backwards compatibility)
   const existingUser = await storage.getUser(DEMO_USER_ID);
   if (!existingUser) {
     try {
-      await storage.createUserWithId({ 
+      await storage.upsertUser({ 
         id: DEMO_USER_ID,
-        username: "demo", 
-        password: "demo"
+        email: "demo@pathwise.ai",
+        firstName: "Demo",
+        lastName: "User"
       });
       console.log('Demo user created with ID:', DEMO_USER_ID);
     } catch (error: any) {

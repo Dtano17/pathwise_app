@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import VoiceInput from '@/components/VoiceInput';
 import TaskCard from '@/components/TaskCard';
 import ProgressDashboard from '@/components/ProgressDashboard';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy } from 'lucide-react';
 import { type Task, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -390,9 +390,10 @@ export default function MainApp() {
                         dueDate: task.dueDate ? 
                           (task.dueDate instanceof Date ? 
                             task.dueDate.toISOString().split('T')[0] : 
-                            task.dueDate.toString().split('T')[0]
+                            String(task.dueDate).split('T')[0]
                           ) : undefined,
-                        priority: task.priority as 'low' | 'medium' | 'high'
+                        priority: task.priority as 'low' | 'medium' | 'high',
+                        completed: task.completed ?? false
                       }}
                       onComplete={(taskId) => completeTaskMutation.mutate(taskId)}
                       onSkip={(taskId) => skipTaskMutation.mutate(taskId)}
@@ -606,7 +607,7 @@ ChatGPT: I can help you create a plan..."
                                   </Badge>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                  {chatImport.extractedGoals.length} goals extracted • {new Date(chatImport.createdAt).toLocaleDateString()}
+                                  {chatImport.extractedGoals?.length || 0} goals extracted • {chatImport.createdAt ? new Date(chatImport.createdAt).toLocaleDateString() : 'Recently'}
                                 </p>
                               </div>
                             ))}
@@ -680,11 +681,15 @@ ChatGPT: I can help you create a plan..."
                     <div className="bg-card p-6 rounded-lg border">
                       <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
                         <Sparkles className="w-5 h-5 text-primary" />
-                        AI Companion Integration
+                        Copy & Paste AI Chat Import
                       </h3>
                       <p className="text-muted-foreground">
-                        Sync with your favorite AI tools like ChatGPT, Claude, or Gemini for deeper insights and conversational support.
+                        Simply copy and paste your conversations from ChatGPT, Claude, or any AI assistant. Our system intelligently extracts your goals and creates actionable accountability tasks from your discussions.
                       </p>
+                      <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                        <Copy className="w-4 h-4" />
+                        <span>Direct copy-paste from AI platforms supported</span>
+                      </div>
                     </div>
 
                     <div className="bg-card p-6 rounded-lg border">

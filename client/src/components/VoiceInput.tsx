@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Mic, MicOff, Send, Sparkles } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // TypeScript declarations for Speech Recognition API
@@ -102,9 +103,28 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold text-card-foreground">Share Your Intentions</h3>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <h3 className="font-semibold text-card-foreground">Share Your Intentions</h3>
+          </div>
+          
+          {/* Feature indicators */}
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs gap-1">
+              <Copy className="w-3 h-3" />
+              Copy & Paste
+            </Badge>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              title="App integrations coming soon"
+              data-testid="button-future-integrations"
+            >
+              <Plus className="w-3 h-3" />
+            </Button>
+          </div>
         </div>
         
         <div className="relative">

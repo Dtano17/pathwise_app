@@ -3,7 +3,8 @@ import { neon } from "@neondatabase/serverless";
 import { eq, and, desc } from "drizzle-orm";
 import { 
   type User, 
-  type InsertUser, 
+  type InsertUser,
+  type UpsertUser,
   type Goal,
   type InsertGoal,
   type Task,
@@ -26,9 +27,12 @@ const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle(sql);
 
 export interface IStorage {
-  // Users
+  // User operations
+  // (IMPORTANT) these user operations are mandatory for Replit Auth.
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  
+  // Legacy user operations (will be phased out)
   createUser(user: InsertUser): Promise<User>;
   createUserWithId(user: InsertUser & { id: string }): Promise<User>;
 
@@ -63,17 +67,30 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // Users
+  // User operations
+  // (IMPORTANT) these user operations are mandatory for Replit Auth.
+  
   async getUser(id: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
-    return result[0];
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
-    return result[0];
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
   }
 
+  // Legacy user operations (will be phased out)
   async createUser(insertUser: InsertUser): Promise<User> {
     const result = await db.insert(users).values(insertUser).returning();
     return result[0];
