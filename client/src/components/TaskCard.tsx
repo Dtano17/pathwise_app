@@ -31,18 +31,64 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
   const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0.5, 0.8, 1, 0.8, 0.5]);
 
+  const triggerHapticFeedback = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
+    if ('vibrate' in navigator && navigator.vibrate) {
+      // Mobile vibration patterns
+      switch (type) {
+        case 'light':
+          navigator.vibrate(50);
+          break;
+        case 'medium':
+          navigator.vibrate(100);
+          break;
+        case 'heavy':
+          navigator.vibrate([100, 50, 100]);
+          break;
+      }
+    }
+  };
+
+  const showMobileAlert = (message: string, type: 'success' | 'info' = 'info') => {
+    // Modern browsers support notifications
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('PathWise.ai', {
+        body: message,
+        icon: '/favicon.ico',
+        tag: 'task-action',
+        requireInteraction: false,
+        silent: false
+      });
+    } else {
+      // Fallback to toast-like alert
+      const alertDiv = document.createElement('div');
+      alertDiv.className = `fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-white ${
+        type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+      }`;
+      alertDiv.textContent = message;
+      document.body.appendChild(alertDiv);
+      
+      setTimeout(() => {
+        alertDiv.remove();
+      }, 3000);
+    }
+  };
+
   const handleDragEnd = (event: any, info: PanInfo) => {
     const threshold = 150;
     
     if (info.offset.x > threshold) {
       // Swiped right - complete task
+      triggerHapticFeedback('heavy');
       setIsCompleted(true);
       setShowCelebration(true);
       onComplete(task.id);
+      showMobileAlert(`Task completed: ${task.title}`, 'success');
       setTimeout(() => setShowCelebration(false), 3000);
     } else if (info.offset.x < -threshold) {
       // Swiped left - skip task
+      triggerHapticFeedback('light');
       onSkip(task.id);
+      showMobileAlert(`Task skipped: ${task.title}`, 'info');
     }
     
     x.set(0);
@@ -50,11 +96,13 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
   };
 
   const handleDrag = (event: any, info: PanInfo) => {
-    if (info.offset.x > 50) {
+    if (info.offset.x > 50 && dragDirection !== 'right') {
       setDragDirection('right');
-    } else if (info.offset.x < -50) {
+      triggerHapticFeedback('light'); // Light feedback when entering complete zone
+    } else if (info.offset.x < -50 && dragDirection !== 'left') {
       setDragDirection('left');
-    } else {
+      triggerHapticFeedback('light'); // Light feedback when entering skip zone
+    } else if (Math.abs(info.offset.x) < 50 && dragDirection !== null) {
       setDragDirection(null);
     }
   };
@@ -98,7 +146,7 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
                   </p>
                 )}
                 <p className="text-sm text-green-600 dark:text-green-300 font-medium mt-2">
-                  ✓ Task completed! 🎉
+                  Task completed successfully!
                 </p>
               </div>
             </div>
@@ -111,12 +159,12 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
   return (
     <div className="relative">
       {/* Background hints */}
-      <div className="absolute inset-0 flex">
-        <div className="flex-1 bg-red-100 dark:bg-red-900/20 rounded-l-lg flex items-center justify-start pl-6">
+      <div className="absolute inset-0 flex" data-testid={`swipe-hints-${task.id}`}>
+        <div className="flex-1 bg-red-100 dark:bg-red-900/20 rounded-l-lg flex items-center justify-start pl-6" data-testid={`skip-hint-${task.id}`}>
           <ArrowLeft className="w-6 h-6 text-red-600" />
           <span className="ml-2 text-red-600 font-medium">Skip</span>
         </div>
-        <div className="flex-1 bg-green-100 dark:bg-green-900/20 rounded-r-lg flex items-center justify-end pr-6">
+        <div className="flex-1 bg-green-100 dark:bg-green-900/20 rounded-r-lg flex items-center justify-end pr-6" data-testid={`complete-hint-${task.id}`}>
           <span className="mr-2 text-green-600 font-medium">Complete</span>
           <ArrowRight className="w-6 h-6 text-green-600" />
         </div>
@@ -163,7 +211,7 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
       </motion.div>
 
       {/* Swipe instruction */}
-      <div className="text-center mt-2 text-xs text-muted-foreground">
+      <div className="text-center mt-2 text-xs text-muted-foreground" data-testid={`swipe-instructions-${task.id}`}>
         ← Swipe left to skip • Swipe right to complete →
       </div>
     </div>
