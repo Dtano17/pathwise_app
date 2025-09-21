@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
+import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -132,6 +132,56 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* History Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="flex items-center gap-2">
+            <History className="w-4 h-4" />
+            History
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton data-testid="button-recent-goals">
+                  <Clock className="w-4 h-4" />
+                  <span>Recent Goals</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton data-testid="button-completed-tasks">
+                  <BarChart3 className="w-4 h-4" />
+                  <span>Progress Report</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Notifications Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="flex items-center gap-2">
+            <Bell className="w-4 h-4" />
+            Notifications
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="px-3">
+              <NotificationManager userId={user?.id || 'demo-user'} />
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Smart Scheduler Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            Smart Scheduler
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="px-3">
+              <SmartScheduler userId={user?.id || 'demo-user'} tasks={[]} />
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         {/* Settings Section - Bottom */}
         <div className="mt-auto">
           <Collapsible open={isProfileExpanded} onOpenChange={setIsProfileExpanded}>
@@ -182,28 +232,6 @@ export function AppSidebar({
               <CollapsibleContent className="space-y-3 mt-3">
                 {isAuthenticated && user ? (
                   <>
-                    {/* Notifications Section */}
-                    <div className="border-t pt-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Bell className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">Notifications</span>
-                      </div>
-                      <div className="ml-6">
-                        <NotificationManager userId={user.id} />
-                      </div>
-                    </div>
-
-                    {/* Scheduler Section */}
-                    <div className="border-t pt-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">Smart Scheduler</span>
-                      </div>
-                      <div className="ml-6">
-                        <SmartScheduler userId={user.id} tasks={[]} />
-                      </div>
-                    </div>
-
                     {/* Sign Out Button */}
                     <div className="border-t pt-3">
                       <Button
