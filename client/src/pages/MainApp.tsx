@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import VoiceInput from '@/components/VoiceInput';
 import TaskCard from '@/components/TaskCard';
 import ProgressDashboard from '@/components/ProgressDashboard';
+import ClaudePlanOutput from '@/components/ClaudePlanOutput';
 import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users } from 'lucide-react';
 import { type Task, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,6 +37,15 @@ export default function MainApp() {
   const [chatSource, setChatSource] = useState('chatgpt');
   const [chatTitle, setChatTitle] = useState('');
 
+  // Current plan output for Goal Input page
+  const [currentPlanOutput, setCurrentPlanOutput] = useState<{
+    planTitle?: string;
+    summary?: string;
+    tasks: Task[];
+    estimatedTimeframe?: string;
+    motivationalNote?: string;
+  } | null>(null);
+
   // Fetch tasks
   const { data: tasks = [], isLoading: tasksLoading, error: tasksError, refetch: refetchTasks } = useQuery<Task[]>({
     queryKey: ['/api/tasks'],
@@ -63,11 +73,21 @@ export default function MainApp() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+      
+      // Capture plan output for display on Goal Input page
+      setCurrentPlanOutput({
+        planTitle: data.planTitle,
+        summary: data.summary,
+        tasks: data.tasks || [],
+        estimatedTimeframe: data.estimatedTimeframe,
+        motivationalNote: data.motivationalNote
+      });
+      
       toast({
         title: "Goal Processed!",
         description: data.message || `Created ${data.tasks?.length || 0} actionable tasks!`,
       });
-      setActiveTab("tasks"); // Switch to tasks view
+      // Stay on input tab to show Claude-style output
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.error || error.message || "Failed to process your goal. Please try again.";
@@ -332,29 +352,66 @@ export default function MainApp() {
               />
 
               {/* Example goals */}
-              <div className="max-w-2xl mx-auto">
-                <p className="text-sm text-muted-foreground mb-4 text-center">Try these examples:</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[
-                    "I want to lose 20lbs in 2 months",
-                    "Eat healthy and workout today", 
-                    "I will like to go hiking and shopping today",
-                    "I will like to go on a date with someone I just met this evening"
-                  ].map((example, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      size="lg"
-                      onClick={() => processGoalMutation.mutate(example)}
-                      disabled={processGoalMutation.isPending}
-                      className="text-left justify-start"
-                      data-testid={`button-example-${index}`}
-                    >
-                      {example}
-                    </Button>
-                  ))}
+              {!currentPlanOutput && (
+                <div className="max-w-2xl mx-auto">
+                  <p className="text-sm text-muted-foreground mb-4 text-center">Try these examples:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      "I want to lose 20lbs in 2 months",
+                      "Eat healthy and workout today", 
+                      "I will like to go hiking and shopping today",
+                      "I will like to go on a date with someone I just met this evening"
+                    ].map((example, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="lg"
+                        onClick={() => processGoalMutation.mutate(example)}
+                        disabled={processGoalMutation.isPending}
+                        className="text-left justify-start"
+                        data-testid={`button-example-${index}`}
+                      >
+                        {example}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Claude-style Plan Output */}
+              {currentPlanOutput && (
+                <div className="max-w-4xl mx-auto">
+                  <ClaudePlanOutput
+                    planTitle={currentPlanOutput.planTitle}
+                    summary={currentPlanOutput.summary}
+                    tasks={currentPlanOutput.tasks}
+                    estimatedTimeframe={currentPlanOutput.estimatedTimeframe}
+                    motivationalNote={currentPlanOutput.motivationalNote}
+                    onCompleteTask={(taskId) => completeTaskMutation.mutate(taskId)}
+                    showConfetti={true}
+                  />
+                  
+                  {/* Action buttons */}
+                  <div className="flex justify-center gap-4 mt-8">
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentPlanOutput(null)}
+                      data-testid="button-new-goal"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Goal
+                    </Button>
+                    <Button
+                      variant="default"
+                      onClick={() => setActiveTab("tasks")}
+                      data-testid="button-view-all-tasks"
+                    >
+                      <CheckSquare className="w-4 h-4 mr-2" />
+                      View All Tasks
+                    </Button>
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             {/* Tasks Tab */}
