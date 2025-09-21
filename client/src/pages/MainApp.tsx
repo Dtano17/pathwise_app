@@ -27,7 +27,7 @@ interface ProgressData {
 }
 
 export default function MainApp() {
-  const [activeTab, setActiveTab] = useState("tasks");
+  const [activeTab, setActiveTab] = useState("input");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -64,7 +64,7 @@ export default function MainApp() {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       toast({
-        title: "Goal Processed! 🎯",
+        title: "Goal Processed!",
         description: data.message || `Created ${data.tasks?.length || 0} actionable tasks!`,
       });
       setActiveTab("tasks"); // Switch to tasks view
@@ -112,7 +112,7 @@ export default function MainApp() {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       toast({
-        title: data.achievement?.title || "Task Completed! 🎉",
+        title: data.achievement?.title || "Task Completed!",
         description: data.achievement?.description || data.message,
       });
     }
@@ -172,7 +172,7 @@ export default function MainApp() {
       queryClient.invalidateQueries({ queryKey: ['/api/chat/imports'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       toast({
-        title: "Chat Imported Successfully! 🎯",
+        title: "Chat Imported Successfully!",
         description: data.message || `Created ${data.tasks?.length || 0} accountability tasks!`,
       });
       setChatText('');
@@ -333,21 +333,21 @@ export default function MainApp() {
 
               {/* Example goals */}
               <div className="max-w-2xl mx-auto">
-                <p className="text-sm text-muted-foreground mb-3 text-center">Try these examples:</p>
-                <div className="flex flex-wrap gap-2 justify-center">
+                <p className="text-sm text-muted-foreground mb-4 text-center">Try these examples:</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
-                    "I want to get healthier and exercise more",
-                    "Learn programming and build a website",
+                    "Eat healthier and workout today",
+                    "Learn programming and build a website", 
                     "Organize my room and declutter my space",
                     "Read more books and expand my knowledge"
                   ].map((example, index) => (
                     <Button
                       key={index}
                       variant="outline"
-                      size="sm"
+                      size="lg"
                       onClick={() => processGoalMutation.mutate(example)}
                       disabled={processGoalMutation.isPending}
-                      className="text-xs"
+                      className="text-left justify-start"
                       data-testid={`button-example-${index}`}
                     >
                       {example}
@@ -410,8 +410,9 @@ export default function MainApp() {
               {/* Completed Tasks Summary */}
               {completedTasks.length > 0 && (
                 <div className="mt-12 max-w-2xl mx-auto">
-                  <h3 className="text-lg font-semibold mb-4 text-center">
-                    🎉 Completed Today ({completedTasks.length})
+                  <h3 className="text-lg font-semibold mb-4 text-center flex items-center justify-center gap-2">
+                    <CheckSquare className="w-5 h-5 text-green-600" />
+                    Completed Today ({completedTasks.length})
                   </h3>
                   <div className="space-y-2">
                     {completedTasks.slice(0, 3).map((task) => (
@@ -451,7 +452,10 @@ export default function MainApp() {
               {/* Lifestyle Suggestions */}
               {progressData?.lifestyleSuggestions && progressData.lifestyleSuggestions.length > 0 && (
                 <div className="max-w-2xl mx-auto">
-                  <h3 className="text-lg font-semibold mb-4 text-center">💡 AI Lifestyle Suggestions</h3>
+                  <h3 className="text-lg font-semibold mb-4 text-center flex items-center justify-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    AI Lifestyle Suggestions
+                  </h3>
                   <div className="grid gap-3">
                     {progressData.lifestyleSuggestions.map((suggestion, index) => (
                       <div key={index} className="bg-secondary/20 border border-secondary/30 rounded-lg p-4">
@@ -628,8 +632,9 @@ ChatGPT: I can help you create a plan..."
             <TabsContent value="groups" className="space-y-6">
               <div className="max-w-4xl mx-auto">
                 <div className="text-center mb-8">
-                  <h2 className="text-3xl font-bold text-foreground mb-4">
-                    👥 Group Goals & Shared Accountability
+                  <h2 className="text-3xl font-bold text-foreground mb-4 flex items-center justify-center gap-2">
+                    <Users className="w-8 h-8" />
+                    Group Goals & Shared Accountability
                   </h2>
                   <p className="text-xl text-muted-foreground">
                     Create groups, share goals, and celebrate progress together!
@@ -687,6 +692,28 @@ ChatGPT: I can help you create a plan..."
                     {/* Example Group Cards */}
                     <Card className="p-4 hover-elevate">
                       <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold">Girls Trip to Miami</h4>
+                        <Badge variant="outline">5 members</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Planning the perfect weekend getaway with the squad
+                      </p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Progress</span>
+                          <span>8/14 tasks completed</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="bg-primary h-2 rounded-full" style={{width: '57%'}}></div>
+                        </div>
+                      </div>
+                      <Button variant="outline" className="w-full mt-3" size="sm">
+                        View Group
+                      </Button>
+                    </Card>
+
+                    <Card className="p-4 hover-elevate">
+                      <div className="flex items-center justify-between mb-3">
                         <h4 className="font-semibold">Family Trip to New Jersey</h4>
                         <Badge variant="outline">4 members</Badge>
                       </div>
@@ -709,41 +736,19 @@ ChatGPT: I can help you create a plan..."
 
                     <Card className="p-4 hover-elevate">
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold">Date Night Ideas</h4>
-                        <Badge variant="outline">2 members</Badge>
+                        <h4 className="font-semibold">Eat Healthier & Workout</h4>
+                        <Badge variant="outline">3 members</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mb-3">
-                        Planning romantic dates and adventures together
+                        AI-curated daily health plan with accountability partners
                       </p>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span>Progress</span>
-                          <span>9/15 tasks completed</span>
+                          <span>18/25 tasks completed</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div className="bg-primary h-2 rounded-full" style={{width: '60%'}}></div>
-                        </div>
-                      </div>
-                      <Button variant="outline" className="w-full mt-3" size="sm">
-                        View Group
-                      </Button>
-                    </Card>
-
-                    <Card className="p-4 hover-elevate">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold">Fitness Challenge</h4>
-                        <Badge variant="outline">2 members</Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Daily workout accountability with best friend
-                      </p>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Progress</span>
-                          <span>15/20 tasks completed</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div className="bg-primary h-2 rounded-full" style={{width: '75%'}}></div>
+                          <div className="bg-primary h-2 rounded-full" style={{width: '72%'}}></div>
                         </div>
                       </div>
                       <Button variant="outline" className="w-full mt-3" size="sm">
@@ -770,49 +775,49 @@ ChatGPT: I can help you create a plan..."
                         <CheckSquare className="w-5 h-5 text-green-600" />
                         <div className="flex-1">
                           <p className="text-sm">
-                            <strong>Sarah</strong> completed <span className="line-through decoration-2 decoration-green-600">"Book hotel reservations"</span>
+                            <strong>Emma</strong> completed <span className="line-through decoration-2 decoration-green-600">"30-minute morning workout"</span>
                           </p>
-                          <p className="text-xs text-muted-foreground">Family Trip to New Jersey • 2 hours ago</p>
+                          <p className="text-xs text-muted-foreground">Eat Healthier & Workout • 1 hour ago</p>
                         </div>
                       </div>
                       
+                      <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <CheckSquare className="w-5 h-5 text-green-600" />
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            <strong>You</strong> completed <span className="line-through decoration-2 decoration-green-600">"Prep healthy lunch for tomorrow"</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">Eat Healthier & Workout • 2 hours ago</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <Target className="w-5 h-5 text-blue-600" />
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            <strong>Jessica</strong> added new task "Book spa day at resort"
+                          </p>
+                          <p className="text-xs text-muted-foreground">Girls Trip to Miami • 3 hours ago</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <CheckSquare className="w-5 h-5 text-green-600" />
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            <strong>Sarah</strong> completed <span className="line-through decoration-2 decoration-green-600">"Book hotel reservations"</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">Family Trip to New Jersey • 4 hours ago</p>
+                        </div>
+                      </div>
+
                       <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                         <Target className="w-5 h-5 text-blue-600" />
                         <div className="flex-1">
                           <p className="text-sm">
                             <strong>Mike</strong> added new task "Research hiking trails"
                           </p>
-                          <p className="text-xs text-muted-foreground">Family Trip to New Jersey • 4 hours ago</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <CheckSquare className="w-5 h-5 text-green-600" />
-                        <div className="flex-1">
-                          <p className="text-sm">
-                            <strong>Alex</strong> completed <span className="line-through decoration-2 decoration-green-600">"Make dinner reservations at Italian place"</span>
-                          </p>
-                          <p className="text-xs text-muted-foreground">Date Night Ideas • 3 hours ago</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <Target className="w-5 h-5 text-blue-600" />
-                        <div className="flex-1">
-                          <p className="text-sm">
-                            <strong>You</strong> added new task "Pick up flowers for date night"
-                          </p>
-                          <p className="text-xs text-muted-foreground">Date Night Ideas • 5 hours ago</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <CheckSquare className="w-5 h-5 text-green-600" />
-                        <div className="flex-1">
-                          <p className="text-sm">
-                            <strong>You</strong> completed <span className="line-through decoration-2 decoration-green-600">"Morning run - 30 minutes"</span>
-                          </p>
-                          <p className="text-xs text-muted-foreground">Fitness Challenge • 6 hours ago</p>
+                          <p className="text-xs text-muted-foreground">Family Trip to New Jersey • 5 hours ago</p>
                         </div>
                       </div>
                     </div>
@@ -825,8 +830,9 @@ ChatGPT: I can help you create a plan..."
             <TabsContent value="about" className="space-y-6">
               <div className="max-w-4xl mx-auto">
                 <div className="text-center mb-8">
-                  <h2 className="text-4xl font-bold text-foreground mb-4">
-                    🧭 Transform Goals into Reality Using AI as Your Companion
+                  <h2 className="text-4xl font-bold text-foreground mb-4 flex items-center justify-center gap-2">
+                    <Sparkles className="w-8 h-8" />
+                    Transform Goals into Reality Using AI as Your Companion
                   </h2>
                   <p className="text-xl text-muted-foreground">
                     Built for doers. Designed to deliver.
