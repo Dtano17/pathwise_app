@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Mic, MicOff, Send, Sparkles, Copy, Plus } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useToast } from '@/hooks/use-toast';
 
 // TypeScript declarations for Speech Recognition API
 declare global {
@@ -23,7 +24,10 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   const [text, setText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const recognitionRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const startRecording = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -83,9 +87,42 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
 
   const handleSubmit = () => {
     if (text.trim() && !isGenerating) {
-      onSubmit(text.trim());
+      let submissionText = text.trim();
+      if (uploadedImages.length > 0) {
+        submissionText += `\n\n[Note: ${uploadedImages.length} image(s) uploaded: ${uploadedImages.map(img => img.name).join(', ')}]`;
+      }
+      onSubmit(submissionText);
       setText('');
+      setUploadedImages([]);
     }
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+      if (imageFiles.length > 0) {
+        setUploadedImages(prev => [...prev, ...imageFiles]);
+        toast({
+          title: "Images Uploaded",
+          description: `Added ${imageFiles.length} image(s) to your goal submission.`,
+        });
+      } else {
+        toast({
+          title: "Invalid File Type",
+          description: "Please upload only image files.",
+          variant: "destructive",
+        });
+      }
+    }
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -119,13 +156,47 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
               size="icon"
               variant="ghost"
               className="h-6 w-6 text-muted-foreground hover:text-foreground"
-              title="App integrations coming soon"
-              data-testid="button-future-integrations"
+              title="Upload images"
+              onClick={() => fileInputRef.current?.click()}
+              data-testid="button-upload-images"
             >
-              <Plus className="w-3 h-3" />
+              <Upload className="w-3 h-3" />
             </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleImageUpload}
+            />
           </div>
         </div>
+
+        {/* Uploaded Images Preview */}
+        {uploadedImages.length > 0 && (
+          <div className="border rounded-md p-3 bg-muted/30">
+            <div className="flex items-center gap-2 mb-2">
+              <Image className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Uploaded Images ({uploadedImages.length})</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {uploadedImages.map((file, index) => (
+                <div key={index} className="flex items-center gap-2 bg-background rounded px-2 py-1 text-xs">
+                  <span className="truncate max-w-24">{file.name}</span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-4 w-4 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeImage(index)}
+                  >
+                    ×
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
         <div className="relative">
           <Textarea

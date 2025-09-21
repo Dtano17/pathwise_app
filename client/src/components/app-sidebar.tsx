@@ -44,7 +44,7 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const { user, isAuthenticated, isLoading, login, logout, isLoggingOut } = useAuth();
   const selectedThemeData = selectedTheme ? themes.find(t => t.id === selectedTheme) : null;
-  const [isProfileExpanded, setIsProfileExpanded] = useState(false);
+  const [isProfileExpanded, setIsProfileExpanded] = useState(true);
 
   const handleThemeSelect = (themeId: string) => {
     onThemeSelect?.(themeId);
