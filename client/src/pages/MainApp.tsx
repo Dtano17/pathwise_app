@@ -267,7 +267,11 @@ export default function MainApp() {
                       task={{
                         ...task,
                         description: task.description || '',
-                        dueDate: task.dueDate?.toISOString().split('T')[0],
+                        dueDate: task.dueDate ? 
+                          (task.dueDate instanceof Date ? 
+                            task.dueDate.toISOString().split('T')[0] : 
+                            task.dueDate.toString().split('T')[0]
+                          ) : undefined,
                         priority: task.priority as 'low' | 'medium' | 'high'
                       }}
                       onComplete={(taskId) => completeTaskMutation.mutate(taskId)}

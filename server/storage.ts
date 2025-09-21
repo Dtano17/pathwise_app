@@ -27,6 +27,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  createUserWithId(user: InsertUser & { id: string }): Promise<User>;
 
   // Goals
   createGoal(goal: InsertGoal & { userId: string }): Promise<Goal>;
@@ -66,6 +67,11 @@ export class DatabaseStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const result = await db.insert(users).values(insertUser).returning();
+    return result[0];
+  }
+
+  async createUserWithId(userData: InsertUser & { id: string }): Promise<User> {
+    const result = await db.insert(users).values(userData).returning();
     return result[0];
   }
 
@@ -115,7 +121,7 @@ export class DatabaseStorage implements IStorage {
 
   // Journal Entries
   async createJournalEntry(entry: InsertJournalEntry & { userId: string }): Promise<JournalEntry> {
-    const result = await db.insert(journalEntries).values([entry]).returning();
+    const result = await db.insert(journalEntries).values(entry).returning();
     return result[0];
   }
 
@@ -143,7 +149,7 @@ export class DatabaseStorage implements IStorage {
 
   // Progress Stats
   async createProgressStats(stats: InsertProgressStats & { userId: string }): Promise<ProgressStats> {
-    const result = await db.insert(progressStats).values([stats]).returning();
+    const result = await db.insert(progressStats).values(stats).returning();
     return result[0];
   }
 

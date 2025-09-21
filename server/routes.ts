@@ -13,10 +13,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const existingUser = await storage.getUser(DEMO_USER_ID);
   if (!existingUser) {
     try {
-      await storage.createUser({ 
+      await storage.createUserWithId({ 
+        id: DEMO_USER_ID,
         username: "demo", 
         password: "demo"
       });
+      console.log('Demo user created with ID:', DEMO_USER_ID);
     } catch (error: any) {
       // User already exists, that's fine
       if (!error.message?.includes('duplicate key')) {
