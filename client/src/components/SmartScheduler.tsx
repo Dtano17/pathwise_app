@@ -11,13 +11,14 @@ import { type SchedulingSuggestion, type Task } from '@shared/schema';
 interface SmartSchedulerProps {
   userId: string;
   tasks: Task[];
+  compact?: boolean;
 }
 
 interface SchedulingSuggestionWithTasks extends SchedulingSuggestion {
   taskDetails?: Task[];
 }
 
-export default function SmartScheduler({ userId, tasks }: SmartSchedulerProps) {
+export default function SmartScheduler({ userId, tasks, compact = false }: SmartSchedulerProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -106,6 +107,62 @@ export default function SmartScheduler({ userId, tasks }: SmartSchedulerProps) {
 
   const pendingTasks = tasks.filter(task => !task.completed);
   const hasTasksToSchedule = pendingTasks.length > 0;
+
+  // Compact version for sidebar
+  if (compact) {
+    return (
+      <div className="space-y-2">
+        {/* Date picker and generate button */}
+        <div className="flex items-center justify-between">
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="text-sm border border-input rounded px-2 py-1 bg-background"
+            data-testid="input-date-compact"
+          />
+          <Badge variant="outline" className="text-xs">
+            {suggestions.length} suggestions
+          </Badge>
+        </div>
+        
+        <Button
+          onClick={() => generateSuggestionsMutation.mutate()}
+          disabled={generateSuggestionsMutation.isPending}
+          size="sm"
+          variant="outline"
+          className="w-full h-8 text-xs"
+          data-testid="button-generate-schedule-compact"
+        >
+          {generateSuggestionsMutation.isPending ? 'Generating...' : 'Generate Schedule'}
+        </Button>
+
+        {/* Show first 2 suggestions */}
+        {suggestions.slice(0, 2).map((suggestion) => (
+          <div key={suggestion.id} className="text-xs bg-muted/30 rounded p-2">
+            <div className="flex items-center justify-between">
+              <span className="font-medium truncate">
+                {new Date(suggestion.targetDate).toLocaleDateString()}
+              </span>
+              <Button
+                onClick={() => acceptSuggestionMutation.mutate(suggestion.id)}
+                disabled={acceptSuggestionMutation.isPending || suggestion.accepted}
+                size="icon"
+                variant="ghost"
+                className="h-5 w-5"
+                data-testid={`button-accept-suggestion-compact-${suggestion.id}`}
+              >
+                {suggestion.accepted ? '✓' : '+'}
+              </Button>
+            </div>
+            <div className="text-muted-foreground mt-1">
+              {suggestion.suggestedTasks?.length || 0} tasks
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -231,13 +288,13 @@ export default function SmartScheduler({ userId, tasks }: SmartSchedulerProps) {
                 </div>
                 
                 <CardDescription>
-                  Schedule for {new Date(suggestion.targetDate).toLocaleDateString()} • {suggestion.suggestedTasks.length} tasks planned
+                  Schedule for {new Date(suggestion.targetDate).toLocaleDateString()} • {suggestion.suggestedTasks?.length || 0} tasks planned
                 </CardDescription>
               </CardHeader>
               
               <CardContent>
                 <div className="space-y-3">
-                  {suggestion.suggestedTasks.map((taskSuggestion, index) => (
+                  {suggestion.suggestedTasks?.map((taskSuggestion, index) => (
                     <div
                       key={taskSuggestion.taskId}
                       className="flex items-center justify-between p-3 bg-background border rounded-lg hover-elevate"

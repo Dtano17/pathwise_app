@@ -11,9 +11,10 @@ import { type NotificationPreferences } from '@shared/schema';
 
 interface NotificationManagerProps {
   userId: string;
+  compact?: boolean;
 }
 
-export default function NotificationManager({ userId }: NotificationManagerProps) {
+export default function NotificationManager({ userId, compact = false }: NotificationManagerProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
@@ -97,6 +98,14 @@ export default function NotificationManager({ userId }: NotificationManagerProps
   };
 
   if (isLoading) {
+    if (compact) {
+      return (
+        <div className="space-y-2">
+          <div className="h-3 bg-muted rounded animate-pulse" />
+          <div className="h-3 bg-muted rounded animate-pulse" />
+        </div>
+      );
+    }
     return (
       <Card>
         <CardHeader>
@@ -113,6 +122,60 @@ export default function NotificationManager({ userId }: NotificationManagerProps
           </div>
         </CardContent>
       </Card>
+    );
+  }
+
+  // Compact version for sidebar
+  if (compact) {
+    return (
+      <div className="space-y-2">
+        {/* Browser Permission Status */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm">Browser</span>
+          {notificationPermission === 'granted' ? (
+            <Badge variant="default" className="text-xs">On</Badge>
+          ) : (
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={requestPermission}
+              className="h-6 text-xs px-2"
+            >
+              Enable
+            </Button>
+          )}
+        </div>
+
+        {/* Quick toggles */}
+        {preferences && (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Task Reminders</span>
+              <Switch
+                checked={preferences.enableTaskReminders ?? false}
+                onCheckedChange={(checked) => handlePreferenceChange('enableTaskReminders', checked)}
+                data-testid="switch-task-reminders-compact"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Deadlines</span>
+              <Switch
+                checked={preferences.enableDeadlineWarnings ?? false}
+                onCheckedChange={(checked) => handlePreferenceChange('enableDeadlineWarnings', checked)}
+                data-testid="switch-deadline-warnings-compact"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Daily Planning</span>
+              <Switch
+                checked={preferences.enableDailyPlanning ?? false}
+                onCheckedChange={(checked) => handlePreferenceChange('enableDailyPlanning', checked)}
+                data-testid="switch-daily-planning-compact"
+              />
+            </div>
+          </>
+        )}
+      </div>
     );
   }
 
@@ -197,7 +260,7 @@ export default function NotificationManager({ userId }: NotificationManagerProps
                 </p>
               </div>
               <Switch
-                checked={preferences.enableTaskReminders}
+                checked={preferences.enableTaskReminders ?? false}
                 onCheckedChange={(checked) => handlePreferenceChange('enableTaskReminders', checked)}
                 data-testid="switch-task-reminders"
               />
@@ -212,7 +275,7 @@ export default function NotificationManager({ userId }: NotificationManagerProps
                 </p>
               </div>
               <Switch
-                checked={preferences.enableDeadlineWarnings}
+                checked={preferences.enableDeadlineWarnings ?? false}
                 onCheckedChange={(checked) => handlePreferenceChange('enableDeadlineWarnings', checked)}
                 data-testid="switch-deadline-warnings"
               />
@@ -227,7 +290,7 @@ export default function NotificationManager({ userId }: NotificationManagerProps
                 </p>
               </div>
               <Switch
-                checked={preferences.enableDailyPlanning}
+                checked={preferences.enableDailyPlanning ?? false}
                 onCheckedChange={(checked) => handlePreferenceChange('enableDailyPlanning', checked)}
                 data-testid="switch-daily-planning"
               />
@@ -243,7 +306,7 @@ export default function NotificationManager({ userId }: NotificationManagerProps
                 How far in advance to send task reminders
               </p>
               <select
-                value={preferences.reminderLeadTime}
+                value={preferences.reminderLeadTime ?? 15}
                 onChange={(e) => handlePreferenceChange('reminderLeadTime', parseInt(e.target.value))}
                 className="w-full p-2 border border-input rounded-md bg-background text-sm"
                 data-testid="select-reminder-lead-time"
@@ -267,7 +330,7 @@ export default function NotificationManager({ userId }: NotificationManagerProps
                   <label className="text-xs text-muted-foreground">Start</label>
                   <input
                     type="time"
-                    value={preferences.quietHoursStart}
+                    value={preferences.quietHoursStart ?? '22:00'}
                     onChange={(e) => handlePreferenceChange('quietHoursStart', e.target.value)}
                     className="w-full p-2 border border-input rounded-md bg-background text-sm"
                     data-testid="input-quiet-hours-start"
@@ -277,7 +340,7 @@ export default function NotificationManager({ userId }: NotificationManagerProps
                   <label className="text-xs text-muted-foreground">End</label>
                   <input
                     type="time"
-                    value={preferences.quietHoursEnd}
+                    value={preferences.quietHoursEnd ?? '08:00'}
                     onChange={(e) => handlePreferenceChange('quietHoursEnd', e.target.value)}
                     className="w-full p-2 border border-input rounded-md bg-background text-sm"
                     data-testid="input-quiet-hours-end"

@@ -163,8 +163,8 @@ export function AppSidebar({
             Notifications
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <div className="px-3">
-              <NotificationManager userId={user?.id || 'demo-user'} />
+            <div className="px-3 py-2">
+              <NotificationManager userId={user?.id || 'demo-user'} compact />
             </div>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -176,8 +176,8 @@ export function AppSidebar({
             Smart Scheduler
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <div className="px-3">
-              <SmartScheduler userId={user?.id || 'demo-user'} tasks={[]} />
+            <div className="px-3 py-2">
+              <SmartScheduler userId={user?.id || 'demo-user'} tasks={[]} compact />
             </div>
           </SidebarGroupContent>
         </SidebarGroup>
