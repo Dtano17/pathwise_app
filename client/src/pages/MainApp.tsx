@@ -12,7 +12,7 @@ import ClaudePlanOutput from '@/components/ClaudePlanOutput';
 import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import Contacts from './Contacts';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact } from 'lucide-react';
 import { type Task, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -420,7 +420,7 @@ export default function MainApp({
                     <p className="text-sm text-muted-foreground mb-4 text-center">Or try these quick examples:</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {[
-                        { text: "Lose 20lbs in 2 months", theme: "Health & Fitness", Icon: Dumbbell },
+                        { text: "Devise a workout plan", theme: "Health & Fitness", Icon: Dumbbell },
                         { text: "Focus on work productivity", theme: "Work Focus", Icon: Briefcase }, 
                         { text: "Trade stocks using AI insights", theme: "Investment", Icon: TrendingUp },
                         { text: "Create morning devotion plan", theme: "Spiritual", Icon: BookOpen },
@@ -1144,10 +1144,56 @@ ChatGPT: I can help you create a plan..."
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-r from-green-100/50 to-emerald-100/50 dark:from-green-900/30 dark:to-emerald-900/30 p-6 rounded-lg mt-8 border border-green-200 dark:border-green-800">
-                    <h3 className="text-xl font-semibold mb-3">✅ New: Contact Integration</h3>
-                    <p className="text-muted-foreground mb-4">Sync your phone contacts and share goals with friends and family! Available now through the sidebar.</p>
-                  </div>
+                    <div className="bg-gradient-to-br from-purple-50 via-emerald-50 to-blue-50 dark:from-purple-900/20 dark:via-emerald-900/20 dark:to-blue-900/20 p-8 rounded-xl mt-8 border border-purple-200/50 dark:border-purple-700/50 shadow-lg">
+                      <div className="text-center mb-6">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-2xl mb-4 shadow-lg">
+                          <Users className="w-8 h-8 text-white" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-foreground mb-2 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
+                          Share Your Journey with Loved Ones
+                        </h3>
+                        <p className="text-lg text-muted-foreground">
+                          Connect, collaborate, and celebrate together
+                        </p>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-3 mb-6">
+                        <div className="text-center p-4 bg-white/60 dark:bg-gray-800/40 rounded-lg border border-white/40 dark:border-gray-700/40">
+                          <Share className="w-6 h-6 text-purple-600 mx-auto mb-2" />
+                          <h4 className="font-semibold text-sm mb-1">Share Your Plans</h4>
+                          <p className="text-xs text-muted-foreground">Send personalized invites to contacts via SMS, email, or copy-paste</p>
+                        </div>
+                        
+                        <div className="text-center p-4 bg-white/60 dark:bg-gray-800/40 rounded-lg border border-white/40 dark:border-gray-700/40">
+                          <BookOpen className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
+                          <h4 className="font-semibold text-sm mb-1">Share Journals</h4>
+                          <p className="text-xs text-muted-foreground">Let friends and family follow your daily reflections and mood tracking</p>
+                        </div>
+                        
+                        <div className="text-center p-4 bg-white/60 dark:bg-gray-800/40 rounded-lg border border-white/40 dark:border-gray-700/40">
+                          <CheckSquare className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+                          <h4 className="font-semibold text-sm mb-1">Share To-Do's</h4>
+                          <p className="text-xs text-muted-foreground">Create collaborative task lists for couples goals, family plans, and group adventures</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-gradient-to-r from-purple-500/10 to-emerald-500/10 p-4 rounded-lg border border-purple-300/30 dark:border-purple-600/30">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-lg flex items-center justify-center">
+                              <Contact className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-foreground">Secure Phone Contact Sync</p>
+                              <p className="text-sm text-muted-foreground">Safely import contacts with privacy protection</p>
+                            </div>
+                          </div>
+                          <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                            Available Now
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
 
                   <div className="bg-gradient-to-r from-primary/10 to-secondary/10 p-6 rounded-lg mt-4 border">
                     <h3 className="text-xl font-semibold mb-3">🎯 Coming Soon: Advanced Features</h3>
