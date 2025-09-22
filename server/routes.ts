@@ -4,8 +4,11 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupMultiProviderAuth } from "./multiProviderAuth";
 import { aiService } from "./services/aiService";
+import { contactSyncService } from "./contactSync";
 import { 
-  insertGoalSchema, 
+  insertGoalSchema,
+  syncContactsSchema,
+  addContactSchema, 
   insertTaskSchema, 
   insertJournalEntrySchema, 
   insertChatImportSchema,
@@ -309,15 +312,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const chatProcessingResult = await aiService.processChatHistory({
         source: data.source,
         conversationTitle: data.conversationTitle || 'Imported Conversation',
-        chatHistory: data.chatHistory
+        chatHistory: data.chatHistory as Array<{role: 'user' | 'assistant', content: string, timestamp?: string}>
       });
 
       // Create chat import record
       const chatImport = await storage.createChatImport({
         ...data,
         userId: DEMO_USER_ID,
-        extractedGoals: chatProcessingResult.extractedGoals,
-        processedAt: new Date()
+        extractedGoals: chatProcessingResult.extractedGoals
       });
 
       // Create tasks from the chat processing
@@ -415,7 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get pending reminders
   app.get("/api/notifications/reminders/pending", async (req, res) => {
     try {
-      const pendingReminders = await storage.getPendingReminders(DEMO_USER_ID);
+      const pendingReminders = await storage.getPendingReminders();
       res.json(pendingReminders);
     } catch (error) {
       console.error('Error fetching pending reminders:', error);
@@ -427,7 +429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/notifications/reminders/:id/sent", async (req, res) => {
     try {
       const { id } = req.params;
-      await storage.markReminderSent(id, DEMO_USER_ID);
+      await storage.markReminderSent(id);
       res.json({ success: true });
     } catch (error) {
       console.error('Error marking reminder as sent:', error);
@@ -486,6 +488,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error accepting scheduling suggestion:', error);
       res.status(500).json({ error: 'Failed to accept scheduling suggestion' });
+    }
+  });
+
+  // Contact Syncing and Sharing Routes
+  
+  // Sync phone contacts (secured)
+  app.post("/api/contacts/sync", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user?.id || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      // Validate request body using Zod
+      const validationResult = syncContactsSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: 'Invalid request data',
+          details: validationResult.error.errors
+        });
+      }
+      
+      const { contacts: phoneContacts } = validationResult.data;
+      const result = await contactSyncService.syncPhoneContacts(userId, phoneContacts);
+      
+      res.json({
+        success: true,
+        syncedCount: result.syncedCount,
+        contacts: result.contacts,
+        message: `Successfully synced ${result.syncedCount} contacts!`
+      });
+    } catch (error) {
+      console.error('Contact sync error:', error instanceof Error ? error.message : 'Unknown error');
+      res.status(500).json({ error: 'Failed to sync contacts' });
+    }
+  });
+
+  // Add manual contact (secured)
+  app.post("/api/contacts", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user?.id || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      // Validate request body using Zod
+      const validationResult = addContactSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: 'Invalid request data',
+          details: validationResult.error.errors
+        });
+      }
+      
+      const contactData = validationResult.data;
+      const contact = await contactSyncService.addManualContact(userId, contactData);
+      
+      res.json({
+        success: true,
+        contact,
+        message: 'Contact added successfully!'
+      });
+    } catch (error) {
+      console.error('Add contact error:', error instanceof Error ? error.message : 'Unknown error');
+      if (error instanceof Error && error.message === 'Contact already exists') {
+        return res.status(409).json({ error: 'Contact already exists' });
+      }
+      res.status(500).json({ error: 'Failed to add contact' });
+    }
+  });
+
+  // Get user's contacts with PathWise status (secured)
+  app.get("/api/contacts", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user?.id || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const contacts = await contactSyncService.getUserContactsWithStatus(userId);
+      res.json(contacts);
+    } catch (error) {
+      console.error('Get contacts error:', error instanceof Error ? error.message : 'Unknown error');
+      res.status(500).json({ error: 'Failed to fetch contacts' });
+    }
+  });
+
+  // Generate invite message for sharing
+  app.post("/api/sharing/generate-invite", async (req, res) => {
+    try {
+      const { planTitle, inviteLink } = req.body;
+      
+      if (!planTitle || !inviteLink) {
+        return res.status(400).json({ error: 'Plan title and invite link are required' });
+      }
+      
+      // Get user info for personalization
+      const user = await storage.getUser(DEMO_USER_ID);
+      const inviterName = user ? `${user.firstName || 'Someone'} ${user.lastName || ''}`.trim() : 'Someone';
+      
+      const inviteMessage = contactSyncService.generateInviteMessage(inviterName, planTitle, inviteLink);
+      
+      res.json({
+        success: true,
+        inviteMessage,
+        sharingOptions: {
+          sms: `sms:?body=${encodeURIComponent(inviteMessage)}`,
+          email: `mailto:?subject=${encodeURIComponent(`Join me on "${planTitle}"`)}&body=${encodeURIComponent(inviteMessage)}`,
+          copy: inviteMessage
+        }
+      });
+    } catch (error) {
+      console.error('Generate invite error:', error);
+      res.status(500).json({ error: 'Failed to generate invite' });
     }
   });
 

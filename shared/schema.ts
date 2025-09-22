@@ -398,3 +398,23 @@ export type InsertExternalOAuthToken = z.infer<typeof insertExternalOAuthTokenSc
 
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
+
+// Additional contact sync validation
+export const syncContactsSchema = z.object({
+  contacts: z.array(z.object({
+    name: z.string().min(1, "Name is required").max(100, "Name too long"),
+    emails: z.array(z.string().email("Invalid email")).optional().default([]),
+    tel: z.array(z.string().min(1, "Phone required")).optional().default([]),
+  })).max(100, "Too many contacts in one sync")
+});
+
+export const addContactSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100, "Name too long"),
+  email: z.string().email("Invalid email").optional(),
+  phone: z.string().min(1, "Phone required").optional(),
+}).refine(data => data.email || data.phone, {
+  message: "Either email or phone is required"
+});
+
+export type SyncContactsRequest = z.infer<typeof syncContactsSchema>;
+export type AddContactRequest = z.infer<typeof addContactSchema>;

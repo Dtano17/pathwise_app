@@ -11,6 +11,7 @@ import ProgressDashboard from '@/components/ProgressDashboard';
 import ClaudePlanOutput from '@/components/ClaudePlanOutput';
 import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
+import Contacts from './Contacts';
 import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar } from 'lucide-react';
 import { type Task, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
@@ -41,6 +42,8 @@ interface MainAppProps {
   onShowThemeSelector: (show: boolean) => void;
   showLocationDatePlanner: boolean;
   onShowLocationDatePlanner: (show: boolean) => void;
+  showContacts: boolean;
+  onShowContacts: (show: boolean) => void;
 }
 
 export default function MainApp({ 
@@ -49,7 +52,9 @@ export default function MainApp({
   showThemeSelector,
   onShowThemeSelector,
   showLocationDatePlanner,
-  onShowLocationDatePlanner 
+  onShowLocationDatePlanner,
+  showContacts,
+  onShowContacts
 }: MainAppProps) {
   const [activeTab, setActiveTab] = useState("input");
   const { toast } = useToast();
@@ -1139,13 +1144,18 @@ ChatGPT: I can help you create a plan..."
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-r from-primary/10 to-secondary/10 p-6 rounded-lg mt-8 border">
+                  <div className="bg-gradient-to-r from-green-100/50 to-emerald-100/50 dark:from-green-900/30 dark:to-emerald-900/30 p-6 rounded-lg mt-8 border border-green-200 dark:border-green-800">
+                    <h3 className="text-xl font-semibold mb-3">✅ New: Contact Integration</h3>
+                    <p className="text-muted-foreground mb-4">Sync your phone contacts and share goals with friends and family! Available now through the sidebar.</p>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-primary/10 to-secondary/10 p-6 rounded-lg mt-4 border">
                     <h3 className="text-xl font-semibold mb-3">🎯 Coming Soon: Advanced Features</h3>
                     <ul className="space-y-2 text-muted-foreground">
                       <li>• <strong>Smart Sync:</strong> Seamless integration with iPhone Notes, Samsung Memo, calendar, and maps</li>
                       <li>• <strong>Stock Strategy Companion:</strong> AI-powered trading assistant with risk management and alerts</li>
                       <li>• <strong>Geotagging Accountability:</strong> Location-based task completion verification</li>
-                      <li>• <strong>Contact Integration:</strong> Connect with your phone contacts for shared goals and accountability</li>
+                      <li>• <strong>Group Chat:</strong> Real-time collaboration and shared progress tracking</li>
                     </ul>
                   </div>
 
@@ -1165,6 +1175,32 @@ ChatGPT: I can help you create a plan..."
           </Tabs>
         </div>
       </main>
+
+      {/* Modals */}
+      <ThemeSelector
+        open={showThemeSelector}
+        onOpenChange={onShowThemeSelector}
+        onThemeSelect={onThemeSelect}
+      />
+
+      <LocationDatePlanner
+        open={showLocationDatePlanner}
+        onOpenChange={onShowLocationDatePlanner}
+      />
+
+      <Dialog open={showContacts} onOpenChange={onShowContacts}>
+        <DialogContent className="max-w-6xl h-[90vh]" data-testid="modal-contacts">
+          <DialogHeader>
+            <DialogTitle>Friends & Family</DialogTitle>
+            <DialogDescription>
+              Manage your contacts and share your goals with friends and family
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            <Contacts />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

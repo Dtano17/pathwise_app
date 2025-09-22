@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3 } from 'lucide-react';
+import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -34,13 +34,15 @@ interface AppSidebarProps {
   onThemeSelect?: (themeId: string) => void;
   onShowThemeSelector?: () => void;
   onShowDatePlanner?: () => void;
+  onShowContacts?: () => void;
 }
 
 export function AppSidebar({ 
   selectedTheme, 
   onThemeSelect, 
   onShowThemeSelector,
-  onShowDatePlanner 
+  onShowDatePlanner,
+  onShowContacts
 }: AppSidebarProps) {
   const { user, isAuthenticated, isLoading, login, logout, isLoggingOut } = useAuth();
   const selectedThemeData = selectedTheme ? themes.find(t => t.id === selectedTheme) : null;
@@ -126,6 +128,27 @@ export function AppSidebar({
                 >
                   <Target className="w-4 h-4" />
                   <span>Browse All Themes</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Friends & Family Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            Friends & Family
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  onClick={onShowContacts}
+                  data-testid="button-contacts-sidebar"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Manage Contacts</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

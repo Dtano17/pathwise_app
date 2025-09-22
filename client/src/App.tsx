@@ -13,6 +13,7 @@ function App() {
   const [selectedTheme, setSelectedTheme] = useState<string>('');
   const [showThemeSelector, setShowThemeSelector] = useState(false);
   const [showLocationDatePlanner, setShowLocationDatePlanner] = useState(false);
+  const [showContacts, setShowContacts] = useState(false);
 
   // Custom sidebar width for better content display
   const style = {
@@ -30,6 +31,7 @@ function App() {
               onThemeSelect={setSelectedTheme}
               onShowThemeSelector={() => setShowThemeSelector(true)}
               onShowDatePlanner={() => setShowLocationDatePlanner(true)}
+              onShowContacts={() => setShowContacts(true)}
             />
             <div className="flex flex-col flex-1">
               <MainApp 
@@ -39,6 +41,8 @@ function App() {
                 onShowThemeSelector={setShowThemeSelector}
                 showLocationDatePlanner={showLocationDatePlanner}
                 onShowLocationDatePlanner={setShowLocationDatePlanner}
+                showContacts={showContacts}
+                onShowContacts={setShowContacts}
               />
             </div>
           </div>

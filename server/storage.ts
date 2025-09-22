@@ -117,6 +117,8 @@ export interface IStorage {
   // Contacts
   createContact(contact: InsertContact & { ownerUserId: string }): Promise<Contact>;
   getUserContacts(userId: string, source?: string): Promise<Contact[]>;
+  updateContact(contactId: string, ownerUserId: string, updates: Partial<Omit<Contact, 'id' | 'ownerUserId' | 'createdAt' | 'updatedAt'>>): Promise<Contact>;
+  findContactByExternalId(userId: string, source: string, externalId: string): Promise<Contact | null>;
   updateContactMatches(): Promise<void>; // Batch match contacts to users by email
   deleteUserContacts(userId: string, source?: string): Promise<void>;
 }
@@ -416,6 +418,29 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(contacts.source, source));
     }
     return await db.select().from(contacts).where(and(...conditions)).orderBy(contacts.name);
+  }
+
+  async updateContact(contactId: string, ownerUserId: string, updates: Partial<Omit<Contact, 'id' | 'ownerUserId' | 'createdAt' | 'updatedAt'>>): Promise<Contact> {
+    const [result] = await db
+      .update(contacts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(contacts.id, contactId), eq(contacts.ownerUserId, ownerUserId)))
+      .returning();
+    return result;
+  }
+
+  async findContactByExternalId(userId: string, source: string, externalId: string): Promise<Contact | null> {
+    const results = await db
+      .select()
+      .from(contacts)
+      .where(and(
+        eq(contacts.ownerUserId, userId),
+        eq(contacts.source, source),
+        eq(contacts.externalId, externalId)
+      ))
+      .limit(1);
+    
+    return results[0] || null;
   }
 
   async updateContactMatches(): Promise<void> {
