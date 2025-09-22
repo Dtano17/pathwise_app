@@ -1004,228 +1004,106 @@ ChatGPT: I can help you create a plan..."
             </TabsContent>
 
             {/* About Tab */}
-            <TabsContent value="about" className="space-y-6">
+            <TabsContent value="about" className="space-y-8">
               <div className="max-w-4xl mx-auto">
-                <div className="text-center mb-8">
-                  <h2 className="text-4xl font-bold text-foreground mb-4 flex items-center justify-center gap-2">
-                    <Sparkles className="w-8 h-8" />
-                    Transform Goals into Reality Using AI as Your Companion
+                {/* Hero Section */}
+                <div className="text-center mb-12">
+                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-3xl mb-6 shadow-lg">
+                    <Sparkles className="w-10 h-10 text-white" />
+                  </div>
+                  <h2 className="text-4xl font-bold text-foreground mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
+                    PathWise AI
                   </h2>
-                  <p className="text-xl text-muted-foreground">
-                    Built for doers. Designed to deliver.
+                  <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                    Your AI-powered journaling companion that transforms goals into actionable plans and connects you with loved ones on your journey.
                   </p>
                 </div>
 
-                <div className="prose prose-lg max-w-none dark:prose-invert">
-                  <p className="text-muted-foreground text-lg leading-relaxed mb-8">
-                    This is more than a productivity tool—it's your lifestyle companion. Whether you're chasing short-term wins or long-term transformations, this AI-powered mobile app helps you turn intentions into actionable plans and holds you accountable every step of the way.
-                  </p>
-
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="bg-card p-6 rounded-lg border">
-                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
-                        <Mic className="w-5 h-5 text-primary" />
-                        Conversational Planning
-                      </h3>
-                      <p className="text-muted-foreground">
-                        Speak or write your goals—"I want to work out, take vitamins, prep for my Dallas trip"—and the app curates a personalized, step-by-step plan.
-                      </p>
+                {/* Core Features */}
+                <div className="grid gap-6 md:grid-cols-3 mb-12">
+                  <div className="text-center p-6 bg-card rounded-xl border hover-elevate">
+                    <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <Mic className="w-7 h-7 text-white" />
                     </div>
-
-                    <div className="bg-card p-6 rounded-lg border">
-                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
-                        <CheckSquare className="w-5 h-5 text-primary" />
-                        Swipe-Based Accountability
-                      </h3>
-                      <p className="text-muted-foreground">
-                        Receive task reminders as swipeable cards: Swipe right = task completed → logged as a checkpoint. Swipe left = task skipped → logged as missed.
-                      </p>
-                    </div>
-
-                    <div className="bg-card p-6 rounded-lg border">
-                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
-                        <BarChart3 className="w-5 h-5 text-primary" />
-                        AI Check-ins & Progress Tracking
-                      </h3>
-                      <p className="text-muted-foreground">
-                        Control how often the app nudges you—hourly, daily, weekly—based on your preferred cadence. Friendly pop-ups keep you on track without overwhelming you.
-                      </p>
-                    </div>
-
-                    <div className="bg-card p-6 rounded-lg border">
-                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
-                        <Target className="w-5 h-5 text-primary" />
-                        Future Projection
-                      </h3>
-                      <p className="text-muted-foreground">
-                        Planning a trip or lifestyle shift? The app anticipates your needs—lodging, transport, packing—and reminds you proactively.
-                      </p>
-                    </div>
-
-                    <div className="bg-card p-6 rounded-lg border">
-                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-primary" />
-                        Copy & Paste AI Chat Import
-                      </h3>
-                      <p className="text-muted-foreground">
-                        Simply copy and paste your conversations from ChatGPT, Claude, or any AI assistant. Our system intelligently extracts your goals and creates actionable accountability tasks from your discussions.
-                      </p>
-                      <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                        <Copy className="w-4 h-4" />
-                        <span>Direct copy-paste from AI platforms supported</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-card p-6 rounded-lg border">
-                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
-                        <RefreshCw className="w-5 h-5 text-primary" />
-                        Smart Sync & Lifestyle Pairing
-                      </h3>
-                      <p className="text-muted-foreground">
-                        Discover new habits and activities inspired by users with similar goals—like hiking, journaling, cold plunges, or travel routines.
-                      </p>
-                    </div>
-
-                    <div className="bg-card p-6 rounded-lg border">
-                      <h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
-                        <Users className="w-5 h-5 text-primary" />
-                        Group Goals & Shared Journaling
-                      </h3>
-                      <p className="text-muted-foreground mb-4">
-                        Create collaborative spaces where family and friends can join your journey! Share goals, track progress together, and build accountability through collective journaling and real-time updates.
-                      </p>
-                      
-                      <div className="space-y-3 text-sm">
-                        <div className="flex items-start gap-3">
-                          <div className="w-2 h-2 bg-primary rounded-full mt-2 shrink-0"></div>
-                          <div>
-                            <p className="font-medium text-foreground">Shared Goal Creation</p>
-                            <p className="text-muted-foreground">Invite members to contribute tasks to group objectives like "Girls Trip to Miami" or "Family Fitness Challenge"</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-start gap-3">
-                          <div className="w-2 h-2 bg-primary rounded-full mt-2 shrink-0"></div>
-                          <div>
-                            <p className="font-medium text-foreground">Real-Time Activity Feed</p>
-                            <p className="text-muted-foreground">See when group members complete tasks with instant strikethrough effects and celebratory notifications</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-start gap-3">
-                          <div className="w-2 h-2 bg-primary rounded-full mt-2 shrink-0"></div>
-                          <div>
-                            <p className="font-medium text-foreground">Collective Progress Tracking</p>
-                            <p className="text-muted-foreground">Visual progress bars show group momentum, completion rates, and milestone achievements</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-start gap-3">
-                          <div className="w-2 h-2 bg-primary rounded-full mt-2 shrink-0"></div>
-                          <div>
-                            <p className="font-medium text-foreground">Shared Reflection Journaling</p>
-                            <p className="text-muted-foreground">Group members can share daily reflections, mood tracking, and achievements with rich context about their journey</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-start gap-3">
-                          <div className="w-2 h-2 bg-primary rounded-full mt-2 shrink-0"></div>
-                          <div>
-                            <p className="font-medium text-foreground">Accountability Insights</p>
-                            <p className="text-muted-foreground">AI-powered insights suggest who might need encouragement and highlights group success patterns</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
-                        <p className="text-sm text-foreground font-medium mb-1">Perfect for:</p>
-                        <p className="text-xs text-muted-foreground">Family wellness goals • Friend group travel planning • Work team challenges • Study groups • Couples accountability • Fitness partnerships</p>
-                      </div>
-                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Voice & AI Planning</h3>
+                    <p className="text-sm text-muted-foreground">Speak your goals naturally and get personalized action plans instantly</p>
                   </div>
 
-                  <div className="bg-gradient-to-br from-purple-50 via-emerald-50 to-blue-50 dark:from-purple-900/20 dark:via-emerald-900/20 dark:to-blue-900/20 p-8 rounded-xl mt-8 border border-purple-200/50 dark:border-purple-700/50 shadow-lg">
-                    <div className="text-center mb-8">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-2xl mb-4 shadow-lg">
-                        <BookOpen className="w-8 h-8 text-white" />
-                      </div>
-                      <h3 className="text-2xl font-bold text-foreground mb-2 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
-                        Share Your Journaling & Planning Journey
+                  <div className="text-center p-6 bg-card rounded-xl border hover-elevate">
+                    <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <CheckSquare className="w-7 h-7 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Swipe to Complete</h3>
+                    <p className="text-sm text-muted-foreground">Interactive task cards with instant celebrations and progress tracking</p>
+                  </div>
+
+                  <div className="text-center p-6 bg-card rounded-xl border hover-elevate">
+                    <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <Users className="w-7 h-7 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Share & Collaborate</h3>
+                    <p className="text-sm text-muted-foreground">Connect with contacts to share journals, plans, and accountability</p>
+                  </div>
+                </div>
+
+                {/* Contact Sharing Highlight */}
+                <div className="bg-gradient-to-br from-purple-50 via-emerald-50 to-blue-50 dark:from-purple-900/20 dark:via-emerald-900/20 dark:to-blue-900/20 p-8 rounded-2xl border border-purple-200/50 dark:border-purple-700/50 shadow-lg mb-12">
+                  <div className="flex items-center justify-center gap-4 mb-6">
+                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-xl flex items-center justify-center">
+                      <BookOpen className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-xl font-bold text-foreground bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
+                        Share Your Journey
                       </h3>
-                      <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                        Transform your personal planning into a collaborative experience with friends, family, and loved ones
-                      </p>
-                    </div>
-
-                    <div className="grid gap-6 md:grid-cols-3 mb-8">
-                      <div className="text-center p-6 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-white/40 dark:border-gray-700/40 hover-elevate">
-                        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-                          <Target className="w-6 h-6 text-white" />
-                        </div>
-                        <h4 className="font-semibold text-base mb-2 text-foreground">Share Goal Plans</h4>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          Send your AI-generated action plans to contacts. Perfect for workout routines, travel itineraries, and life goals that need accountability partners.
-                        </p>
-                      </div>
-                      
-                      <div className="text-center p-6 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-white/40 dark:border-gray-700/40 hover-elevate">
-                        <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-                          <BookOpen className="w-6 h-6 text-white" />
-                        </div>
-                        <h4 className="font-semibold text-base mb-2 text-foreground">Share Daily Journal</h4>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          Let loved ones follow your daily reflections, mood tracking, and personal growth journey. Build deeper connections through shared vulnerability.
-                        </p>
-                      </div>
-                      
-                      <div className="text-center p-6 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-white/40 dark:border-gray-700/40 hover-elevate">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-                          <Users className="w-6 h-6 text-white" />
-                        </div>
-                        <h4 className="font-semibold text-base mb-2 text-foreground">Collaborative Planning</h4>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          Create shared task lists for couple goals, family planning, group trips, and team challenges. Plan together, achieve together.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="bg-gradient-to-r from-purple-500/10 to-emerald-500/10 p-6 rounded-xl border border-purple-300/30 dark:border-purple-600/30">
-                      <div className="flex items-center justify-between flex-wrap gap-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-xl flex items-center justify-center shrink-0">
-                            <Contact className="w-6 h-6 text-white" />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-foreground text-base">Secure Contact Integration</p>
-                            <p className="text-sm text-muted-foreground">Import your phone contacts safely and share your planning journey via SMS, email, or direct links</p>
-                          </div>
-                        </div>
-                        <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0">
-                          Live Now
-                        </Badge>
-                      </div>
+                      <p className="text-sm text-muted-foreground">Connect your planning with friends and family</p>
                     </div>
                   </div>
+                  
+                  <div className="grid gap-4 md:grid-cols-3 text-center">
+                    <div className="p-4 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-white/40 dark:border-gray-700/40">
+                      <Target className="w-6 h-6 text-purple-600 mx-auto mb-2" />
+                      <p className="text-sm font-medium">Goal Plans</p>
+                    </div>
+                    <div className="p-4 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-white/40 dark:border-gray-700/40">
+                      <BookOpen className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
+                      <p className="text-sm font-medium">Daily Journals</p>
+                    </div>
+                    <div className="p-4 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-white/40 dark:border-gray-700/40">
+                      <CheckSquare className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+                      <p className="text-sm font-medium">To-Do Lists</p>
+                    </div>
+                  </div>
+                </div>
 
-                  <div className="bg-gradient-to-r from-primary/10 to-secondary/10 p-6 rounded-lg mt-4 border">
-                    <h3 className="text-xl font-semibold mb-3">🎯 Coming Soon: Advanced Features</h3>
-                    <ul className="space-y-2 text-muted-foreground">
-                      <li>• <strong>Smart Sync:</strong> Seamless integration with iPhone Notes, Samsung Memo, calendar, and maps</li>
-                      <li>• <strong>Stock Strategy Companion:</strong> AI-powered trading assistant with risk management and alerts</li>
-                      <li>• <strong>Geotagging Accountability:</strong> Location-based task completion verification</li>
-                      <li>• <strong>Group Chat:</strong> Real-time collaboration and shared progress tracking</li>
-                    </ul>
+                {/* Additional Features */}
+                <div className="grid gap-4 md:grid-cols-2 mb-12">
+                  <div className="p-4 bg-muted/50 rounded-xl border">
+                    <div className="flex items-center gap-3 mb-2">
+                      <BarChart3 className="w-5 h-5 text-primary" />
+                      <h4 className="font-semibold">Progress Analytics</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Track streaks, completion rates, and lifestyle insights</p>
                   </div>
 
-                  <div className="text-center mt-8 p-6 bg-muted rounded-lg">
-                    <p className="text-lg font-semibold mb-2">Founded by Dennis Tanaruno</p>
-                    <p className="text-muted-foreground mb-4">Built for those who want to live with intention, structure, and momentum.</p>
-                    <Button asChild variant="outline">
-                      <a href="https://www.linkedin.com/in/dennis-tanaruno" target="_blank" rel="noopener noreferrer">
-                        Connect on LinkedIn
-                      </a>
-                    </Button>
+                  <div className="p-4 bg-muted/50 rounded-xl border">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Copy className="w-5 h-5 text-primary" />
+                      <h4 className="font-semibold">AI Chat Import</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Import conversations from ChatGPT, Claude, and more</p>
                   </div>
+                </div>
+
+                {/* Footer */}
+                <div className="text-center p-6 bg-muted/30 rounded-xl border">
+                  <p className="text-lg font-semibold mb-2">Founded by Dennis Tanaruno</p>
+                  <p className="text-muted-foreground mb-4">Built for those who want to live with intention and momentum</p>
+                  <Button asChild variant="outline" size="sm">
+                    <a href="https://www.linkedin.com/in/dennis-tanaruno" target="_blank" rel="noopener noreferrer">
+                      Connect on LinkedIn
+                    </a>
+                  </Button>
                 </div>
               </div>
             </TabsContent>
