@@ -421,7 +421,7 @@ Make suggestions that:
 Examples: "Try a 10-minute morning meditation", "Take a walk after lunch", "Schedule a weekly phone call with a friend"`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4-turbo-preview",
         messages: [
           {
             role: "system", 
