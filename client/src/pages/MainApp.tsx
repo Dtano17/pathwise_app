@@ -1144,56 +1144,68 @@ ChatGPT: I can help you create a plan..."
                     </div>
                   </div>
 
-                    <div className="bg-gradient-to-br from-purple-50 via-emerald-50 to-blue-50 dark:from-purple-900/20 dark:via-emerald-900/20 dark:to-blue-900/20 p-8 rounded-xl mt-8 border border-purple-200/50 dark:border-purple-700/50 shadow-lg">
-                      <div className="text-center mb-6">
-                        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-2xl mb-4 shadow-lg">
-                          <Users className="w-8 h-8 text-white" />
+                  <div className="bg-gradient-to-br from-purple-50 via-emerald-50 to-blue-50 dark:from-purple-900/20 dark:via-emerald-900/20 dark:to-blue-900/20 p-8 rounded-xl mt-8 border border-purple-200/50 dark:border-purple-700/50 shadow-lg">
+                    <div className="text-center mb-8">
+                      <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-2xl mb-4 shadow-lg">
+                        <BookOpen className="w-8 h-8 text-white" />
+                      </div>
+                      <h3 className="text-2xl font-bold text-foreground mb-2 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
+                        Share Your Journaling & Planning Journey
+                      </h3>
+                      <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                        Transform your personal planning into a collaborative experience with friends, family, and loved ones
+                      </p>
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-3 mb-8">
+                      <div className="text-center p-6 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-white/40 dark:border-gray-700/40 hover-elevate">
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                          <Target className="w-6 h-6 text-white" />
                         </div>
-                        <h3 className="text-2xl font-bold text-foreground mb-2 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
-                          Share Your Journey with Loved Ones
-                        </h3>
-                        <p className="text-lg text-muted-foreground">
-                          Connect, collaborate, and celebrate together
+                        <h4 className="font-semibold text-base mb-2 text-foreground">Share Goal Plans</h4>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          Send your AI-generated action plans to contacts. Perfect for workout routines, travel itineraries, and life goals that need accountability partners.
                         </p>
                       </div>
-
-                      <div className="grid gap-4 md:grid-cols-3 mb-6">
-                        <div className="text-center p-4 bg-white/60 dark:bg-gray-800/40 rounded-lg border border-white/40 dark:border-gray-700/40">
-                          <Share className="w-6 h-6 text-purple-600 mx-auto mb-2" />
-                          <h4 className="font-semibold text-sm mb-1">Share Your Plans</h4>
-                          <p className="text-xs text-muted-foreground">Send personalized invites to contacts via SMS, email, or copy-paste</p>
+                      
+                      <div className="text-center p-6 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-white/40 dark:border-gray-700/40 hover-elevate">
+                        <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                          <BookOpen className="w-6 h-6 text-white" />
                         </div>
-                        
-                        <div className="text-center p-4 bg-white/60 dark:bg-gray-800/40 rounded-lg border border-white/40 dark:border-gray-700/40">
-                          <BookOpen className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
-                          <h4 className="font-semibold text-sm mb-1">Share Journals</h4>
-                          <p className="text-xs text-muted-foreground">Let friends and family follow your daily reflections and mood tracking</p>
-                        </div>
-                        
-                        <div className="text-center p-4 bg-white/60 dark:bg-gray-800/40 rounded-lg border border-white/40 dark:border-gray-700/40">
-                          <CheckSquare className="w-6 h-6 text-blue-600 mx-auto mb-2" />
-                          <h4 className="font-semibold text-sm mb-1">Share To-Do's</h4>
-                          <p className="text-xs text-muted-foreground">Create collaborative task lists for couples goals, family plans, and group adventures</p>
-                        </div>
+                        <h4 className="font-semibold text-base mb-2 text-foreground">Share Daily Journal</h4>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          Let loved ones follow your daily reflections, mood tracking, and personal growth journey. Build deeper connections through shared vulnerability.
+                        </p>
                       </div>
-
-                      <div className="bg-gradient-to-r from-purple-500/10 to-emerald-500/10 p-4 rounded-lg border border-purple-300/30 dark:border-purple-600/30">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-lg flex items-center justify-center">
-                              <Contact className="w-5 h-5 text-white" />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-foreground">Secure Phone Contact Sync</p>
-                              <p className="text-sm text-muted-foreground">Safely import contacts with privacy protection</p>
-                            </div>
-                          </div>
-                          <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                            Available Now
-                          </Badge>
+                      
+                      <div className="text-center p-6 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-white/40 dark:border-gray-700/40 hover-elevate">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                          <Users className="w-6 h-6 text-white" />
                         </div>
+                        <h4 className="font-semibold text-base mb-2 text-foreground">Collaborative Planning</h4>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          Create shared task lists for couple goals, family planning, group trips, and team challenges. Plan together, achieve together.
+                        </p>
                       </div>
                     </div>
+
+                    <div className="bg-gradient-to-r from-purple-500/10 to-emerald-500/10 p-6 rounded-xl border border-purple-300/30 dark:border-purple-600/30">
+                      <div className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-xl flex items-center justify-center shrink-0">
+                            <Contact className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground text-base">Secure Contact Integration</p>
+                            <p className="text-sm text-muted-foreground">Import your phone contacts safely and share your planning journey via SMS, email, or direct links</p>
+                          </div>
+                        </div>
+                        <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0">
+                          Live Now
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
 
                   <div className="bg-gradient-to-r from-primary/10 to-secondary/10 p-6 rounded-lg mt-4 border">
                     <h3 className="text-xl font-semibold mb-3">🎯 Coming Soon: Advanced Features</h3>
