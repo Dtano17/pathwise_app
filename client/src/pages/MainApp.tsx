@@ -76,6 +76,9 @@ export default function MainApp({
   } | null>(null);
 
   // These states are now managed in App.tsx and passed as props
+  
+  // About page expandable features state
+  const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
 
   // Fetch tasks
   const { data: tasks = [], isLoading: tasksLoading, error: tasksError, refetch: refetchTasks } = useQuery<Task[]>({
@@ -1021,33 +1024,105 @@ ChatGPT: I can help you create a plan..."
 
                 {/* Core Features */}
                 <div className="grid gap-6 md:grid-cols-3 mb-12">
-                  <div className="text-center p-6 bg-card rounded-xl border hover-elevate">
+                  <p className="col-span-full text-center text-xs text-muted-foreground mb-2">
+                    💡 Click on any feature to learn more
+                  </p>
+                  <div 
+                    className="text-center p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200"
+                    onClick={() => setExpandedFeature(expandedFeature === 'voice' ? null : 'voice')}
+                    data-testid="feature-voice-planning"
+                  >
                     <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <Mic className="w-7 h-7 text-white" />
                     </div>
                     <h3 className="text-lg font-semibold mb-2">Voice & AI Planning</h3>
                     <p className="text-sm text-muted-foreground">Speak your goals naturally and get personalized action plans instantly</p>
+                    
+                    {expandedFeature === 'voice' && (
+                      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700 text-left">
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Speak or write your goals—"I want to work out, take vitamins, prep for my Dallas trip"—and the app curates a personalized, step-by-step plan.
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                          <Copy className="w-3 h-3" />
+                          <span>Copy & paste from ChatGPT, Claude, and other AI assistants supported</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="text-center p-6 bg-card rounded-xl border hover-elevate">
+                  <div 
+                    className="text-center p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200"
+                    onClick={() => setExpandedFeature(expandedFeature === 'swipe' ? null : 'swipe')}
+                    data-testid="feature-swipe-complete"
+                  >
                     <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <CheckSquare className="w-7 h-7 text-white" />
                     </div>
                     <h3 className="text-lg font-semibold mb-2">Swipe to Complete</h3>
                     <p className="text-sm text-muted-foreground">Interactive task cards with instant celebrations and progress tracking</p>
+                    
+                    {expandedFeature === 'swipe' && (
+                      <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700 text-left">
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Receive task reminders as swipeable cards: Swipe right = task completed → logged as a checkpoint. Swipe left = task skipped → logged as missed.
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Control how often the app nudges you—hourly, daily, weekly—based on your preferred cadence. Friendly pop-ups keep you on track without overwhelming you.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="text-center p-6 bg-card rounded-xl border hover-elevate">
+                  <div 
+                    className="text-center p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200"
+                    onClick={() => setExpandedFeature(expandedFeature === 'collaborate' ? null : 'collaborate')}
+                    data-testid="feature-share-collaborate"
+                  >
                     <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <Users className="w-7 h-7 text-white" />
                     </div>
                     <h3 className="text-lg font-semibold mb-2">Share & Collaborate</h3>
                     <p className="text-sm text-muted-foreground">Connect with contacts to share journals, plans, and accountability</p>
+                    
+                    {expandedFeature === 'collaborate' && (
+                      <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700 text-left">
+                        <div className="space-y-3 text-sm">
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 bg-purple-600 rounded-full mt-2 shrink-0"></div>
+                            <div>
+                              <p className="font-medium text-foreground">Shared Goal Creation</p>
+                              <p className="text-muted-foreground">Invite members to contribute tasks to group objectives like "Girls Trip to Miami" or "Family Fitness Challenge"</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 bg-purple-600 rounded-full mt-2 shrink-0"></div>
+                            <div>
+                              <p className="font-medium text-foreground">Real-Time Activity Feed</p>
+                              <p className="text-muted-foreground">See when group members complete tasks with instant strikethrough effects and celebratory notifications</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 bg-purple-600 rounded-full mt-2 shrink-0"></div>
+                            <div>
+                              <p className="font-medium text-foreground">Shared Reflection Journaling</p>
+                              <p className="text-muted-foreground">Group members can share daily reflections, mood tracking, and achievements with rich context about their journey</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Contact Sharing Highlight */}
-                <div className="bg-gradient-to-br from-purple-50 via-emerald-50 to-blue-50 dark:from-purple-900/20 dark:via-emerald-900/20 dark:to-blue-900/20 p-8 rounded-2xl border border-purple-200/50 dark:border-purple-700/50 shadow-lg mb-12">
+                <div 
+                  className="bg-gradient-to-br from-purple-50 via-emerald-50 to-blue-50 dark:from-purple-900/20 dark:via-emerald-900/20 dark:to-blue-900/20 p-8 rounded-2xl border border-purple-200/50 dark:border-purple-700/50 shadow-lg mb-12 cursor-pointer hover-elevate transition-all duration-200"
+                  onClick={() => setExpandedFeature(expandedFeature === 'sharing' ? null : 'sharing')}
+                  data-testid="feature-contact-sharing"
+                >
                   <div className="flex items-center justify-center gap-4 mb-6">
                     <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-xl flex items-center justify-center">
                       <BookOpen className="w-6 h-6 text-white" />
@@ -1074,6 +1149,36 @@ ChatGPT: I can help you create a plan..."
                       <p className="text-sm font-medium">To-Do Lists</p>
                     </div>
                   </div>
+
+                  {expandedFeature === 'sharing' && (
+                    <div className="mt-6 p-4 bg-white/80 dark:bg-gray-800/60 rounded-xl border border-white/60 dark:border-gray-700/60">
+                      <div className="space-y-4 text-sm">
+                        <div className="flex items-start gap-3">
+                          <div className="w-2 h-2 bg-purple-600 rounded-full mt-2 shrink-0"></div>
+                          <div>
+                            <p className="font-medium text-foreground">Secure Contact Integration</p>
+                            <p className="text-muted-foreground">Import your phone contacts safely with privacy protection and share via SMS, email, or direct links</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-start gap-3">
+                          <div className="w-2 h-2 bg-emerald-600 rounded-full mt-2 shrink-0"></div>
+                          <div>
+                            <p className="font-medium text-foreground">Personalized Invite Messages</p>
+                            <p className="text-muted-foreground">Auto-generated invitation messages for sharing your goals, journal entries, and collaborative planning sessions</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-start gap-3">
+                          <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 shrink-0"></div>
+                          <div>
+                            <p className="font-medium text-foreground">Real-Time Collaboration</p>
+                            <p className="text-muted-foreground">Perfect for couples goals, family planning, group trips, and accountability partnerships with live updates</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Additional Features */}
@@ -1113,16 +1218,6 @@ ChatGPT: I can help you create a plan..."
       </main>
 
       {/* Modals */}
-      <ThemeSelector
-        open={showThemeSelector}
-        onOpenChange={onShowThemeSelector}
-        onThemeSelect={onThemeSelect}
-      />
-
-      <LocationDatePlanner
-        open={showLocationDatePlanner}
-        onOpenChange={onShowLocationDatePlanner}
-      />
 
       <Dialog open={showContacts} onOpenChange={onShowContacts}>
         <DialogContent className="max-w-6xl h-[90vh]" data-testid="modal-contacts">
