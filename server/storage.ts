@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, isNull } from "drizzle-orm";
 import { 
   type User, 
   type InsertUser,
@@ -202,7 +202,7 @@ export class DatabaseStorage implements IStorage {
 
   // Journal Entries
   async createJournalEntry(entry: InsertJournalEntry & { userId: string }): Promise<JournalEntry> {
-    const result = await db.insert(journalEntries).values(entry).returning();
+    const result = await db.insert(journalEntries).values([entry]).returning();
     return result[0];
   }
 
@@ -230,7 +230,7 @@ export class DatabaseStorage implements IStorage {
 
   // Progress Stats
   async createProgressStats(stats: InsertProgressStats & { userId: string }): Promise<ProgressStats> {
-    const result = await db.insert(progressStats).values(stats).returning();
+    const result = await db.insert(progressStats).values([stats]).returning();
     return result[0];
   }
 
@@ -250,7 +250,7 @@ export class DatabaseStorage implements IStorage {
 
   // Chat Imports
   async createChatImport(chatImport: InsertChatImport & { userId: string }): Promise<ChatImport> {
-    const result = await db.insert(chatImports).values(chatImport).returning();
+    const result = await db.insert(chatImports).values([chatImport]).returning();
     return result[0];
   }
 
@@ -331,7 +331,7 @@ export class DatabaseStorage implements IStorage {
 
   // Scheduling Suggestions
   async createSchedulingSuggestion(suggestion: InsertSchedulingSuggestion & { userId: string }): Promise<SchedulingSuggestion> {
-    const result = await db.insert(schedulingSuggestions).values(suggestion).returning();
+    const result = await db.insert(schedulingSuggestions).values([suggestion]).returning();
     return result[0];
   }
 
@@ -406,7 +406,7 @@ export class DatabaseStorage implements IStorage {
 
   // Contacts
   async createContact(contact: InsertContact & { ownerUserId: string }): Promise<Contact> {
-    const [result] = await db.insert(contacts).values(contact).returning();
+    const [result] = await db.insert(contacts).values([contact]).returning();
     return result;
   }
 
@@ -422,7 +422,7 @@ export class DatabaseStorage implements IStorage {
     // Match contacts to existing users by email
     // This is a batch operation to find PathWise users among imported contacts
     const contactsWithEmails = await db.select().from(contacts)
-      .where(and(eq(contacts.matchedUserId, null), eq(contacts.emails, [])));
+      .where(isNull(contacts.matchedUserId));
     
     for (const contact of contactsWithEmails) {
       if (contact.emails && contact.emails.length > 0) {
