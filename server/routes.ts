@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupMultiProviderAuth } from "./multiProviderAuth";
 import { aiService } from "./services/aiService";
 import { 
   insertGoalSchema, 
@@ -19,6 +20,9 @@ import { z } from "zod";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware - Replit Auth integration
   await setupAuth(app);
+
+  // Multi-provider OAuth setup (Google, Facebook)
+  await setupMultiProviderAuth(app);
 
   // Auth routes - from blueprint:javascript_log_in_with_replit
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {

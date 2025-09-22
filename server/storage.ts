@@ -21,6 +21,12 @@ import {
   type InsertTaskReminder,
   type SchedulingSuggestion,
   type InsertSchedulingSuggestion,
+  type AuthIdentity,
+  type InsertAuthIdentity,
+  type ExternalOAuthToken,
+  type InsertExternalOAuthToken,
+  type Contact,
+  type InsertContact,
   users,
   goals,
   tasks,
@@ -29,7 +35,10 @@ import {
   chatImports,
   notificationPreferences,
   taskReminders,
-  schedulingSuggestions
+  schedulingSuggestions,
+  authIdentities,
+  externalOAuthTokens,
+  contacts
 } from "@shared/schema";
 
 const sql = neon(process.env.DATABASE_URL!);
@@ -91,6 +100,25 @@ export interface IStorage {
   getUserSchedulingSuggestions(userId: string, date?: string): Promise<SchedulingSuggestion[]>;
   acceptSchedulingSuggestion(suggestionId: string, userId: string): Promise<SchedulingSuggestion | undefined>;
   deleteSchedulingSuggestion(suggestionId: string, userId: string): Promise<void>;
+
+  // Auth Identities
+  createAuthIdentity(identity: InsertAuthIdentity & { userId: string }): Promise<AuthIdentity>;
+  getAuthIdentity(provider: string, providerUserId: string): Promise<AuthIdentity | undefined>;
+  getUserAuthIdentities(userId: string): Promise<AuthIdentity[]>;
+
+  // OAuth Tokens
+  upsertOAuthToken(token: InsertExternalOAuthToken & { userId: string }): Promise<ExternalOAuthToken>;
+  getOAuthToken(userId: string, provider: string): Promise<ExternalOAuthToken | undefined>;
+  deleteOAuthToken(userId: string, provider: string): Promise<void>;
+
+  // User lookup helpers
+  getUserByEmail(email: string): Promise<User | undefined>;
+
+  // Contacts
+  createContact(contact: InsertContact & { ownerUserId: string }): Promise<Contact>;
+  getUserContacts(userId: string, source?: string): Promise<Contact[]>;
+  updateContactMatches(): Promise<void>; // Batch match contacts to users by email
+  deleteUserContacts(userId: string, source?: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -330,6 +358,99 @@ export class DatabaseStorage implements IStorage {
   async deleteSchedulingSuggestion(suggestionId: string, userId: string): Promise<void> {
     await db.delete(schedulingSuggestions)
       .where(and(eq(schedulingSuggestions.id, suggestionId), eq(schedulingSuggestions.userId, userId)));
+  }
+
+  // Auth Identities
+  async createAuthIdentity(identity: InsertAuthIdentity & { userId: string }): Promise<AuthIdentity> {
+    const [result] = await db.insert(authIdentities).values(identity).returning();
+    return result;
+  }
+
+  async getAuthIdentity(provider: string, providerUserId: string): Promise<AuthIdentity | undefined> {
+    const [identity] = await db.select().from(authIdentities)
+      .where(and(eq(authIdentities.provider, provider), eq(authIdentities.providerUserId, providerUserId)));
+    return identity;
+  }
+
+  async getUserAuthIdentities(userId: string): Promise<AuthIdentity[]> {
+    return await db.select().from(authIdentities).where(eq(authIdentities.userId, userId));
+  }
+
+  // OAuth Tokens
+  async upsertOAuthToken(token: InsertExternalOAuthToken & { userId: string }): Promise<ExternalOAuthToken> {
+    const [result] = await db
+      .insert(externalOAuthTokens)
+      .values(token)
+      .onConflictDoUpdate({
+        target: [externalOAuthTokens.userId, externalOAuthTokens.provider],
+        set: {
+          ...token,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+
+  async getOAuthToken(userId: string, provider: string): Promise<ExternalOAuthToken | undefined> {
+    const [token] = await db.select().from(externalOAuthTokens)
+      .where(and(eq(externalOAuthTokens.userId, userId), eq(externalOAuthTokens.provider, provider)));
+    return token;
+  }
+
+  async deleteOAuthToken(userId: string, provider: string): Promise<void> {
+    await db.delete(externalOAuthTokens).where(
+      and(eq(externalOAuthTokens.userId, userId), eq(externalOAuthTokens.provider, provider))
+    );
+  }
+
+  // Contacts
+  async createContact(contact: InsertContact & { ownerUserId: string }): Promise<Contact> {
+    const [result] = await db.insert(contacts).values(contact).returning();
+    return result;
+  }
+
+  async getUserContacts(userId: string, source?: string): Promise<Contact[]> {
+    const conditions = [eq(contacts.ownerUserId, userId)];
+    if (source) {
+      conditions.push(eq(contacts.source, source));
+    }
+    return await db.select().from(contacts).where(and(...conditions)).orderBy(contacts.name);
+  }
+
+  async updateContactMatches(): Promise<void> {
+    // Match contacts to existing users by email
+    // This is a batch operation to find PathWise users among imported contacts
+    const contactsWithEmails = await db.select().from(contacts)
+      .where(and(eq(contacts.matchedUserId, null), eq(contacts.emails, [])));
+    
+    for (const contact of contactsWithEmails) {
+      if (contact.emails && contact.emails.length > 0) {
+        for (const email of contact.emails) {
+          const [user] = await db.select().from(users).where(eq(users.email, email));
+          if (user) {
+            await db.update(contacts)
+              .set({ matchedUserId: user.id, updatedAt: new Date() })
+              .where(eq(contacts.id, contact.id));
+            break; // Found a match, stop checking other emails
+          }
+        }
+      }
+    }
+  }
+
+  async deleteUserContacts(userId: string, source?: string): Promise<void> {
+    const conditions = [eq(contacts.ownerUserId, userId)];
+    if (source) {
+      conditions.push(eq(contacts.source, source));
+    }
+    await db.delete(contacts).where(and(...conditions));
+  }
+
+  // User lookup helpers
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
   }
 }
 
