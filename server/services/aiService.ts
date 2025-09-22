@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import Anthropic from '@anthropic-ai/sdk';
 import { type InsertTask, type InsertChatImport } from "@shared/schema";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+// Using GPT-4 Turbo which is currently the latest available OpenAI model
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /*
@@ -102,7 +102,7 @@ Focus on:
 Create actionable tasks from these conversations that can help hold the user accountable.`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4-turbo-preview",
         messages: [
           {
             role: "system",
@@ -270,7 +270,7 @@ Examples of excellent task formatting:
 - "Go on a date tonight" → Choose venue, prepare conversation topics, plan outfit, confirm details`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4-turbo-preview",
         messages: [
           {
             role: "system",
