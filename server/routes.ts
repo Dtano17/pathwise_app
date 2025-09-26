@@ -48,6 +48,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       await storage.upsertUser({ 
         id: DEMO_USER_ID,
+        username: "demo_user",
+        password: "demo_password",
         email: "demo@pathwise.ai",
         firstName: "Demo",
         lastName: "User"

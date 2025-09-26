@@ -58,8 +58,19 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
+  // Generate username from email if available, or use sub as fallback
+  const email = claims["email"];
+  let username = claims["sub"]; // fallback to user ID
+  
+  if (email && typeof email === 'string') {
+    // Extract username part from email and sanitize it
+    username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
+  }
+  
   await storage.upsertUser({
     id: claims["sub"],
+    username: username,
+    password: "oauth_user", // Placeholder password for OAuth users
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],

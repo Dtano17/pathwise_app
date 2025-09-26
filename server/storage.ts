@@ -204,7 +204,7 @@ export class DatabaseStorage implements IStorage {
 
   // Journal Entries
   async createJournalEntry(entry: InsertJournalEntry & { userId: string }): Promise<JournalEntry> {
-    const result = await db.insert(journalEntries).values([entry]).returning();
+    const result = await db.insert(journalEntries).values(entry).returning();
     return result[0];
   }
 
@@ -232,7 +232,7 @@ export class DatabaseStorage implements IStorage {
 
   // Progress Stats
   async createProgressStats(stats: InsertProgressStats & { userId: string }): Promise<ProgressStats> {
-    const result = await db.insert(progressStats).values([stats]).returning();
+    const result = await db.insert(progressStats).values(stats).returning();
     return result[0];
   }
 
@@ -252,7 +252,7 @@ export class DatabaseStorage implements IStorage {
 
   // Chat Imports
   async createChatImport(chatImport: InsertChatImport & { userId: string }): Promise<ChatImport> {
-    const result = await db.insert(chatImports).values([chatImport]).returning();
+    const result = await db.insert(chatImports).values(chatImport).returning();
     return result[0];
   }
 
