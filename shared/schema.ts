@@ -323,7 +323,7 @@ export type InsertSchedulingSuggestion = z.infer<typeof insertSchedulingSuggesti
 export const authIdentities = pgTable("auth_identities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  provider: text("provider").notNull(), // 'google' | 'facebook' | 'replit'
+  provider: text("provider").notNull(), // 'google' | 'facebook' | 'apple' | 'instagram' | 'replit'
   providerUserId: varchar("provider_user_id").notNull(),
   email: varchar("email"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -336,7 +336,7 @@ export const authIdentities = pgTable("auth_identities", {
 export const externalOAuthTokens = pgTable("external_oauth_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  provider: text("provider").notNull(), // 'google' | 'facebook'
+  provider: text("provider").notNull(), // 'google' | 'facebook' | 'apple' | 'instagram'
   accessToken: text("access_token").notNull(),
   refreshToken: text("refresh_token"),
   expiresAt: timestamp("expires_at"),
