@@ -17,6 +17,7 @@ import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dum
 import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { SocialLogin } from '@/components/SocialLogin';
 import NotificationManager from '@/components/NotificationManager';
 import SmartScheduler from '@/components/SmartScheduler';
 
@@ -284,17 +285,13 @@ export function AppSidebar({
                       </div>
                     ) : (
                       <div className="border-t pt-3">
-                        <Button
-                          onClick={login}
-                          className="w-full gap-2 mb-2"
-                          data-testid="button-login"
-                        >
-                          <LogIn className="w-4 h-4" />
-                          Sign in / Sign up
-                        </Button>
-                        <p className="text-xs text-muted-foreground text-center">
-                          Sign in with Gmail or Facebook
-                        </p>
+                        <div className="p-2 -mx-2">
+                          <SocialLogin 
+                            title="Sign in to continue"
+                            description="Access your goals, tasks, and personalized features"
+                            showReplitAuth={true}
+                          />
+                        </div>
                       </div>
                     )}
                   </>
