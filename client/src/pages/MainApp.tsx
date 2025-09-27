@@ -361,19 +361,19 @@ export default function MainApp({
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               {!open && <SidebarTrigger data-testid="button-sidebar-toggle" />}
-              <div className="w-16 h-16 flex items-center justify-center">
-                <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-16 h-16 object-contain" />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center">
+                <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">JournalMate</h1>
-                <p className="text-sm text-muted-foreground">Transform Goals into Reality</p>
+                <h1 className="text-lg sm:text-2xl font-bold text-foreground">JournalMate</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Transform Goals into Reality</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 sm:gap-3">
               <Badge variant="secondary" className="gap-1">
                 <Sparkles className="w-3 h-3" />
                 Live Demo
@@ -385,11 +385,11 @@ export default function MainApp({
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 h-full overflow-auto">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 h-full overflow-auto">
         <div className="max-w-6xl mx-auto">
           {/* Navigation Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-6 mb-8 bg-muted/30 p-1 h-12">
+            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 mb-4 sm:mb-8 bg-muted/30 p-1 h-10 sm:h-12 overflow-x-auto">
               <TabsTrigger value="input" className="gap-2 text-sm font-medium" data-testid="tab-input">
                 <Mic className="w-4 h-4" />
                 <span className="hidden sm:inline">Goal Input</span>
@@ -443,7 +443,7 @@ export default function MainApp({
               {!currentPlanOutput && !showThemeSelector && !showLocationDatePlanner && (
                 <div className="max-w-4xl mx-auto space-y-6">
                   {/* Quick Action Buttons */}
-                  <div className="flex justify-center gap-4 mb-6">
+                  <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 mb-6">
                     <Button
                       onClick={() => onShowThemeSelector(true)}
                       variant="outline"
@@ -467,7 +467,7 @@ export default function MainApp({
                   {/* Example goals */}
                   <div className="max-w-2xl mx-auto">
                     <p className="text-sm text-muted-foreground mb-4 text-center">Or try these quick examples:</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {[
                         { text: "Devise a workout plan", theme: "Health & Fitness", Icon: Dumbbell },
                         { text: "Focus on work productivity", theme: "Work Focus", Icon: Briefcase }, 
