@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SocialLogin } from '@/components/SocialLogin';
+import ProfileSettingsModal from '@/components/ProfileSettingsModal';
 import NotificationManager from '@/components/NotificationManager';
 import SmartScheduler from '@/components/SmartScheduler';
 
@@ -48,6 +49,8 @@ export function AppSidebar({
   const { user, isAuthenticated, isLoading, login, logout, isLoggingOut } = useAuth();
   const selectedThemeData = selectedTheme ? themes.find(t => t.id === selectedTheme) : null;
   const [isProfileExpanded, setIsProfileExpanded] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalTab, setModalTab] = useState<'profile' | 'settings'>('profile');
 
   const handleThemeSelect = (themeId: string) => {
     onThemeSelect?.(themeId);
@@ -256,6 +259,37 @@ export function AppSidebar({
               <CollapsibleContent className="space-y-3 mt-3">
                 {isAuthenticated && user ? (
                   <>
+                    {/* Profile and Settings Buttons */}
+                    <div className="border-t pt-3 space-y-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setModalTab('profile');
+                          setIsModalOpen(true);
+                        }}
+                        className="w-full justify-start gap-2"
+                        data-testid="button-profile"
+                      >
+                        <User className="w-4 h-4" />
+                        View Profile
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setModalTab('settings');
+                          setIsModalOpen(true);
+                        }}
+                        className="w-full justify-start gap-2"
+                        data-testid="button-settings"
+                      >
+                        <Settings className="w-4 h-4" />
+                        Settings
+                      </Button>
+                    </div>
+                    
                     {/* Sign Out Button */}
                     <div className="border-t pt-3">
                       <Button
@@ -301,6 +335,13 @@ export function AppSidebar({
           </Collapsible>
         </div>
       </SidebarContent>
+      
+      {/* Profile & Settings Modal */}
+      <ProfileSettingsModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        defaultTab={modalTab}
+      />
     </Sidebar>
   );
 }
