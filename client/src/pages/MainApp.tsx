@@ -14,7 +14,8 @@ import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Twitter, Youtube } from 'lucide-react';
+import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiTwitter } from 'react-icons/si';
 import { type Task, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -653,45 +654,124 @@ export default function MainApp({
               )}
             </TabsContent>
 
-            {/* Chat Sync Tab */}
+            {/* App Integrations Tab */}
             <TabsContent value="sync" className="h-full flex flex-col">
               <div className="text-center mb-6">
                 <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
                   <Sparkles className="w-6 h-6" />
-                  AI Chat Sync & Integration
+                  App Integrations
                 </h2>
                 <p className="text-muted-foreground">
-                  Import conversations from ChatGPT, Claude, and other AI assistants to extract actionable goals
+                  Connect your favorite AI assistants, music platforms, and social media to create personalized life plans
                 </p>
               </div>
 
-              <div className="max-w-4xl mx-auto space-y-6">
-                {/* Integration Icons */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <Card className="p-4 text-center hover-elevate">
-                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                      <MessageSquare className="w-6 h-6 text-green-600" />
-                    </div>
-                    <p className="text-sm font-medium">ChatGPT</p>
-                  </Card>
-                  <Card className="p-4 text-center hover-elevate">
-                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                      <Brain className="w-6 h-6 text-purple-600" />
-                    </div>
-                    <p className="text-sm font-medium">Claude</p>
-                  </Card>
-                  <Card className="p-4 text-center hover-elevate">
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                      <Sparkles className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <p className="text-sm font-medium">Perplexity</p>
-                  </Card>
-                  <Card className="p-4 text-center hover-elevate">
-                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                      <Lightbulb className="w-6 h-6 text-orange-600" />
-                    </div>
-                    <p className="text-sm font-medium">Other AI</p>
-                  </Card>
+              <div className="max-w-4xl mx-auto space-y-8">
+                {/* AI Assistants */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Brain className="w-5 h-5" />
+                    AI Assistants
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-chatgpt">
+                      <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <SiOpenai className="w-6 h-6 text-green-600" />
+                      </div>
+                      <p className="text-sm font-medium">ChatGPT</p>
+                      <Badge variant="outline" className="mt-1 text-xs">Connected</Badge>
+                    </Card>
+                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-claude">
+                      <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <SiClaude className="w-6 h-6 text-purple-600" />
+                      </div>
+                      <p className="text-sm font-medium">Claude</p>
+                      <Badge variant="outline" className="mt-1 text-xs">Connected</Badge>
+                    </Card>
+                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-perplexity">
+                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <SiPerplexity className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <p className="text-sm font-medium">Perplexity</p>
+                      <Badge variant="outline" className="mt-1 text-xs">Available</Badge>
+                    </Card>
+                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-other-ai">
+                      <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <Lightbulb className="w-6 h-6 text-orange-600" />
+                      </div>
+                      <p className="text-sm font-medium">Other AI</p>
+                      <Badge variant="outline" className="mt-1 text-xs">Available</Badge>
+                    </Card>
+                  </div>
+                </div>
+
+                {/* Music Platforms */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Music className="w-5 h-5" />
+                    Music Platforms
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-spotify">
+                      <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <SiSpotify className="w-6 h-6 text-green-600" />
+                      </div>
+                      <p className="text-sm font-medium">Spotify</p>
+                      <Badge variant="outline" className="mt-1 text-xs">Connect</Badge>
+                    </Card>
+                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-apple-music">
+                      <div className="w-12 h-12 bg-gray-100 dark:bg-gray-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <SiApplemusic className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+                      </div>
+                      <p className="text-sm font-medium">Apple Music</p>
+                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
+                    </Card>
+                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-youtube-music">
+                      <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <SiYoutubemusic className="w-6 h-6 text-red-600" />
+                      </div>
+                      <p className="text-sm font-medium">YouTube Music</p>
+                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
+                    </Card>
+                  </div>
+                </div>
+
+                {/* Social Media */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Social Media
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-facebook">
+                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <SiFacebook className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <p className="text-sm font-medium">Facebook</p>
+                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
+                    </Card>
+                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-instagram">
+                      <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <SiInstagram className="w-6 h-6 text-pink-600" />
+                      </div>
+                      <p className="text-sm font-medium">Instagram</p>
+                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
+                    </Card>
+                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-twitter">
+                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <SiTwitter className="w-6 h-6 text-blue-500" />
+                      </div>
+                      <p className="text-sm font-medium">Twitter/X</p>
+                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
+                    </Card>
+                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-youtube">
+                      <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <Youtube className="w-6 h-6 text-red-600" />
+                      </div>
+                      <p className="text-sm font-medium">YouTube</p>
+                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
+                    </Card>
+                  </div>
                 </div>
 
                 {/* Chat Import Form */}
