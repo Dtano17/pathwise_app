@@ -73,7 +73,7 @@ export default function NotificationManager({ userId, compact = false }: Notific
           // Send test notification
           new Notification('JournalMate', {
             body: 'Notifications are now enabled! You\'ll get reminders for your tasks.',
-            icon: '/journalmate-logo.png'
+            icon: '/journalmate-icon.png'
           });
         } else {
           toast({

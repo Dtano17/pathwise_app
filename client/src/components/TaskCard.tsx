@@ -53,7 +53,7 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification('JournalMate', {
         body: message,
-        icon: '/journalmate-logo.png',
+        icon: '/journalmate-icon.png',
         tag: 'task-action',
         requireInteraction: false,
         silent: false
