@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Clock, Calendar, ArrowRight, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Clock, Calendar, ArrowRight, ArrowLeft, Undo } from 'lucide-react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import Confetti from 'react-confetti';
+import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 
 interface Task {
   id: string;
@@ -26,6 +28,11 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
   const [dragDirection, setDragDirection] = useState<'left' | 'right' | null>(null);
   const [isCompleted, setIsCompleted] = useState(task.completed || false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'complete' | 'skip' | null>(null);
+  
+  const { toast, dismiss } = useToast();
+  const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentToastIdRef = useRef<string | null>(null);
 
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
@@ -73,22 +80,85 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
     }
   };
 
-  const handleDragEnd = (event: any, info: PanInfo) => {
-    const threshold = 150;
-    
-    if (info.offset.x > threshold) {
-      // Swiped right - complete task
-      triggerHapticFeedback('heavy');
+  // Cleanup function to clear pending actions
+  const clearPendingAction = () => {
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+    if (currentToastIdRef.current) {
+      dismiss(currentToastIdRef.current);
+      currentToastIdRef.current = null;
+    }
+    setPendingAction(null);
+  };
+
+  // Cleanup on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      clearPendingAction();
+    };
+  }, [dismiss]);
+
+  const executeAction = (action: 'complete' | 'skip') => {
+    if (action === 'complete') {
       setIsCompleted(true);
       setShowCelebration(true);
       onComplete(task.id);
-      showMobileAlert(`Task completed: ${task.title}`, 'success');
       setTimeout(() => setShowCelebration(false), 3000);
-    } else if (info.offset.x < -threshold) {
-      // Swiped left - skip task
-      triggerHapticFeedback('light');
+    } else {
       onSkip(task.id);
-      showMobileAlert(`Task skipped: ${task.title}`, 'info');
+    }
+    clearPendingAction();
+  };
+
+  const undoAction = () => {
+    clearPendingAction();
+  };
+
+  const handleDragEnd = (event: any, info: PanInfo) => {
+    const threshold = 150;
+    
+    // Clear any existing pending actions to prevent race conditions
+    clearPendingAction();
+    
+    if (info.offset.x > threshold) {
+      // Swiped right - prepare to complete task
+      triggerHapticFeedback('heavy');
+      setPendingAction('complete');
+      
+      const toastResult = toast({
+        title: "Task completed!",
+        description: `"${task.title}" will be marked as done in 3 seconds`,
+        action: (
+          <ToastAction altText="Undo" onClick={undoAction} data-testid={`button-undo-${task.id}`}>
+            <Undo className="w-4 h-4 mr-1" />
+            Undo
+          </ToastAction>
+        ),
+      });
+      
+      currentToastIdRef.current = toastResult.id;
+      undoTimeoutRef.current = setTimeout(() => executeAction('complete'), 3000);
+      
+    } else if (info.offset.x < -threshold) {
+      // Swiped left - prepare to skip task
+      triggerHapticFeedback('light');
+      setPendingAction('skip');
+      
+      const toastResult = toast({
+        title: "Task skipped",
+        description: `"${task.title}" will be removed from your list in 3 seconds`,
+        action: (
+          <ToastAction altText="Undo" onClick={undoAction} data-testid={`button-undo-${task.id}`}>
+            <Undo className="w-4 h-4 mr-1" />
+            Undo
+          </ToastAction>
+        ),
+      });
+      
+      currentToastIdRef.current = toastResult.id;
+      undoTimeoutRef.current = setTimeout(() => executeAction('skip'), 3000);
     }
     
     x.set(0);
