@@ -420,3 +420,89 @@ export const addContactSchema = z.object({
 
 export type SyncContactsRequest = z.infer<typeof syncContactsSchema>;
 export type AddContactRequest = z.infer<typeof addContactSchema>;
+
+// Extended user profiles for personal details
+export const userProfiles = pgTable("user_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  bio: text("bio"), // Personal bio/description
+  heightCm: integer("height_cm"), // Height in centimeters
+  weightKg: integer("weight_kg"), // Weight in kilograms
+  birthDate: text("birth_date"), // YYYY-MM-DD format for age calculation
+  sex: text("sex"), // 'male' | 'female' | 'other' | 'prefer_not_to_say'
+  ethnicity: text("ethnicity"), // Self-identified ethnicity
+  profileVisibility: text("profile_visibility").default("private"), // 'public' | 'friends' | 'private'
+  profileImageUrlOverride: varchar("profile_image_url_override"), // Override social media profile image
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueUserProfile: uniqueIndex("unique_user_profile").on(table.userId),
+}));
+
+// User preferences for lifestyle mapping and AI personalization
+export const userPreferences = pgTable("user_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  lifestyleGoalSummary: text("lifestyle_goal_summary"), // "Share your intentions" summary
+  preferences: jsonb("preferences").$type<{
+    notificationWindows?: { start: string; end: string }[];
+    preferredTaskTimes?: string[]; // ['morning', 'afternoon', 'evening']
+    activityTypes?: string[]; // ['fitness', 'meditation', 'learning', 'social', 'creative']
+    dietaryPreferences?: string[]; // ['vegetarian', 'vegan', 'keto', 'paleo', 'none']
+    sleepSchedule?: { bedtime: string; wakeTime: string };
+    workSchedule?: { startTime: string; endTime: string; workDays: string[] };
+    constraints?: string[]; // ['limited_mobility', 'time_constraints', 'budget_conscious']
+    communicationTone?: 'formal' | 'casual' | 'encouraging' | 'direct';
+    focusAreas?: string[]; // ['career', 'health', 'relationships', 'personal_growth', 'finance']
+  }>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueUserPreferences: uniqueIndex("unique_user_preferences").on(table.userId),
+}));
+
+// User consent and privacy controls
+export const userConsent = pgTable("user_consent", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  allowPersonalization: boolean("allow_personalization").default(false), // Can AI use personal data for recommendations?
+  shareIntentions: boolean("share_intentions").default(false), // Can the "Share your intentions" summary be used?
+  dataProcessingConsent: boolean("data_processing_consent").default(false), // General data processing consent
+  marketingConsent: boolean("marketing_consent").default(false), // Marketing communications consent
+  consentedAt: timestamp("consented_at").defaultNow(),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+}, (table) => ({
+  uniqueUserConsent: uniqueIndex("unique_user_consent").on(table.userId),
+}));
+
+// Create insert schemas for new tables
+export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserConsentSchema = createInsertSchema(userConsent).omit({
+  id: true,
+  userId: true,
+  consentedAt: true,
+  lastUpdated: true,
+});
+
+// TypeScript types for new tables
+export type UserProfile = typeof userProfiles.$inferSelect;
+export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
+
+export type UserPreferences = typeof userPreferences.$inferSelect;
+export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
+
+export type UserConsent = typeof userConsent.$inferSelect;
+export type InsertUserConsent = z.infer<typeof insertUserConsentSchema>;

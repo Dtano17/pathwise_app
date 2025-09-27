@@ -27,6 +27,12 @@ import {
   type InsertExternalOAuthToken,
   type Contact,
   type InsertContact,
+  type UserProfile,
+  type InsertUserProfile,
+  type UserPreferences,
+  type InsertUserPreferences,
+  type UserConsent,
+  type InsertUserConsent,
   users,
   goals,
   tasks,
@@ -38,7 +44,10 @@ import {
   schedulingSuggestions,
   authIdentities,
   externalOAuthTokens,
-  contacts
+  contacts,
+  userProfiles,
+  userPreferences,
+  userConsent
 } from "@shared/schema";
 
 const sql = neon(process.env.DATABASE_URL!);
@@ -121,6 +130,21 @@ export interface IStorage {
   findContactByExternalId(userId: string, source: string, externalId: string): Promise<Contact | null>;
   updateContactMatches(): Promise<void>; // Batch match contacts to users by email
   deleteUserContacts(userId: string, source?: string): Promise<void>;
+
+  // User Profile
+  getUserProfile(userId: string): Promise<UserProfile | undefined>;
+  upsertUserProfile(userId: string, profile: InsertUserProfile): Promise<UserProfile>;
+  deleteUserProfile(userId: string): Promise<void>;
+
+  // User Preferences
+  getUserPreferences(userId: string): Promise<UserPreferences | undefined>;
+  upsertUserPreferences(userId: string, preferences: InsertUserPreferences): Promise<UserPreferences>;
+  deleteUserPreferences(userId: string): Promise<void>;
+
+  // User Consent
+  getUserConsent(userId: string): Promise<UserConsent | undefined>;
+  upsertUserConsent(userId: string, consent: InsertUserConsent): Promise<UserConsent>;
+  deleteUserConsent(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -476,6 +500,87 @@ export class DatabaseStorage implements IStorage {
   async getUserByEmail(email: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
+  }
+
+  // User Profile operations
+  async getUserProfile(userId: string): Promise<UserProfile | undefined> {
+    const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));
+    return profile;
+  }
+
+  async upsertUserProfile(userId: string, profile: InsertUserProfile): Promise<UserProfile> {
+    const existingProfile = await this.getUserProfile(userId);
+    
+    if (existingProfile) {
+      const [updated] = await db.update(userProfiles)
+        .set({ ...profile, updatedAt: new Date() })
+        .where(eq(userProfiles.userId, userId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(userProfiles)
+        .values({ ...profile, userId })
+        .returning();
+      return created;
+    }
+  }
+
+  async deleteUserProfile(userId: string): Promise<void> {
+    await db.delete(userProfiles).where(eq(userProfiles.userId, userId));
+  }
+
+  // User Preferences operations
+  async getUserPreferences(userId: string): Promise<UserPreferences | undefined> {
+    const [preferences] = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
+    return preferences;
+  }
+
+  async upsertUserPreferences(userId: string, preferences: InsertUserPreferences): Promise<UserPreferences> {
+    const existingPreferences = await this.getUserPreferences(userId);
+    
+    if (existingPreferences) {
+      const [updated] = await db.update(userPreferences)
+        .set({ ...preferences, updatedAt: new Date() })
+        .where(eq(userPreferences.userId, userId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(userPreferences)
+        .values({ ...preferences, userId })
+        .returning();
+      return created;
+    }
+  }
+
+  async deleteUserPreferences(userId: string): Promise<void> {
+    await db.delete(userPreferences).where(eq(userPreferences.userId, userId));
+  }
+
+  // User Consent operations
+  async getUserConsent(userId: string): Promise<UserConsent | undefined> {
+    const [consent] = await db.select().from(userConsent).where(eq(userConsent.userId, userId));
+    return consent;
+  }
+
+  async upsertUserConsent(userId: string, consent: InsertUserConsent): Promise<UserConsent> {
+    const existingConsent = await this.getUserConsent(userId);
+    
+    if (existingConsent) {
+      const [updated] = await db.update(userConsent)
+        .set({ ...consent, lastUpdated: new Date() })
+        .where(eq(userConsent.userId, userId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(userConsent)
+        .values({ ...consent, userId })
+        .returning();
+      return created;
+    }
+  }
+
+  async deleteUserConsent(userId: string): Promise<void> {
+    await db.delete(userConsent).where(eq(userConsent.userId, userId));
   }
 }
 
