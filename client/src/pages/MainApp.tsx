@@ -14,8 +14,8 @@ import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Twitter, Youtube } from 'lucide-react';
-import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiTwitter } from 'react-icons/si';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube } from 'lucide-react';
+import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -371,10 +371,10 @@ export default function MainApp({
                 <span className="hidden sm:inline">Groups</span>
                 <span className="sm:hidden">Groups</span>
               </TabsTrigger>
-              <TabsTrigger value="sync" className="gap-2 text-sm font-medium" data-testid="tab-sync">
-                <MessageSquare className="w-4 h-4" />
-                <span className="hidden sm:inline">AI Chat</span>
-                <span className="sm:hidden">Chat</span>
+              <TabsTrigger value="sync" className="gap-2 text-sm font-medium" data-testid="tab-integrations">
+                <Sparkles className="w-4 h-4" />
+                <span className="hidden sm:inline">Integrations</span>
+                <span className="sm:hidden">Apps</span>
               </TabsTrigger>
               <TabsTrigger value="about" className="gap-2 text-sm font-medium" data-testid="tab-about">
                 <Sparkles className="w-4 h-4" />
@@ -717,7 +717,7 @@ export default function MainApp({
                         <SiSpotify className="w-6 h-6 text-green-600" />
                       </div>
                       <p className="text-sm font-medium">Spotify</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Connect</Badge>
+                      <Badge variant="default" className="mt-1 text-xs bg-green-600 text-white">Connected</Badge>
                     </Card>
                     <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-apple-music">
                       <div className="w-12 h-12 bg-gray-100 dark:bg-gray-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
@@ -758,8 +758,8 @@ export default function MainApp({
                       <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
                     </Card>
                     <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-twitter">
-                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiTwitter className="w-6 h-6 text-blue-500" />
+                      <div className="w-12 h-12 bg-gray-100 dark:bg-gray-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <SiX className="w-6 h-6 text-gray-900 dark:text-gray-100" />
                       </div>
                       <p className="text-sm font-medium">Twitter/X</p>
                       <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
@@ -875,13 +875,10 @@ Assistant: For nutrition, I recommend..."
                       {chatImports.slice(0, 5).map((chatImport) => (
                         <div key={chatImport.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover-elevate">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{chatImport.title}</p>
+                            <p className="text-sm font-medium truncate">{chatImport.conversationTitle || 'Untitled Conversation'}</p>
                             <p className="text-xs text-muted-foreground">
-                              {chatImport.extractedGoals.length} goals extracted • {new Date(chatImport.processedAt).toLocaleDateString()}
+                              {chatImport.extractedGoals?.length || 0} goals extracted • {chatImport.processedAt ? new Date(chatImport.processedAt).toLocaleDateString() : 'Processing...'}
                             </p>
-                            {chatImport.summary && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{chatImport.summary}</p>
-                            )}
                           </div>
                           <div className="flex items-center gap-2 ml-4">
                             <Badge variant="outline" className="text-xs">
@@ -889,7 +886,7 @@ Assistant: For nutrition, I recommend..."
                             </Badge>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Target className="w-3 h-3" />
-                              {chatImport.extractedGoals.length}
+                              {chatImport.extractedGoals?.length || 0}
                             </div>
                           </div>
                         </div>
