@@ -326,3 +326,68 @@
     inset: -1px;
   }
 }
+
+/* Mobile touch optimization */
+.touch-pan-y {
+  touch-action: pan-y;
+}
+
+/* Improve mobile scrolling and touch */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Allow text selection where needed */
+input, textarea, [contenteditable] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* Smooth momentum scrolling on iOS */
+body, html {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+}
+
+/* Responsive improvements for mobile */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  /* Better touch targets on mobile */
+  button, [role="button"], .cursor-pointer {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Adjust tab navigation for mobile */
+  [role="tablist"] {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  [role="tablist"]::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Medium screens (tablets) */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Large screens (desktop) */
+@media (min-width: 1024px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}

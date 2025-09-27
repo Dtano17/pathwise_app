@@ -122,7 +122,7 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
   };
 
   const handleDragEnd = (event: any, info: PanInfo) => {
-    const threshold = 150;
+    const threshold = 100; // Reduced threshold for better mobile sensitivity
     const absX = Math.abs(info.offset.x);
     const absY = Math.abs(info.offset.y);
     
@@ -292,14 +292,16 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
 
       <motion.div
         drag
-        dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-        style={{ x, y, rotate, opacity }}
+        dragConstraints={{ left: -240, right: 240, top: -120, bottom: 120 }}
+        dragMomentum={false}
+        dragElastic={0.2}
+        dragTransition={{ bounceStiffness: 600, bounceDamping: 20 }}
+        style={{ x, y, rotate, rotateY, opacity }}
         onDrag={handleDrag}
         onDragEnd={handleDragEnd}
-        className="relative z-10 cursor-grab active:cursor-grabbing"
+        className="relative z-10 cursor-grab active:cursor-grabbing select-none touch-pan-y"
         data-testid={`task-card-${task.id}`}
         whileTap={{ scale: 0.98 }}
-        dragElastic={0.2}
       >
         <Card className={`p-4 hover-elevate transition-all duration-200 ${
           dragDirection === 'right' ? 'border-green-300 shadow-green-100' :

@@ -44,7 +44,7 @@ export function SocialLogin({
               data-testid="button-login-replit"
             >
               <Sparkles className="w-5 h-5" />
-              Continue with Replit
+              Sign in with Replit
             </Button>
             
             <div className="relative">
@@ -53,7 +53,7 @@ export function SocialLogin({
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with
+                  Or sign in with
                 </span>
               </div>
             </div>
@@ -70,7 +70,7 @@ export function SocialLogin({
             data-testid="button-login-google"
           >
             <SiGoogle className="w-5 h-5 text-[#4285F4]" />
-            Continue with Google
+            Sign in with Google
           </Button>
 
           {/* Facebook */}
@@ -81,7 +81,7 @@ export function SocialLogin({
             data-testid="button-login-facebook"
           >
             <SiFacebook className="w-5 h-5 text-[#1877F2]" />
-            Continue with Facebook
+            Sign in with Facebook
           </Button>
 
           {/* Apple */}
@@ -92,7 +92,7 @@ export function SocialLogin({
             data-testid="button-login-apple"
           >
             <SiApple className="w-5 h-5 text-foreground" />
-            Continue with Apple
+            Sign in with Apple
           </Button>
 
           {/* Instagram */}
@@ -103,7 +103,7 @@ export function SocialLogin({
             data-testid="button-login-instagram"
           >
             <SiInstagram className="w-5 h-5 text-[#E4405F]" />
-            Continue with Instagram
+            Sign in with Instagram
           </Button>
         </div>
 

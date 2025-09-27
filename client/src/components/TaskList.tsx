@@ -45,7 +45,7 @@ export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onTaskSnoo
   const completedTasks = tasks.filter(task => task.completed);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 touch-pan-y">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <CheckSquare className="w-6 h-6 text-primary" />
