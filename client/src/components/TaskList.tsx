@@ -21,10 +21,11 @@ interface TaskListProps {
   tasks: Task[];
   onTaskComplete: (taskId: string) => void;
   onTaskSkip: (taskId: string) => void;
+  onTaskSnooze: (taskId: string, hours: number) => void;
   onAddTask: () => void;
 }
 
-export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onAddTask }: TaskListProps) {
+export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onTaskSnooze, onAddTask }: TaskListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPriority, setFilterPriority] = useState<'all' | 'low' | 'medium' | 'high'>('all');
   const [filterCategory, setFilterCategory] = useState('all');
@@ -145,6 +146,7 @@ export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onAddTask 
                     task={task}
                     onComplete={onTaskComplete}
                     onSkip={onTaskSkip}
+                    onSnooze={onTaskSnooze}
                     showConfetti={true}
                   />
                 </motion.div>

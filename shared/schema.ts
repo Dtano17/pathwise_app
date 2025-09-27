@@ -315,6 +315,9 @@ export type InsertProgressStats = z.infer<typeof insertProgressStatsSchema>;
 export type ChatImport = typeof chatImports.$inferSelect;
 export type InsertChatImport = z.infer<typeof insertChatImportSchema>;
 
+export type Priority = typeof priorities.$inferSelect;
+export type InsertPriority = z.infer<typeof insertPrioritySchema>;
+
 export type Group = typeof groups.$inferSelect;
 export type InsertGroup = z.infer<typeof insertGroupSchema>;
 
@@ -438,6 +441,68 @@ export const addContactSchema = z.object({
 export type SyncContactsRequest = z.infer<typeof syncContactsSchema>;
 export type AddContactRequest = z.infer<typeof addContactSchema>;
 
+// Task actions tracking for achievements
+export const taskActions = pgTable("task_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  taskId: varchar("task_id").references(() => tasks.id, { onDelete: "cascade" }).notNull(),
+  action: text("action").notNull(), // 'completed' | 'skipped' | 'snoozed' | 'created'
+  actionData: jsonb("action_data").$type<{
+    snoozeHours?: number;
+    skipReason?: string;
+    category?: string;
+    priority?: string;
+    timeSpent?: number; // minutes
+  }>().default({}),
+  performedAt: timestamp("performed_at").defaultNow().notNull(),
+  date: text("date").notNull(), // YYYY-MM-DD format for easy grouping
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userDateIndex: index("user_date_index").on(table.userId, table.date),
+  userActionIndex: index("user_action_index").on(table.userId, table.action),
+}));
+
+// Achievements tracking
+export const achievements = pgTable("achievements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  achievementType: text("achievement_type").notNull(), // 'daily_streak' | 'tasks_completed' | 'category_master' | 'productivity_boost'
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  badgeIcon: text("badge_icon").notNull(), // emoji or icon name
+  level: integer("level").default(1), // achievement level (1-5)
+  points: integer("points").default(0),
+  isActive: boolean("is_active").default(true),
+  unlockedAt: timestamp("unlocked_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userAchievementIndex: index("user_achievement_index").on(table.userId, table.achievementType),
+}));
+
+// User statistics aggregated by time period
+export const userStatistics = pgTable("user_statistics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  period: text("period").notNull(), // 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+  periodKey: text("period_key").notNull(), // '2024-01-01' | '2024-W01' | '2024-01' | '2024-Q1' | '2024'
+  stats: jsonb("stats").$type<{
+    tasksCompleted: number;
+    tasksSkipped: number;
+    tasksSnoozed: number;
+    tasksCreated: number;
+    categoriesWorkedOn: string[];
+    totalTimeSpent: number; // minutes
+    streakDays: number;
+    productivityScore: number; // 0-100
+    achievements: string[]; // achievement IDs unlocked in this period
+  }>().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueUserPeriod: uniqueIndex("unique_user_period").on(table.userId, table.period, table.periodKey),
+  userPeriodIndex: index("user_period_index").on(table.userId, table.period),
+}));
+
 // Extended user profiles for personal details
 export const userProfiles = pgTable("user_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -523,3 +588,34 @@ export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
 
 export type UserConsent = typeof userConsent.$inferSelect;
 export type InsertUserConsent = z.infer<typeof insertUserConsentSchema>;
+
+// Task actions tracking types
+export const insertTaskActionSchema = createInsertSchema(taskActions).omit({
+  id: true,
+  userId: true,
+  date: true,
+  createdAt: true,
+});
+
+export const insertAchievementSchema = createInsertSchema(achievements).omit({
+  id: true,
+  userId: true,
+  unlockedAt: true,
+  createdAt: true,
+});
+
+export const insertUserStatisticsSchema = createInsertSchema(userStatistics).omit({
+  id: true,
+  userId: true,
+  updatedAt: true,
+  createdAt: true,
+});
+
+export type TaskAction = typeof taskActions.$inferSelect;
+export type InsertTaskAction = z.infer<typeof insertTaskActionSchema>;
+
+export type Achievement = typeof achievements.$inferSelect;
+export type InsertAchievement = z.infer<typeof insertAchievementSchema>;
+
+export type UserStatistics = typeof userStatistics.$inferSelect;
+export type InsertUserStatistics = z.infer<typeof insertUserStatisticsSchema>;

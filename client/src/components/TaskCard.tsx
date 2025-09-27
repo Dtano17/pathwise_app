@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Clock, Calendar, ArrowRight, ArrowLeft, Undo } from 'lucide-react';
+import { CheckCircle, Clock, Calendar, ArrowRight, ArrowLeft, ArrowUp, Undo } from 'lucide-react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import Confetti from 'react-confetti';
 import { useToast } from '@/hooks/use-toast';
@@ -21,21 +21,24 @@ interface TaskCardProps {
   task: Task;
   onComplete: (taskId: string) => void;
   onSkip: (taskId: string) => void;
+  onSnooze: (taskId: string, hours: number) => void;
   showConfetti?: boolean;
 }
 
-export default function TaskCard({ task, onComplete, onSkip, showConfetti = false }: TaskCardProps) {
-  const [dragDirection, setDragDirection] = useState<'left' | 'right' | null>(null);
+export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfetti = false }: TaskCardProps) {
+  const [dragDirection, setDragDirection] = useState<'left' | 'right' | 'up' | null>(null);
   const [isCompleted, setIsCompleted] = useState(task.completed || false);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'complete' | 'skip' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'complete' | 'skip' | 'snooze' | null>(null);
   
   const { toast, dismiss } = useToast();
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentToastIdRef = useRef<string | null>(null);
 
   const x = useMotionValue(0);
+  const y = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
+  const rotateY = useTransform(y, [-150, 150], [5, -5]);
   const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0.5, 0.8, 1, 0.8, 0.5]);
 
   const triggerHapticFeedback = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
@@ -100,14 +103,16 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
     };
   }, [dismiss]);
 
-  const executeAction = (action: 'complete' | 'skip') => {
+  const executeAction = (action: 'complete' | 'skip' | 'snooze') => {
     if (action === 'complete') {
       setIsCompleted(true);
       setShowCelebration(true);
       onComplete(task.id);
       setTimeout(() => setShowCelebration(false), 3000);
-    } else {
+    } else if (action === 'skip') {
       onSkip(task.id);
+    } else if (action === 'snooze') {
+      onSnooze(task.id, 2); // Snooze for 2 hours by default
     }
     clearPendingAction();
   };
@@ -118,18 +123,60 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
 
   const handleDragEnd = (event: any, info: PanInfo) => {
     const threshold = 150;
+    const absX = Math.abs(info.offset.x);
+    const absY = Math.abs(info.offset.y);
     
     // Clear any existing pending actions to prevent race conditions
     clearPendingAction();
     
-    if (info.offset.x > threshold) {
-      // Swiped right - prepare to complete task
-      triggerHapticFeedback('heavy');
-      setPendingAction('complete');
+    if (absX > absY) {
+      // Horizontal swipe
+      if (info.offset.x > threshold) {
+        // Swiped right - prepare to complete task
+        triggerHapticFeedback('heavy');
+        setPendingAction('complete');
+        
+        const toastResult = toast({
+          title: "Task completed!",
+          description: `"${task.title}" will be marked as done in 3 seconds`,
+          action: (
+            <ToastAction altText="Undo" onClick={undoAction} data-testid={`button-undo-${task.id}`}>
+              <Undo className="w-4 h-4 mr-1" />
+              Undo
+            </ToastAction>
+          ),
+        });
+        
+        currentToastIdRef.current = toastResult.id;
+        undoTimeoutRef.current = setTimeout(() => executeAction('complete'), 3000);
+        
+      } else if (info.offset.x < -threshold) {
+        // Swiped left - prepare to skip task
+        triggerHapticFeedback('light');
+        setPendingAction('skip');
+        
+        const toastResult = toast({
+          title: "Task skipped",
+          description: `"${task.title}" will be removed from your list in 3 seconds`,
+          action: (
+            <ToastAction altText="Undo" onClick={undoAction} data-testid={`button-undo-${task.id}`}>
+              <Undo className="w-4 h-4 mr-1" />
+              Undo
+            </ToastAction>
+          ),
+        });
+        
+        currentToastIdRef.current = toastResult.id;
+        undoTimeoutRef.current = setTimeout(() => executeAction('skip'), 3000);
+      }
+    } else if (info.offset.y < -threshold) {
+      // Swiped up - prepare to snooze task
+      triggerHapticFeedback('medium');
+      setPendingAction('snooze');
       
       const toastResult = toast({
-        title: "Task completed!",
-        description: `"${task.title}" will be marked as done in 3 seconds`,
+        title: "Task snoozed!",
+        description: `"${task.title}" will be postponed for 2 hours in 3 seconds`,
         action: (
           <ToastAction altText="Undo" onClick={undoAction} data-testid={`button-undo-${task.id}`}>
             <Undo className="w-4 h-4 mr-1" />
@@ -139,41 +186,38 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
       });
       
       currentToastIdRef.current = toastResult.id;
-      undoTimeoutRef.current = setTimeout(() => executeAction('complete'), 3000);
-      
-    } else if (info.offset.x < -threshold) {
-      // Swiped left - prepare to skip task
-      triggerHapticFeedback('light');
-      setPendingAction('skip');
-      
-      const toastResult = toast({
-        title: "Task skipped",
-        description: `"${task.title}" will be removed from your list in 3 seconds`,
-        action: (
-          <ToastAction altText="Undo" onClick={undoAction} data-testid={`button-undo-${task.id}`}>
-            <Undo className="w-4 h-4 mr-1" />
-            Undo
-          </ToastAction>
-        ),
-      });
-      
-      currentToastIdRef.current = toastResult.id;
-      undoTimeoutRef.current = setTimeout(() => executeAction('skip'), 3000);
+      undoTimeoutRef.current = setTimeout(() => executeAction('snooze'), 3000);
     }
     
     x.set(0);
+    y.set(0);
     setDragDirection(null);
   };
 
   const handleDrag = (event: any, info: PanInfo) => {
-    if (info.offset.x > 50 && dragDirection !== 'right') {
-      setDragDirection('right');
-      triggerHapticFeedback('light'); // Light feedback when entering complete zone
-    } else if (info.offset.x < -50 && dragDirection !== 'left') {
-      setDragDirection('left');
-      triggerHapticFeedback('light'); // Light feedback when entering skip zone
-    } else if (Math.abs(info.offset.x) < 50 && dragDirection !== null) {
-      setDragDirection(null);
+    const absX = Math.abs(info.offset.x);
+    const absY = Math.abs(info.offset.y);
+    
+    // Determine primary direction based on larger offset
+    if (absX > absY) {
+      // Horizontal drag
+      if (info.offset.x > 50 && dragDirection !== 'right') {
+        setDragDirection('right');
+        triggerHapticFeedback('light');
+      } else if (info.offset.x < -50 && dragDirection !== 'left') {
+        setDragDirection('left');
+        triggerHapticFeedback('light');
+      } else if (absX < 50 && dragDirection !== null) {
+        setDragDirection(null);
+      }
+    } else {
+      // Vertical drag
+      if (info.offset.y < -50 && dragDirection !== 'up') {
+        setDragDirection('up');
+        triggerHapticFeedback('light');
+      } else if (absY < 50 && dragDirection !== null) {
+        setDragDirection(null);
+      }
     }
   };
 
@@ -229,30 +273,38 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
   return (
     <div className="relative">
       {/* Background hints */}
-      <div className="absolute inset-0 flex" data-testid={`swipe-hints-${task.id}`}>
-        <div className="flex-1 bg-red-100 dark:bg-red-900/20 rounded-l-lg flex items-center justify-start pl-6" data-testid={`skip-hint-${task.id}`}>
+      <div className="absolute inset-0 grid grid-cols-2 grid-rows-2" data-testid={`swipe-hints-${task.id}`}>
+        {/* Top row - snooze */}
+        <div className="col-span-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-t-lg flex items-center justify-center" data-testid={`snooze-hint-${task.id}`}>
+          <ArrowUp className="w-5 h-5 text-yellow-600" />
+          <span className="ml-2 text-yellow-600 font-medium text-sm">Snooze 2hrs</span>
+        </div>
+        {/* Bottom row - skip and complete */}
+        <div className="bg-red-100 dark:bg-red-900/20 rounded-bl-lg flex items-center justify-start pl-6" data-testid={`skip-hint-${task.id}`}>
           <ArrowLeft className="w-6 h-6 text-red-600" />
           <span className="ml-2 text-red-600 font-medium">Skip</span>
         </div>
-        <div className="flex-1 bg-green-100 dark:bg-green-900/20 rounded-r-lg flex items-center justify-end pr-6" data-testid={`complete-hint-${task.id}`}>
+        <div className="bg-green-100 dark:bg-green-900/20 rounded-br-lg flex items-center justify-end pr-6" data-testid={`complete-hint-${task.id}`}>
           <span className="mr-2 text-green-600 font-medium">Complete</span>
           <ArrowRight className="w-6 h-6 text-green-600" />
         </div>
       </div>
 
       <motion.div
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        style={{ x, rotate, opacity }}
+        drag
+        dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+        style={{ x, y, rotate, opacity }}
         onDrag={handleDrag}
         onDragEnd={handleDragEnd}
         className="relative z-10 cursor-grab active:cursor-grabbing"
         data-testid={`task-card-${task.id}`}
         whileTap={{ scale: 0.98 }}
+        dragElastic={0.2}
       >
         <Card className={`p-4 hover-elevate transition-all duration-200 ${
           dragDirection === 'right' ? 'border-green-300 shadow-green-100' :
-          dragDirection === 'left' ? 'border-red-300 shadow-red-100' : ''
+          dragDirection === 'left' ? 'border-red-300 shadow-red-100' :
+          dragDirection === 'up' ? 'border-yellow-300 shadow-yellow-100' : ''
         }`}>
           <div className="space-y-3">
             <div className="flex items-start justify-between">
@@ -282,7 +334,7 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
 
       {/* Swipe instruction */}
       <div className="text-center mt-2 text-xs text-muted-foreground" data-testid={`swipe-instructions-${task.id}`}>
-        ← Swipe left to skip • Swipe right to complete →
+        ↑ Swipe up to snooze • ← Skip • Complete →
       </div>
     </div>
   );

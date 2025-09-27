@@ -218,6 +218,45 @@ export default function MainApp({
     }
   });
 
+  // Snooze task mutation
+  const snoozeTaskMutation = useMutation({
+    mutationFn: async ({ taskId, hours }: { taskId: string; hours: number }) => {
+      const response = await apiRequest('POST', `/api/tasks/${taskId}/snooze`, { hours });
+      return response.json();
+    },
+    onMutate: async ({ taskId }: { taskId: string; hours: number }) => {
+      // Optimistic update - remove from pending list temporarily
+      await queryClient.cancelQueries({ queryKey: ['/api/tasks'] });
+      const previousTasks = queryClient.getQueryData<Task[]>(['/api/tasks']);
+      
+      queryClient.setQueryData<Task[]>(['/api/tasks'], (old = []) => 
+        old.filter(task => task.id !== taskId)
+      );
+      
+      return { previousTasks };
+    },
+    onError: (error: any, { taskId }: { taskId: string; hours: number }, context: any) => {
+      // Rollback optimistic update
+      if (context?.previousTasks) {
+        queryClient.setQueryData(['/api/tasks'], context.previousTasks);
+      }
+      const errorMessage = error?.response?.error || error.message || "Failed to snooze task";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+    onSuccess: (data: any, { hours }: { taskId: string; hours: number }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+      toast({
+        title: "Task Snoozed",
+        description: `Task postponed for ${hours} hour${hours !== 1 ? 's' : ''}`,
+      });
+    }
+  });
+
   // Chat import mutation
   const importChatMutation = useMutation({
     mutationFn: async (chatData: {
@@ -549,7 +588,7 @@ export default function MainApp({
               <div className="text-center mb-6">
                 <h2 className="text-3xl font-bold text-foreground mb-2">Your Action Items</h2>
                 <p className="text-muted-foreground">
-                  Swipe right to complete with celebrations, swipe left to skip
+                  Swipe right to complete, left to skip, up to snooze for 2 hours
                 </p>
               </div>
 
@@ -588,6 +627,7 @@ export default function MainApp({
                       }}
                       onComplete={(taskId) => completeTaskMutation.mutate(taskId)}
                       onSkip={(taskId) => skipTaskMutation.mutate(taskId)}
+                      onSnooze={(taskId, hours) => snoozeTaskMutation.mutate({ taskId, hours })}
                       showConfetti={true}
                     />
                   ))}

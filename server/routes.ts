@@ -178,6 +178,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Snooze a task (swipe up)
+  app.post("/api/tasks/:taskId/snooze", async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const snoozeSchema = z.object({
+        hours: z.number().int().positive().max(168) // Max 1 week
+      });
+      
+      const { hours } = snoozeSchema.parse(req.body);
+      
+      // Calculate new due date (current time + hours)
+      const snoozeUntil = new Date();
+      snoozeUntil.setHours(snoozeUntil.getHours() + hours);
+      
+      const task = await storage.updateTask(taskId, {
+        dueDate: snoozeUntil
+      }, DEMO_USER_ID);
+
+      if (!task) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+
+      res.json({ 
+        task, 
+        message: `Task snoozed for ${hours} hour${hours !== 1 ? 's' : ''}! It will reappear in your list later.`,
+        snoozeUntil: snoozeUntil.toISOString()
+      });
+    } catch (error) {
+      console.error('Snooze task error:', error);
+      res.status(500).json({ error: 'Failed to snooze task' });
+    }
+  });
+
   // Create a new task manually
   app.post("/api/tasks", async (req, res) => {
     try {

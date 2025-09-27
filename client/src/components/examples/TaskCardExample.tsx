@@ -23,12 +23,17 @@ export default function TaskCardExample() {
     console.log('Task skipped:', taskId);
   };
 
+  const handleSnooze = (taskId: string, hours: number) => {
+    console.log(`Task snoozed for ${hours} hours:`, taskId);
+  };
+
   return (
     <div className="max-w-md mx-auto p-4">
       <TaskCard
         task={sampleTask}
         onComplete={handleComplete}
         onSkip={handleSkip}
+        onSnooze={handleSnooze}
         showConfetti={true}
       />
     </div>
