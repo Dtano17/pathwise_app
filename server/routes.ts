@@ -439,6 +439,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User Profile Management
+  app.get("/api/user/profile", async (req, res) => {
+    try {
+      // Get authenticated user ID, fallback to demo user for backward compatibility
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      const profile = await storage.getUserProfile(userId);
+      res.json(profile);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      res.status(500).json({ error: 'Failed to fetch user profile' });
+    }
+  });
+
+  app.put("/api/user/profile", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      const profileData = insertUserProfileSchema.parse(req.body);
+      const profile = await storage.upsertUserProfile(userId, profileData);
+      res.json(profile);
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      res.status(500).json({ error: 'Failed to update user profile' });
+    }
+  });
+
+  app.delete("/api/user/profile", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      await storage.deleteUserProfile(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting user profile:', error);
+      res.status(500).json({ error: 'Failed to delete user profile' });
+    }
+  });
+
+  // User Preferences Management
+  app.get("/api/user/preferences", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      const preferences = await storage.getUserPreferences(userId);
+      res.json(preferences);
+    } catch (error) {
+      console.error('Error fetching user preferences:', error);
+      res.status(500).json({ error: 'Failed to fetch user preferences' });
+    }
+  });
+
+  app.put("/api/user/preferences", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      const preferencesData = insertUserPreferencesSchema.parse(req.body);
+      const preferences = await storage.upsertUserPreferences(userId, preferencesData);
+      res.json(preferences);
+    } catch (error) {
+      console.error('Error updating user preferences:', error);
+      res.status(500).json({ error: 'Failed to update user preferences' });
+    }
+  });
+
+  app.delete("/api/user/preferences", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      await storage.deleteUserPreferences(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting user preferences:', error);
+      res.status(500).json({ error: 'Failed to delete user preferences' });
+    }
+  });
+
+  // User Consent Management
+  app.get("/api/user/consent", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      const consent = await storage.getUserConsent(userId);
+      res.json(consent);
+    } catch (error) {
+      console.error('Error fetching user consent:', error);
+      res.status(500).json({ error: 'Failed to fetch user consent' });
+    }
+  });
+
+  app.put("/api/user/consent", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      const consentData = insertUserConsentSchema.parse(req.body);
+      const consent = await storage.upsertUserConsent(userId, consentData);
+      res.json(consent);
+    } catch (error) {
+      console.error('Error updating user consent:', error);
+      res.status(500).json({ error: 'Failed to update user consent' });
+    }
+  });
+
+  app.delete("/api/user/consent", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      await storage.deleteUserConsent(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting user consent:', error);
+      res.status(500).json({ error: 'Failed to delete user consent' });
+    }
+  });
+
   // Scheduling Suggestions
   app.get("/api/scheduling/suggestions", async (req, res) => {
     try {
