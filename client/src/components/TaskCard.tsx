@@ -122,9 +122,12 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
   };
 
   const handleDragEnd = (event: any, info: PanInfo) => {
+    console.log('handleDragEnd called:', info.offset);
     const threshold = 100; // Reduced threshold for better mobile sensitivity
     const absX = Math.abs(info.offset.x);
     const absY = Math.abs(info.offset.y);
+    
+    console.log('Drag end - absX:', absX, 'absY:', absY, 'threshold:', threshold);
     
     // Clear any existing pending actions to prevent race conditions
     clearPendingAction();
@@ -132,6 +135,7 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     if (absX > absY) {
       // Horizontal swipe
       if (info.offset.x > threshold) {
+        console.log('Triggering complete action - swiped right');
         // Swiped right - prepare to complete task
         triggerHapticFeedback('heavy');
         setPendingAction('complete');
@@ -151,6 +155,7 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
         undoTimeoutRef.current = setTimeout(() => executeAction('complete'), 3000);
         
       } else if (info.offset.x < -threshold) {
+        console.log('Triggering skip action - swiped left');
         // Swiped left - prepare to skip task
         triggerHapticFeedback('light');
         setPendingAction('skip');
@@ -170,6 +175,7 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
         undoTimeoutRef.current = setTimeout(() => executeAction('skip'), 3000);
       }
     } else if (info.offset.y < -threshold) {
+      console.log('Triggering snooze action - swiped up');
       // Swiped up - prepare to snooze task
       triggerHapticFeedback('medium');
       setPendingAction('snooze');
@@ -195,6 +201,7 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
   };
 
   const handleDrag = (event: any, info: PanInfo) => {
+    console.log('handleDrag called:', info.offset);
     const absX = Math.abs(info.offset.x);
     const absY = Math.abs(info.offset.y);
     
@@ -202,9 +209,11 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     if (absX > absY) {
       // Horizontal drag
       if (info.offset.x > 50 && dragDirection !== 'right') {
+        console.log('Setting drag direction to right');
         setDragDirection('right');
         triggerHapticFeedback('light');
       } else if (info.offset.x < -50 && dragDirection !== 'left') {
+        console.log('Setting drag direction to left');
         setDragDirection('left');
         triggerHapticFeedback('light');
       } else if (absX < 50 && dragDirection !== null) {
@@ -213,6 +222,7 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     } else {
       // Vertical drag
       if (info.offset.y < -50 && dragDirection !== 'up') {
+        console.log('Setting drag direction to up');
         setDragDirection('up');
         triggerHapticFeedback('light');
       } else if (absY < 50 && dragDirection !== null) {
