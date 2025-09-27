@@ -31,29 +31,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
 
-  // Auth routes - supports both Replit auth and multi-provider OAuth
-  app.get('/api/auth/user', isAuthenticatedGeneric, async (req: any, res) => {
+  // Auth routes - supports both authenticated and guest users
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
-      let userId;
-      if (req.user?.claims?.sub) {
-        // Replit auth user
-        userId = req.user.claims.sub;
-      } else if (req.user?.id) {
-        // Multi-provider OAuth user
-        userId = req.user.id;
+      // Check if user is authenticated
+      if (req.isAuthenticated && req.isAuthenticated()) {
+        let userId;
+        if (req.user?.claims?.sub) {
+          // Replit auth user
+          userId = req.user.claims.sub;
+        } else if (req.user?.id) {
+          // Multi-provider OAuth user
+          userId = req.user.id;
+        } else {
+          return res.status(401).json({ message: "No valid user session" });
+        }
+        
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        
+        res.json({ ...user, authenticated: true });
       } else {
-        return res.status(401).json({ message: "No valid user session" });
+        // Return guest/demo user info
+        res.json({ 
+          id: DEMO_USER_ID,
+          username: "guest",
+          authenticated: false,
+          isGuest: true
+        });
       }
-      
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+      // Fallback to guest mode on error
+      res.json({ 
+        id: DEMO_USER_ID,
+        username: "guest",
+        authenticated: false,
+        isGuest: true
+      });
     }
   });
 
