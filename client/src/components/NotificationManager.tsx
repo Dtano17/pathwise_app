@@ -71,9 +71,9 @@ export default function NotificationManager({ userId, compact = false }: Notific
           updatePreferencesMutation.mutate({ enableBrowserNotifications: true });
           
           // Send test notification
-          new Notification('PathWise.ai', {
+          new Notification('JournalMate', {
             body: 'Notifications are now enabled! You\'ll get reminders for your tasks.',
-            icon: '/favicon.ico'
+            icon: '/generated-icon.png'
           });
         } else {
           toast({

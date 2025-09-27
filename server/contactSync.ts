@@ -33,9 +33,8 @@ export class ContactSyncService {
           // Update existing contact with new data if different
           const updatedContact = await storage.updateContact(existingContact.id, userId, {
             name: contact.name,
-            emails: contact.emails,
-            phones: contact.phones,
-            lastSyncAt: new Date(),
+            emails: contact.emails || [],
+            phones: contact.phones || [],
           });
           syncedContacts.push(updatedContact);
         } else {
@@ -44,10 +43,9 @@ export class ContactSyncService {
             ownerUserId: userId,
             source: 'phone',
             name: contact.name,
-            emails: contact.emails,
-            phones: contact.phones,
+            emails: contact.emails || [],
+            phones: contact.phones || [],
             externalId,
-            lastSyncAt: new Date(),
           });
           
           syncedContacts.push(newContact);
@@ -58,7 +56,7 @@ export class ContactSyncService {
       }
     }
     
-    // After syncing, try to match contacts with existing PathWise users
+    // After syncing, try to match contacts with existing JournalMate users
     await storage.updateContactMatches();
     
     return {
@@ -82,8 +80,8 @@ export class ContactSyncService {
     const existingContacts = await storage.getUserContacts(userId);
     const isDuplicate = existingContacts.some(contact => 
       contact.name.toLowerCase() === normalizedName.toLowerCase() &&
-      (emails.some(email => contact.emails.includes(email)) ||
-       phones.some(phone => contact.phones.includes(phone)))
+      (emails.some(email => (contact.emails || []).includes(email)) ||
+       phones.some(phone => (contact.phones || []).includes(phone)))
     );
     
     if (isDuplicate) {
@@ -104,21 +102,21 @@ export class ContactSyncService {
     return contact;
   }
 
-  // Get user's contacts with PathWise status
+  // Get user's contacts with JournalMate status
   async getUserContactsWithStatus(userId: string): Promise<Array<Contact & {
-    status: 'on_pathwise' | 'invited' | 'not_invited';
+    status: 'on_journalmate' | 'invited' | 'not_invited';
     user?: User;
   }>> {
     const contacts = await storage.getUserContacts(userId);
     const enrichedContacts = [];
     
     for (const contact of contacts) {
-      let status: 'on_pathwise' | 'invited' | 'not_invited' = 'not_invited';
+      let status: 'on_journalmate' | 'invited' | 'not_invited' = 'not_invited';
       let user: User | undefined;
       
       if (contact.matchedUserId) {
-        // User is already on PathWise
-        status = 'on_pathwise';
+        // User is already on JournalMate
+        status = 'on_journalmate';
         user = await storage.getUser(contact.matchedUserId);
       } else {
         // Check if we've sent an invite (this would be tracked in a future invites table)
@@ -146,7 +144,7 @@ export class ContactSyncService {
 
   // Send invite message (SMS/Email content)
   generateInviteMessage(inviterName: string, planTitle: string, inviteLink: string): string {
-    return `Hi! ${inviterName} invited you to collaborate on "${planTitle}" using PathWise - an AI-powered goal tracking app. Join here: ${inviteLink}`;
+    return `Hi! ${inviterName} invited you to collaborate on "${planTitle}" using JournalMate - an AI-powered lifestyle planner. Join here: ${inviteLink}`;
   }
 }
 

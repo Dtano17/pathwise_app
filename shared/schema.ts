@@ -357,7 +357,7 @@ export const contacts = pgTable("contacts", {
   emails: jsonb("emails").$type<string[]>().default([]),
   phones: jsonb("phones").$type<string[]>().default([]),
   photoUrl: varchar("photo_url"),
-  matchedUserId: varchar("matched_user_id").references(() => users.id), // Matched PathWise user
+  matchedUserId: varchar("matched_user_id").references(() => users.id), // Matched JournalMate user
   lastSyncAt: timestamp("last_sync_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

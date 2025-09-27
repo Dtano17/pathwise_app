@@ -33,7 +33,7 @@ interface Contact {
   emails: string[];
   phones: string[];
   source: 'phone' | 'manual';
-  status: 'on_pathwise' | 'invited' | 'not_invited';
+  status: 'on_journalmate' | 'invited' | 'not_invited';
   user?: {
     id: string;
     firstName?: string;
@@ -169,7 +169,7 @@ export default function Contacts() {
 
   const getStatusIcon = (status: Contact['status']) => {
     switch (status) {
-      case 'on_pathwise':
+      case 'on_journalmate':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'invited':
         return <Clock className="w-4 h-4 text-yellow-500" />;
@@ -180,8 +180,8 @@ export default function Contacts() {
 
   const getStatusText = (status: Contact['status']) => {
     switch (status) {
-      case 'on_pathwise':
-        return 'On PathWise';
+      case 'on_journalmate':
+        return 'On JournalMate';
       case 'invited':
         return 'Invited';
       default:
@@ -320,7 +320,7 @@ export default function Contacts() {
                           {contact.name}
                         </h3>
                         {getStatusIcon(contact.status)}
-                        <Badge variant={contact.status === 'on_pathwise' ? 'default' : 'secondary'}>
+                        <Badge variant={contact.status === 'on_journalmate' ? 'default' : 'secondary'}>
                           {getStatusText(contact.status)}
                         </Badge>
                         <Badge variant="outline">
@@ -358,7 +358,7 @@ export default function Contacts() {
                           Invite
                         </Button>
                       )}
-                      {contact.status === 'on_pathwise' && (
+                      {contact.status === 'on_journalmate' && (
                         <Button size="sm" data-testid={`button-share-${contact.id}`}>
                           <Share className="w-3 h-3 mr-1" />
                           Share Plan

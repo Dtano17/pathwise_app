@@ -61,7 +61,7 @@ export function AppSidebar({
       <SidebarContent>
         {/* Header */}
         <div className="flex justify-between items-center p-3 border-b">
-          <span className="text-lg font-semibold text-foreground">PathWise</span>
+          <span className="text-lg font-semibold text-foreground">JournalMate</span>
           <SidebarTrigger data-testid="button-sidebar-toggle-inside" />
         </div>
 

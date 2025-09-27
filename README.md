@@ -1,4 +1,4 @@
-# 🌟 PathWise.AI - AI-Powered Journaling & Goal Achievement Platform
+# 🌟 JournalMate - AI-Powered Lifestyle Planner & Journaling Platform
 
 > Transform your intentions into actionable plans with AI-powered insights, collaborative planning, and celebratory task completion
 
@@ -7,11 +7,11 @@
 
 ---
 
-## 🎯 **What is PathWise.AI?**
+## 🎯 **What is JournalMate?**
 
-PathWise.AI is a revolutionary **AI-powered journaling application** that transforms your goals and intentions into concrete, achievable action plans. Whether you want to "work out more," "plan a trip to Dallas," or "start a family fitness challenge," simply speak or type your goal, and our AI creates a personalized, step-by-step roadmap to success.
+JournalMate is a revolutionary **AI-powered lifestyle planner and journaling application** that transforms your personal goals into concrete, achievable action plans. Whether you want to "work out more," "plan a trip to Dallas," or "start a family fitness challenge," simply speak or type your goal, and our AI creates a personalized, step-by-step roadmap tailored to your lifestyle and preferences.
 
-### ✨ **The Magic Behind PathWise**
+### ✨ **The Magic Behind JournalMate**
 
 - **🎙️ Natural Input**: Speak or write your goals naturally - "I want to work out, take vitamins, prep for my Dallas trip"
 - **🤖 AI Processing**: Powered by OpenAI and Claude AI models for intelligent goal breakdown and analysis
@@ -107,8 +107,8 @@ PathWise.AI is a revolutionary **AI-powered journaling application** that transf
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/pathwise-ai.git
-   cd pathwise-ai
+   git clone https://github.com/yourusername/journalmate.git
+   cd journalmate
    ```
 
 2. **Install dependencies**
@@ -143,7 +143,7 @@ PathWise.AI is a revolutionary **AI-powered journaling application** that transf
 
 ### **Project Structure**
 ```
-pathwise-ai/
+journalmate/
 ├── client/src/           # React frontend application
 │   ├── components/       # Reusable UI components
 │   ├── pages/           # Application pages/routes
@@ -210,9 +210,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 **Support & Community**
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/pathwise-ai/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/pathwise-ai/discussions)
-- **Email**: support@pathwise.ai
+- **Issues**: [GitHub Issues](https://github.com/yourusername/journalmate/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/journalmate/discussions)
+- **Email**: support@journalmate.com
 
 ---
 
@@ -230,4 +230,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-> *"The best way to predict the future is to create it. PathWise.AI helps you create yours, one goal at a time."*
+> *"The best way to predict the future is to create it. JournalMate helps you create yours, one goal at a time."*

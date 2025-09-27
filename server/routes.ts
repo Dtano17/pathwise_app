@@ -53,7 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: DEMO_USER_ID,
         username: "demo_user",
         password: "demo_password",
-        email: "demo@pathwise.ai",
+        email: "demo@journalmate.com",
         firstName: "Demo",
         lastName: "User"
       });
@@ -670,7 +670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get user's contacts with PathWise status (secured)
+  // Get user's contacts with JournalMate status (secured)
   app.get("/api/contacts", isAuthenticated, async (req, res) => {
     try {
       const userId = req.user?.id || req.user?.claims?.sub;

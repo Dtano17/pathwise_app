@@ -36,7 +36,7 @@ interface Contact {
   name: string;
   emails: string[];
   phones: string[];
-  status: 'on_pathwise' | 'invited' | 'not_invited';
+  status: 'on_journalmate' | 'invited' | 'not_invited';
 }
 
 export default function SharePlanModal({
@@ -248,8 +248,8 @@ export default function SharePlanModal({
                         <span className="font-medium" data-testid={`text-contact-name-${contact.id}`}>
                           {contact.name}
                         </span>
-                        <Badge variant={contact.status === 'on_pathwise' ? 'default' : 'secondary'} className="text-xs">
-                          {contact.status === 'on_pathwise' ? 'On PathWise' : 'New to PathWise'}
+                        <Badge variant={contact.status === 'on_journalmate' ? 'default' : 'secondary'} className="text-xs">
+                          {contact.status === 'on_journalmate' ? 'On JournalMate' : 'New to JournalMate'}
                         </Badge>
                       </div>
                       {contact.emails.length > 0 && (

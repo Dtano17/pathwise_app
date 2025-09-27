@@ -323,7 +323,7 @@ export default function MainApp({
                 <Sparkles className="w-6 h-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">pathwise.ai</h1>
+                <h1 className="text-2xl font-bold text-foreground">JournalMate</h1>
                 <p className="text-sm text-muted-foreground">Transform Goals into Reality</p>
               </div>
             </div>
@@ -1015,7 +1015,7 @@ ChatGPT: I can help you create a plan..."
                     <Sparkles className="w-10 h-10 text-white" />
                   </div>
                   <h2 className="text-4xl font-bold text-foreground mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
-                    PathWise AI
+                    JournalMate AI
                   </h2>
                   <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
                     Your AI-powered journaling companion that transforms goals into actionable plans and connects you with loved ones on your journey.

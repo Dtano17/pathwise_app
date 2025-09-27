@@ -51,9 +51,9 @@ export default function TaskCard({ task, onComplete, onSkip, showConfetti = fals
   const showMobileAlert = (message: string, type: 'success' | 'info' = 'info') => {
     // Modern browsers support notifications
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('PathWise.ai', {
+      new Notification('JournalMate', {
         body: message,
-        icon: '/favicon.ico',
+        icon: '/generated-icon.png',
         tag: 'task-action',
         requireInteraction: false,
         silent: false

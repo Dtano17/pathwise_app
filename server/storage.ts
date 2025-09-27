@@ -469,7 +469,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateContactMatches(): Promise<void> {
     // Match contacts to existing users by email
-    // This is a batch operation to find PathWise users among imported contacts
+    // This is a batch operation to find JournalMate users among imported contacts
     const contactsWithEmails = await db.select().from(contacts)
       .where(isNull(contacts.matchedUserId));
     
