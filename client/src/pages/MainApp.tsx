@@ -319,8 +319,8 @@ export default function MainApp({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {!open && <SidebarTrigger data-testid="button-sidebar-toggle" />}
-              <div className="w-10 h-10 flex items-center justify-center">
-                <img src="/journalmate-logo-v2.png" alt="JournalMate" className="w-10 h-10 object-contain" />
+              <div className="w-14 h-14 flex items-center justify-center">
+                <img src="/journalmate-header-logo.png" alt="JournalMate" className="w-14 h-14 object-contain drop-shadow-sm" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">JournalMate</h1>
