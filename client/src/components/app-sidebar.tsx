@@ -53,6 +53,14 @@ export function AppSidebar({
   const [isProfileExpanded, setIsProfileExpanded] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState<'profile' | 'settings' | 'priorities'>('profile');
+  
+  // Collapsible section states
+  const [isThemeExpanded, setIsThemeExpanded] = useState(false);
+  const [isQuickActionsExpanded, setIsQuickActionsExpanded] = useState(false);
+  const [isFriendsExpanded, setIsFriendsExpanded] = useState(false);
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+  const [isNotificationsExpanded, setIsNotificationsExpanded] = useState(false);
+  const [isSchedulerExpanded, setIsSchedulerExpanded] = useState(false);
 
   const handleThemeSelect = (themeId: string) => {
     onThemeSelect?.(themeId);
@@ -68,12 +76,23 @@ export function AppSidebar({
         </div>
 
         {/* Today's Theme Section */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center gap-2">
-            <Target className="w-4 h-4" />
-            Today's Theme
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
+        <Collapsible open={isThemeExpanded} onOpenChange={setIsThemeExpanded}>
+          <SidebarGroup>
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4" />
+                  Today's Theme
+                </div>
+                {isThemeExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                )}
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
             {selectedThemeData ? (
               <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
                 <div className="flex items-center gap-2">
@@ -107,16 +126,29 @@ export function AppSidebar({
                 ))}
               </SidebarMenu>
             )}
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
 
         {/* Quick Actions Section */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4" />
-            Quick Actions
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
+        <Collapsible open={isQuickActionsExpanded} onOpenChange={setIsQuickActionsExpanded}>
+          <SidebarGroup>
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Quick Actions
+                </div>
+                {isQuickActionsExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                )}
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton 
@@ -137,16 +169,29 @@ export function AppSidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
 
         {/* Friends & Family Section */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Friends & Family
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
+        <Collapsible open={isFriendsExpanded} onOpenChange={setIsFriendsExpanded}>
+          <SidebarGroup>
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Friends & Family
+                </div>
+                {isFriendsExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                )}
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton 
@@ -158,16 +203,29 @@ export function AppSidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
 
         {/* History Section */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center gap-2">
-            <History className="w-4 h-4" />
-            History
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
+        <Collapsible open={isHistoryExpanded} onOpenChange={setIsHistoryExpanded}>
+          <SidebarGroup>
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  History
+                </div>
+                {isHistoryExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                )}
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton data-testid="button-recent-goals">
@@ -188,34 +246,62 @@ export function AppSidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
 
         {/* Notifications Section */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center gap-2">
-            <Bell className="w-4 h-4" />
-            Notifications
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
+        <Collapsible open={isNotificationsExpanded} onOpenChange={setIsNotificationsExpanded}>
+          <SidebarGroup>
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-4 h-4" />
+                  Notifications
+                </div>
+                {isNotificationsExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                )}
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
             <div className="px-3 py-2">
               <NotificationManager userId={user?.id || 'demo-user'} compact />
             </div>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
 
         {/* Smart Scheduler Section */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Smart Scheduler
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
+        <Collapsible open={isSchedulerExpanded} onOpenChange={setIsSchedulerExpanded}>
+          <SidebarGroup>
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Smart Scheduler
+                </div>
+                {isSchedulerExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                )}
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
             <div className="px-3 py-2">
               <SmartScheduler userId={user?.id || 'demo-user'} tasks={[]} compact />
             </div>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
 
         {/* Settings Section - Bottom */}
         <div className="mt-auto">
