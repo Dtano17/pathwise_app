@@ -122,12 +122,9 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
   };
 
   const handleDragEnd = (event: any, info: PanInfo) => {
-    console.log('handleDragEnd called:', info.offset);
     const threshold = 100; // Reduced threshold for better mobile sensitivity
     const absX = Math.abs(info.offset.x);
     const absY = Math.abs(info.offset.y);
-    
-    console.log('Drag end - absX:', absX, 'absY:', absY, 'threshold:', threshold);
     
     // Clear any existing pending actions to prevent race conditions
     clearPendingAction();
@@ -135,14 +132,13 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     if (absX > absY) {
       // Horizontal swipe
       if (info.offset.x > threshold) {
-        console.log('Triggering complete action - swiped right');
         // Swiped right - prepare to complete task
         triggerHapticFeedback('heavy');
         setPendingAction('complete');
         
         const toastResult = toast({
           title: "Task completed!",
-          description: `"${task.title}" will be marked as done in 3 seconds`,
+          description: `"${task.title}" will be marked as done in 1 second`,
           action: (
             <ToastAction altText="Undo" onClick={undoAction} data-testid={`button-undo-${task.id}`}>
               <Undo className="w-4 h-4 mr-1" />
@@ -152,17 +148,16 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
         });
         
         currentToastIdRef.current = toastResult.id;
-        undoTimeoutRef.current = setTimeout(() => executeAction('complete'), 3000);
+        undoTimeoutRef.current = setTimeout(() => executeAction('complete'), 1000);
         
       } else if (info.offset.x < -threshold) {
-        console.log('Triggering skip action - swiped left');
         // Swiped left - prepare to skip task
         triggerHapticFeedback('light');
         setPendingAction('skip');
         
         const toastResult = toast({
           title: "Task skipped",
-          description: `"${task.title}" will be removed from your list in 3 seconds`,
+          description: `"${task.title}" will be removed from your list in 1 second`,
           action: (
             <ToastAction altText="Undo" onClick={undoAction} data-testid={`button-undo-${task.id}`}>
               <Undo className="w-4 h-4 mr-1" />
@@ -172,17 +167,16 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
         });
         
         currentToastIdRef.current = toastResult.id;
-        undoTimeoutRef.current = setTimeout(() => executeAction('skip'), 3000);
+        undoTimeoutRef.current = setTimeout(() => executeAction('skip'), 1000);
       }
     } else if (info.offset.y < -threshold) {
-      console.log('Triggering snooze action - swiped up');
       // Swiped up - prepare to snooze task
       triggerHapticFeedback('medium');
       setPendingAction('snooze');
       
       const toastResult = toast({
         title: "Task snoozed!",
-        description: `"${task.title}" will be postponed for 2 hours in 3 seconds`,
+        description: `"${task.title}" will be postponed for 2 hours in 1 second`,
         action: (
           <ToastAction altText="Undo" onClick={undoAction} data-testid={`button-undo-${task.id}`}>
             <Undo className="w-4 h-4 mr-1" />
@@ -192,7 +186,7 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
       });
       
       currentToastIdRef.current = toastResult.id;
-      undoTimeoutRef.current = setTimeout(() => executeAction('snooze'), 3000);
+      undoTimeoutRef.current = setTimeout(() => executeAction('snooze'), 1000);
     }
     
     x.set(0);
@@ -201,7 +195,6 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
   };
 
   const handleDrag = (event: any, info: PanInfo) => {
-    console.log('handleDrag called:', info.offset);
     const absX = Math.abs(info.offset.x);
     const absY = Math.abs(info.offset.y);
     
@@ -209,11 +202,9 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     if (absX > absY) {
       // Horizontal drag
       if (info.offset.x > 50 && dragDirection !== 'right') {
-        console.log('Setting drag direction to right');
         setDragDirection('right');
         triggerHapticFeedback('light');
       } else if (info.offset.x < -50 && dragDirection !== 'left') {
-        console.log('Setting drag direction to left');
         setDragDirection('left');
         triggerHapticFeedback('light');
       } else if (absX < 50 && dragDirection !== null) {
@@ -222,7 +213,6 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     } else {
       // Vertical drag
       if (info.offset.y < -50 && dragDirection !== 'up') {
-        console.log('Setting drag direction to up');
         setDragDirection('up');
         triggerHapticFeedback('light');
       } else if (absY < 50 && dragDirection !== null) {

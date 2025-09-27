@@ -378,6 +378,21 @@ body, html {
   [role="tablist"]::-webkit-scrollbar {
     display: none;
   }
+  
+  /* Make task cards more mobile-friendly */
+  [data-testid^="task-card-"] {
+    max-width: calc(100vw - 2rem);
+  }
+  
+  /* Improve toast positioning on mobile */
+  [data-sonner-toaster] {
+    position: fixed !important;
+    top: 20px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: calc(100vw - 40px) !important;
+    max-width: 400px !important;
+  }
 }
 
 /* Medium screens (tablets) */
