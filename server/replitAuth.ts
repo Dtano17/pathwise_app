@@ -141,20 +141,8 @@ export async function setupAuth(app: Express) {
 
   // Handle logout for all providers (POST request from frontend)
   app.post("/api/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        console.error('Logout error:', err);
-        return res.status(500).json({ message: 'Logout failed' });
-      }
-      // Clear session data
-      req.session.destroy((sessionErr) => {
-        if (sessionErr) {
-          console.error('Session destroy error:', sessionErr);
-        }
-        res.clearCookie('connect.sid'); // Clear the session cookie
-        res.clearCookie('session');   // Clear any additional session cookies
-        res.json({ message: 'Logged out successfully', requiresReload: true });
-      });
+    req.logout(() => {
+      res.json({ message: 'Logged out successfully' });
     });
   });
 }

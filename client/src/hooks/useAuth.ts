@@ -44,14 +44,10 @@ export function useAuth() {
         if (!res.ok) throw new Error('Logout failed');
         return res.json();
       }),
-    onSuccess: (data) => {
-      console.log('Logout successful, server response:', data);
-      // Clear all queries
+    onSuccess: () => {
+      // Clear all queries and redirect
       queryClient.clear();
-      
-      // Always perform hard reload when logging out to ensure clean state
-      console.log('Performing hard reload after logout');
-      window.location.reload();
+      window.location.href = '/';
     }
   });
 

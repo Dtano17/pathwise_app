@@ -104,19 +104,14 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
   }, [dismiss]);
 
   const executeAction = (action: 'complete' | 'skip' | 'snooze') => {
-    console.log('executeAction called with:', action, 'for task:', task.id);
     if (action === 'complete') {
-      console.log('Setting task as completed:', task.id);
       setIsCompleted(true);
       setShowCelebration(true);
-      console.log('Calling onComplete with task.id:', task.id);
       onComplete(task.id);
       setTimeout(() => setShowCelebration(false), 3000);
     } else if (action === 'skip') {
-      console.log('Skipping task:', task.id);
       onSkip(task.id);
     } else if (action === 'snooze') {
-      console.log('Snoozing task:', task.id);
       onSnooze(task.id, 2); // Snooze for 2 hours by default
     }
     clearPendingAction();
@@ -137,7 +132,6 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     if (absX > absY) {
       // Horizontal swipe
       if (info.offset.x > threshold) {
-        console.log('Swiped right detected, preparing to complete task');
         // Swiped right - prepare to complete task
         triggerHapticFeedback('heavy');
         setPendingAction('complete');
@@ -154,10 +148,7 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
         });
         
         currentToastIdRef.current = toastResult.id;
-        undoTimeoutRef.current = setTimeout(() => {
-          console.log('Timer expired, executing complete action');
-          executeAction('complete');
-        }, 1000);
+        undoTimeoutRef.current = setTimeout(() => executeAction('complete'), 1000);
         
       } else if (info.offset.x < -threshold) {
         // Swiped left - prepare to skip task
