@@ -15,6 +15,9 @@ import {
   insertNotificationPreferencesSchema,
   insertTaskReminderSchema,
   insertSchedulingSuggestionSchema,
+  insertUserProfileSchema,
+  insertUserPreferencesSchema,
+  insertUserConsentSchema,
   type Task,
   type NotificationPreferences
 } from "@shared/schema";
