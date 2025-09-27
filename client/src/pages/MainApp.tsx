@@ -319,8 +319,8 @@ export default function MainApp({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {!open && <SidebarTrigger data-testid="button-sidebar-toggle" />}
-              <div className="w-14 h-14 flex items-center justify-center">
-                <img src="/journalmate-header-logo.png" alt="JournalMate" className="w-14 h-14 object-contain drop-shadow-sm" />
+              <div className="w-12 h-12 flex items-center justify-center">
+                <img src="/journalmate-logo-final.png" alt="JournalMate" className="w-12 h-12 object-contain" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">JournalMate</h1>
@@ -1011,8 +1011,8 @@ ChatGPT: I can help you create a plan..."
               <div className="max-w-4xl mx-auto">
                 {/* Hero Section */}
                 <div className="text-center mb-12">
-                  <div className="inline-flex items-center justify-center w-24 h-24 mb-6">
-                    <img src="/journalmate-logo-v2.png" alt="JournalMate" className="w-24 h-24 object-contain" />
+                  <div className="inline-flex items-center justify-center w-20 h-20 mb-6">
+                    <img src="/journalmate-logo-final.png" alt="JournalMate" className="w-20 h-20 object-contain" />
                   </div>
                   <h2 className="text-4xl font-bold text-foreground mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
                     JournalMate AI
