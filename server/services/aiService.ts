@@ -51,6 +51,94 @@ export class AIService {
     return this.processGoalWithOpenAI(goalText);
   }
 
+  async chatConversation(
+    message: string, 
+    conversationHistory: Array<{role: 'user' | 'assistant', content: string}> = []
+  ): Promise<{
+    message: string;
+    actionPlan?: any;
+    extractedGoals?: string[];
+    tasks?: any[];
+  }> {
+    try {
+      // Build conversation context
+      const messages = [
+        {
+          role: "system" as const,
+          content: `You are JournalMate, an AI-powered lifestyle planner and accountability assistant. Your role is to:
+
+1. Have natural conversations about goals, intentions, and life planning
+2. Help users clarify their objectives and break them down into actionable steps
+3. Provide personalized advice and motivation
+4. When appropriate, suggest concrete action plans with specific tasks
+
+Keep responses conversational, encouraging, and actionable. If the user shares goals or intentions, offer to help them create a structured action plan.`
+        },
+        ...conversationHistory,
+        {
+          role: "user" as const,
+          content: message
+        }
+      ];
+
+      // Get AI response using OpenAI (default) or Claude
+      const response = await openai.chat.completions.create({
+        model: "gpt-4-turbo-preview",
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 1000,
+      });
+
+      const aiMessage = response.choices[0]?.message?.content || "I'm sorry, I didn't understand that. Could you rephrase your question?";
+
+      // Check if the user is expressing goals/intentions and suggest action plan creation
+      const containsGoals = this.detectGoalsInMessage(message);
+      
+      let actionPlan = null;
+      let extractedGoals = null;
+      let tasks = null;
+
+      if (containsGoals) {
+        // Suggest creating an action plan
+        const enhancedMessage = aiMessage + "\n\n💡 It sounds like you have some great goals! Would you like me to help you create a structured action plan to make these a reality?";
+        
+        return {
+          message: enhancedMessage,
+          actionPlan,
+          extractedGoals,
+          tasks
+        };
+      }
+
+      return {
+        message: aiMessage,
+        actionPlan,
+        extractedGoals, 
+        tasks
+      };
+    } catch (error) {
+      console.error('Chat conversation error:', error);
+      return {
+        message: "I'm having trouble processing your message right now. Please try again in a moment.",
+        actionPlan: null,
+        extractedGoals: null,
+        tasks: null
+      };
+    }
+  }
+
+  private detectGoalsInMessage(message: string): boolean {
+    const goalKeywords = [
+      'want to', 'need to', 'plan to', 'goal', 'objective', 'aim to', 
+      'hope to', 'intend to', 'wish to', 'would like to', 'trying to',
+      'working on', 'focused on', 'planning', 'organizing', 'improve',
+      'learn', 'start', 'begin', 'achieve', 'accomplish'
+    ];
+    
+    const lowerMessage = message.toLowerCase();
+    return goalKeywords.some(keyword => lowerMessage.includes(keyword));
+  }
+
   async processChatHistory(chatData: {
     source: string;
     conversationTitle?: string;

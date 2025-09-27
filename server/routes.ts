@@ -419,6 +419,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Real-time chat conversation endpoint
+  app.post("/api/chat/conversation", async (req, res) => {
+    try {
+      const { message, conversationHistory = [] } = req.body;
+      
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: 'Message is required and must be a string' });
+      }
+
+      // Get user ID (demo for now, will use real auth later)
+      const userId = req.user?.id || DEMO_USER_ID;
+
+      // Create a conversation with the AI
+      const aiResponse = await aiService.chatConversation(message, conversationHistory);
+      
+      res.json({
+        message: aiResponse.message,
+        actionPlan: aiResponse.actionPlan,
+        extractedGoals: aiResponse.extractedGoals,
+        tasks: aiResponse.tasks
+      });
+    } catch (error) {
+      console.error('Chat conversation error:', error);
+      res.status(500).json({ 
+        error: 'Failed to process chat message',
+        message: 'Sorry, I encountered an issue processing your message. Please try again.'
+      });
+    }
+  });
+
   // Get pending reminders
   app.get("/api/notifications/reminders/pending", async (req, res) => {
     try {
