@@ -13,7 +13,7 @@ import ClaudePlanOutput from '@/components/ClaudePlanOutput';
 import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import Contacts from './Contacts';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History } from 'lucide-react';
 import { type Task, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -650,28 +650,168 @@ export default function MainApp({
 
             {/* Chat Sync Tab */}
             <TabsContent value="sync" className="h-full flex flex-col">
-              <div className="text-center mb-4">
-                <h2 className="text-2xl font-bold text-foreground mb-2">
-                  AI Chat Assistant
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
+                  <Sparkles className="w-6 h-6" />
+                  AI Chat Sync & Integration
                 </h2>
                 <p className="text-muted-foreground">
-                  Chat with JournalMate AI to create actionable plans and get personalized advice
+                  Import conversations from ChatGPT, Claude, and other AI assistants to extract actionable goals
                 </p>
               </div>
-              
-              <div className="flex-1 min-h-0">
-                <LiveChatInterface 
-                  onActionPlanSuggested={(response) => {
-                    // Handle action plan creation from chat
-                    if (response.extractedGoals) {
-                      toast({
-                        title: "Goals Detected!",
-                        description: `I found ${response.extractedGoals.length} goals in your conversation. Would you like me to create action plans for them?`,
-                      });
-                    }
-                  }}
-                  placeholder="Hi! I'm your AI planning assistant. Share your goals, ask for advice, or tell me what you'd like to accomplish..."
-                />
+
+              <div className="max-w-4xl mx-auto space-y-6">
+                {/* Integration Icons */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <Card className="p-4 text-center hover-elevate">
+                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                      <MessageSquare className="w-6 h-6 text-green-600" />
+                    </div>
+                    <p className="text-sm font-medium">ChatGPT</p>
+                  </Card>
+                  <Card className="p-4 text-center hover-elevate">
+                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                      <Brain className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <p className="text-sm font-medium">Claude</p>
+                  </Card>
+                  <Card className="p-4 text-center hover-elevate">
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                      <Sparkles className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <p className="text-sm font-medium">Perplexity</p>
+                  </Card>
+                  <Card className="p-4 text-center hover-elevate">
+                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+                      <Lightbulb className="w-6 h-6 text-orange-600" />
+                    </div>
+                    <p className="text-sm font-medium">Other AI</p>
+                  </Card>
+                </div>
+
+                {/* Chat Import Form */}
+                <Card className="p-6">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">AI Source</label>
+                        <Select 
+                          value={chatSource} 
+                          onValueChange={setChatSource}
+                        >
+                          <SelectTrigger data-testid="select-chat-source">
+                            <SelectValue placeholder="Select AI source..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="chatgpt">
+                              <div className="flex items-center gap-2">
+                                <MessageSquare className="w-4 h-4 text-green-600" />
+                                ChatGPT
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="claude">
+                              <div className="flex items-center gap-2">
+                                <Brain className="w-4 h-4 text-purple-600" />
+                                Claude
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="perplexity">
+                              <div className="flex items-center gap-2">
+                                <Sparkles className="w-4 h-4 text-blue-600" />
+                                Perplexity
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="other">
+                              <div className="flex items-center gap-2">
+                                <Lightbulb className="w-4 h-4 text-orange-600" />
+                                Other AI
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Conversation Title (optional)</label>
+                        <Input
+                          value={chatTitle}
+                          onChange={(e) => setChatTitle(e.target.value)}
+                          placeholder="e.g., Planning my health goals..."
+                          data-testid="input-chat-title"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Chat Conversation</label>
+                      <Textarea
+                        value={chatText}
+                        onChange={(e) => setChatText(e.target.value)}
+                        placeholder="Paste your full conversation here. Include both your messages and the AI's responses.
+
+Example format:
+User: I want to get healthier and work out more
+Assistant: That's a great goal! Here's a plan to help you...
+User: What about my diet?
+Assistant: For nutrition, I recommend..."
+                        className="min-h-[250px] resize-none"
+                        data-testid="textarea-chat-content"
+                      />
+                    </div>
+
+                    <Button
+                      onClick={handleChatImport}
+                      disabled={importChatMutation.isPending || !chatText.trim()}
+                      className="w-full"
+                      data-testid="button-import-chat"
+                    >
+                      {importChatMutation.isPending ? (
+                        <>
+                          <Upload className="w-4 h-4 mr-2 animate-spin" />
+                          Importing & Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Import & Extract Goals
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </Card>
+
+                {/* Recent Imports */}
+                {chatImports.length > 0 && (
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <History className="w-5 h-5" />
+                      Recent Chat Imports
+                    </h3>
+                    <div className="space-y-3">
+                      {chatImports.slice(0, 5).map((chatImport) => (
+                        <div key={chatImport.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover-elevate">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{chatImport.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {chatImport.extractedGoals.length} goals extracted • {new Date(chatImport.processedAt).toLocaleDateString()}
+                            </p>
+                            {chatImport.summary && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{chatImport.summary}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+                            <Badge variant="outline" className="text-xs">
+                              {chatImport.source}
+                            </Badge>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Target className="w-3 h-3" />
+                              {chatImport.extractedGoals.length}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
               </div>
             </TabsContent>
 

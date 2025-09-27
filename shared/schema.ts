@@ -89,6 +89,17 @@ export const chatImports = pgTable("chat_imports", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// User priorities for personalized planning
+export const priorities = pgTable("priorities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull(), // 'health' | 'family' | 'work' | 'personal' | 'spiritual' | 'social'
+  importance: text("importance").notNull(), // 'high' | 'medium' | 'low'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Groups for shared goals and collaborative tracking
 export const groups = pgTable("groups", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -178,6 +189,12 @@ export const insertChatImportSchema = createInsertSchema(chatImports).omit({
   userId: true,
   createdAt: true,
   processedAt: true,
+});
+
+export const insertPrioritySchema = createInsertSchema(priorities).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
 });
 
 export const insertGroupSchema = createInsertSchema(groups).omit({

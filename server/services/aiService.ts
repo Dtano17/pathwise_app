@@ -44,11 +44,22 @@ interface ChatProcessingResult {
 }
 
 export class AIService {
-  async processGoalIntoTasks(goalText: string, preferredModel: 'openai' | 'claude' = 'openai'): Promise<GoalProcessingResult> {
-    if (preferredModel === 'claude' && process.env.ANTHROPIC_API_KEY) {
-      return this.processGoalWithClaude(goalText);
+  async processGoalIntoTasks(goalText: string, preferredModel: 'openai' | 'claude' = 'openai', userId?: string): Promise<GoalProcessingResult> {
+    // Fetch user priorities if userId is provided
+    let userPriorities: any[] = [];
+    if (userId) {
+      try {
+        const { storage } = await import("../storage");
+        userPriorities = await storage.getUserPriorities(userId);
+      } catch (error) {
+        console.error('Failed to fetch user priorities:', error);
+      }
     }
-    return this.processGoalWithOpenAI(goalText);
+    
+    if (preferredModel === 'claude' && process.env.ANTHROPIC_API_KEY) {
+      return this.processGoalWithClaude(goalText, userPriorities);
+    }
+    return this.processGoalWithOpenAI(goalText, userPriorities);
   }
 
   async chatConversation(
@@ -143,27 +154,42 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
     source: string;
     conversationTitle?: string;
     chatHistory: ChatMessage[];
-  }): Promise<ChatProcessingResult> {
+  }, userId?: string): Promise<ChatProcessingResult> {
+    // Fetch user priorities if userId is provided
+    let userPriorities: any[] = [];
+    if (userId) {
+      try {
+        const { storage } = await import("../storage");
+        userPriorities = await storage.getUserPriorities(userId);
+      } catch (error) {
+        console.error('Failed to fetch user priorities for chat processing:', error);
+      }
+    }
     // Use Claude if the source is 'claude' and we have the API key
     const shouldUseClaude = chatData.source === 'claude' && process.env.ANTHROPIC_API_KEY;
     
     if (shouldUseClaude) {
-      return this.processChatHistoryWithClaude(chatData);
+      return this.processChatHistoryWithClaude(chatData, userPriorities);
     }
     
-    return this.processChatHistoryWithOpenAI(chatData);
+    return this.processChatHistoryWithOpenAI(chatData, userPriorities);
   }
 
   private async processChatHistoryWithOpenAI(chatData: {
     source: string;
     conversationTitle?: string;
     chatHistory: ChatMessage[];
-  }): Promise<ChatProcessingResult> {
+  }, userPriorities: any[] = []): Promise<ChatProcessingResult> {
     try {
+      const prioritiesContext = userPriorities.length > 0 
+        ? `\nUser's Life Priorities (consider these when creating tasks):
+${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}`
+        : '';
+
       const prompt = `Analyze this chat conversation and extract actionable goals that the user mentioned or discussed:
 
 Chat History:
-${chatData.chatHistory.map((msg, idx) => `${idx + 1}. ${msg.role}: ${msg.content}`).join('\n\n')}
+${chatData.chatHistory.map((msg, idx) => `${idx + 1}. ${msg.role}: ${msg.content}`).join('\n\n')}${prioritiesContext}
 
 Respond with JSON in this exact format:
 {
@@ -229,12 +255,17 @@ Create actionable tasks from these conversations that can help hold the user acc
     source: string;
     conversationTitle?: string;
     chatHistory: ChatMessage[];
-  }): Promise<ChatProcessingResult> {
+  }, userPriorities: any[] = []): Promise<ChatProcessingResult> {
     try {
+      const prioritiesContext = userPriorities.length > 0 
+        ? `\nUser's Life Priorities (consider these when creating tasks):
+${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}`
+        : '';
+
       const prompt = `Analyze this chat conversation and extract actionable goals that the user mentioned or discussed:
 
 Chat History:
-${chatData.chatHistory.map((msg, idx) => `${idx + 1}. ${msg.role}: ${msg.content}`).join('\n\n')}
+${chatData.chatHistory.map((msg, idx) => `${idx + 1}. ${msg.role}: ${msg.content}`).join('\n\n')}${prioritiesContext}
 
 Respond with JSON in this exact format:
 {
@@ -314,11 +345,16 @@ Create actionable tasks from these conversations that can help hold the user acc
     };
   }
 
-  private async processGoalWithOpenAI(goalText: string): Promise<GoalProcessingResult> {
+  private async processGoalWithOpenAI(goalText: string, userPriorities: any[] = []): Promise<GoalProcessingResult> {
     try {
+      const prioritiesContext = userPriorities.length > 0 
+        ? `\nUser's Life Priorities (consider these when creating the plan):
+${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}`
+        : '';
+
       const prompt = `You are an AI productivity assistant. Transform the user's goal into a structured, actionable plan like Claude AI would format it - clear, organized, and visually appealing.
 
-User's goal: "${goalText}"
+User's goal: "${goalText}"${prioritiesContext}
 
 Create a well-structured plan with the following JSON format:
 {
@@ -404,11 +440,16 @@ Examples of excellent task formatting:
     }
   }
 
-  private async processGoalWithClaude(goalText: string): Promise<GoalProcessingResult> {
+  private async processGoalWithClaude(goalText: string, userPriorities: any[] = []): Promise<GoalProcessingResult> {
     try {
+      const prioritiesContext = userPriorities.length > 0 
+        ? `\nUser's Life Priorities (consider these when creating the plan):
+${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}`
+        : '';
+
       const prompt = `You are an AI productivity assistant. Transform the user's goal or intention into specific, actionable tasks.
 
-User's goal: "${goalText}"
+User's goal: "${goalText}"${prioritiesContext}
 
 Analyze this goal and respond with JSON in this exact format:
 {

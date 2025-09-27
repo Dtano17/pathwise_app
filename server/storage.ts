@@ -15,6 +15,8 @@ import {
   type InsertProgressStats,
   type ChatImport,
   type InsertChatImport,
+  type Priority,
+  type InsertPriority,
   type NotificationPreferences,
   type InsertNotificationPreferences,
   type TaskReminder,
@@ -39,6 +41,7 @@ import {
   journalEntries,
   progressStats,
   chatImports,
+  priorities,
   notificationPreferences,
   taskReminders,
   schedulingSuggestions,
@@ -91,6 +94,11 @@ export interface IStorage {
   getUserChatImports(userId: string): Promise<ChatImport[]>;
   getChatImport(id: string, userId: string): Promise<ChatImport | undefined>;
   updateChatImport(id: string, updates: Partial<ChatImport>, userId: string): Promise<ChatImport | undefined>;
+
+  // Priorities
+  createPriority(priority: InsertPriority & { userId: string }): Promise<Priority>;
+  getUserPriorities(userId: string): Promise<Priority[]>;
+  deletePriority(priorityId: string, userId: string): Promise<void>;
 
   // Notification Preferences
   getUserNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
@@ -299,6 +307,22 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(chatImports.id, id), eq(chatImports.userId, userId)))
       .returning();
     return result[0];
+  }
+
+  // Priorities
+  async createPriority(priority: InsertPriority & { userId: string }): Promise<Priority> {
+    const result = await db.insert(priorities).values(priority).returning();
+    return result[0];
+  }
+
+  async getUserPriorities(userId: string): Promise<Priority[]> {
+    return await db.select().from(priorities)
+      .where(eq(priorities.userId, userId))
+      .orderBy(desc(priorities.createdAt));
+  }
+
+  async deletePriority(priorityId: string, userId: string): Promise<void> {
+    await db.delete(priorities).where(and(eq(priorities.id, priorityId), eq(priorities.userId, userId)));
   }
 
   // Notification Preferences

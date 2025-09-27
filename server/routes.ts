@@ -12,6 +12,7 @@ import {
   insertTaskSchema, 
   insertJournalEntrySchema, 
   insertChatImportSchema,
+  insertPrioritySchema,
   insertNotificationPreferencesSchema,
   insertTaskReminderSchema,
   insertSchedulingSuggestionSchema,
@@ -78,7 +79,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Processing goal:', goalText);
       
       // Use AI to process the goal into tasks
-      const result = await aiService.processGoalIntoTasks(goalText);
+      const result = await aiService.processGoalIntoTasks(goalText, 'openai', DEMO_USER_ID);
       
       // Create the goal record
       const goal = await storage.createGoal({
@@ -318,7 +319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         source: data.source,
         conversationTitle: data.conversationTitle || 'Imported Conversation',
         chatHistory: data.chatHistory as Array<{role: 'user' | 'assistant', content: string, timestamp?: string}>
-      });
+      }, DEMO_USER_ID);
 
       // Create chat import record
       const chatImport = await storage.createChatImport({
@@ -373,6 +374,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Get chat import error:', error);
       res.status(500).json({ error: 'Failed to fetch chat import' });
+    }
+  });
+
+  // User Priorities
+  app.get("/api/user/priorities", async (req, res) => {
+    try {
+      const priorities = await storage.getUserPriorities(DEMO_USER_ID);
+      res.json(priorities);
+    } catch (error) {
+      console.error('Get priorities error:', error);
+      res.status(500).json({ error: 'Failed to fetch priorities' });
+    }
+  });
+
+  app.post("/api/user/priorities", async (req, res) => {
+    try {
+      const data = insertPrioritySchema.parse(req.body);
+      const priority = await storage.createPriority({
+        ...data,
+        userId: DEMO_USER_ID,
+      });
+      res.json(priority);
+    } catch (error) {
+      console.error('Create priority error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Invalid priority data', details: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to create priority' });
+    }
+  });
+
+  app.delete("/api/user/priorities/:id", async (req, res) => {
+    try {
+      await storage.deletePriority(req.params.id, DEMO_USER_ID);
+      res.json({ message: 'Priority deleted successfully' });
+    } catch (error) {
+      console.error('Delete priority error:', error);
+      res.status(500).json({ error: 'Failed to delete priority' });
     }
   });
 
