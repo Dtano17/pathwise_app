@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { setupMultiProviderAuth } from "./multiProviderAuth";
+import { setupMultiProviderAuth, isAuthenticatedGeneric } from "./multiProviderAuth";
 import { aiService } from "./services/aiService";
 import { contactSyncService } from "./contactSync";
 import { 
@@ -31,11 +31,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
 
-  // Auth routes - from blueprint:javascript_log_in_with_replit
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  // Auth routes - supports both Replit auth and multi-provider OAuth
+  app.get('/api/auth/user', isAuthenticatedGeneric, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      let userId;
+      if (req.user?.claims?.sub) {
+        // Replit auth user
+        userId = req.user.claims.sub;
+      } else if (req.user?.id) {
+        // Multi-provider OAuth user
+        userId = req.user.id;
+      } else {
+        return res.status(401).json({ message: "No valid user session" });
+      }
+      
       const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);

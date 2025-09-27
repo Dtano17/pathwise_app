@@ -292,14 +292,15 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
 
       <motion.div
         drag
-        dragConstraints={{ left: -240, right: 240, top: -120, bottom: 120 }}
+        dragConstraints={{ left: -200, right: 200, top: -100, bottom: 100 }}
         dragMomentum={false}
         dragElastic={0.2}
+        dragDirectionLock
         dragTransition={{ bounceStiffness: 600, bounceDamping: 20 }}
-        style={{ x, y, rotate, rotateY, opacity }}
+        style={{ x, y, rotate, rotateY, opacity, touchAction: 'none' }}
         onDrag={handleDrag}
         onDragEnd={handleDragEnd}
-        className="relative z-10 cursor-grab active:cursor-grabbing select-none touch-pan-y"
+        className="relative z-10 cursor-grab active:cursor-grabbing select-none"
         data-testid={`task-card-${task.id}`}
         whileTap={{ scale: 0.98 }}
       >

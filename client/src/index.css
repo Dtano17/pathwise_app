@@ -332,6 +332,10 @@
   touch-action: pan-y;
 }
 
+.touch-action-manipulation {
+  touch-action: manipulation;
+}
+
 /* Improve mobile scrolling and touch */
 * {
   -webkit-tap-highlight-color: transparent;
