@@ -13,6 +13,7 @@ import ClaudePlanOutput from '@/components/ClaudePlanOutput';
 import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import Contacts from './Contacts';
+import ChatHistory from './ChatHistory';
 import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History } from 'lucide-react';
 import { type Task, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
@@ -45,6 +46,8 @@ interface MainAppProps {
   onShowLocationDatePlanner: (show: boolean) => void;
   showContacts: boolean;
   onShowContacts: (show: boolean) => void;
+  showChatHistory: boolean;
+  onShowChatHistory: (show: boolean) => void;
 }
 
 export default function MainApp({ 
@@ -55,7 +58,9 @@ export default function MainApp({
   showLocationDatePlanner,
   onShowLocationDatePlanner,
   showContacts,
-  onShowContacts
+  onShowContacts,
+  showChatHistory,
+  onShowChatHistory
 }: MainAppProps) {
   const [activeTab, setActiveTab] = useState("input");
   const { toast } = useToast();
@@ -1236,6 +1241,20 @@ Assistant: For nutrition, I recommend..."
           </DialogHeader>
           <div className="flex-1 overflow-hidden">
             <Contacts />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showChatHistory} onOpenChange={onShowChatHistory}>
+        <DialogContent className="max-w-6xl h-[90vh]" data-testid="modal-chat-history">
+          <DialogHeader>
+            <DialogTitle>Chat History</DialogTitle>
+            <DialogDescription>
+              View your imported conversations from ChatGPT, Claude, and other LLMs
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            <ChatHistory />
           </div>
         </DialogContent>
       </Dialog>

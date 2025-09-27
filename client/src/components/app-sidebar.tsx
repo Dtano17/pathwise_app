@@ -37,6 +37,7 @@ interface AppSidebarProps {
   onShowThemeSelector?: () => void;
   onShowDatePlanner?: () => void;
   onShowContacts?: () => void;
+  onShowChatHistory?: () => void;
 }
 
 export function AppSidebar({ 
@@ -44,13 +45,14 @@ export function AppSidebar({
   onThemeSelect, 
   onShowThemeSelector,
   onShowDatePlanner,
-  onShowContacts
+  onShowContacts,
+  onShowChatHistory
 }: AppSidebarProps) {
   const { user, isAuthenticated, isLoading, login, logout, isLoggingOut } = useAuth();
   const selectedThemeData = selectedTheme ? themes.find(t => t.id === selectedTheme) : null;
   const [isProfileExpanded, setIsProfileExpanded] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalTab, setModalTab] = useState<'profile' | 'settings'>('profile');
+  const [modalTab, setModalTab] = useState<'profile' | 'settings' | 'priorities'>('profile');
 
   const handleThemeSelect = (themeId: string) => {
     onThemeSelect?.(themeId);
@@ -174,7 +176,7 @@ export function AppSidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton data-testid="button-chat-history">
+                <SidebarMenuButton data-testid="button-chat-history" onClick={onShowChatHistory}>
                   <MessageSquare className="w-4 h-4" />
                   <span>Chat History</span>
                 </SidebarMenuButton>
