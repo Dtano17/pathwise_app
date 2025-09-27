@@ -69,10 +69,7 @@ export default function UserProfile() {
 
   const updateProfileMutation = useMutation({
     mutationFn: (updates: Partial<UserProfile>) => 
-      apiRequest('/api/user/profile', {
-        method: 'PUT',
-        body: JSON.stringify(updates),
-      }),
+      apiRequest('PUT', '/api/user/profile', updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
       setIsEditing(false);
@@ -402,7 +399,7 @@ export default function UserProfile() {
                         <Input
                           id="height"
                           defaultValue={profile.height || ''}
-                          placeholder="e.g., 5'10\" or 178cm"
+                          placeholder="e.g., 5'10&quot; or 178cm"
                           data-testid="input-height"
                         />
                       </div>

@@ -25,33 +25,6 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  
-  // Extended profile information
-  nickname: varchar("nickname"), // Display name/preferred name
-  publicBio: text("public_bio"), // Public summary that others can see
-  privateBio: text("private_bio"), // Private notes for the user
-  birthDate: text("birth_date"), // YYYY-MM-DD format
-  ethnicity: varchar("ethnicity"),
-  height: varchar("height"), // e.g., "5'10\"" or "178cm"
-  weight: varchar("weight"), // e.g., "150 lbs" or "68 kg"
-  location: varchar("location"), // City, State/Country
-  occupation: varchar("occupation"),
-  interests: jsonb("interests").$type<string[]>().default([]), // Array of interests/hobbies
-  goals: jsonb("life_goals").$type<string[]>().default([]), // Life goals
-  preferences: jsonb("preferences").$type<{
-    theme?: string;
-    notifications?: boolean;
-    privacy?: 'public' | 'friends' | 'private';
-    smartScheduler?: boolean;
-    reminderFrequency?: 'high' | 'medium' | 'low';
-    workingHours?: { start: string; end: string };
-    timezone?: string;
-  }>().default({}),
-  smartScore: integer("smart_score").default(0), // Calculated score based on activity
-  totalTasksCompleted: integer("total_tasks_completed").default(0),
-  streakDays: integer("streak_days").default(0),
-  lastActiveDate: timestamp("last_active_date").defaultNow(),
-  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
