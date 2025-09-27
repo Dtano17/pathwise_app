@@ -143,8 +143,12 @@ export default function MainApp({
   // Complete task mutation
   const completeTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
+      console.log('completeTaskMutation mutationFn called with taskId:', taskId);
       const response = await apiRequest('POST', `/api/tasks/${taskId}/complete`);
-      return response.json();
+      console.log('completeTaskMutation API response status:', response.status);
+      const data = await response.json();
+      console.log('completeTaskMutation API response data:', data);
+      return data;
     },
     onMutate: async (taskId: string) => {
       // Optimistic update
@@ -625,7 +629,11 @@ export default function MainApp({
                         priority: task.priority as 'low' | 'medium' | 'high',
                         completed: task.completed ?? false
                       }}
-                      onComplete={(taskId) => completeTaskMutation.mutate(taskId)}
+                      onComplete={(taskId) => {
+                        console.log('MainApp onComplete called with taskId:', taskId);
+                        console.log('Calling completeTaskMutation.mutate');
+                        completeTaskMutation.mutate(taskId);
+                      }}
                       onSkip={(taskId) => skipTaskMutation.mutate(taskId)}
                       onSnooze={(taskId, hours) => snoozeTaskMutation.mutate({ taskId, hours })}
                       showConfetti={true}

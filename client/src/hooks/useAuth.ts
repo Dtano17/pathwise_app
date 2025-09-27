@@ -45,15 +45,13 @@ export function useAuth() {
         return res.json();
       }),
     onSuccess: (data) => {
+      console.log('Logout successful, server response:', data);
       // Clear all queries
       queryClient.clear();
       
-      // If server requires reload, perform hard reload with cache clearing
-      if (data?.requiresReload) {
-        window.location.reload();
-      } else {
-        window.location.href = '/';
-      }
+      // Always perform hard reload when logging out to ensure clean state
+      console.log('Performing hard reload after logout');
+      window.location.reload();
     }
   });
 
