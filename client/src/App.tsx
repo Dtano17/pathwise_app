@@ -26,7 +26,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <SidebarProvider defaultOpen={false} style={style as React.CSSProperties}>
-          <div className="flex h-screen w-full">
+          <div className="flex h-screen w-full overflow-hidden">
             <AppSidebar 
               selectedTheme={selectedTheme}
               onThemeSelect={setSelectedTheme}
@@ -35,7 +35,7 @@ function App() {
               onShowContacts={() => setShowContacts(true)}
               onShowChatHistory={() => setShowChatHistory(true)}
             />
-            <div className="flex flex-col flex-1">
+            <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
               <MainApp 
                 selectedTheme={selectedTheme}
                 onThemeSelect={setSelectedTheme}

@@ -227,9 +227,10 @@ export async function setupMultiProviderAuth(app: Express) {
       clientID: process.env.APPLE_CLIENT_ID,
       teamID: process.env.APPLE_TEAM_ID,
       keyID: process.env.APPLE_KEY_ID,
-      privateKey: process.env.APPLE_PRIVATE_KEY,
+      privateKeyString: process.env.APPLE_PRIVATE_KEY,
       callbackURL: "/api/auth/apple/callback",
       scope: ['name', 'email'],
+      passReqToCallback: false,
     },
     async (accessToken: string, refreshToken: string, idToken: any, profile: AppleProfile, done: any) => {
       try {
