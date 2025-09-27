@@ -127,6 +127,7 @@ export async function setupAuth(app: Express) {
     })(req, res, next);
   });
 
+  // Handle logout for Replit auth (GET request from Replit)
   app.get("/api/logout", (req, res) => {
     req.logout(() => {
       res.redirect(
@@ -135,6 +136,24 @@ export async function setupAuth(app: Express) {
           post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
         }).href
       );
+    });
+  });
+
+  // Handle logout for all providers (POST request from frontend)
+  app.post("/api/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({ message: 'Logout failed' });
+      }
+      // Clear session data
+      req.session.destroy((sessionErr) => {
+        if (sessionErr) {
+          console.error('Session destroy error:', sessionErr);
+        }
+        res.clearCookie('connect.sid'); // Clear the session cookie
+        res.json({ message: 'Logged out successfully' });
+      });
     });
   });
 }
