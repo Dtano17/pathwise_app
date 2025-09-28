@@ -15,6 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { signupUserSchema, profileCompletionSchema, type SignupUser, type ProfileCompletion } from '@shared/schema';
 import { CheckCircle, User, Heart, Target, Clock, MapPin, Briefcase, ArrowLeft, ArrowRight } from 'lucide-react';
+import { SiFacebook, SiGoogle } from 'react-icons/si';
+import { Separator } from '@/components/ui/separator';
 
 interface SignUpProps {
   onSignUpComplete: (user: any) => void;
@@ -117,6 +119,10 @@ export default function SignUp({ onSignUpComplete, onBackToLogin }: SignUpProps)
 
   const handleProfileCompletion = (data: ProfileCompletion) => {
     profileMutation.mutate(data);
+  };
+
+  const handleSocialLogin = (provider: string) => {
+    window.location.href = `/api/auth/${provider}`;
   };
 
   // Helper for managing array fields
@@ -457,6 +463,48 @@ export default function SignUp({ onSignUpComplete, onBackToLogin }: SignUpProps)
               {signupMutation.isPending ? 'Creating Account...' : 'Create Account'}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <Separator className="w-full" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or sign up with
+                </span>
+              </div>
+            </div>
+
+            {/* Social Login Options */}
+            <div className="grid grid-cols-1 gap-3">
+              {/* Google */}
+              <Button
+                variant="outline"
+                onClick={() => handleSocialLogin('google')}
+                className="w-full h-11 text-base justify-start"
+                data-testid="button-signup-google"
+              >
+                <SiGoogle className="w-5 h-5 text-[#4285F4]" />
+                Sign up with Google
+              </Button>
+
+              {/* Facebook */}
+              <Button
+                variant="outline"
+                onClick={() => handleSocialLogin('facebook')}
+                className="w-full h-11 text-base justify-start"
+                data-testid="button-signup-facebook"
+              >
+                <SiFacebook className="w-5 h-5 text-[#1877F2]" />
+                Sign up with Facebook
+              </Button>
+            </div>
+
+            <div className="text-center">
+              <Button variant="link" onClick={onBackToLogin} data-testid="link-back-to-login">
+                Already have an account? Sign in
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
