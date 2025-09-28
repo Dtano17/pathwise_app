@@ -395,10 +395,10 @@ export default function MainApp({
                 <span className="hidden sm:inline">Goal Input</span>
                 <span className="sm:hidden">Input</span>
               </TabsTrigger>
-              <TabsTrigger value="tasks" className="gap-2 text-sm font-medium" data-testid="tab-tasks">
+              <TabsTrigger value="tasks" className="gap-2 text-sm font-medium" data-testid="tab-activities">
                 <CheckSquare className="w-4 h-4" />
-                <span className="hidden sm:inline">Tasks ({pendingTasks.length})</span>
-                <span className="sm:hidden">Tasks</span>
+                <span className="hidden sm:inline">Activities ({pendingTasks.length})</span>
+                <span className="sm:hidden">Activities</span>
               </TabsTrigger>
               <TabsTrigger value="progress" className="gap-2 text-sm font-medium" data-testid="tab-progress">
                 <BarChart3 className="w-4 h-4" />

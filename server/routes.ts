@@ -21,7 +21,11 @@ import {
   insertUserConsentSchema,
   signupUserSchema,
   profileCompletionSchema,
+  insertActivitySchema,
+  insertActivityTaskSchema,
   type Task,
+  type Activity,
+  type ActivityTask,
   type NotificationPreferences,
   type SignupUser,
   type ProfileCompletion
@@ -572,6 +576,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Create task error:', error);
       res.status(400).json({ error: 'Invalid task data' });
+    }
+  });
+
+  // ===== ACTIVITIES API ENDPOINTS =====
+
+  // Get user activities
+  app.get("/api/activities", async (req, res) => {
+    try {
+      const activities = await storage.getUserActivities(DEMO_USER_ID);
+      res.json(activities);
+    } catch (error) {
+      console.error('Get activities error:', error);
+      res.status(500).json({ error: 'Failed to fetch activities' });
+    }
+  });
+
+  // Create new activity
+  app.post("/api/activities", async (req, res) => {
+    try {
+      const activityData = insertActivitySchema.parse(req.body);
+      const activity = await storage.createActivity({
+        ...activityData,
+        userId: DEMO_USER_ID
+      });
+      res.json(activity);
+    } catch (error) {
+      console.error('Create activity error:', error);
+      res.status(400).json({ error: 'Invalid activity data' });
+    }
+  });
+
+  // Get specific activity with tasks
+  app.get("/api/activities/:activityId", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const activity = await storage.getActivity(activityId, DEMO_USER_ID);
+      
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      const activityTasks = await storage.getActivityTasks(activityId);
+      res.json({ ...activity, tasks: activityTasks });
+    } catch (error) {
+      console.error('Get activity error:', error);
+      res.status(500).json({ error: 'Failed to fetch activity' });
+    }
+  });
+
+  // Update activity
+  app.put("/api/activities/:activityId", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const updates = req.body;
+      const activity = await storage.updateActivity(activityId, updates, DEMO_USER_ID);
+      
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      res.json(activity);
+    } catch (error) {
+      console.error('Update activity error:', error);
+      res.status(500).json({ error: 'Failed to update activity' });
+    }
+  });
+
+  // Delete activity
+  app.delete("/api/activities/:activityId", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      await storage.deleteActivity(activityId, DEMO_USER_ID);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete activity error:', error);
+      res.status(500).json({ error: 'Failed to delete activity' });
+    }
+  });
+
+  // Add task to activity
+  app.post("/api/activities/:activityId/tasks", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const { taskId, order } = req.body;
+      const activityTask = await storage.addTaskToActivity(activityId, taskId, order);
+      res.json(activityTask);
+    } catch (error) {
+      console.error('Add task to activity error:', error);
+      res.status(500).json({ error: 'Failed to add task to activity' });
+    }
+  });
+
+  // Remove task from activity
+  app.delete("/api/activities/:activityId/tasks/:taskId", async (req, res) => {
+    try {
+      const { activityId, taskId } = req.params;
+      await storage.removeTaskFromActivity(activityId, taskId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Remove task from activity error:', error);
+      res.status(500).json({ error: 'Failed to remove task from activity' });
+    }
+  });
+
+  // Generate shareable link for activity
+  app.post("/api/activities/:activityId/share", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const shareableLink = await storage.generateShareableLink(activityId);
+      res.json({ shareableLink: `${req.protocol}://${req.get('host')}${shareableLink}` });
+    } catch (error) {
+      console.error('Generate share link error:', error);
+      res.status(500).json({ error: 'Failed to generate shareable link' });
+    }
+  });
+
+  // Get public activities (for social feed)
+  app.get("/api/activities/public", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const activities = await storage.getPublicActivities(limit);
+      res.json(activities);
+    } catch (error) {
+      console.error('Get public activities error:', error);
+      res.status(500).json({ error: 'Failed to fetch public activities' });
+    }
+  });
+
+  // Create activity from dialogue (AI-generated tasks)
+  app.post("/api/activities/from-dialogue", async (req, res) => {
+    try {
+      const { title, description, category, tasks } = req.body;
+      
+      // Create the activity
+      const activity = await storage.createActivity({
+        title,
+        description,
+        category,
+        status: 'planning',
+        userId: DEMO_USER_ID
+      });
+
+      // Create tasks and link them to the activity
+      if (tasks && Array.isArray(tasks)) {
+        for (let i = 0; i < tasks.length; i++) {
+          const taskData = tasks[i];
+          const task = await storage.createTask({
+            ...taskData,
+            userId: DEMO_USER_ID
+          });
+          await storage.addTaskToActivity(activity.id, task.id, i);
+        }
+      }
+
+      // Get the complete activity with tasks
+      const activityTasks = await storage.getActivityTasks(activity.id);
+      res.json({ ...activity, tasks: activityTasks });
+    } catch (error) {
+      console.error('Create activity from dialogue error:', error);
+      res.status(500).json({ error: 'Failed to create activity from dialogue' });
     }
   });
 
