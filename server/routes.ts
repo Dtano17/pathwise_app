@@ -1214,12 +1214,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Missing signed_request' });
       }
       
-      // Parse Facebook's signed request
-      // In production, you would verify the signature here
+      // Verify Facebook's signed request signature
+      const crypto = require('crypto');
       const [encodedSig, payload] = signed_request.split('.');
+      
+      // Get Facebook app secret from environment
+      const appSecret = process.env.FACEBOOK_APP_SECRET;
+      if (!appSecret) {
+        console.error('FACEBOOK_APP_SECRET not configured');
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+      
+      // Verify signature
+      const expectedSig = crypto.createHmac('sha256', appSecret)
+        .update(payload)
+        .digest('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+        
+      const providedSig = encodedSig.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+      
+      if (expectedSig !== providedSig) {
+        console.error('Invalid Facebook signature verification');
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+      
+      // Parse verified payload
       const data = JSON.parse(Buffer.from(payload, 'base64').toString());
       
-      console.log('Facebook data deletion callback received:', {
+      console.log('Verified Facebook data deletion callback received:', {
         user_id: data.user_id,
         algorithm: data.algorithm,
         issued_at: data.issued_at,
@@ -1227,14 +1251,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Process the deletion for the Facebook user
-      // TODO: Find user by Facebook ID and delete their data
-      
-      const confirmationCode = Math.random().toString(36).substring(2) + Date.now().toString(36);
-      
-      res.json({
-        url: \`\${req.protocol}://\${req.get('host')}/data-deletion?confirmation=\${confirmationCode}\`,
-        confirmation_code: confirmationCode
-      });
+      try {
+        // Find user by Facebook ID and delete their data
+        const users = await storage.getAllUsers();
+        const userToDelete = users.find(user => user.facebookId === data.user_id);
+        
+        if (userToDelete) {
+          // Export user data before deletion (GDPR requirement)
+          const userData = {
+            profile: userToDelete,
+            goals: await storage.getGoalsByUserId(userToDelete.id),
+            tasks: await storage.getTasksByUserId(userToDelete.id),
+            progress: await storage.getProgressByUserId(userToDelete.id),
+            exportedAt: new Date().toISOString()
+          };
+          
+          // In production, send this data to the user or store for retrieval
+          console.log('User data exported for deletion:', userData);
+          
+          // Delete all user data
+          await storage.deleteUserData(userToDelete.id);
+          
+          console.log('Successfully deleted user data for Facebook ID:', data.user_id);
+        } else {
+          console.log('No user found with Facebook ID:', data.user_id);
+        }
+        
+        const confirmationCode = crypto.randomBytes(16).toString('hex');
+        
+        res.json({
+          url: `${req.protocol}://${req.get('host')}/data-deletion?confirmation=${confirmationCode}`,
+          confirmation_code: confirmationCode
+        });
+        
+      } catch (deletionError) {
+        console.error('Error during user data deletion:', deletionError);
+        res.status(500).json({ error: 'Failed to delete user data' });
+      }
       
     } catch (error) {
       console.error('Facebook data deletion callback error:', error);
