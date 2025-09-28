@@ -15,7 +15,7 @@ import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2 } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft } from 'lucide-react';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
@@ -87,6 +87,12 @@ export default function MainApp({
   // Activity selection and delete dialog state
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
+  
+  // Task filtering state
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedPriority, setSelectedPriority] = useState('all');
+  const [filter, setFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Expanded activities for collapsible view
   const handleActivityClick = (activity: ActivityType) => {
@@ -730,163 +736,169 @@ export default function MainApp({
               )}
             </TabsContent>
 
-            {/* Activities Tab */}
+            {/* Tasks Tab */}
             <TabsContent value="tasks" className="space-y-6">
-              {/* Activities List View with Collapsible Tasks */}
               <div className="text-center mb-6">
-                <h2 className="text-3xl font-bold text-foreground mb-2">Your Activities</h2>
-                <p className="text-muted-foreground">
-                  Shareable activities with progress tracking and social features
-                </p>
+                {selectedActivityId ? (
+                  <>
+                    <h2 className="text-3xl font-bold text-foreground mb-2">Activity Tasks</h2>
+                    <p className="text-muted-foreground">
+                      Tasks for: {activities.find(a => a.id === selectedActivityId)?.title || 'Selected Activity'}
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setSelectedActivityId(null)}
+                      className="mt-2"
+                      data-testid="button-view-all-tasks"
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      View All Tasks
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-3xl font-bold text-foreground mb-2">Your Tasks</h2>
+                    <p className="text-muted-foreground">
+                      Manage and track your tasks. Click an activity to see its tasks.
+                    </p>
+                  </>
+                )}
               </div>
 
-              <div className="flex justify-center mb-6">
-                <Button
-                  onClick={() => setActiveTab("input")}
-                  className="gap-2"
-                  data-testid="button-create-activity"
-                >
-                  <Plus className="w-4 h-4" />
-                  Share New Goal
-                </Button>
-              </div>
-
-              {activitiesLoading ? (
+              {tasksLoading ? (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">Loading activities...</p>
+                  <p className="text-muted-foreground">Loading tasks...</p>
                 </div>
-              ) : activitiesError ? (
+              ) : tasksError ? (
                 <div className="text-center py-8">
-                  <p className="text-destructive">Failed to load activities. Please try again.</p>
-                  <Button onClick={() => refetchActivities()} variant="outline" className="mt-4">
+                  <p className="text-destructive">Failed to load tasks. Please try again.</p>
+                  <Button onClick={() => refetchTasks()} variant="outline" className="mt-4">
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Retry
                   </Button>
                 </div>
-              ) : activities.length === 0 ? (
+              ) : tasks.length === 0 ? (
                 <div className="text-center py-12">
-                  <Activity className="mx-auto w-16 h-16 text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-medium text-foreground mb-2">No Activities Yet</h3>
+                  <CheckSquare className="mx-auto w-16 h-16 text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-medium text-foreground mb-2">No Tasks Yet</h3>
                   <p className="text-muted-foreground mb-6">
-                    Share your goals to create trackable activities with progress and social features
+                    Create activities with goals to generate tasks automatically
                   </p>
                   <Button onClick={() => setActiveTab("input")} className="gap-2">
                     <Plus className="w-4 h-4" />
-                    Share Your First Goal
+                    Create Your First Goal
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-4 max-w-4xl mx-auto">
-                  {activities.map((activity) => {
-                    // For now, we'll show placeholder data for task counts
-                    // TODO: Implement proper task-activity relationship via activityTasks table
-                    const placeholderTaskCount = Math.floor(Math.random() * 8) + 2; // 2-10 tasks
-                    const completedTasks = Math.floor(Math.random() * placeholderTaskCount);
-                    const totalTasks = placeholderTaskCount;
-                    const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                  {/* Filter and Search Controls */}
+                  <div className="flex gap-4 justify-between items-center mb-6">
+                    <div className="flex gap-4 items-center">
+                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue placeholder="Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="health">Health</SelectItem>
+                          <SelectItem value="fitness">Fitness</SelectItem>
+                          <SelectItem value="work">Work</SelectItem>
+                          <SelectItem value="personal">Personal</SelectItem>
+                          <SelectItem value="goal">Goal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      
+                      <Select value={selectedPriority} onValueChange={setSelectedPriority}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue placeholder="Priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="low">Low</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      
+                      <Select value={filter} onValueChange={setFilter}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Tasks</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                     
-                    return (
-                      <div
-                        key={activity.id}
-                        className="bg-card border rounded-xl overflow-hidden hover-elevate cursor-pointer"
-                        onClick={() => handleActivityClick(activity)}
-                        data-testid={`activity-card-${activity.id}`}
-                      >
-                        <div className="w-full p-6">
-                          <div className="flex justify-between items-start mb-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h3 className="text-lg font-semibold">{activity.title}</h3>
-                              </div>
-                              <p className="text-muted-foreground text-sm mb-3">
-                                {activity.description || 'No description provided'}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 ml-4">
-                              <Badge variant="secondary" className="text-xs">{activity.category || 'General'}</Badge>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toast({ title: "Share Activity", description: "Social sharing coming soon!" });
-                                }}
-                                data-testid={`button-share-${activity.id}`}
-                              >
-                                <Share2 className="w-4 h-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteDialog({ open: true, activity });
-                                }}
-                                disabled={handleDeleteActivity.isPending}
-                                data-testid={`button-delete-${activity.id}`}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
+                    <Input
+                      type="text"
+                      placeholder="Search tasks..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="max-w-xs"
+                      data-testid="input-search-tasks"
+                    />
+                  </div>
 
-                          <div className="flex justify-between items-center mb-4">
-                            <div className="flex items-center gap-4">
-                              <div className="flex items-center gap-1 text-sm">
-                                <CheckSquare className="w-4 h-4 text-green-600" />
-                                <span className="font-medium">{completedTasks}/{totalTasks}</span>
-                                <span className="text-muted-foreground">tasks</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-sm">
-                                <Badge variant="outline" className="text-xs font-semibold text-primary">
-                                  {progressPercent}% Complete
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-1 text-sm">
-                                <Badge variant="outline" className="text-xs">
-                                  <span className="capitalize">{activity.status || 'planning'}</span>
-                                </Badge>
-                              </div>
-                              {activity.endDate && (
-                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                  <Calendar className="w-4 h-4" />
-                                  <span>Due {new Date(activity.endDate).toLocaleDateString()}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                  {/* Task Cards */}
+                  {(() => {
+                    // Filter tasks by selected activity if one is chosen
+                    let filteredTasks = selectedActivityId 
+                      ? tasks.filter(task => {
+                          // For now, since we don't have activityId on tasks,
+                          // we'll show all tasks. TODO: Implement proper filtering via activityTasks table
+                          return true;
+                        })
+                      : tasks;
 
-                          {/* Progress Bar with Percentage */}
-                          <div className="w-full bg-muted rounded-full h-3 relative">
-                            <div 
-                              className="bg-gradient-to-r from-primary to-primary/80 rounded-full h-3 transition-all duration-500 flex items-center justify-center" 
-                              style={{ width: `${progressPercent}%` }}
-                            >
-                              {progressPercent > 20 && (
-                                <span className="text-xs font-semibold text-primary-foreground px-2">
-                                  {progressPercent}%
-                                </span>
-                              )}
-                            </div>
-                            {progressPercent <= 20 && progressPercent > 0 && (
-                              <div className="absolute inset-0 flex items-center justify-start pl-2">
-                                <span className="text-xs font-semibold text-foreground">
-                                  {progressPercent}%
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="mt-3 text-center">
-                            <p className="text-xs text-muted-foreground">
-                              Click to view tasks →
-                            </p>
-                          </div>
+                    // Apply other filters
+                    filteredTasks = filteredTasks.filter(task => {
+                      const categoryMatch = selectedCategory === 'all' || task.category === selectedCategory;
+                      const priorityMatch = selectedPriority === 'all' || task.priority === selectedPriority;
+                      const statusMatch = filter === 'all' || 
+                        (filter === 'completed' && task.completed) ||
+                        (filter === 'active' && !task.completed) ||
+                        (filter === 'pending' && !task.completed);
+                      const searchMatch = searchQuery === '' || 
+                        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
+                      
+                      return categoryMatch && priorityMatch && statusMatch && searchMatch;
+                    });
+
+                    if (filteredTasks.length === 0) {
+                      return (
+                        <div className="text-center py-8">
+                          <CheckSquare className="mx-auto w-12 h-12 text-muted-foreground mb-4" />
+                          <p className="text-muted-foreground">
+                            {selectedActivityId 
+                              ? "No tasks found for this activity with the current filters." 
+                              : searchQuery || selectedCategory !== 'all' || selectedPriority !== 'all' || filter !== 'all'
+                                ? "No tasks match your current filters."
+                                : "No tasks available."}
+                          </p>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    }
+
+                    return filteredTasks.map(task => (
+                      <TaskCard
+                        key={task.id}
+                        task={{
+                          ...task,
+                          description: task.description || '' // Convert null to empty string
+                        }}
+                        onComplete={() => handleCompleteTask(task.id)}
+                        onSkip={() => handleSkipTask(task.id)}
+                        onSnooze={(hours) => handleSnoozeTask(task.id, hours)}
+                        data-testid={`task-card-${task.id}`}
+                      />
+                    ));
+                  })()}
                 </div>
               )}
             </TabsContent>
