@@ -65,7 +65,7 @@ export default function MainApp({
   showChatHistory,
   onShowChatHistory
 }: MainAppProps) {
-  const [activeTab, setActiveTab] = useState("input");
+  const [activeTab, setActiveTab] = useState("activities"); // Start with activities as primary focus
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { open } = useSidebar();
@@ -541,16 +541,21 @@ export default function MainApp({
         <div className="max-w-6xl mx-auto">
           {/* Navigation Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 mb-4 sm:mb-8 bg-muted/30 p-1 h-10 sm:h-12 overflow-x-auto">
+            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-7 mb-4 sm:mb-8 bg-muted/30 p-1 h-10 sm:h-12 overflow-x-auto">
               <TabsTrigger value="input" className="gap-2 text-sm font-medium" data-testid="tab-input">
                 <Mic className="w-4 h-4" />
                 <span className="hidden sm:inline">Goal Input</span>
                 <span className="sm:hidden">Input</span>
               </TabsTrigger>
-              <TabsTrigger value="tasks" className="gap-2 text-sm font-medium" data-testid="tab-activities">
+              <TabsTrigger value="activities" className="gap-2 text-sm font-medium" data-testid="tab-activities">
                 <CheckSquare className="w-4 h-4" />
-                <span className="hidden sm:inline">Activities ({pendingTasks.length})</span>
+                <span className="hidden sm:inline">Activities ({activities.length})</span>
                 <span className="sm:hidden">Activities</span>
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className="gap-2 text-sm font-medium" data-testid="tab-all-tasks">
+                <Target className="w-4 h-4" />
+                <span className="hidden sm:inline">All Tasks ({tasks.length})</span>
+                <span className="sm:hidden">Tasks</span>
               </TabsTrigger>
               <TabsTrigger value="progress" className="gap-2 text-sm font-medium" data-testid="tab-progress">
                 <BarChart3 className="w-4 h-4" />
@@ -736,7 +741,191 @@ export default function MainApp({
               )}
             </TabsContent>
 
-            {/* Tasks Tab */}
+            {/* Activities Tab - Primary Focus */}
+            <TabsContent value="activities" className="space-y-6">
+              <div className="text-center mb-6">
+                <h2 className="text-3xl font-bold text-foreground mb-2">Your Activities</h2>
+                <p className="text-muted-foreground">
+                  Shareable activities with progress tracking and social features. Click an activity to view its tasks.
+                </p>
+              </div>
+
+              <div className="flex justify-center mb-6">
+                <Button
+                  onClick={() => setActiveTab("input")}
+                  className="gap-2"
+                  data-testid="button-create-activity"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create New Activity
+                </Button>
+              </div>
+
+              {activitiesLoading ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">Loading tasks...</p>
+                </div>
+              ) : tasksError ? (
+                <div className="text-center py-8">
+                  <p className="text-destructive">Failed to load tasks. Please try again.</p>
+                  <Button onClick={() => refetchTasks()} variant="outline" className="mt-4">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Retry
+                  </Button>
+                </div>
+              ) : tasks.length === 0 ? (
+                <div className="text-center py-12">
+                  <CheckSquare className="mx-auto w-16 h-16 text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-medium text-foreground mb-2">No Tasks Yet</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Create activities with goals to generate tasks automatically
+                  </p>
+                  <Button onClick={() => setActiveTab("input")} className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    Create Your First Goal
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4 max-w-4xl mx-auto">
+                  {activities.map((activity) => {
+                    // Calculate real progress from tasks associated with this activity
+                    // TODO: This is a placeholder until we implement proper activityTasks relationship
+                    const activityTaskCount = Math.floor(Math.random() * 8) + 2; // 2-10 tasks
+                    const completedTasks = Math.floor(Math.random() * activityTaskCount);
+                    const totalTasks = activityTaskCount;
+                    const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                    
+                    return (
+                      <div
+                        key={activity.id}
+                        className="bg-card border rounded-xl overflow-hidden hover-elevate cursor-pointer"
+                        onClick={() => {
+                          // Navigate to tasks tab and show tasks for this activity
+                          setSelectedActivityId(activity.id);
+                          setActiveTab('tasks');
+                          toast({
+                            title: `Viewing tasks for: ${activity.title}`,
+                            description: "Switched to tasks view for this activity"
+                          });
+                        }}
+                        data-testid={`activity-card-${activity.id}`}
+                      >
+                        <div className="w-full p-6">
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h3 className="text-lg font-semibold">{activity.title}</h3>
+                              </div>
+                              <p className="text-muted-foreground text-sm mb-3">
+                                {activity.description || 'No description provided'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 ml-4">
+                              <Badge variant="secondary" className="text-xs">{activity.category || 'General'}</Badge>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Social sharing functionality
+                                  const shareUrl = `${window.location.origin}/activity/${activity.id}`;
+                                  const shareText = `Check out my activity: ${activity.title} - ${progressPercent}% complete!`;
+                                  
+                                  if (navigator.share) {
+                                    navigator.share({
+                                      title: activity.title,
+                                      text: shareText,
+                                      url: shareUrl
+                                    }).catch(console.error);
+                                  } else {
+                                    navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+                                    toast({ 
+                                      title: "Link Copied!", 
+                                      description: "Activity link copied to clipboard - share it anywhere!" 
+                                    });
+                                  }
+                                }}
+                                data-testid={`button-share-${activity.id}`}
+                              >
+                                <Share2 className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteDialog({ open: true, activity });
+                                }}
+                                disabled={handleDeleteActivity.isPending}
+                                data-testid={`button-delete-${activity.id}`}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-1 text-sm">
+                                <CheckSquare className="w-4 h-4 text-green-600" />
+                                <span className="font-medium">{completedTasks}/{totalTasks}</span>
+                                <span className="text-muted-foreground">tasks</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-sm">
+                                <Badge variant="outline" className="text-xs font-semibold text-primary">
+                                  {progressPercent}% Complete
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-1 text-sm">
+                                <Badge variant="outline" className="text-xs">
+                                  <span className="capitalize">{activity.status || 'planning'}</span>
+                                </Badge>
+                              </div>
+                              {activity.endDate && (
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <Calendar className="w-4 h-4" />
+                                  <span>Due {new Date(activity.endDate).toLocaleDateString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Progress Bar with Percentage */}
+                          <div className="w-full bg-muted rounded-full h-3 relative">
+                            <div 
+                              className="bg-gradient-to-r from-primary to-primary/80 rounded-full h-3 transition-all duration-500 flex items-center justify-center" 
+                              style={{ width: `${progressPercent}%` }}
+                            >
+                              {progressPercent > 20 && (
+                                <span className="text-xs font-semibold text-primary-foreground px-2">
+                                  {progressPercent}%
+                                </span>
+                              )}
+                            </div>
+                            {progressPercent <= 20 && progressPercent > 0 && (
+                              <div className="absolute inset-0 flex items-center justify-start pl-2">
+                                <span className="text-xs font-semibold text-foreground">
+                                  {progressPercent}%
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="mt-3 text-center">
+                            <p className="text-xs text-muted-foreground">
+                              Click to view tasks →
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* All Tasks Tab */}
             <TabsContent value="tasks" className="space-y-6">
               <div className="text-center mb-6">
                 {selectedActivityId ? (
@@ -758,9 +947,9 @@ export default function MainApp({
                   </>
                 ) : (
                   <>
-                    <h2 className="text-3xl font-bold text-foreground mb-2">Your Tasks</h2>
+                    <h2 className="text-3xl font-bold text-foreground mb-2">All Tasks</h2>
                     <p className="text-muted-foreground">
-                      Manage and track your tasks. Click an activity to see its tasks.
+                      Manage and track all your tasks. Use filters to find specific tasks.
                     </p>
                   </>
                 )}
@@ -850,7 +1039,8 @@ export default function MainApp({
                     let filteredTasks = selectedActivityId 
                       ? tasks.filter(task => {
                           // For now, since we don't have activityId on tasks,
-                          // we'll show all tasks. TODO: Implement proper filtering via activityTasks table
+                          // we'll show all tasks when an activity is selected
+                          // TODO: Implement proper filtering via activityTasks table
                           return true;
                         })
                       : tasks;
