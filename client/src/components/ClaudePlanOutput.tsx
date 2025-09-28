@@ -24,6 +24,7 @@ interface ClaudePlanOutputProps {
   estimatedTimeframe?: string;
   motivationalNote?: string;
   onCompleteTask: (taskId: string) => void;
+  onCreateActivity?: (planData: { title: string; description: string; tasks: Task[] }) => void;
   showConfetti?: boolean;
 }
 
@@ -34,6 +35,7 @@ export default function ClaudePlanOutput({
   estimatedTimeframe,
   motivationalNote,
   onCompleteTask,
+  onCreateActivity,
   showConfetti = false
 }: ClaudePlanOutputProps) {
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
@@ -240,6 +242,28 @@ export default function ClaudePlanOutput({
           />
         </div>
       </div>
+
+      {/* Create Activity Button */}
+      {onCreateActivity && (
+        <div className="text-center pt-6">
+          <Button
+            onClick={() => onCreateActivity({
+              title: planTitle || 'Generated Plan',
+              description: summary || 'AI-generated activity plan',
+              tasks: tasks
+            })}
+            className="gap-2"
+            variant="outline"
+            data-testid="button-create-activity-from-plan"
+          >
+            <Target className="w-4 h-4" />
+            Create Activity from Plan
+          </Button>
+          <p className="text-xs text-muted-foreground mt-2">
+            Convert this plan into a shareable activity with timeline and progress tracking
+          </p>
+        </div>
+      )}
     </motion.div>
   );
 }

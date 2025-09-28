@@ -14,7 +14,7 @@ import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check } from 'lucide-react';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
@@ -354,6 +354,44 @@ export default function MainApp({
     }
   };
 
+  // Create activity from plan mutation
+  const createActivityMutation = useMutation({
+    mutationFn: async (planData: { title: string; description: string; tasks: any[] }) => {
+      const response = await apiRequest('POST', '/api/activities/from-dialogue', {
+        title: planData.title,
+        description: planData.description,
+        category: 'goal',
+        tasks: planData.tasks.map(task => ({
+          title: task.title,
+          description: task.description,
+          priority: task.priority || 'medium',
+          category: task.category || 'general',
+          timeEstimate: task.timeEstimate
+        }))
+      });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+      toast({
+        title: "Activity Created!",
+        description: `"${data.title}" has been created with ${data.tasks?.length || 0} tasks. Check your Activities tab!`,
+      });
+      setActiveTab("tasks"); // Switch to activities view
+      setCurrentPlanOutput(null); // Clear the plan output
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.error || error.message || "Failed to create activity. Please try again.";
+      toast({
+        title: "Activity Creation Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  });
+
   const pendingTasks = tasks.filter(task => !task.completed);
   const completedTasks = tasks.filter(task => task.completed);
 
@@ -557,6 +595,7 @@ export default function MainApp({
                     estimatedTimeframe={currentPlanOutput.estimatedTimeframe}
                     motivationalNote={currentPlanOutput.motivationalNote}
                     onCompleteTask={(taskId) => completeTaskMutation.mutate(taskId)}
+                    onCreateActivity={(planData) => createActivityMutation.mutate(planData)}
                     showConfetti={true}
                   />
                   
@@ -583,80 +622,159 @@ export default function MainApp({
               )}
             </TabsContent>
 
-            {/* Tasks Tab */}
+            {/* Activities Tab */}
             <TabsContent value="tasks" className="space-y-6">
               <div className="text-center mb-6">
-                <h2 className="text-3xl font-bold text-foreground mb-2">Your Action Items</h2>
+                <h2 className="text-3xl font-bold text-foreground mb-2">Your Activities</h2>
                 <p className="text-muted-foreground">
-                  Swipe right to complete, left to skip, up to snooze for 2 hours
+                  Organize your goals into shareable activities with timelines and progress tracking
                 </p>
+              </div>
+
+              <div className="flex justify-center mb-6">
+                <Button
+                  onClick={() => setActiveTab("input")}
+                  className="gap-2"
+                  data-testid="button-create-activity"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create New Activity
+                </Button>
               </div>
 
               {tasksLoading ? (
                 <div className="text-center py-12">
                   <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Loading your tasks...</p>
+                  <p className="text-muted-foreground">Loading your activities...</p>
                 </div>
               ) : pendingTasks.length === 0 ? (
                 <div className="text-center py-12">
                   <Target className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">No pending tasks</h3>
+                  <h3 className="text-xl font-semibold mb-2">No activities yet</h3>
                   <p className="text-muted-foreground mb-4">
-                    Start by adding a goal to generate actionable tasks!
+                    Create your first activity to organize goals with shareable timelines!
                   </p>
                   <Button onClick={() => setActiveTab("input")} className="gap-2">
                     <Plus className="w-4 h-4" />
-                    Add Your First Goal
+                    Create Your First Activity
                   </Button>
                 </div>
               ) : (
-                <div className="grid gap-6 max-w-2xl mx-auto">
-                  {pendingTasks.map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={{
-                        ...task,
-                        description: task.description || '',
-                        dueDate: task.dueDate ? 
-                          (task.dueDate instanceof Date ? 
-                            task.dueDate.toISOString().split('T')[0] : 
-                            String(task.dueDate).split('T')[0]
-                          ) : undefined,
-                        priority: task.priority as 'low' | 'medium' | 'high',
-                        completed: task.completed ?? false
-                      }}
-                      onComplete={(taskId) => completeTaskMutation.mutate(taskId)}
-                      onSkip={(taskId) => skipTaskMutation.mutate(taskId)}
-                      onSnooze={(taskId, hours) => snoozeTaskMutation.mutate({ taskId, hours })}
-                      showConfetti={true}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Completed Tasks Summary */}
-              {completedTasks.length > 0 && (
-                <div className="mt-12 max-w-2xl mx-auto">
-                  <h3 className="text-lg font-semibold mb-4 text-center flex items-center justify-center gap-2">
-                    <CheckSquare className="w-5 h-5 text-green-600" />
-                    Completed Today ({completedTasks.length})
-                  </h3>
-                  <div className="space-y-2">
-                    {completedTasks.slice(0, 3).map((task) => (
-                      <div key={task.id} className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3">
-                        <p className="text-sm font-medium text-green-800 dark:text-green-200 line-through">
-                          {task.title}
+                <div className="grid gap-6 max-w-4xl mx-auto">
+                  {/* Demo Activities for now - will be replaced with real data */}
+                  <div className="bg-card border rounded-xl p-6 hover-elevate cursor-pointer" data-testid="activity-card-demo">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold mb-2">Jamaican Vacation Planning</h3>
+                        <p className="text-muted-foreground text-sm mb-3">
+                          Complete itinerary for an amazing 7-day Jamaica trip with cultural experiences and adventure activities
                         </p>
                       </div>
-                    ))}
-                    {completedTasks.length > 3 && (
-                      <p className="text-center text-sm text-muted-foreground">
-                        +{completedTasks.length - 3} more completed tasks
-                      </p>
-                    )}
+                      <div className="flex items-center gap-2 ml-4">
+                        <Badge variant="secondary" className="text-xs">Travel</Badge>
+                        <div className="flex items-center gap-1">
+                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                          <span className="text-sm font-medium">4.8</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <CheckSquare className="w-4 h-4" />
+                          <span>12/15 tasks completed</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Calendar className="w-4 h-4" />
+                          <span>Due Dec 15</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" data-testid="button-share-activity">
+                          <Share2 className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" data-testid="button-activity-options">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full" style={{ width: '80%' }}></div>
+                    </div>
+                  </div>
+
+                  <div className="bg-card border rounded-xl p-6 hover-elevate cursor-pointer" data-testid="activity-card-demo-2">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold mb-2">Home Office Setup</h3>
+                        <p className="text-muted-foreground text-sm mb-3">
+                          Create the perfect productive workspace with ergonomic furniture and tech setup
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <Badge variant="secondary" className="text-xs">Productivity</Badge>
+                        <div className="flex items-center gap-1">
+                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                          <span className="text-sm font-medium">4.5</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <CheckSquare className="w-4 h-4" />
+                          <span>8/10 tasks completed</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Calendar className="w-4 h-4" />
+                          <span>Due Jan 5</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" data-testid="button-share-activity">
+                          <Share2 className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" data-testid="button-activity-options">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full" style={{ width: '80%' }}></div>
+                    </div>
                   </div>
                 </div>
               )}
+
+              {/* Individual Tasks Quick Access */}
+              <div className="mt-12 max-w-2xl mx-auto">
+                <h3 className="text-lg font-semibold mb-4 text-center flex items-center justify-center gap-2">
+                  <CheckSquare className="w-5 h-5" />
+                  Quick Tasks ({pendingTasks.length} pending)
+                </h3>
+                <div className="grid gap-3">
+                  {pendingTasks.slice(0, 5).map((task) => (
+                    <div key={task.id} className="bg-secondary/20 border border-secondary/30 rounded-lg p-3 flex items-center justify-between">
+                      <p className="text-sm font-medium">{task.title}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">{task.priority}</Badge>
+                        <Button variant="ghost" size="sm" onClick={() => completeTaskMutation.mutate(task.id)}>
+                          <Check className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {pendingTasks.length > 5 && (
+                    <Button variant="ghost" className="w-full justify-center" onClick={() => {/* Open tasks modal */}}>
+                      View {pendingTasks.length - 5} more tasks
+                    </Button>
+                  )}
+                </div>
+              </div>
             </TabsContent>
 
             {/* Progress Tab */}
