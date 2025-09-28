@@ -125,7 +125,17 @@ export default function SignUp({ onSignUpComplete, onBackToLogin }: SignUpProps)
 
   const handleSocialLogin = (provider: string) => {
     if (provider === 'facebook') {
-      loginWithFacebook();
+      // Use Facebook SDK login with proper callback
+      if (window.FB) {
+        window.FB.login((response: any) => {
+          if (window.checkLoginState) {
+            window.checkLoginState();
+          }
+        }, { scope: 'public_profile,email' });
+      } else {
+        // Fallback to direct OAuth redirect
+        window.location.href = '/api/auth/facebook';
+      }
     } else {
       window.location.href = `/api/auth/${provider}`;
     }
@@ -494,19 +504,16 @@ export default function SignUp({ onSignUpComplete, onBackToLogin }: SignUpProps)
                 Sign up with Google
               </Button>
 
-              {/* Facebook - Official Login Button */}
-              <div className="w-full" data-testid="facebook-signup-container">
-                <fb:login-button 
-                  scope="public_profile,email"
-                  onlogin="checkLoginState();"
-                  data-width="100%"
-                  data-size="large"
-                  data-button-type="login_with"
-                  data-layout="default"
-                  data-auto-logout-link="false"
-                  data-use-continue-as="false">
-                </fb:login-button>
-              </div>
+              {/* Facebook */}
+              <Button
+                variant="outline"
+                onClick={() => handleSocialLogin('facebook')}
+                className="w-full h-11 text-base justify-start"
+                data-testid="button-signup-facebook"
+              >
+                <SiFacebook className="w-5 h-5 text-[#1877F2]" />
+                Sign up with Facebook
+              </Button>
             </div>
 
             <div className="text-center">

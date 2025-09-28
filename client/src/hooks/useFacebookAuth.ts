@@ -94,5 +94,6 @@ declare global {
   interface Window {
     FB: any;
     fbLoginStatus: FacebookLoginStatus;
+    checkLoginState: () => void;
   }
 }
