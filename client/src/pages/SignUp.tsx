@@ -125,13 +125,9 @@ export default function SignUp({ onSignUpComplete, onBackToLogin }: SignUpProps)
 
   const handleSocialLogin = (provider: string) => {
     if (provider === 'facebook') {
-      // Use Facebook SDK login with proper callback
-      if (window.FB) {
-        window.FB.login((response: any) => {
-          if (window.checkLoginState) {
-            window.checkLoginState();
-          }
-        }, { scope: 'public_profile,email' });
+      // Use the popup-based Facebook login to avoid iframe issues
+      if (window.facebookLogin) {
+        window.facebookLogin();
       } else {
         // Fallback to direct OAuth redirect
         window.location.href = '/api/auth/facebook';

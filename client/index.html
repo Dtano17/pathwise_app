@@ -35,19 +35,30 @@
       }
 
       function statusChangeCallback(response) {
+        console.log('Facebook login status:', response.status);
+        window.fbLoginStatus = response;
+        
         if (response.status === 'connected') {
           // User is logged into Facebook and your app
-          console.log('Facebook login status: connected');
-          // Redirect to your app's callback endpoint to complete authentication
-          window.location.href = '/api/auth/facebook/callback';
-        } else if (response.status === 'not_authorized') {
-          // User is logged into Facebook but not your app
-          console.log('Facebook login status: not_authorized');
-          window.fbLoginStatus = response;
-        } else {
-          // User is not logged into Facebook
-          console.log('Facebook login status: unknown');
-          window.fbLoginStatus = response;
+          FB.api('/me', {fields: 'name,email'}, function(userInfo) {
+            // Send to backend for authentication
+            fetch('/api/auth/facebook/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                accessToken: response.authResponse.accessToken,
+                userInfo: userInfo
+              })
+            }).then(res => res.json()).then(data => {
+              if (data.success) {
+                window.location.href = '/dashboard';
+              }
+            }).catch(err => {
+              console.error('Error checking user authentication:', err);
+            });
+          });
         }
         
         // Trigger custom event for React to listen to
@@ -55,6 +66,21 @@
           detail: response 
         }));
       }
+
+      // Login function that forces popup display to avoid iframe issues
+      window.facebookLogin = function() {
+        FB.login(function(response) {
+          if (response.authResponse) {
+            console.log('Facebook login successful');
+            statusChangeCallback(response);
+          } else {
+            console.log('Facebook login cancelled or failed');
+          }
+        }, {
+          scope: 'email,public_profile',
+          display: 'popup'  // Force popup to avoid X-Frame-Options issues
+        });
+      };
 
       (function(d, s, id){
          var js, fjs = d.getElementsByTagName(s)[0];

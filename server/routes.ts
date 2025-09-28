@@ -36,6 +36,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
 
+  // Facebook verification endpoint for popup-based login
+  app.post('/api/auth/facebook/verify', async (req: any, res) => {
+    try {
+      const { accessToken, userInfo } = req.body;
+      
+      if (!accessToken || !userInfo) {
+        return res.status(400).json({ success: false, error: 'Missing access token or user info' });
+      }
+
+      // Verify the access token with Facebook
+      const fbResponse = await fetch(`https://graph.facebook.com/me?access_token=${accessToken}&fields=id,name,email`);
+      const fbUserData = await fbResponse.json();
+      
+      if (fbUserData.error) {
+        return res.status(401).json({ success: false, error: 'Invalid Facebook token' });
+      }
+
+      // Check if user exists or create new user
+      let user = await storage.getUserByProvider('facebook', fbUserData.id);
+      
+      if (!user) {
+        // Create new user using the signupUserSchema
+        const newUser: SignupUser = {
+          username: fbUserData.name || 'Facebook User',
+          email: fbUserData.email || `fb_${fbUserData.id}@facebook.com`,
+          provider: 'facebook',
+          providerId: fbUserData.id,
+          profilePicture: `https://graph.facebook.com/${fbUserData.id}/picture?type=large`
+        };
+        
+        user = await storage.createUser(newUser);
+      }
+
+      // Create session
+      req.session.userId = user.id;
+      req.session.user = user;
+      
+      res.json({ success: true, user });
+    } catch (error) {
+      console.error('Facebook verification error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  });
+
   // Auth routes - supports both authenticated and guest users
   app.get('/api/auth/user', async (req: any, res) => {
     try {

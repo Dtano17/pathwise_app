@@ -95,5 +95,6 @@ declare global {
     FB: any;
     fbLoginStatus: FacebookLoginStatus;
     checkLoginState: () => void;
+    facebookLogin: () => void;
   }
 }
