@@ -387,13 +387,70 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async generateShareableLink(activityId: string): Promise<string> {
+  async generateShareableLink(activityId: string, userId: string): Promise<string | null> {
     const shareToken = crypto.randomUUID();
-    const shareableLink = `/share/activity/${shareToken}`;
-    await db.update(activities)
-      .set({ shareableLink })
-      .where(eq(activities.id, activityId));
-    return shareableLink;
+    // Store just the token in the database, with ownership validation
+    const result = await db.update(activities)
+      .set({ shareableLink: shareToken })
+      .where(and(eq(activities.id, activityId), eq(activities.userId, userId)))
+      .returning();
+    
+    if (result.length === 0) {
+      return null; // Activity not found or user doesn't own it
+    }
+    
+    return shareToken;
+  }
+
+  async getActivityByShareToken(shareToken: string): Promise<ActivityWithProgress | null> {
+    // Look up directly by the token stored in shareableLink
+    const result = await db
+      .select({
+        id: activities.id,
+        title: activities.title,
+        description: activities.description,
+        category: activities.category,
+        status: activities.status,
+        priority: activities.priority,
+        startDate: activities.startDate,
+        endDate: activities.endDate,
+        userId: activities.userId,
+        goalId: activities.goalId,
+        isPublic: activities.isPublic,
+        shareableLink: activities.shareableLink,
+        createdAt: activities.createdAt,
+        updatedAt: activities.updatedAt,
+      })
+      .from(activities)
+      .where(eq(activities.shareableLink, shareToken))
+      .limit(1);
+
+    if (result.length === 0) {
+      return null;
+    }
+
+    const activity = result[0];
+
+    // Calculate progress like we do in getUserActivities
+    const tasksQuery = await db
+      .select({
+        totalTasks: sql<number>`COUNT(*)::int`.as('totalTasks'),
+        completedTasks: sql<number>`SUM(CASE WHEN ${tasks.completed} = true THEN 1 ELSE 0 END)::int`.as('completedTasks'),
+      })
+      .from(activityTasks)
+      .leftJoin(tasks, eq(activityTasks.taskId, tasks.id))
+      .where(eq(activityTasks.activityId, activity.id))
+      .limit(1);
+
+    const { totalTasks, completedTasks } = tasksQuery[0] || { totalTasks: 0, completedTasks: 0 };
+    const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    return {
+      ...activity,
+      totalTasks,
+      completedTasks,
+      progressPercentage,
+    };
   }
 
   // Activity Tasks implementation

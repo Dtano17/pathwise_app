@@ -696,11 +696,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/activities/:activityId/share", async (req, res) => {
     try {
       const { activityId } = req.params;
-      const shareableLink = await storage.generateShareableLink(activityId);
-      res.json({ shareableLink: `${req.protocol}://${req.get('host')}${shareableLink}` });
+      const userId = DEMO_USER_ID; // Use demo user for now, would be req.user.id in authenticated app
+      const shareToken = await storage.generateShareableLink(activityId, userId);
+      
+      if (!shareToken) {
+        return res.status(404).json({ error: 'Activity not found or access denied' });
+      }
+      
+      const shareableLink = `${req.protocol}://${req.get('host')}/share/activity/${shareToken}`;
+      res.json({ shareableLink });
     } catch (error) {
       console.error('Generate share link error:', error);
       res.status(500).json({ error: 'Failed to generate shareable link' });
+    }
+  });
+
+  // View shared activity by token
+  app.get("/api/share/activity/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const activity = await storage.getActivityByShareToken(token);
+      
+      if (!activity) {
+        return res.status(404).json({ error: 'Shared activity not found or link has expired' });
+      }
+
+      // Get the tasks for this activity (no user restriction for shared activities)
+      const activityTasks = await storage.getActivityTasks(activity.id);
+      
+      res.json({
+        activity,
+        tasks: activityTasks.map(item => item.task)
+      });
+    } catch (error) {
+      console.error('Get shared activity error:', error);
+      res.status(500).json({ error: 'Failed to fetch shared activity' });
     }
   });
 

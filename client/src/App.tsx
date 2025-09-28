@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -6,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import MainApp from "@/pages/MainApp";
+import SharedActivity from "@/pages/SharedActivity";
 import NotificationService from "@/components/NotificationService";
 
 function App() {
@@ -25,32 +27,40 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
-          <div className="flex h-screen w-full overflow-hidden">
-            <AppSidebar 
-              selectedTheme={selectedTheme}
-              onThemeSelect={setSelectedTheme}
-              onShowThemeSelector={() => setShowThemeSelector(true)}
-              onShowDatePlanner={() => setShowLocationDatePlanner(true)}
-              onShowContacts={() => setShowContacts(true)}
-              onShowChatHistory={() => setShowChatHistory(true)}
-            />
-            <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-              <MainApp 
-                selectedTheme={selectedTheme}
-                onThemeSelect={setSelectedTheme}
-                showThemeSelector={showThemeSelector}
-                onShowThemeSelector={setShowThemeSelector}
-                showLocationDatePlanner={showLocationDatePlanner}
-                onShowLocationDatePlanner={setShowLocationDatePlanner}
-                showContacts={showContacts}
-                onShowContacts={setShowContacts}
-                showChatHistory={showChatHistory}
-                onShowChatHistory={setShowChatHistory}
-              />
-            </div>
-          </div>
-        </SidebarProvider>
+        <Switch>
+          {/* Shared Activity Page (no sidebar) */}
+          <Route path="/share/activity/:token" component={SharedActivity} />
+          
+          {/* Main App with Sidebar */}
+          <Route>
+            <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
+              <div className="flex h-screen w-full overflow-hidden">
+                <AppSidebar 
+                  selectedTheme={selectedTheme}
+                  onThemeSelect={setSelectedTheme}
+                  onShowThemeSelector={() => setShowThemeSelector(true)}
+                  onShowDatePlanner={() => setShowLocationDatePlanner(true)}
+                  onShowContacts={() => setShowContacts(true)}
+                  onShowChatHistory={() => setShowChatHistory(true)}
+                />
+                <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+                  <MainApp 
+                    selectedTheme={selectedTheme}
+                    onThemeSelect={setSelectedTheme}
+                    showThemeSelector={showThemeSelector}
+                    onShowThemeSelector={setShowThemeSelector}
+                    showLocationDatePlanner={showLocationDatePlanner}
+                    onShowLocationDatePlanner={setShowLocationDatePlanner}
+                    showContacts={showContacts}
+                    onShowContacts={setShowContacts}
+                    showChatHistory={showChatHistory}
+                    onShowChatHistory={setShowChatHistory}
+                  />
+                </div>
+              </div>
+            </SidebarProvider>
+          </Route>
+        </Switch>
         <NotificationService userId="demo-user" />
         <Toaster />
       </TooltipProvider>

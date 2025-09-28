@@ -831,23 +831,38 @@ export default function MainApp({
                               <Button 
                                 variant="ghost" 
                                 size="sm"
-                                onClick={(e) => {
+                                onClick={async (e) => {
                                   e.stopPropagation();
-                                  // Social sharing functionality
-                                  const shareUrl = `${window.location.origin}/activity/${activity.id}`;
-                                  const shareText = `Check out my activity: ${activity.title} - ${progressPercent}% complete!`;
-                                  
-                                  if (navigator.share) {
-                                    navigator.share({
-                                      title: activity.title,
-                                      text: shareText,
-                                      url: shareUrl
-                                    }).catch(console.error);
-                                  } else {
-                                    navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
-                                    toast({ 
-                                      title: "Link Copied!", 
-                                      description: "Activity link copied to clipboard - share it anywhere!" 
+                                  try {
+                                    // Generate proper shareable link via backend
+                                    const response = await apiRequest('POST', `/api/activities/${activity.id}/share`);
+                                    const data = await response.json();
+                                    const shareUrl = data.shareableLink;
+                                    const shareText = `Check out my activity: ${activity.title} - ${progressPercent}% complete!`;
+                                    
+                                    if (navigator.share) {
+                                      await navigator.share({
+                                        title: activity.title,
+                                        text: shareText,
+                                        url: shareUrl
+                                      });
+                                      toast({ 
+                                        title: "Shared Successfully!", 
+                                        description: "Activity shared with your contacts!" 
+                                      });
+                                    } else {
+                                      await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+                                      toast({ 
+                                        title: "Link Copied!", 
+                                        description: "Activity link copied to clipboard - share it anywhere!" 
+                                      });
+                                    }
+                                  } catch (error) {
+                                    console.error('Share error:', error);
+                                    toast({
+                                      title: "Share Failed",
+                                      description: "Unable to generate share link. Please try again.",
+                                      variant: "destructive"
                                     });
                                   }
                                 }}
