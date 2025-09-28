@@ -16,7 +16,7 @@ import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
 import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check } from 'lucide-react';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
-import { type Task, type ChatImport } from '@shared/schema';
+import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -90,6 +90,12 @@ export default function MainApp({
   // Fetch tasks
   const { data: tasks = [], isLoading: tasksLoading, error: tasksError, refetch: refetchTasks } = useQuery<Task[]>({
     queryKey: ['/api/tasks'],
+    staleTime: 30000, // 30 seconds
+  });
+
+  // Fetch activities
+  const { data: activities = [], isLoading: activitiesLoading, error: activitiesError, refetch: refetchActivities } = useQuery<ActivityType[]>({
+    queryKey: ['/api/activities'],
     staleTime: 30000, // 30 seconds
   });
 
@@ -642,12 +648,12 @@ export default function MainApp({
                 </Button>
               </div>
 
-              {tasksLoading ? (
+              {activitiesLoading ? (
                 <div className="text-center py-12">
                   <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                   <p className="text-muted-foreground">Loading your activities...</p>
                 </div>
-              ) : pendingTasks.length === 0 ? (
+              ) : activities.length === 0 ? (
                 <div className="text-center py-12">
                   <Target className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-xl font-semibold mb-2">No activities yet</h3>
@@ -661,92 +667,57 @@ export default function MainApp({
                 </div>
               ) : (
                 <div className="grid gap-6 max-w-4xl mx-auto">
-                  {/* Demo Activities for now - will be replaced with real data */}
-                  <div className="bg-card border rounded-xl p-6 hover-elevate cursor-pointer" data-testid="activity-card-demo">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold mb-2">Jamaican Vacation Planning</h3>
-                        <p className="text-muted-foreground text-sm mb-3">
-                          Complete itinerary for an amazing 7-day Jamaica trip with cultural experiences and adventure activities
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 ml-4">
-                        <Badge variant="secondary" className="text-xs">Travel</Badge>
-                        <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm font-medium">4.8</span>
+                  {activities.map((activity) => (
+                    <div key={activity.id} className="bg-card border rounded-xl p-6 hover-elevate cursor-pointer" data-testid={`activity-card-${activity.id}`}>
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold mb-2">{activity.title}</h3>
+                          <p className="text-muted-foreground text-sm mb-3">
+                            {activity.description || 'No description provided'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          <Badge variant="secondary" className="text-xs">{activity.category || 'General'}</Badge>
+                          {activity.rating && (
+                            <div className="flex items-center gap-1">
+                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                              <span className="text-sm font-medium">{activity.rating}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <CheckSquare className="w-4 h-4" />
-                          <span>12/15 tasks completed</span>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Activity className="w-4 h-4" />
+                            <span>{activity.status || 'planning'}</span>
+                          </div>
+                          {activity.targetDate && (
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <Calendar className="w-4 h-4" />
+                              <span>Due {new Date(activity.targetDate).toLocaleDateString()}</span>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Calendar className="w-4 h-4" />
-                          <span>Due Dec 15</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" data-testid="button-share-activity">
-                          <Share2 className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" data-testid="button-activity-options">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-primary rounded-full" style={{ width: '80%' }}></div>
-                    </div>
-                  </div>
-
-                  <div className="bg-card border rounded-xl p-6 hover-elevate cursor-pointer" data-testid="activity-card-demo-2">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold mb-2">Home Office Setup</h3>
-                        <p className="text-muted-foreground text-sm mb-3">
-                          Create the perfect productive workspace with ergonomic furniture and tech setup
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 ml-4">
-                        <Badge variant="secondary" className="text-xs">Productivity</Badge>
-                        <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm font-medium">4.5</span>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" data-testid={`button-share-activity-${activity.id}`}>
+                            <Share2 className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" data-testid={`button-activity-options-${activity.id}`}>
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <CheckSquare className="w-4 h-4" />
-                          <span>8/10 tasks completed</span>
+                      
+                      {activity.isPublic && (
+                        <div className="mt-3 flex items-center gap-2">
+                          <Share className="w-4 h-4 text-green-600" />
+                          <span className="text-sm text-green-600 font-medium">Public Activity</span>
                         </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Calendar className="w-4 h-4" />
-                          <span>Due Jan 5</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" data-testid="button-share-activity">
-                          <Share2 className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" data-testid="button-activity-options">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      )}
                     </div>
-                    
-                    <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-primary rounded-full" style={{ width: '80%' }}></div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               )}
 
