@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Clock, Calendar, ArrowRight, ArrowLeft, ArrowUp, Undo } from 'lucide-react';
-import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { CheckCircle, Clock, Calendar, X, Pause, Undo } from 'lucide-react';
 import Confetti from 'react-confetti';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -26,24 +26,17 @@ interface TaskCardProps {
 }
 
 export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfetti = false }: TaskCardProps) {
-  const [dragDirection, setDragDirection] = useState<'left' | 'right' | 'up' | null>(null);
   const [isCompleted, setIsCompleted] = useState(task.completed || false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [pendingAction, setPendingAction] = useState<'complete' | 'skip' | 'snooze' | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const { toast, dismiss } = useToast();
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentToastIdRef = useRef<string | null>(null);
 
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const rotate = useTransform(x, [-200, 200], [-15, 15]);
-  const rotateY = useTransform(y, [-150, 150], [5, -5]);
-  const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0.5, 0.8, 1, 0.8, 0.5]);
-
   const triggerHapticFeedback = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
     if ('vibrate' in navigator && navigator.vibrate) {
-      // Mobile vibration patterns
       switch (type) {
         case 'light':
           navigator.vibrate(50);
@@ -58,32 +51,6 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     }
   };
 
-  const showMobileAlert = (message: string, type: 'success' | 'info' = 'info') => {
-    // Modern browsers support notifications
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('JournalMate', {
-        body: message,
-        icon: '/journalmate-logo-transparent.png',
-        tag: 'task-action',
-        requireInteraction: false,
-        silent: false
-      });
-    } else {
-      // Fallback to toast-like alert
-      const alertDiv = document.createElement('div');
-      alertDiv.className = `fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-white ${
-        type === 'success' ? 'bg-green-500' : 'bg-blue-500'
-      }`;
-      alertDiv.textContent = message;
-      document.body.appendChild(alertDiv);
-      
-      setTimeout(() => {
-        alertDiv.remove();
-      }, 3000);
-    }
-  };
-
-  // Cleanup function to clear pending actions
   const clearPendingAction = () => {
     if (undoTimeoutRef.current) {
       clearTimeout(undoTimeoutRef.current);
@@ -96,157 +63,101 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     setPendingAction(null);
   };
 
-  // Cleanup on unmount to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      clearPendingAction();
-    };
-  }, [dismiss]);
-
-  const executeAction = (action: 'complete' | 'skip' | 'snooze') => {
-    if (action === 'complete') {
-      setIsCompleted(true);
-      setShowCelebration(true);
-      onComplete(task.id);
-      setTimeout(() => setShowCelebration(false), 3000);
-    } else if (action === 'skip') {
-      onSkip(task.id);
-    } else if (action === 'snooze') {
-      onSnooze(task.id, 2); // Snooze for 2 hours by default
-    }
+  const handleComplete = () => {
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
     clearPendingAction();
+    setPendingAction('complete');
+    triggerHapticFeedback('heavy');
+
+    // Show celebration immediately
+    setShowCelebration(true);
+    setTimeout(() => setShowCelebration(false), 3000);
+
+    // Show undo toast
+    const { id } = toast({
+      title: "Task Completed! 🎉",
+      description: "Great job finishing this task!",
+      action: (
+        <ToastAction altText="Undo completion" onClick={undoAction}>
+          <Undo className="w-4 h-4" />
+          Undo
+        </ToastAction>
+      ),
+    });
+    currentToastIdRef.current = id;
+
+    // Execute action after delay
+    undoTimeoutRef.current = setTimeout(() => {
+      onComplete(task.id);
+      clearPendingAction();
+      setIsProcessing(false);
+    }, 1000);
+  };
+
+  const handleSkip = () => {
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
+    clearPendingAction();
+    setPendingAction('skip');
+    triggerHapticFeedback('light');
+
+    // Show undo toast
+    const { id } = toast({
+      title: "Task Skipped",
+      description: "This task has been skipped for now.",
+      action: (
+        <ToastAction altText="Undo skip" onClick={undoAction}>
+          <Undo className="w-4 h-4" />
+          Undo
+        </ToastAction>
+      ),
+    });
+    currentToastIdRef.current = id;
+
+    // Execute action after delay
+    undoTimeoutRef.current = setTimeout(() => {
+      onSkip(task.id);
+      clearPendingAction();
+      setIsProcessing(false);
+    }, 1000);
+  };
+
+  const handleSnooze = () => {
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
+    clearPendingAction();
+    setPendingAction('snooze');
+    triggerHapticFeedback('medium');
+
+    // Show undo toast
+    const { id } = toast({
+      title: "Task Snoozed",
+      description: "This task will remind you again in 2 hours.",
+      action: (
+        <ToastAction altText="Undo snooze" onClick={undoAction}>
+          <Undo className="w-4 h-4" />
+          Undo
+        </ToastAction>
+      ),
+    });
+    currentToastIdRef.current = id;
+
+    // Execute action after delay
+    undoTimeoutRef.current = setTimeout(() => {
+      onSnooze(task.id, 2);
+      clearPendingAction();
+      setIsProcessing(false);
+    }, 1000);
   };
 
   const undoAction = () => {
     clearPendingAction();
-  };
-
-  const handleDragEnd = (event: any, info: PanInfo) => {
-    const threshold = 80; // Further reduced threshold for better mobile sensitivity
-    const absX = Math.abs(info.offset.x);
-    const absY = Math.abs(info.offset.y);
-    
-    // Optional debug logging (enabled in development)
-    if (import.meta.env.DEV) {
-      console.debug('Drag ended:', { 
-        offsetX: info.offset.x, 
-        offsetY: info.offset.y, 
-        absX, 
-        absY,
-        threshold,
-        willTriggerAction: (absX > absY && (info.offset.x > threshold || info.offset.x < -threshold)) || (info.offset.y < -threshold)
-      });
-    }
-    
-    // Clear any existing pending actions to prevent race conditions
-    clearPendingAction();
-    
-    if (absX > absY) {
-      // Horizontal swipe
-      if (info.offset.x > threshold) {
-        // Swiped right - prepare to complete task
-        triggerHapticFeedback('heavy');
-        setPendingAction('complete');
-        
-        const toastResult = toast({
-          title: "Task completed!",
-          description: `"${task.title}" will be marked as done in 1 second`,
-          action: (
-            <ToastAction altText="Undo" onClick={undoAction} data-testid={`button-undo-${task.id}`}>
-              <Undo className="w-4 h-4 mr-1" />
-              Undo
-            </ToastAction>
-          ),
-        });
-        
-        currentToastIdRef.current = toastResult.id;
-        undoTimeoutRef.current = setTimeout(() => executeAction('complete'), 1000);
-        
-      } else if (info.offset.x < -threshold) {
-        // Swiped left - prepare to skip task
-        triggerHapticFeedback('light');
-        setPendingAction('skip');
-        
-        const toastResult = toast({
-          title: "Task skipped",
-          description: `"${task.title}" will be removed from your list in 1 second`,
-          action: (
-            <ToastAction altText="Undo" onClick={undoAction} data-testid={`button-undo-${task.id}`}>
-              <Undo className="w-4 h-4 mr-1" />
-              Undo
-            </ToastAction>
-          ),
-        });
-        
-        currentToastIdRef.current = toastResult.id;
-        undoTimeoutRef.current = setTimeout(() => executeAction('skip'), 1000);
-      }
-    } else if (info.offset.y < -threshold) {
-      // Swiped up - prepare to snooze task
-      triggerHapticFeedback('medium');
-      setPendingAction('snooze');
-      
-      const toastResult = toast({
-        title: "Task snoozed!",
-        description: `"${task.title}" will be postponed for 2 hours in 1 second`,
-        action: (
-          <ToastAction altText="Undo" onClick={undoAction} data-testid={`button-undo-${task.id}`}>
-            <Undo className="w-4 h-4 mr-1" />
-            Undo
-          </ToastAction>
-        ),
-      });
-      
-      currentToastIdRef.current = toastResult.id;
-      undoTimeoutRef.current = setTimeout(() => executeAction('snooze'), 1000);
-    }
-    
-    x.set(0);
-    y.set(0);
-    setDragDirection(null);
-  };
-
-  const handleDrag = (event: any, info: PanInfo) => {
-    const absX = Math.abs(info.offset.x);
-    const absY = Math.abs(info.offset.y);
-    
-    // Optional debug logging (enabled in development)
-    if (import.meta.env.DEV) {
-      console.debug('Drag detected:', { 
-        offsetX: info.offset.x, 
-        offsetY: info.offset.y, 
-        absX, 
-        absY,
-        currentDirection: dragDirection 
-      });
-    }
-    
-    // Determine primary direction based on larger offset
-    if (absX > absY) {
-      // Horizontal drag
-      if (info.offset.x > 50 && dragDirection !== 'right') {
-        setDragDirection('right');
-        triggerHapticFeedback('light');
-        if (import.meta.env.DEV) console.debug('Setting direction: RIGHT');
-      } else if (info.offset.x < -50 && dragDirection !== 'left') {
-        setDragDirection('left');
-        triggerHapticFeedback('light');
-        if (import.meta.env.DEV) console.debug('Setting direction: LEFT');
-      } else if (absX < 50 && dragDirection !== null) {
-        setDragDirection(null);
-        if (import.meta.env.DEV) console.debug('Resetting direction');
-      }
-    } else {
-      // Vertical drag
-      if (info.offset.y < -50 && dragDirection !== 'up') {
-        setDragDirection('up');
-        triggerHapticFeedback('light');
-        if (import.meta.env.DEV) console.debug('Setting direction: UP');
-      } else if (absY < 50 && dragDirection !== null) {
-        setDragDirection(null);
-        if (import.meta.env.DEV) console.debug('Resetting direction');
-      }
-    }
+    setIsProcessing(false);
+    setShowCelebration(false);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -258,120 +169,107 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     }
   };
 
-  if (isCompleted) {
-    return (
-      <>
-        {showCelebration && showConfetti && (
-          <Confetti
-            width={window.innerWidth}
-            height={window.innerHeight}
-            recycle={false}
-            numberOfPieces={200}
-            colors={['#6C5CE7', '#00B894', '#FDCB6E']}
-          />
-        )}
-        <motion.div
-          initial={{ scale: 1 }}
-          animate={{ scale: 0.95, opacity: 0.7 }}
-          className="relative"
-        >
-          <Card className="p-4 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-green-800 dark:text-green-200 line-through decoration-2 decoration-green-600">
-                  {task.title}
-                </h3>
-                {task.description && (
-                  <p className="text-sm text-green-700 dark:text-green-300 line-through decoration-1 decoration-green-500 opacity-80 mt-1">
-                    {task.description}
-                  </p>
-                )}
-                <p className="text-sm text-green-600 dark:text-green-300 font-medium mt-2">
-                  Task completed successfully!
-                </p>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-      </>
-    );
-  }
+  const getCategoryColor = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'work': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'personal': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'health': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200';
+      case 'finance': return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+    }
+  };
 
   return (
-    <div className="relative">
-      {/* Background hints - Enhanced visibility */}
-      <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 opacity-60" data-testid={`swipe-hints-${task.id}`}>
-        {/* Top row - snooze */}
-        <div className="col-span-2 bg-gradient-to-b from-yellow-200 to-yellow-100 dark:from-yellow-700/40 dark:to-yellow-900/20 rounded-t-lg flex items-center justify-center border-2 border-yellow-300/50" data-testid={`snooze-hint-${task.id}`}>
-          <ArrowUp className="w-6 h-6 text-yellow-700 dark:text-yellow-300" />
-          <span className="ml-2 text-yellow-700 dark:text-yellow-300 font-bold text-base">Snooze 2hrs</span>
+    <div className="w-full max-w-md mx-auto relative" data-testid={`task-container-${task.id}`}>
+      {/* Celebration Confetti */}
+      {showCelebration && showConfetti && (
+        <div className="absolute inset-0 z-50 pointer-events-none">
+          <Confetti
+            width={300}
+            height={200}
+            recycle={false}
+            numberOfPieces={50}
+            gravity={0.3}
+          />
         </div>
-        {/* Bottom row - skip and complete */}
-        <div className="bg-gradient-to-r from-red-200 to-red-100 dark:from-red-700/40 dark:to-red-900/20 rounded-bl-lg flex items-center justify-start pl-4 border-2 border-red-300/50" data-testid={`skip-hint-${task.id}`}>
-          <ArrowLeft className="w-7 h-7 text-red-700 dark:text-red-300" />
-          <span className="ml-2 text-red-700 dark:text-red-300 font-bold text-base">Skip</span>
-        </div>
-        <div className="bg-gradient-to-l from-green-200 to-green-100 dark:from-green-700/40 dark:to-green-900/20 rounded-br-lg flex items-center justify-end pr-4 border-2 border-green-300/50" data-testid={`complete-hint-${task.id}`}>
-          <span className="mr-2 text-green-700 dark:text-green-300 font-bold text-base">Complete</span>
-          <ArrowRight className="w-7 h-7 text-green-700 dark:text-green-300" />
-        </div>
-      </div>
+      )}
 
-      <motion.div
-        drag
-        dragConstraints={{ left: -250, right: 250, top: -150, bottom: 50 }}
-        dragMomentum={false}
-        dragElastic={0.1}
-        dragDirectionLock={false}
-        dragTransition={{ bounceStiffness: 800, bounceDamping: 25 }}
-        style={{ x, y, rotate, rotateY, opacity, touchAction: 'none', userSelect: 'none' }}
-        onDrag={handleDrag}
-        onDragEnd={handleDragEnd}
-        className="relative z-10 cursor-grab active:cursor-grabbing select-none touch-manipulation"
-        data-testid={`task-card-${task.id}`}
-        whileTap={{ scale: 0.98 }}
-      >
-        <Card className={`p-4 hover-elevate transition-all duration-200 ${
-          dragDirection === 'right' ? 'border-green-300 shadow-green-100' :
-          dragDirection === 'left' ? 'border-red-300 shadow-red-100' :
-          dragDirection === 'up' ? 'border-yellow-300 shadow-yellow-100' : ''
-        }`}>
-          <div className="space-y-3">
-            <div className="flex items-start justify-between">
-              <h3 className="font-semibold text-card-foreground text-lg">{task.title}</h3>
-              <Badge className={getPriorityColor(task.priority)} data-testid={`badge-priority-${task.priority}`}>
-                {task.priority}
-              </Badge>
-            </div>
-            
-            <p className="text-muted-foreground text-sm leading-relaxed">
+      <Card className={`p-6 mb-4 transition-all duration-300 hover-elevate ${
+        pendingAction === 'complete' ? 'ring-2 ring-green-500 border-green-200' :
+        pendingAction === 'skip' ? 'ring-2 ring-red-500 border-red-200' :
+        pendingAction === 'snooze' ? 'ring-2 ring-yellow-500 border-yellow-200' : ''
+      }`} data-testid={`task-card-${task.id}`}>
+        
+        {/* Header */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1">
+            <h3 className="font-semibold text-lg text-foreground mb-2" data-testid={`task-title-${task.id}`}>
+              {task.title}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-3" data-testid={`task-description-${task.id}`}>
               {task.description}
             </p>
-            
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
-                <span>{task.dueDate || 'Today'}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Clock className="w-4 h-4" />
-                <span>{task.category}</span>
-              </div>
-            </div>
           </div>
-        </Card>
-      </motion.div>
-
-      {/* Swipe instruction - Enhanced for mobile */}
-      <div className="text-center mt-3 p-2 bg-muted/30 rounded-lg border border-dashed border-muted-foreground/20" data-testid={`swipe-instructions-${task.id}`}>
-        <p className="text-xs text-muted-foreground font-medium mb-1">👆 Touch & drag to take action:</p>
-        <div className="flex justify-center items-center gap-3 text-xs">
-          <span className="flex items-center gap-1 text-red-600">← Skip</span>
-          <span className="flex items-center gap-1 text-yellow-600">↑ Snooze</span>
-          <span className="flex items-center gap-1 text-green-600">Complete →</span>
         </div>
-      </div>
+
+        {/* Badges */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <Badge className={getPriorityColor(task.priority)} data-testid={`task-priority-${task.id}`}>
+            {task.priority}
+          </Badge>
+          <Badge className={getCategoryColor(task.category)} data-testid={`task-category-${task.id}`}>
+            {task.category}
+          </Badge>
+          {task.dueDate && (
+            <Badge variant="outline" className="flex items-center gap-1" data-testid={`task-due-date-${task.id}`}>
+              <Calendar className="w-3 h-3" />
+              {new Date(task.dueDate).toLocaleDateString()}
+            </Badge>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 mt-4">
+          <Button 
+            onClick={handleComplete}
+            disabled={isProcessing}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+            data-testid={`button-complete-${task.id}`}
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Complete
+          </Button>
+          
+          <Button 
+            onClick={handleSnooze}
+            disabled={isProcessing}
+            variant="outline"
+            className="flex-1"
+            data-testid={`button-snooze-${task.id}`}
+          >
+            <Pause className="w-4 h-4 mr-2" />
+            Snooze 2h
+          </Button>
+          
+          <Button 
+            onClick={handleSkip}
+            disabled={isProcessing}
+            variant="outline"
+            className="flex-1 text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
+            data-testid={`button-skip-${task.id}`}
+          >
+            <X className="w-4 h-4 mr-2" />
+            Skip
+          </Button>
+        </div>
+
+        {/* Processing indicator */}
+        {isProcessing && (
+          <div className="mt-3 text-center text-sm text-muted-foreground">
+            Processing... (Click undo to cancel)
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
