@@ -271,91 +271,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes - supports both authenticated and guest users
   app.get('/api/auth/user', async (req: any, res) => {
     try {
-      // Check if user is authenticated
-      if (req.isAuthenticated && req.isAuthenticated()) {
-        let userId;
-        if (req.user?.claims?.sub) {
-          // Replit auth user
-          userId = req.user.claims.sub;
-        } else if (req.user?.id) {
-          // Multi-provider OAuth user
-          userId = req.user.id;
-        } else {
-          return res.status(401).json({ message: "No valid user session" });
-        }
-        
-        const user = await storage.getUser(userId);
-        if (!user) {
-          return res.status(404).json({ message: "User not found" });
-        }
-        
-        res.json({ ...user, authenticated: true });
-      } else {
-        // Return guest/demo user info
-        res.json({ 
-          id: DEMO_USER_ID,
-          username: "guest",
-          authenticated: false,
-          isGuest: true
-        });
+      let userId: string | null = null;
+      
+      // Check multiple authentication methods for session persistence
+      if (req.isAuthenticated && req.isAuthenticated() && req.user?.id) {
+        // Passport authentication (OAuth and manual login)
+        userId = req.user.id;
+      } else if (req.session?.userId) {
+        // Direct session-based authentication
+        userId = req.session.userId;
+      } else if (req.session?.passport?.user?.id) {
+        // Passport session serialization
+        userId = req.session.passport.user.id;
+      } else if (req.user?.claims?.sub) {
+        // Replit auth user
+        userId = req.user.claims.sub;
       }
+      
+      if (userId) {
+        try {
+          const user = await storage.getUserById(userId);
+          if (user) {
+            // Remove password from response
+            const { password, ...userWithoutPassword } = user;
+            console.log('Authenticated user found:', { userId, username: user.username, email: user.email });
+            return res.json(userWithoutPassword);
+          }
+        } catch (error) {
+          console.error('Error fetching authenticated user:', error);
+        }
+      }
+      
+      // Return demo user for guest access
+      const demoUser = {
+        id: 'demo-user',
+        username: 'guest',
+        authenticationType: 'guest' as const,
+        email: 'guest@example.com',
+        firstName: 'Guest',
+        lastName: 'User',
+        profileImageUrl: null,
+        age: null,
+        occupation: null,
+        location: null,
+        timezone: null,
+        workingHours: null,
+        fitnessLevel: null,
+        sleepSchedule: null,
+        primaryGoalCategories: [],
+        motivationStyle: null,
+        difficultyPreference: 'medium' as const,
+        interests: [],
+        personalityType: null,
+        communicationStyle: null,
+        aboutMe: null,
+        currentChallenges: null,
+        successFactors: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      console.log('No authenticated user found, returning demo user');
+      res.json(demoUser);
     } catch (error) {
-      console.error("Error fetching user:", error);
-      // Fallback to guest mode on error
-      res.json({ 
-        id: DEMO_USER_ID,
-        username: "guest",
-        authenticated: false,
-        isGuest: true
-      });
+      console.error('Error getting user:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
-  // Signup route - create new user account
-  app.post('/api/auth/signup', async (req, res) => {
-    try {
-      const validatedData = signupUserSchema.parse(req.body);
-      const { password, confirmPassword, ...userData } = validatedData;
-
-      // Check if user already exists
-      const existingUserByEmail = await storage.getUserByEmail(userData.email);
-      if (existingUserByEmail) {
-        return res.status(400).json({ error: "Email already registered" });
-      }
-
-      const existingUserByUsername = await storage.getUserByUsername(userData.username);
-      if (existingUserByUsername) {
-        return res.status(400).json({ error: "Username already taken" });
-      }
-
-      // Hash password
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-      // Create user
-      const newUser = await storage.createUser({
-        ...userData,
-        password: hashedPassword,
-      });
-
-      // Remove password from response
-      const { password: _, ...safeUser } = newUser;
-
-      res.status(201).json({
-        message: "Account created successfully",
-        user: safeUser
-      });
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-        return res.status(400).json({ 
-          error: "Validation failed", 
-          details: error.errors 
-        });
-      }
-      console.error("Signup error:", error);
-      res.status(500).json({ error: "Failed to create account" });
-    }
-  });
 
   // Profile completion route - update user profile with personalization data
   app.put('/api/users/:userId/profile', async (req, res) => {
