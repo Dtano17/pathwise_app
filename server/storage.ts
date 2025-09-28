@@ -151,6 +151,21 @@ export interface IStorage {
   getUserSchedulingSuggestions(userId: string, date?: string): Promise<SchedulingSuggestion[]>;
   acceptSchedulingSuggestion(suggestionId: string, userId: string): Promise<SchedulingSuggestion | undefined>;
   deleteSchedulingSuggestion(suggestionId: string, userId: string): Promise<void>;
+  
+  // User Context for Personalized Planning
+  getUserContext(userId: string): Promise<{
+    user: User;
+    priorities: Priority[];
+    wellnessPriorities: {
+      sleep: boolean;
+      nap: boolean;
+      meditation: boolean;
+      reflection: boolean;
+    };
+    sleepSchedule?: any;
+    timezone?: string;
+    schedulingSuggestions: SchedulingSuggestion[];
+  }>;
 
   // Auth Identities
   createAuthIdentity(identity: InsertAuthIdentity & { userId: string }): Promise<AuthIdentity>;
@@ -763,6 +778,38 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUserConsent(userId: string): Promise<void> {
     await db.delete(userConsent).where(eq(userConsent.userId, userId));
+  }
+
+  // Get comprehensive user context for personalized planning
+  async getUserContext(userId: string) {
+    const [user, priorities, schedulingSuggestions] = await Promise.all([
+      this.getUserById(userId),
+      this.getUserPriorities(userId),
+      this.getUserSchedulingSuggestions(userId)
+    ]);
+
+    if (!user) {
+      throw new Error(`User not found: ${userId}`);
+    }
+
+    // Analyze wellness priorities from user data
+    const wellnessPriorities = {
+      sleep: priorities.some(p => p.category.toLowerCase() === 'sleep' && p.importance === 'high') || 
+             (user.sleepSchedule && Object.keys(user.sleepSchedule).length > 0),
+      nap: priorities.some(p => p.category.toLowerCase().includes('nap') && p.importance === 'high'),
+      meditation: priorities.some(p => p.category.toLowerCase() === 'meditation' && p.importance === 'high'),
+      reflection: priorities.some(p => p.category.toLowerCase().includes('reflection') && p.importance === 'high') ||
+                 priorities.some(p => p.category.toLowerCase().includes('journal') && p.importance === 'high')
+    };
+
+    return {
+      user,
+      priorities,
+      wellnessPriorities,
+      sleepSchedule: user.sleepSchedule,
+      timezone: user.timezone || 'UTC',
+      schedulingSuggestions
+    };
   }
 }
 
