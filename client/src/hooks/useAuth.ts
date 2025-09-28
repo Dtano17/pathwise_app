@@ -4,10 +4,13 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 
 interface User {
   id: string;
-  email: string;
+  email?: string;
   firstName?: string;
   lastName?: string;
   profileImageUrl?: string;
+  authenticated?: boolean;
+  isGuest?: boolean;
+  username?: string;
 }
 
 export function useAuth() {
@@ -29,8 +32,8 @@ export function useAuth() {
     }
   });
 
-  const isAuthenticated = !!user && !error;
-  const isUnauthenticated = !user && error && isUnauthorizedError(error as Error);
+  const isAuthenticated = !!user && user.authenticated === true && !error;
+  const isUnauthenticated = !user || user.authenticated === false || user.isGuest === true || (error && isUnauthorizedError(error as Error));
 
   // Login redirect
   const login = () => {
