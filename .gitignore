@@ -4,3 +4,6 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Exclude development workspace assets from deployment
+attached_assets/
