@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
 import { eq, and, desc, isNull } from "drizzle-orm";
+import crypto from "crypto";
 import { 
   type User, 
   type InsertUser,
@@ -41,6 +42,10 @@ import {
   type InsertAchievement,
   type UserStatistics,
   type InsertUserStatistics,
+  type Activity,
+  type InsertActivity,
+  type ActivityTask,
+  type InsertActivityTask,
   users,
   goals,
   tasks,
@@ -59,7 +64,9 @@ import {
   contacts,
   userProfiles,
   userPreferences,
-  userConsent
+  userConsent,
+  activities,
+  activityTasks
 } from "@shared/schema";
 
 const sql = neon(process.env.DATABASE_URL!);
@@ -89,6 +96,21 @@ export interface IStorage {
   updateTask(taskId: string, updates: Partial<Task>, userId: string): Promise<Task | undefined>;
   completeTask(taskId: string, userId: string): Promise<Task | undefined>;
   deleteTask(taskId: string, userId: string): Promise<void>;
+
+  // Activities
+  createActivity(activity: InsertActivity & { userId: string }): Promise<Activity>;
+  getUserActivities(userId: string): Promise<Activity[]>;
+  getActivity(activityId: string, userId: string): Promise<Activity | undefined>;
+  updateActivity(activityId: string, updates: Partial<Activity>, userId: string): Promise<Activity | undefined>;
+  deleteActivity(activityId: string, userId: string): Promise<void>;
+  getPublicActivities(limit?: number): Promise<Activity[]>;
+  generateShareableLink(activityId: string): Promise<string>;
+  
+  // Activity Tasks
+  addTaskToActivity(activityId: string, taskId: string, order?: number): Promise<ActivityTask>;
+  removeTaskFromActivity(activityId: string, taskId: string): Promise<void>;
+  getActivityTasks(activityId: string): Promise<{ task: Task; order: number }[]>;
+  updateActivityTaskOrder(activityId: string, taskId: string, order: number): Promise<void>;
 
   // Journal Entries
   createJournalEntry(entry: InsertJournalEntry & { userId: string }): Promise<JournalEntry>;
@@ -277,6 +299,87 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTask(taskId: string, userId: string): Promise<void> {
     await db.delete(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+  }
+
+  // Activities implementation
+  async createActivity(activity: InsertActivity & { userId: string }): Promise<Activity> {
+    const result = await db.insert(activities).values(activity).returning();
+    return result[0];
+  }
+
+  async getUserActivities(userId: string): Promise<Activity[]> {
+    return await db.select().from(activities).where(eq(activities.userId, userId)).orderBy(desc(activities.createdAt));
+  }
+
+  async getActivity(activityId: string, userId: string): Promise<Activity | undefined> {
+    const [result] = await db.select().from(activities)
+      .where(and(eq(activities.id, activityId), eq(activities.userId, userId)));
+    return result;
+  }
+
+  async updateActivity(activityId: string, updates: Partial<Activity>, userId: string): Promise<Activity | undefined> {
+    const result = await db.update(activities)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(activities.id, activityId), eq(activities.userId, userId)))
+      .returning();
+    return result[0];
+  }
+
+  async deleteActivity(activityId: string, userId: string): Promise<void> {
+    await db.delete(activities).where(and(eq(activities.id, activityId), eq(activities.userId, userId)));
+  }
+
+  async getPublicActivities(limit: number = 20): Promise<Activity[]> {
+    return await db.select().from(activities)
+      .where(eq(activities.isPublic, true))
+      .orderBy(desc(activities.createdAt))
+      .limit(limit);
+  }
+
+  async generateShareableLink(activityId: string): Promise<string> {
+    const shareToken = crypto.randomUUID();
+    const shareableLink = `/share/activity/${shareToken}`;
+    await db.update(activities)
+      .set({ shareableLink })
+      .where(eq(activities.id, activityId));
+    return shareableLink;
+  }
+
+  // Activity Tasks implementation
+  async addTaskToActivity(activityId: string, taskId: string, order: number = 0): Promise<ActivityTask> {
+    const result = await db.insert(activityTasks).values({
+      activityId,
+      taskId,
+      order,
+    }).returning();
+    return result[0];
+  }
+
+  async removeTaskFromActivity(activityId: string, taskId: string): Promise<void> {
+    await db.delete(activityTasks)
+      .where(and(eq(activityTasks.activityId, activityId), eq(activityTasks.taskId, taskId)));
+  }
+
+  async getActivityTasks(activityId: string): Promise<{ task: Task; order: number }[]> {
+    const result = await db.select({
+      task: tasks,
+      order: activityTasks.order,
+    })
+    .from(activityTasks)
+    .innerJoin(tasks, eq(activityTasks.taskId, tasks.id))
+    .where(eq(activityTasks.activityId, activityId))
+    .orderBy(activityTasks.order);
+    
+    return result;
+  }
+
+  async updateActivityTaskOrder(activityId: string, taskId: string, order: number): Promise<void> {
+    await db.update(activityTasks)
+      .set({ order })
+      .where(and(eq(activityTasks.activityId, activityId), eq(activityTasks.taskId, taskId)));
   }
 
   // Journal Entries

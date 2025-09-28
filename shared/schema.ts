@@ -400,6 +400,70 @@ export type InsertTaskReminder = z.infer<typeof insertTaskReminderSchema>;
 export type SchedulingSuggestion = typeof schedulingSuggestions.$inferSelect;
 export type InsertSchedulingSuggestion = z.infer<typeof insertSchedulingSuggestionSchema>;
 
+// Activities table for social sharable experiences
+export const activities = pgTable("activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull(), // 'travel' | 'health' | 'work' | 'personal' | 'adventure'
+  
+  // Timeline and dates
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  timeline: jsonb("timeline").$type<Array<{
+    id: string;
+    title: string;
+    description?: string;
+    scheduledAt: string;
+    completedAt?: string;
+    location?: string;
+    notes?: string;
+  }>>().default([]),
+  
+  // Social sharing
+  isPublic: boolean("is_public").default(false),
+  shareableLink: varchar("shareable_link"),
+  socialText: text("social_text"), // Custom text for social media sharing
+  tags: jsonb("tags").$type<string[]>().default([]),
+  
+  // Rating and feedback
+  rating: integer("rating"), // 1-5 stars
+  feedback: text("feedback"),
+  highlights: jsonb("highlights").$type<string[]>().default([]),
+  
+  // Status
+  status: text("status").notNull().default("planning"), // 'planning' | 'active' | 'completed' | 'cancelled'
+  completedAt: timestamp("completed_at"),
+  
+  // Location and context
+  location: text("location"),
+  budget: integer("budget"), // Optional budget in cents
+  participants: jsonb("participants").$type<Array<{
+    name: string;
+    email?: string;
+    userId?: string;
+  }>>().default([]),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userStatusIndex: index("activities_user_status_index").on(table.userId, table.status),
+  publicActivitiesIndex: index("public_activities_index").on(table.isPublic, table.createdAt),
+}));
+
+// Link tasks to activities (many-to-many relationship)
+export const activityTasks = pgTable("activity_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "cascade" }).notNull(),
+  taskId: varchar("task_id").references(() => tasks.id, { onDelete: "cascade" }).notNull(),
+  order: integer("order").default(0), // Task order within activity
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueActivityTask: uniqueIndex("unique_activity_task").on(table.activityId, table.taskId),
+  activityOrderIndex: index("activity_order_index").on(table.activityId, table.order),
+}));
+
 // Authentication identities for multi-provider support
 export const authIdentities = pgTable("auth_identities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -639,6 +703,27 @@ export const insertUserConsentSchema = createInsertSchema(userConsent).omit({
   consentedAt: true,
   lastUpdated: true,
 });
+
+// Create insert schemas for Activities
+export const insertActivitySchema = createInsertSchema(activities).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+  shareableLink: true,
+});
+
+export const insertActivityTaskSchema = createInsertSchema(activityTasks).omit({
+  id: true,
+  createdAt: true,
+});
+
+// TypeScript types for Activities
+export type Activity = typeof activities.$inferSelect;
+export type InsertActivity = z.infer<typeof insertActivitySchema>;
+
+export type ActivityTask = typeof activityTasks.$inferSelect;
+export type InsertActivityTask = z.infer<typeof insertActivityTaskSchema>;
 
 // TypeScript types for new tables
 export type UserProfile = typeof userProfiles.$inferSelect;
