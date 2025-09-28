@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import ThemeToggle from '@/components/ThemeToggle';
 import NotificationManager from '@/components/NotificationManager';
@@ -83,21 +84,18 @@ export default function MainApp({
     motivationalNote?: string;
   } | null>(null);
 
+  // Activity selection and delete dialog state
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
+
   // Expanded activities for collapsible view
   const handleActivityClick = (activity: ActivityType) => {
-    // Navigate to tasks tab when activity is clicked
+    // Set the selected activity and navigate to tasks tab
+    setSelectedActivityId(activity.id);
     setActiveTab('tasks');
-    // Show toast with activity info
-    // Note: Tasks are linked to activities via the activityTasks junction table
-    // For now, we'll filter tasks that might be associated with this activity by other means
-    // This will be properly implemented when the task-activity relationship is established
-    const activityTasks = tasks.length > 0 ? tasks.slice(0, 3) : []; // Placeholder for now
-    const completedTasks = activityTasks.filter(task => task.completed).length;
-    const totalTasks = activityTasks.length;
-    const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
     toast({
-      title: activity.title,
-      description: `${progressPercent}% complete (${completedTasks}/${totalTasks} tasks)`,
+      title: `Viewing: ${activity.title}`,
+      description: "Now showing tasks for this activity",
     });
   };
 
@@ -822,9 +820,7 @@ export default function MainApp({
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (window.confirm(`Are you sure you want to delete "${activity.title}"? This will also delete all associated tasks.`)) {
-                                    handleDeleteActivity.mutate(activity.id);
-                                  }
+                                  setDeleteDialog({ open: true, activity });
                                 }}
                                 disabled={handleDeleteActivity.isPending}
                                 data-testid={`button-delete-${activity.id}`}
@@ -1611,6 +1607,34 @@ Assistant: For nutrition, I recommend..."
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Activity Confirmation Dialog */}
+      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, activity: null })}>
+        <AlertDialogContent data-testid="dialog-delete-activity">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Activity</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteDialog.activity?.title}"? This will also delete all associated tasks. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="button-confirm-delete"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteDialog.activity) {
+                  handleDeleteActivity.mutate(deleteDialog.activity.id);
+                  setDeleteDialog({ open: false, activity: null });
+                }
+              }}
+              disabled={handleDeleteActivity.isPending}
+            >
+              {handleDeleteActivity.isPending ? 'Deleting...' : 'Delete Activity'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
