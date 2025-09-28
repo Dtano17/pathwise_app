@@ -28,12 +28,18 @@
         });
       };
 
+      function checkLoginState() {
+        FB.getLoginStatus(function(response) {
+          statusChangeCallback(response);
+        });
+      }
+
       function statusChangeCallback(response) {
         if (response.status === 'connected') {
           // User is logged into Facebook and your app
           console.log('Facebook login status: connected');
-          // You can access response.authResponse for tokens
-          window.fbLoginStatus = response;
+          // Redirect to your app's callback endpoint to complete authentication
+          window.location.href = '/api/auth/facebook/callback';
         } else if (response.status === 'not_authorized') {
           // User is logged into Facebook but not your app
           console.log('Facebook login status: not_authorized');
