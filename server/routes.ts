@@ -1243,10 +1243,11 @@ You can find these tasks in your task list and start working on them right away!
         { role: 'assistant' as const, content: response.message, timestamp: new Date().toISOString() }
       ];
 
-      // Update the session with new state and conversation
+      // Update the session with new state, conversation, and most importantly - the updated slots
       const updatedSession = await storage.updateLifestylePlannerSession(sessionId, {
         sessionState: response.sessionState,
         conversationHistory: updatedHistory,
+        slots: response.updatedSlots || session.slots, // Persist extracted context!
         isComplete: response.sessionState === 'completed',
         generatedPlan: response.generatedPlan
       }, userId);

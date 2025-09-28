@@ -33,10 +33,12 @@ export interface ConversationResponse {
   }>;
   readyToGenerate?: boolean;
   generatedPlan?: any;
+  updatedSlots?: any;
 }
 
 export interface SlotExtractionResult {
   action: 'ask_question' | 'update_slots' | 'confirm_plan' | 'generate_plan';
+  message?: string;
   extractedSlots?: any;
   nextQuestion?: string;
   missingRequiredSlots?: string[];
@@ -117,7 +119,7 @@ export class LifestylePlannerAgent {
       };
     }
 
-    return this.convertToConversationResponse(structuredResponse, session);
+    return await this.convertToConversationResponse(structuredResponse, session);
   }
 
   /**
@@ -152,7 +154,7 @@ export class LifestylePlannerAgent {
     const aiResponse = response.choices[0]?.message?.content || '{}';
     const structuredResponse: SlotExtractionResult = JSON.parse(aiResponse);
 
-    return this.convertToConversationResponse(structuredResponse, session);
+    return await this.convertToConversationResponse(structuredResponse, session);
   }
 
   /**
@@ -161,12 +163,16 @@ export class LifestylePlannerAgent {
   private buildClaudeSystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'chat'): string {
     const currentSlots = session.slots || {};
     const userContext = this.formatUserContext(userProfile);
+    const activityType = currentSlots.activityType;
     
     const modeInstructions = mode === 'quick' 
       ? `QUICK PLAN MODE: Ask only the most essential questions (3-4 max) to gather basic context. Be efficient and direct while still being conversational. Focus on: activity, location, timing, and transportation.`
       : mode === 'chat'
       ? `CHAT MODE: Take time to gather detailed context through thorough conversation. Ask clarifying questions and wait for explicit user agreement (words like "yes", "sounds good", "perfect", "that works") before suggesting plan generation. Be more conversational and thorough.`
       : `STANDARD MODE: Balance efficiency with thoroughness.`;
+
+    // Get activity-specific questioning strategy
+    const activityGuide = this.getActivitySpecificGuide(activityType || '');
 
     return `You are a highly conversational lifestyle planning assistant. Your goal is to gather context through natural dialogue before generating a comprehensive plan.
 
@@ -178,26 +184,35 @@ COLLECTED CONTEXT: ${JSON.stringify(currentSlots, null, 2)}
 
 ${modeInstructions}
 
+${activityGuide}
+
 CONVERSATION APPROACH:
 - Be presumptive and human-like: "I'm assuming you're driving unless you prefer something else?"
 - Ask ONE clarifying question at a time 
 - Reference their profile when relevant: "Since you're in ${userProfile.location}, I see it's usually..."
 - Make smart assumptions and let them correct you
 - Be warm and conversational, not robotic
+- Ask context-specific questions based on activity type
 
-REQUIRED CONTEXT TO COLLECT:
+CORE CONTEXT TO COLLECT:
 - Activity type/what they want to do
 - Location (current & destination) 
 - Timing (departure/arrival times, date)
 - Transportation preference
+- Budget considerations
 - Vibe/mood they're going for
 
-ADDITIONAL CONTEXT TO GATHER:
-- Outfit considerations (weather, formality)
-- Budget considerations
-- Companions (who's joining)
-- Weather preparation needs
-- Traffic timing concerns
+ACTIVITY-SPECIFIC CONTEXT:
+- For dates: Budget level, mood/vibe, romantic vs casual, companions
+- For travel: Purpose (business/leisure), timing preferences, activities planned, duration
+- For social events: Group size, occasion, formality level
+- For dining: Cuisine preferences, dietary restrictions, price range
+- For entertainment: Type of activity, group composition, time constraints
+
+BUDGET-AWARE SUGGESTIONS:
+- Low budget ($0-$50): Home activities, happy hour at home, picnics, local walks, cooking together
+- Medium budget ($50-$150): Casual dining, movies, local attractions, happy hour out
+- Higher budget ($150+): Fine dining, concerts, shows, special experiences
 
 RESPONSE FORMAT:
 Always respond with valid JSON in this exact structure:
@@ -214,10 +229,21 @@ CONVERSATION EXAMPLES:
 User: "I want to go on a date tonight"
 Assistant: {
   "action": "ask_question",
-  "message": "Exciting! I love helping plan dates. What time are you thinking of meeting up? And are you staying local in ${userProfile.location} or heading somewhere special?",
+  "message": "Exciting! I love helping plan dates. First, what's your budget looking like tonight? Are we talking about a cozy night in, a casual dinner out, or something more special?",
   "extractedSlots": {"activityType": "date", "timing": {"date": "today"}},
-  "nextQuestion": "What time are you thinking of meeting up? And are you staying local or heading somewhere special?"
+  "nextQuestion": "What's your budget looking like tonight? Cozy night in, casual dinner out, or something more special?"
 }
+
+User: "Planning a trip to Paris"
+Assistant: {
+  "action": "ask_question", 
+  "message": "Paris! Love it. Is this more of a business trip or are you going for leisure? And when are you thinking of traveling?",
+  "extractedSlots": {"activityType": "travel", "location": {"destination": "Paris"}},
+  "nextQuestion": "Is this more of a business trip or are you going for leisure? And when are you thinking of traveling?"
+}
+
+CONFIRMATION FLOW:
+When you have sufficient context, use "confirm_plan" action to present a plan summary and ask "Does this sound like a good plan?" or "How does this look to you?" before final generation.
 
 Remember: Only generate a plan when you have sufficient context${mode === 'chat' ? ' and user explicitly confirms/agrees to the plan details' : ''}${mode === 'quick' ? ' (can be more decisive with fewer questions)' : ''}.
 
@@ -229,13 +255,37 @@ If mode is "chat", look for explicit agreement words in user messages: "yes", "s
    * Build OpenAI-specific system prompt
    */
   private buildOpenAISystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'chat'): string {
+    const currentSlots = session.slots || {};
+    const userContext = this.formatUserContext(userProfile);
+    const activityGuide = this.getActivitySpecificGuide(currentSlots.activityType || '');
+    
+    const modeInstructions = mode === 'quick' 
+      ? `QUICK PLAN MODE: Ask only essential questions (3-4 max). Be efficient and direct.`
+      : mode === 'chat'
+      ? `CHAT MODE: Gather detailed context. Wait for explicit user agreement before suggesting plan generation.`
+      : `STANDARD MODE: Balance efficiency with thoroughness.`;
+
     return `You are a conversational lifestyle planning assistant. Gather context through natural dialogue before generating plans.
 
-Current session state: ${session.sessionState}
-Current slots: ${JSON.stringify(session.slots || {}, null, 2)}
-User profile: ${JSON.stringify(userProfile, null, 2)}
+USER CONTEXT:
+${userContext}
 
-Be conversational and presumptive. Ask one question at a time. Always respond with valid JSON.
+CURRENT SESSION STATE: ${session.sessionState}
+COLLECTED CONTEXT: ${JSON.stringify(currentSlots, null, 2)}
+
+${modeInstructions}
+
+${activityGuide}
+
+CORE CONTEXT TO COLLECT:
+- Activity type, Location, Timing, Budget considerations, Vibe/mood
+
+BUDGET-AWARE SUGGESTIONS:
+- Low budget ($0-$50): Home activities, happy hour at home, local walks
+- Medium budget ($50-$150): Casual dining, local attractions, happy hour out  
+- Higher budget ($150+): Fine dining, special experiences, shows
+
+Be conversational and presumptive. Ask activity-specific questions based on detected activity type. Ask one question at a time. Always respond with valid JSON.
 
 Required format:
 {
@@ -246,6 +296,71 @@ Required format:
   "missingRequiredSlots": [],
   "confirmationSummary": "Summary if confirming"
 }`;
+  }
+
+  /**
+   * Get activity-specific questioning guide
+   */
+  private getActivitySpecificGuide(activityType: string): string {
+    if (!activityType) {
+      return `ACTIVITY DETECTION: First determine what type of activity they're planning (date, travel, social event, dining, entertainment, exercise, etc.) to ask relevant follow-up questions.`;
+    }
+
+    const guides = {
+      'date': `
+DATE NIGHT SPECIFIC QUESTIONS:
+1. Budget first: "What's your budget for tonight? Cozy night in ($0-30), casual dinner out ($50-100), or something special ($100+)?"
+2. Mood/vibe: "What kind of mood are you going for? Romantic and intimate, fun and playful, or relaxed and casual?"
+3. If low budget: Suggest home activities like "cooking together, happy hour at your place, movie night with homemade snacks"
+4. If higher budget: Ask about cuisine preferences, ambiance, activities (dinner + activity)
+5. Timing considerations: "What time works best? Early dinner, standard time, or late night vibe?"`,
+
+      'travel': `
+TRAVEL SPECIFIC QUESTIONS:
+1. Purpose: "Is this for business or leisure? That'll help me suggest the right timing and activities."
+2. Timing: "When are you looking to travel? And are you flexible with dates or set on specific ones?"
+3. Duration: "How long are you planning to stay?"
+4. If business: Focus on timing, accommodations near meetings, efficient transportation
+5. If leisure: Ask about interests, preferred activities, pace (relaxed vs packed schedule)
+6. Budget considerations: "What's your budget range for this trip?"`,
+
+      'social': `
+SOCIAL EVENT SPECIFIC QUESTIONS:
+1. Occasion: "What's the occasion? Birthday, celebration, just hanging out?"
+2. Group size: "How many people are we talking about?"
+3. Vibe: "Are you looking for something low-key or more of a party atmosphere?"
+4. Budget per person: "What's everyone comfortable spending?"
+5. Location preferences: "Your place, someone else's, or out somewhere?"`,
+
+      'dining': `
+DINING SPECIFIC QUESTIONS:
+1. Occasion: "Is this a special occasion or just a good meal?"
+2. Budget: "What's your price range? Casual ($20-40), mid-range ($40-80), or fine dining ($80+)?"
+3. Cuisine: "Any cuisine preferences or dietary restrictions I should know about?"
+4. Group size: "Just you, or how many people?"
+5. Ambiance: "Looking for something romantic, lively, or just good food?"`,
+
+      'entertainment': `
+ENTERTAINMENT SPECIFIC QUESTIONS:
+1. Type: "What kind of entertainment? Movies, concerts, shows, sports?"
+2. Group: "Going solo or with friends/family?"
+3. Budget: "What's your budget range for tickets and extras?"
+4. Timing: "Any preference for day vs evening, weekday vs weekend?"
+5. Location: "Prefer something local or willing to travel for the right experience?"`
+    };
+
+    const activityKey = Object.keys(guides).find(key => 
+      activityType.toLowerCase().includes(key) || 
+      key.includes(activityType.toLowerCase())
+    );
+
+    return (activityKey && guides[activityKey as keyof typeof guides]) || `
+GENERAL ACTIVITY QUESTIONS:
+1. Context: "Tell me more about what you're planning"
+2. Budget: "What's your budget range for this?"
+3. Timing: "When are you looking to do this?"
+4. Group: "Will you be going alone or with others?"
+5. Preferences: "Any specific preferences or requirements?"`;
   }
 
   /**
@@ -266,27 +381,139 @@ Required format:
   /**
    * Convert AI response to conversation response format
    */
-  private convertToConversationResponse(
+  private async convertToConversationResponse(
     aiResponse: SlotExtractionResult,
     session: LifestylePlannerSession
-  ): ConversationResponse {
+  ): Promise<ConversationResponse> {
+    // CRITICAL: Merge extracted slots into session slots to persist conversation context
+    const updatedSlots = this.mergeSlots(session.slots || {}, aiResponse.extractedSlots || {});
+    
     // Determine next session state
     let nextState = session.sessionState as any;
     if (aiResponse.action === 'ask_question') nextState = 'gathering';
     if (aiResponse.action === 'confirm_plan') nextState = 'confirming';
     if (aiResponse.action === 'generate_plan') nextState = 'planning';
 
-    // Generate context chips showing filled information
-    const contextChips = this.generateContextChips(session.slots || {});
+    // Generate context chips showing filled information (using updated slots!)
+    const contextChips = this.generateContextChips(updatedSlots);
+    
+    // Check if we have enough context for confirmation using updated slots
+    const requiredChipsFilled = contextChips.filter(c => c.category === 'required' && c.filled).length;
+    const hasMinimumContext = requiredChipsFilled >= 3; // Need at least activity, time/budget, and one more
+
+    // Enhanced logic for determining readiness and confirmation flow
+    let readyToGenerate = false;
+    let showConfirmation = false;
+
+    if (aiResponse.action === 'generate_plan') {
+      readyToGenerate = true;
+    } else if (aiResponse.action === 'confirm_plan' || nextState === 'confirming') {
+      showConfirmation = true;
+      readyToGenerate = false; // User needs to confirm first
+    } else if (hasMinimumContext && !aiResponse.missingRequiredSlots?.length) {
+      // Enough context gathered, should move to confirmation
+      showConfirmation = true;
+      nextState = 'confirming';
+    }
+
+    // Generate confirmation summary if we're in confirmation phase (using updated slots!)
+    let confirmationMessage = aiResponse.message || aiResponse.nextQuestion || "I'm here to help you plan!";
+    if (showConfirmation && !aiResponse.confirmationSummary) {
+      confirmationMessage = this.generateConfirmationSummary(updatedSlots);
+    } else if (aiResponse.confirmationSummary) {
+      confirmationMessage = aiResponse.confirmationSummary;
+    }
+
+    // Create updated session object with new slots and state
+    const updatedSession = {
+      ...session,
+      slots: updatedSlots,
+      sessionState: nextState
+    };
 
     return {
-      message: aiResponse.message || aiResponse.nextQuestion || "I'm here to help you plan!",
+      message: confirmationMessage,
       sessionState: nextState,
-      nextQuestion: aiResponse.nextQuestion,
+      nextQuestion: showConfirmation ? "Does this sound like a good plan? Would you like me to generate the full details?" : aiResponse.nextQuestion,
       contextChips,
-      readyToGenerate: aiResponse.action === 'generate_plan' || (!aiResponse.missingRequiredSlots?.length && contextChips.filter(c => c.category === 'required' && c.filled).length >= 4),
-      generatedPlan: aiResponse.action === 'generate_plan' ? this.generatePlan(session) : undefined
+      readyToGenerate,
+      generatedPlan: aiResponse.action === 'generate_plan' ? await this.generatePlan(updatedSession) : undefined,
+      updatedSlots // Return updated slots so routes.ts can persist them
     };
+  }
+
+  /**
+   * Deep merge extracted slots into existing session slots
+   */
+  private mergeSlots(existingSlots: any, extractedSlots: any): any {
+    if (!extractedSlots) return existingSlots;
+    
+    const merged = { ...existingSlots };
+    
+    for (const [key, value] of Object.entries(extractedSlots)) {
+      if (value !== null && value !== undefined) {
+        if (typeof value === 'object' && !Array.isArray(value) && merged[key] && typeof merged[key] === 'object') {
+          // Deep merge for nested objects like location, timing
+          merged[key] = { ...merged[key], ...value };
+        } else {
+          // Direct assignment for primitives and arrays
+          merged[key] = value;
+        }
+      }
+    }
+    
+    return merged;
+  }
+
+  /**
+   * Normalize budget handling for consistent processing
+   */
+  private normalizeBudget(slots: any): 'low' | 'medium' | 'high' | 'unknown' {
+    const budgetStr = typeof slots.budget === 'string' ? slots.budget.toLowerCase() : (slots.budget?.range?.toLowerCase() || '');
+    
+    if (budgetStr.includes('low') || budgetStr.includes('$0') || budgetStr.includes('$30') || budgetStr.includes('cozy') || budgetStr.includes('home')) {
+      return 'low';
+    } else if (budgetStr.includes('medium') || budgetStr.includes('$50') || budgetStr.includes('$100') || budgetStr.includes('casual')) {
+      return 'medium';
+    } else if (budgetStr.includes('high') || budgetStr.includes('$150') || budgetStr.includes('special') || budgetStr.includes('fine')) {
+      return 'high';
+    }
+    
+    return 'unknown';
+  }
+
+  /**
+   * Generate confirmation summary for user approval
+   */
+  private generateConfirmationSummary(slots: any): string {
+    const activity = slots.activityType || 'activity';
+    const location = slots.location?.destination || 'location TBD';
+    const timing = slots.timing?.departureTime || slots.timing?.arrivalTime || 'timing TBD';
+    const budget = slots.budget || 'budget range TBD';
+    const vibe = slots.vibe || 'mood TBD';
+    const companions = slots.companions || '';
+
+    let summary = `Great! Let me summarize what we've planned:\n\n`;
+    summary += `🎯 **Activity**: ${activity}\n`;
+    summary += `📍 **Location**: ${location}\n`;
+    summary += `⏰ **Timing**: ${timing}\n`;
+    summary += `💰 **Budget**: ${budget}\n`;
+    
+    if (vibe && vibe !== 'mood TBD') {
+      summary += `✨ **Vibe**: ${vibe}\n`;
+    }
+    
+    if (companions && companions !== '') {
+      summary += `👥 **With**: ${companions}\n`;
+    }
+
+    if (slots.transportation) {
+      summary += `🚗 **Transportation**: ${slots.transportation}\n`;
+    }
+
+    summary += `\nDoes this sound like a good plan? I can generate the complete details with specific suggestions and timeline if you'd like!`;
+
+    return summary;
   }
 
   /**
@@ -317,18 +544,46 @@ Required format:
       filled: !!slots.location?.destination
     });
     
+    // Budget is now a key required field for activity-specific planning
     chips.push({
-      label: "Transport",
-      value: slots.transportation || "How are you getting there?",
+      label: "Budget",
+      value: slots.budget || "Budget range?",
       category: 'required' as const,
-      filled: !!slots.transportation
+      filled: !!slots.budget
     });
     
     // Optional slots
+    if (slots.transportation) {
+      chips.push({
+        label: "Transport",
+        value: slots.transportation,
+        category: 'optional' as const,
+        filled: true
+      });
+    }
+    
     if (slots.vibe) {
       chips.push({
         label: "Vibe",
         value: slots.vibe,
+        category: 'optional' as const,
+        filled: true
+      });
+    }
+    
+    if (slots.companions) {
+      chips.push({
+        label: "Companions",
+        value: slots.companions,
+        category: 'optional' as const,
+        filled: true
+      });
+    }
+    
+    if (slots.purpose) {
+      chips.push({
+        label: "Purpose",
+        value: slots.purpose,
         category: 'optional' as const,
         filled: true
       });
@@ -347,29 +602,128 @@ Required format:
   }
 
   /**
-   * Generate final plan when all context is collected
+   * Generate budget-aware final plan when all context is collected
    */
   private async generatePlan(session: LifestylePlannerSession): Promise<any> {
-    // This would call Claude/OpenAI to generate the comprehensive plan
-    // For now, return a structured plan based on collected slots
     const slots = session.slots || {};
-    
+    const activityType = slots.activityType?.toLowerCase() || 'activity';
+    const budgetLevel = this.normalizeBudget(slots);
+    const isLowBudget = budgetLevel === 'low';
+    const isMediumBudget = budgetLevel === 'medium';
+    const isHighBudget = budgetLevel === 'high';
+
+    // Generate budget-aware activity suggestions
+    let activitySuggestions = [];
+    let tips = [];
+
+    if (activityType.includes('date')) {
+      if (isLowBudget) {
+        activitySuggestions = [
+          "Cook dinner together at home",
+          "Happy hour with homemade cocktails",
+          "Movie night with homemade popcorn",
+          "Picnic in a local park",
+          "Sunset walk and coffee"
+        ];
+        tips = ["Create ambiance with candles and music", "Plan a fun cooking activity together", "Set up a cozy movie area"];
+      } else if (isMediumBudget) {
+        activitySuggestions = [
+          "Dinner at a nice casual restaurant",
+          "Happy hour at a local bar + appetizers",
+          "Movie theater + dinner",
+          "Mini golf or bowling + drinks",
+          "Coffee shop + local attraction"
+        ];
+        tips = ["Make reservations in advance", "Check happy hour times", "Dress smart casual"];
+      } else {
+        activitySuggestions = [
+          "Fine dining restaurant experience",
+          "Wine tasting + elegant dinner",
+          "Concert or show + dinner",
+          "Spa day + romantic dinner",
+          "Weekend getaway planning"
+        ];
+        tips = ["Make reservations well in advance", "Dress up for the occasion", "Consider transportation/parking"];
+      }
+    } else if (activityType.includes('travel')) {
+      if (slots.vibe?.includes('business') || slots.companions?.includes('business')) {
+        activitySuggestions = [
+          "Book accommodations near meeting location",
+          "Plan efficient transportation routes",
+          "Research nearby restaurants for client dinners",
+          "Identify backup travel options",
+          "Schedule buffer time for meetings"
+        ];
+        tips = ["Pack business attire", "Download offline maps", "Prepare for different time zones"];
+      } else {
+        activitySuggestions = [
+          "Research top local attractions",
+          "Book must-visit restaurants",
+          "Plan transportation between locations",
+          "Find local experiences and tours",
+          "Schedule relaxation time"
+        ];
+        tips = ["Pack weather-appropriate clothing", "Download travel apps", "Keep copies of important documents"];
+      }
+    } else {
+      // General activity suggestions based on budget
+      if (isLowBudget) {
+        activitySuggestions = ["Local park activities", "Home-based activities", "Free community events"];
+      } else if (isMediumBudget) {
+        activitySuggestions = ["Local attractions", "Casual dining", "Entertainment venues"];
+      } else {
+        activitySuggestions = ["Premium experiences", "Fine dining", "Special events"];
+      }
+      tips = ["Check weather conditions", "Confirm all reservations", "Plan your transportation"];
+    }
+
     return {
-      title: `${slots.activityType || 'Your'} Plan`,
-      summary: "Your personalized plan is ready!",
+      title: `Your ${slots.activityType || 'Perfect'} Plan`,
+      summary: `Here's your personalized ${budgetLevel !== 'unknown' ? budgetLevel + ' budget' : ''} plan for ${activityType}!`,
+      activitySuggestions,
       timeline: [
         {
-          time: slots.timing?.departureTime || "TBD",
-          activity: `Leave for ${slots.location?.destination || 'destination'}`,
-          location: slots.location?.current || "Current location",
-          notes: `Travel by ${slots.transportation || 'preferred method'}`
+          time: slots.timing?.departureTime || slots.timing?.arrivalTime || "TBD",
+          activity: activitySuggestions[0] || `${slots.activityType || 'Activity'} at ${slots.location?.destination || 'destination'}`,
+          location: slots.location?.destination || slots.location?.current || "Location TBD",
+          notes: `${slots.transportation ? 'Travel by ' + slots.transportation : 'Transportation planned'} • ${slots.vibe || 'Enjoy your time!'}`
         }
       ],
-      tips: [
-        "Check traffic before leaving",
-        "Confirm your plans with companions",
-        "Have a great time!"
-      ]
+      budgetBreakdown: this.generateBudgetBreakdown(slots),
+      tips,
+      outfit: slots.outfit ? `${slots.outfit.formality || 'casual'} style` : "Dress appropriately for the occasion"
+    };
+  }
+
+  /**
+   * Generate budget breakdown based on activity and budget level
+   */
+  private generateBudgetBreakdown(slots: any): any {
+    const budgetLevel = this.normalizeBudget(slots);
+    const activityType = slots.activityType?.toLowerCase() || '';
+    
+    if (activityType.includes('date')) {
+      if (budgetLevel === 'low') {
+        return {
+          total: "$15-30",
+          breakdown: ["Groceries: $15-25", "Drinks/snacks: $5-10", "Entertainment: Free"]
+        };
+      } else if (budgetLevel === 'medium') {
+        return {
+          total: "$60-100",
+          breakdown: ["Dinner: $40-60", "Drinks: $15-25", "Activity: $10-20"]
+        };
+      } else {
+        return {
+          total: "$120-200+",
+          breakdown: ["Fine dining: $80-120", "Drinks: $25-40", "Activity/experience: $20-50"]
+        };
+      }
+    }
+    
+    return {
+      total: "Budget estimate available after more details",
+      breakdown: ["Detailed breakdown will be provided based on your specific choices"]
     };
   }
 
