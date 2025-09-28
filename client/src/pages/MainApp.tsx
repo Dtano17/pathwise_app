@@ -788,12 +788,10 @@ export default function MainApp({
               ) : (
                 <div className="space-y-4 max-w-4xl mx-auto">
                   {activities.map((activity) => {
-                    // Calculate real progress from tasks associated with this activity
-                    // TODO: This is a placeholder until we implement proper activityTasks relationship
-                    const activityTaskCount = Math.floor(Math.random() * 8) + 2; // 2-10 tasks
-                    const completedTasks = Math.floor(Math.random() * activityTaskCount);
-                    const totalTasks = activityTaskCount;
-                    const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                    // Use real progress data calculated from actual associated tasks
+                    const completedTasks = (activity as any).completedTasks || 0;
+                    const totalTasks = (activity as any).totalTasks || 0;
+                    const progressPercent = (activity as any).progressPercent || 0;
                     
                     return (
                       <div

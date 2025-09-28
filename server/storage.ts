@@ -99,7 +99,7 @@ export interface IStorage {
 
   // Activities
   createActivity(activity: InsertActivity & { userId: string }): Promise<Activity>;
-  getUserActivities(userId: string): Promise<Activity[]>;
+  getUserActivities(userId: string): Promise<(Activity & { totalTasks: number; completedTasks: number; progressPercent: number })[]>;
   getActivity(activityId: string, userId: string): Promise<Activity | undefined>;
   updateActivity(activityId: string, updates: Partial<Activity>, userId: string): Promise<Activity | undefined>;
   deleteActivity(activityId: string, userId: string): Promise<void>;
@@ -322,8 +322,39 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getUserActivities(userId: string): Promise<Activity[]> {
-    return await db.select().from(activities).where(eq(activities.userId, userId)).orderBy(desc(activities.createdAt));
+  async getUserActivities(userId: string): Promise<(Activity & { totalTasks: number; completedTasks: number; progressPercent: number })[]> {
+    // First get all activities
+    const userActivities = await db.select().from(activities)
+      .where(eq(activities.userId, userId))
+      .orderBy(desc(activities.createdAt));
+
+    // For each activity, calculate progress from associated tasks
+    const activitiesWithProgress = await Promise.all(
+      userActivities.map(async (activity) => {
+        // Get all tasks associated with this activity
+        const activityTasksResult = await db
+          .select({
+            taskId: activityTasks.taskId,
+            completed: tasks.completed,
+          })
+          .from(activityTasks)
+          .innerJoin(tasks, eq(activityTasks.taskId, tasks.id))
+          .where(eq(activityTasks.activityId, activity.id));
+
+        const totalTasks = activityTasksResult.length;
+        const completedTasks = activityTasksResult.filter(t => t.completed).length;
+        const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+        return {
+          ...activity,
+          totalTasks,
+          completedTasks,
+          progressPercent,
+        };
+      })
+    );
+
+    return activitiesWithProgress;
   }
 
   async getActivity(activityId: string, userId: string): Promise<Activity | undefined> {
