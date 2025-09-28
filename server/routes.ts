@@ -98,10 +98,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           location = fbUserData.location.name;
         }
 
+        // Generate secure random password for OAuth users (they can't use manual login)
+        const crypto = require('crypto');
+        const randomPassword = crypto.randomBytes(32).toString('hex');
+        const hashedRandomPassword = await bcrypt.hash(randomPassword, 12);
+
         // Create new user with comprehensive profile data
         user = await storage.upsertUser({
           username: username,
-          password: "facebook_oauth_user", // Required field for OAuth users
+          password: hashedRandomPassword, // Secure random password for OAuth users
           email: fbUserData.email || undefined,
           firstName: fbUserData.first_name || fbUserData.name?.split(' ')[0] || undefined,
           lastName: fbUserData.last_name || fbUserData.name?.split(' ').slice(1).join(' ') || undefined,
@@ -220,14 +225,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Manual login endpoint
   app.post('/api/auth/login', async (req: any, res) => {
     try {
-      const { email, password } = req.body;
+      const loginSchema = z.object({
+        email: z.string().email('Invalid email address'),
+        password: z.string().min(1, 'Password is required')
+      });
       
-      if (!email || !password) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Email and password are required' 
-        });
-      }
+      const { email, password } = loginSchema.parse(req.body);
 
       // Find user by email
       const user = await storage.getUserByEmail(email);
@@ -238,9 +241,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Verify password
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
+      // Check if this is an OAuth-only user
+      if (user.authenticationType === 'oauth') {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'This account uses social login. Please sign in with Facebook or Google.' 
+        });
+      }
+
+      // Verify password with error handling
+      try {
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+          return res.status(401).json({ 
+            success: false, 
+            error: 'Invalid email or password' 
+          });
+        }
+      } catch (error) {
+        console.error('Password comparison error:', error);
         return res.status(401).json({ 
           success: false, 
           error: 'Invalid email or password' 
@@ -290,7 +309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (userId) {
         try {
-          const user = await storage.getUserById(userId);
+          const user = await storage.getUser(userId);
           if (user) {
             // Remove password from response
             const { password, ...userWithoutPassword } = user;
