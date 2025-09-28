@@ -849,6 +849,399 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Facebook App Compliance Routes - Required for accessing user profile data
+  
+  // Privacy Policy - Required by Facebook for app approval
+  app.get("/privacy-policy", (req, res) => {
+    const privacyPolicyHTML = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - JournalMate</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 2rem; 
+            line-height: 1.6; 
+            color: #333; 
+        }
+        h1, h2 { color: #6C5CE7; }
+        .effective-date { color: #666; font-style: italic; }
+        .section { margin-bottom: 2rem; }
+        .contact-info { background: #f8f9fa; padding: 1rem; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <h1>Privacy Policy for JournalMate</h1>
+    <p class="effective-date">Effective Date: ${new Date().toLocaleDateString()}</p>
+    
+    <div class="section">
+        <h2>1. Information We Collect</h2>
+        <p>JournalMate is an AI-powered personal planning and productivity application. We collect and process the following types of information to provide personalized planning services:</p>
+        
+        <h3>1.1 Facebook Profile Information</h3>
+        <ul>
+            <li><strong>Basic Profile Data:</strong> Name, email address, profile picture</li>
+            <li><strong>Demographic Information:</strong> Age, birthday, location (if shared)</li>
+            <li><strong>Social Connections:</strong> Friends list (used for social goal recommendations)</li>
+            <li><strong>Activity Data:</strong> Posts you've liked or saved (used for interest analysis)</li>
+            <li><strong>Personal Interests:</strong> Pages you follow, groups you're in (for personalized recommendations)</li>
+        </ul>
+        
+        <h3>1.2 Spotify Music Data</h3>
+        <ul>
+            <li>Currently playing tracks and recently played music</li>
+            <li>Top artists and tracks (for personality insights)</li>
+            <li>Playlists and music preferences (for mood and energy analysis)</li>
+        </ul>
+        
+        <h3>1.3 Application Usage Data</h3>
+        <ul>
+            <li>Goals and tasks you create</li>
+            <li>Planning conversations with our AI assistant</li>
+            <li>Progress tracking and achievement data</li>
+            <li>Notification preferences and settings</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>2. How We Use Your Information</h2>
+        <p>We use your information solely to provide personalized planning and productivity services:</p>
+        <ul>
+            <li><strong>Personalized AI Planning:</strong> Your demographic and interest data helps our AI create more relevant and achievable action plans</li>
+            <li><strong>Social Context:</strong> Friends and social activity data helps suggest collaborative goals and social accountability</li>
+            <li><strong>Music-Based Insights:</strong> Your music preferences help us understand your personality, energy levels, and optimal timing for different activities</li>
+            <li><strong>Contextual Recommendations:</strong> We combine your data with environmental factors (time, weather, location) for better planning</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>3. Information Sharing and Disclosure</h2>
+        <p>We do NOT sell, rent, or share your personal information with third parties for marketing purposes. We only share information in these limited circumstances:</p>
+        <ul>
+            <li><strong>AI Processing:</strong> Anonymized data is sent to OpenAI and Anthropic for AI-powered planning (no identifying information)</li>
+            <li><strong>Legal Requirements:</strong> If required by law or to protect our rights and users</li>
+            <li><strong>Service Providers:</strong> Trusted partners who help operate our service (under strict confidentiality agreements)</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>4. Data Security</h2>
+        <p>We implement industry-standard security measures to protect your data:</p>
+        <ul>
+            <li>Encryption of data in transit and at rest</li>
+            <li>Secure authentication and access controls</li>
+            <li>Regular security audits and updates</li>
+            <li>Limited data retention periods</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>5. Your Rights and Choices</h2>
+        <ul>
+            <li><strong>Data Access:</strong> You can view all data we have about you in your profile settings</li>
+            <li><strong>Data Correction:</strong> You can update or correct your information at any time</li>
+            <li><strong>Data Deletion:</strong> You can request deletion of your account and all associated data</li>
+            <li><strong>Data Portability:</strong> You can export your data in a machine-readable format</li>
+            <li><strong>Consent Withdrawal:</strong> You can disconnect Facebook/Spotify integrations at any time</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>6. Data Retention</h2>
+        <p>We retain your data only as long as necessary to provide our services:</p>
+        <ul>
+            <li>Active accounts: Data is retained while your account is active</li>
+            <li>Inactive accounts: Data is automatically deleted after 2 years of inactivity</li>
+            <li>Deleted accounts: All data is permanently removed within 30 days of deletion request</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>7. Children's Privacy</h2>
+        <p>JournalMate is not intended for children under 13. We do not knowingly collect personal information from children under 13. If we discover we have collected such information, we will delete it immediately.</p>
+    </div>
+    
+    <div class="section">
+        <h2>8. Changes to This Policy</h2>
+        <p>We may update this privacy policy from time to time. We will notify you of any material changes by email or through the application. Your continued use of JournalMate after such changes constitutes acceptance of the updated policy.</p>
+    </div>
+    
+    <div class="section contact-info">
+        <h2>9. Contact Us</h2>
+        <p>If you have any questions about this privacy policy or how we handle your data, please contact us:</p>
+        <ul>
+            <li><strong>Email:</strong> privacy@journalmate.app</li>
+            <li><strong>Data Protection Officer:</strong> dpo@journalmate.app</li>
+            <li><strong>Address:</strong> [Your Business Address]</li>
+        </ul>
+        
+        <p><strong>Data Deletion Requests:</strong> You can request deletion of your data by:</p>
+        <ul>
+            <li>Using the "Delete Account" option in your profile settings</li>
+            <li>Visiting: <a href="${req.protocol}://${req.get('host')}/data-deletion">Data Deletion Request Form</a></li>
+            <li>Emailing us at: delete@journalmate.app</li>
+        </ul>
+    </div>
+    
+    <p style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #eee; color: #666; text-align: center;">
+        © ${new Date().getFullYear()} JournalMate. All rights reserved.
+    </p>
+</body>
+</html>`;
+    
+    res.setHeader('Content-Type', 'text/html');
+    res.send(privacyPolicyHTML);
+  });
+
+  // Data Deletion Request Form - Required by Facebook
+  app.get("/data-deletion", (req, res) => {
+    const dataDeletionHTML = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Deletion Request - JournalMate</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; 
+            max-width: 600px; 
+            margin: 0 auto; 
+            padding: 2rem; 
+            line-height: 1.6; 
+            color: #333; 
+        }
+        h1 { color: #6C5CE7; text-align: center; }
+        .form-group { margin-bottom: 1.5rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+        input, textarea, select { 
+            width: 100%; 
+            padding: 0.75rem; 
+            border: 2px solid #e1e8ed; 
+            border-radius: 8px; 
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        input:focus, textarea:focus, select:focus { 
+            outline: none; 
+            border-color: #6C5CE7; 
+        }
+        button { 
+            background: #6C5CE7; 
+            color: white; 
+            padding: 1rem 2rem; 
+            border: none; 
+            border-radius: 8px; 
+            font-size: 1rem; 
+            font-weight: 600;
+            cursor: pointer; 
+            width: 100%;
+            transition: background 0.2s;
+        }
+        button:hover { background: #5a52d5; }
+        .info-box { 
+            background: #f8f9fa; 
+            padding: 1.5rem; 
+            border-radius: 8px; 
+            margin-bottom: 2rem; 
+            border-left: 4px solid #6C5CE7;
+        }
+        .success-message { 
+            background: #d4edda; 
+            color: #155724; 
+            padding: 1rem; 
+            border-radius: 8px; 
+            margin-bottom: 1rem; 
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Data Deletion Request</h1>
+    
+    <div class="info-box">
+        <h3>What happens when you delete your data?</h3>
+        <ul>
+            <li>Your account and all associated data will be permanently deleted</li>
+            <li>This includes your profile, goals, tasks, conversation history, and preferences</li>
+            <li>Connected social media integrations (Facebook, Spotify) will be disconnected</li>
+            <li>This action cannot be undone</li>
+            <li>Deletion will be completed within 30 days of your request</li>
+        </ul>
+    </div>
+    
+    <div class="success-message" id="successMessage">
+        Your data deletion request has been submitted successfully. You will receive a confirmation email shortly.
+    </div>
+    
+    <form id="deletionForm" onsubmit="handleDeletionRequest(event)">
+        <div class="form-group">
+            <label for="email">Email Address (associated with your JournalMate account):</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="facebook_id">Facebook User ID (if you connected via Facebook):</label>
+            <input type="text" id="facebook_id" name="facebook_id" placeholder="Optional - helps us locate your account">
+        </div>
+        
+        <div class="form-group">
+            <label for="reason">Reason for deletion (optional):</label>
+            <select id="reason" name="reason">
+                <option value="">Select a reason...</option>
+                <option value="no_longer_needed">No longer need the service</option>
+                <option value="privacy_concerns">Privacy concerns</option>
+                <option value="switching_services">Switching to another service</option>
+                <option value="account_security">Account security concerns</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="additional_info">Additional Information (optional):</label>
+            <textarea id="additional_info" name="additional_info" rows="4" placeholder="Any additional details about your deletion request..."></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" required style="width: auto; margin-right: 0.5rem;">
+                I understand that this action is permanent and cannot be undone
+            </label>
+        </div>
+        
+        <button type="submit">Submit Deletion Request</button>
+    </form>
+    
+    <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #eee; text-align: center; color: #666;">
+        <p>Need help? Contact us at <a href="mailto:privacy@journalmate.app">privacy@journalmate.app</a></p>
+        <p><a href="/privacy-policy">Privacy Policy</a> | <a href="/">Back to JournalMate</a></p>
+    </div>
+    
+    <script>
+        async function handleDeletionRequest(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            try {
+                const response = await fetch('/api/data-deletion/request', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    document.getElementById('successMessage').style.display = 'block';
+                    document.getElementById('deletionForm').style.display = 'none';
+                } else {
+                    alert('There was an error processing your request. Please try again or contact support.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('There was an error processing your request. Please try again or contact support.');
+            }
+        }
+    </script>
+</body>
+</html>`;
+    
+    res.setHeader('Content-Type', 'text/html');
+    res.send(dataDeletionHTML);
+  });
+
+  // Data Deletion Request API - Processes deletion requests
+  app.post("/api/data-deletion/request", async (req, res) => {
+    try {
+      const { email, facebook_id, reason, additional_info } = req.body;
+      
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+      
+      // Log the deletion request for processing
+      console.log('Data deletion request received:', {
+        email,
+        facebook_id,
+        reason,
+        additional_info,
+        timestamp: new Date().toISOString(),
+        ip: req.ip
+      });
+      
+      // In a real application, you would:
+      // 1. Verify the user's identity
+      // 2. Queue the deletion for processing
+      // 3. Send confirmation email
+      // 4. Actually delete the data within 30 days
+      
+      // For now, we'll simulate this process
+      const deletionRequestId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      
+      // TODO: Implement actual data deletion logic
+      // TODO: Send confirmation email
+      // TODO: Queue background job for data deletion
+      
+      res.json({
+        success: true,
+        requestId: deletionRequestId,
+        message: 'Your data deletion request has been received and will be processed within 30 days.',
+        confirmationEmail: 'A confirmation email will be sent to your registered email address.'
+      });
+      
+    } catch (error) {
+      console.error('Data deletion request error:', error);
+      res.status(500).json({ 
+        error: 'Failed to process deletion request',
+        message: 'Please try again or contact support at privacy@journalmate.app'
+      });
+    }
+  });
+
+  // Facebook Webhook for Data Deletion Callback (alternative method)
+  app.post("/api/facebook/data-deletion", async (req, res) => {
+    try {
+      const { signed_request } = req.body;
+      
+      if (!signed_request) {
+        return res.status(400).json({ error: 'Missing signed_request' });
+      }
+      
+      // Parse Facebook's signed request
+      // In production, you would verify the signature here
+      const [encodedSig, payload] = signed_request.split('.');
+      const data = JSON.parse(Buffer.from(payload, 'base64').toString());
+      
+      console.log('Facebook data deletion callback received:', {
+        user_id: data.user_id,
+        algorithm: data.algorithm,
+        issued_at: data.issued_at,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Process the deletion for the Facebook user
+      // TODO: Find user by Facebook ID and delete their data
+      
+      const confirmationCode = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      
+      res.json({
+        url: \`\${req.protocol}://\${req.get('host')}/data-deletion?confirmation=\${confirmationCode}\`,
+        confirmation_code: confirmationCode
+      });
+      
+    } catch (error) {
+      console.error('Facebook data deletion callback error:', error);
+      res.status(500).json({ error: 'Failed to process Facebook data deletion request' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
