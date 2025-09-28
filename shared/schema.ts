@@ -47,6 +47,31 @@ export const users = pgTable("users", {
   personalityType: text("personality_type"), // Optional: MBTI, Enneagram, etc.
   communicationStyle: text("communication_style"), // 'direct' | 'encouraging' | 'detailed' | 'brief'
   
+  // Style and lifestyle preferences for conversational planning
+  stylePreferences: jsonb("style_preferences").$type<{
+    casualOutfit?: string;
+    workOutfit?: string;
+    dateOutfit?: string;
+    favoriteColors?: string[];
+    preferredBrands?: string[];
+    bodyType?: string;
+    stylePersonality?: 'classic' | 'trendy' | 'bohemian' | 'minimalist' | 'edgy' | 'romantic';
+  }>(),
+  transportationPreferences: jsonb("transportation_preferences").$type<{
+    preferredMethods?: ('driving' | 'rideshare' | 'public' | 'walking' | 'biking' | 'flying')[];
+    hasVehicle?: boolean;
+    preferredRideServices?: string[];
+    environmentalPriority?: 'high' | 'medium' | 'low';
+  }>(),
+  lifestyleContext: jsonb("lifestyle_context").$type<{
+    currentMood?: string;
+    energyLevel?: 'high' | 'medium' | 'low';
+    socialPreference?: 'solo' | 'small_group' | 'large_group' | 'flexible';
+    budgetRange?: { min: number; max: number; currency: string };
+    typicalWeatherResponse?: string;
+    planningHorizon?: 'spontaneous' | 'same_day' | 'few_days' | 'week_ahead' | 'month_ahead';
+  }>(),
+  
   // Context for AI personalization
   aboutMe: text("about_me"), // Free-form description
   currentChallenges: jsonb("current_challenges").$type<string[]>().default([]),
@@ -400,6 +425,102 @@ export type InsertTaskReminder = z.infer<typeof insertTaskReminderSchema>;
 
 export type SchedulingSuggestion = typeof schedulingSuggestions.$inferSelect;
 export type InsertSchedulingSuggestion = z.infer<typeof insertSchedulingSuggestionSchema>;
+
+// Lifestyle Planner Session for conversational planning
+export const lifestylePlannerSessions = pgTable("lifestyle_planner_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  sessionState: text("session_state").notNull().default("intake"), // 'intake' | 'gathering' | 'confirming' | 'planning' | 'completed'
+  
+  // Collected context slots
+  slots: jsonb("slots").$type<{
+    // Required slots
+    activityType?: string;
+    location?: { current?: string; destination?: string; type?: 'indoor' | 'outdoor' | 'mixed' };
+    timing?: { departureTime?: string; arrivalTime?: string; date?: string; duration?: string };
+    vibe?: string;
+    transportation?: 'driving' | 'rideshare' | 'public' | 'walking' | 'biking' | 'flying';
+    
+    // Optional context slots
+    outfit?: { style?: string; formality?: 'casual' | 'smart_casual' | 'formal' | 'athletic'; weather_appropriate?: boolean };
+    budget?: { range?: string; priority?: 'strict' | 'flexible' };
+    companions?: { count?: number; relationships?: string[]; preferences?: string };
+    weatherConsiderations?: { conditions?: string; temperature?: number; preparation?: string[] };
+    trafficConsiderations?: { peak_time?: boolean; alternate_routes?: boolean; buffer_time?: number };
+    mood?: string;
+    energyLevel?: 'high' | 'medium' | 'low';
+    constraints?: string[];
+  }>().default({}),
+  
+  // External context gathered from APIs
+  externalContext: jsonb("external_context").$type<{
+    weather?: {
+      current?: { temperature: number; condition: string; humidity: number };
+      forecast?: { temperature: number; condition: string; time: string }[];
+    };
+    traffic?: {
+      current_conditions?: string;
+      estimated_travel_time?: number;
+      suggested_departure?: string;
+    };
+    location?: {
+      current_location?: { lat: number; lng: number; address: string };
+      destination_details?: { type: string; hours: string; rating?: number };
+    };
+  }>().default({}),
+  
+  // Conversation history
+  conversationHistory: jsonb("conversation_history").$type<Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: string;
+    type?: 'question' | 'answer' | 'clarification' | 'confirmation';
+  }>>().default([]),
+  
+  // Generated plan (once complete)
+  generatedPlan: jsonb("generated_plan").$type<{
+    title?: string;
+    summary?: string;
+    timeline?: Array<{
+      time: string;
+      activity: string;
+      location?: string;
+      notes?: string;
+      outfit_suggestion?: string;
+    }>;
+    tasks?: Array<{
+      title: string;
+      description: string;
+      category: string;
+      priority: 'high' | 'medium' | 'low';
+      timeEstimate?: string;
+    }>;
+    outfit_recommendations?: Array<{
+      occasion: string;
+      suggestion: string;
+      weather_notes?: string;
+    }>;
+    tips?: string[];
+  }>(),
+  
+  // Status tracking
+  isComplete: boolean("is_complete").default(false),
+  lastInteractionAt: timestamp("last_interaction_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Zod schemas and types for lifestyle planner
+export const insertLifestylePlannerSessionSchema = createInsertSchema(lifestylePlannerSessions).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+  lastInteractionAt: true,
+});
+
+export type LifestylePlannerSession = typeof lifestylePlannerSessions.$inferSelect;
+export type InsertLifestylePlannerSession = z.infer<typeof insertLifestylePlannerSessionSchema>;
 
 
 // Authentication identities for multi-provider support

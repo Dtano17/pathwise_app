@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupMultiProviderAuth, isAuthenticatedGeneric } from "./multiProviderAuth";
 import { aiService } from "./services/aiService";
+import { lifestylePlannerAgent } from "./services/lifestylePlannerAgent";
 import { contactSyncService } from "./contactSync";
 import { 
   insertGoalSchema,
@@ -23,12 +24,14 @@ import {
   profileCompletionSchema,
   insertActivitySchema,
   insertActivityTaskSchema,
+  insertLifestylePlannerSessionSchema,
   type Task,
   type Activity,
   type ActivityTask,
   type NotificationPreferences,
   type SignupUser,
-  type ProfileCompletion
+  type ProfileCompletion,
+  type LifestylePlannerSession
 } from "@shared/schema";
 import bcrypt from 'bcrypt';
 import { z } from "zod";
@@ -430,8 +433,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('Processing goal:', goalText);
       
-      // Use AI to process the goal into tasks
-      const result = await aiService.processGoalIntoTasks(goalText, 'openai', DEMO_USER_ID);
+      // Use AI to process the goal into tasks - switched to Claude as default
+      const result = await aiService.processGoalIntoTasks(goalText, 'claude', DEMO_USER_ID);
       
       // Create the goal record
       const goal = await storage.createGoal({
@@ -1167,6 +1170,199 @@ You can find these tasks in your task list and start working on them right away!
     } catch (error) {
       console.error('Error updating user profile:', error);
       res.status(500).json({ error: 'Failed to update user profile' });
+    }
+  });
+
+  // ===== CONVERSATIONAL LIFESTYLE PLANNER API ENDPOINTS =====
+
+  // Start a new lifestyle planning session
+  app.post("/api/planner/session", isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      
+      // Check if user has an active session
+      const activeSession = await storage.getActiveLifestylePlannerSession(userId);
+      if (activeSession) {
+        return res.json({ 
+          session: activeSession,
+          message: "Welcome back! Let's continue planning.",
+          isNewSession: false
+        });
+      }
+
+      // Create new session
+      const session = await storage.createLifestylePlannerSession({
+        userId,
+        sessionState: 'intake',
+        slots: {},
+        externalContext: {},
+        conversationHistory: [],
+        isComplete: false
+      });
+
+      res.json({ 
+        session,
+        message: "Hi! I'm here to help you plan something amazing. What would you like to do today?",
+        isNewSession: true
+      });
+    } catch (error) {
+      console.error('Error creating planner session:', error);
+      res.status(500).json({ error: 'Failed to create planner session' });
+    }
+  });
+
+  // Process a message in the conversation
+  app.post("/api/planner/message", isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      const { sessionId, message } = req.body;
+
+      if (!sessionId || !message) {
+        return res.status(400).json({ error: 'Session ID and message are required' });
+      }
+
+      // Get the session
+      const session = await storage.getLifestylePlannerSession(sessionId, userId);
+      if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+
+      // Get user profile for context
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Process the message with the lifestyle planner agent
+      const response = await lifestylePlannerAgent.processMessage(message, session, user);
+
+      // Update conversation history
+      const updatedHistory = [
+        ...(session.conversationHistory || []),
+        { role: 'user' as const, content: message, timestamp: new Date().toISOString() },
+        { role: 'assistant' as const, content: response.message, timestamp: new Date().toISOString() }
+      ];
+
+      // Update the session with new state and conversation
+      const updatedSession = await storage.updateLifestylePlannerSession(sessionId, {
+        sessionState: response.sessionState,
+        conversationHistory: updatedHistory,
+        isComplete: response.sessionState === 'completed',
+        generatedPlan: response.generatedPlan
+      }, userId);
+
+      res.json({
+        ...response,
+        session: updatedSession
+      });
+    } catch (error) {
+      console.error('Error processing planner message:', error);
+      res.status(500).json({ error: 'Failed to process message' });
+    }
+  });
+
+  // Generate final plan
+  app.post("/api/planner/generate", isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      const { sessionId } = req.body;
+
+      if (!sessionId) {
+        return res.status(400).json({ error: 'Session ID is required' });
+      }
+
+      const session = await storage.getLifestylePlannerSession(sessionId, userId);
+      if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+
+      // Here we would generate the final comprehensive plan
+      const generatedPlan = {
+        title: `Your ${session.slots?.activityType || 'Lifestyle'} Plan`,
+        summary: "Your personalized plan is ready!",
+        timeline: [
+          {
+            time: session.slots?.timing?.departureTime || "TBD",
+            activity: `${session.slots?.activityType || 'Activity'} at ${session.slots?.location?.destination || 'destination'}`,
+            location: session.slots?.location?.current || "Current location",
+            notes: `Travel by ${session.slots?.transportation || 'preferred method'}`,
+            outfit_suggestion: session.slots?.outfit?.style || "weather-appropriate attire"
+          }
+        ],
+        outfit_recommendations: session.slots?.outfit ? [{
+          occasion: session.slots.activityType || 'activity',
+          suggestion: session.slots.outfit.style || 'casual and comfortable',
+          weather_notes: "Check weather before leaving"
+        }] : [],
+        tips: [
+          "Double-check timing and location",
+          "Confirm any reservations",
+          "Check traffic before leaving",
+          "Have a wonderful time!"
+        ]
+      };
+
+      // Create tasks from the plan
+      const tasks = [];
+      if (generatedPlan.timeline.length > 0) {
+        const planTask = await storage.createTask({
+          userId,
+          title: `Execute: ${generatedPlan.title}`,
+          description: generatedPlan.summary,
+          category: 'Lifestyle',
+          priority: 'high',
+          timeEstimate: '2 hours',
+          context: generatedPlan.tips.join(' | ')
+        });
+        tasks.push(planTask);
+      }
+
+      // Update session as completed
+      const updatedSession = await storage.updateLifestylePlannerSession(sessionId, {
+        sessionState: 'completed',
+        isComplete: true,
+        generatedPlan
+      }, userId);
+
+      res.json({
+        plan: generatedPlan,
+        tasks,
+        session: updatedSession,
+        message: "Your plan is ready! I've created tasks to help you execute it perfectly."
+      });
+    } catch (error) {
+      console.error('Error generating plan:', error);
+      res.status(500).json({ error: 'Failed to generate plan' });
+    }
+  });
+
+  // Get user's planner sessions
+  app.get("/api/planner/sessions", isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      const sessions = await storage.getUserLifestylePlannerSessions(userId);
+      res.json(sessions);
+    } catch (error) {
+      console.error('Error fetching planner sessions:', error);
+      res.status(500).json({ error: 'Failed to fetch sessions' });
+    }
+  });
+
+  // Get specific session
+  app.get("/api/planner/session/:sessionId", isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      const { sessionId } = req.params;
+      
+      const session = await storage.getLifestylePlannerSession(sessionId, userId);
+      if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+
+      res.json(session);
+    } catch (error) {
+      console.error('Error fetching planner session:', error);
+      res.status(500).json({ error: 'Failed to fetch session' });
     }
   });
 

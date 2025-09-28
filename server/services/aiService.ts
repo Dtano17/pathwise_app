@@ -44,7 +44,7 @@ interface ChatProcessingResult {
 }
 
 export class AIService {
-  async processGoalIntoTasks(goalText: string, preferredModel: 'openai' | 'claude' = 'openai', userId?: string): Promise<GoalProcessingResult> {
+  async processGoalIntoTasks(goalText: string, preferredModel: 'openai' | 'claude' = 'claude', userId?: string): Promise<GoalProcessingResult> {
     // Fetch user priorities if userId is provided
     let userPriorities: any[] = [];
     if (userId) {
@@ -92,15 +92,38 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
         }
       ];
 
-      // Get AI response using OpenAI (default) or Claude
-      const response = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: messages,
-        temperature: 0.7,
-        max_tokens: 1000,
-      });
-
-      const aiMessage = response.choices[0]?.message?.content || "I'm sorry, I didn't understand that. Could you rephrase your question?";
+      // Get AI response using Claude (primary) or OpenAI (fallback)
+      let aiMessage: string;
+      
+      if (process.env.ANTHROPIC_API_KEY) {
+        try {
+          const response = await anthropic.messages.create({
+            model: DEFAULT_CLAUDE_MODEL,
+            max_tokens: 1000,
+            temperature: 0.7,
+            messages: messages.slice(1), // Remove system message for Claude
+            system: messages[0].content, // Claude uses separate system parameter
+          });
+          aiMessage = (response.content[0] as any)?.text || "I'm sorry, I didn't understand that. Could you rephrase your question?";
+        } catch (error) {
+          console.error('Claude chat error, falling back to OpenAI:', error);
+          const response = await openai.chat.completions.create({
+            model: "gpt-4-turbo-preview",
+            messages: messages,
+            temperature: 0.7,
+            max_tokens: 1000,
+          });
+          aiMessage = response.choices[0]?.message?.content || "I'm sorry, I didn't understand that. Could you rephrase your question?";
+        }
+      } else {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4-turbo-preview",
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 1000,
+        });
+        aiMessage = response.choices[0]?.message?.content || "I'm sorry, I didn't understand that. Could you rephrase your question?";
+      }
 
       // Check if the user is expressing goals/intentions and suggest action plan creation
       const containsGoals = this.detectGoalsInMessage(message);

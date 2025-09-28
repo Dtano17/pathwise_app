@@ -30,23 +30,13 @@ import {
   type InsertExternalOAuthToken,
   type Contact,
   type InsertContact,
-  type UserProfile,
-  type InsertUserProfile,
-  type UserPreferences,
-  type InsertUserPreferences,
-  type UserConsent,
-  type InsertUserConsent,
-  type TaskAction,
-  type InsertTaskAction,
-  type Achievement,
-  type InsertAchievement,
-  type UserStatistics,
-  type InsertUserStatistics,
   type Activity,
   type InsertActivity,
   type ActivityTask,
   type InsertActivityTask,
   type ActivityWithProgress,
+  type LifestylePlannerSession,
+  type InsertLifestylePlannerSession,
   users,
   goals,
   tasks,
@@ -54,20 +44,15 @@ import {
   progressStats,
   chatImports,
   priorities,
-  taskActions,
-  achievements,
-  userStatistics,
   notificationPreferences,
   taskReminders,
   schedulingSuggestions,
   authIdentities,
   externalOAuthTokens,
   contacts,
-  userProfiles,
-  userPreferences,
-  userConsent,
   activities,
-  activityTasks
+  activityTasks,
+  lifestylePlannerSessions
 } from "@shared/schema";
 
 const sql = neon(process.env.DATABASE_URL!);
@@ -200,10 +185,13 @@ export interface IStorage {
   upsertUserPreferences(userId: string, preferences: InsertUserPreferences): Promise<UserPreferences>;
   deleteUserPreferences(userId: string): Promise<void>;
 
-  // User Consent
-  getUserConsent(userId: string): Promise<UserConsent | undefined>;
-  upsertUserConsent(userId: string, consent: InsertUserConsent): Promise<UserConsent>;
-  deleteUserConsent(userId: string): Promise<void>;
+  // Lifestyle Planner Sessions
+  createLifestylePlannerSession(session: InsertLifestylePlannerSession & { userId: string }): Promise<LifestylePlannerSession>;
+  getLifestylePlannerSession(sessionId: string, userId: string): Promise<LifestylePlannerSession | undefined>;
+  updateLifestylePlannerSession(sessionId: string, updates: Partial<LifestylePlannerSession>, userId: string): Promise<LifestylePlannerSession | undefined>;
+  getUserLifestylePlannerSessions(userId: string, limit?: number): Promise<LifestylePlannerSession[]>;
+  getActiveLifestylePlannerSession(userId: string): Promise<LifestylePlannerSession | undefined>;
+  deleteLifestylePlannerSession(sessionId: string, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -924,6 +912,53 @@ export class DatabaseStorage implements IStorage {
       timezone: user.timezone || 'UTC',
       schedulingSuggestions
     };
+  }
+
+  // Lifestyle Planner Sessions implementation
+  async createLifestylePlannerSession(session: InsertLifestylePlannerSession & { userId: string }): Promise<LifestylePlannerSession> {
+    const result = await db.insert(lifestylePlannerSessions).values(session).returning();
+    return result[0];
+  }
+
+  async getLifestylePlannerSession(sessionId: string, userId: string): Promise<LifestylePlannerSession | undefined> {
+    const [result] = await db.select().from(lifestylePlannerSessions)
+      .where(and(eq(lifestylePlannerSessions.id, sessionId), eq(lifestylePlannerSessions.userId, userId)));
+    return result;
+  }
+
+  async updateLifestylePlannerSession(sessionId: string, updates: Partial<LifestylePlannerSession>, userId: string): Promise<LifestylePlannerSession | undefined> {
+    const result = await db.update(lifestylePlannerSessions)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+        lastInteractionAt: new Date(),
+      })
+      .where(and(eq(lifestylePlannerSessions.id, sessionId), eq(lifestylePlannerSessions.userId, userId)))
+      .returning();
+    return result[0];
+  }
+
+  async getUserLifestylePlannerSessions(userId: string, limit: number = 20): Promise<LifestylePlannerSession[]> {
+    return await db.select().from(lifestylePlannerSessions)
+      .where(eq(lifestylePlannerSessions.userId, userId))
+      .orderBy(desc(lifestylePlannerSessions.lastInteractionAt))
+      .limit(limit);
+  }
+
+  async getActiveLifestylePlannerSession(userId: string): Promise<LifestylePlannerSession | undefined> {
+    const [result] = await db.select().from(lifestylePlannerSessions)
+      .where(and(
+        eq(lifestylePlannerSessions.userId, userId),
+        eq(lifestylePlannerSessions.isComplete, false)
+      ))
+      .orderBy(desc(lifestylePlannerSessions.lastInteractionAt))
+      .limit(1);
+    return result;
+  }
+
+  async deleteLifestylePlannerSession(sessionId: string, userId: string): Promise<void> {
+    await db.delete(lifestylePlannerSessions)
+      .where(and(eq(lifestylePlannerSessions.id, sessionId), eq(lifestylePlannerSessions.userId, userId)));
   }
 }
 
