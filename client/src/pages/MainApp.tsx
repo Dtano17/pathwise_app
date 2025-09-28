@@ -13,6 +13,7 @@ import ProgressDashboard from '@/components/ProgressDashboard';
 import ClaudePlanOutput from '@/components/ClaudePlanOutput';
 import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
+import ConversationalPlanner from '@/components/ConversationalPlanner';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
 import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft } from 'lucide-react';
@@ -51,6 +52,8 @@ interface MainAppProps {
   onShowContacts: (show: boolean) => void;
   showChatHistory: boolean;
   onShowChatHistory: (show: boolean) => void;
+  showLifestylePlanner: boolean;
+  onShowLifestylePlanner: (show: boolean) => void;
 }
 
 export default function MainApp({ 
@@ -63,7 +66,9 @@ export default function MainApp({
   showContacts,
   onShowContacts,
   showChatHistory,
-  onShowChatHistory
+  onShowChatHistory,
+  showLifestylePlanner,
+  onShowLifestylePlanner
 }: MainAppProps) {
   const [activeTab, setActiveTab] = useState("activities"); // Start with activities as primary focus
   const { toast } = useToast();
@@ -604,10 +609,19 @@ export default function MainApp({
               />
 
               {/* Interactive Options */}
-              {!currentPlanOutput && !showThemeSelector && !showLocationDatePlanner && (
+              {!currentPlanOutput && !showThemeSelector && !showLocationDatePlanner && !showLifestylePlanner && (
                 <div className="max-w-4xl mx-auto space-y-6">
                   {/* Quick Action Buttons */}
                   <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 mb-6">
+                    <Button
+                      onClick={() => onShowLifestylePlanner(true)}
+                      variant="outline"
+                      className="gap-2"
+                      data-testid="button-lifestyle-planner"
+                    >
+                      <Brain className="w-4 h-4" />
+                      Lifestyle Planner
+                    </Button>
                     <Button
                       onClick={() => onShowThemeSelector(true)}
                       variant="outline"
@@ -1840,6 +1854,20 @@ Assistant: For nutrition, I recommend..."
           </DialogHeader>
           <div className="flex-1 overflow-hidden">
             <ChatHistory />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showLifestylePlanner} onOpenChange={onShowLifestylePlanner}>
+        <DialogContent className="max-w-6xl h-[90vh]" data-testid="modal-lifestyle-planner">
+          <DialogHeader>
+            <DialogTitle>Conversational Lifestyle Planner</DialogTitle>
+            <DialogDescription>
+              AI-powered planning that asks clarifying questions and generates personalized lifestyle plans
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            <ConversationalPlanner onClose={() => onShowLifestylePlanner(false)} />
           </div>
         </DialogContent>
       </Dialog>

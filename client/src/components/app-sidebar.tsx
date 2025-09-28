@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare } from 'lucide-react';
+import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -38,6 +38,7 @@ interface AppSidebarProps {
   onShowDatePlanner?: () => void;
   onShowContacts?: () => void;
   onShowChatHistory?: () => void;
+  onShowLifestylePlanner?: () => void;
 }
 
 export function AppSidebar({ 
@@ -46,7 +47,8 @@ export function AppSidebar({
   onShowThemeSelector,
   onShowDatePlanner,
   onShowContacts,
-  onShowChatHistory
+  onShowChatHistory,
+  onShowLifestylePlanner
 }: AppSidebarProps) {
   const { user, isAuthenticated, isLoading, login, logout, isLoggingOut } = useAuth();
   const selectedThemeData = selectedTheme ? themes.find(t => t.id === selectedTheme) : null;
@@ -150,6 +152,15 @@ export function AppSidebar({
             <CollapsibleContent>
               <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  onClick={onShowLifestylePlanner}
+                  data-testid="button-lifestyle-planner-sidebar"
+                >
+                  <Brain className="w-4 h-4" />
+                  <span>Lifestyle Planner</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   onClick={onShowDatePlanner}

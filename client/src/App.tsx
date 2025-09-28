@@ -17,6 +17,7 @@ function App() {
   const [showLocationDatePlanner, setShowLocationDatePlanner] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
   const [showChatHistory, setShowChatHistory] = useState(false);
+  const [showLifestylePlanner, setShowLifestylePlanner] = useState(false);
 
   // Custom sidebar width for better content display
   const style = {
@@ -42,6 +43,7 @@ function App() {
                   onShowDatePlanner={() => setShowLocationDatePlanner(true)}
                   onShowContacts={() => setShowContacts(true)}
                   onShowChatHistory={() => setShowChatHistory(true)}
+                  onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
                 />
                 <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
                   <MainApp 
@@ -55,6 +57,8 @@ function App() {
                     onShowContacts={setShowContacts}
                     showChatHistory={showChatHistory}
                     onShowChatHistory={setShowChatHistory}
+                    showLifestylePlanner={showLifestylePlanner}
+                    onShowLifestylePlanner={setShowLifestylePlanner}
                   />
                 </div>
               </div>

@@ -1215,7 +1215,7 @@ You can find these tasks in your task list and start working on them right away!
   app.post("/api/planner/message", isAuthenticatedGeneric, async (req, res) => {
     try {
       const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
-      const { sessionId, message } = req.body;
+      const { sessionId, message, mode } = req.body;
 
       if (!sessionId || !message) {
         return res.status(400).json({ error: 'Session ID and message are required' });
@@ -1234,7 +1234,7 @@ You can find these tasks in your task list and start working on them right away!
       }
 
       // Process the message with the lifestyle planner agent
-      const response = await lifestylePlannerAgent.processMessage(message, session, user);
+      const response = await lifestylePlannerAgent.processMessage(message, session, user, mode);
 
       // Update conversation history
       const updatedHistory = [

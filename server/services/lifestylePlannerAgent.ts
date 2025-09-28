@@ -51,16 +51,17 @@ export class LifestylePlannerAgent {
   async processMessage(
     message: string,
     session: LifestylePlannerSession,
-    userProfile: User
+    userProfile: User,
+    mode?: 'quick' | 'chat'
   ): Promise<ConversationResponse> {
     try {
       // Use Claude as primary model for conversational planning
       const preferredModel = (process.env.ANTHROPIC_API_KEY && process.env.PREFERRED_MODEL !== 'openai') ? 'claude' : 'openai';
       
       if (preferredModel === 'claude') {
-        return await this.processWithClaude(message, session, userProfile);
+        return await this.processWithClaude(message, session, userProfile, mode);
       } else {
-        return await this.processWithOpenAI(message, session, userProfile);
+        return await this.processWithOpenAI(message, session, userProfile, mode);
       }
     } catch (error) {
       console.error('Lifestyle planner processing error:', error);
@@ -78,10 +79,11 @@ export class LifestylePlannerAgent {
   private async processWithClaude(
     message: string,
     session: LifestylePlannerSession,
-    userProfile: User
+    userProfile: User,
+    mode?: 'quick' | 'chat'
   ): Promise<ConversationResponse> {
     // Build context-aware system prompt
-    const systemPrompt = this.buildClaudeSystemPrompt(session, userProfile);
+    const systemPrompt = this.buildClaudeSystemPrompt(session, userProfile, mode);
     
     // Create conversation context
     const conversationHistory = session.conversationHistory || [];
@@ -124,9 +126,10 @@ export class LifestylePlannerAgent {
   private async processWithOpenAI(
     message: string,
     session: LifestylePlannerSession,
-    userProfile: User
+    userProfile: User,
+    mode?: 'quick' | 'chat'
   ): Promise<ConversationResponse> {
-    const systemPrompt = this.buildOpenAISystemPrompt(session, userProfile);
+    const systemPrompt = this.buildOpenAISystemPrompt(session, userProfile, mode);
     
     const conversationHistory = session.conversationHistory || [];
     const messages = [
@@ -155,10 +158,16 @@ export class LifestylePlannerAgent {
   /**
    * Build Claude-specific system prompt for conversational planning
    */
-  private buildClaudeSystemPrompt(session: LifestylePlannerSession, userProfile: User): string {
+  private buildClaudeSystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'chat'): string {
     const currentSlots = session.slots || {};
     const userContext = this.formatUserContext(userProfile);
     
+    const modeInstructions = mode === 'quick' 
+      ? `QUICK PLAN MODE: Ask only the most essential questions (3-4 max) to gather basic context. Be efficient and direct while still being conversational. Focus on: activity, location, timing, and transportation.`
+      : mode === 'chat'
+      ? `CHAT MODE: Take time to gather detailed context through thorough conversation. Ask clarifying questions and wait for explicit user agreement (words like "yes", "sounds good", "perfect", "that works") before suggesting plan generation. Be more conversational and thorough.`
+      : `STANDARD MODE: Balance efficiency with thoroughness.`;
+
     return `You are a highly conversational lifestyle planning assistant. Your goal is to gather context through natural dialogue before generating a comprehensive plan.
 
 USER CONTEXT:
@@ -166,6 +175,8 @@ ${userContext}
 
 CURRENT SESSION STATE: ${session.sessionState}
 COLLECTED CONTEXT: ${JSON.stringify(currentSlots, null, 2)}
+
+${modeInstructions}
 
 CONVERSATION APPROACH:
 - Be presumptive and human-like: "I'm assuming you're driving unless you prefer something else?"
@@ -208,13 +219,16 @@ Assistant: {
   "nextQuestion": "What time are you thinking of meeting up? And are you staying local or heading somewhere special?"
 }
 
-Remember: Only generate a plan when you have sufficient context and user confirms the details.`;
+Remember: Only generate a plan when you have sufficient context${mode === 'chat' ? ' and user explicitly confirms/agrees to the plan details' : ''}${mode === 'quick' ? ' (can be more decisive with fewer questions)' : ''}.
+
+AGREEMENT DETECTION (for Chat Mode):
+If mode is "chat", look for explicit agreement words in user messages: "yes", "sounds good", "perfect", "great", "that works", "looks good", "agree", "confirmed", "correct". Only suggest plan generation after detecting clear agreement.`;
   }
 
   /**
    * Build OpenAI-specific system prompt
    */
-  private buildOpenAISystemPrompt(session: LifestylePlannerSession, userProfile: User): string {
+  private buildOpenAISystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'chat'): string {
     return `You are a conversational lifestyle planning assistant. Gather context through natural dialogue before generating plans.
 
 Current session state: ${session.sessionState}
