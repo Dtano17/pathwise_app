@@ -522,7 +522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Real-time chat conversation endpoint
+  // Real-time chat conversation endpoint with task creation
   app.post("/api/chat/conversation", async (req, res) => {
     try {
       const { message, conversationHistory = [] } = req.body;
@@ -537,11 +537,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create a conversation with the AI
       const aiResponse = await aiService.chatConversation(message, conversationHistory);
       
+      // Check if the message contains goals that we should turn into actionable tasks
+      const containsGoals = aiService.detectGoalsInMessage(message);
+      
+      let createdTasks = [];
+      let createdGoal = null;
+      let taskCreationMessage = '';
+
+      if (containsGoals) {
+        try {
+          // Process the message as a goal and create actual tasks
+          const goalResult = await aiService.processGoalIntoTasks(message, 'openai', userId);
+          
+          // Create a goal record for this chat-based goal
+          createdGoal = await storage.createGoal({
+            userId: userId,
+            title: message.substring(0, 100), // Truncate if too long
+            description: `Chat-generated goal: ${message}`,
+            category: goalResult.goalCategory,
+            priority: goalResult.goalPriority
+          });
+
+          // Create the tasks in the database
+          createdTasks = await Promise.all(
+            goalResult.tasks.map(task => 
+              storage.createTask({
+                ...task,
+                userId: userId,
+                goalId: createdGoal.id
+              })
+            )
+          );
+
+          taskCreationMessage = `\n\n✅ **Great news!** I've created ${createdTasks.length} actionable tasks from our conversation:
+
+${createdTasks.map((task, idx) => `${idx + 1}. **${task.title}** (${task.category} - ${task.priority} priority)`).join('\n')}
+
+You can find these tasks in your task list and start working on them right away!`;
+
+        } catch (error) {
+          console.error('Failed to create tasks from chat:', error);
+          taskCreationMessage = '\n\n💡 I detected some goals in your message, but had trouble creating tasks automatically. You can always use the main input to create structured action plans!';
+        }
+      }
+      
       res.json({
-        message: aiResponse.message,
+        message: aiResponse.message + taskCreationMessage,
         actionPlan: aiResponse.actionPlan,
         extractedGoals: aiResponse.extractedGoals,
-        tasks: aiResponse.tasks
+        tasks: aiResponse.tasks,
+        createdTasks: createdTasks,
+        createdGoal: createdGoal,
+        tasksGenerated: createdTasks.length > 0
       });
     } catch (error) {
       console.error('Chat conversation error:', error);

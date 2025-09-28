@@ -138,7 +138,7 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
     }
   }
 
-  private detectGoalsInMessage(message: string): boolean {
+  detectGoalsInMessage(message: string): boolean {
     const goalKeywords = [
       'want to', 'need to', 'plan to', 'goal', 'objective', 'aim to', 
       'hope to', 'intend to', 'wish to', 'would like to', 'trying to',
