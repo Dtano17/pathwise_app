@@ -82,6 +82,9 @@ export default function MainApp({
     motivationalNote?: string;
   } | null>(null);
 
+  // Selected activity for detail view
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+
   // These states are now managed in App.tsx and passed as props
   
   // About page expandable features state
@@ -630,122 +633,225 @@ export default function MainApp({
 
             {/* Activities Tab */}
             <TabsContent value="tasks" className="space-y-6">
-              <div className="text-center mb-6">
-                <h2 className="text-3xl font-bold text-foreground mb-2">Your Activities</h2>
-                <p className="text-muted-foreground">
-                  Organize your goals into shareable activities with timelines and progress tracking
-                </p>
-              </div>
+              {!selectedActivityId ? (
+                <>
+                  {/* Activities List View */}
+                  <div className="text-center mb-6">
+                    <h2 className="text-3xl font-bold text-foreground mb-2">Your Activities</h2>
+                    <p className="text-muted-foreground">
+                      Shareable activities with progress tracking and social features
+                    </p>
+                  </div>
 
-              <div className="flex justify-center mb-6">
-                <Button
-                  onClick={() => setActiveTab("input")}
-                  className="gap-2"
-                  data-testid="button-create-activity"
-                >
-                  <Plus className="w-4 h-4" />
-                  Create New Activity
-                </Button>
-              </div>
+                  <div className="flex justify-center mb-6">
+                    <Button
+                      onClick={() => setActiveTab("input")}
+                      className="gap-2"
+                      data-testid="button-create-activity"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create New Activity
+                    </Button>
+                  </div>
 
-              {activitiesLoading ? (
-                <div className="text-center py-12">
-                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Loading your activities...</p>
-                </div>
-              ) : activities.length === 0 ? (
-                <div className="text-center py-12">
-                  <Target className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">No activities yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Create your first activity to organize goals with shareable timelines!
-                  </p>
-                  <Button onClick={() => setActiveTab("input")} className="gap-2">
-                    <Plus className="w-4 h-4" />
-                    Create Your First Activity
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid gap-6 max-w-4xl mx-auto">
-                  {activities.map((activity) => (
-                    <div key={activity.id} className="bg-card border rounded-xl p-6 hover-elevate cursor-pointer" data-testid={`activity-card-${activity.id}`}>
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-semibold mb-2">{activity.title}</h3>
-                          <p className="text-muted-foreground text-sm mb-3">
-                            {activity.description || 'No description provided'}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 ml-4">
-                          <Badge variant="secondary" className="text-xs">{activity.category || 'General'}</Badge>
-                          {activity.rating && (
-                            <div className="flex items-center gap-1">
-                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                              <span className="text-sm font-medium">{activity.rating}</span>
+                  {activitiesLoading ? (
+                    <div className="text-center py-12">
+                      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-muted-foreground">Loading your activities...</p>
+                    </div>
+                  ) : activities.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Target className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold mb-2">No activities yet</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Create your first activity to organize goals with shareable timelines!
+                      </p>
+                      <Button onClick={() => setActiveTab("input")} className="gap-2">
+                        <Plus className="w-4 h-4" />
+                        Create Your First Activity
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-6 max-w-4xl mx-auto">
+                      {activities.map((activity) => (
+                        <div 
+                          key={activity.id} 
+                          className="bg-card border rounded-xl p-6 hover-elevate cursor-pointer" 
+                          data-testid={`activity-card-${activity.id}`}
+                          onClick={() => setSelectedActivityId(activity.id)}
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex-1">
+                              <h3 className="text-lg font-semibold mb-2">{activity.title}</h3>
+                              <p className="text-muted-foreground text-sm mb-3">
+                                {activity.description || 'No description provided'}
+                              </p>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Activity className="w-4 h-4" />
-                            <span>{activity.status || 'planning'}</span>
+                            <div className="flex items-center gap-2 ml-4">
+                              <Badge variant="secondary" className="text-xs">{activity.category || 'General'}</Badge>
+                              {activity.rating && (
+                                <div className="flex items-center gap-1">
+                                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                                  <span className="text-sm font-medium">{activity.rating}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          {activity.targetDate && (
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Calendar className="w-4 h-4" />
-                              <span>Due {new Date(activity.targetDate).toLocaleDateString()}</span>
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Activity className="w-4 h-4" />
+                                <span>{activity.status || 'planning'}</span>
+                              </div>
+                              {activity.targetDate && (
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <Calendar className="w-4 h-4" />
+                                  <span>Due {new Date(activity.targetDate).toLocaleDateString()}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                data-testid={`button-share-activity-${activity.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toast({ title: "Share Activity", description: "Social sharing coming soon!" });
+                                }}
+                              >
+                                <Share2 className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                data-testid={`button-activity-options-${activity.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {activity.isPublic && (
+                            <div className="mt-3 flex items-center gap-2">
+                              <Share className="w-4 h-4 text-green-600" />
+                              <span className="text-sm text-green-600 font-medium">Public Activity</span>
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" data-testid={`button-share-activity-${activity.id}`}>
-                            <Share2 className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" data-testid={`button-activity-options-${activity.id}`}>
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* Activity Detail View with Tasks */}
+                  <div className="flex items-center gap-4 mb-6">
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => setSelectedActivityId(null)}
+                      className="gap-2"
+                      data-testid="button-back-to-activities"
+                    >
+                      <Share className="w-4 h-4 rotate-180" />
+                      Back to Activities
+                    </Button>
+                  </div>
+
+                  <div className="text-center mb-6">
+                    <h2 className="text-3xl font-bold text-foreground mb-2">Activity Tasks</h2>
+                    <p className="text-muted-foreground">
+                      Simple task management with inline actions
+                    </p>
+                  </div>
+
+                  {tasksLoading ? (
+                    <div className="text-center py-12">
+                      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-muted-foreground">Loading tasks...</p>
+                    </div>
+                  ) : pendingTasks.length === 0 ? (
+                    <div className="text-center py-12">
+                      <CheckSquare className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold mb-2">No tasks in this activity</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Tasks will appear here when you create an activity from a plan
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-w-2xl mx-auto">
+                      {pendingTasks.map((task) => (
+                        <div key={task.id} className="bg-card border rounded-lg p-4" data-testid={`task-item-${task.id}`}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 mr-4">
+                              <h4 className="font-medium mb-2">{task.title}</h4>
+                              {task.description && (
+                                <p className="text-sm text-muted-foreground mb-3">{task.description}</p>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">{task.priority}</Badge>
+                                <Badge variant="secondary" className="text-xs">{task.category}</Badge>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => completeTaskMutation.mutate(task.id)}
+                                data-testid={`button-complete-${task.id}`}
+                              >
+                                <Check className="w-4 h-4 text-green-600" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => snoozeTaskMutation.mutate({ taskId: task.id, hours: 2 })}
+                                data-testid={`button-snooze-${task.id}`}
+                              >
+                                <Clock className="w-4 h-4 text-yellow-600" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => skipTaskMutation.mutate(task.id)}
+                                data-testid={`button-skip-${task.id}`}
+                              >
+                                <X className="w-4 h-4 text-red-600" />
+                              </Button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      
-                      {activity.isPublic && (
-                        <div className="mt-3 flex items-center gap-2">
-                          <Share className="w-4 h-4 text-green-600" />
-                          <span className="text-sm text-green-600 font-medium">Public Activity</span>
+                      ))}
+
+                      {/* Completed Tasks Summary */}
+                      {completedTasks.length > 0 && (
+                        <div className="mt-8">
+                          <h3 className="text-lg font-semibold mb-4 text-center flex items-center justify-center gap-2">
+                            <CheckSquare className="w-5 h-5 text-green-600" />
+                            Completed ({completedTasks.length})
+                          </h3>
+                          <div className="space-y-2">
+                            {completedTasks.slice(0, 3).map((task) => (
+                              <div key={task.id} className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3">
+                                <p className="text-sm font-medium text-green-800 dark:text-green-200 line-through">
+                                  {task.title}
+                                </p>
+                              </div>
+                            ))}
+                            {completedTasks.length > 3 && (
+                              <p className="text-center text-sm text-muted-foreground">
+                                +{completedTasks.length - 3} more completed
+                              </p>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Individual Tasks Quick Access */}
-              <div className="mt-12 max-w-2xl mx-auto">
-                <h3 className="text-lg font-semibold mb-4 text-center flex items-center justify-center gap-2">
-                  <CheckSquare className="w-5 h-5" />
-                  Quick Tasks ({pendingTasks.length} pending)
-                </h3>
-                <div className="grid gap-3">
-                  {pendingTasks.slice(0, 5).map((task) => (
-                    <div key={task.id} className="bg-secondary/20 border border-secondary/30 rounded-lg p-3 flex items-center justify-between">
-                      <p className="text-sm font-medium">{task.title}</p>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">{task.priority}</Badge>
-                        <Button variant="ghost" size="sm" onClick={() => completeTaskMutation.mutate(task.id)}>
-                          <Check className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  {pendingTasks.length > 5 && (
-                    <Button variant="ghost" className="w-full justify-center" onClick={() => {/* Open tasks modal */}}>
-                      View {pendingTasks.length - 5} more tasks
-                    </Button>
                   )}
-                </div>
-              </div>
+                </>
+              )}
             </TabsContent>
 
             {/* Progress Tab */}
