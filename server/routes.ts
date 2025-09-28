@@ -19,9 +19,14 @@ import {
   insertUserProfileSchema,
   insertUserPreferencesSchema,
   insertUserConsentSchema,
+  signupUserSchema,
+  profileCompletionSchema,
   type Task,
-  type NotificationPreferences
+  type NotificationPreferences,
+  type SignupUser,
+  type ProfileCompletion
 } from "@shared/schema";
+import bcrypt from 'bcrypt';
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -71,6 +76,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
         authenticated: false,
         isGuest: true
       });
+    }
+  });
+
+  // Signup route - create new user account
+  app.post('/api/auth/signup', async (req, res) => {
+    try {
+      const validatedData = signupUserSchema.parse(req.body);
+      const { password, confirmPassword, ...userData } = validatedData;
+
+      // Check if user already exists
+      const existingUserByEmail = await storage.getUserByEmail(userData.email);
+      if (existingUserByEmail) {
+        return res.status(400).json({ error: "Email already registered" });
+      }
+
+      const existingUserByUsername = await storage.getUserByUsername(userData.username);
+      if (existingUserByUsername) {
+        return res.status(400).json({ error: "Username already taken" });
+      }
+
+      // Hash password
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+      // Create user
+      const newUser = await storage.createUser({
+        ...userData,
+        password: hashedPassword,
+      });
+
+      // Remove password from response
+      const { password: _, ...safeUser } = newUser;
+
+      res.status(201).json({
+        message: "Account created successfully",
+        user: safeUser
+      });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: error.errors 
+        });
+      }
+      console.error("Signup error:", error);
+      res.status(500).json({ error: "Failed to create account" });
+    }
+  });
+
+  // Profile completion route - update user profile with personalization data
+  app.put('/api/users/:userId/profile', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const validatedData = profileCompletionSchema.parse(req.body);
+
+      // Update user profile
+      const updatedUser = await storage.updateUser(userId, validatedData);
+
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Remove password from response
+      const { password: _, ...safeUser } = updatedUser;
+
+      res.json({
+        message: "Profile updated successfully",
+        user: safeUser
+      });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: error.errors 
+        });
+      }
+      console.error("Profile update error:", error);
+      res.status(500).json({ error: "Failed to update profile" });
     }
   });
 

@@ -69,10 +69,13 @@ export interface IStorage {
   // User operations
   // (IMPORTANT) these user operations are mandatory for Replit Auth.
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(userData: Omit<InsertUser, 'id' | 'createdAt' | 'updatedAt'>): Promise<User>;
+  updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   
   // Legacy user operations (will be phased out)
-  createUser(user: InsertUser): Promise<User>;
   createUserWithId(user: InsertUser & { id: string }): Promise<User>;
 
   // Goals
@@ -173,6 +176,27 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
+    const [result] = await db.update(users)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return result;
+  }
+
   async upsertUser(userData: UpsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
@@ -189,9 +213,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Legacy user operations (will be phased out)
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const result = await db.insert(users).values(insertUser).returning();
-    return result[0];
+  async createUser(userData: any): Promise<User> {
+    // Handle both legacy and new signatures
+    if (typeof userData === 'object' && !userData.id) {
+      // New signature: create without ID
+      const result = await db.insert(users).values({
+        ...userData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }).returning();
+      return result[0];
+    } else {
+      // Legacy signature: create with all fields
+      const result = await db.insert(users).values(userData).returning();
+      return result[0];
+    }
   }
 
   async createUserWithId(userData: InsertUser & { id: string }): Promise<User> {

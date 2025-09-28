@@ -15,7 +15,7 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table.
+// User storage table with enhanced profile for personalization
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -25,6 +25,33 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  
+  // Enhanced profile fields for personalization
+  age: integer("age"),
+  occupation: text("occupation"),
+  location: text("location"),
+  timezone: text("timezone").default("UTC"),
+  
+  // Lifestyle preferences
+  workingHours: jsonb("working_hours").$type<{start: string; end: string; days: string[]}>(),
+  fitnessLevel: text("fitness_level"), // 'beginner' | 'intermediate' | 'advanced'
+  sleepSchedule: jsonb("sleep_schedule").$type<{bedtime: string; wakeup: string}>(),
+  
+  // Goal preferences
+  primaryGoalCategories: jsonb("primary_goal_categories").$type<string[]>().default([]), // ['health', 'work', 'personal', etc.]
+  motivationStyle: text("motivation_style"), // 'achievement' | 'progress' | 'social' | 'rewards'
+  difficultyPreference: text("difficulty_preference").default("medium"), // 'easy' | 'medium' | 'challenging'
+  
+  // Personality insights
+  interests: jsonb("interests").$type<string[]>().default([]),
+  personalityType: text("personality_type"), // Optional: MBTI, Enneagram, etc.
+  communicationStyle: text("communication_style"), // 'direct' | 'encouraging' | 'detailed' | 'brief'
+  
+  // Context for AI personalization
+  aboutMe: text("about_me"), // Free-form description
+  currentChallenges: jsonb("current_challenges").$type<string[]>().default([]),
+  successFactors: jsonb("success_factors").$type<string[]>().default([]),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -153,6 +180,38 @@ export const sharedTasks = pgTable("shared_tasks", {
 });
 
 // Zod schemas for validation
+// Signup schema - essential fields only for initial registration
+export const signupUserSchema = createInsertSchema(users).pick({
+  email: true,
+  username: true,
+  password: true,
+  firstName: true,
+  lastName: true,
+}).extend({
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+// Profile completion schema - for enhanced personalization after signup
+export const profileCompletionSchema = createInsertSchema(users).pick({
+  age: true,
+  occupation: true,
+  location: true,
+  workingHours: true,
+  fitnessLevel: true,
+  sleepSchedule: true,
+  primaryGoalCategories: true,
+  motivationStyle: true,
+  difficultyPreference: true,
+  interests: true,
+  communicationStyle: true,
+  aboutMe: true,
+  currentChallenges: true,
+  successFactors: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
   updatedAt: true,
@@ -299,6 +358,8 @@ export const insertSchedulingSuggestionSchema = createInsertSchema(schedulingSug
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = typeof users.$inferInsert;
+export type SignupUser = z.infer<typeof signupUserSchema>;
+export type ProfileCompletion = z.infer<typeof profileCompletionSchema>;
 
 export type Goal = typeof goals.$inferSelect;
 export type InsertGoal = z.infer<typeof insertGoalSchema>;
