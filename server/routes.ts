@@ -532,7 +532,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get user ID (demo for now, will use real auth later)
-      const userId = req.user?.id || DEMO_USER_ID;
+      const userId = (req.user as any)?.id || DEMO_USER_ID;
 
       // Create a conversation with the AI
       const aiResponse = await aiService.chatConversation(message, conversationHistory);
@@ -740,7 +740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sync phone contacts (secured)
   app.post("/api/contacts/sync", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user?.id || req.user?.claims?.sub;
+      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -772,7 +772,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Add manual contact (secured)
   app.post("/api/contacts", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user?.id || req.user?.claims?.sub;
+      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
@@ -806,7 +806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user's contacts with JournalMate status (secured)
   app.get("/api/contacts", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user?.id || req.user?.claims?.sub;
+      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
