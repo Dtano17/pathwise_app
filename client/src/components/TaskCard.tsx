@@ -122,9 +122,19 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
   };
 
   const handleDragEnd = (event: any, info: PanInfo) => {
-    const threshold = 100; // Reduced threshold for better mobile sensitivity
+    const threshold = 80; // Further reduced threshold for better mobile sensitivity
     const absX = Math.abs(info.offset.x);
     const absY = Math.abs(info.offset.y);
+    
+    // Debug logging for mobile testing
+    console.log('Drag ended:', { 
+      offsetX: info.offset.x, 
+      offsetY: info.offset.y, 
+      absX, 
+      absY,
+      threshold,
+      willTriggerAction: (absX > absY && (info.offset.x > threshold || info.offset.x < -threshold)) || (info.offset.y < -threshold)
+    });
     
     // Clear any existing pending actions to prevent race conditions
     clearPendingAction();
@@ -198,25 +208,39 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     const absX = Math.abs(info.offset.x);
     const absY = Math.abs(info.offset.y);
     
+    // Debug logging for mobile testing
+    console.log('Drag detected:', { 
+      offsetX: info.offset.x, 
+      offsetY: info.offset.y, 
+      absX, 
+      absY,
+      currentDirection: dragDirection 
+    });
+    
     // Determine primary direction based on larger offset
     if (absX > absY) {
       // Horizontal drag
       if (info.offset.x > 50 && dragDirection !== 'right') {
         setDragDirection('right');
         triggerHapticFeedback('light');
+        console.log('Setting direction: RIGHT');
       } else if (info.offset.x < -50 && dragDirection !== 'left') {
         setDragDirection('left');
         triggerHapticFeedback('light');
+        console.log('Setting direction: LEFT');
       } else if (absX < 50 && dragDirection !== null) {
         setDragDirection(null);
+        console.log('Resetting direction');
       }
     } else {
       // Vertical drag
       if (info.offset.y < -50 && dragDirection !== 'up') {
         setDragDirection('up');
         triggerHapticFeedback('light');
+        console.log('Setting direction: UP');
       } else if (absY < 50 && dragDirection !== null) {
         setDragDirection(null);
+        console.log('Resetting direction');
       }
     }
   };
@@ -272,35 +296,35 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
 
   return (
     <div className="relative">
-      {/* Background hints */}
-      <div className="absolute inset-0 grid grid-cols-2 grid-rows-2" data-testid={`swipe-hints-${task.id}`}>
+      {/* Background hints - Enhanced visibility */}
+      <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 opacity-60" data-testid={`swipe-hints-${task.id}`}>
         {/* Top row - snooze */}
-        <div className="col-span-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-t-lg flex items-center justify-center" data-testid={`snooze-hint-${task.id}`}>
-          <ArrowUp className="w-5 h-5 text-yellow-600" />
-          <span className="ml-2 text-yellow-600 font-medium text-sm">Snooze 2hrs</span>
+        <div className="col-span-2 bg-gradient-to-b from-yellow-200 to-yellow-100 dark:from-yellow-700/40 dark:to-yellow-900/20 rounded-t-lg flex items-center justify-center border-2 border-yellow-300/50" data-testid={`snooze-hint-${task.id}`}>
+          <ArrowUp className="w-6 h-6 text-yellow-700 dark:text-yellow-300" />
+          <span className="ml-2 text-yellow-700 dark:text-yellow-300 font-bold text-base">Snooze 2hrs</span>
         </div>
         {/* Bottom row - skip and complete */}
-        <div className="bg-red-100 dark:bg-red-900/20 rounded-bl-lg flex items-center justify-start pl-6" data-testid={`skip-hint-${task.id}`}>
-          <ArrowLeft className="w-6 h-6 text-red-600" />
-          <span className="ml-2 text-red-600 font-medium">Skip</span>
+        <div className="bg-gradient-to-r from-red-200 to-red-100 dark:from-red-700/40 dark:to-red-900/20 rounded-bl-lg flex items-center justify-start pl-4 border-2 border-red-300/50" data-testid={`skip-hint-${task.id}`}>
+          <ArrowLeft className="w-7 h-7 text-red-700 dark:text-red-300" />
+          <span className="ml-2 text-red-700 dark:text-red-300 font-bold text-base">Skip</span>
         </div>
-        <div className="bg-green-100 dark:bg-green-900/20 rounded-br-lg flex items-center justify-end pr-6" data-testid={`complete-hint-${task.id}`}>
-          <span className="mr-2 text-green-600 font-medium">Complete</span>
-          <ArrowRight className="w-6 h-6 text-green-600" />
+        <div className="bg-gradient-to-l from-green-200 to-green-100 dark:from-green-700/40 dark:to-green-900/20 rounded-br-lg flex items-center justify-end pr-4 border-2 border-green-300/50" data-testid={`complete-hint-${task.id}`}>
+          <span className="mr-2 text-green-700 dark:text-green-300 font-bold text-base">Complete</span>
+          <ArrowRight className="w-7 h-7 text-green-700 dark:text-green-300" />
         </div>
       </div>
 
       <motion.div
         drag
-        dragConstraints={{ left: -200, right: 200, top: -100, bottom: 100 }}
+        dragConstraints={{ left: -250, right: 250, top: -150, bottom: 50 }}
         dragMomentum={false}
-        dragElastic={0.2}
-        dragDirectionLock
-        dragTransition={{ bounceStiffness: 600, bounceDamping: 20 }}
-        style={{ x, y, rotate, rotateY, opacity, touchAction: 'none' }}
+        dragElastic={0.1}
+        dragDirectionLock={false}
+        dragTransition={{ bounceStiffness: 800, bounceDamping: 25 }}
+        style={{ x, y, rotate, rotateY, opacity, touchAction: 'none', userSelect: 'none' }}
         onDrag={handleDrag}
         onDragEnd={handleDragEnd}
-        className="relative z-10 cursor-grab active:cursor-grabbing select-none"
+        className="relative z-10 cursor-grab active:cursor-grabbing select-none touch-manipulation"
         data-testid={`task-card-${task.id}`}
         whileTap={{ scale: 0.98 }}
       >
@@ -335,9 +359,14 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
         </Card>
       </motion.div>
 
-      {/* Swipe instruction */}
-      <div className="text-center mt-2 text-xs text-muted-foreground" data-testid={`swipe-instructions-${task.id}`}>
-        ↑ Swipe up to snooze • ← Skip • Complete →
+      {/* Swipe instruction - Enhanced for mobile */}
+      <div className="text-center mt-3 p-2 bg-muted/30 rounded-lg border border-dashed border-muted-foreground/20" data-testid={`swipe-instructions-${task.id}`}>
+        <p className="text-xs text-muted-foreground font-medium mb-1">👆 Touch & drag to take action:</p>
+        <div className="flex justify-center items-center gap-3 text-xs">
+          <span className="flex items-center gap-1 text-red-600">← Skip</span>
+          <span className="flex items-center gap-1 text-yellow-600">↑ Snooze</span>
+          <span className="flex items-center gap-1 text-green-600">Complete →</span>
+        </div>
       </div>
     </div>
   );
