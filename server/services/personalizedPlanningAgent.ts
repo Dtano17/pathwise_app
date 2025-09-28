@@ -27,6 +27,15 @@ interface UserContext {
   preferences: any;
   recentTasks: any[];
   achievements: any[];
+  wellness?: {
+    sleep: boolean;
+    nap: boolean;
+    meditation: boolean;
+    reflection: boolean;
+    sleepSchedule?: any;
+    timezone?: string;
+    schedulingSuggestions?: any[];
+  };
   spotify?: {
     currentlyPlaying?: any;
     topTracks?: any[];
@@ -72,20 +81,36 @@ export class PersonalizedPlanningAgent {
   async gatherUserContext(userId: string): Promise<UserContext> {
     const { storage } = await import("../storage");
     
-    // Gather user data in parallel for efficiency
-    const [
-      profile,
-      priorities,
-      preferences,
-      recentTasks,
-      achievements
-    ] = await Promise.all([
-      storage.getUser(userId).catch(() => null),
-      storage.getUserPriorities(userId).catch(() => []),
-      storage.getNotificationPreferences(userId).catch(() => null),
-      storage.getUserTasks(userId).then(tasks => tasks.slice(0, 10)).catch(() => []),
-      storage.getUserAchievements?.(userId).catch(() => []) || []
-    ]);
+    // Use the new comprehensive getUserContext method
+    const userContextData = await storage.getUserContext(userId).catch(async () => {
+      // Fallback to individual calls if getUserContext fails
+      const [
+        profile,
+        priorities,
+        preferences,
+        recentTasks,
+        achievements
+      ] = await Promise.all([
+        storage.getUser(userId).catch(() => null),
+        storage.getUserPriorities(userId).catch(() => []),
+        storage.getNotificationPreferences(userId).catch(() => null),
+        storage.getUserTasks(userId).then(tasks => tasks.slice(0, 10)).catch(() => []),
+        storage.getUserAchievements?.(userId).catch(() => []) || []
+      ]);
+      
+      return {
+        user: profile,
+        priorities,
+        wellnessPriorities: { sleep: false, nap: false, meditation: false, reflection: false },
+        sleepSchedule: profile?.sleepSchedule,
+        timezone: profile?.timezone || 'UTC',
+        schedulingSuggestions: []
+      };
+    });
+
+    // Get recent tasks separately (not in getUserContext)
+    const recentTasks = await storage.getUserTasks(userId).then(tasks => tasks.slice(0, 10)).catch(() => []);
+    const achievements = []; // TODO: Implement getUserAchievements when available
 
     // Get Spotify data for personality insights
     const spotify = await this.getSpotifyContext().catch(() => undefined);
@@ -93,12 +118,24 @@ export class PersonalizedPlanningAgent {
     // Get environmental context
     const environmental = await this.getEnvironmentalContext();
 
+    // Transform wellness data from storage format to expected format
+    const wellness = {
+      sleep: userContextData.wellnessPriorities.sleep,
+      nap: userContextData.wellnessPriorities.nap,
+      meditation: userContextData.wellnessPriorities.meditation,
+      reflection: userContextData.wellnessPriorities.reflection,
+      sleepSchedule: userContextData.sleepSchedule,
+      timezone: userContextData.timezone,
+      schedulingSuggestions: userContextData.schedulingSuggestions
+    };
+
     return {
-      profile,
-      priorities,
-      preferences,
+      profile: userContextData.user,
+      priorities: userContextData.priorities,
+      preferences: null,
       recentTasks,
       achievements,
+      wellness,
       spotify,
       environmental
     };
@@ -270,16 +307,20 @@ export class PersonalizedPlanningAgent {
    * Builds a comprehensive system prompt using user context
    */
   private buildPersonalizedSystemPrompt(context: UserContext): string {
-    const { profile, priorities, spotify, environmental } = context;
+    const { profile, priorities, wellness, spotify, environmental } = context;
     
     let prompt = `You are JournalMate, a highly personalized AI planning assistant. You have deep knowledge about this specific user and can provide tailored advice based on their unique profile, preferences, and current context.
 
 USER PROFILE:
 ${profile ? `- Name: ${profile.username || 'User'}` : ''}
 ${profile ? `- Demographics: ${this.formatProfileData(profile)}` : ''}
+${profile?.timezone ? `- Timezone: ${profile.timezone}` : ''}
 
 LIFE PRIORITIES:
 ${priorities.length > 0 ? priorities.map(p => `- ${p.title}: ${p.description}`).join('\n') : '- No specific priorities set yet'}
+
+WELLNESS CONSTRAINTS (CRITICAL - ALWAYS INCLUDE):
+${wellness ? this.formatWellnessConstraints(wellness) : 'No wellness preferences specified'}
 
 MUSIC PERSONALITY (Spotify Insights):
 ${spotify ? spotify.musicProfile : 'Music data not available'}
@@ -290,6 +331,14 @@ CURRENT CONTEXT:
 - Day: ${environmental.dayOfWeek}
 ${environmental.weather ? `- Weather: ${environmental.weather}` : ''}
 
+PLANNING REQUIREMENTS:
+- ALWAYS respect sleep schedules and include adequate sleep time (7-9 hours nightly)
+- Include wellness blocks as HIGH PRIORITY, non-negotiable items
+- For trip/travel plans, schedule around sleep, meals, and wellness routines
+- Consider user's timezone when scheduling activities
+- Include buffer time for transitions between activities
+- Tag wellness tasks with category "wellness" and appropriate subcategory
+
 CONVERSATION STYLE:
 - Be conversational, encouraging, and highly personalized
 - Reference their music taste, priorities, and profile when relevant
@@ -297,8 +346,9 @@ CONVERSATION STYLE:
 - Ask clarifying questions to better understand their goals
 - Suggest action plans that align with their personality and lifestyle
 - Use insights from their Spotify data to understand their energy levels and preferences
+- Always factor in wellness needs when creating schedules or plans
 
-Remember: You know this person well. Make your responses feel personal and tailored to who they are.`;
+Remember: You know this person well. Make your responses feel personal and tailored to who they are. Wellness and self-care are non-negotiable elements of any plan you create.`;
 
     return prompt;
   }
@@ -313,6 +363,42 @@ Remember: You know this person well. Make your responses feel personal and tailo
     if (profile.occupation) data.push(`Occupation: ${profile.occupation}`);
     if (profile.interests) data.push(`Interests: ${Array.isArray(profile.interests) ? profile.interests.join(', ') : profile.interests}`);
     return data.length > 0 ? data.join(', ') : 'Profile data being built';
+  }
+
+  /**
+   * Formats wellness constraints for the AI prompt
+   */
+  private formatWellnessConstraints(wellness: any): string {
+    const constraints = [];
+    
+    if (wellness.sleep) {
+      const sleepInfo = wellness.sleepSchedule ? 
+        `Sleep schedule: ${JSON.stringify(wellness.sleepSchedule)}` :
+        'Sleep is a priority (schedule 7-9 hours nightly)';
+      constraints.push(`- SLEEP: ${sleepInfo}`);
+    }
+    
+    if (wellness.meditation) {
+      constraints.push('- MEDITATION: Include 10-20 minutes of meditation time (preferably morning or evening)');
+    }
+    
+    if (wellness.reflection) {
+      constraints.push('- REFLECTION/JOURNALING: Include 10-15 minutes for daily reflection or journaling');
+    }
+    
+    if (wellness.nap) {
+      constraints.push('- NAP TIME: Include 20-30 minute nap time (preferably mid-afternoon if schedule allows)');
+    }
+    
+    if (wellness.timezone) {
+      constraints.push(`- TIMEZONE: All times should be in ${wellness.timezone}`);
+    }
+    
+    if (wellness.schedulingSuggestions && wellness.schedulingSuggestions.length > 0) {
+      constraints.push('- SCHEDULING PREFERENCES: User has specific time preferences for certain activities');
+    }
+    
+    return constraints.length > 0 ? constraints.join('\n') : '- No specific wellness constraints set yet';
   }
 
   /**
@@ -464,13 +550,30 @@ Remember: You know this person well. Make your responses feel personal and tailo
   }
 
   /**
-   * Recommends best time for task execution
+   * Recommends best time for task execution considering wellness constraints
    */
   private recommendBestTime(context: UserContext): string {
-    const { environmental, spotify } = context;
+    const { environmental, spotify, wellness } = context;
     
-    if (environmental.timeOfDay === 'morning') {
+    // Consider wellness constraints first
+    if (wellness?.sleepSchedule) {
+      try {
+        const sleepData = typeof wellness.sleepSchedule === 'string' ? 
+          JSON.parse(wellness.sleepSchedule) : wellness.sleepSchedule;
+        if (sleepData.bedtime || sleepData.wakeup) {
+          return `Best scheduled between ${sleepData.wakeup || '7:00 AM'} and ${sleepData.bedtime || '10:00 PM'}, respecting your sleep schedule`;
+        }
+      } catch (e) {
+        // Fall through to other logic if sleep schedule parsing fails
+      }
+    }
+    
+    if (environmental.timeOfDay === 'morning' && !wellness?.meditation) {
       return "Early morning when energy is high";
+    } else if (environmental.timeOfDay === 'morning' && wellness?.meditation) {
+      return "After morning meditation when energy is high and mind is clear";
+    } else if (environmental.timeOfDay === 'evening' && wellness?.reflection) {
+      return "Evening before reflection time when you can focus";
     } else if (spotify?.musicProfile?.includes('High-energy')) {
       return "During high-energy periods, perhaps with your favorite upbeat music";
     } else {

@@ -15,11 +15,10 @@ import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, ChevronDown } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X } from 'lucide-react';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -85,16 +84,17 @@ export default function MainApp({
   } | null>(null);
 
   // Expanded activities for collapsible view
-  const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
-
-  const toggleActivity = (activityId: string) => {
-    const newExpanded = new Set(expandedActivities);
-    if (newExpanded.has(activityId)) {
-      newExpanded.delete(activityId);
-    } else {
-      newExpanded.add(activityId);
-    }
-    setExpandedActivities(newExpanded);
+  const handleActivityClick = (activity: ActivityType) => {
+    // Navigate to tasks tab when activity is clicked
+    setActiveTab('tasks');
+    // Show toast with activity info
+    const completedTasks = tasks.filter(task => task.activityId === activity.id && task.completed).length;
+    const totalTasks = tasks.filter(task => task.activityId === activity.id).length;
+    const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    toast({
+      title: activity.title,
+      description: `${progressPercent}% complete (${completedTasks}/${totalTasks} tasks)`,
+    });
   };
 
   // Task handler functions for TaskCard component
@@ -745,116 +745,97 @@ export default function MainApp({
                 <div className="space-y-4 max-w-4xl mx-auto">
                   {activities.map((activity) => {
                     const activityTasks = tasks.filter(task => task.activityId === activity.id);
-                    const isExpanded = expandedActivities.has(activity.id);
+                    const completedTasks = activityTasks.filter(task => task.completed).length;
+                    const totalTasks = activityTasks.length;
+                    const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
                     
                     return (
-                      <Collapsible
+                      <div
                         key={activity.id}
-                        open={isExpanded}
-                        onOpenChange={() => toggleActivity(activity.id)}
+                        className="bg-card border rounded-xl overflow-hidden hover-elevate cursor-pointer"
+                        onClick={() => handleActivityClick(activity)}
+                        data-testid={`activity-card-${activity.id}`}
                       >
-                        <div className="bg-card border rounded-xl overflow-hidden hover-elevate">
-                          <CollapsibleTrigger asChild>
+                        <div className="w-full p-6">
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h3 className="text-lg font-semibold">{activity.title}</h3>
+                              </div>
+                              <p className="text-muted-foreground text-sm mb-3">
+                                {activity.description || 'No description provided'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 ml-4">
+                              <Badge variant="secondary" className="text-xs">{activity.category || 'General'}</Badge>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toast({ title: "Share Activity", description: "Social sharing coming soon!" });
+                                }}
+                                data-testid={`button-share-${activity.id}`}
+                              >
+                                <Share2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-1 text-sm">
+                                <CheckSquare className="w-4 h-4 text-green-600" />
+                                <span className="font-medium">{completedTasks}/{totalTasks}</span>
+                                <span className="text-muted-foreground">tasks</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-sm">
+                                <Badge variant="outline" className="text-xs font-semibold text-primary">
+                                  {progressPercent}% Complete
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-1 text-sm">
+                                <Badge variant="outline" className="text-xs">
+                                  <span className="capitalize">{activity.status || 'planning'}</span>
+                                </Badge>
+                              </div>
+                              {activity.endDate && (
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <Calendar className="w-4 h-4" />
+                                  <span>Due {new Date(activity.endDate).toLocaleDateString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Progress Bar with Percentage */}
+                          <div className="w-full bg-muted rounded-full h-3 relative">
                             <div 
-                              className="w-full p-6 cursor-pointer"
-                              data-testid={`activity-card-${activity.id}`}
+                              className="bg-gradient-to-r from-primary to-primary/80 rounded-full h-3 transition-all duration-500 flex items-center justify-center" 
+                              style={{ width: `${progressPercent}%` }}
                             >
-                              <div className="flex justify-between items-start mb-4">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <h3 className="text-lg font-semibold">{activity.title}</h3>
-                                    <ChevronDown className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                                  </div>
-                                  <p className="text-muted-foreground text-sm mb-3">
-                                    {activity.description || 'No description provided'}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-2 ml-4">
-                                  <Badge variant="secondary" className="text-xs">{activity.category || 'General'}</Badge>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toast({ title: "Share Activity", description: "Social sharing coming soon!" });
-                                    }}
-                                    data-testid={`button-share-${activity.id}`}
-                                  >
-                                    <Share2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-
-                              <div className="flex justify-between items-center mb-4">
-                                <div className="flex items-center gap-4">
-                                  <div className="flex items-center gap-1 text-sm">
-                                    <CheckSquare className="w-4 h-4 text-green-600" />
-                                    <span className="font-medium">{activity.completedTasks || 0}/{activity.totalTasks || 0}</span>
-                                    <span className="text-muted-foreground">tasks</span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-sm">
-                                    <Badge variant="outline" className="text-xs">
-                                      <span className="capitalize">{activity.status || 'planning'}</span>
-                                    </Badge>
-                                  </div>
-                                  {activity.endDate && (
-                                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                      <Calendar className="w-4 h-4" />
-                                      <span>Due {new Date(activity.endDate).toLocaleDateString()}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Progress Bar */}
-                              <div className="w-full bg-muted rounded-full h-2">
-                                <div 
-                                  className="bg-primary rounded-full h-2 transition-all duration-300" 
-                                  style={{ width: `${((activity.completedTasks || 0) / (activity.totalTasks || 1)) * 100}%` }}
-                                />
-                              </div>
+                              {progressPercent > 20 && (
+                                <span className="text-xs font-semibold text-primary-foreground px-2">
+                                  {progressPercent}%
+                                </span>
+                              )}
                             </div>
-                          </CollapsibleTrigger>
-
-                          <CollapsibleContent>
-                            <div className="border-t bg-muted/30 p-6">
-                              <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                                <CheckSquare className="w-5 h-5" />
-                                Activity Tasks
-                              </h4>
-                              <div className="space-y-4">
-                                {activityTasks.length === 0 ? (
-                                  <div className="text-center py-8">
-                                    <CheckSquare className="mx-auto w-12 h-12 text-muted-foreground mb-3" />
-                                    <p className="text-muted-foreground">
-                                      No tasks for this activity yet.
-                                    </p>
-                                  </div>
-                                ) : (
-                                  activityTasks.map((task) => (
-                                    <TaskCard
-                                      key={task.id}
-                                      task={{
-                                        id: task.id,
-                                        title: task.title,
-                                        description: task.description || '',
-                                        priority: (task.priority as 'high' | 'low' | 'medium') || 'medium',
-                                        dueDate: task.dueDate ? task.dueDate.toString() : undefined,
-                                        category: task.category || 'general',
-                                        completed: task.completed ?? false,
-                                      }}
-                                      onComplete={handleCompleteTask}
-                                      onSkip={handleSkipTask}
-                                      onSnooze={handleSnoozeTask}
-                                      showConfetti={true}
-                                    />
-                                  ))
-                                )}
+                            {progressPercent <= 20 && progressPercent > 0 && (
+                              <div className="absolute inset-0 flex items-center justify-start pl-2">
+                                <span className="text-xs font-semibold text-foreground">
+                                  {progressPercent}%
+                                </span>
                               </div>
-                            </div>
-                          </CollapsibleContent>
+                            )}
+                          </div>
+                          
+                          <div className="mt-3 text-center">
+                            <p className="text-xs text-muted-foreground">
+                              Click to view tasks →
+                            </p>
+                          </div>
                         </div>
-                      </Collapsible>
+                      </div>
                     );
                   })}
                 </div>
