@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import VoiceInput from '@/components/VoiceInput';
 import LiveChatInterface from '@/components/LiveChatInterface';
 import TaskCard from '@/components/TaskCard';
@@ -14,7 +15,7 @@ import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X } from 'lucide-react';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
@@ -120,7 +121,7 @@ export default function MainApp({
       const response = await apiRequest('POST', '/api/goals/process', { goalText });
       return response.json();
     },
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       
@@ -132,11 +133,51 @@ export default function MainApp({
         estimatedTimeframe: data.estimatedTimeframe,
         motivationalNote: data.motivationalNote
       });
+
+      // Automatically create activity from the processed goal
+      if (data.planTitle && data.tasks && data.tasks.length > 0) {
+        try {
+          const activityResponse = await apiRequest('POST', '/api/activities/from-dialogue', {
+            title: data.planTitle,
+            description: data.summary || 'AI-generated activity plan',
+            category: 'goal',
+            tasks: data.tasks.map((task: any) => ({
+              title: task.title,
+              description: task.description,
+              priority: task.priority || 'medium',
+              category: task.category || 'general',
+              timeEstimate: task.timeEstimate
+            }))
+          });
+          const activityData = await activityResponse.json();
+          
+          // Invalidate activities query to show the new activity
+          queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+          
+          toast({
+            title: "Activity Created!",
+            description: `"${activityData.title}" is ready to share with ${data.tasks.length} tasks!`,
+            action: (
+              <ToastAction onClick={() => setActiveTab("tasks")} altText="View Activity">
+                View Activity
+              </ToastAction>
+            ),
+          });
+        } catch (error) {
+          console.error('Failed to create activity:', error);
+          // Still show the regular success toast if activity creation fails
+          toast({
+            title: "Goal Processed!",
+            description: data.message || `Created ${data.tasks?.length || 0} actionable tasks!`,
+          });
+        }
+      } else {
+        toast({
+          title: "Goal Processed!",
+          description: data.message || `Created ${data.tasks?.length || 0} actionable tasks!`,
+        });
+      }
       
-      toast({
-        title: "Goal Processed!",
-        description: data.message || `Created ${data.tasks?.length || 0} actionable tasks!`,
-      });
       // Stay on input tab to show Claude-style output
     },
     onError: (error: any) => {
@@ -704,10 +745,10 @@ export default function MainApp({
                                 <Activity className="w-4 h-4" />
                                 <span>{activity.status || 'planning'}</span>
                               </div>
-                              {activity.targetDate && (
+                              {activity.endDate && (
                                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                                   <Calendar className="w-4 h-4" />
-                                  <span>Due {new Date(activity.targetDate).toLocaleDateString()}</span>
+                                  <span>Due {new Date(activity.endDate).toLocaleDateString()}</span>
                                 </div>
                               )}
                             </div>
