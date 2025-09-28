@@ -169,8 +169,9 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     }
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category.toLowerCase()) {
+  const getCategoryColor = (category: string | null | undefined) => {
+    const categoryKey = (category ?? 'general').toLowerCase();
+    switch (categoryKey) {
       case 'work': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
       case 'personal': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
       case 'health': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200';
