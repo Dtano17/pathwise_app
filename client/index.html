@@ -52,11 +52,16 @@
                 userInfo: userInfo
               })
             }).then(res => res.json()).then(data => {
+              console.log('Facebook verification response:', data);
               if (data.success) {
+                console.log('Facebook login successful, redirecting to dashboard');
+                // Force page reload to refresh authentication state
                 window.location.href = '/dashboard';
+              } else {
+                console.error('Facebook verification failed:', data.error);
               }
             }).catch(err => {
-              console.error('Error checking user authentication:', err);
+              console.error('Error during Facebook authentication:', err);
             });
           });
         }

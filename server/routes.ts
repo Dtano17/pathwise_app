@@ -28,6 +28,7 @@ import {
 } from "@shared/schema";
 import bcrypt from 'bcrypt';
 import { z } from "zod";
+import crypto from 'crypto';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware - Replit Auth integration
@@ -45,8 +46,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ success: false, error: 'Missing access token or user info' });
       }
 
-      // Verify the access token with Facebook
-      const fbResponse = await fetch(`https://graph.facebook.com/me?access_token=${accessToken}&fields=id,name,email,first_name,last_name,picture`);
+      // Generate appsecret_proof for Facebook API security
+      const appsecret_proof = crypto
+        .createHmac('sha256', process.env.FACEBOOK_APP_SECRET)
+        .update(accessToken)
+        .digest('hex');
+
+      // Verify the access token with Facebook and get comprehensive profile data
+      const fields = 'id,name,email,first_name,last_name,picture.type(large),birthday,age_range,location,gender,timezone,locale';
+      const fbResponse = await fetch(
+        `https://graph.facebook.com/me?access_token=${accessToken}&appsecret_proof=${appsecret_proof}&fields=${fields}`
+      );
       const fbUserData = await fbResponse.json();
       
       if (fbUserData.error) {
@@ -67,7 +77,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           username = fbUserData.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
         }
         
-        // Create new user with proper schema
+        // Calculate age from birthday if available
+        let calculatedAge;
+        if (fbUserData.birthday) {
+          const birthDate = new Date(fbUserData.birthday);
+          const today = new Date();
+          calculatedAge = today.getFullYear() - birthDate.getFullYear();
+          const monthDiff = today.getMonth() - birthDate.getMonth();
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            calculatedAge--;
+          }
+        } else if (fbUserData.age_range?.min) {
+          // Use age range minimum as fallback
+          calculatedAge = fbUserData.age_range.min;
+        }
+
+        // Extract location
+        let location;
+        if (fbUserData.location?.name) {
+          location = fbUserData.location.name;
+        }
+
+        // Create new user with comprehensive profile data
         user = await storage.upsertUser({
           username: username,
           password: "facebook_oauth_user", // Required field for OAuth users
@@ -75,6 +106,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: fbUserData.first_name || fbUserData.name?.split(' ')[0] || undefined,
           lastName: fbUserData.last_name || fbUserData.name?.split(' ').slice(1).join(' ') || undefined,
           profileImageUrl: fbUserData.picture?.data?.url || `https://graph.facebook.com/${fbUserData.id}/picture?type=large`,
+          age: calculatedAge || undefined,
+          location: location || undefined,
+          timezone: fbUserData.timezone || 'UTC',
         });
       }
 
@@ -108,6 +142,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create session
       req.session.userId = user.id;
       req.session.user = user;
+      
+      // Save the session explicitly
+      await new Promise((resolve, reject) => {
+        req.session.save((err: any) => {
+          if (err) reject(err);
+          else resolve(undefined);
+        });
+      });
+      
+      console.log('Facebook user authenticated successfully:', {
+        userId: user.id,
+        username: user.username,
+        email: user.email
+      });
       
       res.json({ success: true, user });
     } catch (error) {
