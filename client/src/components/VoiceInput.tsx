@@ -28,6 +28,199 @@ interface VoiceInputProps {
   placeholder?: string;
 }
 
+// Enhanced message formatter component
+const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
+  const formatContent = (text: string) => {
+    const lines = text.split('\n');
+    const formatted: React.ReactNode[] = [];
+    let currentList: React.ReactNode[] = [];
+    let listType: 'numbered' | 'bulleted' | null = null;
+    
+    lines.forEach((line, index) => {
+      // Skip empty lines but preserve spacing
+      if (line.trim() === '') {
+        if (currentList.length > 0) {
+          formatted.push(
+            <div key={`list-${index}`} className="my-4">
+              {listType === 'numbered' ? (
+                <ol className="space-y-3 ml-4">{currentList}</ol>
+              ) : (
+                <ul className="space-y-3 ml-4">{currentList}</ul>
+              )}
+            </div>
+          );
+          currentList = [];
+          listType = null;
+        }
+        formatted.push(<div key={`space-${index}`} className="h-3" />);
+        return;
+      }
+      
+      // Check for numbered list items (1. 2. etc.)
+      const numberedMatch = line.match(/^(\d+)\.\s*\*\*(.*?)\*\*:?\s*(.*)/);
+      if (numberedMatch) {
+        const [, number, title, description] = numberedMatch;
+        if (listType !== 'numbered') {
+          if (currentList.length > 0) {
+            formatted.push(
+              <div key={`prev-list-${index}`} className="my-4">
+                {listType === 'numbered' ? (
+                  <ol className="space-y-3 ml-4">{currentList}</ol>
+                ) : (
+                  <ul className="space-y-3 ml-4">{currentList}</ul>
+                )}
+              </div>
+            );
+          }
+          currentList = [];
+          listType = 'numbered';
+        }
+        
+        currentList.push(
+          <li key={`item-${index}`} className="flex gap-3 items-start">
+            <div className="bg-gradient-to-br from-purple-500 to-emerald-500 text-white text-xs font-semibold rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5">
+              {number}
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-foreground mb-1 leading-snug">{title.trim()}</h4>
+              {description.trim() && (
+                <p className="text-muted-foreground leading-relaxed text-sm">{description.trim()}</p>
+              )}
+            </div>
+          </li>
+        );
+        return;
+      }
+      
+      // Check for bulleted list items (- or •)
+      const bulletMatch = line.match(/^[-•]\s*\*\*(.*?)\*\*:?\s*(.*)/);
+      if (bulletMatch) {
+        const [, title, description] = bulletMatch;
+        if (listType !== 'bulleted') {
+          if (currentList.length > 0) {
+            formatted.push(
+              <div key={`prev-list-${index}`} className="my-4">
+                {listType === 'numbered' ? (
+                  <ol className="space-y-3 ml-4">{currentList}</ol>
+                ) : (
+                  <ul className="space-y-3 ml-4">{currentList}</ul>
+                )}
+              </div>
+            );
+          }
+          currentList = [];
+          listType = 'bulleted';
+        }
+        
+        currentList.push(
+          <li key={`item-${index}`} className="flex gap-3 items-start">
+            <div className="bg-emerald-500 w-2 h-2 rounded-full flex-shrink-0 mt-2"></div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-foreground mb-1 leading-snug">{title.trim()}</h4>
+              {description.trim() && (
+                <p className="text-muted-foreground leading-relaxed text-sm">{description.trim()}</p>
+              )}
+            </div>
+          </li>
+        );
+        return;
+      }
+      
+      // Check for headers (##, ###)
+      if (line.startsWith('##')) {
+        if (currentList.length > 0) {
+          formatted.push(
+            <div key={`list-${index}`} className="my-4">
+              {listType === 'numbered' ? (
+                <ol className="space-y-3 ml-4">{currentList}</ol>
+              ) : (
+                <ul className="space-y-3 ml-4">{currentList}</ul>
+              )}
+            </div>
+          );
+          currentList = [];
+          listType = null;
+        }
+        
+        const headerText = line.replace(/^#+\s*/, '');
+        const level = line.match(/^#+/)?.[0].length || 2;
+        
+        if (level === 2) {
+          formatted.push(
+            <h2 key={`header-${index}`} className="text-lg font-bold text-foreground mt-6 mb-3 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-500" />
+              {headerText}
+            </h2>
+          );
+        } else {
+          formatted.push(
+            <h3 key={`header-${index}`} className="text-base font-semibold text-foreground mt-4 mb-2">
+              {headerText}
+            </h3>
+          );
+        }
+        return;
+      }
+      
+      // Regular text - process bold formatting
+      if (currentList.length > 0) {
+        formatted.push(
+          <div key={`list-${index}`} className="my-4">
+            {listType === 'numbered' ? (
+              <ol className="space-y-3 ml-4">{currentList}</ol>
+            ) : (
+              <ul className="space-y-3 ml-4">{currentList}</ul>
+            )}
+          </div>
+        );
+        currentList = [];
+        listType = null;
+      }
+      
+      // Process text with bold formatting
+      const processedText = line.split(/(\*\*.*?\*\*)/).map((part, partIndex) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return (
+            <strong key={`bold-${index}-${partIndex}`} className="font-semibold text-foreground">
+              {part.slice(2, -2)}
+            </strong>
+          );
+        }
+        return part;
+      });
+      
+      formatted.push(
+        <p key={`text-${index}`} className="text-muted-foreground leading-relaxed mb-3">
+          {processedText}
+        </p>
+      );
+    });
+    
+    // Handle any remaining list items
+    if (currentList.length > 0) {
+      formatted.push(
+        <div key="final-list" className="my-4">
+          {listType === 'numbered' ? (
+            <ol className="space-y-3 ml-4">{currentList}</ol>
+          ) : (
+            <ul className="space-y-3 ml-4">{currentList}</ul>
+          )}
+        </div>
+      );
+    }
+    
+    return formatted;
+  };
+
+  return (
+    <div className="prose prose-sm max-w-none">
+      <div className="space-y-2">
+        {formatContent(content)}
+      </div>
+    </div>
+  );
+};
+
 export default function VoiceInput({ onSubmit, isGenerating = false, placeholder = "Share your goals and intentions..." }: VoiceInputProps) {
   const [text, setText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -412,15 +605,23 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                       </div>
                     )}
                     
-                    <div className={`max-w-[80%] rounded-lg p-3 text-sm ${
+                    <div className={`max-w-[85%] rounded-lg ${
                       message.role === 'user' 
-                        ? 'bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-sm' 
-                        : 'bg-background border border-border/50 shadow-sm'
+                        ? 'bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-sm p-3' 
+                        : 'bg-background border border-border/50 shadow-sm overflow-hidden'
                     }`}>
-                      <div className="prose prose-sm max-w-none">
-                        <p className="whitespace-pre-wrap leading-relaxed m-0">{message.content}</p>
-                      </div>
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-current/10">
+                      {message.role === 'user' ? (
+                        <div className="prose prose-sm max-w-none">
+                          <p className="whitespace-pre-wrap leading-relaxed m-0">{message.content}</p>
+                        </div>
+                      ) : (
+                        <div className="p-4">
+                          <FormattedMessage content={message.content} />
+                        </div>
+                      )}
+                      <div className={`flex items-center justify-between pt-2 border-t border-current/10 ${
+                        message.role === 'user' ? 'mt-2' : 'mx-4 pb-3'
+                      }`}>
                         <div className="text-xs opacity-70">
                           {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
