@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain } from 'lucide-react';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -180,7 +180,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
               How would you like to plan?
             </CardTitle>
             <p className="text-slate-600 dark:text-slate-400 mt-2">
-              Choose your planning style - quick and efficient, or detailed and collaborative
+              Choose your planning style - quick and efficient, or smart and personalized
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -205,17 +205,17 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
 
             <Button
               onClick={() => handleModeSelect('chat')}
-              className="w-full h-20 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white border-none shadow-lg hover:shadow-xl transition-all"
-              data-testid="button-chat-plan"
+              className="w-full h-20 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white border-none shadow-lg hover:shadow-xl transition-all"
+              data-testid="button-smart-plan"
             >
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                    <MessageCircle className="h-6 w-6" />
+                    <Brain className="h-6 w-6" />
                   </div>
                   <div className="text-left">
-                    <div className="font-semibold text-lg">Chat Mode</div>
-                    <div className="text-sm opacity-90">Detailed conversation and confirmation</div>
+                    <div className="font-semibold text-lg">Smart Plan</div>
+                    <div className="text-sm opacity-90">Intuitive questions based on your profile</div>
                   </div>
                 </div>
                 <ArrowRight className="h-5 w-5 opacity-70" />
@@ -248,18 +248,18 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                 planningMode === 'quick' 
                   ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900 dark:text-emerald-300'
-                  : 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
+                  : 'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300'
               }`}>
-                {planningMode === 'quick' ? <Zap className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
+                {planningMode === 'quick' ? <Zap className="h-4 w-4" /> : <Brain className="h-4 w-4" />}
               </div>
               <div>
                 <h3 className="font-semibold">
-                  {planningMode === 'quick' ? 'Quick Plan' : 'Chat Mode'}
+                  {planningMode === 'quick' ? 'Quick Plan' : 'Smart Plan'}
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   {planningMode === 'quick' 
                     ? 'Fast planning with smart suggestions'
-                    : 'Detailed conversation with confirmation'
+                    : 'Personalized questions and detailed recommendations'
                   }
                 </p>
               </div>
@@ -349,17 +349,17 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                 <div className={`h-16 w-16 mx-auto rounded-full flex items-center justify-center mb-4 ${
                   planningMode === 'quick' 
                     ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900 dark:text-emerald-300'
-                    : 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
+                    : 'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300'
                 }`}>
-                  {planningMode === 'quick' ? <Zap className="h-8 w-8" /> : <MessageCircle className="h-8 w-8" />}
+                  {planningMode === 'quick' ? <Zap className="h-8 w-8" /> : <Brain className="h-8 w-8" />}
                 </div>
                 <h3 className="text-xl font-semibold mb-2">
-                  {planningMode === 'quick' ? 'Quick Planning Ready!' : 'Let\'s Chat About Your Plans!'}
+                  {planningMode === 'quick' ? 'Quick Planning Ready!' : 'Smart Planning Ready!'}
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-6">
                   {planningMode === 'quick'
                     ? 'I\'ll ask a few key questions and generate your plan quickly.'
-                    : 'I\'ll ask detailed questions and wait for your confirmation before generating the plan.'
+                    : 'I\'ll ask intuitive questions based on your activity type and profile, then confirm before creating the perfect plan.'
                   }
                 </p>
               </div>
@@ -376,7 +376,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                         msg.role === 'user'
                           ? planningMode === 'quick'
                             ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white'
-                            : 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white'
+                            : 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white'
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
                       }`}
                     >
