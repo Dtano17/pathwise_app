@@ -25,7 +25,7 @@ interface SignUpProps {
 }
 
 export default function SignUp({ onSignUpComplete, onBackToLogin }: SignUpProps) {
-  const [step, setStep] = useState<'signup' | 'profile' | 'complete'>(1);
+  const [step, setStep] = useState<'signup' | 'profile' | 'complete'>('signup');
   const [userId, setUserId] = useState<string>('');
   const [progress, setProgress] = useState(20);
   const { toast } = useToast();
@@ -68,22 +68,38 @@ export default function SignUp({ onSignUpComplete, onBackToLogin }: SignUpProps)
   const signupMutation = useMutation({
     mutationFn: async (data: SignupUser) => {
       const { confirmPassword, ...signupData } = data;
-      const response = await apiRequest('POST', '/api/auth/signup', signupData);
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(signupData),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Signup failed');
+      }
+      
       return response.json();
     },
     onSuccess: (data) => {
-      setUserId(data.user.id);
-      setStep('profile');
-      setProgress(60);
-      toast({
-        title: "Account Created!",
-        description: "Let's personalize your experience to create better goals.",
-      });
+      if (data.success) {
+        setUserId(data.user.id);
+        setStep('profile');
+        setProgress(60);
+        toast({
+          title: "Account Created!",
+          description: "Let's personalize your experience to create better goals.",
+        });
+      } else {
+        throw new Error(data.error || 'Signup failed');
+      }
     },
     onError: (error: any) => {
       toast({
         title: "Signup Failed",
-        description: error?.response?.error || "Please try again.",
+        description: error.message || "Please try again.",
         variant: "destructive",
       });
     },

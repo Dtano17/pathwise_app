@@ -139,27 +139,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('OAuth token storage failed (non-critical):', error);
       }
 
-      // Create session
-      req.session.userId = user.id;
-      req.session.user = user;
-      
-      // Save the session explicitly
-      await new Promise((resolve, reject) => {
-        req.session.save((err: any) => {
-          if (err) reject(err);
-          else resolve(undefined);
+      // Create session using Passport's login method for compatibility
+      req.login(user, (err: any) => {
+        if (err) {
+          console.error('Session creation failed:', err);
+          return res.status(500).json({ success: false, error: 'Session creation failed' });
+        }
+        
+        console.log('Facebook user authenticated successfully:', {
+          userId: user.id,
+          username: user.username,
+          email: user.email
         });
+        
+        res.json({ success: true, user });
       });
-      
-      console.log('Facebook user authenticated successfully:', {
-        userId: user.id,
-        username: user.username,
-        email: user.email
-      });
-      
-      res.json({ success: true, user });
     } catch (error) {
       console.error('Facebook verification error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  });
+
+  // Manual signup endpoint
+  app.post('/api/auth/signup', async (req: any, res) => {
+    try {
+      const validatedData = signupUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(validatedData.email);
+      if (existingUser) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'User with this email already exists' 
+        });
+      }
+
+      // Hash password
+      const saltRounds = 12;
+      const hashedPassword = await bcrypt.hash(validatedData.password, saltRounds);
+
+      // Create user
+      const userData = {
+        username: validatedData.username,
+        password: hashedPassword,
+        email: validatedData.email,
+        firstName: validatedData.firstName || undefined,
+        lastName: validatedData.lastName || undefined,
+      };
+
+      const user = await storage.upsertUser(userData);
+
+      // Create session using Passport's login method for compatibility
+      req.login(user, (err: any) => {
+        if (err) {
+          console.error('Session creation failed:', err);
+          return res.status(500).json({ success: false, error: 'Session creation failed' });
+        }
+        
+        console.log('Manual signup successful:', {
+          userId: user.id,
+          username: user.username,
+          email: user.email
+        });
+        
+        res.json({ success: true, user: { ...user, password: undefined } });
+      });
+    } catch (error) {
+      console.error('Manual signup error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Invalid data',
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  });
+
+  // Manual login endpoint
+  app.post('/api/auth/login', async (req: any, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Email and password are required' 
+        });
+      }
+
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ 
+          success: false, 
+          error: 'Invalid email or password' 
+        });
+      }
+
+      // Verify password
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ 
+          success: false, 
+          error: 'Invalid email or password' 
+        });
+      }
+
+      // Create session using Passport's login method for compatibility
+      req.login(user, (err: any) => {
+        if (err) {
+          console.error('Session creation failed:', err);
+          return res.status(500).json({ success: false, error: 'Session creation failed' });
+        }
+        
+        console.log('Manual login successful:', {
+          userId: user.id,
+          username: user.username,
+          email: user.email
+        });
+        
+        res.json({ success: true, user: { ...user, password: undefined } });
+      });
+    } catch (error) {
+      console.error('Manual login error:', error);
       res.status(500).json({ success: false, error: 'Internal server error' });
     }
   });

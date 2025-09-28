@@ -34,11 +34,16 @@
         });
       }
 
+      // Prevent multiple verification attempts
+      let isVerifying = false;
+      
       function statusChangeCallback(response) {
         console.log('Facebook login status:', response.status);
         window.fbLoginStatus = response;
         
-        if (response.status === 'connected') {
+        if (response.status === 'connected' && !isVerifying) {
+          isVerifying = true;
+          
           // User is logged into Facebook and your app
           FB.api('/me', {fields: 'name,email'}, function(userInfo) {
             // Send to backend for authentication
@@ -56,12 +61,16 @@
               if (data.success) {
                 console.log('Facebook login successful, redirecting to dashboard');
                 // Force page reload to refresh authentication state
-                window.location.href = '/dashboard';
+                setTimeout(() => {
+                  window.location.href = '/dashboard';
+                }, 100);
               } else {
                 console.error('Facebook verification failed:', data.error);
+                isVerifying = false;
               }
             }).catch(err => {
               console.error('Error during Facebook authentication:', err);
+              isVerifying = false;
             });
           });
         }
