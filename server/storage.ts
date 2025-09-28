@@ -421,7 +421,17 @@ export class DatabaseStorage implements IStorage {
 
   // Auth Identities
   async createAuthIdentity(identity: InsertAuthIdentity & { userId: string }): Promise<AuthIdentity> {
-    const [result] = await db.insert(authIdentities).values(identity).returning();
+    const [result] = await db
+      .insert(authIdentities)
+      .values(identity)
+      .onConflictDoUpdate({
+        target: [authIdentities.provider, authIdentities.providerUserId],
+        set: {
+          ...identity,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
     return result;
   }
 
