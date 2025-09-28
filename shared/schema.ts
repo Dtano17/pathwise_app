@@ -66,6 +66,7 @@ export const goals = pgTable("goals", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+
 export const tasks = pgTable("tasks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id),
@@ -400,6 +401,56 @@ export type InsertTaskReminder = z.infer<typeof insertTaskReminderSchema>;
 export type SchedulingSuggestion = typeof schedulingSuggestions.$inferSelect;
 export type InsertSchedulingSuggestion = z.infer<typeof insertSchedulingSuggestionSchema>;
 
+
+// Authentication identities for multi-provider support
+export const authIdentities = pgTable("auth_identities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  provider: text("provider").notNull(), // 'google' | 'facebook' | 'apple' | 'instagram' | 'replit'
+  providerUserId: varchar("provider_user_id").notNull(),
+  email: varchar("email"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueProviderUser: uniqueIndex("unique_provider_user").on(table.provider, table.providerUserId),
+}));
+
+// External OAuth tokens for API access (server-only)
+export const externalOAuthTokens = pgTable("external_oauth_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  provider: text("provider").notNull(), // 'google' | 'facebook' | 'apple' | 'instagram'
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token"),
+  expiresAt: timestamp("expires_at"),
+  scope: text("scope"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueUserProvider: uniqueIndex("unique_user_provider_token").on(table.userId, table.provider),
+}));
+
+// Synced contacts for sharing invitations
+export const contacts = pgTable("contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerUserId: varchar("owner_user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  source: text("source").notNull(), // 'google' | 'facebook' | 'manual'
+  externalId: varchar("external_id"),
+  name: text("name").notNull(),
+  emails: jsonb("emails").$type<string[]>().default([]),
+  phones: jsonb("phones").$type<string[]>().default([]),
+  photoUrl: varchar("photo_url"),
+  matchedUserId: varchar("matched_user_id").references(() => users.id), // Matched JournalMate user
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  ownerSourceIndex: index("owner_source_index").on(table.ownerUserId, table.source),
+  matchedUserIndex: index("matched_user_index").on(table.matchedUserId),
+  // Unique constraint for synced contacts (handles nulls properly)
+  uniqueSyncedContact: uniqueIndex("unique_synced_contact").on(table.ownerUserId, table.source, table.externalId),
+}));
+
 // Activities table for social sharable experiences
 export const activities = pgTable("activities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -462,55 +513,6 @@ export const activityTasks = pgTable("activity_tasks", {
 }, (table) => ({
   uniqueActivityTask: uniqueIndex("unique_activity_task").on(table.activityId, table.taskId),
   activityOrderIndex: index("activity_order_index").on(table.activityId, table.order),
-}));
-
-// Authentication identities for multi-provider support
-export const authIdentities = pgTable("auth_identities", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  provider: text("provider").notNull(), // 'google' | 'facebook' | 'apple' | 'instagram' | 'replit'
-  providerUserId: varchar("provider_user_id").notNull(),
-  email: varchar("email"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
-  uniqueProviderUser: uniqueIndex("unique_provider_user").on(table.provider, table.providerUserId),
-}));
-
-// External OAuth tokens for API access (server-only)
-export const externalOAuthTokens = pgTable("external_oauth_tokens", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  provider: text("provider").notNull(), // 'google' | 'facebook' | 'apple' | 'instagram'
-  accessToken: text("access_token").notNull(),
-  refreshToken: text("refresh_token"),
-  expiresAt: timestamp("expires_at"),
-  scope: text("scope"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
-  uniqueUserProvider: uniqueIndex("unique_user_provider_token").on(table.userId, table.provider),
-}));
-
-// Synced contacts for sharing invitations
-export const contacts = pgTable("contacts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  ownerUserId: varchar("owner_user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  source: text("source").notNull(), // 'google' | 'facebook' | 'manual'
-  externalId: varchar("external_id"),
-  name: text("name").notNull(),
-  emails: jsonb("emails").$type<string[]>().default([]),
-  phones: jsonb("phones").$type<string[]>().default([]),
-  photoUrl: varchar("photo_url"),
-  matchedUserId: varchar("matched_user_id").references(() => users.id), // Matched JournalMate user
-  lastSyncAt: timestamp("last_sync_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
-  ownerSourceIndex: index("owner_source_index").on(table.ownerUserId, table.source),
-  matchedUserIndex: index("matched_user_index").on(table.matchedUserId),
-  // Unique constraint for synced contacts (handles nulls properly)
-  uniqueSyncedContact: uniqueIndex("unique_synced_contact").on(table.ownerUserId, table.source, table.externalId),
 }));
 
 // Add Zod schemas for new tables
@@ -713,17 +715,11 @@ export const insertActivitySchema = createInsertSchema(activities).omit({
   shareableLink: true,
 });
 
-export const insertActivityTaskSchema = createInsertSchema(activityTasks).omit({
-  id: true,
-  createdAt: true,
-});
 
 // TypeScript types for Activities
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 
-export type ActivityTask = typeof activityTasks.$inferSelect;
-export type InsertActivityTask = z.infer<typeof insertActivityTaskSchema>;
 
 // TypeScript types for new tables
 export type UserProfile = typeof userProfiles.$inferSelect;
@@ -765,3 +761,12 @@ export type InsertAchievement = z.infer<typeof insertAchievementSchema>;
 
 export type UserStatistics = typeof userStatistics.$inferSelect;
 export type InsertUserStatistics = z.infer<typeof insertUserStatisticsSchema>;
+
+// ActivityTask schema
+export const insertActivityTaskSchema = createInsertSchema(activityTasks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ActivityTask = typeof activityTasks.$inferSelect;
+export type InsertActivityTask = z.infer<typeof insertActivityTaskSchema>;

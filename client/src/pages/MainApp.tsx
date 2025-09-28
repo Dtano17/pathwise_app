@@ -97,6 +97,19 @@ export default function MainApp({
     setExpandedActivities(newExpanded);
   };
 
+  // Task handler functions for TaskCard component
+  const handleCompleteTask = (taskId: string) => {
+    completeTaskMutation.mutate(taskId);
+  };
+
+  const handleSkipTask = (taskId: string) => {
+    skipTaskMutation.mutate(taskId);
+  };
+
+  const handleSnoozeTask = (taskId: string, hours: number) => {
+    snoozeTaskMutation.mutate({ taskId, hours });
+  };
+
   // These states are now managed in App.tsx and passed as props
   
   // About page expandable features state
@@ -826,7 +839,7 @@ export default function MainApp({
                                         title: task.title,
                                         description: task.description || '',
                                         priority: (task.priority as 'high' | 'low' | 'medium') || 'medium',
-                                        dueDate: task.dueDate || undefined,
+                                        dueDate: task.dueDate ? task.dueDate.toString() : undefined,
                                         category: task.category || 'general',
                                         completed: task.completed ?? false,
                                       }}
