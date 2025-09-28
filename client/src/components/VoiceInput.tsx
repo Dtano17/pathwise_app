@@ -397,7 +397,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
               </div>
               
               {/* Chat Messages */}
-              <div className="bg-muted/30 rounded-lg p-3 max-h-64 overflow-y-auto mb-3 space-y-3">
+              <div className="bg-gradient-to-br from-muted/20 to-muted/40 rounded-xl p-4 max-h-80 overflow-y-auto mb-4 space-y-4 backdrop-blur-sm border border-border/30">
                 {chatMessages.map((message, index) => (
                   <motion.div
                     key={index}
@@ -412,14 +412,24 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                       </div>
                     )}
                     
-                    <div className={`max-w-[80%] rounded-lg p-2 text-sm ${
+                    <div className={`max-w-[80%] rounded-lg p-3 text-sm ${
                       message.role === 'user' 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-background border'
+                        ? 'bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-sm' 
+                        : 'bg-background border border-border/50 shadow-sm'
                     }`}>
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                      <div className="text-xs opacity-70 mt-1">
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <div className="prose prose-sm max-w-none">
+                        <p className="whitespace-pre-wrap leading-relaxed m-0">{message.content}</p>
+                      </div>
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-current/10">
+                        <div className="text-xs opacity-70">
+                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                        {message.role === 'assistant' && (
+                          <div className="flex items-center gap-1 text-xs opacity-70">
+                            <Bot className="w-3 h-3" />
+                            AI Assistant
+                          </div>
+                        )}
                       </div>
                     </div>
                     
@@ -440,14 +450,14 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                     <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center">
                       <Bot className="w-3 h-3 text-white" />
                     </div>
-                    <div className="bg-background border rounded-lg p-2">
-                      <div className="flex items-center gap-2">
+                    <div className="bg-gradient-to-br from-background to-background/80 border border-border/50 rounded-xl p-3 shadow-lg">
+                      <div className="flex items-center gap-3">
                         <div className="flex gap-1">
-                          <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                          <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                          <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                          <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                         </div>
-                        <span className="text-xs text-muted-foreground">Thinking...</span>
+                        <span className="text-sm text-muted-foreground font-medium">AI is analyzing your profile and context...</span>
                       </div>
                     </div>
                   </motion.div>
