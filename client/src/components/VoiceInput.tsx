@@ -229,7 +229,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [showChat, setShowChat] = useState(false);
   const [currentChatMessage, setCurrentChatMessage] = useState('');
-  const [isDocked, setIsDocked] = useState(false);
+  const [isChatDocked, setIsChatDocked] = useState(false);
   const recognitionRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -409,85 +409,43 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   return (
     <div className="w-full max-w-2xl mx-auto p-6">
       <motion.div 
-        className="bg-card border border-card-border rounded-lg overflow-hidden"
+        className="bg-card border border-card-border rounded-lg p-6 space-y-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        {/* Header with dock controls */}
-        <div className="flex items-center justify-between p-4 border-b border-border/50 bg-card/50">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
             <h3 className="font-semibold text-card-foreground">Share Your Intentions</h3>
           </div>
           
+          {/* Feature indicators */}
           <div className="flex items-center gap-2">
-            {/* Feature indicators - hide when docked */}
-            <AnimatePresence>
-              {!isDocked && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  className="flex items-center gap-2"
-                >
-                  <Badge variant="outline" className="text-xs gap-1">
-                    <Copy className="w-3 h-3" />
-                    Copy & Paste
-                  </Badge>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            
-            {/* Dock toggle button */}
+            <Badge variant="outline" className="text-xs gap-1">
+              <Copy className="w-3 h-3" />
+              Copy & Paste
+            </Badge>
             <Button
               size="icon"
               variant="ghost"
-              className="h-7 w-7 text-muted-foreground hover:text-foreground"
-              title={isDocked ? "Expand dialogue pane" : "Collapse dialogue pane"}
-              onClick={() => setIsDocked(!isDocked)}
-              data-testid="button-dock-toggle"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              title="Upload images"
+              onClick={() => fileInputRef.current?.click()}
+              data-testid="button-upload-images"
             >
-              {isDocked ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              <Upload className="w-3 h-3" />
             </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleImageUpload}
+            />
           </div>
         </div>
-
-        {/* Dockable content area */}
-        <AnimatePresence>
-          {!isDocked && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="overflow-hidden p-6 space-y-4"
-            >
-              {/* Upload controls */}
-              <div className="flex items-center gap-2 justify-end">
-                  <Badge variant="outline" className="text-xs gap-1">
-                    <Upload className="w-3 h-3" />
-                    Images
-                  </Badge>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                    title="Upload images"
-                    onClick={() => fileInputRef.current?.click()}
-                    data-testid="button-upload-images"
-                  >
-                    <Upload className="w-3 h-3" />
-                  </Button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={handleImageUpload}
-                  />
-                </div>
 
                 {/* Uploaded Images Preview */}
                 {uploadedImages.length > 0 && (
@@ -626,16 +584,38 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <Bot className="w-4 h-4 text-primary" />
+                          <img src="/attached_assets/image_1759045676263.png" className="w-4 h-4" alt="JournalMate" />
                           <h4 className="font-medium text-sm">AI Planning Assistant</h4>
                         </div>
-                        <Badge variant="secondary" className="text-xs">
-                          Dialogue Mode
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">
+                            Dialogue Mode
+                          </Badge>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                            title={isChatDocked ? "Expand chat" : "Collapse chat"}
+                            onClick={() => setIsChatDocked(!isChatDocked)}
+                            data-testid="button-chat-dock-toggle"
+                          >
+                            {isChatDocked ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+                          </Button>
+                        </div>
                       </div>
                       
-                      {/* Chat Messages */}
-                      <div className="bg-gradient-to-br from-muted/20 to-muted/40 rounded-xl p-4 max-h-80 overflow-y-auto mb-4 space-y-4 backdrop-blur-sm border border-border/30">
+                      {/* Dockable Chat Content */}
+                      <AnimatePresence>
+                        {!isChatDocked && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.3, ease: "easeInOut" }}
+                            className="overflow-hidden"
+                          >
+                            {/* Chat Messages */}
+                            <div className="bg-gradient-to-br from-muted/20 to-muted/40 rounded-xl p-4 max-h-80 overflow-y-auto mb-4 space-y-4 backdrop-blur-sm border border-border/30">
                         {chatMessages.map((message, index) => (
                           <motion.div
                             key={index}
@@ -740,15 +720,15 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                 </Button>
               </div>
               
-              <div className="text-xs text-muted-foreground mt-1 text-center">
-                I can help clarify your goals, suggest contingencies, and create personalized action plans
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                            <div className="text-xs text-muted-foreground mt-1 text-center">
+                              I can help clarify your goals, suggest contingencies, and create personalized action plans
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
       </motion.div>
     </div>
   );
