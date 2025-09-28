@@ -46,27 +46,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify the access token with Facebook
-      const fbResponse = await fetch(`https://graph.facebook.com/me?access_token=${accessToken}&fields=id,name,email`);
+      const fbResponse = await fetch(`https://graph.facebook.com/me?access_token=${accessToken}&fields=id,name,email,first_name,last_name,picture`);
       const fbUserData = await fbResponse.json();
       
       if (fbUserData.error) {
+        console.error('Facebook token verification failed:', fbUserData.error);
         return res.status(401).json({ success: false, error: 'Invalid Facebook token' });
       }
 
-      // Check if user exists or create new user
-      let user = await storage.getUserByProvider('facebook', fbUserData.id);
+      // Check if user already exists by email
+      let user;
+      if (fbUserData.email) {
+        user = await storage.getUserByEmail(fbUserData.email);
+      }
       
       if (!user) {
-        // Create new user using the signupUserSchema
-        const newUser: SignupUser = {
-          username: fbUserData.name || 'Facebook User',
-          email: fbUserData.email || `fb_${fbUserData.id}@facebook.com`,
-          provider: 'facebook',
-          providerId: fbUserData.id,
-          profilePicture: `https://graph.facebook.com/${fbUserData.id}/picture?type=large`
-        };
+        // Generate username from email or Facebook name
+        let username = fbUserData.name?.replace(/[^a-zA-Z0-9_]/g, '_') || `fb_user_${fbUserData.id}`;
+        if (fbUserData.email) {
+          username = fbUserData.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
+        }
         
-        user = await storage.createUser(newUser);
+        // Create new user with proper schema
+        user = await storage.upsertUser({
+          username: username,
+          password: "facebook_oauth_user", // Required field for OAuth users
+          email: fbUserData.email || undefined,
+          firstName: fbUserData.first_name || fbUserData.name?.split(' ')[0] || undefined,
+          lastName: fbUserData.last_name || fbUserData.name?.split(' ').slice(1).join(' ') || undefined,
+          profileImageUrl: fbUserData.picture?.data?.url || `https://graph.facebook.com/${fbUserData.id}/picture?type=large`,
+        });
+      }
+
+      // Create auth identity link
+      try {
+        await storage.createAuthIdentity({
+          userId: user.id,
+          provider: 'facebook',
+          providerUserId: fbUserData.id,
+          email: fbUserData.email || undefined,
+        });
+      } catch (error) {
+        // Auth identity might already exist, that's okay
+        console.log('Auth identity already exists for Facebook user:', fbUserData.id);
+      }
+
+      // Store OAuth token
+      try {
+        await storage.upsertOAuthToken({
+          userId: user.id,
+          provider: 'facebook',
+          accessToken,
+          refreshToken: undefined,
+          expiresAt: null,
+          scope: 'email public_profile',
+        });
+      } catch (error) {
+        console.log('OAuth token storage failed (non-critical):', error);
       }
 
       // Create session
