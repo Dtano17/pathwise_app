@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import journalMateLogo from '@assets/image_1759045676263.png';
+import journalMateLogo from '@assets/Export_JournalMate_2_1759046067485.png';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, Bot, User, ChevronUp, ChevronDown, Minimize2, Maximize2 } from 'lucide-react';
@@ -585,7 +585,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <img src={journalMateLogo} className="w-4 h-4" alt="JournalMate" />
+                          <img src={journalMateLogo} className="w-5 h-5 rounded-full" alt="JournalMate" />
                           <h4 className="font-medium text-sm">AI Planning Assistant</h4>
                         </div>
                         <div className="flex items-center gap-2">
