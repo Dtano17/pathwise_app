@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, Bot, User } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, Bot, User, ChevronUp, ChevronDown, Minimize2, Maximize2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -229,6 +229,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [showChat, setShowChat] = useState(false);
   const [currentChatMessage, setCurrentChatMessage] = useState('');
+  const [isDocked, setIsDocked] = useState(false);
   const recognitionRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -408,197 +409,241 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   return (
     <div className="w-full max-w-2xl mx-auto p-6">
       <motion.div 
-        className="bg-card border border-card-border rounded-lg p-6 space-y-4"
+        className="bg-card border border-card-border rounded-lg overflow-hidden"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <div className="flex items-center justify-between mb-2">
+        {/* Header with dock controls */}
+        <div className="flex items-center justify-between p-4 border-b border-border/50 bg-card/50">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
             <h3 className="font-semibold text-card-foreground">Share Your Intentions</h3>
           </div>
           
-          {/* Feature indicators */}
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs gap-1">
-              <Copy className="w-3 h-3" />
-              Copy & Paste
-            </Badge>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-6 w-6 text-muted-foreground hover:text-foreground"
-              title="Upload images"
-              onClick={() => fileInputRef.current?.click()}
-              data-testid="button-upload-images"
-            >
-              <Upload className="w-3 h-3" />
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handleImageUpload}
-            />
-          </div>
-        </div>
-
-        {/* Uploaded Images Preview */}
-        {uploadedImages.length > 0 && (
-          <div className="border rounded-md p-3 bg-muted/30">
-            <div className="flex items-center gap-2 mb-2">
-              <Image className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Uploaded Images ({uploadedImages.length})</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {uploadedImages.map((file, index) => (
-                <div key={index} className="flex items-center gap-2 bg-background rounded px-2 py-1 text-xs">
-                  <span className="truncate max-w-24">{file.name}</span>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-4 w-4 p-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => removeImage(index)}
-                  >
-                    ×
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        <div className="relative">
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={placeholder}
-            className="min-h-[120px] pr-16 resize-none text-base"
-            data-testid="input-goal"
-            disabled={isGenerating}
-          />
-          
-          <div className="absolute bottom-3 right-3 flex gap-2">
+            {/* Feature indicators - hide when docked */}
             <AnimatePresence>
-              {isRecording ? (
+              {!isDocked && (
                 <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0 }}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
                   className="flex items-center gap-2"
                 >
-                  <motion.div
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ repeat: Infinity, duration: 1 }}
-                    className="w-2 h-2 bg-red-500 rounded-full"
-                  />
-                  <Button
-                    size="icon"
-                    variant="destructive"
-                    onClick={stopRecording}
-                    data-testid="button-stop-recording"
-                    className="h-8 w-8"
-                  >
-                    <MicOff className="w-4 h-4" />
-                  </Button>
-                </motion.div>
-              ) : (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0 }}
-                >
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    onClick={startRecording}
-                    data-testid="button-start-recording"
-                    className="h-8 w-8"
-                    disabled={isGenerating}
-                  >
-                    <Mic className="w-4 h-4" />
-                  </Button>
+                  <Badge variant="outline" className="text-xs gap-1">
+                    <Copy className="w-3 h-3" />
+                    Copy & Paste
+                  </Badge>
                 </motion.div>
               )}
             </AnimatePresence>
+            
+            {/* Dock toggle button */}
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              title={isDocked ? "Expand dialogue pane" : "Collapse dialogue pane"}
+              onClick={() => setIsDocked(!isDocked)}
+              data-testid="button-dock-toggle"
+            >
+              {isDocked ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </Button>
           </div>
         </div>
 
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="text-sm text-muted-foreground">
-              {isListening && "Listening..."}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={startConversation}
-              className="gap-2"
-              data-testid="button-chat-toggle"
-            >
-              <MessageCircle className="w-3 h-3" />
-              Chat Mode
-            </Button>
-          </div>
-          
-          <Button
-            onClick={handleSubmit}
-            disabled={!text.trim() || isGenerating}
-            className="gap-2"
-            data-testid="button-submit"
-          >
-            {isGenerating ? (
-              <>
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ repeat: Infinity, duration: 1 }}
-                  className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full"
-                />
-                Generating Plan...
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                Create Action Plan
-              </>
-            )}
-          </Button>
-        </div>
-        
-        {/* Conversational Chat Section */}
+        {/* Dockable content area */}
         <AnimatePresence>
-          {showChat && (
+          {!isDocked && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="border-t border-border pt-4 mt-4"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden p-6 space-y-4"
             >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Bot className="w-4 h-4 text-primary" />
-                  <h4 className="font-medium text-sm">AI Planning Assistant</h4>
-                </div>
-                <Badge variant="secondary" className="text-xs">
-                  Dialogue Mode
-                </Badge>
-              </div>
-              
-              {/* Chat Messages */}
-              <div className="bg-gradient-to-br from-muted/20 to-muted/40 rounded-xl p-4 max-h-80 overflow-y-auto mb-4 space-y-4 backdrop-blur-sm border border-border/30">
-                {chatMessages.map((message, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    data-testid={`chat-message-${index}`}
+              {/* Upload controls */}
+              <div className="flex items-center gap-2 justify-end">
+                  <Badge variant="outline" className="text-xs gap-1">
+                    <Upload className="w-3 h-3" />
+                    Images
+                  </Badge>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                    title="Upload images"
+                    onClick={() => fileInputRef.current?.click()}
+                    data-testid="button-upload-images"
                   >
+                    <Upload className="w-3 h-3" />
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleImageUpload}
+                  />
+                </div>
+
+                {/* Uploaded Images Preview */}
+                {uploadedImages.length > 0 && (
+                  <div className="border rounded-md p-3 bg-muted/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Image className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Uploaded Images ({uploadedImages.length})</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {uploadedImages.map((file, index) => (
+                        <div key={index} className="flex items-center gap-2 bg-background rounded px-2 py-1 text-xs">
+                          <span className="truncate max-w-24">{file.name}</span>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-4 w-4 p-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => removeImage(index)}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Main Text Input Area */}
+                <div className="relative">
+                  <Textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder={placeholder}
+                    className="min-h-[120px] pr-16 resize-none text-base"
+                    data-testid="input-goal"
+                    disabled={isGenerating}
+                  />
+                  
+                  <div className="absolute bottom-3 right-3 flex gap-2">
+                    <AnimatePresence>
+                      {isRecording ? (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          exit={{ scale: 0 }}
+                          className="flex items-center gap-2"
+                        >
+                          <motion.div
+                            animate={{ scale: [1, 1.2, 1] }}
+                            transition={{ repeat: Infinity, duration: 1 }}
+                            className="w-2 h-2 bg-red-500 rounded-full"
+                          />
+                          <Button
+                            size="icon"
+                            variant="destructive"
+                            onClick={stopRecording}
+                            data-testid="button-stop-recording"
+                            className="h-8 w-8"
+                          >
+                            <MicOff className="w-4 h-4" />
+                          </Button>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          exit={{ scale: 0 }}
+                        >
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            onClick={startRecording}
+                            data-testid="button-start-recording"
+                            className="h-8 w-8"
+                            disabled={isGenerating}
+                          >
+                            <Mic className="w-4 h-4" />
+                          </Button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm text-muted-foreground">
+                      {isListening && "Listening..."}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={startConversation}
+                      className="gap-2"
+                      data-testid="button-chat-toggle"
+                    >
+                      <MessageCircle className="w-3 h-3" />
+                      Chat Mode
+                    </Button>
+                  </div>
+                  
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={!text.trim() || isGenerating}
+                    className="gap-2"
+                    data-testid="button-submit"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ repeat: Infinity, duration: 1 }}
+                          className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full"
+                        />
+                        Generating Plan...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Create Action Plan
+                      </>
+                    )}
+                  </Button>
+                </div>
+                
+                {/* Conversational Chat Section */}
+                <AnimatePresence>
+                  {showChat && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="border-t border-border pt-4 mt-4"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Bot className="w-4 h-4 text-primary" />
+                          <h4 className="font-medium text-sm">AI Planning Assistant</h4>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          Dialogue Mode
+                        </Badge>
+                      </div>
+                      
+                      {/* Chat Messages */}
+                      <div className="bg-gradient-to-br from-muted/20 to-muted/40 rounded-xl p-4 max-h-80 overflow-y-auto mb-4 space-y-4 backdrop-blur-sm border border-border/30">
+                        {chatMessages.map((message, index) => (
+                          <motion.div
+                            key={index}
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                            data-testid={`chat-message-${index}`}
+                          >
                     {message.role === 'assistant' && (
                       <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
                         <Bot className="w-3 h-3 text-white" />
@@ -698,6 +743,9 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
               <div className="text-xs text-muted-foreground mt-1 text-center">
                 I can help clarify your goals, suggest contingencies, and create personalized action plans
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>
