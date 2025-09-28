@@ -126,15 +126,17 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     const absX = Math.abs(info.offset.x);
     const absY = Math.abs(info.offset.y);
     
-    // Debug logging for mobile testing
-    console.log('Drag ended:', { 
-      offsetX: info.offset.x, 
-      offsetY: info.offset.y, 
-      absX, 
-      absY,
-      threshold,
-      willTriggerAction: (absX > absY && (info.offset.x > threshold || info.offset.x < -threshold)) || (info.offset.y < -threshold)
-    });
+    // Optional debug logging (enabled in development)
+    if (import.meta.env.DEV) {
+      console.debug('Drag ended:', { 
+        offsetX: info.offset.x, 
+        offsetY: info.offset.y, 
+        absX, 
+        absY,
+        threshold,
+        willTriggerAction: (absX > absY && (info.offset.x > threshold || info.offset.x < -threshold)) || (info.offset.y < -threshold)
+      });
+    }
     
     // Clear any existing pending actions to prevent race conditions
     clearPendingAction();
@@ -208,14 +210,16 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     const absX = Math.abs(info.offset.x);
     const absY = Math.abs(info.offset.y);
     
-    // Debug logging for mobile testing
-    console.log('Drag detected:', { 
-      offsetX: info.offset.x, 
-      offsetY: info.offset.y, 
-      absX, 
-      absY,
-      currentDirection: dragDirection 
-    });
+    // Optional debug logging (enabled in development)
+    if (import.meta.env.DEV) {
+      console.debug('Drag detected:', { 
+        offsetX: info.offset.x, 
+        offsetY: info.offset.y, 
+        absX, 
+        absY,
+        currentDirection: dragDirection 
+      });
+    }
     
     // Determine primary direction based on larger offset
     if (absX > absY) {
@@ -223,24 +227,24 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
       if (info.offset.x > 50 && dragDirection !== 'right') {
         setDragDirection('right');
         triggerHapticFeedback('light');
-        console.log('Setting direction: RIGHT');
+        if (import.meta.env.DEV) console.debug('Setting direction: RIGHT');
       } else if (info.offset.x < -50 && dragDirection !== 'left') {
         setDragDirection('left');
         triggerHapticFeedback('light');
-        console.log('Setting direction: LEFT');
+        if (import.meta.env.DEV) console.debug('Setting direction: LEFT');
       } else if (absX < 50 && dragDirection !== null) {
         setDragDirection(null);
-        console.log('Resetting direction');
+        if (import.meta.env.DEV) console.debug('Resetting direction');
       }
     } else {
       // Vertical drag
       if (info.offset.y < -50 && dragDirection !== 'up') {
         setDragDirection('up');
         triggerHapticFeedback('light');
-        console.log('Setting direction: UP');
+        if (import.meta.env.DEV) console.debug('Setting direction: UP');
       } else if (absY < 50 && dragDirection !== null) {
         setDragDirection(null);
-        console.log('Resetting direction');
+        if (import.meta.env.DEV) console.debug('Resetting direction');
       }
     }
   };
