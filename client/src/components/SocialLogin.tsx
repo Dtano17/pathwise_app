@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { SiGoogle, SiFacebook, SiApple, SiInstagram } from "react-icons/si";
 import { Sparkles } from "lucide-react";
+import { useFacebookAuth } from "@/hooks/useFacebookAuth";
 
 interface SocialLoginProps {
   title?: string;
@@ -16,8 +17,14 @@ export function SocialLogin({
   showReplitAuth = true
 }: SocialLoginProps) {
   
+  const { fbStatus, isProcessing, loginWithFacebook } = useFacebookAuth();
+  
   const handleSocialLogin = (provider: string) => {
-    window.location.href = `/api/auth/${provider}`;
+    if (provider === 'facebook') {
+      loginWithFacebook();
+    } else {
+      window.location.href = `/api/auth/${provider}`;
+    }
   };
 
   const handleReplitLogin = () => {

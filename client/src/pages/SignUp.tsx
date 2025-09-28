@@ -17,6 +17,7 @@ import { signupUserSchema, profileCompletionSchema, type SignupUser, type Profil
 import { CheckCircle, User, Heart, Target, Clock, MapPin, Briefcase, ArrowLeft, ArrowRight } from 'lucide-react';
 import { SiFacebook, SiGoogle } from 'react-icons/si';
 import { Separator } from '@/components/ui/separator';
+import { useFacebookAuth } from '@/hooks/useFacebookAuth';
 
 interface SignUpProps {
   onSignUpComplete: (user: any) => void;
@@ -29,6 +30,7 @@ export default function SignUp({ onSignUpComplete, onBackToLogin }: SignUpProps)
   const [progress, setProgress] = useState(20);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { fbStatus, isProcessing, loginWithFacebook } = useFacebookAuth();
 
   // Step 1: Basic signup form
   const signupForm = useForm<SignupUser>({
@@ -122,7 +124,11 @@ export default function SignUp({ onSignUpComplete, onBackToLogin }: SignUpProps)
   };
 
   const handleSocialLogin = (provider: string) => {
-    window.location.href = `/api/auth/${provider}`;
+    if (provider === 'facebook') {
+      loginWithFacebook();
+    } else {
+      window.location.href = `/api/auth/${provider}`;
+    }
   };
 
   // Helper for managing array fields
