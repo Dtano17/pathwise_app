@@ -104,18 +104,14 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
   }, [dismiss]);
 
   const executeAction = (action: 'complete' | 'skip' | 'snooze') => {
-    console.log('executeAction called with action:', action, 'taskId:', task.id);
     if (action === 'complete') {
-      console.log('Completing task, calling onComplete for taskId:', task.id);
       setIsCompleted(true);
       setShowCelebration(true);
       onComplete(task.id);
       setTimeout(() => setShowCelebration(false), 3000);
     } else if (action === 'skip') {
-      console.log('Skipping task, calling onSkip for taskId:', task.id);
       onSkip(task.id);
     } else if (action === 'snooze') {
-      console.log('Snoozing task, calling onSnooze for taskId:', task.id);
       onSnooze(task.id, 2); // Snooze for 2 hours by default
     }
     clearPendingAction();

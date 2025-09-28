@@ -625,11 +625,7 @@ export default function MainApp({
                         priority: task.priority as 'low' | 'medium' | 'high',
                         completed: task.completed ?? false
                       }}
-                      onComplete={(taskId) => {
-                        console.log('MainApp onComplete called with taskId:', taskId);
-                        console.log('About to call completeTaskMutation.mutate');
-                        completeTaskMutation.mutate(taskId);
-                      }}
+                      onComplete={(taskId) => completeTaskMutation.mutate(taskId)}
                       onSkip={(taskId) => skipTaskMutation.mutate(taskId)}
                       onSnooze={(taskId, hours) => snoozeTaskMutation.mutate({ taskId, hours })}
                       showConfetti={true}

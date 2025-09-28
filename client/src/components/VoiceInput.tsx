@@ -1,10 +1,12 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, Bot, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 // TypeScript declarations for Speech Recognition API
 declare global {
@@ -12,6 +14,12 @@ declare global {
     SpeechRecognition: any;
     webkitSpeechRecognition: any;
   }
+}
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
 }
 
 interface VoiceInputProps {
@@ -25,8 +33,12 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [showChat, setShowChat] = useState(false);
+  const [currentChatMessage, setCurrentChatMessage] = useState('');
   const recognitionRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   const startRecording = () => {
@@ -85,6 +97,55 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
     setIsListening(false);
   };
 
+  // Chat mutation for dialogue-based interaction
+  const chatMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const conversationHistory = chatMessages.map(msg => ({ role: msg.role, content: msg.content }));
+      const response = await apiRequest('POST', '/api/chat/conversation', {
+        message,
+        conversationHistory
+      });
+      return response.json();
+    },
+    onMutate: (message: string) => {
+      // Add user message immediately
+      const userMessage: ChatMessage = {
+        role: 'user',
+        content: message,
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, userMessage]);
+      setCurrentChatMessage("");
+    },
+    onSuccess: (data) => {
+      // Add AI response
+      const aiMessage: ChatMessage = {
+        role: 'assistant',
+        content: data.message,
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, aiMessage]);
+      
+      // Show celebratory toast for goal detection
+      if (data.extractedGoals || data.message.includes("action plan")) {
+        toast({
+          title: "Goals Detected!",
+          description: "I can help you create an action plan for these goals. What would you like to explore further?",
+        });
+      }
+      
+      // Auto-scroll to show new message
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Chat Error",
+        description: "Failed to get AI response. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleSubmit = () => {
     if (text.trim() && !isGenerating) {
       let submissionText = text.trim();
@@ -94,6 +155,25 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
       onSubmit(submissionText);
       setText('');
       setUploadedImages([]);
+    }
+  };
+
+  const handleChatSubmit = () => {
+    if (currentChatMessage.trim() && !chatMutation.isPending) {
+      chatMutation.mutate(currentChatMessage.trim());
+    }
+  };
+
+  const startConversation = () => {
+    setShowChat(true);
+    if (chatMessages.length === 0) {
+      // Add initial AI message
+      const welcomeMessage: ChatMessage = {
+        role: 'assistant',
+        content: "Hi! I'm here to help you turn your intentions into actionable plans. Feel free to ask me questions, share your goals, or tell me about any challenges you're facing. What's on your mind?",
+        timestamp: new Date()
+      };
+      setChatMessages([welcomeMessage]);
     }
   };
 
@@ -256,8 +336,20 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
         </div>
 
         <div className="flex justify-between items-center">
-          <div className="text-sm text-muted-foreground">
-            {isListening && "Listening..."}
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-muted-foreground">
+              {isListening && "Listening..."}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={startConversation}
+              className="gap-2"
+              data-testid="button-chat-toggle"
+            >
+              <MessageCircle className="w-3 h-3" />
+              Chat Mode
+            </Button>
           </div>
           
           <Button
@@ -283,6 +375,121 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
             )}
           </Button>
         </div>
+        
+        {/* Conversational Chat Section */}
+        <AnimatePresence>
+          {showChat && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="border-t border-border pt-4 mt-4"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Bot className="w-4 h-4 text-primary" />
+                  <h4 className="font-medium text-sm">AI Planning Assistant</h4>
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  Dialogue Mode
+                </Badge>
+              </div>
+              
+              {/* Chat Messages */}
+              <div className="bg-muted/30 rounded-lg p-3 max-h-64 overflow-y-auto mb-3 space-y-3">
+                {chatMessages.map((message, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    data-testid={`chat-message-${index}`}
+                  >
+                    {message.role === 'assistant' && (
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
+                        <Bot className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                    
+                    <div className={`max-w-[80%] rounded-lg p-2 text-sm ${
+                      message.role === 'user' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-background border'
+                    }`}>
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                      <div className="text-xs opacity-70 mt-1">
+                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                    
+                    {message.role === 'user' && (
+                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                        <User className="w-3 h-3 text-primary-foreground" />
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+                
+                {chatMutation.isPending && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex gap-2 justify-start"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center">
+                      <Bot className="w-3 h-3 text-white" />
+                    </div>
+                    <div className="bg-background border rounded-lg p-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1">
+                          <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
+                        <span className="text-xs text-muted-foreground">Thinking...</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+                
+                <div ref={chatEndRef} />
+              </div>
+              
+              {/* Chat Input */}
+              <div className="flex gap-2">
+                <Textarea
+                  value={currentChatMessage}
+                  onChange={(e) => setCurrentChatMessage(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleChatSubmit();
+                    }
+                  }}
+                  placeholder="Ask questions, share concerns, or discuss your goals..."
+                  className="min-h-[40px] resize-none text-sm"
+                  disabled={chatMutation.isPending}
+                  data-testid="input-chat"
+                />
+                <Button
+                  onClick={handleChatSubmit}
+                  disabled={!currentChatMessage.trim() || chatMutation.isPending}
+                  size="sm"
+                  className="gap-1"
+                  data-testid="button-chat-send"
+                >
+                  <Send className="w-3 h-3" />
+                  Ask
+                </Button>
+              </div>
+              
+              <div className="text-xs text-muted-foreground mt-1 text-center">
+                I can help clarify your goals, suggest contingencies, and create personalized action plans
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );
