@@ -46,6 +46,7 @@ import {
   type InsertActivity,
   type ActivityTask,
   type InsertActivityTask,
+  type ActivityWithProgress,
   users,
   goals,
   tasks,
@@ -99,7 +100,7 @@ export interface IStorage {
 
   // Activities
   createActivity(activity: InsertActivity & { userId: string }): Promise<Activity>;
-  getUserActivities(userId: string): Promise<(Activity & { totalTasks: number; completedTasks: number; progressPercent: number })[]>;
+  getUserActivities(userId: string): Promise<ActivityWithProgress[]>;
   getActivity(activityId: string, userId: string): Promise<Activity | undefined>;
   updateActivity(activityId: string, updates: Partial<Activity>, userId: string): Promise<Activity | undefined>;
   deleteActivity(activityId: string, userId: string): Promise<void>;
@@ -108,6 +109,7 @@ export interface IStorage {
   
   // Activity Tasks
   addTaskToActivity(activityId: string, taskId: string, order?: number): Promise<ActivityTask>;
+  getActivityTasks(activityId: string, userId: string): Promise<Task[]>;
   removeTaskFromActivity(activityId: string, taskId: string): Promise<void>;
   getActivityTasks(activityId: string): Promise<{ task: Task; order: number }[]>;
   updateActivityTaskOrder(activityId: string, taskId: string, order: number): Promise<void>;
@@ -322,7 +324,7 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getUserActivities(userId: string): Promise<(Activity & { totalTasks: number; completedTasks: number; progressPercent: number })[]> {
+  async getUserActivities(userId: string): Promise<ActivityWithProgress[]> {
     // First get all activities
     const userActivities = await db.select().from(activities)
       .where(eq(activities.userId, userId))
@@ -402,6 +404,30 @@ export class DatabaseStorage implements IStorage {
       order,
     }).returning();
     return result[0];
+  }
+
+  async getActivityTasks(activityId: string, userId: string): Promise<Task[]> {
+    const result = await db
+      .select({
+        id: tasks.id,
+        userId: tasks.userId,
+        goalId: tasks.goalId,
+        title: tasks.title,
+        description: tasks.description,
+        category: tasks.category,
+        priority: tasks.priority,
+        completed: tasks.completed,
+        completedAt: tasks.completedAt,
+        dueDate: tasks.dueDate,
+        timeEstimate: tasks.timeEstimate,
+        context: tasks.context,
+        createdAt: tasks.createdAt,
+      })
+      .from(activityTasks)
+      .innerJoin(tasks, eq(activityTasks.taskId, tasks.id))
+      .where(and(eq(activityTasks.activityId, activityId), eq(tasks.userId, userId)))
+      .orderBy(activityTasks.order, tasks.createdAt);
+    return result;
   }
 
   async removeTaskFromActivity(activityId: string, taskId: string): Promise<void> {

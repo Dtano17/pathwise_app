@@ -179,6 +179,13 @@ export default function MainApp({
     staleTime: 30000, // 30 seconds
   });
 
+  // Fetch activity-specific tasks when an activity is selected
+  const { data: activityTasks, isLoading: activityTasksLoading, error: activityTasksError } = useQuery<Task[]>({
+    queryKey: ['/api/activities', selectedActivityId, 'tasks'],
+    enabled: !!selectedActivityId,
+    staleTime: 30000, // 30 seconds
+  });
+
   // Process goal mutation
   const processGoalMutation = useMutation({
     mutationFn: async (goalText: string) => {
@@ -788,10 +795,11 @@ export default function MainApp({
               ) : (
                 <div className="space-y-4 max-w-4xl mx-auto">
                   {activities.map((activity) => {
-                    // Use real progress data calculated from actual associated tasks
-                    const completedTasks = (activity as any).completedTasks || 0;
-                    const totalTasks = (activity as any).totalTasks || 0;
-                    const progressPercent = (activity as any).progressPercent || 0;
+                    // Use real progress data from ActivityWithProgress type
+                    const activityWithProgress = activity as any; // TODO: Type properly with ActivityWithProgress
+                    const completedTasks = activityWithProgress.completedTasks || 0;
+                    const totalTasks = activityWithProgress.totalTasks || 0;
+                    const progressPercent = activityWithProgress.progressPercent || 0;
                     
                     return (
                       <div
@@ -1033,14 +1041,27 @@ export default function MainApp({
 
                   {/* Task Cards */}
                   {(() => {
-                    // Filter tasks by selected activity if one is chosen
+                    // Show loading state for activity tasks
+                    if (selectedActivityId && activityTasksLoading) {
+                      return (
+                        <div className="text-center py-8">
+                          <p className="text-muted-foreground">Loading tasks for selected activity...</p>
+                        </div>
+                      );
+                    }
+
+                    // Show error state for activity tasks
+                    if (selectedActivityId && activityTasksError) {
+                      return (
+                        <div className="text-center py-8">
+                          <p className="text-destructive">Failed to load activity tasks. Please try again.</p>
+                        </div>
+                      );
+                    }
+
+                    // Use either activity-specific tasks or all tasks
                     let filteredTasks = selectedActivityId 
-                      ? tasks.filter(task => {
-                          // For now, since we don't have activityId on tasks,
-                          // we'll show all tasks when an activity is selected
-                          // TODO: Implement proper filtering via activityTasks table
-                          return true;
-                        })
+                      ? (activityTasks || [])
                       : tasks;
 
                     // Apply other filters

@@ -770,3 +770,10 @@ export const insertActivityTaskSchema = createInsertSchema(activityTasks).omit({
 
 export type ActivityTask = typeof activityTasks.$inferSelect;
 export type InsertActivityTask = z.infer<typeof insertActivityTaskSchema>;
+
+// Extended Activity type with progress calculation
+export type ActivityWithProgress = Activity & {
+  totalTasks: number;
+  completedTasks: number;
+  progressPercent: number;
+};

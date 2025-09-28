@@ -668,6 +668,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get tasks for an activity
+  app.get("/api/activities/:activityId/tasks", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const tasks = await storage.getActivityTasks(activityId, DEMO_USER_ID);
+      res.json(tasks);
+    } catch (error) {
+      console.error('Get activity tasks error:', error);
+      res.status(500).json({ error: 'Failed to fetch activity tasks' });
+    }
+  });
+
   // Remove task from activity
   app.delete("/api/activities/:activityId/tasks/:taskId", async (req, res) => {
     try {
