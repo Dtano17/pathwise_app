@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, Bot, User, ChevronUp, ChevronDown, Minimize2, Maximize2 } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, Bot, User, ChevronUp, ChevronDown, Minimize2, Maximize2, Zap, Brain } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -371,6 +371,30 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
     }
   };
 
+  const startConversationWithMode = (mode: 'quick' | 'smart') => {
+    // Show toast notification about the mode
+    toast({
+      title: mode === 'quick' ? "Quick Plan Mode" : "Smart Plan Mode", 
+      description: mode === 'quick' 
+        ? "I'll ask a few key questions and generate your plan quickly."
+        : "I'll ask intuitive questions based on your activity and profile, then confirm before creating the perfect plan.",
+    });
+    
+    // For now, start the basic conversation and indicate the mode
+    // In a future update, this could integrate with ConversationalPlanner
+    setShowChat(true);
+    if (chatMessages.length === 0) {
+      const welcomeMessage: ChatMessage = {
+        role: 'assistant',
+        content: mode === 'quick' 
+          ? "🚀 Quick Plan Mode activated! Tell me what you want to accomplish and I'll help you create a plan quickly."
+          : "🧠 Smart Plan Mode activated! I'll ask you personalized questions based on what you want to do. What would you like to plan?",
+        timestamp: new Date()
+      };
+      setChatMessages([welcomeMessage]);
+    }
+  };
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
@@ -539,12 +563,22 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={startConversation}
-                      className="gap-2"
-                      data-testid="button-chat-toggle"
+                      onClick={() => startConversationWithMode('quick')}
+                      className="gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950"
+                      data-testid="button-quick-plan"
                     >
-                      <MessageCircle className="w-3 h-3" />
-                      Chat Mode
+                      <Zap className="w-3 h-3" />
+                      Quick Plan
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => startConversationWithMode('smart')}
+                      className="gap-2 text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950"
+                      data-testid="button-smart-plan"
+                    >
+                      <Brain className="w-3 h-3" />
+                      Smart Plan
                     </Button>
                   </div>
                   
