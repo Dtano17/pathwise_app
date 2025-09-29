@@ -67,9 +67,9 @@ const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
               <div key={`prev-list-${index}`} className="my-4">
                 {listType === 'numbered' ? (
                   <ol className="space-y-3 ml-4">{currentList}</ol>
-                ) : (
+                ) : listType === 'bulleted' ? (
                   <ul className="space-y-3 ml-4">{currentList}</ul>
-                )}
+                ) : null}
               </div>
             );
           }
