@@ -1233,6 +1233,34 @@ You can find these tasks in your task list and start working on them right away!
         return res.status(404).json({ error: 'User not found' });
       }
 
+      // HARDEN CONFIRMATION DETECTION for task generation
+      const positiveConfirmationWords = ['\\byes\\b', '\\byep\\b', '\\byeah\\b', '\\bsounds good\\b', '\\bagree(d|s)?\\b', '\\bconfirm(ed)?\\b', '\\bi confirm\\b', '\\blooks good\\b', '\\bperfect\\b', '\\bgreat\\b', '\\bthat works\\b'];
+      const negativeWords = ['\\bno\\b', '\\bdon\'t\\b', '\\bwon\'t\\b', '\\bcancel\\b', '\\bstop\\b', '\\bnot now\\b', '\\bnot yet\\b'];
+      
+      const userMessage = message.toLowerCase().trim();
+      
+      // Check for positive confirmation first when in confirming state
+      const hasPositiveConfirmation = positiveConfirmationWords.some(word => new RegExp(word, 'i').test(userMessage));
+      
+      // Check for explicit negative responses
+      const hasNegativeResponse = negativeWords.some(word => new RegExp(word, 'i').test(userMessage));
+      
+      // Set/clear confirmation flag based on user response in confirmation state
+      if (session.sessionState === 'confirming') {
+        if (hasPositiveConfirmation) {
+          session.userConfirmedAdd = true;
+          console.log('User confirmed task generation:', userMessage);
+        } else if (hasNegativeResponse) {
+          session.userConfirmedAdd = false;
+          console.log('User declined task generation:', userMessage);
+        }
+      }
+      
+      // Reset confirmation flag if starting new planning cycle
+      if (session.sessionState === 'intake' || session.sessionState === 'gathering') {
+        session.userConfirmedAdd = false;
+      }
+
       // Process the message with the lifestyle planner agent
       const response = await lifestylePlannerAgent.processMessage(message, session, user, mode);
 
@@ -1248,6 +1276,7 @@ You can find these tasks in your task list and start working on them right away!
         sessionState: response.sessionState,
         conversationHistory: updatedHistory,
         slots: response.updatedSlots || session.slots, // Persist extracted context!
+        userConfirmedAdd: session.userConfirmedAdd, // Persist confirmation flag
         isComplete: response.sessionState === 'completed',
         generatedPlan: response.generatedPlan
       }, userId);
@@ -1275,6 +1304,33 @@ You can find these tasks in your task list and start working on them right away!
       const session = await storage.getLifestylePlannerSession(sessionId, userId);
       if (!session) {
         return res.status(404).json({ error: 'Session not found' });
+      }
+
+      // STRICT SERVER-SIDE ENFORCEMENT: Check slot completeness and user confirmation
+      const slots = session.slots || {};
+      const missingRequiredSlots = [];
+      
+      // Check for essential slots
+      if (!slots.activityType) missingRequiredSlots.push('activity type');
+      if (!slots.location?.destination && !slots.location?.current) missingRequiredSlots.push('location');
+      if (!slots.timing?.departureTime && !slots.timing?.arrivalTime && !slots.timing?.date) missingRequiredSlots.push('timing');
+      if (!slots.budget) missingRequiredSlots.push('budget');
+      
+      // Return error if missing required context
+      if (missingRequiredSlots.length > 0) {
+        return res.status(400).json({ 
+          error: 'Incomplete context',
+          message: `Missing required information: ${missingRequiredSlots.join(', ')}. Please provide these details before generating tasks.`,
+          missingSlots: missingRequiredSlots
+        });
+      }
+      
+      // Require user confirmation before generating tasks
+      if (!session.userConfirmedAdd) {
+        return res.status(400).json({ 
+          error: 'User confirmation required',
+          message: 'Please confirm that you want to add these tasks to your activity before generation can proceed.'
+        });
       }
 
       // Here we would generate the final comprehensive plan

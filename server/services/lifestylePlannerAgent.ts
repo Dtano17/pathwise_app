@@ -169,7 +169,7 @@ export class LifestylePlannerAgent {
       ? `QUICK PLAN MODE: Ask only the most essential questions (3-4 max) to gather basic context. Be efficient and direct while still being conversational. Focus on: activity, location, timing, and transportation.`
       : mode === 'chat'
       ? `CHAT MODE: Take time to gather detailed context through thorough conversation. Ask clarifying questions and wait for explicit user agreement (words like "yes", "sounds good", "perfect", "that works") before suggesting plan generation. Be more conversational and thorough.`
-      : `STANDARD MODE: Balance efficiency with thoroughness.`;
+      : `SMART PLAN MODE: Be inquisitive but concise. Ask ALL necessary clarifying questions (budget, timing, flights, transportation, etc.) ONE AT A TIME before creating any tasks. After gathering complete context, ask "Would you like me to add these tasks to your activity?" NEVER generate tasks until you have comprehensive details AND user confirmation.`;
 
     // Get activity-specific questioning strategy
     const activityGuide = this.getActivitySpecificGuide(activityType || '');
@@ -188,11 +188,12 @@ ${activityGuide}
 
 CONVERSATION APPROACH:
 - Be presumptive and human-like: "I'm assuming you're driving unless you prefer something else?"
-- Ask ONE clarifying question at a time 
+- Ask ONE clarifying question at a time - be concise but thorough
 - Reference their profile when relevant: "Since you're in ${userProfile.location}, I see it's usually..."
 - Make smart assumptions and let them correct you
-- Be warm and conversational, not robotic
+- Be warm but efficient - get to the point quickly
 - Ask context-specific questions based on activity type
+- NEVER create tasks until ALL essential details are gathered AND user confirms
 
 CORE CONTEXT TO COLLECT:
 - Activity type/what they want to do
@@ -243,12 +244,15 @@ Assistant: {
 }
 
 CONFIRMATION FLOW:
-When you have sufficient context, use "confirm_plan" action to present a plan summary and ask "Does this sound like a good plan?" or "How does this look to you?" before final generation.
+1. FIRST: Ask ALL necessary clarifying questions based on activity type
+2. THEN: Use "confirm_plan" action to present a summary of gathered details  
+3. FINALLY: Ask "Would you like me to add these tasks to your activity?" 
+4. ONLY generate tasks after user confirms with words like "yes", "sounds good", "perfect", "great", "that works"
 
-Remember: Only generate a plan when you have sufficient context${mode === 'chat' ? ' and user explicitly confirms/agrees to the plan details' : ''}${mode === 'quick' ? ' (can be more decisive with fewer questions)' : ''}.
+MANDATORY CONFIRMATION QUESTION:
+After gathering ALL context, always ask: "Would you like me to add these tasks to your activity?"
 
-AGREEMENT DETECTION (for Chat Mode):
-If mode is "chat", look for explicit agreement words in user messages: "yes", "sounds good", "perfect", "great", "that works", "looks good", "agree", "confirmed", "correct". Only suggest plan generation after detecting clear agreement.`;
+Remember: NEVER generate tasks until you have comprehensive context AND explicit user confirmation.`;
   }
 
   /**
@@ -263,7 +267,7 @@ If mode is "chat", look for explicit agreement words in user messages: "yes", "s
       ? `QUICK PLAN MODE: Ask only essential questions (3-4 max). Be efficient and direct.`
       : mode === 'chat'
       ? `CHAT MODE: Gather detailed context. Wait for explicit user agreement before suggesting plan generation.`
-      : `STANDARD MODE: Balance efficiency with thoroughness.`;
+      : `SMART PLAN MODE: Be inquisitive but concise. Ask ALL necessary clarifying questions (budget, timing, flights, transportation, etc.) ONE AT A TIME before creating any tasks. After gathering complete context, ask "Would you like me to add these tasks to your activity?" NEVER generate tasks until you have comprehensive details AND user confirmation.`;
 
     return `You are a conversational lifestyle planning assistant. Gather context through natural dialogue before generating plans.
 
@@ -277,8 +281,23 @@ ${modeInstructions}
 
 ${activityGuide}
 
+CONVERSATION APPROACH:
+- Ask ONE clarifying question at a time - be concise but thorough
+- Make smart assumptions and let them correct you
+- Be warm but efficient - get to the point quickly  
+- NEVER create tasks until ALL essential details are gathered AND user confirms
+
 CORE CONTEXT TO COLLECT:
 - Activity type, Location, Timing, Budget considerations, Vibe/mood
+
+MANDATORY CONFIRMATION QUESTION:
+After gathering ALL context, always ask: "Would you like me to add these tasks to your activity?"
+
+CONFIRMATION FLOW:
+1. Ask ALL necessary clarifying questions based on activity type
+2. Present summary of gathered details
+3. Ask "Would you like me to add these tasks to your activity?"
+4. ONLY generate tasks after user confirms
 
 BUDGET-AWARE SUGGESTIONS:
 - Low budget ($0-$50): Home activities, happy hour at home, local walks
@@ -308,21 +327,24 @@ Required format:
 
     const guides = {
       'date': `
-DATE NIGHT SPECIFIC QUESTIONS:
-1. Budget first: "What's your budget for tonight? Cozy night in ($0-30), casual dinner out ($50-100), or something special ($100+)?"
-2. Mood/vibe: "What kind of mood are you going for? Romantic and intimate, fun and playful, or relaxed and casual?"
-3. If low budget: Suggest home activities like "cooking together, happy hour at your place, movie night with homemade snacks"
-4. If higher budget: Ask about cuisine preferences, ambiance, activities (dinner + activity)
-5. Timing considerations: "What time works best? Early dinner, standard time, or late night vibe?"`,
+DATE NIGHT SPECIFIC QUESTIONS (Ask ALL before creating tasks):
+1. Budget: "What's your budget? Cozy night in ($0-30), casual dinner out ($50-100), or something special ($100+)?"
+2. Timing: "What time works best? Early dinner, standard time, or late night vibe?"
+3. Mood/vibe: "What kind of mood are you going for? Romantic, fun and playful, or relaxed?"
+4. Transportation: "How are you getting around? Driving, walking, rideshare?"
+5. Activities: "Dinner only, or dinner plus something else like drinks/entertainment?"
+CONFIRMATION: After gathering ALL details, ask "Would you like me to add these tasks to your activity?"`,
 
       'travel': `
-TRAVEL SPECIFIC QUESTIONS:
+TRAVEL SPECIFIC QUESTIONS (Ask ALL before creating tasks):
 1. Purpose: "Is this for business or leisure? That'll help me suggest the right timing and activities."
-2. Timing: "When are you looking to travel? And are you flexible with dates or set on specific ones?"
+2. Timing: "When are you looking to travel? What time do you prefer for flights?"
 3. Duration: "How long are you planning to stay?"
-4. If business: Focus on timing, accommodations near meetings, efficient transportation
-5. If leisure: Ask about interests, preferred activities, pace (relaxed vs packed schedule)
-6. Budget considerations: "What's your budget range for this trip?"`,
+4. Budget: "What's your budget range for this trip including flights, hotels, and activities?"
+5. Transportation: "Preferences for flights - direct, specific airlines, departure times?"
+6. Accommodations: "Hotel preferences - location, amenities, budget range?"
+7. Activities: "What experiences are you hoping to have there?"
+CONFIRMATION: After gathering ALL details, ask "Would you like me to add these tasks to your activity?"`,
 
       'social': `
 SOCIAL EVENT SPECIFIC QUESTIONS:
@@ -401,12 +423,27 @@ GENERAL ACTIVITY QUESTIONS:
     const requiredChipsFilled = contextChips.filter(c => c.category === 'required' && c.filled).length;
     const hasMinimumContext = requiredChipsFilled >= 3; // Need at least activity, time/budget, and one more
 
-    // Enhanced logic for determining readiness and confirmation flow
+    // ENHANCED BACKEND ENFORCEMENT: Prevent task generation without confirmation
     let readyToGenerate = false;
     let showConfirmation = false;
 
+    // Check if user has provided explicit confirmation
+    const hasUserConfirmation = session.userConfirmedAdd === true;
+    
+    // Require essential slots for any plan generation
+    const hasEssentialSlots = updatedSlots.activityType && 
+      (updatedSlots.budget || updatedSlots.timing || updatedSlots.location);
+
     if (aiResponse.action === 'generate_plan') {
-      readyToGenerate = true;
+      // STRICT ENFORCEMENT: Only allow task generation if user has confirmed AND we have essential context
+      if (hasUserConfirmation && hasEssentialSlots) {
+        readyToGenerate = true;
+      } else {
+        // Force back to confirmation if requirements not met
+        showConfirmation = true;
+        readyToGenerate = false;
+        nextState = 'confirming';
+      }
     } else if (aiResponse.action === 'confirm_plan' || nextState === 'confirming') {
       showConfirmation = true;
       readyToGenerate = false; // User needs to confirm first
@@ -428,7 +465,9 @@ GENERAL ACTIVITY QUESTIONS:
     const updatedSession = {
       ...session,
       slots: updatedSlots,
-      sessionState: nextState
+      sessionState: nextState,
+      // Clear confirmation flag after task generation
+      userConfirmedAdd: readyToGenerate ? false : session.userConfirmedAdd
     };
 
     return {
