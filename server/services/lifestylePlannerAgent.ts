@@ -32,6 +32,8 @@ export interface ConversationResponse {
     filled: boolean;
   }>;
   readyToGenerate?: boolean;
+  planReady?: boolean;
+  createActivity?: boolean;
   generatedPlan?: any;
   updatedSlots?: any;
 }

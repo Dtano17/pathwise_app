@@ -37,6 +37,191 @@ import bcrypt from 'bcrypt';
 import { z } from "zod";
 import crypto from 'crypto';
 
+// Helper function for Smart Plan structured conversation
+async function handleSmartPlanConversation(req: any, res: any, message: string, conversationHistory: any[], userId: string) {
+  try {
+    // Get or create a lifestyle planner session for this user
+    let session = await storage.getActiveLifestylePlannerSession(userId);
+    
+    if (!session) {
+      // Create new session
+      session = await storage.createLifestylePlannerSession({
+        userId,
+        sessionState: 'intake',
+        slots: {},
+        conversationHistory: [],
+        externalContext: {}
+      });
+    }
+
+    // Get user profile and priorities for personalized questions
+    const userProfile = await storage.getUserProfile(userId);
+    const userPriorities = await storage.getUserPriorities(userId);
+
+    // Add current message to conversation history
+    const updatedHistory = [
+      ...(session.conversationHistory || []),
+      { role: 'user' as const, content: message, timestamp: new Date().toISOString() }
+    ];
+
+    // Update session with new history
+    session = await storage.updateLifestylePlannerSession(session.id, {
+      conversationHistory: updatedHistory
+    }, userId);
+
+    // Check if user is confirming to create the plan
+    const confirmationKeywords = ['yes', 'create the plan', 'sounds good', 'perfect', 'great', 'that works', 'confirm', 'proceed'];
+    const userWantsToCreatePlan = confirmationKeywords.some(keyword => 
+      message.toLowerCase().includes(keyword.toLowerCase())
+    );
+
+    // If user is ready to create plan and confirms
+    if (userWantsToCreatePlan && session.sessionState === 'confirming') {
+      // Create a basic plan structure
+      const planData = {
+        title: `Smart Plan: ${session.slots?.activityType || 'Activity'}`,
+        summary: `Personalized plan based on your conversation`,
+        category: 'personal',
+        tasks: [
+          {
+            title: `Prepare for ${session.slots?.activityType || 'activity'}`,
+            description: 'Get ready and gather what you need',
+            category: 'preparation',
+            priority: 'medium',
+            timeEstimate: '30 min'
+          },
+          {
+            title: `Execute ${session.slots?.activityType || 'activity'}`,
+            description: 'Follow through with the planned activity',
+            category: 'action',
+            priority: 'high', 
+            timeEstimate: '1-2 hours'
+          }
+        ]
+      };
+
+      // Create activity from the structured plan
+      const activity = await storage.createActivity({
+        title: planData.title,
+        description: planData.summary,
+        category: planData.category,
+        status: 'planning',
+        userId
+      });
+
+      // Create tasks and link them to the activity
+      for (let i = 0; i < planData.tasks.length; i++) {
+        const taskData = planData.tasks[i];
+        const task = await storage.createTask({
+          title: taskData.title,
+          description: taskData.description,
+          category: taskData.category,
+          priority: taskData.priority,
+          timeEstimate: taskData.timeEstimate,
+          userId
+        });
+        await storage.addTaskToActivity(activity.id, task.id, i);
+      }
+
+      // Mark session as completed
+      await storage.updateLifestylePlannerSession(session.id, {
+        sessionState: 'completed',
+        isComplete: true,
+        generatedPlan: planData
+      }, userId);
+
+      return res.json({
+        message: "🎉 **Perfect!** I've created your personalized activity plan with trackable tasks. You can find it in your Activities section!",
+        activityCreated: true,
+        activity,
+        planComplete: true
+      });
+    }
+
+    // Process with lifestyle planner agent
+    const response = await lifestylePlannerAgent.processMessage(
+      message,
+      session,
+      userProfile,
+      'chat' // Smart mode
+    );
+
+    // Check if plan is ready for confirmation
+    if (response.readyToGenerate || response.planReady) {
+      // Update session state to confirming
+      await storage.updateLifestylePlannerSession(session.id, {
+        sessionState: 'confirming'
+      }, userId);
+      
+      return res.json({
+        message: response.message + "\n\n🎯 **Ready to create your plan?** Click the \"Create Plan\" button below to turn this into an organized activity with trackable tasks!",
+        planReady: true,
+        sessionId: session.id,
+        showCreatePlanButton: true
+      });
+    }
+
+    // If user confirmed, create the activity
+    if (response.createActivity) {
+      const planData = response.generatedPlan;
+      
+      // Create activity from the structured plan
+      const activity = await storage.createActivity({
+        title: planData.title || 'Smart Plan Activity',
+        description: planData.summary || 'Generated from Smart Plan conversation',
+        category: planData.category || 'personal',
+        status: 'planning',
+        userId
+      });
+
+      // Create tasks and link them to the activity
+      if (planData.tasks && Array.isArray(planData.tasks)) {
+        for (let i = 0; i < planData.tasks.length; i++) {
+          const taskData = planData.tasks[i];
+          const task = await storage.createTask({
+            title: taskData.title,
+            description: taskData.description,
+            category: taskData.category,
+            priority: taskData.priority,
+            timeEstimate: taskData.timeEstimate,
+            userId
+          });
+          await storage.addTaskToActivity(activity.id, task.id, i);
+        }
+      }
+
+      // Mark session as completed
+      await storage.updateLifestylePlannerSession(session.id, {
+        sessionState: 'completed',
+        isComplete: true,
+        generatedPlan: planData
+      }, userId);
+
+      return res.json({
+        message: "🎉 **Perfect!** I've created your personalized activity plan with trackable tasks. You can find it in your Activities section!",
+        activityCreated: true,
+        activity,
+        planComplete: true
+      });
+    }
+
+    // Regular conversation response
+    return res.json({
+      message: response.message,
+      sessionId: session?.id,
+      contextChips: response.contextChips || [],
+      planReady: response.planReady || false
+    });
+
+  } catch (error) {
+    console.error('Smart Plan conversation error:', error);
+    return res.status(500).json({
+      error: 'Failed to process Smart Plan conversation',
+      message: 'Sorry, I encountered an issue. Please try again.'
+    });
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware - Replit Auth integration
   await setupAuth(app);
@@ -1051,7 +1236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Real-time chat conversation endpoint with task creation
   app.post("/api/chat/conversation", async (req, res) => {
     try {
-      const { message, conversationHistory = [] } = req.body;
+      const { message, conversationHistory = [], mode } = req.body;
       
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: 'Message is required and must be a string' });
@@ -1059,6 +1244,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get user ID (demo for now, will use real auth later)
       const userId = (req.user as any)?.id || DEMO_USER_ID;
+
+      // Handle Smart Plan mode with structured conversation
+      if (mode === 'smart') {
+        return await handleSmartPlanConversation(req, res, message, conversationHistory, userId);
+      }
 
       // Create a conversation with the AI
       const aiResponse = await aiService.chatConversation(message, conversationHistory);

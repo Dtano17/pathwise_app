@@ -230,6 +230,8 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   const [showChat, setShowChat] = useState(false);
   const [currentChatMessage, setCurrentChatMessage] = useState('');
   const [isChatDocked, setIsChatDocked] = useState(false);
+  const [currentMode, setCurrentMode] = useState<'quick' | 'smart' | null>(null);
+  const [showCreatePlanButton, setShowCreatePlanButton] = useState(false);
   const recognitionRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -297,7 +299,8 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
       const conversationHistory = chatMessages.map(msg => ({ role: msg.role, content: msg.content }));
       const response = await apiRequest('POST', '/api/chat/conversation', {
         message,
-        conversationHistory
+        conversationHistory,
+        mode: currentMode
       });
       return response.json();
     },
@@ -320,8 +323,22 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
       };
       setChatMessages(prev => [...prev, aiMessage]);
       
-      // Show celebratory toast for goal detection
-      if (data.extractedGoals || data.message.includes("action plan")) {
+      // Handle Smart Plan specific responses
+      if (data.showCreatePlanButton) {
+        setShowCreatePlanButton(true);
+      }
+      
+      if (data.activityCreated) {
+        toast({
+          title: "Activity Created!",
+          description: "Your Smart Plan has been converted into a trackable activity with tasks.",
+        });
+        setShowCreatePlanButton(false);
+        setCurrentMode(null);
+      }
+      
+      // Show celebratory toast for goal detection (non-Smart mode)
+      if (!currentMode && (data.extractedGoals || data.message.includes("action plan"))) {
         toast({
           title: "Goals Detected!",
           description: "I can help you create an action plan for these goals. What would you like to explore further?",
@@ -372,6 +389,9 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   };
 
   const startConversationWithMode = (mode: 'quick' | 'smart') => {
+    // Set current mode
+    setCurrentMode(mode);
+    
     // Show toast notification about the mode
     toast({
       title: mode === 'quick' ? "Quick Plan Mode" : "Smart Plan Mode", 
@@ -380,9 +400,9 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
         : "I'll ask intuitive questions based on your activity and profile, then confirm before creating the perfect plan.",
     });
     
-    // For now, start the basic conversation and indicate the mode
-    // In a future update, this could integrate with ConversationalPlanner
+    // Start the conversation with the specified mode
     setShowChat(true);
+    setShowCreatePlanButton(false);
     if (chatMessages.length === 0) {
       const welcomeMessage: ChatMessage = {
         role: 'assistant',
@@ -392,6 +412,14 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
         timestamp: new Date()
       };
       setChatMessages([welcomeMessage]);
+    }
+  };
+
+  // Handle Create Plan button click for Smart Plan
+  const handleCreatePlan = () => {
+    if (currentMode === 'smart') {
+      // Send confirmation message to trigger plan creation
+      chatMutation.mutate("Yes, create the plan!");
     }
   };
 
@@ -739,6 +767,20 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                 
                 <div ref={chatEndRef} />
               </div>
+              
+              {/* Create Plan Button for Smart Plan */}
+              {showCreatePlanButton && currentMode === 'smart' && (
+                <div className="mb-3">
+                  <Button 
+                    onClick={handleCreatePlan}
+                    className="w-full bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white font-medium"
+                    data-testid="button-create-plan"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Create Plan
+                  </Button>
+                </div>
+              )}
               
               {/* Chat Input */}
               <div className="flex gap-2">
