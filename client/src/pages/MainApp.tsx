@@ -579,17 +579,13 @@ export default function MainApp({
                 </SelectTrigger>
                 <SelectContent>
                   {tabOptions.map((option) => {
-                    const IconComponent = option.icon;
                     // Use full label for dropdown options to show counts
                     const displayLabel = option.value === 'activities' ? `Activities (${activities.length})` :
                                        option.value === 'tasks' ? `Tasks (${tasks.length})` :
                                        option.shortLabel;
                     return (
                       <SelectItem key={option.value} value={option.value} data-testid={`mobile-nav-${option.value}`}>
-                        <div className="flex items-center gap-2">
-                          <IconComponent className="w-4 h-4" />
-                          <span>{displayLabel}</span>
-                        </div>
+                        {displayLabel}
                       </SelectItem>
                     );
                   })}
