@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, Bot, User, ChevronUp, ChevronDown, Minimize2, Maximize2, Zap, Brain } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, Bot, User, ChevronUp, ChevronDown, Minimize2, Maximize2, Zap, Brain, ArrowLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -222,6 +222,7 @@ const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
 
 export default function VoiceInput({ onSubmit, isGenerating = false, placeholder = "Share your goals and intentions..." }: VoiceInputProps) {
   const [text, setText] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
@@ -498,6 +499,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                 {/* Main Text Input Area */}
                 <div className="relative">
                   <Textarea
+                    ref={textareaRef}
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     onKeyDown={handleKeyDown}
@@ -620,6 +622,21 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                            title="Exit dialogue mode"
+                            onClick={() => {
+                              setShowChat(false);
+                              setChatMessages([]);
+                              // Restore focus to main textarea for accessibility
+                              setTimeout(() => textareaRef.current?.focus(), 100);
+                            }}
+                            data-testid="button-exit-chat"
+                          >
+                            <ArrowLeft className="w-3 h-3" />
+                          </Button>
                           <img src={journalMateIcon} className="w-5 h-5 rounded-full" alt="JournalMate" />
                           <h4 className="font-medium text-sm">JournalMate</h4>
                         </div>
