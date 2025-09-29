@@ -1128,11 +1128,12 @@ export default function MainApp({
                         key={task.id}
                         task={{
                           ...task,
-                          description: task.description || '' // Convert null to empty string
+                          description: task.description || '', // Convert null to empty string
+                          priority: (task.priority as 'low' | 'medium' | 'high') || 'medium'
                         }}
                         onComplete={() => handleCompleteTask(task.id)}
                         onSkip={() => handleSkipTask(task.id)}
-                        onSnooze={(hours) => handleSnoozeTask(task.id, hours)}
+                        onSnooze={(hours) => handleSnoozeTask(task.id, Number(hours))}
                         data-testid={`task-card-${task.id}`}
                       />
                     ));
