@@ -433,62 +433,57 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   return (
     <div className="w-full max-w-2xl mx-auto p-2 xs:p-3 sm:p-6">
       <motion.div 
-        className="bg-card border border-card-border rounded-lg p-3 xs:p-4 sm:p-6 space-y-3 sm:space-y-4"
+        className="bg-card border border-card-border rounded-lg p-3 xs:p-4 sm:p-5 space-y-2 xs:space-y-3 sm:space-y-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 mb-1 sm:mb-2">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-            <h3 className="font-semibold text-card-foreground text-sm xs:text-base sm:text-lg">Share Your Intentions</h3>
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-primary" />
+            <h3 className="font-medium text-card-foreground text-sm xs:text-sm">Share Your Intentions</h3>
           </div>
           
-          {/* Feature indicators */}
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Badge variant="outline" className="text-xs gap-1 hidden sm:flex">
-              <Copy className="w-3 h-3" />
-              Copy & Paste
-            </Badge>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-muted-foreground hover:text-foreground"
-              title="Upload images"
-              onClick={() => fileInputRef.current?.click()}
-              data-testid="button-upload-images"
-            >
-              <Upload className="w-3 h-3 xs:w-4 xs:h-4" />
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handleImageUpload}
-            />
-          </div>
+          {/* Compact upload button */}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-muted-foreground hover:text-foreground"
+            title="Upload images"
+            onClick={() => fileInputRef.current?.click()}
+            data-testid="button-upload-images"
+          >
+            <Upload className="w-3.5 h-3.5" />
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleImageUpload}
+          />
         </div>
 
                 {/* Uploaded Images Preview */}
                 {uploadedImages.length > 0 && (
-                  <div className="border rounded-md p-2 xs:p-3 bg-muted/30">
-                    <div className="flex items-center gap-2 mb-1 xs:mb-2">
-                      <Image className="w-3 h-3 xs:w-4 xs:h-4 text-muted-foreground" />
-                      <span className="text-xs xs:text-sm font-medium">Uploaded Images ({uploadedImages.length})</span>
+                  <div className="border rounded-md p-2 bg-muted/30">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Image className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-xs font-medium">Images ({uploadedImages.length})</span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {uploadedImages.map((file, index) => (
-                        <div key={index} className="flex items-center gap-2 bg-background rounded px-2 py-1 text-xs">
-                          <span className="truncate max-w-24">{file.name}</span>
+                        <div key={index} className="flex items-center gap-1 bg-background rounded px-2 py-1 text-xs">
+                          <span className="truncate max-w-20">{file.name}</span>
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-4 w-4 p-0 text-muted-foreground hover:text-destructive"
+                            className="text-muted-foreground hover:text-destructive"
                             onClick={() => removeImage(index)}
+                            data-testid={`button-remove-image-${index}`}
                           >
-                            ×
+                            <span className="text-xs">×</span>
                           </Button>
                         </div>
                       ))}
@@ -504,7 +499,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                     onChange={(e) => setText(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder={placeholder}
-                    className="min-h-[80px] xs:min-h-[100px] sm:min-h-[120px] pr-10 xs:pr-12 sm:pr-16 resize-none text-sm sm:text-base"
+                    className="min-h-[70px] xs:min-h-[85px] sm:min-h-[100px] pr-9 xs:pr-10 sm:pr-12 resize-none text-sm"
                     data-testid="input-goal"
                     disabled={isGenerating}
                   />
