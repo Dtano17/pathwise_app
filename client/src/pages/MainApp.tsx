@@ -606,13 +606,29 @@ export default function MainApp({
         <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-3">
-              {(isMobile || !open) && <SidebarTrigger data-testid="button-sidebar-toggle" />}
+              {/* Conditional Back Button when Plan is Active */}
+              {currentPlanOutput ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setCurrentPlanOutput(null)}
+                  className="gap-2"
+                  data-testid="button-header-back"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
+              ) : (
+                (isMobile || !open) && <SidebarTrigger data-testid="button-sidebar-toggle" />
+              )}
+              
               <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center">
                 <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
               </div>
               <div>
                 <h1 className="text-lg sm:text-2xl font-bold text-foreground">JournalMate</h1>
-                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Transform Goals into Reality</p>
+                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
+                  {currentPlanOutput ? "AI Action Plan Active" : "Transform Goals into Reality"}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-3">
@@ -822,6 +838,22 @@ export default function MainApp({
               {/* Claude-style Plan Output */}
               {currentPlanOutput && (
                 <div className="max-w-4xl mx-auto">
+                  {/* Back to Input Button */}
+                  <div className="flex items-center justify-between mb-6 p-4 bg-muted/30 rounded-lg">
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentPlanOutput(null)}
+                      className="gap-2"
+                      data-testid="button-back-to-input"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      Back to Goal Input
+                    </Button>
+                    <div className="text-sm text-muted-foreground">
+                      AI-Generated Action Plan
+                    </div>
+                  </div>
+                  
                   <ClaudePlanOutput
                     planTitle={currentPlanOutput.planTitle}
                     summary={currentPlanOutput.summary}
