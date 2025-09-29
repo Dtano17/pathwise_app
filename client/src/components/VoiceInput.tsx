@@ -359,7 +359,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
       if (data.activityCreated) {
         toast({
           title: "Activity Created!",
-          description: "Your Smart Plan has been converted into a trackable activity with tasks.",
+          description: "Your plan has been converted into a trackable activity with tasks.",
         });
         setShowCreatePlanButton(false);
         setCurrentMode(null);
