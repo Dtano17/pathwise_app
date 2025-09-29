@@ -578,7 +578,8 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                         data-testid="button-smart-plan"
                       >
                         <Brain className="w-3 h-3" />
-                        Smart Create Action Plan
+                        <span className="hidden sm:inline">Smart Create Action Plan</span>
+                        <span className="sm:hidden">Smart Plan</span>
                       </Button>
                     </div>
                   </div>
