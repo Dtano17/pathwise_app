@@ -261,7 +261,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
     // Check initial state
     initializeScrollState();
     return () => chatContainer.removeEventListener('scroll', handleScroll);
-  }, [showChat, chatMessages.length]);
+  }, [currentMode, chatMessages.length]);
 
   const startRecording = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
