@@ -65,9 +65,7 @@ const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
           if (currentList.length > 0) {
             formatted.push(
               <div key={`prev-list-${index}`} className="my-4">
-                {listType === 'numbered' ? (
-                  <ol className="space-y-3 ml-4">{currentList}</ol>
-                ) : listType === 'bulleted' ? (
+                {listType === 'bulleted' ? (
                   <ul className="space-y-3 ml-4">{currentList}</ul>
                 ) : null}
               </div>
@@ -432,34 +430,34 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-6">
+    <div className="w-full max-w-2xl mx-auto p-3 sm:p-6">
       <motion.div 
-        className="bg-card border border-card-border rounded-lg p-6 space-y-4"
+        className="bg-card border border-card-border rounded-lg p-4 sm:p-6 space-y-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold text-card-foreground">Share Your Intentions</h3>
+            <h3 className="font-semibold text-card-foreground text-base sm:text-lg">Share Your Intentions</h3>
           </div>
           
           {/* Feature indicators */}
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs gap-1">
+            <Badge variant="outline" className="text-xs gap-1 hidden sm:flex">
               <Copy className="w-3 h-3" />
               Copy & Paste
             </Badge>
             <Button
               size="icon"
               variant="ghost"
-              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              className="h-8 w-8 sm:h-6 sm:w-6 text-muted-foreground hover:text-foreground"
               title="Upload images"
               onClick={() => fileInputRef.current?.click()}
               data-testid="button-upload-images"
             >
-              <Upload className="w-3 h-3" />
+              <Upload className="w-4 h-4 sm:w-3 sm:h-3" />
             </Button>
             <input
               ref={fileInputRef}
@@ -504,12 +502,12 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                     onChange={(e) => setText(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder={placeholder}
-                    className="min-h-[120px] pr-16 resize-none text-base"
+                    className="min-h-[100px] sm:min-h-[120px] pr-12 sm:pr-16 resize-none text-sm sm:text-base"
                     data-testid="input-goal"
                     disabled={isGenerating}
                   />
                   
-                  <div className="absolute bottom-3 right-3 flex gap-2">
+                  <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 flex gap-1 sm:gap-2">
                     <AnimatePresence>
                       {isRecording ? (
                         <motion.div
@@ -556,37 +554,39 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                     <div className="text-sm text-muted-foreground">
                       {isListening && "Listening..."}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => startConversationWithMode('quick')}
-                      className="gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950"
-                      data-testid="button-quick-plan"
-                    >
-                      <Zap className="w-3 h-3" />
-                      Quick Plan
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => startConversationWithMode('smart')}
-                      className="gap-2 text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950"
-                      data-testid="button-smart-plan"
-                    >
-                      <Brain className="w-3 h-3" />
-                      Smart Plan
-                    </Button>
+                    <div className="flex gap-2 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => startConversationWithMode('quick')}
+                        className="gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950 min-h-[36px]"
+                        data-testid="button-quick-plan"
+                      >
+                        <Zap className="w-3 h-3" />
+                        Quick Plan
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => startConversationWithMode('smart')}
+                        className="gap-2 text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950 min-h-[36px]"
+                        data-testid="button-smart-plan"
+                      >
+                        <Brain className="w-3 h-3" />
+                        Smart Create Action Plan
+                      </Button>
+                    </div>
                   </div>
                   
                   <Button
                     onClick={handleSubmit}
                     disabled={!text.trim() || isGenerating}
-                    className="gap-2"
+                    className="gap-2 w-full sm:w-auto min-h-[44px]"
                     data-testid="button-submit"
                   >
                     {isGenerating ? (
@@ -596,12 +596,14 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                           transition={{ repeat: Infinity, duration: 1 }}
                           className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full"
                         />
-                        Generating Plan...
+                        <span className="hidden sm:inline">Generating Plan...</span>
+                        <span className="sm:hidden">Generating...</span>
                       </>
                     ) : (
                       <>
                         <Send className="w-4 h-4" />
-                        Create Action Plan
+                        <span className="hidden sm:inline">Create Action Plan</span>
+                        <span className="sm:hidden">Create Plan</span>
                       </>
                     )}
                   </Button>
