@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { SlotCompletenessEngine } from "./slotRegistry";
 import type { 
   LifestylePlannerSession, 
   InsertLifestylePlannerSession,
@@ -188,16 +189,30 @@ export class LifestylePlannerAgent {
     // Get question count for this mode
     const externalContext = session.externalContext || {};
     const questionCount = externalContext.questionCount || { smart: 0, quick: 0 };
-    const currentMode = externalContext.currentMode || 'smart';
+    const currentMode = mode || externalContext.currentMode || 'smart';
+    
+    // Use slot completeness engine to determine what's missing
+    const completenessAnalysis = SlotCompletenessEngine.analyzeCompleteness(
+      currentSlots, 
+      activityType || 'general', 
+      currentMode as 'quick' | 'smart'
+    );
     
     const modeInstructions = mode === 'quick' 
-      ? `QUICK PLAN MODE: You have a maximum of 3 follow-up questions. Ask only the most essential questions to gather basic context. Current count: ${questionCount.quick}/3. Be efficient and direct while still being conversational. Focus on: activity, location, timing, and transportation. If you have enough details, move to confirmation.`
-      : mode === 'chat'
-      ? `SMART PLAN MODE: You have a maximum of 5 questions, but aim to stop by question 3 if you have sufficient context. Current count: ${questionCount.smart}/5. Ask clarifying questions ONE AT A TIME and wait for explicit user agreement before suggesting plan generation. If you have activity type + (budget OR timing OR location) and one more detail, move to confirmation.`
-      : `SMART PLAN MODE: You have a maximum of 5 questions, but aim to stop by question 3 if you have sufficient context. Current count: ${questionCount.smart}/5. Ask ALL necessary clarifying questions (budget, timing, transportation, etc.) ONE AT A TIME. Stop asking questions when you have: activity type + (budget OR timing OR location) + one additional detail. Then move to confirmation phase.`;
+      ? `QUICK PLAN MODE: Server-enforced completeness tracking. Current count: ${questionCount.quick}/4 questions. You MUST ask for the next missing REQUIRED field only. Do not ask multiple questions at once. Current completion: ${completenessAnalysis.completionPercentage}%. 
 
-    // Get activity-specific questioning strategy
-    const activityGuide = this.getActivitySpecificGuide(activityType || '');
+MISSING REQUIRED: ${completenessAnalysis.missingRequired.map(slot => slot.label).join(', ') || 'None'}
+NEXT TO ASK: ${completenessAnalysis.nextPrioritySlot?.label || 'Ready for confirmation'}`
+      : `SMART PLAN MODE: Server-enforced completeness tracking. Current count: ${(mode === 'chat' ? questionCount.smart : questionCount.smart)}/5 questions. You MUST ask for the next missing field only. Current completion: ${completenessAnalysis.completionPercentage}%.
+
+MISSING REQUIRED: ${completenessAnalysis.missingRequired.map(slot => slot.label).join(', ') || 'None'}
+MISSING OPTIONAL NEEDED: ${completenessAnalysis.missingOptionalCount > 0 ? `${completenessAnalysis.missingOptionalCount} more optional fields` : 'None'}  
+NEXT TO ASK: ${completenessAnalysis.nextPrioritySlot?.label || 'Ready for confirmation'}
+
+COMPLETENESS RULE: Only move to confirmation when server says isReady: ${completenessAnalysis.isReady}`;
+
+    // Get activity-specific questioning strategy for context
+    const activityGuide = activityType ? `\nACTIVITY CONTEXT: This is a ${activityType} activity. Ask questions relevant to planning this type of activity.` : '';
 
     return `You are a highly conversational lifestyle planning assistant. Your goal is to gather context through natural dialogue before generating a comprehensive plan.
 
@@ -213,32 +228,18 @@ ${activityGuide}
 
 CONVERSATION APPROACH:
 - Be presumptive and human-like: "I'm assuming you're driving unless you prefer something else?"
-- Ask ONE clarifying question at a time - be concise but thorough
+- Ask ONE clarifying question at a time focused on the NEXT PRIORITY SLOT identified above
 - Reference their profile when relevant: "Since you're in ${userProfile?.location || 'your area'}, I see it's usually..."
 - Make smart assumptions and let them correct you
 - Be warm but efficient - get to the point quickly
-- Ask context-specific questions based on activity type
-- NEVER create tasks until ALL essential details are gathered AND user confirms
+- Ask the specific question for the next missing field (see NEXT TO ASK above)
+- NEVER create tasks until server says isReady: true AND user confirms
 
-CORE CONTEXT TO COLLECT:
-- Activity type/what they want to do
-- Location (current & destination) 
-- Timing (departure/arrival times, date)
-- Transportation preference
-- Budget considerations
-- Vibe/mood they're going for
-
-ACTIVITY-SPECIFIC CONTEXT:
-- For dates: Budget level, mood/vibe, romantic vs casual, companions
-- For travel: Purpose (business/leisure), timing preferences, activities planned, duration
-- For social events: Group size, occasion, formality level
-- For dining: Cuisine preferences, dietary restrictions, price range
-- For entertainment: Type of activity, group composition, time constraints
-
-BUDGET-AWARE SUGGESTIONS:
-- Low budget ($0-$50): Home activities, happy hour at home, picnics, local walks, cooking together
-- Medium budget ($50-$150): Casual dining, movies, local attractions, happy hour out
-- Higher budget ($150+): Fine dining, concerts, shows, special experiences
+SERVER-ENFORCED COMPLETENESS:
+- You MUST only ask for the field listed in "NEXT TO ASK" above
+- Do NOT decide when you have enough information - the server determines this
+- Only move to confirmation when "COMPLETENESS RULE" says isReady: true
+- Focus your question on getting the specific missing field identified by the server
 
 RESPONSE FORMAT:
 Always respond with valid JSON in this exact structure:
@@ -448,11 +449,11 @@ GENERAL ACTIVITY QUESTIONS:
     // Track question counts and enforce limits
     const externalContext = session.externalContext || {};
     const questionCount = externalContext.questionCount || { smart: 0, quick: 0 };
-    const currentMode = externalContext.currentMode || 'smart'; // Default to smart mode
+    const plannerMode = externalContext.currentMode || 'smart'; // Default to smart mode
     
     // If AI is asking a question, increment the counter for current mode
     if (aiResponse.action === 'ask_question') {
-      questionCount[currentMode as keyof typeof questionCount]++;
+      questionCount[plannerMode as keyof typeof questionCount]++;
     }
     
     // Check if we've hit question limits
@@ -462,7 +463,7 @@ GENERAL ACTIVITY QUESTIONS:
     
     let forceConfirmation = false;
     
-    if (currentMode === 'smart') {
+    if (plannerMode === 'smart') {
       // Smart Plan: Max 5 questions, early stop at 3 if we have sufficient context
       const hasEnoughContext = updatedSlots.activityType && 
         (updatedSlots.budget || updatedSlots.timing) && 
@@ -472,7 +473,7 @@ GENERAL ACTIVITY QUESTIONS:
           (questionCount.smart >= smartEarlyStop && hasEnoughContext)) {
         forceConfirmation = true;
       }
-    } else if (currentMode === 'quick') {
+    } else if (plannerMode === 'quick') {
       // Quick Plan: Max 3 questions
       if (questionCount.quick >= quickLimit) {
         forceConfirmation = true;
@@ -487,38 +488,58 @@ GENERAL ACTIVITY QUESTIONS:
     }
 
     // Generate context chips showing filled information (using updated slots!)
-    const contextChips = this.generateContextChips(updatedSlots);
+    const contextChips = this.generateContextChips(updatedSlots, updatedSlots.activityType);
     
-    // Check if we have enough context for confirmation using updated slots
-    const requiredChipsFilled = contextChips.filter(c => c.category === 'required' && c.filled).length;
-    const hasMinimumContext = requiredChipsFilled >= 3; // Need at least activity, time/budget, and one more
+    // Use slot completeness engine to check if we're ready for confirmation
+    const sessionMode = (session.externalContext?.currentMode || 'smart') as 'quick' | 'smart';
+    const completenessAnalysis = SlotCompletenessEngine.analyzeCompleteness(
+      updatedSlots, 
+      updatedSlots.activityType || 'general', 
+      sessionMode
+    );
+    const hasMinimumContext = completenessAnalysis.isReady; // Use proper completeness check
 
-    // ENHANCED BACKEND ENFORCEMENT: Prevent task generation without confirmation
+    // SERVER-ENFORCED COMPLETENESS GATING: Override AI decisions with completeness engine
     let readyToGenerate = false;
     let showConfirmation = false;
 
     // Check if user has provided explicit confirmation
     const hasUserConfirmation = session.userConfirmedAdd === true;
     
-    // Require essential slots for any plan generation
-    const hasEssentialSlots = updatedSlots.activityType && 
-      (updatedSlots.budget || updatedSlots.timing || updatedSlots.location);
-
+    // SERVER AUTHORITY: Use completeness engine to determine state transitions
     if (aiResponse.action === 'generate_plan') {
-      // STRICT ENFORCEMENT: Only allow task generation if user has confirmed AND we have essential context
-      if (hasUserConfirmation && hasEssentialSlots) {
+      // STRICT ENFORCEMENT: Only allow task generation if completeness engine approves AND user confirmed
+      if (hasUserConfirmation && completenessAnalysis.isReady) {
         readyToGenerate = true;
       } else {
-        // Force back to confirmation if requirements not met
+        // Force back to asking questions or confirmation based on completeness
+        if (!completenessAnalysis.isReady) {
+          // Override AI - more questions needed
+          aiResponse.action = 'ask_question';
+          aiResponse.message = `I need a bit more information to create a great plan. ${completenessAnalysis.nextPrioritySlot?.description || 'Let me ask you another question.'}`;
+          nextState = 'gathering';
+        } else {
+          // Ready but needs user confirmation
+          showConfirmation = true;
+          readyToGenerate = false;
+          nextState = 'confirming';
+        }
+      }
+    } else if (aiResponse.action === 'confirm_plan') {
+      // SERVER CHECK: Only allow confirmation if completeness engine approves
+      if (completenessAnalysis.isReady) {
         showConfirmation = true;
         readyToGenerate = false;
         nextState = 'confirming';
+      } else {
+        // Override AI - not ready for confirmation yet
+        aiResponse.action = 'ask_question';
+        aiResponse.message = `I need to gather a few more details first. ${completenessAnalysis.nextPrioritySlot?.description || 'Let me ask about that.'}`;
+        nextState = 'gathering';
       }
-    } else if (aiResponse.action === 'confirm_plan' || nextState === 'confirming') {
-      showConfirmation = true;
-      readyToGenerate = false; // User needs to confirm first
-    } else if (hasMinimumContext && !aiResponse.missingRequiredSlots?.length) {
-      // Enough context gathered, should move to confirmation
+    } else if (completenessAnalysis.isReady && aiResponse.action === 'ask_question') {
+      // Override AI - we have enough info, move to confirmation
+      aiResponse.action = 'confirm_plan';
       showConfirmation = true;
       nextState = 'confirming';
     }
@@ -535,7 +556,7 @@ GENERAL ACTIVITY QUESTIONS:
     const updatedExternalContext = {
       ...externalContext,
       questionCount,
-      currentMode
+      plannerMode
     };
     
     const updatedSession = {
@@ -639,86 +660,9 @@ GENERAL ACTIVITY QUESTIONS:
   /**
    * Generate context chips showing collected information
    */
-  private generateContextChips(slots: any): Array<{label: string; value: string; category: 'required' | 'optional'; filled: boolean}> {
-    const chips = [];
-    
-    // Required slots
-    chips.push({
-      label: "Activity",
-      value: slots.activityType || "What are you doing?",
-      category: 'required' as const,
-      filled: !!slots.activityType
-    });
-    
-    chips.push({
-      label: "Time",
-      value: slots.timing?.departureTime || slots.timing?.arrivalTime || "When?",
-      category: 'required' as const,
-      filled: !!(slots.timing?.departureTime || slots.timing?.arrivalTime)
-    });
-    
-    chips.push({
-      label: "Location",
-      value: slots.location?.destination || "Where to?",
-      category: 'required' as const,
-      filled: !!slots.location?.destination
-    });
-    
-    // Budget is now a key required field for activity-specific planning
-    chips.push({
-      label: "Budget",
-      value: slots.budget || "Budget range?",
-      category: 'required' as const,
-      filled: !!slots.budget
-    });
-    
-    // Optional slots
-    if (slots.transportation) {
-      chips.push({
-        label: "Transport",
-        value: slots.transportation,
-        category: 'optional' as const,
-        filled: true
-      });
-    }
-    
-    if (slots.vibe) {
-      chips.push({
-        label: "Vibe",
-        value: slots.vibe,
-        category: 'optional' as const,
-        filled: true
-      });
-    }
-    
-    if (slots.companions) {
-      chips.push({
-        label: "Companions",
-        value: slots.companions,
-        category: 'optional' as const,
-        filled: true
-      });
-    }
-    
-    if (slots.purpose) {
-      chips.push({
-        label: "Purpose",
-        value: slots.purpose,
-        category: 'optional' as const,
-        filled: true
-      });
-    }
-    
-    if (slots.outfit) {
-      chips.push({
-        label: "Outfit",
-        value: `${slots.outfit.formality || 'casual'} style`,
-        category: 'optional' as const,
-        filled: true
-      });
-    }
-    
-    return chips;
+  private generateContextChips(slots: any, activityType?: string): Array<{label: string; value: string; category: 'required' | 'optional'; filled: boolean}> {
+    // Use the slot registry to generate proper context chips based on activity type
+    return SlotCompletenessEngine.generateContextChips(slots, activityType || 'general');
   }
 
   /**
@@ -765,8 +709,18 @@ GENERAL ACTIVITY QUESTIONS:
         ];
         tips = ["Make reservations well in advance", "Dress up for the occasion", "Consider transportation/parking"];
       }
-    } else if (activityType.includes('travel')) {
-      if (slots.vibe?.includes('business') || slots.companions?.includes('business')) {
+    } else if (activityType && activityType.includes('travel')) {
+      const isBusinessTravel = Boolean(
+        slots.vibe?.includes?.('business') || 
+        (typeof slots.companions === 'string' && slots.companions.includes('business')) ||
+        (slots.companions && 
+         typeof slots.companions === 'object' && 
+         'relationships' in slots.companions &&
+         Array.isArray(slots.companions.relationships) && 
+         slots.companions.relationships.some((rel: string) => typeof rel === 'string' && rel.includes('business')))
+      );
+      
+      if (isBusinessTravel) {
         activitySuggestions = [
           "Book accommodations near meeting location",
           "Plan efficient transportation routes",
