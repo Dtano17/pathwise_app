@@ -448,41 +448,67 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       onChange={(e) => setText(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder={placeholder}
-                      className="min-h-[80px] sm:min-h-[100px] lg:min-h-[120px] resize-none pr-12 text-sm sm:text-base"
+                      className="min-h-[80px] sm:min-h-[100px] lg:min-h-[120px] resize-none pr-20 text-sm sm:text-base"
                       rows={3}
                       data-testid="textarea-goal-input"
                     />
-                    <Button
-                      variant={isRecording ? "default" : "ghost"}
-                      size="icon"
-                      className="absolute bottom-2 right-2 h-8 w-8 sm:h-9 sm:w-9"
-                      onClick={isRecording ? stopRecording : startRecording}
-                      disabled={isGenerating}
-                      data-testid="button-voice-record"
-                    >
-                      {isRecording ? (
-                        <MicOff className="h-4 w-4 sm:h-5 sm:w-5" />
-                      ) : (
-                        <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
-                      )}
-                    </Button>
+                    {/* Integrated controls inside textarea */}
+                    <div className="absolute bottom-2 right-2 flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 sm:h-8 sm:w-8 opacity-60 hover:opacity-100 transition-opacity"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isGenerating}
+                        data-testid="button-upload"
+                      >
+                        <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
+                      </Button>
+                      <Button
+                        variant={isRecording ? "default" : "ghost"}
+                        size="icon"
+                        className={`h-7 w-7 sm:h-8 sm:w-8 transition-opacity ${
+                          isRecording ? '' : 'opacity-60 hover:opacity-100'
+                        }`}
+                        onClick={isRecording ? stopRecording : startRecording}
+                        disabled={isGenerating}
+                        data-testid="button-voice-record"
+                      >
+                        {isRecording ? (
+                          <MicOff className="h-3 w-3 sm:h-4 sm:w-4" />
+                        ) : (
+                          <Mic className="h-3 w-3 sm:h-4 sm:w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setUploadedImages(prev => [...prev, ...files]);
+                      }}
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                    />
                   </div>
 
-                  {/* Recording status */}
+                  {/* Compact recording status */}
                   <AnimatePresence>
                     {isRecording && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="flex items-center gap-2 text-sm text-muted-foreground"
+                        className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-1"
                       >
-                        <div className="flex gap-1">
-                          <div className="w-1 h-3 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-                          <div className="w-1 h-3 bg-primary rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
-                          <div className="w-1 h-3 bg-primary rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+                        <div className="flex gap-0.5">
+                          <div className="w-0.5 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+                          <div className="w-0.5 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+                          <div className="w-0.5 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
                         </div>
-                        <span>{isListening ? "Listening..." : "Processing..."}</span>
+                        <span className="text-xs">{isListening ? "Listening..." : "Processing..."}</span>
                       </motion.div>
                     )}
                   </AnimatePresence>
