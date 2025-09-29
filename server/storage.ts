@@ -96,7 +96,6 @@ export interface IStorage {
   addTaskToActivity(activityId: string, taskId: string, order?: number): Promise<ActivityTask>;
   getActivityTasks(activityId: string, userId: string): Promise<Task[]>;
   removeTaskFromActivity(activityId: string, taskId: string): Promise<void>;
-  getActivityTasks(activityId: string): Promise<{ task: Task; order: number }[]>;
   updateActivityTaskOrder(activityId: string, taskId: string, order: number): Promise<void>;
 
   // Journal Entries
@@ -480,18 +479,6 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(activityTasks.activityId, activityId), eq(activityTasks.taskId, taskId)));
   }
 
-  async getActivityTasks(activityId: string): Promise<{ task: Task; order: number }[]> {
-    const result = await db.select({
-      task: tasks,
-      order: activityTasks.order,
-    })
-    .from(activityTasks)
-    .innerJoin(tasks, eq(activityTasks.taskId, tasks.id))
-    .where(eq(activityTasks.activityId, activityId))
-    .orderBy(activityTasks.order);
-    
-    return result;
-  }
 
   async updateActivityTaskOrder(activityId: string, taskId: string, order: number): Promise<void> {
     await db.update(activityTasks)
