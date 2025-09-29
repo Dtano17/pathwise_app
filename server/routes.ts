@@ -181,10 +181,10 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
     );
 
     // CRITICAL: Persist updated session data including question counts
+    // Note: User message already added to history in handleSmartPlanConversation, only add assistant response
     const updatedConversationHistory = [
       ...(session.conversationHistory || []),
-      { role: 'user', content: message },
-      { role: 'assistant', content: response.message }
+      { role: 'assistant', content: response.message, timestamp: new Date().toISOString() }
     ];
 
     await storage.updateLifestylePlannerSession(session.id, {

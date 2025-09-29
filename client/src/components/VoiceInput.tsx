@@ -246,14 +246,24 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = chatContainer;
-      const threshold = 50; // pixels from bottom
+      const threshold = 100; // Increased threshold for mobile
+      const nearBottom = scrollTop + clientHeight >= scrollHeight - threshold;
+      setIsNearBottom(nearBottom);
+    };
+
+    // Initialize near bottom state
+    const initializeScrollState = () => {
+      const { scrollTop, scrollHeight, clientHeight } = chatContainer;
+      const threshold = 100;
       const nearBottom = scrollTop + clientHeight >= scrollHeight - threshold;
       setIsNearBottom(nearBottom);
     };
 
     chatContainer.addEventListener('scroll', handleScroll);
+    // Check initial state
+    initializeScrollState();
     return () => chatContainer.removeEventListener('scroll', handleScroll);
-  }, [showChat]);
+  }, [showChat, chatMessages.length]);
 
   const startRecording = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -365,7 +375,14 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
       
       // Only auto-scroll on assistant replies when user is near bottom
       if (isNearBottom) {
-        setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        setTimeout(() => {
+          // Use smooth scroll with more controlled behavior for mobile
+          chatEndRef.current?.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'nearest',
+            inline: 'nearest'
+          });
+        }, 150);
       }
     },
     onError: (error: any) => {
@@ -663,12 +680,12 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                       transition={{ duration: 0.3 }}
                       className="border-t border-border pt-4 mt-4"
                     >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between mb-3 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                            className="h-6 w-6 text-muted-foreground hover:text-foreground flex-shrink-0"
                             title="Exit dialogue mode"
                             onClick={() => {
                               setShowChat(false);
@@ -680,10 +697,10 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                           >
                             <ArrowLeft className="w-3 h-3" />
                           </Button>
-                          <img src={journalMateIcon} className="w-5 h-5 rounded-full" alt="JournalMate" />
-                          <h4 className="font-medium text-sm">JournalMate</h4>
+                          <img src={journalMateIcon} className="w-5 h-5 rounded-full flex-shrink-0" alt="JournalMate" />
+                          <h4 className="font-medium text-sm truncate min-w-0">JournalMate</h4>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           <Badge variant="secondary" className="text-xs">
                             Dialogue Mode
                           </Badge>
