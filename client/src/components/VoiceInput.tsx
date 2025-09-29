@@ -234,10 +234,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     }
     
     // Normal plan creation mode
-    onSubmit({
-      text: text.trim(),
-      images: uploadedImages
-    });
+    onSubmit(text.trim());
     setText('');
     setUploadedImages([]);
     setInputKey(prev => prev + 1);
