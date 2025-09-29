@@ -610,25 +610,28 @@ GENERAL ACTIVITY QUESTIONS:
     const vibe = slots.vibe || 'mood TBD';
     const companions = slots.companions || '';
 
-    let summary = `Great! Let me summarize what we've planned:\n\n`;
-    summary += `🎯 **Activity**: ${activity}\n`;
-    summary += `📍 **Location**: ${location}\n`;
-    summary += `⏰ **Timing**: ${timing}\n`;
-    summary += `💰 **Budget**: ${budget}\n`;
+    let summary = `✨ **Perfect! Here's your plan summary:**\n\n`;
+    summary += `**📋 Activity Details**\n`;
+    summary += `🎯 ${activity}\n`;
+    summary += `📍 ${location}\n`;
+    summary += `⏰ ${timing}\n\n`;
+    
+    summary += `**💡 Planning Details**\n`;
+    summary += `💰 Budget: ${budget}\n`;
     
     if (vibe && vibe !== 'mood TBD') {
-      summary += `✨ **Vibe**: ${vibe}\n`;
+      summary += `✨ Vibe: ${vibe}\n`;
     }
     
     if (companions && companions !== '') {
-      summary += `👥 **With**: ${companions}\n`;
+      summary += `👥 Going with: ${companions}\n`;
     }
 
     if (slots.transportation) {
-      summary += `🚗 **Transportation**: ${slots.transportation}\n`;
+      summary += `🚗 Transportation: ${slots.transportation}\n`;
     }
 
-    summary += `\nDoes this sound like a good plan? I can generate the complete details with specific suggestions and timeline if you'd like!`;
+    summary += `\n🚀 **Ready to create your personalized plan?**\nI'll generate detailed suggestions, timelines, and actionable tasks tailored just for you!`;
 
     return summary;
   }
