@@ -492,14 +492,14 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                 </div>
 
                 {/* Action buttons row */}
-                <div className="space-y-3 sm:space-y-0 sm:flex sm:flex-row sm:gap-3 sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   {/* Conversational Mode Buttons */}
-                  <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+                  <div className="flex gap-2">
                     <Button
                       variant={currentMode === 'quick' ? 'default' : 'outline'}
-                      size="sm"
+                      size="default"
                       onClick={() => startConversationWithMode('quick')}
-                      className={`gap-1 sm:gap-2 ${
+                      className={`flex-1 sm:flex-none gap-1 sm:gap-2 ${
                         currentMode === 'quick'
                           ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 toggle-elevated'
                           : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950'
@@ -511,9 +511,9 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                     </Button>
                     <Button
                       variant={currentMode === 'smart' ? 'default' : 'outline'}
-                      size="sm"
+                      size="default"
                       onClick={() => startConversationWithMode('smart')}
-                      className={`gap-1 sm:gap-2 ${
+                      className={`flex-1 sm:flex-none gap-1 sm:gap-2 ${
                         currentMode === 'smart'
                           ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700 toggle-elevated'
                           : 'text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950'
