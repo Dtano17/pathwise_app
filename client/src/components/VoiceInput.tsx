@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, Bot, User, ChevronUp, ChevronDown, Minimize2, Maximize2, Zap, Brain, ArrowLeft } from 'lucide-react';
@@ -232,10 +232,28 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   const [isChatDocked, setIsChatDocked] = useState(false);
   const [currentMode, setCurrentMode] = useState<'quick' | 'smart' | null>(null);
   const [showCreatePlanButton, setShowCreatePlanButton] = useState(false);
+  const [isNearBottom, setIsNearBottom] = useState(true);
   const recognitionRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Track scroll position to determine if user is near bottom
+  useEffect(() => {
+    const chatContainer = chatContainerRef.current;
+    if (!chatContainer) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = chatContainer;
+      const threshold = 50; // pixels from bottom
+      const nearBottom = scrollTop + clientHeight >= scrollHeight - threshold;
+      setIsNearBottom(nearBottom);
+    };
+
+    chatContainer.addEventListener('scroll', handleScroll);
+    return () => chatContainer.removeEventListener('scroll', handleScroll);
+  }, [showChat]);
 
   const startRecording = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -345,8 +363,10 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
         });
       }
       
-      // Auto-scroll to show new message
-      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      // Only auto-scroll on assistant replies when user is near bottom
+      if (isNearBottom) {
+        setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      }
     },
     onError: (error: any) => {
       toast({
@@ -691,7 +711,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                             className="overflow-hidden"
                           >
                             {/* Chat Messages */}
-                            <div className="bg-gradient-to-br from-muted/20 to-muted/40 rounded-xl p-4 max-h-80 overflow-y-auto mb-4 space-y-4 backdrop-blur-sm border border-border/30">
+                            <div ref={chatContainerRef} className="bg-gradient-to-br from-muted/20 to-muted/40 rounded-xl p-4 max-h-80 overflow-y-auto mb-4 space-y-4 backdrop-blur-sm border border-border/30 scroll-smooth">
                         {chatMessages.map((message, index) => (
                           <motion.div
                             key={index}
