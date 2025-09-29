@@ -230,38 +230,41 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2 mt-4">
+        <div className="flex flex-col sm:flex-row gap-2 mt-4">
           <Button 
             onClick={handleComplete}
             disabled={isProcessing}
-            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+            className="w-full sm:flex-1 bg-green-600 hover:bg-green-700 text-white"
             data-testid={`button-complete-${task.id}`}
           >
             <CheckCircle className="w-4 h-4 mr-2" />
             Complete
           </Button>
           
-          <Button 
-            onClick={handleSnooze}
-            disabled={isProcessing}
-            variant="outline"
-            className="flex-1"
-            data-testid={`button-snooze-${task.id}`}
-          >
-            <Pause className="w-4 h-4 mr-2" />
-            Snooze 2h
-          </Button>
-          
-          <Button 
-            onClick={handleSkip}
-            disabled={isProcessing}
-            variant="outline"
-            className="flex-1 text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
-            data-testid={`button-skip-${task.id}`}
-          >
-            <X className="w-4 h-4 mr-2" />
-            Skip
-          </Button>
+          <div className="flex gap-2 sm:flex-1 sm:gap-2">
+            <Button 
+              onClick={handleSnooze}
+              disabled={isProcessing}
+              variant="outline"
+              className="flex-1 sm:flex-none sm:w-auto"
+              data-testid={`button-snooze-${task.id}`}
+            >
+              <Pause className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Snooze 2h</span>
+              <span className="sm:hidden">2h</span>
+            </Button>
+            
+            <Button 
+              onClick={handleSkip}
+              disabled={isProcessing}
+              variant="outline"
+              className="flex-1 sm:flex-none sm:w-auto text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
+              data-testid={`button-skip-${task.id}`}
+            >
+              <X className="w-4 h-4 sm:mr-2" />
+              Skip
+            </Button>
+          </div>
         </div>
 
         {/* Processing indicator */}
