@@ -452,9 +452,9 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
     }
   };
 
-  // Handle Create Plan button click for Smart Plan
+  // Handle Create Plan button click for both Smart and Quick Plan
   const handleCreatePlan = () => {
-    if (currentMode === 'smart') {
+    if (currentMode === 'smart' || currentMode === 'quick') {
       // Send confirmation message to trigger plan creation
       chatMutation.mutate("Yes, create the plan!");
     }
@@ -621,20 +621,28 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                     </div>
                     <div className="flex gap-1 xs:gap-2 flex-wrap">
                       <Button
-                        variant="outline"
+                        variant={currentMode === 'quick' ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => startConversationWithMode('quick')}
-                        className="gap-1 xs:gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950"
+                        className={`gap-1 xs:gap-2 ${
+                          currentMode === 'quick'
+                            ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 toggle-elevated'
+                            : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950'
+                        }`}
                         data-testid="button-quick-plan"
                       >
                         <Zap className="w-3 h-3" />
                         <span className="text-xs xs:text-sm">Quick Plan</span>
                       </Button>
                       <Button
-                        variant="outline"
+                        variant={currentMode === 'smart' ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => startConversationWithMode('smart')}
-                        className="gap-1 xs:gap-2 text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950"
+                        className={`gap-1 xs:gap-2 ${
+                          currentMode === 'smart'
+                            ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700 toggle-elevated'
+                            : 'text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950'
+                        }`}
                         data-testid="button-smart-plan"
                       >
                         <Brain className="w-3 h-3" />
@@ -805,8 +813,8 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                 <div ref={chatEndRef} />
               </div>
               
-              {/* Create Plan Button for Smart Plan */}
-              {showCreatePlanButton && currentMode === 'smart' && (
+              {/* Create Plan Button for both Smart and Quick Plan */}
+              {showCreatePlanButton && (currentMode === 'smart' || currentMode === 'quick') && (
                 <div className="mb-3">
                   <Button 
                     onClick={handleCreatePlan}
