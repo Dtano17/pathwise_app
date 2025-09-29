@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, Bot, User, Zap, Brain, ArrowLeft } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft } from 'lucide-react';
 // Using simple avatar placeholder instead of imported icon
 
 interface ChatMessage {
@@ -249,9 +249,9 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   // If in conversation mode, show full-screen chat interface
   if (currentMode && chatMessages.length > 0) {
     return (
-      <div className="flex flex-col h-screen w-full bg-background">
+      <div className="flex flex-col min-h-[100dvh] w-full bg-background">
         {/* Chat Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-10">
+        <div className="flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-[999]">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -268,14 +268,24 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
             </Button>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                <Bot className="w-4 h-4" />
+                <NotebookPen className="w-4 h-4" />
               </div>
               <div>
                 <h2 className="font-semibold text-sm">JournalMate</h2>
-                <Badge variant="secondary" className={`text-xs ${currentMode === 'quick' 
+                <Badge variant="secondary" className={`text-xs flex items-center gap-1 ${currentMode === 'quick' 
                   ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' 
                   : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'}`}>
-                  {currentMode === 'quick' ? '⚡ Quick Plan' : '🧠 Smart Plan'}
+                  {currentMode === 'quick' ? (
+                    <>
+                      <Zap className="w-3 h-3" />
+                      Quick Plan
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="w-3 h-3" />
+                      Smart Plan
+                    </>
+                  )}
                 </Badge>
               </div>
             </div>
@@ -289,16 +299,16 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
               <div key={index} className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                 <div className="flex-shrink-0">
                   {message.role === 'assistant' ? (
-                    <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                      <Bot className="w-4 h-4" />
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                      <NotebookPen className="w-3 h-3 sm:w-4 sm:h-4" />
                     </div>
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs sm:text-sm font-medium">
                       U
                     </div>
                   )}
                 </div>
-                <div className={`max-w-[70%] rounded-2xl px-4 py-3 ${
+                <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-3 ${
                   message.role === 'user' 
                     ? currentMode === 'quick' 
                       ? 'bg-emerald-500 text-white'
@@ -321,7 +331,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
         </div>
 
         {/* Chat Input */}
-        <div className="border-t border-border p-4 bg-background/95 backdrop-blur-sm">
+        <div className="border-t border-border p-4 bg-background/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
           <div className="max-w-4xl mx-auto">
             <div className="flex gap-3 items-end">
               <div className="flex-1 relative">
@@ -331,7 +341,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                   onChange={(e) => setText(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Type your message..."
-                  className="min-h-[50px] max-h-[120px] resize-none pr-12 rounded-2xl border-border"
+                  className="min-h-[50px] max-h-[120px] resize-none pr-12 rounded-2xl border-border text-sm"
                   rows={1}
                 />
                 <Button
@@ -404,22 +414,22 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
 
   // Normal goal input interface
   return (
-    <div className="w-full max-w-2xl mx-auto p-2 xs:p-3 sm:p-6">
+    <div className="w-full max-w-2xl mx-auto p-2 sm:p-3 lg:p-6">
       <motion.div 
         key={inputKey}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="flex flex-col space-y-3 xs:space-y-4 sm:space-y-6"
+        className="flex flex-col space-y-3 sm:space-y-4 lg:space-y-6"
       >
         {/* Voice Input Card */}
         <Card className="relative overflow-hidden">
-          <CardContent className="p-3 xs:p-4 sm:p-6">
-            <div className="space-y-3 xs:space-y-4">
+          <CardContent className="p-3 sm:p-4 lg:p-6">
+            <div className="space-y-3 sm:space-y-4">
               {/* Main content container */}
-              <div className="flex flex-col space-y-3 xs:space-y-4">
+              <div className="flex flex-col space-y-3 sm:space-y-4">
                 {/* Goal input section */}
-                <div className="space-y-2 xs:space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   <div className="relative">
                     <Textarea
                       ref={textareaRef}
@@ -427,22 +437,22 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       onChange={(e) => setText(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder={placeholder}
-                      className="min-h-[80px] xs:min-h-[100px] sm:min-h-[120px] resize-none pr-12 text-sm xs:text-base"
+                      className="min-h-[80px] sm:min-h-[100px] lg:min-h-[120px] resize-none pr-12 text-sm sm:text-base"
                       rows={3}
                       data-testid="textarea-goal-input"
                     />
                     <Button
                       variant={isRecording ? "default" : "ghost"}
                       size="icon"
-                      className="absolute bottom-2 right-2 h-8 w-8 xs:h-9 xs:w-9"
+                      className="absolute bottom-2 right-2 h-8 w-8 sm:h-9 sm:w-9"
                       onClick={isRecording ? stopRecording : startRecording}
                       disabled={isGenerating}
                       data-testid="button-voice-record"
                     >
                       {isRecording ? (
-                        <MicOff className="h-4 w-4 xs:h-5 xs:w-5" />
+                        <MicOff className="h-4 w-4 sm:h-5 sm:w-5" />
                       ) : (
-                        <Mic className="h-4 w-4 xs:h-5 xs:w-5" />
+                        <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
                       )}
                     </Button>
                   </div>
@@ -468,14 +478,14 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                 </div>
 
                 {/* Action buttons row */}
-                <div className="flex flex-col xs:flex-row gap-2 xs:gap-3 items-stretch xs:items-center justify-between">
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:gap-3 sm:items-center sm:justify-between">
                   {/* Conversational Mode Buttons */}
                   <div className="flex gap-2">
                     <Button
                       variant={currentMode === 'quick' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => startConversationWithMode('quick')}
-                      className={`gap-1 xs:gap-2 ${
+                      className={`gap-1 sm:gap-2 ${
                         currentMode === 'quick'
                           ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 toggle-elevated'
                           : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950'
@@ -483,13 +493,13 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       data-testid="button-quick-plan"
                     >
                       <Zap className="w-3 h-3" />
-                      <span className="text-xs xs:text-sm">Quick Plan</span>
+                      <span className="text-xs sm:text-sm">Quick Plan</span>
                     </Button>
                     <Button
                       variant={currentMode === 'smart' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => startConversationWithMode('smart')}
-                      className={`gap-1 xs:gap-2 ${
+                      className={`gap-1 sm:gap-2 ${
                         currentMode === 'smart'
                           ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700 toggle-elevated'
                           : 'text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950'
@@ -497,15 +507,15 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       data-testid="button-smart-plan"
                     >
                       <Brain className="w-3 h-3" />
-                      <span className="hidden sm:inline text-xs xs:text-sm">Smart Plan</span>
-                      <span className="sm:hidden text-xs xs:text-sm">Smart</span>
+                      <span className="hidden sm:inline text-xs sm:text-sm">Smart Plan</span>
+                      <span className="sm:hidden text-xs sm:text-sm">Smart</span>
                     </Button>
                   </div>
                   
                   <Button
                     onClick={handleSubmit}
                     disabled={!text.trim() || isGenerating}
-                    className="gap-1 xs:gap-2 w-full xs:w-auto"
+                    className="gap-1 sm:gap-2 col-span-2 sm:col-span-1 sm:w-auto"
                     data-testid="button-submit"
                   >
                     {isGenerating ? (
