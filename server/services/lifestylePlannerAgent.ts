@@ -36,6 +36,7 @@ export interface ConversationResponse {
   createActivity?: boolean;
   generatedPlan?: any;
   updatedSlots?: any;
+  updatedExternalContext?: any;
 }
 
 export interface SlotExtractionResult {
@@ -184,11 +185,16 @@ export class LifestylePlannerAgent {
     const userContext = this.formatUserContext(userProfile);
     const activityType = currentSlots.activityType;
     
+    // Get question count for this mode
+    const externalContext = session.externalContext || {};
+    const questionCount = externalContext.questionCount || { smart: 0, quick: 0 };
+    const currentMode = externalContext.currentMode || 'smart';
+    
     const modeInstructions = mode === 'quick' 
-      ? `QUICK PLAN MODE: Ask only the most essential questions (3-4 max) to gather basic context. Be efficient and direct while still being conversational. Focus on: activity, location, timing, and transportation.`
+      ? `QUICK PLAN MODE: You have a maximum of 3 follow-up questions. Ask only the most essential questions to gather basic context. Current count: ${questionCount.quick}/3. Be efficient and direct while still being conversational. Focus on: activity, location, timing, and transportation. If you have enough details, move to confirmation.`
       : mode === 'chat'
-      ? `CHAT MODE: Take time to gather detailed context through thorough conversation. Ask clarifying questions and wait for explicit user agreement (words like "yes", "sounds good", "perfect", "that works") before suggesting plan generation. Be more conversational and thorough.`
-      : `SMART PLAN MODE: Be inquisitive but concise. Ask ALL necessary clarifying questions (budget, timing, flights, transportation, etc.) ONE AT A TIME before creating any tasks. After gathering complete context, ask "Would you like me to add these tasks to your activity?" NEVER generate tasks until you have comprehensive details AND user confirmation.`;
+      ? `SMART PLAN MODE: You have a maximum of 5 questions, but aim to stop by question 3 if you have sufficient context. Current count: ${questionCount.smart}/5. Ask clarifying questions ONE AT A TIME and wait for explicit user agreement before suggesting plan generation. If you have activity type + (budget OR timing OR location) and one more detail, move to confirmation.`
+      : `SMART PLAN MODE: You have a maximum of 5 questions, but aim to stop by question 3 if you have sufficient context. Current count: ${questionCount.smart}/5. Ask ALL necessary clarifying questions (budget, timing, transportation, etc.) ONE AT A TIME. Stop asking questions when you have: activity type + (budget OR timing OR location) + one additional detail. Then move to confirmation phase.`;
 
     // Get activity-specific questioning strategy
     const activityGuide = this.getActivitySpecificGuide(activityType || '');
@@ -439,6 +445,47 @@ GENERAL ACTIVITY QUESTIONS:
     if (aiResponse.action === 'confirm_plan') nextState = 'confirming';
     if (aiResponse.action === 'generate_plan') nextState = 'planning';
 
+    // Track question counts and enforce limits
+    const externalContext = session.externalContext || {};
+    const questionCount = externalContext.questionCount || { smart: 0, quick: 0 };
+    const currentMode = externalContext.currentMode || 'smart'; // Default to smart mode
+    
+    // If AI is asking a question, increment the counter for current mode
+    if (aiResponse.action === 'ask_question') {
+      questionCount[currentMode as keyof typeof questionCount]++;
+    }
+    
+    // Check if we've hit question limits
+    const smartLimit = 5;
+    const quickLimit = 3;
+    const smartEarlyStop = 3; // Early stop for smart if we have enough context
+    
+    let forceConfirmation = false;
+    
+    if (currentMode === 'smart') {
+      // Smart Plan: Max 5 questions, early stop at 3 if we have sufficient context
+      const hasEnoughContext = updatedSlots.activityType && 
+        (updatedSlots.budget || updatedSlots.timing) && 
+        (updatedSlots.location || updatedSlots.mood);
+      
+      if (questionCount.smart >= smartLimit || 
+          (questionCount.smart >= smartEarlyStop && hasEnoughContext)) {
+        forceConfirmation = true;
+      }
+    } else if (currentMode === 'quick') {
+      // Quick Plan: Max 3 questions
+      if (questionCount.quick >= quickLimit) {
+        forceConfirmation = true;
+      }
+    }
+    
+    // Override AI decision if we've hit limits
+    if (forceConfirmation && aiResponse.action === 'ask_question') {
+      aiResponse.action = 'confirm_plan';
+      nextState = 'confirming';
+      aiResponse.message = `Based on what we've discussed, I think I have enough information to create a great plan for you. ${aiResponse.message || 'Ready to proceed?'}`;
+    }
+
     // Generate context chips showing filled information (using updated slots!)
     const contextChips = this.generateContextChips(updatedSlots);
     
@@ -485,10 +532,17 @@ GENERAL ACTIVITY QUESTIONS:
     }
 
     // Create updated session object with new slots and state
+    const updatedExternalContext = {
+      ...externalContext,
+      questionCount,
+      currentMode
+    };
+    
     const updatedSession = {
       ...session,
       slots: updatedSlots,
       sessionState: nextState,
+      externalContext: updatedExternalContext,
       // Clear confirmation flag after task generation
       userConfirmedAdd: readyToGenerate ? false : session.userConfirmedAdd
     };
@@ -500,7 +554,8 @@ GENERAL ACTIVITY QUESTIONS:
       contextChips,
       readyToGenerate,
       generatedPlan: aiResponse.action === 'generate_plan' ? await this.generatePlan(updatedSession) : undefined,
-      updatedSlots // Return updated slots so routes.ts can persist them
+      updatedSlots, // Return updated slots so routes.ts can persist them
+      updatedExternalContext // Return updated external context for persistence
     };
   }
 

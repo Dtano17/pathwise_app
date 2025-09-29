@@ -44,13 +44,16 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
     let session = await storage.getActiveLifestylePlannerSession(userId);
     
     if (!session) {
-      // Create new session
+      // Create new session for Smart Plan mode
       session = await storage.createLifestylePlannerSession({
         userId,
         sessionState: 'intake',
         slots: {},
         conversationHistory: [],
-        externalContext: {}
+        externalContext: {
+          currentMode: 'smart',
+          questionCount: { smart: 0, quick: 0 }
+        }
       });
     }
 
@@ -68,6 +71,37 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
     session = await storage.updateLifestylePlannerSession(session.id, {
       conversationHistory: updatedHistory
     }, userId);
+
+    // Check for help intent - if user asks about what the modes do
+    const helpIntentPattern = /what.*do(es)?.*it.*do|how.*work|difference.*(quick|smart)|what.*is.*smart.*plan|what.*is.*quick.*plan|explain.*mode|help.*understand/i;
+    if (helpIntentPattern.test(message)) {
+      return res.json({
+        message: `🤖 **Here's how I can help you plan:**
+
+**🧠 Smart Plan Mode:**
+• Conversational & thorough planning
+• Asks detailed clarifying questions (max 5, often just 3)
+• Tracks context with visual chips
+• Perfect for complex activities (trips, events, work projects)
+• Requires confirmation before creating your plan
+
+**⚡ Quick Plan Mode:**
+• Fast & direct suggestions
+• Minimal questions (max 3 follow-ups)
+• Great when you already know the details
+• Immediate action for simple activities
+
+**When to use each:**
+• **Smart Plan**: When you want comprehensive planning with detailed conversation
+• **Quick Plan**: When you need fast suggestions without extensive back-and-forth
+
+Try saying "help me plan dinner" in either mode to see the difference! 😊`,
+        sessionId: session.id,
+        contextChips: [],
+        planReady: false,
+        helpProvided: true
+      });
+    }
 
     // Check if user is confirming to create the plan
     const confirmationKeywords = ['yes', 'create the plan', 'sounds good', 'perfect', 'great', 'that works', 'confirm', 'proceed'];
@@ -203,6 +237,15 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
         activity,
         planComplete: true
       });
+    }
+
+    // Update session with any changes (slots, external context, state)
+    if (response.updatedSlots || response.updatedExternalContext) {
+      await storage.updateLifestylePlannerSession(session.id, {
+        slots: response.updatedSlots || session.slots,
+        externalContext: response.updatedExternalContext || session.externalContext,
+        sessionState: response.sessionState || session.sessionState
+      }, userId);
     }
 
     // Regular conversation response

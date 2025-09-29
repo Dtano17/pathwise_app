@@ -468,6 +468,12 @@ export const lifestylePlannerSessions = pgTable("lifestyle_planner_sessions", {
       current_location?: { lat: number; lng: number; address: string };
       destination_details?: { type: string; hours: string; rating?: number };
     };
+    // Question counting and mode tracking
+    questionCount?: {
+      smart: number;
+      quick: number;
+    };
+    currentMode?: 'smart' | 'quick';
   }>().default({}),
   
   // Conversation history
