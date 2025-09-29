@@ -431,14 +431,14 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="flex flex-col space-y-3 sm:space-y-4 lg:space-y-6"
+        className="flex flex-col space-y-2 sm:space-y-4 lg:space-y-6"
       >
         {/* Voice Input Card */}
         <Card className="relative overflow-hidden">
           <CardContent className="p-3 sm:p-4 lg:p-6">
-            <div className="space-y-3 sm:space-y-4">
+            <div className="space-y-2 sm:space-y-4">
               {/* Main content container */}
-              <div className="flex flex-col space-y-3 sm:space-y-4">
+              <div className="flex flex-col space-y-2 sm:space-y-4">
                 {/* Goal input section */}
                 <div className="space-y-2 sm:space-y-3">
                   <div className="relative">
@@ -489,7 +489,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                 </div>
 
                 {/* Action buttons row */}
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
                   {/* Conversational Mode Buttons */}
                   <div className="flex gap-2">
                     <Button
