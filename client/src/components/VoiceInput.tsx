@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, Bot, User, ChevronUp, ChevronDown, Minimize2, Maximize2, Zap, Brain, ArrowLeft } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, Bot, User, Zap, Brain, ArrowLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -227,9 +227,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   const [isListening, setIsListening] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [showChat, setShowChat] = useState(false);
-  const [currentChatMessage, setCurrentChatMessage] = useState('');
-  const [isChatDocked, setIsChatDocked] = useState(false);
+  // Removed unused chat states
   const [currentMode, setCurrentMode] = useState<'quick' | 'smart' | null>(null);
   const [showCreatePlanButton, setShowCreatePlanButton] = useState(false);
   const [isNearBottom, setIsNearBottom] = useState(true);
@@ -412,18 +410,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
     }
   };
 
-  const startConversation = () => {
-    setShowChat(true);
-    if (chatMessages.length === 0) {
-      // Add initial AI message
-      const welcomeMessage: ChatMessage = {
-        role: 'assistant',
-        content: "Hi! I'm here to help you turn your intentions into actionable plans. Feel free to ask me questions, share your goals, or tell me about any challenges you're facing. What's on your mind?",
-        timestamp: new Date()
-      };
-      setChatMessages([welcomeMessage]);
-    }
-  };
+  // Removed unused startConversation function
 
   const startConversationWithMode = (mode: 'quick' | 'smart') => {
     // Set current mode
@@ -437,8 +424,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
         : "I'll ask intuitive questions based on your activity and profile, then confirm before creating the perfect plan.",
     });
     
-    // Start the conversation with the specified mode
-    setShowChat(true);
+    // Start the conversation - no separate chat interface
     setShowCreatePlanButton(false);
     if (chatMessages.length === 0) {
       const welcomeMessage: ChatMessage = {
@@ -491,7 +477,14 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit();
+      if (currentMode) {
+        if (text.trim() && !chatMutation.isPending) {
+          chatMutation.mutate(text.trim());
+          setText('');
+        }
+      } else if (!isGenerating) {
+        handleSubmit();
+      }
     }
   };
 
@@ -563,7 +556,9 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={placeholder}
+                    placeholder={currentMode 
+                      ? "Continue the conversation..." 
+                      : placeholder}
                     className="min-h-[70px] xs:min-h-[85px] sm:min-h-[100px] pr-9 xs:pr-10 sm:pr-12 resize-none text-sm"
                     data-testid="input-goal"
                     disabled={isGenerating}
@@ -652,218 +647,200 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                     </div>
                   </div>
                   
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={!text.trim() || isGenerating}
-                    className="gap-1 xs:gap-2 w-full sm:w-auto"
-                    data-testid="button-submit"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ repeat: Infinity, duration: 1 }}
-                          className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full"
-                        />
-                        <span className="hidden sm:inline">Generating Plan...</span>
-                        <span className="sm:hidden">Generating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        <span className="hidden sm:inline">Create Action Plan</span>
-                        <span className="sm:hidden">Create Plan</span>
-                      </>
-                    )}
-                  </Button>
+                  {/* Show different button based on conversation mode */}
+                  {currentMode ? (
+                    <Button 
+                      onClick={() => {
+                        if (text.trim()) {
+                          chatMutation.mutate(text.trim());
+                          setText('');
+                        }
+                      }}
+                      disabled={!text.trim() || chatMutation.isPending}
+                      className="gap-1 xs:gap-2 w-full sm:w-auto"
+                      data-testid="button-chat-send"
+                    >
+                      {chatMutation.isPending ? (
+                        <>
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ repeat: Infinity, duration: 1 }}
+                            className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full"
+                          />
+                          <span className="hidden sm:inline">Sending...</span>
+                          <span className="sm:hidden">Sending...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          <span className="hidden sm:inline">Send Message</span>
+                          <span className="sm:hidden">Send</span>
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={!text.trim() || isGenerating}
+                      className="gap-1 xs:gap-2 w-full sm:w-auto"
+                      data-testid="button-submit"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ repeat: Infinity, duration: 1 }}
+                            className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full"
+                          />
+                          <span className="hidden sm:inline">Generating Plan...</span>
+                          <span className="sm:hidden">Generating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          <span className="hidden sm:inline">Create Action Plan</span>
+                          <span className="sm:hidden">Create Plan</span>
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
                 
-                {/* Conversational Chat Section */}
-                <AnimatePresence>
-                  {showChat && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="border-t border-border pt-4 mt-4"
-                    >
-                      <div className="flex items-center justify-between mb-3 min-w-0">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 text-muted-foreground hover:text-foreground flex-shrink-0"
-                            title="Exit dialogue mode"
-                            onClick={() => {
-                              setShowChat(false);
-                              setChatMessages([]);
-                              // Restore focus to main textarea for accessibility
-                              setTimeout(() => textareaRef.current?.focus(), 100);
-                            }}
-                            data-testid="button-exit-chat"
-                          >
-                            <ArrowLeft className="w-3 h-3" />
-                          </Button>
-                          <img src={journalMateIcon} className="w-5 h-5 rounded-full flex-shrink-0" alt="JournalMate" />
-                          <h4 className="font-medium text-sm truncate min-w-0">JournalMate</h4>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <Badge variant="secondary" className="text-xs">
-                            Dialogue Mode
-                          </Badge>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                            title={isChatDocked ? "Expand chat" : "Collapse chat"}
-                            onClick={() => setIsChatDocked(!isChatDocked)}
-                            data-testid="button-chat-dock-toggle"
-                          >
-                            {isChatDocked ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      {/* Dockable Chat Content */}
-                      <AnimatePresence>
-                        {!isChatDocked && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.3, ease: "easeInOut" }}
-                            className="overflow-hidden"
-                          >
-                            {/* Chat Messages */}
-                            <div ref={chatContainerRef} className="bg-gradient-to-br from-muted/20 to-muted/40 rounded-xl p-4 max-h-80 overflow-y-auto mb-4 space-y-4 backdrop-blur-sm border border-border/30 scroll-smooth">
-                        {chatMessages.map((message, index) => (
-                          <motion.div
-                            key={index}
-                            initial={{ opacity: 0, y: 5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                            data-testid={`chat-message-${index}`}
-                          >
-                    {message.role === 'assistant' && (
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
-                        <Bot className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                    
-                    <div className={`max-w-[85%] rounded-lg ${
-                      message.role === 'user' 
-                        ? 'bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-sm p-3' 
-                        : 'bg-background border border-border/50 shadow-sm overflow-hidden'
-                    }`}>
-                      {message.role === 'user' ? (
-                        <div className="prose prose-sm max-w-none">
-                          <p className="whitespace-pre-wrap leading-relaxed m-0">{message.content}</p>
-                        </div>
-                      ) : (
-                        <div className="p-4">
-                          <FormattedMessage content={message.content} />
-                        </div>
-                      )}
-                      <div className={`flex items-center justify-between pt-2 border-t border-current/10 ${
-                        message.role === 'user' ? 'mt-2' : 'mx-4 pb-3'
+                {/* Show conversation messages directly in main view when in mode */}
+                {currentMode && chatMessages.length > 0 && (
+                  <div className="border-t border-border pt-4 mt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <img src={journalMateIcon} className="w-5 h-5 rounded-full" alt="JournalMate" />
+                      <Badge variant="secondary" className={`text-xs ${
+                        currentMode === 'quick' 
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' 
+                          : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
                       }`}>
-                        <div className="text-xs opacity-70">
-                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                        {message.role === 'assistant' && (
-                          <div className="flex items-center gap-1 text-xs opacity-70">
-                            <Bot className="w-3 h-3" />
-                            AI Assistant
-                          </div>
-                        )}
-                      </div>
+                        {currentMode === 'quick' ? '⚡ Quick Plan Mode' : '🧠 Smart Plan Mode'}
+                      </Badge>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground ml-auto"
+                        title="Reset conversation"
+                        onClick={() => {
+                          setChatMessages([]);
+                          setCurrentMode(null);
+                          setShowCreatePlanButton(false);
+                        }}
+                        data-testid="button-reset-conversation"
+                      >
+                        <ArrowLeft className="w-3 h-3" />
+                      </Button>
                     </div>
                     
-                    {message.role === 'user' && (
-                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                        <User className="w-3 h-3 text-primary-foreground" />
+                    {/* Chat Messages */}
+                    <div ref={chatContainerRef} className="bg-gradient-to-br from-muted/20 to-muted/40 rounded-xl p-4 max-h-80 overflow-y-auto mb-4 space-y-4 backdrop-blur-sm border border-border/30 scroll-smooth">
+                      {chatMessages.map((message, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                          data-testid={`chat-message-${index}`}
+                        >
+                          {message.role === 'assistant' && (
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
+                              <Bot className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                          
+                          <div className={`max-w-[85%] rounded-lg ${
+                            message.role === 'user' 
+                              ? 'bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-sm p-3' 
+                              : 'bg-background border border-border/50 shadow-sm overflow-hidden'
+                          }`}>
+                            {message.role === 'user' ? (
+                              <div className="prose prose-sm max-w-none">
+                                <p className="whitespace-pre-wrap leading-relaxed m-0">{message.content}</p>
+                              </div>
+                            ) : (
+                              <div className="p-4">
+                                <FormattedMessage content={message.content} />
+                              </div>
+                            )}
+                            <div className={`flex items-center justify-between pt-2 border-t border-current/10 ${
+                              message.role === 'user' ? 'mt-2' : 'mx-4 pb-3'
+                            }`}>
+                              <div className="text-xs opacity-70">
+                                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                              {message.role === 'assistant' && (
+                                <div className="flex items-center gap-1 text-xs opacity-70">
+                                  <Bot className="w-3 h-3" />
+                                  AI Assistant
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {message.role === 'user' && (
+                            <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                              <User className="w-3 h-3 text-primary-foreground" />
+                            </div>
+                          )}
+                        </motion.div>
+                      ))}
+                      
+                      {chatMutation.isPending && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="flex gap-2 justify-start"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center">
+                            <Bot className="w-3 h-3 text-white" />
+                          </div>
+                          <div className="bg-gradient-to-br from-background to-background/80 border border-border/50 rounded-xl p-3 shadow-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="flex gap-1">
+                                <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                              </div>
+                              <span className="text-sm text-muted-foreground font-medium">AI is analyzing your profile and context...</span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                      
+                      <div ref={chatEndRef} />
+                    </div>
+                    
+                    {/* Create Plan Button for both Smart and Quick Plan */}
+                    {showCreatePlanButton && (currentMode === 'smart' || currentMode === 'quick') && (
+                      <div className="mb-3">
+                        <Button 
+                          onClick={handleCreatePlan}
+                          className="w-full bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white font-medium"
+                          data-testid="button-create-plan"
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Create Plan
+                        </Button>
                       </div>
                     )}
-                  </motion.div>
-                ))}
-                
-                {chatMutation.isPending && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-2 justify-start"
-                  >
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center">
-                      <Bot className="w-3 h-3 text-white" />
-                    </div>
-                    <div className="bg-gradient-to-br from-background to-background/80 border border-border/50 rounded-xl p-3 shadow-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="flex gap-1">
-                          <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                          <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                          <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                        </div>
-                        <span className="text-sm text-muted-foreground font-medium">AI is analyzing your profile and context...</span>
-                      </div>
-                    </div>
-                  </motion.div>
+                  </div>
                 )}
                 
-                <div ref={chatEndRef} />
-              </div>
-              
-              {/* Create Plan Button for both Smart and Quick Plan */}
-              {showCreatePlanButton && (currentMode === 'smart' || currentMode === 'quick') && (
-                <div className="mb-3">
-                  <Button 
-                    onClick={handleCreatePlan}
-                    className="w-full bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white font-medium"
-                    data-testid="button-create-plan"
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Create Plan
-                  </Button>
-                </div>
-              )}
-              
-              {/* Chat Input */}
-              <div className="flex gap-2">
-                <Textarea
-                  value={currentChatMessage}
-                  onChange={(e) => setCurrentChatMessage(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleChatSubmit();
-                    }
-                  }}
-                  placeholder="Ask questions, share concerns, or discuss your goals..."
-                  className="min-h-[40px] resize-none text-sm"
-                  disabled={chatMutation.isPending}
-                  data-testid="input-chat"
-                />
-                <Button
-                  onClick={handleChatSubmit}
-                  disabled={!currentChatMessage.trim() || chatMutation.isPending}
-                  size="sm"
-                  className="gap-1"
-                  data-testid="button-chat-send"
-                >
-                  <Send className="w-3 h-3" />
-                  Ask
-                </Button>
-              </div>
-              
-                            <div className="text-xs text-muted-foreground mt-1 text-center">
-                              I can help clarify your goals, suggest contingencies, and create personalized action plans
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {/* Create Plan Button for both Smart and Quick Plan - when not in conversation */}
+                {showCreatePlanButton && (currentMode === 'smart' || currentMode === 'quick') && chatMessages.length === 0 && (
+                  <div className="mb-3 border-t border-border pt-4">
+                    <Button 
+                      onClick={handleCreatePlan}
+                      className="w-full bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white font-medium"
+                      data-testid="button-create-plan"
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Create Plan
+                    </Button>
+                  </div>
+                )}
       </motion.div>
     </div>
   );
