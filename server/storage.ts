@@ -37,6 +37,10 @@ import {
   type ActivityWithProgress,
   type LifestylePlannerSession,
   type InsertLifestylePlannerSession,
+  type UserProfile,
+  type InsertUserProfile,
+  type UserPreferences,
+  type InsertUserPreferences,
   users,
   goals,
   tasks,
@@ -52,7 +56,9 @@ import {
   contacts,
   activities,
   activityTasks,
-  lifestylePlannerSessions
+  lifestylePlannerSessions,
+  userProfiles,
+  userPreferences
 } from "@shared/schema";
 
 const sql = neon(process.env.DATABASE_URL!);

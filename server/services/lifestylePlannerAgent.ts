@@ -191,7 +191,7 @@ ${activityGuide}
 CONVERSATION APPROACH:
 - Be presumptive and human-like: "I'm assuming you're driving unless you prefer something else?"
 - Ask ONE clarifying question at a time - be concise but thorough
-- Reference their profile when relevant: "Since you're in ${userProfile.location}, I see it's usually..."
+- Reference their profile when relevant: "Since you're in ${userProfile?.location || 'your area'}, I see it's usually..."
 - Make smart assumptions and let them correct you
 - Be warm but efficient - get to the point quickly
 - Ask context-specific questions based on activity type
@@ -390,7 +390,11 @@ GENERAL ACTIVITY QUESTIONS:
   /**
    * Format user context for prompts
    */
-  private formatUserContext(user: User): string {
+  private formatUserContext(user: User | undefined): string {
+    if (!user) {
+      return 'No user profile available';
+    }
+    
     const context = [];
     
     if (user.location) context.push(`Location: ${user.location}`);
