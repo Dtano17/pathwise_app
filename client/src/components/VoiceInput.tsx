@@ -422,7 +422,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -430,21 +430,21 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-3 sm:p-6">
+    <div className="w-full max-w-2xl mx-auto p-2 xs:p-3 sm:p-6">
       <motion.div 
-        className="bg-card border border-card-border rounded-lg p-4 sm:p-6 space-y-4"
+        className="bg-card border border-card-border rounded-lg p-3 xs:p-4 sm:p-6 space-y-3 sm:space-y-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 mb-1 sm:mb-2">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold text-card-foreground text-base sm:text-lg">Share Your Intentions</h3>
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+            <h3 className="font-semibold text-card-foreground text-sm xs:text-base sm:text-lg">Share Your Intentions</h3>
           </div>
           
           {/* Feature indicators */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Badge variant="outline" className="text-xs gap-1 hidden sm:flex">
               <Copy className="w-3 h-3" />
               Copy & Paste
@@ -452,12 +452,12 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8 sm:h-6 sm:w-6 text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground"
               title="Upload images"
               onClick={() => fileInputRef.current?.click()}
               data-testid="button-upload-images"
             >
-              <Upload className="w-4 h-4 sm:w-3 sm:h-3" />
+              <Upload className="w-3 h-3 xs:w-4 xs:h-4" />
             </Button>
             <input
               ref={fileInputRef}
@@ -472,10 +472,10 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
 
                 {/* Uploaded Images Preview */}
                 {uploadedImages.length > 0 && (
-                  <div className="border rounded-md p-3 bg-muted/30">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Image className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Uploaded Images ({uploadedImages.length})</span>
+                  <div className="border rounded-md p-2 xs:p-3 bg-muted/30">
+                    <div className="flex items-center gap-2 mb-1 xs:mb-2">
+                      <Image className="w-3 h-3 xs:w-4 xs:h-4 text-muted-foreground" />
+                      <span className="text-xs xs:text-sm font-medium">Uploaded Images ({uploadedImages.length})</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {uploadedImages.map((file, index) => (
@@ -500,35 +500,34 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                   <Textarea
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    onKeyPress={handleKeyPress}
+                    onKeyDown={handleKeyDown}
                     placeholder={placeholder}
-                    className="min-h-[100px] sm:min-h-[120px] pr-12 sm:pr-16 resize-none text-sm sm:text-base"
+                    className="min-h-[80px] xs:min-h-[100px] sm:min-h-[120px] pr-10 xs:pr-12 sm:pr-16 resize-none text-sm sm:text-base"
                     data-testid="input-goal"
                     disabled={isGenerating}
                   />
                   
-                  <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 flex gap-1 sm:gap-2">
+                  <div className="absolute bottom-1 right-1 xs:bottom-2 xs:right-2 sm:bottom-3 sm:right-3 flex gap-1 sm:gap-2">
                     <AnimatePresence>
                       {isRecording ? (
                         <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           exit={{ scale: 0 }}
-                          className="flex items-center gap-2"
+                          className="flex items-center gap-1 xs:gap-2"
                         >
                           <motion.div
                             animate={{ scale: [1, 1.2, 1] }}
                             transition={{ repeat: Infinity, duration: 1 }}
-                            className="w-2 h-2 bg-red-500 rounded-full"
+                            className="w-1.5 h-1.5 xs:w-2 xs:h-2 bg-red-500 rounded-full"
                           />
                           <Button
                             size="icon"
                             variant="destructive"
                             onClick={stopRecording}
                             data-testid="button-stop-recording"
-                            className="h-8 w-8"
                           >
-                            <MicOff className="w-4 h-4" />
+                            <MicOff className="w-3 h-3 xs:w-4 xs:h-4" />
                           </Button>
                         </motion.div>
                       ) : (
@@ -542,10 +541,9 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                             variant="secondary"
                             onClick={startRecording}
                             data-testid="button-start-recording"
-                            className="h-8 w-8"
                             disabled={isGenerating}
                           >
-                            <Mic className="w-4 h-4" />
+                            <Mic className="w-3 h-3 xs:w-4 xs:h-4" />
                           </Button>
                         </motion.div>
                       )}
@@ -554,32 +552,32 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <div className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                    <div className="text-xs xs:text-sm text-muted-foreground">
                       {isListening && "Listening..."}
                     </div>
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="flex gap-1 xs:gap-2 flex-wrap">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => startConversationWithMode('quick')}
-                        className="gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950 min-h-[36px]"
+                        className="gap-1 xs:gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950"
                         data-testid="button-quick-plan"
                       >
                         <Zap className="w-3 h-3" />
-                        Quick Plan
+                        <span className="text-xs xs:text-sm">Quick Plan</span>
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => startConversationWithMode('smart')}
-                        className="gap-2 text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950 min-h-[36px]"
+                        className="gap-1 xs:gap-2 text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950"
                         data-testid="button-smart-plan"
                       >
                         <Brain className="w-3 h-3" />
-                        <span className="hidden sm:inline">Smart Create Action Plan</span>
-                        <span className="sm:hidden">Smart Plan</span>
+                        <span className="hidden sm:inline text-xs xs:text-sm">Smart Create Action Plan</span>
+                        <span className="sm:hidden text-xs xs:text-sm">Smart Plan</span>
                       </Button>
                     </div>
                   </div>
@@ -587,7 +585,7 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                   <Button
                     onClick={handleSubmit}
                     disabled={!text.trim() || isGenerating}
-                    className="gap-2 w-full sm:w-auto min-h-[44px]"
+                    className="gap-1 xs:gap-2 w-full sm:w-auto"
                     data-testid="button-submit"
                   >
                     {isGenerating ? (
