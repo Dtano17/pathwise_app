@@ -112,11 +112,28 @@ export class LifestylePlannerAgent {
     // Extract structured response (Claude should return JSON)
     let structuredResponse: SlotExtractionResult;
     try {
-      structuredResponse = JSON.parse(aiResponse);
-    } catch {
+      // Handle JSON wrapped in markdown code blocks
+      let cleanedResponse = aiResponse;
+      if (aiResponse.includes('```json')) {
+        // Extract JSON from markdown code blocks
+        const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          cleanedResponse = jsonMatch[1];
+        }
+      }
+      
+      structuredResponse = JSON.parse(cleanedResponse);
+      
+      // Ensure we have a clean message field
+      if (!structuredResponse.message && structuredResponse.nextQuestion) {
+        structuredResponse.message = structuredResponse.nextQuestion;
+      }
+    } catch (error) {
+      console.log('JSON parsing failed for:', aiResponse);
       // Fallback if Claude doesn't return valid JSON
       structuredResponse = {
         action: 'ask_question',
+        message: aiResponse,
         nextQuestion: aiResponse
       };
     }
