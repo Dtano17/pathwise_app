@@ -1290,6 +1290,202 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function for Quick Plan structured conversation
+async function handleQuickPlanConversation(req: any, res: any, message: string, conversationHistory: any[], userId: string) {
+  try {
+    // Get or create a lifestyle planner session for this user
+    let session = await storage.getActiveLifestylePlannerSession(userId);
+    
+    if (!session) {
+      // Create new session for Quick Plan mode
+      session = await storage.createLifestylePlannerSession({
+        userId,
+        sessionState: 'intake',
+        slots: {},
+        conversationHistory: [],
+        externalContext: {
+          currentMode: 'quick',
+          questionCount: { smart: 0, quick: 0 }
+        }
+      });
+    } else {
+      // Update mode to quick if switching
+      const updatedContext = {
+        ...session.externalContext,
+        currentMode: 'quick'
+      };
+      session = await storage.updateLifestylePlannerSession(session.id, {
+        externalContext: updatedContext
+      }, userId);
+    }
+
+    // Get user profile for personalized questions
+    const userProfile = await storage.getUserProfile(userId);
+
+    // Add current message to conversation history
+    const updatedHistory = [
+      ...(session.conversationHistory || []),
+      { role: 'user' as const, content: message, timestamp: new Date().toISOString() }
+    ];
+
+    // Update session with new history
+    session = await storage.updateLifestylePlannerSession(session.id, {
+      conversationHistory: updatedHistory
+    }, userId);
+
+    // Check for help intent - same as Smart Plan
+    const helpIntentPattern = /what.*do(es)?.*it.*do|how.*work|difference.*(quick|smart)|what.*is.*smart.*plan|what.*is.*quick.*plan|explain.*mode|help.*understand/i;
+    if (helpIntentPattern.test(message)) {
+      return res.json({
+        message: `🤖 **Here's how I can help you plan:**
+
+**🧠 Smart Plan Mode:**
+• Conversational & thorough planning
+• Asks detailed clarifying questions (max 5, often just 3)
+• Tracks context with visual chips
+• Perfect for complex activities (trips, events, work projects)
+• Requires confirmation before creating your plan
+
+**⚡ Quick Plan Mode:**
+• Fast & direct suggestions
+• Minimal questions (max 3 follow-ups)
+• Great when you already know the details
+• Immediate action for simple activities
+
+**When to use each:**
+• **Smart Plan**: When you want comprehensive planning with detailed conversation
+• **Quick Plan**: When you need fast suggestions without extensive back-and-forth
+
+Try saying "help me plan dinner" in either mode to see the difference! 😊`,
+        sessionId: session.id,
+        contextChips: [],
+        planReady: false,
+        helpProvided: true
+      });
+    }
+
+    // Check if user is confirming to create the plan
+    const confirmationKeywords = ['yes', 'create the plan', 'sounds good', 'perfect', 'great', 'that works', 'confirm', 'proceed'];
+    const userWantsToCreatePlan = confirmationKeywords.some(keyword => 
+      message.toLowerCase().includes(keyword.toLowerCase())
+    );
+
+    // If user is ready to create plan and confirms
+    if (userWantsToCreatePlan && session.sessionState === 'confirming') {
+      // Create a basic plan structure for Quick Plan
+      const planData = {
+        title: `Quick Plan: ${session.slots?.activityType || 'Activity'}`,
+        summary: `Fast plan generated from Quick Plan mode`,
+        category: 'personal',
+        tasks: [
+          {
+            title: `Start ${session.slots?.activityType || 'activity'}`,
+            description: 'Quick action to get started',
+            category: 'action',
+            priority: 'high',
+            timeEstimate: '15 min'
+          },
+          {
+            title: `Complete ${session.slots?.activityType || 'activity'}`,
+            description: 'Follow through and finish',
+            category: 'completion',
+            priority: 'high', 
+            timeEstimate: '30-60 min'
+          }
+        ]
+      };
+
+      // Create activity from the structured plan
+      const activity = await storage.createActivity({
+        title: planData.title,
+        description: planData.summary,
+        category: planData.category,
+        status: 'planning',
+        userId
+      });
+
+      // Create tasks and link them to the activity
+      for (let i = 0; i < planData.tasks.length; i++) {
+        const taskData = planData.tasks[i];
+        const task = await storage.createTask({
+          title: taskData.title,
+          description: taskData.description,
+          category: taskData.category,
+          priority: taskData.priority,
+          timeEstimate: taskData.timeEstimate,
+          userId
+        });
+        await storage.addTaskToActivity(activity.id, task.id, i);
+      }
+
+      // Mark session as completed
+      await storage.updateLifestylePlannerSession(session.id, {
+        sessionState: 'completed',
+        isComplete: true,
+        generatedPlan: planData
+      }, userId);
+
+      return res.json({
+        message: `⚡ **Quick Plan Created!** Activity "${activity.title}" is ready!\n\n📋 **Find it in:**\n• **Home screen** - Your recent activities\n• **Activities section** - Full details and tasks\n\nAll set for immediate action! 🚀`,
+        activityCreated: true,
+        activity,
+        planComplete: true
+      });
+    }
+
+    // Process with lifestyle planner agent in Quick mode
+    const response = await lifestylePlannerAgent.processMessage(
+      message,
+      session,
+      userProfile,
+      'quick' // Quick mode
+    );
+
+    // Persist updated session data including question counts
+    const updatedConversationHistory = [
+      ...(session.conversationHistory || []),
+      { role: 'assistant', content: response.message, timestamp: new Date().toISOString() }
+    ];
+
+    await storage.updateLifestylePlannerSession(session.id, {
+      conversationHistory: updatedConversationHistory,
+      slots: response.updatedSlots || session.slots,
+      externalContext: response.updatedExternalContext || session.externalContext,
+      sessionState: response.sessionState
+    }, userId);
+
+    // Check if plan is ready for confirmation
+    if (response.readyToGenerate || response.planReady) {
+      // Update session state to confirming
+      await storage.updateLifestylePlannerSession(session.id, {
+        sessionState: 'confirming'
+      }, userId);
+      
+      return res.json({
+        message: response.message + "\n\n⚡ **Ready for Quick Plan?** Click \"Create Plan\" to generate your activity instantly!",
+        planReady: true,
+        sessionId: session.id,
+        showCreatePlanButton: true
+      });
+    }
+
+    // Return conversational response
+    return res.json({
+      message: response.message,
+      sessionId: session.id,
+      contextChips: response.contextChips || [],
+      planReady: response.planReady || false
+    });
+
+  } catch (error) {
+    console.error('Quick Plan conversation error:', error);
+    return res.status(500).json({ 
+      error: 'Failed to process Quick Plan conversation',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
   // Real-time chat conversation endpoint with task creation
   app.post("/api/chat/conversation", async (req, res) => {
     try {
@@ -1305,6 +1501,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle Smart Plan mode with structured conversation
       if (mode === 'smart') {
         return await handleSmartPlanConversation(req, res, message, conversationHistory, userId);
+      }
+
+      // Handle Quick Plan mode with structured conversation
+      if (mode === 'quick') {
+        return await handleQuickPlanConversation(req, res, message, conversationHistory, userId);
       }
 
       // Create a conversation with the AI
