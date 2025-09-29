@@ -180,6 +180,20 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       'chat' // Smart mode
     );
 
+    // CRITICAL: Persist updated session data including question counts
+    const updatedConversationHistory = [
+      ...(session.conversationHistory || []),
+      { role: 'user', content: message },
+      { role: 'assistant', content: response.message }
+    ];
+
+    await storage.updateLifestylePlannerSession(session.id, {
+      conversationHistory: updatedConversationHistory,
+      slots: response.updatedSlots || session.slots,
+      externalContext: response.updatedExternalContext || session.externalContext,
+      sessionState: response.sessionState
+    }, userId);
+
     // Check if plan is ready for confirmation
     if (response.readyToGenerate || response.planReady) {
       // Update session state to confirming
