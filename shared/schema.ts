@@ -431,6 +431,7 @@ export const lifestylePlannerSessions = pgTable("lifestyle_planner_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
   sessionState: text("session_state").notNull().default("intake"), // 'intake' | 'gathering' | 'confirming' | 'planning' | 'completed'
+  userConfirmedAdd: boolean("user_confirmed_add").notNull().default(false),
   
   // Collected context slots
   slots: jsonb("slots").$type<{
