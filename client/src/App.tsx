@@ -8,6 +8,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import MainApp from "@/pages/MainApp";
 import SharedActivity from "@/pages/SharedActivity";
+import AuthCallback from "@/pages/AuthCallback";
 import NotificationService from "@/components/NotificationService";
 
 function App() {
@@ -29,6 +30,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Switch>
+          {/* Auth Callback Page (no sidebar) */}
+          <Route path="/auth/callback" component={AuthCallback} />
+          
           {/* Shared Activity Page (no sidebar) */}
           <Route path="/share/activity/:token" component={SharedActivity} />
           
