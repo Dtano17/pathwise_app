@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,8 @@ import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import ThemeToggle from '@/components/ThemeToggle';
 import NotificationManager from '@/components/NotificationManager';
 import SmartScheduler from '@/components/SmartScheduler';
+import CelebrationModal from '@/components/CelebrationModal';
+import Confetti from 'react-confetti';
 
 interface ProgressData {
   completedToday: number;
@@ -99,6 +101,14 @@ export default function MainApp({
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Activity completion celebration state
+  const [completedActivities, setCompletedActivities] = useState(new Set<string>());
+  const [showActivityConfetti, setShowActivityConfetti] = useState(false);
+  const [activityCelebration, setActivityCelebration] = useState<{
+    title: string;
+    description: string;
+  } | null>(null);
+
   // Expanded activities for collapsible view
   const handleActivityClick = (activity: ActivityType) => {
     // Set the selected activity and navigate to tasks tab
@@ -167,7 +177,7 @@ export default function MainApp({
   });
 
   // Fetch activities
-  const { data: activities = [], isLoading: activitiesLoading, error: activitiesError, refetch: refetchActivities } = useQuery<ActivityType[]>({
+  const { data: activities = [], isLoading: activitiesLoading, error: activitiesError, refetch: refetchActivities } = useQuery<(ActivityType & { totalTasks: number; completedTasks: number; progressPercent: number })[]>({
     queryKey: ['/api/activities'],
     staleTime: 30000, // 30 seconds
   });
@@ -297,10 +307,23 @@ export default function MainApp({
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+      
+      // Check if activity is completed after this task
+      const celebrationMessages = [
+        "🎉 Amazing work! Keep the momentum going!",
+        "💪 You're crushing it! Another step closer to your goal!",
+        "⭐ Fantastic! You're making real progress!",
+        "🚀 Outstanding! You're on fire today!",
+        "✨ Brilliant! Every task completed is a victory!"
+      ];
+      
+      const randomMessage = celebrationMessages[Math.floor(Math.random() * celebrationMessages.length)];
+      
       toast({
         title: data.achievement?.title || "Task Completed!",
-        description: data.achievement?.description || data.message,
+        description: data.achievement?.description || data.message || randomMessage,
       });
     }
   });
@@ -520,6 +543,50 @@ export default function MainApp({
 
   const pendingTasks = tasks.filter(task => !task.completed);
   const completedTasks = tasks.filter(task => task.completed);
+
+  // Initialize completed activities on first load to prevent false celebrations
+  useEffect(() => {
+    if (activities.length > 0 && completedActivities.size === 0) {
+      const alreadyCompleted = activities
+        .filter(activity => activity.progressPercent === 100)
+        .map(activity => activity.id);
+      if (alreadyCompleted.length > 0) {
+        setCompletedActivities(new Set(alreadyCompleted));
+      }
+    }
+  }, [activities.length]); // Only run when activities first load
+
+  // Check for newly completed activities and trigger confetti
+  useEffect(() => {
+    if (activities.length > 0 && completedActivities.size > 0) {
+      activities.forEach(activity => {
+        // Check if activity is 100% complete and hasn't been celebrated yet
+        if (activity.progressPercent === 100 && !Array.from(completedActivities).includes(activity.id)) {
+          // Mark this activity as celebrated
+          setCompletedActivities(prev => new Set([...Array.from(prev), activity.id]));
+          
+          // Show confetti celebration
+          setShowActivityConfetti(true);
+          setActivityCelebration({
+            title: `🎉 Activity Completed!`,
+            description: `Congratulations! You've completed "${activity.title}"! All tasks are done! 🚀`
+          });
+
+          // Auto-hide confetti after 5 seconds
+          setTimeout(() => {
+            setShowActivityConfetti(false);
+            setActivityCelebration(null);
+          }, 5000);
+
+          // Show toast notification
+          toast({
+            title: "🎊 ACTIVITY COMPLETED! 🎊",
+            description: `Amazing! You finished "${activity.title}" - All ${activity.totalTasks} tasks complete!`,
+          });
+        }
+      });
+    }
+  }, [activities, completedActivities, toast]);
 
   // Tab options for mobile dropdown
   const tabOptions = [
@@ -1934,6 +2001,35 @@ Assistant: For nutrition, I recommend..."
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Activity Completion Confetti */}
+      {showActivityConfetti && (
+        <div className="fixed inset-0 z-50 pointer-events-none">
+          <Confetti
+            width={window.innerWidth}
+            height={window.innerHeight}
+            recycle={false}
+            numberOfPieces={400}
+            colors={['#6C5CE7', '#00B894', '#FDCB6E', '#FF6B6B', '#4ECDC4', '#FFD93D', '#A8E6CF']}
+            gravity={0.3}
+            wind={0.01}
+          />
+        </div>
+      )}
+
+      {/* Activity Completion Modal */}
+      {activityCelebration && (
+        <CelebrationModal
+          isOpen={!!activityCelebration}
+          onClose={() => setActivityCelebration(null)}
+          achievement={{
+            title: activityCelebration.title,
+            description: activityCelebration.description,
+            type: 'milestone',
+            points: 100
+          }}
+        />
+      )}
     </div>
   );
 }
