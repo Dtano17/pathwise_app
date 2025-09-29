@@ -73,7 +73,7 @@ export default function MainApp({
   const [activeTab, setActiveTab] = useState("input"); // Start with Goal Input as the landing page
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { open } = useSidebar();
+  const { open, isMobile } = useSidebar();
   
   // Chat sync form state
   const [chatText, setChatText] = useState('');
@@ -528,7 +528,7 @@ export default function MainApp({
         <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-3">
-              {!open && <SidebarTrigger data-testid="button-sidebar-toggle" />}
+              {(isMobile || !open) && <SidebarTrigger data-testid="button-sidebar-toggle" />}
               <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center">
                 <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
               </div>
