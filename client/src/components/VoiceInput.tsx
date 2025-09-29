@@ -210,19 +210,30 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
 
   const startConversationWithMode = (mode: 'quick' | 'smart') => {
     setCurrentMode(mode);
-    const welcomeMessage: ChatMessage = {
-      role: 'assistant',
-      content: mode === 'quick' 
-        ? "Quick Plan Mode activated! Tell me what you want to accomplish and I'll help you create a plan quickly."
-        : "Smart Plan Mode activated! I'll ask you detailed questions to create a comprehensive action plan. What would you like to achieve?",
-      timestamp: new Date()
-    };
-    setChatMessages([welcomeMessage]);
+    // Don't immediately switch to chat mode - let user type first
     setShowCreatePlanButton(false);
   };
 
   const handleSubmit = () => {
     if (!text.trim()) return;
+    
+    // If in conversation mode, start the chat dialogue
+    if (currentMode) {
+      const welcomeMessage: ChatMessage = {
+        role: 'assistant',
+        content: currentMode === 'quick' 
+          ? "Quick Plan Mode activated! Tell me what you want to accomplish and I'll help you create a plan quickly."
+          : "Smart Plan Mode activated! I'll ask you detailed questions to create a comprehensive action plan. What would you like to achieve?",
+        timestamp: new Date()
+      };
+      setChatMessages([welcomeMessage]);
+      // Then send the user's initial message
+      chatMutation.mutate(text.trim());
+      setText('');
+      return;
+    }
+    
+    // Normal plan creation mode
     onSubmit({
       text: text.trim(),
       images: uploadedImages
@@ -235,7 +246,10 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (currentMode) {
+      if (currentMode && chatMessages.length === 0) {
+        // Start conversation with welcome message (same as submit button)
+        handleSubmit();
+      } else if (currentMode) {
         if (text.trim() && !chatMutation.isPending) {
           chatMutation.mutate(text.trim());
           setText('');
@@ -478,9 +492,9 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                 </div>
 
                 {/* Action buttons row */}
-                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:gap-3 sm:items-center sm:justify-between">
+                <div className="space-y-3 sm:space-y-0 sm:flex sm:flex-row sm:gap-3 sm:items-center sm:justify-between">
                   {/* Conversational Mode Buttons */}
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
                     <Button
                       variant={currentMode === 'quick' ? 'default' : 'outline'}
                       size="sm"
@@ -515,7 +529,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                   <Button
                     onClick={handleSubmit}
                     disabled={!text.trim() || isGenerating}
-                    className="gap-1 sm:gap-2 col-span-2 sm:col-span-1 sm:w-auto"
+                    className="gap-1 sm:gap-2 w-full sm:w-auto"
                     data-testid="button-submit"
                   >
                     {isGenerating ? (
@@ -531,8 +545,21 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                     ) : (
                       <>
                         <Send className="w-4 h-4" />
-                        <span className="hidden sm:inline">Create Action Plan</span>
-                        <span className="sm:hidden">Create Plan</span>
+                        {currentMode ? (
+                          <>
+                            <span className="hidden sm:inline">
+                              Start {currentMode === 'quick' ? 'Quick Plan' : 'Smart Plan'}
+                            </span>
+                            <span className="sm:hidden">
+                              Start {currentMode === 'quick' ? 'Quick' : 'Smart'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="hidden sm:inline">Create Action Plan</span>
+                            <span className="sm:hidden">Create Plan</span>
+                          </>
+                        )}
                       </>
                     )}
                   </Button>
