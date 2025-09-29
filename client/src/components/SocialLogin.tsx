@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SiGoogle, SiFacebook, SiApple, SiInstagram } from "react-icons/si";
 import { Sparkles, Mail, ArrowLeft } from "lucide-react";
-import { useFacebookAuth } from "@/hooks/useFacebookAuth";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useToast } from "@/hooks/use-toast";
 
 interface SocialLoginProps {
@@ -30,7 +30,7 @@ export function SocialLogin({
   showReplitAuth = true
 }: SocialLoginProps) {
   
-  const { fbStatus, isProcessing, loginWithFacebook } = useFacebookAuth();
+  const { signInWithFacebook, signInWithGoogle, signInWithEmail, signUpWithEmail, isProcessing } = useSupabaseAuth();
   const { toast } = useToast();
   const [showManualAuth, setShowManualAuth] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -44,17 +44,19 @@ export function SocialLogin({
     username: ''
   });
   
-  const handleSocialLogin = (provider: string) => {
-    if (provider === 'facebook') {
-      // Use the popup-based Facebook login to avoid iframe issues
-      if (window.facebookLogin) {
-        window.facebookLogin();
+  const handleSocialLogin = async (provider: string) => {
+    try {
+      if (provider === 'facebook') {
+        await signInWithFacebook();
+      } else if (provider === 'google') {
+        await signInWithGoogle();
       } else {
-        // Fallback to direct OAuth redirect
-        window.location.href = '/api/auth/facebook';
+        // Fallback for other providers that aren't yet implemented in Supabase
+        window.location.href = `/api/auth/${provider}`;
       }
-    } else {
-      window.location.href = `/api/auth/${provider}`;
+    } catch (error) {
+      // Error handling is done in the useSupabaseAuth hook
+      console.error(`${provider} login error:`, error);
     }
   };
 
@@ -74,35 +76,11 @@ export function SocialLogin({
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: "Login Successful",
-          description: "Welcome back!",
-        });
-        // Redirect to dashboard
-        window.location.href = '/dashboard';
-      } else {
-        throw new Error(data.error || 'Login failed');
-      }
-    } catch (error: any) {
-      toast({
-        title: "Login Failed",
-        description: error.message || "Please check your credentials and try again.",
-        variant: "destructive",
-      });
+      await signInWithEmail(formData.email, formData.password);
+      // Success handled by useSupabaseAuth hook
+      setShowManualAuth(false); // Close the manual auth form
+    } catch (error) {
+      // Error handling is done in the useSupabaseAuth hook
     } finally {
       setIsLoading(false);
     }
@@ -123,38 +101,18 @@ export function SocialLogin({
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          username: formData.username || formData.email.split('@')[0],
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-        }),
-      });
+      const metadata = {
+        username: formData.username || formData.email.split('@')[0],
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        full_name: `${formData.firstName || ''} ${formData.lastName || ''}`.trim()
+      };
 
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: "Account Created",
-          description: "Welcome! Your account has been created successfully.",
-        });
-        // Redirect to dashboard
-        window.location.href = '/dashboard';
-      } else {
-        throw new Error(data.error || 'Signup failed');
-      }
-    } catch (error: any) {
-      toast({
-        title: "Signup Failed",
-        description: error.message || "Please try again.",
-        variant: "destructive",
-      });
+      await signUpWithEmail(formData.email, formData.password, metadata);
+      // Success handled by useSupabaseAuth hook
+      setShowManualAuth(false); // Close the manual auth form
+    } catch (error) {
+      // Error handling is done in the useSupabaseAuth hook
     } finally {
       setIsLoading(false);
     }
@@ -264,7 +222,7 @@ export function SocialLogin({
           
           <div className="text-center space-y-2">
             <Button
-              variant="link"
+              variant="ghost"
               onClick={() => setIsSignUp(!isSignUp)}
               className="text-sm"
             >
