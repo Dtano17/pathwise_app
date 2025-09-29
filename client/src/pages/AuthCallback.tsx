@@ -18,6 +18,7 @@ export default function AuthCallback() {
         const urlParams = new URLSearchParams(window.location.search)
         const error = urlParams.get('error')
         const errorDescription = urlParams.get('error_description')
+        const code = urlParams.get('code')
         
         if (error) {
           console.error('OAuth error from URL:', error, errorDescription)
@@ -26,10 +27,44 @@ export default function AuthCallback() {
           return
         }
 
-        // Try to get the session - this should trigger the auth state change
+        // If we have a code parameter, exchange it for a session
+        if (code) {
+          console.log('AuthCallback: Found OAuth code, exchanging for session...')
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+          
+          if (exchangeError) {
+            console.error('AuthCallback: Code exchange error:', exchangeError)
+            setStatus('error')
+            setMessage(exchangeError.message || 'Failed to complete authentication')
+            return
+          }
+
+          if (data.session && data.session.user) {
+            console.log('AuthCallback: Successfully exchanged code for session')
+            console.log('AuthCallback: User ID:', data.session.user.id)
+            console.log('AuthCallback: User email:', data.session.user.email)
+            
+            setStatus('success')
+            const userName = data.session.user.email || 
+                            data.session.user.user_metadata?.full_name ||
+                            data.session.user.user_metadata?.name ||
+                            'back'
+            setMessage(`Welcome ${userName}!`)
+            
+            // Clean up URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname)
+            
+            // Redirect to the main app after a short delay
+            setTimeout(() => {
+              window.location.href = '/'
+            }, 2000)
+            return
+          }
+        }
+
+        // Fallback: Try to get existing session
+        console.log('AuthCallback: No code found, checking for existing session...')
         const { data, error: sessionError } = await supabase.auth.getSession()
-        console.log('AuthCallback: Session data:', data)
-        console.log('AuthCallback: Session error:', sessionError)
 
         if (sessionError) {
           console.error('Auth callback session error:', sessionError)
@@ -39,7 +74,8 @@ export default function AuthCallback() {
         }
 
         if (data.session && data.session.user) {
-          console.log('AuthCallback: User authenticated:', data.session.user)
+          console.log('AuthCallback: Found existing session')
+          console.log('AuthCallback: User ID:', data.session.user.id)
           setStatus('success')
           const userName = data.session.user.email || 
                           data.session.user.user_metadata?.full_name ||
@@ -55,12 +91,10 @@ export default function AuthCallback() {
             window.location.href = '/'
           }, 2000)
         } else {
-          console.log('AuthCallback: No session found, waiting for auth state change...')
-          // Sometimes the session takes a moment to be available
-          // The auth state change handler in useSupabaseAuth should handle this
-          setTimeout(() => {
-            window.location.href = '/'
-          }, 3000)
+          console.log('AuthCallback: No session found after callback')
+          setStatus('error')
+          setMessage('Authentication was not completed. Please try again.')
+          // Don't auto-redirect on failure, let user manually retry
         }
       } catch (error: any) {
         console.error('Unexpected auth callback error:', error)
