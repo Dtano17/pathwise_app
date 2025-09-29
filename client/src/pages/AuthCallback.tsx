@@ -11,27 +11,56 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Handle the auth callback from Supabase
-        const { data, error } = await supabase.auth.getSession()
-
+        console.log('AuthCallback: Starting auth callback handling')
+        console.log('AuthCallback: Current URL:', window.location.href)
+        
+        // Check for URL parameters that might indicate an error
+        const urlParams = new URLSearchParams(window.location.search)
+        const error = urlParams.get('error')
+        const errorDescription = urlParams.get('error_description')
+        
         if (error) {
-          console.error('Auth callback error:', error)
+          console.error('OAuth error from URL:', error, errorDescription)
           setStatus('error')
-          setMessage(error.message || 'Authentication failed')
+          setMessage(errorDescription || error || 'Authentication failed')
+          return
+        }
+
+        // Try to get the session - this should trigger the auth state change
+        const { data, error: sessionError } = await supabase.auth.getSession()
+        console.log('AuthCallback: Session data:', data)
+        console.log('AuthCallback: Session error:', sessionError)
+
+        if (sessionError) {
+          console.error('Auth callback session error:', sessionError)
+          setStatus('error')
+          setMessage(sessionError.message || 'Authentication failed')
           return
         }
 
         if (data.session && data.session.user) {
+          console.log('AuthCallback: User authenticated:', data.session.user)
           setStatus('success')
-          setMessage(`Welcome ${data.session.user.email || data.session.user.user_metadata?.full_name || 'back'}!`)
+          const userName = data.session.user.email || 
+                          data.session.user.user_metadata?.full_name ||
+                          data.session.user.user_metadata?.name ||
+                          'back'
+          setMessage(`Welcome ${userName}!`)
+          
+          // Clean up URL parameters
+          window.history.replaceState({}, document.title, window.location.pathname)
           
           // Redirect to the main app after a short delay
           setTimeout(() => {
             window.location.href = '/'
           }, 2000)
         } else {
-          setStatus('error')
-          setMessage('No valid session found')
+          console.log('AuthCallback: No session found, waiting for auth state change...')
+          // Sometimes the session takes a moment to be available
+          // The auth state change handler in useSupabaseAuth should handle this
+          setTimeout(() => {
+            window.location.href = '/'
+          }, 3000)
         }
       } catch (error: any) {
         console.error('Unexpected auth callback error:', error)

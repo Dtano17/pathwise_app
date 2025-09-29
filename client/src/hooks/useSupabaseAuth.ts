@@ -48,10 +48,14 @@ export function useSupabaseAuth() {
     try {
       setIsProcessing(true)
       
+      // Get the current domain for the redirect URL
+      const currentDomain = window.location.origin
+      console.log('Facebook login - redirect URL:', `${currentDomain}/auth/callback`)
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${currentDomain}/auth/callback`,
           scopes: 'email public_profile'
         }
       })
