@@ -230,39 +230,41 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-2 mt-4">
+        <div className="space-y-2 sm:space-y-0 sm:flex sm:gap-2 mt-4">
           <Button 
             onClick={handleComplete}
             disabled={isProcessing}
-            className="w-full sm:flex-1 bg-green-600 hover:bg-green-700 text-white"
+            size="default"
+            className="w-full sm:flex-1 bg-green-600 hover:bg-green-700 text-white min-h-11"
             data-testid={`button-complete-${task.id}`}
           >
-            <CheckCircle className="w-4 h-4 mr-2" />
+            <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
             Complete
           </Button>
           
-          <div className="flex gap-2 sm:flex-1 sm:gap-2">
+          <div className="flex gap-2 w-full sm:flex-1">
             <Button 
               onClick={handleSnooze}
               disabled={isProcessing}
               variant="outline"
-              className="flex-1 sm:flex-none sm:w-auto"
+              size="default"
+              className="flex-1 min-h-11 text-sm px-3"
               data-testid={`button-snooze-${task.id}`}
             >
-              <Pause className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Snooze 2h</span>
-              <span className="sm:hidden">2h</span>
+              <Pause className="w-4 h-4 flex-shrink-0" />
+              <span className="ml-1 truncate">Snooze</span>
             </Button>
             
             <Button 
               onClick={handleSkip}
               disabled={isProcessing}
               variant="outline"
-              className="flex-1 sm:flex-none sm:w-auto text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
+              size="default"
+              className="flex-1 min-h-11 text-sm px-3 text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
               data-testid={`button-skip-${task.id}`}
             >
-              <X className="w-4 h-4 sm:mr-2" />
-              Skip
+              <X className="w-4 h-4 flex-shrink-0" />
+              <span className="ml-1 truncate">Skip</span>
             </Button>
           </div>
         </div>
