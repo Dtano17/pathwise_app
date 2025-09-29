@@ -35,7 +35,7 @@ function App() {
           {/* Main App with Sidebar */}
           <Route>
             <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
-              <div className="flex h-screen w-full overflow-hidden">
+              <div className="flex h-screen w-full overflow-auto">
                 <AppSidebar 
                   selectedTheme={selectedTheme}
                   onThemeSelect={setSelectedTheme}

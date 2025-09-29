@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import journalMateIcon from "@assets/journalmate-icon.png";
 
 // TypeScript declarations for Speech Recognition API
 declare global {
@@ -618,8 +619,8 @@ export default function VoiceInput({ onSubmit, isGenerating = false, placeholder
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <img src="/journalmate-logo.png" className="w-5 h-5 rounded-full" alt="JournalMate" />
-                          <h4 className="font-medium text-sm">AI Planning Assistant</h4>
+                          <img src={journalMateIcon} className="w-5 h-5 rounded-full" alt="JournalMate" />
+                          <h4 className="font-medium text-sm">JournalMate</h4>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary" className="text-xs">
