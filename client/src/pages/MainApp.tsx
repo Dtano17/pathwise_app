@@ -70,7 +70,7 @@ export default function MainApp({
   showLifestylePlanner,
   onShowLifestylePlanner
 }: MainAppProps) {
-  const [activeTab, setActiveTab] = useState("goals"); // Start with activities as primary focus
+  const [activeTab, setActiveTab] = useState("input"); // Start with Goal Input as the landing page
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { open } = useSidebar();
