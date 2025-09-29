@@ -99,7 +99,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         sessionId: session.id,
         contextChips: [],
         planReady: false,
-        helpProvided: true
+        helpProvided: true,
+        session
       });
     }
 
@@ -144,31 +145,38 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       });
 
       // Create tasks and link them to the activity
+      const createdTasks = [];
       for (let i = 0; i < planData.tasks.length; i++) {
         const taskData = planData.tasks[i];
         const task = await storage.createTask({
           title: taskData.title,
           description: taskData.description,
           category: taskData.category,
-          priority: taskData.priority,
+          priority: taskData.priority as 'low' | 'medium' | 'high',
           timeEstimate: taskData.timeEstimate,
           userId
         });
         await storage.addTaskToActivity(activity.id, task.id, i);
+        createdTasks.push(task);
       }
 
       // Mark session as completed
       await storage.updateLifestylePlannerSession(session.id, {
         sessionState: 'completed',
         isComplete: true,
-        generatedPlan: planData
+        generatedPlan: { ...planData, tasks: createdTasks }
       }, userId);
 
+      // Get updated session for consistent response shape
+      const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
+      
       return res.json({
-        message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 **You can find it in:**\n• **Home screen** - Check your recent activities\n• **Activities pane** - View all details and progress\n• **Tasks section** - See the ${planData.tasks.length} individual tasks I created\n\nAll tasks are ready for you to start working on! 🚀`,
+        message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 **You can find it in:**\n• **Home screen** - Check your recent activities\n• **Activities pane** - View all details and progress\n• **Tasks section** - See the ${createdTasks.length} individual tasks I created\n\nAll tasks are ready for you to start working on! 🚀`,
         activityCreated: true,
         activity,
-        planComplete: true
+        planComplete: true,
+        createdTasks,
+        session: updatedSession
       });
     }
 
@@ -205,7 +213,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         message: response.message + "\n\n🎯 **Ready to create your plan?** Click the \"Create Plan\" button below to turn this into an organized activity with trackable tasks!",
         planReady: true,
         sessionId: session.id,
-        showCreatePlanButton: true
+        showCreatePlanButton: true,
+        session
       });
     }
 
@@ -223,6 +232,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       });
 
       // Create tasks and link them to the activity
+      const createdTasks = [];
       if (planData.tasks && Array.isArray(planData.tasks)) {
         for (let i = 0; i < planData.tasks.length; i++) {
           const taskData = planData.tasks[i];
@@ -235,21 +245,33 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
             userId
           });
           await storage.addTaskToActivity(activity.id, task.id, i);
+          createdTasks.push(task); // Collect real task with database ID
         }
       }
+      
+      // Update the generated plan with real tasks
+      response.generatedPlan = {
+        ...planData,
+        tasks: createdTasks
+      };
 
-      // Mark session as completed
+      // Mark session as completed  
       await storage.updateLifestylePlannerSession(session.id, {
         sessionState: 'completed',
         isComplete: true,
-        generatedPlan: planData
+        generatedPlan: response.generatedPlan // Use updated plan with real tasks
       }, userId);
 
+      // Get updated session for consistent response shape
+      const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
+      
       return res.json({
-        message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 **You can find it in:**\n• **Home screen** - Check your recent activities\n• **Activities pane** - View all details and progress\n• **Tasks section** - See the ${planData.tasks.length} individual tasks I created\n\nAll tasks are ready for you to start working on! 🚀`,
+        message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 **You can find it in:**\n• **Home screen** - Check your recent activities\n• **Activities pane** - View all details and progress\n• **Tasks section** - See the ${createdTasks.length} individual tasks I created\n\nAll tasks are ready for you to start working on! 🚀`,
         activityCreated: true,
         activity,
-        planComplete: true
+        planComplete: true,
+        createdTasks,
+        session: updatedSession
       });
     }
 
@@ -267,7 +289,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       message: response.message,
       sessionId: session?.id,
       contextChips: response.contextChips || [],
-      planReady: response.planReady || false
+      planReady: response.planReady || false,
+      session
     });
 
   } catch (error) {
@@ -1360,7 +1383,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         sessionId: session.id,
         contextChips: [],
         planReady: false,
-        helpProvided: true
+        helpProvided: true,
+        session
       });
     }
 
@@ -1405,31 +1429,38 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       });
 
       // Create tasks and link them to the activity
+      const createdTasks = [];
       for (let i = 0; i < planData.tasks.length; i++) {
         const taskData = planData.tasks[i];
         const task = await storage.createTask({
           title: taskData.title,
           description: taskData.description,
           category: taskData.category,
-          priority: taskData.priority,
+          priority: taskData.priority as 'low' | 'medium' | 'high',
           timeEstimate: taskData.timeEstimate,
           userId
         });
         await storage.addTaskToActivity(activity.id, task.id, i);
+        createdTasks.push(task);
       }
 
       // Mark session as completed
       await storage.updateLifestylePlannerSession(session.id, {
         sessionState: 'completed',
         isComplete: true,
-        generatedPlan: planData
+        generatedPlan: { ...planData, tasks: createdTasks }
       }, userId);
 
+      // Get updated session for consistent response shape
+      const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
+      
       return res.json({
         message: `⚡ **Quick Plan Created!** Activity "${activity.title}" is ready!\n\n📋 **Find it in:**\n• **Home screen** - Your recent activities\n• **Activities section** - Full details and tasks\n\nAll set for immediate action! 🚀`,
         activityCreated: true,
         activity,
-        planComplete: true
+        planComplete: true,
+        createdTasks,
+        session: updatedSession
       });
     }
 
@@ -1465,7 +1496,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         message: response.message + "\n\n⚡ **Ready for Quick Plan?** Click \"Create Plan\" to generate your activity instantly!",
         planReady: true,
         sessionId: session.id,
-        showCreatePlanButton: true
+        showCreatePlanButton: true,
+        session
       });
     }
 
@@ -1474,7 +1506,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       message: response.message,
       sessionId: session.id,
       contextChips: response.contextChips || [],
-      planReady: response.planReady || false
+      planReady: response.planReady || false,
+      session
     });
 
   } catch (error) {

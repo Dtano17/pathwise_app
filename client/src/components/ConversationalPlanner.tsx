@@ -93,6 +93,22 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
       setCurrentSession(data.session);
       setContextChips(data.contextChips || []);
       setMessage('');
+      
+      // Handle plan creation with real task IDs
+      if (data.createdTasks && data.activityCreated && data.planComplete) {
+        console.log('Plan created with real tasks:', data.createdTasks);
+        // Invalidate queries to refresh tasks and activities with real data
+        queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+        
+        // Store the real task data for use in completion
+        setPendingPlan({
+          activity: data.activity,
+          tasks: data.createdTasks,
+          planComplete: true
+        });
+      }
     },
     onError: (error) => {
       console.error('Failed to send message:', error);
