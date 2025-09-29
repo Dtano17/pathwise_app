@@ -521,6 +521,17 @@ export default function MainApp({
   const pendingTasks = tasks.filter(task => !task.completed);
   const completedTasks = tasks.filter(task => task.completed);
 
+  // Tab options for mobile dropdown
+  const tabOptions = [
+    { value: "input", label: "Goal Input", shortLabel: "Input", icon: Mic },
+    { value: "activities", label: `Activities (${activities.length})`, shortLabel: "Activities", icon: CheckSquare },
+    { value: "tasks", label: `All Tasks (${tasks.length})`, shortLabel: "Tasks", icon: Target },
+    { value: "progress", label: "Progress", shortLabel: "Stats", icon: BarChart3 },
+    { value: "groups", label: "Groups", shortLabel: "Groups", icon: Users },
+    { value: "sync", label: "Integrations", shortLabel: "Apps", icon: Sparkles },
+    { value: "about", label: "About", shortLabel: "About", icon: Sparkles }
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -551,43 +562,70 @@ export default function MainApp({
       {/* Main Content */}
       <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 h-full overflow-auto">
         <div className="max-w-6xl mx-auto">
-          {/* Navigation Tabs */}
+          {/* Navigation */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-7 mb-4 sm:mb-8 bg-muted/30 p-1 h-10 sm:h-12 overflow-x-auto">
+            {/* Mobile Dropdown Navigation */}
+            <div className="sm:hidden mb-4">
+              <Select value={activeTab} onValueChange={setActiveTab}>
+                <SelectTrigger className="w-full" data-testid="mobile-nav-dropdown">
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const currentTab = tabOptions.find(tab => tab.value === activeTab);
+                      const IconComponent = currentTab?.icon || Mic;
+                      return <IconComponent className="w-4 h-4" />;
+                    })()}
+                    <SelectValue placeholder="Select Page" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {tabOptions.map((option) => {
+                    const IconComponent = option.icon;
+                    // Use full label for dropdown options to show counts
+                    const displayLabel = option.value === 'activities' ? `Activities (${activities.length})` :
+                                       option.value === 'tasks' ? `Tasks (${tasks.length})` :
+                                       option.shortLabel;
+                    return (
+                      <SelectItem key={option.value} value={option.value} data-testid={`mobile-nav-${option.value}`}>
+                        <div className="flex items-center gap-2">
+                          <IconComponent className="w-4 h-4" />
+                          <span>{displayLabel}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Desktop Tab Navigation */}
+            <TabsList className="hidden sm:grid w-full grid-cols-7 mb-4 sm:mb-8 bg-muted/30 p-1 h-12">
               <TabsTrigger value="input" className="gap-2 text-sm font-medium" data-testid="tab-input">
                 <Mic className="w-4 h-4" />
-                <span className="hidden sm:inline">Goal Input</span>
-                <span className="sm:hidden">Input</span>
+                <span>Goal Input</span>
               </TabsTrigger>
               <TabsTrigger value="activities" className="gap-2 text-sm font-medium" data-testid="tab-activities">
                 <CheckSquare className="w-4 h-4" />
-                <span className="hidden sm:inline">Activities ({activities.length})</span>
-                <span className="sm:hidden">Activities</span>
+                <span>Activities ({activities.length})</span>
               </TabsTrigger>
               <TabsTrigger value="tasks" className="gap-2 text-sm font-medium" data-testid="tab-all-tasks">
                 <Target className="w-4 h-4" />
-                <span className="hidden sm:inline">All Tasks ({tasks.length})</span>
-                <span className="sm:hidden">Tasks</span>
+                <span>All Tasks ({tasks.length})</span>
               </TabsTrigger>
               <TabsTrigger value="progress" className="gap-2 text-sm font-medium" data-testid="tab-progress">
                 <BarChart3 className="w-4 h-4" />
-                <span className="hidden sm:inline">Progress</span>
-                <span className="sm:hidden">Stats</span>
+                <span>Progress</span>
               </TabsTrigger>
               <TabsTrigger value="groups" className="gap-2 text-sm font-medium" data-testid="tab-groups">
                 <Users className="w-4 h-4" />
-                <span className="hidden sm:inline">Groups</span>
-                <span className="sm:hidden">Groups</span>
+                <span>Groups</span>
               </TabsTrigger>
               <TabsTrigger value="sync" className="gap-2 text-sm font-medium" data-testid="tab-integrations">
                 <Sparkles className="w-4 h-4" />
-                <span className="hidden sm:inline">Integrations</span>
-                <span className="sm:hidden">Apps</span>
+                <span>Integrations</span>
               </TabsTrigger>
               <TabsTrigger value="about" className="gap-2 text-sm font-medium" data-testid="tab-about">
                 <Sparkles className="w-4 h-4" />
-                <span className="hidden sm:inline">About</span>
-                <span className="sm:hidden">About</span>
+                <span>About</span>
               </TabsTrigger>
             </TabsList>
 
