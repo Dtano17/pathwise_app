@@ -131,7 +131,7 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
       }, userId);
 
       return res.json({
-        message: "🎉 **Perfect!** I've created your personalized activity plan with trackable tasks. You can find it in your Activities section!",
+        message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 **You can find it in:**\n• **Home screen** - Check your recent activities\n• **Activities pane** - View all details and progress\n• **Tasks section** - See the ${planData.tasks.length} individual tasks I created\n\nAll tasks are ready for you to start working on! 🚀`,
         activityCreated: true,
         activity,
         planComplete: true
@@ -198,7 +198,7 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
       }, userId);
 
       return res.json({
-        message: "🎉 **Perfect!** I've created your personalized activity plan with trackable tasks. You can find it in your Activities section!",
+        message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 **You can find it in:**\n• **Home screen** - Check your recent activities\n• **Activities pane** - View all details and progress\n• **Tasks section** - See the ${planData.tasks.length} individual tasks I created\n\nAll tasks are ready for you to start working on! 🚀`,
         activityCreated: true,
         activity,
         planComplete: true
