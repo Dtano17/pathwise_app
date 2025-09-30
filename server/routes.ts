@@ -862,11 +862,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/tasks/:taskId/skip", async (req, res) => {
     try {
       const { taskId } = req.params;
-      const { reason } = req.body;
       
-      // For now, just mark it as skipped by updating with a note
+      // Mark task as skipped
       const task = await storage.updateTask(taskId, {
-        description: `${req.body.description || ''} [Skipped: ${reason || 'No reason provided'}]`
+        skipped: true
       }, DEMO_USER_ID);
 
       if (!task) {
@@ -893,12 +892,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { hours } = snoozeSchema.parse(req.body);
       
-      // Calculate new due date (current time + hours)
+      // Calculate snooze time (current time + hours)
       const snoozeUntil = new Date();
       snoozeUntil.setHours(snoozeUntil.getHours() + hours);
       
       const task = await storage.updateTask(taskId, {
-        dueDate: snoozeUntil
+        snoozeUntil: snoozeUntil
       }, DEMO_USER_ID);
 
       if (!task) {

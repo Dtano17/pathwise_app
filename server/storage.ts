@@ -290,10 +290,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserTasks(userId: string): Promise<Task[]> {
+    const now = new Date();
     return await db.select().from(tasks)
       .where(and(
         eq(tasks.userId, userId),
-        or(eq(tasks.archived, false), isNull(tasks.archived))
+        or(eq(tasks.archived, false), isNull(tasks.archived)),
+        or(eq(tasks.completed, false), isNull(tasks.completed)),
+        or(eq(tasks.skipped, false), isNull(tasks.skipped)),
+        or(
+          isNull(tasks.snoozeUntil),
+          sql`${tasks.snoozeUntil} <= ${now}`
+        )
       ))
       .orderBy(desc(tasks.createdAt));
   }

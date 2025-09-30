@@ -106,6 +106,8 @@ export const tasks = pgTable("tasks", {
   timeEstimate: text("time_estimate"), // "15 min" | "30 min" | "1 hour" | "2 hours"
   context: text("context"), // Why this task matters and tips for success
   archived: boolean("archived").default(false),
+  skipped: boolean("skipped").default(false),
+  snoozeUntil: timestamp("snooze_until"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
