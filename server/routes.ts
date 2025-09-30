@@ -1692,11 +1692,27 @@ You can find these tasks in your task list and start working on them right away!
   });
 
   // User Profile Management
-  app.get("/api/user/profile", async (req, res) => {
+  app.get("/api/user/profile", async (req: any, res) => {
     try {
-      // Get authenticated user ID, fallback to demo user for backward compatibility
-      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
-      const profile = await storage.getUserProfile(userId);
+      // Get authenticated user ID using the helper function
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Try to get existing profile
+      let profile = await storage.getUserProfile(userId);
+      
+      // If no profile exists for authenticated user, create one from user data
+      if (!profile && userId !== DEMO_USER_ID) {
+        const user = await storage.getUser(userId);
+        if (user) {
+          profile = await storage.upsertUserProfile(userId, {
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            email: user.email || '',
+            profileImageUrl: user.profileImageUrl || undefined
+          });
+        }
+      }
+      
       res.json(profile);
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -1704,9 +1720,9 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
-  app.put("/api/user/profile", async (req, res) => {
+  app.put("/api/user/profile", async (req: any, res) => {
     try {
-      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      const userId = getUserId(req) || DEMO_USER_ID;
       const profileData = insertUserProfileSchema.parse(req.body);
       const profile = await storage.upsertUserProfile(userId, profileData);
       res.json(profile);
