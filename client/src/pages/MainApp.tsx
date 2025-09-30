@@ -1113,12 +1113,15 @@ export default function MainApp({
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => setSelectedActivityId(null)}
+                      onClick={() => {
+                        setActiveTab("activities");
+                        setSelectedActivityId(null);
+                      }}
                       className="mt-2"
-                      data-testid="button-view-all-tasks"
+                      data-testid="button-back-to-activity"
                     >
                       <ArrowLeft className="w-4 h-4 mr-2" />
-                      View All Tasks
+                      Back to {activities.find(a => a.id === selectedActivityId)?.title || 'Activity'}
                     </Button>
                   </>
                 ) : (
