@@ -40,6 +40,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const modeButtonsRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -49,6 +50,20 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatMessages, isNearBottom]);
+
+  // Click outside to deselect mode
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (currentMode && modeButtonsRef.current && !modeButtonsRef.current.contains(event.target as Node)) {
+        setCurrentMode(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [currentMode]);
 
   // Track scroll position to determine if user is near bottom
   useEffect(() => {
@@ -209,7 +224,12 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   };
 
   const startConversationWithMode = (mode: 'quick' | 'smart') => {
-    setCurrentMode(mode);
+    // Toggle: if clicking the same mode again, deselect it
+    if (currentMode === mode) {
+      setCurrentMode(null);
+    } else {
+      setCurrentMode(mode);
+    }
     // Don't immediately switch to chat mode - let user type first
     setShowCreatePlanButton(false);
   };
@@ -517,7 +537,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                 {/* Action buttons row */}
                 <div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
                   {/* Conversational Mode Buttons */}
-                  <div className="flex gap-2">
+                  <div ref={modeButtonsRef} className="flex gap-2">
                     <Button
                       variant={currentMode === 'quick' ? 'default' : 'outline'}
                       size="default"
