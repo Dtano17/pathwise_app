@@ -403,6 +403,7 @@ export default function MainApp({
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       toast({
         title: "Task Skipped",
@@ -442,6 +443,7 @@ export default function MainApp({
     },
     onSuccess: (data: any, { hours }: { taskId: string; hours: number }) => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       toast({
         title: "Task Snoozed",
@@ -1314,13 +1316,15 @@ export default function MainApp({
                         key={task.id}
                         task={{
                           ...task,
-                          description: task.description || '', // Convert null to empty string
-                          priority: (task.priority as 'low' | 'medium' | 'high') || 'medium'
+                          description: task.description || '',
+                          priority: (task.priority as 'low' | 'medium' | 'high') || 'medium',
+                          dueDate: task.dueDate ? new Date(task.dueDate).toISOString() : undefined
                         }}
-                        onComplete={() => handleCompleteTask(task.id)}
-                        onSkip={() => handleSkipTask(task.id)}
-                        onSnooze={(hours) => handleSnoozeTask(task.id, Number(hours))}
-                        onArchive={() => handleArchiveTask.mutate(task.id)}
+                        onComplete={handleCompleteTask}
+                        onSkip={handleSkipTask}
+                        onSnooze={handleSnoozeTask}
+                        onArchive={(taskId: string) => handleArchiveTask.mutate(taskId)}
+                        showConfetti={true}
                         data-testid={`task-card-${task.id}`}
                       />
                     ));
