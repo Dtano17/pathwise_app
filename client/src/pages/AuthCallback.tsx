@@ -29,8 +29,9 @@ export default function AuthCallback() {
         
         if (error) {
           console.error('OAuth error from URL:', error, errorDescription)
+          console.error('Full URL:', window.location.href)
           setStatus('error')
-          setMessage(errorDescription || error || 'Authentication failed')
+          setMessage(errorDescription || `Authentication failed: ${error}`)
           return
         }
 
@@ -41,8 +42,9 @@ export default function AuthCallback() {
           
           if (exchangeError) {
             console.error('AuthCallback: Code exchange error:', exchangeError)
+            console.error('Error details:', JSON.stringify(exchangeError, null, 2))
             setStatus('error')
-            setMessage(exchangeError.message || 'Failed to complete authentication')
+            setMessage(exchangeError.message || `Failed to complete authentication: ${exchangeError.message || 'Unknown error'}`)
             return
           }
 
