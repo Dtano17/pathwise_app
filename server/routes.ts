@@ -583,10 +583,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const user = await storage.getUser(userId);
           if (user) {
-            // Remove password from response
+            // Remove password from response and add authenticated flag
             const { password, ...userWithoutPassword } = user;
             console.log('Authenticated user found:', { userId, username: user.username, email: user.email });
-            return res.json(userWithoutPassword);
+            return res.json({ ...userWithoutPassword, authenticated: true, isGuest: false });
           }
         } catch (error) {
           console.error('Error fetching authenticated user:', error);
@@ -620,6 +620,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         successFactors: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        authenticated: false,
+        isGuest: true,
       };
       
       console.log('No authenticated user found, returning demo user');

@@ -10,8 +10,12 @@ import MainApp from "@/pages/MainApp";
 import SharedActivity from "@/pages/SharedActivity";
 import AuthCallback from "@/pages/AuthCallback";
 import NotificationService from "@/components/NotificationService";
+import { useAuth } from "@/hooks/useAuth";
 
-function App() {
+function AppContent() {
+  // Get authenticated user
+  const { user } = useAuth();
+  
   // Shared state for sidebar and main app communication
   const [selectedTheme, setSelectedTheme] = useState<string>('');
   const [showThemeSelector, setShowThemeSelector] = useState(false);
@@ -27,51 +31,57 @@ function App() {
   };
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Switch>
-          {/* Auth Callback Page (no sidebar) */}
-          <Route path="/auth/callback" component={AuthCallback} />
-          
-          {/* Shared Activity Page (no sidebar) */}
-          <Route path="/share/activity/:token" component={SharedActivity} />
-          
-          {/* Main App with Sidebar */}
-          <Route>
-            <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
-              <div className="flex h-screen w-full overflow-auto">
-                <AppSidebar 
+    <TooltipProvider>
+      <Switch>
+        {/* Auth Callback Page (no sidebar) */}
+        <Route path="/auth/callback" component={AuthCallback} />
+        
+        {/* Shared Activity Page (no sidebar) */}
+        <Route path="/share/activity/:token" component={SharedActivity} />
+        
+        {/* Main App with Sidebar */}
+        <Route>
+          <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
+            <div className="flex h-screen w-full overflow-auto">
+              <AppSidebar 
+                selectedTheme={selectedTheme}
+                onThemeSelect={setSelectedTheme}
+                onShowThemeSelector={() => setShowThemeSelector(true)}
+                onShowDatePlanner={() => setShowLocationDatePlanner(true)}
+                onShowContacts={() => setShowContacts(true)}
+                onShowChatHistory={() => setShowChatHistory(true)}
+                onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
+              />
+              <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+                <MainApp 
                   selectedTheme={selectedTheme}
                   onThemeSelect={setSelectedTheme}
-                  onShowThemeSelector={() => setShowThemeSelector(true)}
-                  onShowDatePlanner={() => setShowLocationDatePlanner(true)}
-                  onShowContacts={() => setShowContacts(true)}
-                  onShowChatHistory={() => setShowChatHistory(true)}
-                  onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
+                  showThemeSelector={showThemeSelector}
+                  onShowThemeSelector={setShowThemeSelector}
+                  showLocationDatePlanner={showLocationDatePlanner}
+                  onShowLocationDatePlanner={setShowLocationDatePlanner}
+                  showContacts={showContacts}
+                  onShowContacts={setShowContacts}
+                  showChatHistory={showChatHistory}
+                  onShowChatHistory={setShowChatHistory}
+                  showLifestylePlanner={showLifestylePlanner}
+                  onShowLifestylePlanner={setShowLifestylePlanner}
                 />
-                <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-                  <MainApp 
-                    selectedTheme={selectedTheme}
-                    onThemeSelect={setSelectedTheme}
-                    showThemeSelector={showThemeSelector}
-                    onShowThemeSelector={setShowThemeSelector}
-                    showLocationDatePlanner={showLocationDatePlanner}
-                    onShowLocationDatePlanner={setShowLocationDatePlanner}
-                    showContacts={showContacts}
-                    onShowContacts={setShowContacts}
-                    showChatHistory={showChatHistory}
-                    onShowChatHistory={setShowChatHistory}
-                    showLifestylePlanner={showLifestylePlanner}
-                    onShowLifestylePlanner={setShowLifestylePlanner}
-                  />
-                </div>
               </div>
-            </SidebarProvider>
-          </Route>
-        </Switch>
-        <NotificationService userId="demo-user" />
-        <Toaster />
-      </TooltipProvider>
+            </div>
+          </SidebarProvider>
+        </Route>
+      </Switch>
+      {user?.id && <NotificationService userId={user.id} />}
+      <Toaster />
+    </TooltipProvider>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContent />
     </QueryClientProvider>
   );
 }
