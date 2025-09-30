@@ -37,6 +37,25 @@ import bcrypt from 'bcrypt';
 import { z } from "zod";
 import crypto from 'crypto';
 
+// Helper function to extract authenticated user ID from request
+function getUserId(req: any): string | null {
+  // Check multiple authentication methods for session persistence
+  if (req.isAuthenticated && req.isAuthenticated() && req.user?.id) {
+    // Passport authentication (OAuth and manual login)
+    return req.user.id;
+  } else if (req.session?.userId) {
+    // Direct session-based authentication
+    return req.session.userId;
+  } else if (req.session?.passport?.user?.id) {
+    // Passport session serialization
+    return req.session.passport.user.id;
+  } else if (req.user?.claims?.sub) {
+    // Replit auth user
+    return req.user.claims.sub;
+  }
+  return null;
+}
+
 // Helper function for Smart Plan structured conversation
 async function handleSmartPlanConversation(req: any, res: any, message: string, conversationHistory: any[], userId: string) {
   try {
@@ -1696,13 +1715,16 @@ You can find these tasks in your task list and start working on them right away!
     try {
       // Get authenticated user ID using the helper function
       const userId = getUserId(req) || DEMO_USER_ID;
+      console.log('Fetching profile for user:', userId);
       
       // Try to get existing profile
       let profile = await storage.getUserProfile(userId);
+      console.log('Existing profile:', profile);
       
       // If no profile exists for authenticated user, create one from user data
       if (!profile && userId !== DEMO_USER_ID) {
         const user = await storage.getUser(userId);
+        console.log('User data for profile creation:', user);
         if (user) {
           profile = await storage.upsertUserProfile(userId, {
             firstName: user.firstName || '',
@@ -1710,9 +1732,11 @@ You can find these tasks in your task list and start working on them right away!
             email: user.email || '',
             profileImageUrl: user.profileImageUrl || undefined
           });
+          console.log('Created new profile:', profile);
         }
       }
       
+      console.log('Returning profile:', profile);
       res.json(profile);
     } catch (error) {
       console.error('Error fetching user profile:', error);
