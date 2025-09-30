@@ -37,20 +37,6 @@ import bcrypt from 'bcrypt';
 import { z } from "zod";
 import crypto from 'crypto';
 
-// Helper function to extract user ID from authenticated request
-function getUserId(req: any): string | null {
-  if (req.isAuthenticated && req.isAuthenticated() && req.user?.id) {
-    return req.user.id;
-  } else if (req.session?.userId) {
-    return req.session.userId;
-  } else if (req.session?.passport?.user?.id) {
-    return req.session.passport.user.id;
-  } else if (req.user?.claims?.sub) {
-    return req.user.claims.sub;
-  }
-  return null;
-}
-
 // Helper function for Smart Plan structured conversation
 async function handleSmartPlanConversation(req: any, res: any, message: string, conversationHistory: any[], userId: string) {
   try {
