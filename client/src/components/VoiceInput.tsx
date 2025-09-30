@@ -8,7 +8,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft } from 'lucide-react';
-// Using simple avatar placeholder instead of imported icon
+import { useAuth } from '@/hooks/useAuth';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -43,6 +44,19 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const modeButtonsRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  // Get user initials
+  const getUserInitials = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    } else if (user?.username) {
+      return user.username.substring(0, 2).toUpperCase();
+    } else if (user?.email) {
+      return user.email.substring(0, 2).toUpperCase();
+    }
+    return 'U';
+  };
 
   // Auto scroll to bottom when new messages arrive and user is near bottom
   useEffect(() => {
@@ -50,6 +64,16 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatMessages, isNearBottom]);
+
+  // Auto scroll to bottom when entering conversation mode
+  useEffect(() => {
+    if (chatMessages.length > 0 && chatEndRef.current) {
+      // Wait for render, then scroll
+      setTimeout(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [chatMessages.length]);
 
   // Click outside to deselect mode (but not when clicking textarea)
   useEffect(() => {
@@ -339,9 +363,12 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       <NotebookPen className="w-3 h-3 sm:w-4 sm:h-4" />
                     </div>
                   ) : (
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs sm:text-sm font-medium">
-                      U
-                    </div>
+                    <Avatar className="w-7 h-7 sm:w-8 sm:h-8">
+                      <AvatarImage src={user?.profileImageUrl} />
+                      <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm font-medium">
+                        {getUserInitials()}
+                      </AvatarFallback>
+                    </Avatar>
                   )}
                 </div>
                 <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-3 ${
