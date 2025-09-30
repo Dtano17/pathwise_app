@@ -1235,9 +1235,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User Priorities
-  app.get("/api/user/priorities", async (req, res) => {
+  app.get("/api/user/priorities", async (req: any, res) => {
     try {
-      const priorities = await storage.getUserPriorities(DEMO_USER_ID);
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const priorities = await storage.getUserPriorities(userId);
       res.json(priorities);
     } catch (error) {
       console.error('Get priorities error:', error);
@@ -1245,12 +1246,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/user/priorities", async (req, res) => {
+  app.post("/api/user/priorities", async (req: any, res) => {
     try {
+      const userId = getUserId(req) || DEMO_USER_ID;
       const data = insertPrioritySchema.parse(req.body);
       const priority = await storage.createPriority({
         ...data,
-        userId: DEMO_USER_ID,
+        userId: userId,
       });
       res.json(priority);
     } catch (error) {
@@ -1262,9 +1264,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/user/priorities/:id", async (req, res) => {
+  app.delete("/api/user/priorities/:id", async (req: any, res) => {
     try {
-      await storage.deletePriority(req.params.id, DEMO_USER_ID);
+      const userId = getUserId(req) || DEMO_USER_ID;
+      await storage.deletePriority(req.params.id, userId);
       res.json({ message: 'Priority deleted successfully' });
     } catch (error) {
       console.error('Delete priority error:', error);
@@ -1273,14 +1276,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Notification Preferences
-  app.get("/api/notifications/preferences", async (req, res) => {
+  app.get("/api/notifications/preferences", async (req: any, res) => {
     try {
-      let preferences = await storage.getUserNotificationPreferences(DEMO_USER_ID);
+      const userId = getUserId(req) || DEMO_USER_ID;
+      let preferences = await storage.getUserNotificationPreferences(userId);
       
       // Create default preferences if none exist
       if (!preferences) {
         preferences = await storage.createNotificationPreferences({
-          userId: DEMO_USER_ID,
+          userId: userId,
           enableBrowserNotifications: true,
           enableTaskReminders: true,
           enableDeadlineWarnings: true,
@@ -1299,10 +1303,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/notifications/preferences", async (req, res) => {
+  app.patch("/api/notifications/preferences", async (req: any, res) => {
     try {
+      const userId = getUserId(req) || DEMO_USER_ID;
       const updates = insertNotificationPreferencesSchema.partial().parse(req.body);
-      const preferences = await storage.updateNotificationPreferences(DEMO_USER_ID, updates);
+      const preferences = await storage.updateNotificationPreferences(userId, updates);
       
       if (!preferences) {
         return res.status(404).json({ error: 'Preferences not found' });
