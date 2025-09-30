@@ -932,6 +932,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Archive task
+  app.patch("/api/tasks/:taskId/archive", async (req: any, res) => {
+    try {
+      const { taskId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const task = await storage.archiveTask(taskId, userId);
+      
+      if (!task) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+
+      res.json(task);
+    } catch (error) {
+      console.error('Archive task error:', error);
+      res.status(500).json({ error: 'Failed to archive task' });
+    }
+  });
+
   // ===== ACTIVITIES API ENDPOINTS =====
 
   // Get user activities
@@ -1005,6 +1023,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Delete activity error:', error);
       res.status(500).json({ error: 'Failed to delete activity' });
+    }
+  });
+
+  // Archive activity
+  app.patch("/api/activities/:activityId/archive", async (req: any, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const activity = await storage.archiveActivity(activityId, userId);
+      
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      res.json(activity);
+    } catch (error) {
+      console.error('Archive activity error:', error);
+      res.status(500).json({ error: 'Failed to archive activity' });
     }
   });
 

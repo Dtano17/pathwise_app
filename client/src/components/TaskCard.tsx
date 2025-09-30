@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Calendar, X, Pause, Undo } from 'lucide-react';
+import { CheckCircle, Clock, Calendar, X, Pause, Undo, Archive } from 'lucide-react';
 import Confetti from 'react-confetti';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -22,13 +22,14 @@ interface TaskCardProps {
   onComplete: (taskId: string) => void;
   onSkip: (taskId: string) => void;
   onSnooze: (taskId: string, hours: number) => void;
+  onArchive?: (taskId: string) => void;
   showConfetti?: boolean;
 }
 
-export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfetti = false }: TaskCardProps) {
+export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive, showConfetti = false }: TaskCardProps) {
   const [isCompleted, setIsCompleted] = useState(task.completed || false);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'complete' | 'skip' | 'snooze' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'complete' | 'skip' | 'snooze' | 'archive' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
   const { toast, dismiss } = useToast();
@@ -154,6 +155,35 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
     }, 1000);
   };
 
+  const handleArchive = () => {
+    if (isProcessing || !onArchive) return;
+    
+    setIsProcessing(true);
+    clearPendingAction();
+    setPendingAction('archive');
+    triggerHapticFeedback('light');
+
+    // Show undo toast
+    const { id } = toast({
+      title: "Task Archived",
+      description: "This task has been archived.",
+      action: (
+        <ToastAction altText="Undo archive" onClick={undoAction}>
+          <Undo className="w-4 h-4" />
+          Undo
+        </ToastAction>
+      ),
+    });
+    currentToastIdRef.current = id;
+
+    // Execute action after delay
+    undoTimeoutRef.current = setTimeout(() => {
+      onArchive(task.id);
+      clearPendingAction();
+      setIsProcessing(false);
+    }, 1000);
+  };
+
   const undoAction = () => {
     clearPendingAction();
     setIsProcessing(false);
@@ -198,7 +228,8 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
       <Card className={`p-6 mb-4 transition-all duration-300 hover-elevate ${
         pendingAction === 'complete' ? 'ring-2 ring-green-500 border-green-200' :
         pendingAction === 'skip' ? 'ring-2 ring-red-500 border-red-200' :
-        pendingAction === 'snooze' ? 'ring-2 ring-yellow-500 border-yellow-200' : ''
+        pendingAction === 'snooze' ? 'ring-2 ring-yellow-500 border-yellow-200' :
+        pendingAction === 'archive' ? 'ring-2 ring-blue-500 border-blue-200' : ''
       }`} data-testid={`task-card-${task.id}`}>
         
         {/* Header */}
@@ -254,6 +285,20 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, showConfe
               <Pause className="w-4 h-4 flex-shrink-0" />
               <span className="ml-1 truncate">Snooze</span>
             </Button>
+            
+            {onArchive && (
+              <Button 
+                onClick={handleArchive}
+                disabled={isProcessing}
+                variant="outline"
+                size="default"
+                className="flex-1 min-h-11 text-sm px-3"
+                data-testid={`button-archive-${task.id}`}
+              >
+                <Archive className="w-4 h-4 flex-shrink-0" />
+                <span className="ml-1 truncate">Archive</span>
+              </Button>
+            )}
             
             <Button 
               onClick={handleSkip}

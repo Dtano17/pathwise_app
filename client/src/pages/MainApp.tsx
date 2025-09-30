@@ -16,7 +16,7 @@ import LocationDatePlanner from '@/components/LocationDatePlanner';
 import ConversationalPlanner from '@/components/ConversationalPlanner';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, Archive } from 'lucide-react';
 import { Link } from 'wouter';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
@@ -149,6 +149,48 @@ export default function MainApp({
         variant: "destructive",
         title: "Delete Failed", 
         description: error?.message || "Failed to delete activity. Please try again."
+      });
+    }
+  });
+
+  const handleArchiveActivity = useMutation({
+    mutationFn: async (activityId: string) => {
+      return await apiRequest('PATCH', `/api/activities/${activityId}/archive`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      toast({
+        title: "Activity Archived",
+        description: "The activity has been archived and hidden from view."
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Archive Failed", 
+        description: error?.message || "Failed to archive activity. Please try again."
+      });
+    }
+  });
+
+  const handleArchiveTask = useMutation({
+    mutationFn: async (taskId: string) => {
+      return await apiRequest('PATCH', `/api/tasks/${taskId}/archive`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      toast({
+        title: "Task Archived",
+        description: "The task has been archived and hidden from view."
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Archive Failed", 
+        description: error?.message || "Failed to archive task. Please try again."
       });
     }
   });
@@ -1018,6 +1060,18 @@ export default function MainApp({
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  handleArchiveActivity.mutate(activity.id);
+                                }}
+                                disabled={handleArchiveActivity.isPending}
+                                data-testid={`button-archive-${activity.id}`}
+                              >
+                                <Archive className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setDeleteDialog({ open: true, activity });
                                 }}
                                 disabled={handleDeleteActivity.isPending}
@@ -1266,6 +1320,7 @@ export default function MainApp({
                         onComplete={() => handleCompleteTask(task.id)}
                         onSkip={() => handleSkipTask(task.id)}
                         onSnooze={(hours) => handleSnoozeTask(task.id, Number(hours))}
+                        onArchive={() => handleArchiveTask.mutate(task.id)}
                         data-testid={`task-card-${task.id}`}
                       />
                     ));

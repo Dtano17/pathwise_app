@@ -105,6 +105,7 @@ export const tasks = pgTable("tasks", {
   dueDate: timestamp("due_date"),
   timeEstimate: text("time_estimate"), // "15 min" | "30 min" | "1 hour" | "2 hours"
   context: text("context"), // Why this task matters and tips for success
+  archived: boolean("archived").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -614,6 +615,7 @@ export const activities = pgTable("activities", {
   // Status
   status: text("status").notNull().default("planning"), // 'planning' | 'active' | 'completed' | 'cancelled'
   completedAt: timestamp("completed_at"),
+  archived: boolean("archived").default(false),
   
   // Location and context
   location: text("location"),

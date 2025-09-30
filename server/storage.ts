@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { eq, and, desc, isNull, or } from "drizzle-orm";
 import crypto from "crypto";
 import { 
   type User, 
@@ -88,6 +88,7 @@ export interface IStorage {
   updateTask(taskId: string, updates: Partial<Task>, userId: string): Promise<Task | undefined>;
   completeTask(taskId: string, userId: string): Promise<Task | undefined>;
   deleteTask(taskId: string, userId: string): Promise<void>;
+  archiveTask(taskId: string, userId: string): Promise<Task | undefined>;
 
   // Activities
   createActivity(activity: InsertActivity & { userId: string }): Promise<Activity>;
@@ -95,6 +96,7 @@ export interface IStorage {
   getActivity(activityId: string, userId: string): Promise<Activity | undefined>;
   updateActivity(activityId: string, updates: Partial<Activity>, userId: string): Promise<Activity | undefined>;
   deleteActivity(activityId: string, userId: string): Promise<void>;
+  archiveActivity(activityId: string, userId: string): Promise<Activity | undefined>;
   getPublicActivities(limit?: number): Promise<Activity[]>;
   generateShareableLink(activityId: string): Promise<string>;
   
@@ -288,7 +290,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserTasks(userId: string): Promise<Task[]> {
-    return await db.select().from(tasks).where(eq(tasks.userId, userId)).orderBy(desc(tasks.createdAt));
+    return await db.select().from(tasks)
+      .where(and(
+        eq(tasks.userId, userId),
+        or(eq(tasks.archived, false), isNull(tasks.archived))
+      ))
+      .orderBy(desc(tasks.createdAt));
   }
 
   async updateTask(taskId: string, updates: Partial<Task>, userId: string): Promise<Task | undefined> {
@@ -311,6 +318,14 @@ export class DatabaseStorage implements IStorage {
     await db.delete(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
   }
 
+  async archiveTask(taskId: string, userId: string): Promise<Task | undefined> {
+    const result = await db.update(tasks)
+      .set({ archived: true })
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
+      .returning();
+    return result[0];
+  }
+
   // Activities implementation
   async createActivity(activity: InsertActivity & { userId: string }): Promise<Activity> {
     const result = await db.insert(activities).values(activity).returning();
@@ -318,9 +333,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserActivities(userId: string): Promise<ActivityWithProgress[]> {
-    // First get all activities
+    // First get all activities (exclude archived)
     const userActivities = await db.select().from(activities)
-      .where(eq(activities.userId, userId))
+      .where(and(
+        eq(activities.userId, userId),
+        or(eq(activities.archived, false), isNull(activities.archived))
+      ))
       .orderBy(desc(activities.createdAt));
 
     // For each activity, calculate progress from associated tasks
@@ -371,6 +389,14 @@ export class DatabaseStorage implements IStorage {
 
   async deleteActivity(activityId: string, userId: string): Promise<void> {
     await db.delete(activities).where(and(eq(activities.id, activityId), eq(activities.userId, userId)));
+  }
+
+  async archiveActivity(activityId: string, userId: string): Promise<Activity | undefined> {
+    const result = await db.update(activities)
+      .set({ archived: true, updatedAt: new Date() })
+      .where(and(eq(activities.id, activityId), eq(activities.userId, userId)))
+      .returning();
+    return result[0];
   }
 
   async getPublicActivities(limit: number = 20): Promise<Activity[]> {
