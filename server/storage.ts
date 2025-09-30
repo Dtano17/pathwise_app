@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { eq, and, desc, isNull, or } from "drizzle-orm";
+import { eq, and, desc, isNull, or, lte } from "drizzle-orm";
 import crypto from "crypto";
 import { 
   type User, 
@@ -299,7 +299,7 @@ export class DatabaseStorage implements IStorage {
         or(eq(tasks.skipped, false), isNull(tasks.skipped)),
         or(
           isNull(tasks.snoozeUntil),
-          sql`${tasks.snoozeUntil} <= ${now}`
+          lte(tasks.snoozeUntil, now)
         )
       ))
       .orderBy(desc(tasks.createdAt));
