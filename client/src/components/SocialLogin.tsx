@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SiGoogle, SiFacebook, SiApple, SiGithub } from "react-icons/si";
+import { SiGoogle, SiFacebook, SiApple } from "react-icons/si";
 import { Mail } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 
@@ -51,17 +51,6 @@ export function SocialLogin({
         >
           <SiGoogle className="w-5 h-5 mr-2 text-[#4285F4]" />
           Sign in with Google
-        </Button>
-
-        {/* GitHub Sign In */}
-        <Button
-          variant="outline"
-          onClick={handleSocialLogin}
-          className="w-full h-11 text-base justify-start"
-          data-testid="button-login-github"
-        >
-          <SiGithub className="w-5 h-5 mr-2" />
-          Sign in with GitHub
         </Button>
 
         {/* X (Twitter) Sign In */}

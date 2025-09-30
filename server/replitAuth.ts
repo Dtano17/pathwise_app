@@ -67,8 +67,11 @@ async function upsertUser(
     username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
   }
   
+  const userId = claims["sub"];
+  
+  // Create or update user
   await storage.upsertUser({
-    id: claims["sub"],
+    id: userId,
     username: username,
     password: "oauth_user", // Placeholder password for OAuth users
     email: claims["email"],
@@ -76,6 +79,23 @@ async function upsertUser(
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
   });
+  
+  // Create or update user profile
+  const existingProfile = await storage.getUserProfile(userId);
+  if (!existingProfile) {
+    await storage.upsertUserProfile(userId, {
+      userId: userId,
+      bio: '',
+      location: '',
+      phone: '',
+      dateOfBirth: null,
+      notificationPreferences: {
+        email: true,
+        push: true,
+        sms: false
+      }
+    });
+  }
 }
 
 export async function setupAuth(app: Express) {
