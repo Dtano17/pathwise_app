@@ -58,7 +58,7 @@ export class LifestylePlannerAgent {
     message: string,
     session: LifestylePlannerSession,
     userProfile: User,
-    mode?: 'quick' | 'chat',
+    mode?: 'quick' | 'smart',
     userPriorities?: any[]
   ): Promise<ConversationResponse> {
     try {
@@ -87,7 +87,7 @@ export class LifestylePlannerAgent {
     message: string,
     session: LifestylePlannerSession,
     userProfile: User,
-    mode?: 'quick' | 'chat',
+    mode?: 'quick' | 'smart',
     userPriorities?: any[]
   ): Promise<ConversationResponse> {
     // Build context-aware system prompt
@@ -152,7 +152,7 @@ export class LifestylePlannerAgent {
     message: string,
     session: LifestylePlannerSession,
     userProfile: User,
-    mode?: 'quick' | 'chat',
+    mode?: 'quick' | 'smart',
     userPriorities?: any[]
   ): Promise<ConversationResponse> {
     const systemPrompt = this.buildOpenAISystemPrompt(session, userProfile, mode, userPriorities);
@@ -184,29 +184,32 @@ export class LifestylePlannerAgent {
   /**
    * Build Claude-specific system prompt for conversational planning
    */
-  private buildClaudeSystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'chat', userPriorities?: any[]): string {
+  private buildClaudeSystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'smart', userPriorities?: any[]): string {
     const currentSlots = session.slots || {};
     const userContext = this.formatUserContext(userProfile, userPriorities);
-    const activityType = currentSlots.activityType;
+    
+    // Normalize activity type for guide matching
+    const rawActivityType = currentSlots.activityType || '';
+    const activityType = this.normalizeActivityType(rawActivityType);
     
     // Get question count for this mode
     const externalContext = session.externalContext || {};
     const questionCount = externalContext.questionCount || { smart: 0, quick: 0 };
-    const currentMode = mode || externalContext.currentMode || 'smart';
+    const currentMode = (mode === 'quick' || mode === 'smart') ? mode : (externalContext.currentMode || 'smart') as 'quick' | 'smart';
     
     // Use slot completeness engine to determine what's missing
     const completenessAnalysis = SlotCompletenessEngine.analyzeCompleteness(
       currentSlots, 
       activityType || 'general', 
-      currentMode as 'quick' | 'smart'
+      currentMode
     );
     
-    const modeInstructions = mode === 'quick' 
+    const modeInstructions = currentMode === 'quick' 
       ? `QUICK PLAN MODE: Server-enforced completeness tracking. Current count: ${questionCount.quick}/4 questions. You MUST ask for the next missing REQUIRED field only. Do not ask multiple questions at once. Current completion: ${completenessAnalysis.completionPercentage}%. 
 
 MISSING REQUIRED: ${completenessAnalysis.missingRequired.map(slot => slot.label).join(', ') || 'None'}
 NEXT TO ASK: ${completenessAnalysis.nextPrioritySlot?.label || 'Ready for confirmation'}`
-      : `SMART PLAN MODE: Server-enforced completeness tracking. Current count: ${(mode === 'chat' ? questionCount.smart : questionCount.smart)}/5 questions. You MUST ask for the next missing field only. Current completion: ${completenessAnalysis.completionPercentage}%.
+      : `SMART PLAN MODE: Server-enforced completeness tracking. Current count: ${questionCount.smart}/5 questions. You MUST ask for the next missing field only. Current completion: ${completenessAnalysis.completionPercentage}%.
 
 MISSING REQUIRED: ${completenessAnalysis.missingRequired.map(slot => slot.label).join(', ') || 'None'}
 MISSING OPTIONAL NEEDED: ${completenessAnalysis.missingOptionalCount > 0 ? `${completenessAnalysis.missingOptionalCount} more optional fields` : 'None'}  
@@ -214,8 +217,8 @@ NEXT TO ASK: ${completenessAnalysis.nextPrioritySlot?.label || 'Ready for confir
 
 COMPLETENESS RULE: Only move to confirmation when server says isReady: ${completenessAnalysis.isReady}`;
 
-    // Get activity-specific questioning strategy for context
-    const activityGuide = activityType ? `\nACTIVITY CONTEXT: This is a ${activityType} activity. Ask questions relevant to planning this type of activity.` : '';
+    // Get activity-specific detailed questioning guide (now includes interview, flight, date, etc.)
+    const activityGuide = this.getActivitySpecificGuide(activityType);
 
     return `You are a highly conversational lifestyle planning assistant. Your goal is to gather context through natural dialogue before generating a comprehensive plan.
 
@@ -287,15 +290,13 @@ Remember: NEVER generate tasks until you have comprehensive context AND explicit
   /**
    * Build OpenAI-specific system prompt
    */
-  private buildOpenAISystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'chat', userPriorities?: any[]): string {
+  private buildOpenAISystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'smart', userPriorities?: any[]): string {
     const currentSlots = session.slots || {};
     const userContext = this.formatUserContext(userProfile, userPriorities);
     const activityGuide = this.getActivitySpecificGuide(currentSlots.activityType || '');
     
     const modeInstructions = mode === 'quick' 
       ? `QUICK PLAN MODE: Ask only essential questions (3-4 max). Be efficient and direct.`
-      : mode === 'chat'
-      ? `CHAT MODE: Gather detailed context. Wait for explicit user agreement before suggesting plan generation.`
       : `SMART PLAN MODE: Be inquisitive but concise. Ask ALL necessary clarifying questions (budget, timing, flights, transportation, etc.) ONE AT A TIME before creating any tasks. After gathering complete context, ask "Would you like me to add these tasks to your activity?" NEVER generate tasks until you have comprehensive details AND user confirmation.`;
 
     return `You are a conversational lifestyle planning assistant. Gather context through natural dialogue before generating plans.
@@ -344,6 +345,59 @@ Required format:
   "missingRequiredSlots": [],
   "confirmationSummary": "Summary if confirming"
 }`;
+  }
+
+  /**
+   * Normalize activity type to match against guides (handle synonyms)
+   */
+  private normalizeActivityType(rawType: string): string {
+    if (!rawType) return '';
+    
+    const normalized = rawType.toLowerCase().trim();
+    
+    // Synonym mapping for activity types
+    const synonymMap: Record<string, string> = {
+      'job interview': 'interview',
+      'interview prep': 'interview',
+      'interviewing': 'interview',
+      'flight': 'flight',
+      'plane ticket': 'flight',
+      'air travel': 'flight',
+      'book flight': 'flight',
+      'flying': 'flight',
+      'date night': 'date',
+      'romantic dinner': 'date',
+      'date': 'date',
+      'dinner date': 'date',
+      'travel': 'travel',
+      'trip': 'travel',
+      'vacation': 'travel',
+      'dining': 'dining',
+      'restaurant': 'dining',
+      'dinner': 'dining',
+      'lunch': 'dining',
+      'social': 'social',
+      'party': 'social',
+      'hangout': 'social',
+      'entertainment': 'entertainment',
+      'movie': 'entertainment',
+      'concert': 'entertainment',
+      'show': 'entertainment'
+    };
+    
+    // Check for exact matches first
+    if (synonymMap[normalized]) {
+      return synonymMap[normalized];
+    }
+    
+    // Check for partial matches
+    for (const [key, value] of Object.entries(synonymMap)) {
+      if (normalized.includes(key) || key.includes(normalized)) {
+        return value;
+      }
+    }
+    
+    return rawType;
   }
 
   /**
@@ -451,15 +505,27 @@ GENERAL ACTIVITY QUESTIONS:
     if (user.transportationPreferences) context.push(`Transport: ${JSON.stringify(user.transportationPreferences)}`);
     if (user.lifestyleContext) context.push(`Lifestyle: ${JSON.stringify(user.lifestyleContext)}`);
     
-    // Add user priorities to context
+    // Add user priorities to context (cap at top 5 to avoid prompt bloat)
     if (userPriorities && userPriorities.length > 0) {
-      const priorityList = userPriorities
+      const activePriorities = userPriorities
         .filter(p => p.isActive)
         .sort((a, b) => a.order - b.order)
-        .map(p => `${p.title}${p.description ? ` (${p.description})` : ''}`)
-        .join(', ');
-      if (priorityList) {
-        context.push(`User Priorities: ${priorityList}`);
+        .slice(0, 5); // Cap at top 5
+        
+      if (activePriorities.length > 0) {
+        const priorityList = activePriorities
+          .map(p => {
+            let formatted = p.title;
+            if (p.category) formatted += ` [${p.category}]`;
+            if (p.description) formatted += `: ${p.description}`;
+            return formatted;
+          })
+          .join('; ');
+        context.push(`User Priorities (Top ${activePriorities.length}): ${priorityList}`);
+        
+        if (userPriorities.filter(p => p.isActive).length > 5) {
+          context.push(`(${userPriorities.filter(p => p.isActive).length - 5} more priorities not shown)`);
+        }
       }
     }
     

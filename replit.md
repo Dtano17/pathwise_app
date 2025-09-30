@@ -73,7 +73,15 @@ A mobile-first AI-powered journaling application that transforms user intentions
 - **Anthropic Integration**: Active, Claude API for conversational planning
 
 ## Recent Changes
-- **September 30, 2025**: 
+- **September 30, 2025** (Latest): 
+  - ✅ Added domain-specific questioning guides for interview and flight activities
+  - ✅ Implemented activity type normalization with synonym mapping
+  - ✅ Integrated user priorities into AI context for personalized planning
+  - ✅ Fixed auto-create logic to require explicit user confirmation
+  - ✅ Claude (Anthropic) confirmed as primary AI model
+  - ✅ Both Smart Plan and Quick Plan use intelligent, domain-aware questioning
+
+- **September 30, 2025** (Earlier): 
   - ✅ Implemented dual authentication (Replit + Supabase for Facebook)
   - ✅ Fixed all API routes to use authenticated user IDs
   - ✅ Made Priorities tab fully functional with CRUD operations

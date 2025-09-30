@@ -142,7 +142,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       message,
       session,
       userProfile,
-      'chat', // Smart mode
+      'smart', // Smart mode
       userPriorities
     );
 
@@ -229,8 +229,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       });
     }
 
-    // If user confirmed, create the activity
-    if (response.createActivity) {
+    // If user confirmed AND createActivity flag is set, create the activity
+    if (response.createActivity && session.userConfirmedAdd) {
       const planData = response.generatedPlan;
       
       // Create activity from the structured plan
