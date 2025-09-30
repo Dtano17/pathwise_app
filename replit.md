@@ -4,33 +4,44 @@
 A mobile-first AI-powered journaling application that transforms user intentions into actionable plans with swipeable task management and celebratory feedback.
 
 ## Current Status
-**Design Phase Completed** - Full prototype with all core components implemented:
-- Voice and text input for goal capture
-- AI-powered action plan generation (OpenAI integration ready)
+**Production Ready** - Full-featured AI lifestyle planner with comprehensive authentication:
+- Dual authentication system (Replit Auth + Supabase for Facebook)
+- AI-powered action plan generation with Claude/OpenAI
+- Smart Plan and Quick Plan conversation modes
+- Full-screen ChatGPT/Claude-style conversation interface
+- Functional profile management with priorities and settings
 - Swipeable task cards with celebration animations
 - Progress dashboard with streaks and analytics
 - Daily journal with mood tracking
-- Quick goal entry with categories and priorities
 - Task list management with search and filters
-- Celebration modals with confetti effects
 
 ## Key Features Implemented
+✅ Dual authentication (Replit Auth for Google/X/Apple/Email + Supabase for Facebook)
+✅ Real user authentication with session management
+✅ Functional profile management (Priorities & Settings tabs)
+✅ AI-powered conversation planning (Claude/OpenAI)
+✅ Smart Plan mode (comprehensive information gathering)
+✅ Quick Plan mode (rapid task generation)
+✅ Full-screen chat interface optimized for mobile
 ✅ Voice input with Web Speech API fallback
 ✅ Swipeable task cards (left to skip, right to complete)
 ✅ Celebration animations with confetti
 ✅ Progress tracking dashboard
-✅ Daily journal with mood tracking
 ✅ Task management with search/filter
 ✅ Dark/light theme toggle
 ✅ Mobile-first responsive design
-✅ Purple/emerald color scheme as specified
 
 ## Technical Stack
-- **Frontend**: React, TypeScript, Tailwind CSS, Framer Motion
-- **Backend**: Express.js (ready for AI integration)
-- **AI Integration**: OpenAI blueprint added (requires OPENAI_API_KEY)
+- **Frontend**: React, TypeScript, Tailwind CSS, Framer Motion, Wouter
+- **Backend**: Express.js with Passport.js authentication
+- **Authentication**: 
+  - Replit Auth (Google, X/Twitter, Apple, Email)
+  - Supabase (Facebook OAuth)
+  - Unified session management
+- **AI Integration**: OpenAI and Claude API support
+- **Database**: PostgreSQL (Neon) with Drizzle ORM
 - **Animations**: React Confetti, React Spring, Framer Motion
-- **Storage**: In-memory (ready for database upgrade)
+- **Storage**: PostgreSQL with in-memory caching
 
 ## Design Implementation
 - ✅ Design guidelines established and implemented
@@ -40,27 +51,51 @@ A mobile-first AI-powered journaling application that transforms user intentions
 - ✅ Celebration-focused UX with immediate feedback
 - ✅ Mobile-first responsive design
 
-## Integration Notes
+## Authentication Architecture
+**Dual Authentication System** - Two separate auth providers working together:
+
+### Replit Auth (Primary)
+- Handles: Google, X/Twitter, Apple, Email authentication
+- Endpoints: `/api/login`, `/api/callback`
+- Session: Passport-based session management
+- Visual: Standard Shadcn button styling
+
+### Supabase Auth (Facebook Only)
+- Handles: Facebook OAuth exclusively
+- Endpoints: `/api/auth/supabase-sync` (backend sync)
+- Session: Synced to Passport session via sync endpoint
+- Visual: Blue background (`bg-[#1877F2]/10`) to indicate different provider
+- Flow: `SocialLogin` → Supabase OAuth → `AuthCallback` → Backend sync → Session
+
+### Integration Notes
 - **Outlook Integration**: User dismissed the connector setup - will need manual calendar integration credentials if required in future
-- **OpenAI Integration**: Blueprint added, ready for AI-powered action plan generation
+- **OpenAI Integration**: Active, using Claude as default for plan generation
+- **Anthropic Integration**: Active, Claude API for conversational planning
 
 ## Recent Changes
-- **September 21, 2024**: Complete design prototype implemented with all core components and examples
-- Fixed TypeScript compilation issues
-- Added comprehensive component showcase with tabbed interface
-- Generated celebration confetti image asset
+- **September 30, 2025**: 
+  - ✅ Implemented dual authentication (Replit + Supabase for Facebook)
+  - ✅ Fixed all API routes to use authenticated user IDs
+  - ✅ Made Priorities tab fully functional with CRUD operations
+  - ✅ Made Settings tab fully functional with preferences and notifications
+  - ✅ Added `/api/auth/supabase-sync` endpoint for Facebook OAuth integration
+  - ✅ Updated AuthCallback to sync Supabase users to backend
+  - ✅ Visual distinction for Facebook button (blue background)
+  - ✅ All features working with real user authentication
 
 ## User Preferences
-- Excited about swipeable interactions and celebrations
-- Wants "memes" and fun celebrations when tasks are completed
-- Values mobile-first design approach
-- Appreciates clean, Notion-inspired interface design
-- Wants real AI integration (not mock data)
+- Wants fully functional authentication with Facebook support
+- Requires separate Supabase-based Facebook OAuth (not Replit Auth)
+- Needs Priorities and Settings tabs to be fully functional
+- Values real user data persistence (no hardcoded demo users)
+- Mobile-first design approach
+- Clean, modern interface design
+- Real AI integration (Claude/OpenAI)
 
-## Next Steps for Full Implementation
-1. Implement real AI-powered action plan generation
-2. Add database persistence (PostgreSQL/Supabase)
-3. Build actual goal-to-task workflow
-4. Add calendar integration for scheduling
-5. Implement push notifications for task reminders
-6. Add user authentication and data sync
+## Future Enhancements
+1. Add calendar integration for scheduling (Outlook integration available)
+2. Implement push notifications for task reminders
+3. Add chat history import/export features
+4. Enhance AI context with user history and patterns
+5. Add collaborative features for shared goals
+6. Implement advanced analytics and insights

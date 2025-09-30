@@ -44,6 +44,39 @@ export default function AuthCallback() {
             console.log('AuthCallback: User ID:', data.session.user.id)
             console.log('AuthCallback: User email:', data.session.user.email)
             
+            // Sync Supabase user to backend
+            try {
+              const syncResponse = await fetch('/api/auth/supabase-sync', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                  userId: data.session.user.id,
+                  email: data.session.user.email,
+                  fullName: data.session.user.user_metadata?.full_name || 
+                           data.session.user.user_metadata?.name,
+                  avatarUrl: data.session.user.user_metadata?.avatar_url,
+                  provider: 'facebook'
+                })
+              });
+              
+              if (!syncResponse.ok) {
+                console.error('Failed to sync user to backend');
+                setStatus('error')
+                setMessage('Failed to complete authentication. Please try again.')
+                return
+              }
+              
+              console.log('User synced to backend successfully')
+            } catch (syncError) {
+              console.error('Error syncing user:', syncError);
+              setStatus('error')
+              setMessage('Failed to complete authentication. Please try again.')
+              return
+            }
+            
             setStatus('success')
             const userName = data.session.user.email || 
                             data.session.user.user_metadata?.full_name ||
@@ -76,6 +109,40 @@ export default function AuthCallback() {
         if (data.session && data.session.user) {
           console.log('AuthCallback: Found existing session')
           console.log('AuthCallback: User ID:', data.session.user.id)
+          
+          // Sync Supabase user to backend
+          try {
+            const syncResponse = await fetch('/api/auth/supabase-sync', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                userId: data.session.user.id,
+                email: data.session.user.email,
+                fullName: data.session.user.user_metadata?.full_name || 
+                         data.session.user.user_metadata?.name,
+                avatarUrl: data.session.user.user_metadata?.avatar_url,
+                provider: 'facebook'
+              })
+            });
+            
+            if (!syncResponse.ok) {
+              console.error('Failed to sync user to backend');
+              setStatus('error')
+              setMessage('Failed to complete authentication. Please try again.')
+              return
+            }
+            
+            console.log('User synced to backend successfully')
+          } catch (syncError) {
+            console.error('Error syncing user:', syncError);
+            setStatus('error')
+            setMessage('Failed to complete authentication. Please try again.')
+            return
+          }
+          
           setStatus('success')
           const userName = data.session.user.email || 
                           data.session.user.user_metadata?.full_name ||

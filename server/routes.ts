@@ -632,6 +632,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Supabase auth sync - for Facebook OAuth via Supabase
+  app.post('/api/auth/supabase-sync', async (req: any, res) => {
+    try {
+      const { userId, email, fullName, avatarUrl, provider } = req.body;
+      
+      if (!userId || !email) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+      
+      console.log('Syncing Supabase user:', { userId, email, provider });
+      
+      // Check if user already exists
+      let user = await storage.getUser(userId);
+      
+      if (!user) {
+        // Create new user from Supabase data
+        const nameParts = fullName ? fullName.split(' ') : [];
+        const firstName = nameParts[0] || email.split('@')[0];
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+        
+        user = await storage.upsertUser({
+          id: userId,
+          username: email.split('@')[0],
+          email: email,
+          firstName: firstName,
+          lastName: lastName,
+          profileImageUrl: avatarUrl || null,
+          authenticationType: 'supabase' as const,
+        });
+        
+        console.log('Created new Supabase user:', userId);
+      } else {
+        console.log('Supabase user already exists:', userId);
+      }
+      
+      // Create session using Passport's login method for compatibility
+      req.login(user, (err: any) => {
+        if (err) {
+          console.error('Session creation failed for Supabase user:', err);
+          return res.status(500).json({ success: false, error: 'Session creation failed' });
+        }
+        
+        console.log('Supabase user session created:', {
+          userId: user.id,
+          email: user.email
+        });
+        
+        const { password, ...userWithoutPassword } = user;
+        res.json({ success: true, user: userWithoutPassword });
+      });
+    } catch (error) {
+      console.error('Supabase sync error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  });
 
   // Profile completion route - update user profile with personalization data
   app.put('/api/users/:userId/profile', async (req, res) => {
