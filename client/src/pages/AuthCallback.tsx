@@ -18,8 +18,9 @@ export default function AuthCallback() {
       }
       hasProcessed.current = true
       try {
-        console.log('AuthCallback: Starting auth callback handling')
+        console.log('=== AuthCallback: Starting auth callback handling ===')
         console.log('AuthCallback: Current URL:', window.location.href)
+        console.log('AuthCallback: URL search params:', window.location.search)
         
         // Check for URL parameters that might indicate an error
         const urlParams = new URLSearchParams(window.location.search)
