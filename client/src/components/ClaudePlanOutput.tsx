@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,20 @@ export default function ClaudePlanOutput({
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [showCelebration, setShowCelebration] = useState(false);
 
+  // Sync completed tasks from actual task data (additive to preserve optimistic UI, prune stale IDs)
+  useEffect(() => {
+    const validIds = new Set(tasks.map(t => t.id));
+    const completedFromProps = tasks.filter(t => t.completed).map(t => t.id);
+    
+    setCompletedTasks(prev => {
+      // Keep only IDs that are in current tasks list
+      const pruned = new Set(Array.from(prev).filter(id => validIds.has(id)));
+      // Add server-confirmed completions
+      completedFromProps.forEach(id => pruned.add(id));
+      return pruned;
+    });
+  }, [tasks]);
+
   const handleCompleteTask = (taskId: string) => {
     const newCompleted = new Set(completedTasks);
     newCompleted.add(taskId);
@@ -66,7 +80,7 @@ export default function ClaudePlanOutput({
       transition={{ duration: 0.5 }}
       className="space-y-6"
     >
-      {showCelebration && showConfetti && (
+      {showCelebration && showConfetti && typeof window !== 'undefined' && (
         <Confetti
           width={window.innerWidth}
           height={window.innerHeight}
@@ -122,44 +136,45 @@ export default function ClaudePlanOutput({
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}
+              className="w-full"
             >
-              <Card className={`p-5 transition-all duration-300 ${
+              <Card className={`p-3 sm:p-5 transition-all duration-300 ${
                 isCompleted 
                   ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700' 
                   : 'hover-elevate'
               }`}>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {/* Task Header */}
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                    <div className="flex-1 space-y-2 min-w-0">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 ${
                           isCompleted ? 'bg-green-600' : 'bg-primary/10'
                         }`}>
                           {isCompleted ? (
-                            <CheckCircle className="w-5 h-5 text-white" />
+                            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                           ) : (
-                            <span className="text-sm font-semibold text-primary">
+                            <span className="text-xs sm:text-sm font-semibold text-primary">
                               {index + 1}
                             </span>
                           )}
                         </div>
-                        <h4 className={`font-semibold text-foreground ${
+                        <h4 className={`font-semibold text-sm sm:text-base text-foreground break-words ${
                           isCompleted ? 'line-through decoration-2 decoration-green-600' : ''
                         }`} data-testid={`text-task-title-${index}`}>
                           {task.title}
                         </h4>
                       </div>
                       
-                      <div className="flex items-center gap-2 ml-11">
-                        <Badge variant="outline" className={getPriorityColor(task.priority)}>
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 ml-9 sm:ml-11">
+                        <Badge variant="outline" className={`text-xs ${getPriorityColor(task.priority)}`}>
                           {task.priority}
                         </Badge>
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="text-xs">
                           {task.category}
                         </Badge>
                         {task.timeEstimate && (
-                          <Badge variant="outline" className="gap-1">
+                          <Badge variant="outline" className="gap-1 text-xs">
                             <Clock className="w-3 h-3" />
                             {task.timeEstimate}
                           </Badge>
@@ -172,7 +187,7 @@ export default function ClaudePlanOutput({
                         onClick={() => handleCompleteTask(task.id)}
                         size="sm"
                         variant="outline"
-                        className="gap-2 shrink-0"
+                        className="gap-2 shrink-0 w-full sm:w-auto"
                         data-testid={`button-complete-task-${index}`}
                       >
                         <CheckCircle className="w-4 h-4" />
@@ -182,18 +197,18 @@ export default function ClaudePlanOutput({
                   </div>
 
                   {/* Task Details */}
-                  <div className="ml-11 space-y-3">
-                    <p className={`text-sm text-muted-foreground leading-relaxed ${
+                  <div className="ml-9 sm:ml-11 space-y-2 sm:space-y-3">
+                    <p className={`text-xs sm:text-sm text-muted-foreground leading-relaxed break-words ${
                       isCompleted ? 'line-through decoration-1 decoration-gray-400 opacity-70' : ''
                     }`} data-testid={`text-task-description-${index}`}>
                       {task.description}
                     </p>
                     
                     {task.context && (
-                      <div className="bg-secondary/20 border border-secondary/30 rounded-lg p-3">
+                      <div className="bg-secondary/20 border border-secondary/30 rounded-lg p-2 sm:p-3">
                         <div className="flex items-start gap-2">
-                          <ChevronRight className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                          <p className={`text-xs text-foreground/80 leading-relaxed ${
+                          <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-primary mt-0.5 shrink-0" />
+                          <p className={`text-xs text-foreground/80 leading-relaxed break-words ${
                             isCompleted ? 'line-through decoration-1 decoration-gray-400 opacity-70' : ''
                           }`} data-testid={`text-task-context-${index}`}>
                             {task.context}
@@ -203,8 +218,8 @@ export default function ClaudePlanOutput({
                     )}
 
                     {isCompleted && (
-                      <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
-                        <CheckCircle className="w-4 h-4" />
+                      <div className="flex items-center gap-2 text-green-600 text-xs sm:text-sm font-medium">
+                        <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                         Task completed! Great job!
                       </div>
                     )}
@@ -232,15 +247,23 @@ export default function ClaudePlanOutput({
 
       {/* Progress Summary */}
       <div className="text-center pt-4">
-        <p className="text-sm text-muted-foreground">
-          {completedTasks.size} of {tasks.length} tasks completed
-        </p>
-        <div className="w-full bg-secondary/20 rounded-full h-2 mt-2">
-          <div 
-            className="bg-primary h-2 rounded-full transition-all duration-500"
-            style={{ width: `${(completedTasks.size / tasks.length) * 100}%` }}
-          />
-        </div>
+        {(() => {
+          const completedCount = tasks.filter(t => t.completed || completedTasks.has(t.id)).length;
+          const progressPercent = tasks.length > 0 ? Math.min(100, (completedCount / tasks.length) * 100) : 0;
+          return (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {completedCount} of {tasks.length} tasks completed
+              </p>
+              <div className="w-full bg-secondary/20 rounded-full h-2 mt-2">
+                <div 
+                  className="bg-primary h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* Create Activity Button */}
