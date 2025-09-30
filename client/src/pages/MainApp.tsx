@@ -857,14 +857,18 @@ export default function MainApp({
                   <ClaudePlanOutput
                     planTitle={currentPlanOutput.planTitle}
                     summary={currentPlanOutput.summary}
-                    tasks={currentPlanOutput.tasks.map(task => ({
-                      ...task,
-                      description: task.description || '',
-                      priority: (task.priority as 'high' | 'low' | 'medium') || 'medium',
-                      completed: task.completed ?? false,
-                      timeEstimate: task.timeEstimate || undefined,
-                      context: task.context || undefined
-                    }))}
+                    tasks={currentPlanOutput.tasks.map(task => {
+                      // Merge with actual task data to get updated completion status
+                      const actualTask = tasks.find(t => t.id === task.id);
+                      return {
+                        ...task,
+                        description: task.description || '',
+                        priority: (task.priority as 'high' | 'low' | 'medium') || 'medium',
+                        completed: actualTask?.completed ?? task.completed ?? false,
+                        timeEstimate: task.timeEstimate || undefined,
+                        context: task.context || undefined
+                      };
+                    })}
                     estimatedTimeframe={currentPlanOutput.estimatedTimeframe}
                     motivationalNote={currentPlanOutput.motivationalNote}
                     onCompleteTask={(taskId) => completeTaskMutation.mutate(taskId)}
