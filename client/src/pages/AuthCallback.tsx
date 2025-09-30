@@ -13,6 +13,8 @@ export default function AuthCallback() {
       try {
         console.log('AuthCallback: Starting auth callback handling')
         console.log('AuthCallback: Current URL:', window.location.href)
+        console.log('AuthCallback: Current domain:', window.location.origin)
+        console.log('AuthCallback: Full hash:', window.location.hash)
         
         // Check for URL parameters that might indicate an error
         const urlParams = new URLSearchParams(window.location.search)
@@ -20,10 +22,23 @@ export default function AuthCallback() {
         const errorDescription = urlParams.get('error_description')
         const code = urlParams.get('code')
         
-        if (error) {
-          console.error('OAuth error from URL:', error, errorDescription)
+        // Also check hash params (Supabase sometimes uses hash-based auth)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+        const hashError = hashParams.get('error')
+        const hashErrorDescription = hashParams.get('error_description')
+        const hashAccessToken = hashParams.get('access_token')
+        
+        console.log('AuthCallback: Query params:', { error, errorDescription, code })
+        console.log('AuthCallback: Hash params:', { 
+          error: hashError, 
+          errorDescription: hashErrorDescription, 
+          hasAccessToken: !!hashAccessToken 
+        })
+        
+        if (error || hashError) {
+          console.error('OAuth error from URL:', error || hashError, errorDescription || hashErrorDescription)
           setStatus('error')
-          setMessage(errorDescription || error || 'Authentication failed')
+          setMessage(errorDescription || hashErrorDescription || error || hashError || 'Authentication failed')
           return
         }
 
