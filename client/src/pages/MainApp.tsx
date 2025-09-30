@@ -531,7 +531,7 @@ export default function MainApp({
         description: `"${data.title}" has been created with ${data.tasks?.length || 0} tasks. Check your Activities tab!`,
       });
       setActiveTab("tasks"); // Switch to activities view
-      setCurrentPlanOutput(null); // Clear the plan output
+      // Keep plan visible - only clear when new plan is created
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.error || error.message || "Failed to create activity. Please try again.";
@@ -608,20 +608,8 @@ export default function MainApp({
         <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Conditional Back Button when Plan is Active */}
-              {currentPlanOutput ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setCurrentPlanOutput(null)}
-                  className="gap-2"
-                  data-testid="button-header-back"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </Button>
-              ) : (
-                (isMobile || !open) && <SidebarTrigger data-testid="button-sidebar-toggle" />
-              )}
+              {/* Sidebar toggle (keep visible even when plan is active) */}
+              {(isMobile || !open) && <SidebarTrigger data-testid="button-sidebar-toggle" />}
               
               <Link href="/">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center cursor-pointer hover-elevate rounded-md">
