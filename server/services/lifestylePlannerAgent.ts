@@ -58,16 +58,17 @@ export class LifestylePlannerAgent {
     message: string,
     session: LifestylePlannerSession,
     userProfile: User,
-    mode?: 'quick' | 'chat'
+    mode?: 'quick' | 'chat',
+    userPriorities?: any[]
   ): Promise<ConversationResponse> {
     try {
       // Use Claude as primary model for conversational planning
       const preferredModel = (process.env.ANTHROPIC_API_KEY && process.env.PREFERRED_MODEL !== 'openai') ? 'claude' : 'openai';
       
       if (preferredModel === 'claude') {
-        return await this.processWithClaude(message, session, userProfile, mode);
+        return await this.processWithClaude(message, session, userProfile, mode, userPriorities);
       } else {
-        return await this.processWithOpenAI(message, session, userProfile, mode);
+        return await this.processWithOpenAI(message, session, userProfile, mode, userPriorities);
       }
     } catch (error) {
       console.error('Lifestyle planner processing error:', error);
@@ -86,10 +87,11 @@ export class LifestylePlannerAgent {
     message: string,
     session: LifestylePlannerSession,
     userProfile: User,
-    mode?: 'quick' | 'chat'
+    mode?: 'quick' | 'chat',
+    userPriorities?: any[]
   ): Promise<ConversationResponse> {
     // Build context-aware system prompt
-    const systemPrompt = this.buildClaudeSystemPrompt(session, userProfile, mode);
+    const systemPrompt = this.buildClaudeSystemPrompt(session, userProfile, mode, userPriorities);
     
     // Create conversation context
     const conversationHistory = session.conversationHistory || [];
@@ -150,9 +152,10 @@ export class LifestylePlannerAgent {
     message: string,
     session: LifestylePlannerSession,
     userProfile: User,
-    mode?: 'quick' | 'chat'
+    mode?: 'quick' | 'chat',
+    userPriorities?: any[]
   ): Promise<ConversationResponse> {
-    const systemPrompt = this.buildOpenAISystemPrompt(session, userProfile, mode);
+    const systemPrompt = this.buildOpenAISystemPrompt(session, userProfile, mode, userPriorities);
     
     const conversationHistory = session.conversationHistory || [];
     const messages = [
@@ -181,9 +184,9 @@ export class LifestylePlannerAgent {
   /**
    * Build Claude-specific system prompt for conversational planning
    */
-  private buildClaudeSystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'chat'): string {
+  private buildClaudeSystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'chat', userPriorities?: any[]): string {
     const currentSlots = session.slots || {};
-    const userContext = this.formatUserContext(userProfile);
+    const userContext = this.formatUserContext(userProfile, userPriorities);
     const activityType = currentSlots.activityType;
     
     // Get question count for this mode
@@ -284,9 +287,9 @@ Remember: NEVER generate tasks until you have comprehensive context AND explicit
   /**
    * Build OpenAI-specific system prompt
    */
-  private buildOpenAISystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'chat'): string {
+  private buildOpenAISystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'chat', userPriorities?: any[]): string {
     const currentSlots = session.slots || {};
-    const userContext = this.formatUserContext(userProfile);
+    const userContext = this.formatUserContext(userProfile, userPriorities);
     const activityGuide = this.getActivitySpecificGuide(currentSlots.activityType || '');
     
     const modeInstructions = mode === 'quick' 
@@ -352,6 +355,27 @@ Required format:
     }
 
     const guides = {
+      'interview': `
+INTERVIEW SPECIFIC QUESTIONS (Ask ALL before creating tasks):
+1. Type: "What type of interview is this? Job interview, informational, panel, technical, or something else?"
+2. Company/Role: "What company and position is this for?"
+3. Timing: "When is the interview scheduled? Date and time?"
+4. Format: "Is this in-person, virtual (Zoom/Teams), or phone?"
+5. Preparation needs: "Have you researched the company? Do you need help with practice questions, outfit planning, or logistics?"
+6. Travel/Location: "If in-person, how are you getting there? Do you need to plan for parking or transportation?"
+CONFIRMATION: After gathering ALL details, ask "Would you like me to add these tasks to your activity?"`,
+
+      'flight': `
+FLIGHT SPECIFIC QUESTIONS (Ask ALL before creating tasks):
+1. Destination: "Where are you flying to?"
+2. Travel dates: "When do you want to depart and return? (Or is this one-way?)"
+3. Round trip: "Is this a round trip or one-way flight?"
+4. Budget: "What's your budget for the flight?"
+5. Preferences: "Any airline preferences? Direct flight or okay with layovers?"
+6. Departure time: "Preferred departure time? Morning, afternoon, evening, or red-eye?"
+7. Additional: "Need to book hotels, rental car, or just the flight?"
+CONFIRMATION: After gathering ALL details, ask "Would you like me to add these tasks to your activity?"`,
+
       'date': `
 DATE NIGHT SPECIFIC QUESTIONS (Ask ALL before creating tasks):
 1. Budget: "What's your budget? Cozy night in ($0-30), casual dinner out ($50-100), or something special ($100+)?"
@@ -414,7 +438,7 @@ GENERAL ACTIVITY QUESTIONS:
   /**
    * Format user context for prompts
    */
-  private formatUserContext(user: User | undefined): string {
+  private formatUserContext(user: User | undefined, userPriorities?: any[]): string {
     if (!user) {
       return 'No user profile available';
     }
@@ -426,6 +450,18 @@ GENERAL ACTIVITY QUESTIONS:
     if (user.stylePreferences) context.push(`Style: ${JSON.stringify(user.stylePreferences)}`);
     if (user.transportationPreferences) context.push(`Transport: ${JSON.stringify(user.transportationPreferences)}`);
     if (user.lifestyleContext) context.push(`Lifestyle: ${JSON.stringify(user.lifestyleContext)}`);
+    
+    // Add user priorities to context
+    if (userPriorities && userPriorities.length > 0) {
+      const priorityList = userPriorities
+        .filter(p => p.isActive)
+        .sort((a, b) => a.order - b.order)
+        .map(p => `${p.title}${p.description ? ` (${p.description})` : ''}`)
+        .join(', ');
+      if (priorityList) {
+        context.push(`User Priorities: ${priorityList}`);
+      }
+    }
     
     return context.length > 0 ? context.join('\n') : 'No specific user context available';
   }

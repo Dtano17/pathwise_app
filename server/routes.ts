@@ -142,7 +142,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       message,
       session,
       userProfile,
-      'chat' // Smart mode
+      'chat', // Smart mode
+      userPriorities
     );
 
     // CRITICAL: Persist updated session data including question counts
@@ -159,8 +160,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       sessionState: response.sessionState
     }, userId);
 
-    // Check if plan is ready - if so, auto-create it immediately
-    if (response.readyToGenerate || response.planReady) {
+    // Check if plan is ready AND user has confirmed - only then auto-create
+    if (response.readyToGenerate && session.userConfirmedAdd) {
       const planData = response.generatedPlan || {
         title: `Smart Plan: ${session.slots?.activityType || 'Activity'}`,
         summary: `Personalized plan based on your conversation`,
@@ -1458,8 +1459,9 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
       }, userId);
     }
 
-    // Get user profile for personalized questions
+    // Get user profile and priorities for personalized questions
     const userProfile = await storage.getUserProfile(userId);
+    const userPriorities = await storage.getUserPriorities(userId);
 
     // Add current message to conversation history
     const updatedHistory = [
@@ -1523,7 +1525,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       message,
       session,
       userProfile,
-      'quick' // Quick mode
+      'quick', // Quick mode
+      userPriorities
     );
 
     // Persist updated session data including question counts
@@ -1539,8 +1542,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       sessionState: response.sessionState
     }, userId);
 
-    // Check if plan is ready - if so, auto-create it immediately
-    if (response.readyToGenerate || response.planReady) {
+    // Check if plan is ready AND user has confirmed - only then auto-create
+    if (response.readyToGenerate && session.userConfirmedAdd) {
       // Extract plan data from AI response
       const planData = {
         title: session.slots?.activityType || 'Quick Plan Activity',
@@ -1835,11 +1838,13 @@ You can find these tasks in your task list and start working on them right away!
         return res.status(404).json({ error: 'Session not found' });
       }
 
-      // Get user profile for context
+      // Get user profile and priorities for context
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
+
+      const userPriorities = await storage.getUserPriorities(userId);
 
       // HARDEN CONFIRMATION DETECTION for task generation
       const positiveConfirmationWords = ['\\byes\\b', '\\byep\\b', '\\byeah\\b', '\\bsounds good\\b', '\\bagree(d|s)?\\b', '\\bconfirm(ed)?\\b', '\\bi confirm\\b', '\\blooks good\\b', '\\bperfect\\b', '\\bgreat\\b', '\\bthat works\\b'];
@@ -1870,7 +1875,7 @@ You can find these tasks in your task list and start working on them right away!
       }
 
       // Process the message with the lifestyle planner agent
-      const response = await lifestylePlannerAgent.processMessage(message, session, user, mode);
+      const response = await lifestylePlannerAgent.processMessage(message, session, user, mode, userPriorities);
 
       // Update conversation history
       const updatedHistory = [
