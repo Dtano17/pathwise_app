@@ -662,26 +662,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Syncing Supabase user:', { userId, email, provider });
       
-      // Check if user already exists
+      // Check if user already exists by userId
       let user = await storage.getUser(userId);
       
       if (!user) {
-        // Create new user from Supabase data
-        const nameParts = fullName ? fullName.split(' ') : [];
-        const firstName = nameParts[0] || email.split('@')[0];
-        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+        // Also check if user exists by email (might have logged in via different provider)
+        const existingUserByEmail = await storage.getUserByEmail(email);
         
-        user = await storage.upsertUser({
-          id: userId,
-          username: email.split('@')[0],
-          email: email,
-          firstName: firstName,
-          lastName: lastName,
-          profileImageUrl: avatarUrl || null,
-          authenticationType: 'supabase' as const,
-        });
-        
-        console.log('Created new Supabase user:', userId);
+        if (existingUserByEmail) {
+          // User exists with this email but different ID - just use the existing account
+          console.log('Found existing user by email:', existingUserByEmail.id);
+          user = existingUserByEmail;
+        } else {
+          // Create new user from Supabase data
+          const nameParts = fullName ? fullName.split(' ') : [];
+          const firstName = nameParts[0] || email.split('@')[0];
+          const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+          
+          user = await storage.upsertUser({
+            id: userId,
+            username: email.split('@')[0],
+            email: email,
+            firstName: firstName,
+            lastName: lastName,
+            profileImageUrl: avatarUrl || null,
+            authenticationType: 'supabase' as const,
+          });
+          
+          console.log('Created new Supabase user:', userId);
+        }
       } else {
         console.log('Supabase user already exists:', userId);
       }
