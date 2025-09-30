@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Sparkles, CheckCircle, XCircle, Loader2 } from 'lucide-react'
@@ -7,16 +7,9 @@ import { Button } from '@/components/ui/button'
 export default function AuthCallback() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
-  const hasProcessed = useRef(false)
 
   useEffect(() => {
     const handleAuthCallback = async () => {
-      // Prevent running multiple times
-      if (hasProcessed.current) {
-        console.log('AuthCallback: Already processed, skipping')
-        return
-      }
-      hasProcessed.current = true
       try {
         console.log('AuthCallback: Starting auth callback handling')
         console.log('AuthCallback: Current URL:', window.location.href)
@@ -91,42 +84,87 @@ export default function AuthCallback() {
                             'there'
             setMessage(`Welcome ${userName}!`)
             
-            // Clean up URL parameters and redirect
+            // Clean up URL parameters
             window.history.replaceState({}, document.title, window.location.pathname)
             
-            // Redirect to the main app
+            // Redirect to the main app and force reload to ensure auth state updates
             setTimeout(() => {
               window.location.href = '/'
+              window.location.reload()
             }, 1500)
             return
           }
         }
 
-        // No code parameter - this shouldn't happen in normal OAuth flow
-        console.log('AuthCallback: No OAuth code found')
-        
-        // Check if we already have a backend session (user might have clicked back button)
-        try {
-          const userCheck = await fetch('/api/auth/user', { credentials: 'include' })
-          const userData = await userCheck.json()
+        // Fallback: Try to get existing session
+        console.log('AuthCallback: No code found, checking for existing session...')
+        const { data, error: sessionError } = await supabase.auth.getSession()
+
+        if (sessionError) {
+          console.error('Auth callback session error:', sessionError)
+          setStatus('error')
+          setMessage(sessionError.message || 'Authentication failed')
+          return
+        }
+
+        if (data.session && data.session.user) {
+          console.log('AuthCallback: Found existing session')
+          console.log('AuthCallback: User ID:', data.session.user.id)
           
-          if (userData && userData.authenticated) {
-            console.log('AuthCallback: User already authenticated, redirecting...')
-            setStatus('success')
-            setMessage('Welcome back!')
-            setTimeout(() => {
-              window.location.href = '/'
-            }, 500)
+          // Sync Supabase user to backend
+          try {
+            const syncResponse = await fetch('/api/auth/supabase-sync', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                userId: data.session.user.id,
+                email: data.session.user.email,
+                fullName: data.session.user.user_metadata?.full_name || 
+                         data.session.user.user_metadata?.name,
+                avatarUrl: data.session.user.user_metadata?.avatar_url,
+                provider: 'facebook'
+              })
+            });
+            
+            if (!syncResponse.ok) {
+              console.error('Failed to sync user to backend');
+              setStatus('error')
+              setMessage('Failed to complete authentication. Please try again.')
+              return
+            }
+            
+            console.log('User synced to backend successfully')
+          } catch (syncError) {
+            console.error('Error syncing user:', syncError);
+            setStatus('error')
+            setMessage('Failed to complete authentication. Please try again.')
             return
           }
-        } catch (e) {
-          // Ignore errors, will show error state below
+          
+          setStatus('success')
+          const userName = data.session.user.user_metadata?.full_name ||
+                          data.session.user.user_metadata?.name ||
+                          data.session.user.email?.split('@')[0] ||
+                          'there'
+          setMessage(`Welcome ${userName}!`)
+          
+          // Clean up URL parameters
+          window.history.replaceState({}, document.title, window.location.pathname)
+          
+          // Redirect to the main app and force reload to ensure auth state updates
+          setTimeout(() => {
+            window.location.href = '/'
+            window.location.reload()
+          }, 1500)
+        } else {
+          console.log('AuthCallback: No session found after callback')
+          setStatus('error')
+          setMessage('Authentication was not completed. Please try again.')
+          // Don't auto-redirect on failure, let user manually retry
         }
-        
-        console.log('AuthCallback: No session found')
-        setStatus('error')
-        setMessage('Authentication was not completed. Please try again.')
-        // Don't auto-redirect on failure, let user manually retry
       } catch (error: any) {
         console.error('Unexpected auth callback error:', error)
         setStatus('error')
