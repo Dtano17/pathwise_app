@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft } from 'lucide-react';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -290,6 +290,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
               size="sm"
               data-testid="button-change-mode"
             >
+              <ArrowLeft className="h-4 w-4 mr-2" />
               Change Mode
             </Button>
           </div>

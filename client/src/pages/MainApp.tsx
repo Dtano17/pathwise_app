@@ -17,6 +17,7 @@ import ConversationalPlanner from '@/components/ConversationalPlanner';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
 import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft } from 'lucide-react';
+import { Link } from 'wouter';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
 import { Textarea } from '@/components/ui/textarea';
@@ -239,6 +240,7 @@ export default function MainApp({
           
           // Invalidate activities query to show the new activity
           queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
           
           toast({
             title: "Activity Created!",
@@ -621,9 +623,11 @@ export default function MainApp({
                 (isMobile || !open) && <SidebarTrigger data-testid="button-sidebar-toggle" />
               )}
               
-              <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center">
-                <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
-              </div>
+              <Link href="/">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center cursor-pointer hover-elevate rounded-md">
+                  <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
+                </div>
+              </Link>
               <div>
                 <h1 className="text-lg sm:text-2xl font-bold text-foreground">JournalMate</h1>
                 <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
