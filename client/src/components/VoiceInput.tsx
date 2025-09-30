@@ -51,10 +51,15 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     }
   }, [chatMessages, isNearBottom]);
 
-  // Click outside to deselect mode
+  // Click outside to deselect mode (but not when clicking textarea)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (currentMode && modeButtonsRef.current && !modeButtonsRef.current.contains(event.target as Node)) {
+      const clickedElement = event.target as Node;
+      const isClickInsideButtons = modeButtonsRef.current?.contains(clickedElement);
+      const isClickInsideTextarea = textareaRef.current?.contains(clickedElement);
+      
+      // Only deselect if clicking outside both buttons and textarea
+      if (currentMode && !isClickInsideButtons && !isClickInsideTextarea) {
         setCurrentMode(null);
       }
     };
