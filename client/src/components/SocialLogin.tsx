@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users } from "lucide-react";
+import { SiGoogle, SiFacebook, SiApple, SiGithub } from "react-icons/si";
+import { Mail } from "lucide-react";
+import { FaXTwitter } from "react-icons/fa6";
 
 interface SocialLoginProps {
   title?: string;
@@ -13,6 +15,8 @@ export function SocialLogin({
 }: SocialLoginProps) {
   
   const handleSocialLogin = () => {
+    // All buttons redirect to Replit authentication
+    // Replit will handle the specific provider selection
     window.location.href = '/api/login';
   };
 
@@ -26,19 +30,75 @@ export function SocialLogin({
           {description}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Social Media Sign In via Replit */}
-        <Button 
+      <CardContent className="space-y-3">
+        {/* Email Sign In */}
+        <Button
+          variant="outline"
           onClick={handleSocialLogin}
-          className="w-full h-12 text-base"
-          data-testid="button-login-social"
+          className="w-full h-11 text-base justify-start"
+          data-testid="button-login-email"
         >
-          <Users className="w-5 h-5 mr-2" />
-          Sign in with your social media
+          <Mail className="w-5 h-5 mr-2" />
+          Sign in with Email
+        </Button>
+
+        {/* Google Sign In */}
+        <Button
+          variant="outline"
+          onClick={handleSocialLogin}
+          className="w-full h-11 text-base justify-start"
+          data-testid="button-login-google"
+        >
+          <SiGoogle className="w-5 h-5 mr-2 text-[#4285F4]" />
+          Sign in with Google
+        </Button>
+
+        {/* GitHub Sign In */}
+        <Button
+          variant="outline"
+          onClick={handleSocialLogin}
+          className="w-full h-11 text-base justify-start"
+          data-testid="button-login-github"
+        >
+          <SiGithub className="w-5 h-5 mr-2" />
+          Sign in with GitHub
+        </Button>
+
+        {/* X (Twitter) Sign In */}
+        <Button
+          variant="outline"
+          onClick={handleSocialLogin}
+          className="w-full h-11 text-base justify-start"
+          data-testid="button-login-x"
+        >
+          <FaXTwitter className="w-5 h-5 mr-2" />
+          Sign in with X
+        </Button>
+
+        {/* Apple Sign In */}
+        <Button
+          variant="outline"
+          onClick={handleSocialLogin}
+          className="w-full h-11 text-base justify-start"
+          data-testid="button-login-apple"
+        >
+          <SiApple className="w-5 h-5 mr-2" />
+          Sign in with Apple
+        </Button>
+
+        {/* Facebook Sign In */}
+        <Button
+          variant="outline"
+          onClick={handleSocialLogin}
+          className="w-full h-11 text-base justify-start"
+          data-testid="button-login-facebook"
+        >
+          <SiFacebook className="w-5 h-5 mr-2 text-[#1877F2]" />
+          Sign in with Facebook
         </Button>
 
         {/* Terms and Privacy */}
-        <p className="text-xs text-muted-foreground text-center leading-5" data-testid="text-terms">
+        <p className="text-xs text-muted-foreground text-center leading-5 pt-2" data-testid="text-terms">
           By continuing, you agree to our{" "}
           <a href="#" className="underline underline-offset-4 hover:text-primary">
             Terms of Service
