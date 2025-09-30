@@ -1706,9 +1706,10 @@ You can find these tasks in your task list and start working on them right away!
   });
 
   // User Profile Management
-  app.get("/api/user/profile", async (req: any, res) => {
+  app.get("/api/user/profile", async (req, res) => {
     try {
-      const userId = getUserId(req) || DEMO_USER_ID;
+      // Get authenticated user ID, fallback to demo user for backward compatibility
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
       const profile = await storage.getUserProfile(userId);
       res.json(profile);
     } catch (error) {
@@ -1717,9 +1718,9 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
-  app.put("/api/user/profile", async (req: any, res) => {
+  app.put("/api/user/profile", async (req, res) => {
     try {
-      const userId = getUserId(req) || DEMO_USER_ID;
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
       const profileData = insertUserProfileSchema.parse(req.body);
       const profile = await storage.upsertUserProfile(userId, profileData);
       res.json(profile);
@@ -1732,9 +1733,9 @@ You can find these tasks in your task list and start working on them right away!
   // ===== CONVERSATIONAL LIFESTYLE PLANNER API ENDPOINTS =====
 
   // Start a new lifestyle planning session
-  app.post("/api/planner/session", isAuthenticatedGeneric, async (req: any, res) => {
+  app.post("/api/planner/session", isAuthenticatedGeneric, async (req, res) => {
     try {
-      const userId = getUserId(req);
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
       
       // Check if user has an active session
       const activeSession = await storage.getActiveLifestylePlannerSession(userId);
@@ -1768,9 +1769,9 @@ You can find these tasks in your task list and start working on them right away!
   });
 
   // Process a message in the conversation
-  app.post("/api/planner/message", isAuthenticatedGeneric, async (req: any, res) => {
+  app.post("/api/planner/message", isAuthenticatedGeneric, async (req, res) => {
     try {
-      const userId = getUserId(req);
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
       const { sessionId, message, mode } = req.body;
 
       if (!sessionId || !message) {
@@ -1848,9 +1849,9 @@ You can find these tasks in your task list and start working on them right away!
   });
 
   // Generate final plan
-  app.post("/api/planner/generate", isAuthenticatedGeneric, async (req: any, res) => {
+  app.post("/api/planner/generate", isAuthenticatedGeneric, async (req, res) => {
     try {
-      const userId = getUserId(req);
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
       const { sessionId } = req.body;
 
       if (!sessionId) {
@@ -1950,9 +1951,9 @@ You can find these tasks in your task list and start working on them right away!
   });
 
   // Get user's planner sessions
-  app.get("/api/planner/sessions", isAuthenticatedGeneric, async (req: any, res) => {
+  app.get("/api/planner/sessions", isAuthenticatedGeneric, async (req, res) => {
     try {
-      const userId = getUserId(req);
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
       const sessions = await storage.getUserLifestylePlannerSessions(userId);
       res.json(sessions);
     } catch (error) {
@@ -1962,9 +1963,9 @@ You can find these tasks in your task list and start working on them right away!
   });
 
   // Get specific session
-  app.get("/api/planner/session/:sessionId", isAuthenticatedGeneric, async (req: any, res) => {
+  app.get("/api/planner/session/:sessionId", isAuthenticatedGeneric, async (req, res) => {
     try {
-      const userId = getUserId(req);
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
       const { sessionId } = req.params;
       
       const session = await storage.getLifestylePlannerSession(sessionId, userId);
@@ -1979,9 +1980,9 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
-  app.delete("/api/user/profile", async (req: any, res) => {
+  app.delete("/api/user/profile", async (req, res) => {
     try {
-      const userId = getUserId(req) || DEMO_USER_ID;
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
       await storage.deleteUserProfile(userId);
       res.json({ success: true });
     } catch (error) {
@@ -1991,9 +1992,9 @@ You can find these tasks in your task list and start working on them right away!
   });
 
   // User Preferences Management
-  app.get("/api/user/preferences", async (req: any, res) => {
+  app.get("/api/user/preferences", async (req, res) => {
     try {
-      const userId = getUserId(req) || DEMO_USER_ID;
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
       const preferences = await storage.getUserPreferences(userId);
       res.json(preferences);
     } catch (error) {
@@ -2002,9 +2003,9 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
-  app.put("/api/user/preferences", async (req: any, res) => {
+  app.put("/api/user/preferences", async (req, res) => {
     try {
-      const userId = getUserId(req) || DEMO_USER_ID;
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
       const preferencesData = insertUserPreferencesSchema.parse(req.body);
       const preferences = await storage.upsertUserPreferences(userId, preferencesData);
       res.json(preferences);
@@ -2014,9 +2015,9 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
-  app.delete("/api/user/preferences", async (req: any, res) => {
+  app.delete("/api/user/preferences", async (req, res) => {
     try {
-      const userId = getUserId(req) || DEMO_USER_ID;
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
       await storage.deleteUserPreferences(userId);
       res.json({ success: true });
     } catch (error) {
@@ -2026,9 +2027,9 @@ You can find these tasks in your task list and start working on them right away!
   });
 
   // User Consent Management
-  app.get("/api/user/consent", async (req: any, res) => {
+  app.get("/api/user/consent", async (req, res) => {
     try {
-      const userId = getUserId(req) || DEMO_USER_ID;
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
       const consent = await storage.getUserConsent(userId);
       res.json(consent);
     } catch (error) {
@@ -2037,9 +2038,9 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
-  app.put("/api/user/consent", async (req: any, res) => {
+  app.put("/api/user/consent", async (req, res) => {
     try {
-      const userId = getUserId(req) || DEMO_USER_ID;
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
       const consentData = insertUserConsentSchema.parse(req.body);
       const consent = await storage.upsertUserConsent(userId, consentData);
       res.json(consent);
@@ -2049,9 +2050,9 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
-  app.delete("/api/user/consent", async (req: any, res) => {
+  app.delete("/api/user/consent", async (req, res) => {
     try {
-      const userId = getUserId(req) || DEMO_USER_ID;
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
       await storage.deleteUserConsent(userId);
       res.json({ success: true });
     } catch (error) {

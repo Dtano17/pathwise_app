@@ -25,9 +25,6 @@ export function SocialLogin({
   
   const handleFacebookLogin = async () => {
     try {
-      console.log('Facebook login: Starting OAuth flow...');
-      console.log('Redirect URL:', `${window.location.origin}/auth/callback`);
-      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
         options: {
@@ -35,18 +32,13 @@ export function SocialLogin({
         }
       });
       
-      console.log('Facebook OAuth response:', { data, error });
-      
       if (error) {
         console.error('Facebook login error:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
         toast({
           title: "Login Failed",
-          description: error.message || "Failed to sign in with Facebook. Please try again.",
+          description: "Failed to sign in with Facebook. Please try again.",
           variant: "destructive"
         });
-      } else {
-        console.log('Facebook OAuth initiated successfully');
       }
     } catch (error) {
       console.error('Facebook login exception:', error);

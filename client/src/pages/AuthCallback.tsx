@@ -18,9 +18,8 @@ export default function AuthCallback() {
       }
       hasProcessed.current = true
       try {
-        console.log('=== AuthCallback: Starting auth callback handling ===')
+        console.log('AuthCallback: Starting auth callback handling')
         console.log('AuthCallback: Current URL:', window.location.href)
-        console.log('AuthCallback: URL search params:', window.location.search)
         
         // Check for URL parameters that might indicate an error
         const urlParams = new URLSearchParams(window.location.search)
@@ -30,9 +29,8 @@ export default function AuthCallback() {
         
         if (error) {
           console.error('OAuth error from URL:', error, errorDescription)
-          console.error('Full URL:', window.location.href)
           setStatus('error')
-          setMessage(errorDescription || `Authentication failed: ${error}`)
+          setMessage(errorDescription || error || 'Authentication failed')
           return
         }
 
@@ -43,9 +41,8 @@ export default function AuthCallback() {
           
           if (exchangeError) {
             console.error('AuthCallback: Code exchange error:', exchangeError)
-            console.error('Error details:', JSON.stringify(exchangeError, null, 2))
             setStatus('error')
-            setMessage(exchangeError.message || `Failed to complete authentication: ${exchangeError.message || 'Unknown error'}`)
+            setMessage(exchangeError.message || 'Failed to complete authentication')
             return
           }
 
