@@ -33,7 +33,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const [inputKey, setInputKey] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [currentMode, setCurrentMode] = useState<ConversationMode>(null);
-  const [showCreatePlanButton, setShowCreatePlanButton] = useState(false);
+  const [currentActivityId, setCurrentActivityId] = useState<string | null>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
 
   const recognitionRef = useRef<any>(null);
@@ -200,9 +200,16 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       };
       setChatMessages(prev => [...prev, aiMessage]);
       
-      // Handle Smart Plan specific responses
-      if (data.showCreatePlanButton) {
-        setShowCreatePlanButton(true);
+      // Handle activity creation
+      if (data.activityCreated && data.activity) {
+        setCurrentActivityId(data.activity.id);
+        queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+        
+        toast({
+          title: "✅ Plan Created!",
+          description: `Activity "${data.activity.title}" is ready with ${data.createdTasks?.length || 0} tasks!`,
+        });
       }
     },
     onError: (error) => {
@@ -214,53 +221,16 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     }
   });
 
-  // Create plan mutation
-  const createPlanMutation = useMutation({
-    mutationFn: async () => {
-      const conversationHistory = chatMessages.map(msg => ({ role: msg.role, content: msg.content }));
-      const response = await apiRequest('POST', '/api/chat/conversation', {
-        message: "Yes, create the plan!",
-        conversationHistory,
-        mode: currentMode
-      });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      // Handle successful plan creation
-      if (data.activityId) {
-        toast({
-          title: "Success!",
-          description: "Your action plan has been created!",
-        });
-        // Reset conversation and redirect or refresh
-        setChatMessages([]);
-        setCurrentMode(null);
-        setShowCreatePlanButton(false);
-        queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to create plan. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  const handleCreatePlan = () => {
-    createPlanMutation.mutate();
-  };
 
   const startConversationWithMode = (mode: 'quick' | 'smart') => {
     // Toggle: if clicking the same mode again, deselect it
     if (currentMode === mode) {
       setCurrentMode(null);
+      setCurrentActivityId(null); // Reset activity when deselecting mode
     } else {
       setCurrentMode(mode);
+      setCurrentActivityId(null); // Reset for new conversation
     }
-    // Don't immediately switch to chat mode - let user type first
-    setShowCreatePlanButton(false);
   };
 
   const handleSubmit = () => {
@@ -319,7 +289,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
               onClick={() => {
                 setChatMessages([]);
                 setCurrentMode(null);
-                setShowCreatePlanButton(false);
+                setCurrentActivityId(null);
               }}
               className="h-8 w-8"
               data-testid="button-back"
@@ -433,42 +403,6 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
               </div>
             </div>
 
-            {/* Create Plan Button */}
-            {showCreatePlanButton && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 flex justify-center"
-              >
-                <Button
-                  onClick={handleCreatePlan}
-                  disabled={createPlanMutation.isPending}
-                  className={`gap-2 ${
-                    currentMode === 'quick'
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      : 'bg-purple-600 hover:bg-purple-700 text-white'
-                  }`}
-                  size="lg"
-                  data-testid="button-create-plan"
-                >
-                  {createPlanMutation.isPending ? (
-                    <>
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ repeat: Infinity, duration: 1 }}
-                        className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                      />
-                      Creating Plan...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      Create My Action Plan
-                    </>
-                  )}
-                </Button>
-              </motion.div>
-            )}
           </div>
         </div>
       </div>
