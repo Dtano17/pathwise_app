@@ -78,19 +78,20 @@ export default function AuthCallback() {
             }
             
             setStatus('success')
-            const userName = data.session.user.email || 
-                            data.session.user.user_metadata?.full_name ||
+            const userName = data.session.user.user_metadata?.full_name ||
                             data.session.user.user_metadata?.name ||
-                            'back'
+                            data.session.user.email?.split('@')[0] ||
+                            'there'
             setMessage(`Welcome ${userName}!`)
             
             // Clean up URL parameters
             window.history.replaceState({}, document.title, window.location.pathname)
             
-            // Redirect to the main app after a short delay
+            // Redirect to the main app and force reload to ensure auth state updates
             setTimeout(() => {
               window.location.href = '/'
-            }, 2000)
+              window.location.reload()
+            }, 1500)
             return
           }
         }
@@ -144,19 +145,20 @@ export default function AuthCallback() {
           }
           
           setStatus('success')
-          const userName = data.session.user.email || 
-                          data.session.user.user_metadata?.full_name ||
+          const userName = data.session.user.user_metadata?.full_name ||
                           data.session.user.user_metadata?.name ||
-                          'back'
+                          data.session.user.email?.split('@')[0] ||
+                          'there'
           setMessage(`Welcome ${userName}!`)
           
           // Clean up URL parameters
           window.history.replaceState({}, document.title, window.location.pathname)
           
-          // Redirect to the main app after a short delay
+          // Redirect to the main app and force reload to ensure auth state updates
           setTimeout(() => {
             window.location.href = '/'
-          }, 2000)
+            window.location.reload()
+          }, 1500)
         } else {
           console.log('AuthCallback: No session found after callback')
           setStatus('error')
@@ -182,18 +184,21 @@ export default function AuthCallback() {
       <Card className="w-full max-w-md mx-auto">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-full flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
+            <div className="relative w-16 h-16 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <Sparkles className="w-8 h-8 text-white" />
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-xs font-bold">AI</span>
+              </div>
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
             {status === 'loading' && 'Completing Sign In...'}
-            {status === 'success' && 'Welcome Back!'}
+            {status === 'success' && 'Welcome to IntentAI!'}
             {status === 'error' && 'Authentication Error'}
           </CardTitle>
           <CardDescription>
-            {status === 'loading' && 'Please wait while we complete your authentication'}
-            {status === 'success' && 'You have been successfully signed in'}
+            {status === 'loading' && 'Setting up your personalized experience'}
+            {status === 'success' && 'Your profile is ready'}
             {status === 'error' && 'There was a problem with your authentication'}
           </CardDescription>
         </CardHeader>
