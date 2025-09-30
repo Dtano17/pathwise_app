@@ -123,17 +123,79 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       });
     }
 
-    // Check if we're in managing mode with an active activity (for modifications)
-    if (session.sessionState === 'managing' && session.externalContext?.activeActivityId) {
-      const activeActivityId = session.externalContext.activeActivityId;
+    // Check if user is confirming to create the plan
+    const confirmationKeywords = ['yes', 'create the plan', 'sounds good', 'perfect', 'great', 'that works', 'confirm', 'proceed'];
+    const userWantsToCreatePlan = confirmationKeywords.some(keyword => 
+      message.toLowerCase().includes(keyword.toLowerCase())
+    );
+
+    // If user is ready to create plan and confirms
+    if (userWantsToCreatePlan && session.sessionState === 'confirming') {
+      // Create a basic plan structure
+      const planData = {
+        title: `Smart Plan: ${session.slots?.activityType || 'Activity'}`,
+        summary: `Personalized plan based on your conversation`,
+        category: 'personal',
+        tasks: [
+          {
+            title: `Prepare for ${session.slots?.activityType || 'activity'}`,
+            description: 'Get ready and gather what you need',
+            category: 'preparation',
+            priority: 'medium',
+            timeEstimate: '30 min'
+          },
+          {
+            title: `Execute ${session.slots?.activityType || 'activity'}`,
+            description: 'Follow through with the planned activity',
+            category: 'action',
+            priority: 'high', 
+            timeEstimate: '1-2 hours'
+          }
+        ]
+      };
+
+      // Create activity from the structured plan
+      const activity = await storage.createActivity({
+        title: planData.title,
+        description: planData.summary,
+        category: planData.category,
+        status: 'planning',
+        userId
+      });
+
+      // Create tasks and link them to the activity
+      const createdTasks = [];
+      for (let i = 0; i < planData.tasks.length; i++) {
+        const taskData = planData.tasks[i];
+        const task = await storage.createTask({
+          title: taskData.title,
+          description: taskData.description,
+          category: taskData.category,
+          priority: taskData.priority as 'low' | 'medium' | 'high',
+          timeEstimate: taskData.timeEstimate,
+          userId
+        });
+        await storage.addTaskToActivity(activity.id, task.id, i);
+        createdTasks.push(task);
+      }
+
+      // Mark session as completed
+      await storage.updateLifestylePlannerSession(session.id, {
+        sessionState: 'completed',
+        isComplete: true,
+        generatedPlan: { ...planData, tasks: createdTasks }
+      }, userId);
+
+      // Get updated session for consistent response shape
+      const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
       
-      // TODO: Implement modification logic here
-      // For now, just acknowledge the modification request
       return res.json({
-        message: `📝 I understand you want to modify your plan. Modification features coming soon! For now, your activity "${activeActivityId}" is ready in your activities list.`,
-        sessionId: session.id,
-        activeActivityId,
-        session
+        message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 **You can find it in:**\n• **Home screen** - Check your recent activities\n• **Activities pane** - View all details and progress\n• **Tasks section** - See the ${createdTasks.length} individual tasks I created\n\nAll tasks are ready for you to start working on! 🚀`,
+        activityCreated: true,
+        activity,
+        planComplete: true,
+        createdTasks,
+        session: updatedSession
       });
     }
 
@@ -142,8 +204,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       message,
       session,
       userProfile,
-      'smart', // Smart mode
-      userPriorities
+      'chat' // Smart mode
     );
 
     // CRITICAL: Persist updated session data including question counts
@@ -160,77 +221,24 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       sessionState: response.sessionState
     }, userId);
 
-    // Check if plan is ready AND user has confirmed - only then auto-create
-    if (response.readyToGenerate && session.userConfirmedAdd) {
-      const planData = response.generatedPlan || {
-        title: `Smart Plan: ${session.slots?.activityType || 'Activity'}`,
-        summary: `Personalized plan based on your conversation`,
-        category: 'personal',
-        tasks: [
-          {
-            title: `Prepare for ${session.slots?.activityType || 'activity'}`,
-            description: 'Get ready and gather what you need',
-            category: 'preparation',
-            priority: 'medium',
-            timeEstimate: '30 min'
-          }
-        ]
-      };
-
-      // Create activity from the structured plan
-      const activity = await storage.createActivity({
-        title: planData.title || 'Smart Plan Activity',
-        description: planData.summary || 'Generated from Smart Plan conversation',
-        category: planData.category || 'personal',
-        status: 'planning',
-        userId
-      });
-
-      // Create tasks and link them to the activity
-      const createdTasks = [];
-      if (planData.tasks && Array.isArray(planData.tasks)) {
-        for (let i = 0; i < planData.tasks.length; i++) {
-          const taskData = planData.tasks[i];
-          const task = await storage.createTask({
-            title: taskData.title,
-            description: taskData.description || '',
-            category: taskData.category || 'general',
-            priority: (taskData.priority as 'low' | 'medium' | 'high') || 'medium',
-            timeEstimate: taskData.timeEstimate,
-            userId
-          });
-          await storage.addTaskToActivity(activity.id, task.id, i);
-          createdTasks.push(task);
-        }
-      }
-
-      // Mark session as managing (not completed) and store active activity ID
+    // Check if plan is ready for confirmation
+    if (response.readyToGenerate || response.planReady) {
+      // Update session state to confirming
       await storage.updateLifestylePlannerSession(session.id, {
-        sessionState: 'managing',
-        isComplete: false,
-        externalContext: {
-          ...(session.externalContext || {}),
-          activeActivityId: activity.id,
-          currentMode: 'smart'
-        },
-        generatedPlan: { ...planData, tasks: createdTasks }
+        sessionState: 'confirming'
       }, userId);
-
-      // Get updated session
-      const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
       
       return res.json({
-        message: response.message + `\n\n✅ **Smart Plan Created!** Activity "${activity.title}" is ready with ${createdTasks.length} tasks!\n\n💡 You can now refine this plan—try "add timestamps" or "add more details" to customize it further.`,
-        activityCreated: true,
-        activity,
-        createdTasks,
+        message: response.message + "\n\n🎯 **Ready to create your plan?** Click the \"Create Plan\" button below to turn this into an organized activity with trackable tasks!",
+        planReady: true,
         sessionId: session.id,
-        session: updatedSession
+        showCreatePlanButton: true,
+        session
       });
     }
 
-    // If user confirmed AND createActivity flag is set, create the activity
-    if (response.createActivity && session.userConfirmedAdd) {
+    // If user confirmed, create the activity
+    if (response.createActivity) {
       const planData = response.generatedPlan;
       
       // Create activity from the structured plan
@@ -1459,9 +1467,8 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
       }, userId);
     }
 
-    // Get user profile and priorities for personalized questions
+    // Get user profile for personalized questions
     const userProfile = await storage.getUserProfile(userId);
-    const userPriorities = await storage.getUserPriorities(userId);
 
     // Add current message to conversation history
     const updatedHistory = [
@@ -1506,56 +1513,33 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       });
     }
 
-    // Check if we're in managing mode with an active activity (for modifications)
-    if (session.sessionState === 'managing' && session.externalContext?.activeActivityId) {
-      const activeActivityId = session.externalContext.activeActivityId;
-      
-      // TODO: Implement modification logic here
-      // For now, just acknowledge the modification request
-      return res.json({
-        message: `📝 I understand you want to modify your plan. Modification features coming soon! For now, your activity "${activeActivityId}" is ready in your activities list.`,
-        sessionId: session.id,
-        activeActivityId,
-        session
-      });
-    }
-
-    // Process with lifestyle planner agent in Quick mode
-    const response = await lifestylePlannerAgent.processMessage(
-      message,
-      session,
-      userProfile,
-      'quick', // Quick mode
-      userPriorities
+    // Check if user is confirming to create the plan
+    const confirmationKeywords = ['yes', 'create the plan', 'sounds good', 'perfect', 'great', 'that works', 'confirm', 'proceed'];
+    const userWantsToCreatePlan = confirmationKeywords.some(keyword => 
+      message.toLowerCase().includes(keyword.toLowerCase())
     );
 
-    // Persist updated session data including question counts
-    const updatedConversationHistory = [
-      ...(session.conversationHistory || []),
-      { role: 'assistant', content: response.message, timestamp: new Date().toISOString() }
-    ];
-
-    await storage.updateLifestylePlannerSession(session.id, {
-      conversationHistory: updatedConversationHistory,
-      slots: response.updatedSlots || session.slots,
-      externalContext: response.updatedExternalContext || session.externalContext,
-      sessionState: response.sessionState
-    }, userId);
-
-    // Check if plan is ready AND user has confirmed - only then auto-create
-    if (response.readyToGenerate && session.userConfirmedAdd) {
-      // Extract plan data from AI response
+    // If user is ready to create plan and confirms
+    if (userWantsToCreatePlan && session.sessionState === 'confirming') {
+      // Create a basic plan structure for Quick Plan
       const planData = {
-        title: session.slots?.activityType || 'Quick Plan Activity',
-        summary: session.slots?.description || 'Fast plan generated from Quick Plan mode',
+        title: `Quick Plan: ${session.slots?.activityType || 'Activity'}`,
+        summary: `Fast plan generated from Quick Plan mode`,
         category: 'personal',
-        tasks: response.generatedTasks || [
+        tasks: [
           {
             title: `Start ${session.slots?.activityType || 'activity'}`,
             description: 'Quick action to get started',
             category: 'action',
             priority: 'high',
             timeEstimate: '15 min'
+          },
+          {
+            title: `Complete ${session.slots?.activityType || 'activity'}`,
+            description: 'Follow through and finish',
+            category: 'completion',
+            priority: 'high', 
+            timeEstimate: '30-60 min'
           }
         ]
       };
@@ -1575,9 +1559,9 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         const taskData = planData.tasks[i];
         const task = await storage.createTask({
           title: taskData.title,
-          description: taskData.description || '',
-          category: taskData.category || 'general',
-          priority: (taskData.priority as 'low' | 'medium' | 'high') || 'medium',
+          description: taskData.description,
+          category: taskData.category,
+          priority: taskData.priority as 'low' | 'medium' | 'high',
           timeEstimate: taskData.timeEstimate,
           userId
         });
@@ -1585,28 +1569,60 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         createdTasks.push(task);
       }
 
-      // Mark session as managing (not completed) and store active activity ID
+      // Mark session as completed
       await storage.updateLifestylePlannerSession(session.id, {
-        sessionState: 'managing',
-        isComplete: false,
-        externalContext: {
-          ...(session.externalContext || {}),
-          activeActivityId: activity.id,
-          currentMode: 'quick'
-        },
+        sessionState: 'completed',
+        isComplete: true,
         generatedPlan: { ...planData, tasks: createdTasks }
       }, userId);
 
-      // Get updated session
+      // Get updated session for consistent response shape
       const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
       
       return res.json({
-        message: response.message + `\n\n✅ **Quick Plan Created!** Activity "${activity.title}" is ready with ${createdTasks.length} tasks!\n\n💡 You can now refine this plan—try "add timestamps" or "add more details" to customize it further.`,
+        message: `⚡ **Quick Plan Created!** Activity "${activity.title}" is ready!\n\n📋 **Find it in:**\n• **Home screen** - Your recent activities\n• **Activities section** - Full details and tasks\n\nAll set for immediate action! 🚀`,
         activityCreated: true,
         activity,
+        planComplete: true,
         createdTasks,
-        sessionId: session.id,
         session: updatedSession
+      });
+    }
+
+    // Process with lifestyle planner agent in Quick mode
+    const response = await lifestylePlannerAgent.processMessage(
+      message,
+      session,
+      userProfile,
+      'quick' // Quick mode
+    );
+
+    // Persist updated session data including question counts
+    const updatedConversationHistory = [
+      ...(session.conversationHistory || []),
+      { role: 'assistant', content: response.message, timestamp: new Date().toISOString() }
+    ];
+
+    await storage.updateLifestylePlannerSession(session.id, {
+      conversationHistory: updatedConversationHistory,
+      slots: response.updatedSlots || session.slots,
+      externalContext: response.updatedExternalContext || session.externalContext,
+      sessionState: response.sessionState
+    }, userId);
+
+    // Check if plan is ready for confirmation
+    if (response.readyToGenerate || response.planReady) {
+      // Update session state to confirming
+      await storage.updateLifestylePlannerSession(session.id, {
+        sessionState: 'confirming'
+      }, userId);
+      
+      return res.json({
+        message: response.message + "\n\n⚡ **Ready for Quick Plan?** Click \"Create Plan\" to generate your activity instantly!",
+        planReady: true,
+        sessionId: session.id,
+        showCreatePlanButton: true,
+        session
       });
     }
 
@@ -1838,13 +1854,11 @@ You can find these tasks in your task list and start working on them right away!
         return res.status(404).json({ error: 'Session not found' });
       }
 
-      // Get user profile and priorities for context
+      // Get user profile for context
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
-
-      const userPriorities = await storage.getUserPriorities(userId);
 
       // HARDEN CONFIRMATION DETECTION for task generation
       const positiveConfirmationWords = ['\\byes\\b', '\\byep\\b', '\\byeah\\b', '\\bsounds good\\b', '\\bagree(d|s)?\\b', '\\bconfirm(ed)?\\b', '\\bi confirm\\b', '\\blooks good\\b', '\\bperfect\\b', '\\bgreat\\b', '\\bthat works\\b'];
@@ -1875,7 +1889,7 @@ You can find these tasks in your task list and start working on them right away!
       }
 
       // Process the message with the lifestyle planner agent
-      const response = await lifestylePlannerAgent.processMessage(message, session, user, mode, userPriorities);
+      const response = await lifestylePlannerAgent.processMessage(message, session, user, mode);
 
       // Update conversation history
       const updatedHistory = [

@@ -58,17 +58,16 @@ export class LifestylePlannerAgent {
     message: string,
     session: LifestylePlannerSession,
     userProfile: User,
-    mode?: 'quick' | 'smart',
-    userPriorities?: any[]
+    mode?: 'quick' | 'chat'
   ): Promise<ConversationResponse> {
     try {
       // Use Claude as primary model for conversational planning
       const preferredModel = (process.env.ANTHROPIC_API_KEY && process.env.PREFERRED_MODEL !== 'openai') ? 'claude' : 'openai';
       
       if (preferredModel === 'claude') {
-        return await this.processWithClaude(message, session, userProfile, mode, userPriorities);
+        return await this.processWithClaude(message, session, userProfile, mode);
       } else {
-        return await this.processWithOpenAI(message, session, userProfile, mode, userPriorities);
+        return await this.processWithOpenAI(message, session, userProfile, mode);
       }
     } catch (error) {
       console.error('Lifestyle planner processing error:', error);
@@ -87,11 +86,10 @@ export class LifestylePlannerAgent {
     message: string,
     session: LifestylePlannerSession,
     userProfile: User,
-    mode?: 'quick' | 'smart',
-    userPriorities?: any[]
+    mode?: 'quick' | 'chat'
   ): Promise<ConversationResponse> {
     // Build context-aware system prompt
-    const systemPrompt = this.buildClaudeSystemPrompt(session, userProfile, mode, userPriorities);
+    const systemPrompt = this.buildClaudeSystemPrompt(session, userProfile, mode);
     
     // Create conversation context
     const conversationHistory = session.conversationHistory || [];
@@ -152,10 +150,9 @@ export class LifestylePlannerAgent {
     message: string,
     session: LifestylePlannerSession,
     userProfile: User,
-    mode?: 'quick' | 'smart',
-    userPriorities?: any[]
+    mode?: 'quick' | 'chat'
   ): Promise<ConversationResponse> {
-    const systemPrompt = this.buildOpenAISystemPrompt(session, userProfile, mode, userPriorities);
+    const systemPrompt = this.buildOpenAISystemPrompt(session, userProfile, mode);
     
     const conversationHistory = session.conversationHistory || [];
     const messages = [
@@ -184,32 +181,29 @@ export class LifestylePlannerAgent {
   /**
    * Build Claude-specific system prompt for conversational planning
    */
-  private buildClaudeSystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'smart', userPriorities?: any[]): string {
+  private buildClaudeSystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'chat'): string {
     const currentSlots = session.slots || {};
-    const userContext = this.formatUserContext(userProfile, userPriorities);
-    
-    // Normalize activity type for guide matching
-    const rawActivityType = currentSlots.activityType || '';
-    const activityType = this.normalizeActivityType(rawActivityType);
+    const userContext = this.formatUserContext(userProfile);
+    const activityType = currentSlots.activityType;
     
     // Get question count for this mode
     const externalContext = session.externalContext || {};
     const questionCount = externalContext.questionCount || { smart: 0, quick: 0 };
-    const currentMode = (mode === 'quick' || mode === 'smart') ? mode : (externalContext.currentMode || 'smart') as 'quick' | 'smart';
+    const currentMode = mode || externalContext.currentMode || 'smart';
     
     // Use slot completeness engine to determine what's missing
     const completenessAnalysis = SlotCompletenessEngine.analyzeCompleteness(
       currentSlots, 
       activityType || 'general', 
-      currentMode
+      currentMode as 'quick' | 'smart'
     );
     
-    const modeInstructions = currentMode === 'quick' 
+    const modeInstructions = mode === 'quick' 
       ? `QUICK PLAN MODE: Server-enforced completeness tracking. Current count: ${questionCount.quick}/4 questions. You MUST ask for the next missing REQUIRED field only. Do not ask multiple questions at once. Current completion: ${completenessAnalysis.completionPercentage}%. 
 
 MISSING REQUIRED: ${completenessAnalysis.missingRequired.map(slot => slot.label).join(', ') || 'None'}
 NEXT TO ASK: ${completenessAnalysis.nextPrioritySlot?.label || 'Ready for confirmation'}`
-      : `SMART PLAN MODE: Server-enforced completeness tracking. Current count: ${questionCount.smart}/5 questions. You MUST ask for the next missing field only. Current completion: ${completenessAnalysis.completionPercentage}%.
+      : `SMART PLAN MODE: Server-enforced completeness tracking. Current count: ${(mode === 'chat' ? questionCount.smart : questionCount.smart)}/5 questions. You MUST ask for the next missing field only. Current completion: ${completenessAnalysis.completionPercentage}%.
 
 MISSING REQUIRED: ${completenessAnalysis.missingRequired.map(slot => slot.label).join(', ') || 'None'}
 MISSING OPTIONAL NEEDED: ${completenessAnalysis.missingOptionalCount > 0 ? `${completenessAnalysis.missingOptionalCount} more optional fields` : 'None'}  
@@ -217,8 +211,8 @@ NEXT TO ASK: ${completenessAnalysis.nextPrioritySlot?.label || 'Ready for confir
 
 COMPLETENESS RULE: Only move to confirmation when server says isReady: ${completenessAnalysis.isReady}`;
 
-    // Get activity-specific detailed questioning guide (now includes interview, flight, date, etc.)
-    const activityGuide = this.getActivitySpecificGuide(activityType);
+    // Get activity-specific questioning strategy for context
+    const activityGuide = activityType ? `\nACTIVITY CONTEXT: This is a ${activityType} activity. Ask questions relevant to planning this type of activity.` : '';
 
     return `You are a highly conversational lifestyle planning assistant. Your goal is to gather context through natural dialogue before generating a comprehensive plan.
 
@@ -290,13 +284,15 @@ Remember: NEVER generate tasks until you have comprehensive context AND explicit
   /**
    * Build OpenAI-specific system prompt
    */
-  private buildOpenAISystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'smart', userPriorities?: any[]): string {
+  private buildOpenAISystemPrompt(session: LifestylePlannerSession, userProfile: User, mode?: 'quick' | 'chat'): string {
     const currentSlots = session.slots || {};
-    const userContext = this.formatUserContext(userProfile, userPriorities);
+    const userContext = this.formatUserContext(userProfile);
     const activityGuide = this.getActivitySpecificGuide(currentSlots.activityType || '');
     
     const modeInstructions = mode === 'quick' 
       ? `QUICK PLAN MODE: Ask only essential questions (3-4 max). Be efficient and direct.`
+      : mode === 'chat'
+      ? `CHAT MODE: Gather detailed context. Wait for explicit user agreement before suggesting plan generation.`
       : `SMART PLAN MODE: Be inquisitive but concise. Ask ALL necessary clarifying questions (budget, timing, flights, transportation, etc.) ONE AT A TIME before creating any tasks. After gathering complete context, ask "Would you like me to add these tasks to your activity?" NEVER generate tasks until you have comprehensive details AND user confirmation.`;
 
     return `You are a conversational lifestyle planning assistant. Gather context through natural dialogue before generating plans.
@@ -348,59 +344,6 @@ Required format:
   }
 
   /**
-   * Normalize activity type to match against guides (handle synonyms)
-   */
-  private normalizeActivityType(rawType: string): string {
-    if (!rawType) return '';
-    
-    const normalized = rawType.toLowerCase().trim();
-    
-    // Synonym mapping for activity types
-    const synonymMap: Record<string, string> = {
-      'job interview': 'interview',
-      'interview prep': 'interview',
-      'interviewing': 'interview',
-      'flight': 'flight',
-      'plane ticket': 'flight',
-      'air travel': 'flight',
-      'book flight': 'flight',
-      'flying': 'flight',
-      'date night': 'date',
-      'romantic dinner': 'date',
-      'date': 'date',
-      'dinner date': 'date',
-      'travel': 'travel',
-      'trip': 'travel',
-      'vacation': 'travel',
-      'dining': 'dining',
-      'restaurant': 'dining',
-      'dinner': 'dining',
-      'lunch': 'dining',
-      'social': 'social',
-      'party': 'social',
-      'hangout': 'social',
-      'entertainment': 'entertainment',
-      'movie': 'entertainment',
-      'concert': 'entertainment',
-      'show': 'entertainment'
-    };
-    
-    // Check for exact matches first
-    if (synonymMap[normalized]) {
-      return synonymMap[normalized];
-    }
-    
-    // Check for partial matches
-    for (const [key, value] of Object.entries(synonymMap)) {
-      if (normalized.includes(key) || key.includes(normalized)) {
-        return value;
-      }
-    }
-    
-    return rawType;
-  }
-
-  /**
    * Get activity-specific questioning guide
    */
   private getActivitySpecificGuide(activityType: string): string {
@@ -409,27 +352,6 @@ Required format:
     }
 
     const guides = {
-      'interview': `
-INTERVIEW SPECIFIC QUESTIONS (Ask ALL before creating tasks):
-1. Type: "What type of interview is this? Job interview, informational, panel, technical, or something else?"
-2. Company/Role: "What company and position is this for?"
-3. Timing: "When is the interview scheduled? Date and time?"
-4. Format: "Is this in-person, virtual (Zoom/Teams), or phone?"
-5. Preparation needs: "Have you researched the company? Do you need help with practice questions, outfit planning, or logistics?"
-6. Travel/Location: "If in-person, how are you getting there? Do you need to plan for parking or transportation?"
-CONFIRMATION: After gathering ALL details, ask "Would you like me to add these tasks to your activity?"`,
-
-      'flight': `
-FLIGHT SPECIFIC QUESTIONS (Ask ALL before creating tasks):
-1. Destination: "Where are you flying to?"
-2. Travel dates: "When do you want to depart and return? (Or is this one-way?)"
-3. Round trip: "Is this a round trip or one-way flight?"
-4. Budget: "What's your budget for the flight?"
-5. Preferences: "Any airline preferences? Direct flight or okay with layovers?"
-6. Departure time: "Preferred departure time? Morning, afternoon, evening, or red-eye?"
-7. Additional: "Need to book hotels, rental car, or just the flight?"
-CONFIRMATION: After gathering ALL details, ask "Would you like me to add these tasks to your activity?"`,
-
       'date': `
 DATE NIGHT SPECIFIC QUESTIONS (Ask ALL before creating tasks):
 1. Budget: "What's your budget? Cozy night in ($0-30), casual dinner out ($50-100), or something special ($100+)?"
@@ -492,7 +414,7 @@ GENERAL ACTIVITY QUESTIONS:
   /**
    * Format user context for prompts
    */
-  private formatUserContext(user: User | undefined, userPriorities?: any[]): string {
+  private formatUserContext(user: User | undefined): string {
     if (!user) {
       return 'No user profile available';
     }
@@ -504,30 +426,6 @@ GENERAL ACTIVITY QUESTIONS:
     if (user.stylePreferences) context.push(`Style: ${JSON.stringify(user.stylePreferences)}`);
     if (user.transportationPreferences) context.push(`Transport: ${JSON.stringify(user.transportationPreferences)}`);
     if (user.lifestyleContext) context.push(`Lifestyle: ${JSON.stringify(user.lifestyleContext)}`);
-    
-    // Add user priorities to context (cap at top 5 to avoid prompt bloat)
-    if (userPriorities && userPriorities.length > 0) {
-      const activePriorities = userPriorities
-        .filter(p => p.isActive)
-        .sort((a, b) => a.order - b.order)
-        .slice(0, 5); // Cap at top 5
-        
-      if (activePriorities.length > 0) {
-        const priorityList = activePriorities
-          .map(p => {
-            let formatted = p.title;
-            if (p.category) formatted += ` [${p.category}]`;
-            if (p.description) formatted += `: ${p.description}`;
-            return formatted;
-          })
-          .join('; ');
-        context.push(`User Priorities (Top ${activePriorities.length}): ${priorityList}`);
-        
-        if (userPriorities.filter(p => p.isActive).length > 5) {
-          context.push(`(${userPriorities.filter(p => p.isActive).length - 5} more priorities not shown)`);
-        }
-      }
-    }
     
     return context.length > 0 ? context.join('\n') : 'No specific user context available';
   }

@@ -8,8 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+// Using simple avatar placeholder instead of imported icon
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -33,7 +32,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const [inputKey, setInputKey] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [currentMode, setCurrentMode] = useState<ConversationMode>(null);
-  const [currentActivityId, setCurrentActivityId] = useState<string | null>(null);
+  const [showCreatePlanButton, setShowCreatePlanButton] = useState(false);
   const [isNearBottom, setIsNearBottom] = useState(true);
 
   const recognitionRef = useRef<any>(null);
@@ -44,19 +43,6 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const modeButtonsRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
-
-  // Get user initials
-  const getUserInitials = () => {
-    if (user?.firstName && user?.lastName) {
-      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-    } else if (user?.username) {
-      return user.username.substring(0, 2).toUpperCase();
-    } else if (user?.email) {
-      return user.email.substring(0, 2).toUpperCase();
-    }
-    return 'U';
-  };
 
   // Auto scroll to bottom when new messages arrive and user is near bottom
   useEffect(() => {
@@ -64,16 +50,6 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatMessages, isNearBottom]);
-
-  // Auto scroll to bottom when entering conversation mode
-  useEffect(() => {
-    if (chatMessages.length > 0 && chatEndRef.current) {
-      // Wait for render, then scroll
-      setTimeout(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    }
-  }, [chatMessages.length]);
 
   // Click outside to deselect mode (but not when clicking textarea)
   useEffect(() => {
@@ -200,16 +176,9 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       };
       setChatMessages(prev => [...prev, aiMessage]);
       
-      // Handle activity creation
-      if (data.activityCreated && data.activity) {
-        setCurrentActivityId(data.activity.id);
-        queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-        
-        toast({
-          title: "✅ Plan Created!",
-          description: `Activity "${data.activity.title}" is ready with ${data.createdTasks?.length || 0} tasks!`,
-        });
+      // Handle Smart Plan specific responses
+      if (data.showCreatePlanButton) {
+        setShowCreatePlanButton(true);
       }
     },
     onError: (error) => {
@@ -221,16 +190,53 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     }
   });
 
+  // Create plan mutation
+  const createPlanMutation = useMutation({
+    mutationFn: async () => {
+      const conversationHistory = chatMessages.map(msg => ({ role: msg.role, content: msg.content }));
+      const response = await apiRequest('POST', '/api/chat/conversation', {
+        message: "Yes, create the plan!",
+        conversationHistory,
+        mode: currentMode
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Handle successful plan creation
+      if (data.activityId) {
+        toast({
+          title: "Success!",
+          description: "Your action plan has been created!",
+        });
+        // Reset conversation and redirect or refresh
+        setChatMessages([]);
+        setCurrentMode(null);
+        setShowCreatePlanButton(false);
+        queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to create plan. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleCreatePlan = () => {
+    createPlanMutation.mutate();
+  };
 
   const startConversationWithMode = (mode: 'quick' | 'smart') => {
     // Toggle: if clicking the same mode again, deselect it
     if (currentMode === mode) {
       setCurrentMode(null);
-      setCurrentActivityId(null); // Reset activity when deselecting mode
     } else {
       setCurrentMode(mode);
-      setCurrentActivityId(null); // Reset for new conversation
     }
+    // Don't immediately switch to chat mode - let user type first
+    setShowCreatePlanButton(false);
   };
 
   const handleSubmit = () => {
@@ -289,7 +295,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
               onClick={() => {
                 setChatMessages([]);
                 setCurrentMode(null);
-                setCurrentActivityId(null);
+                setShowCreatePlanButton(false);
               }}
               className="h-8 w-8"
               data-testid="button-back"
@@ -333,12 +339,9 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       <NotebookPen className="w-3 h-3 sm:w-4 sm:h-4" />
                     </div>
                   ) : (
-                    <Avatar className="w-7 h-7 sm:w-8 sm:h-8">
-                      <AvatarImage src={user?.profileImageUrl} />
-                      <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm font-medium">
-                        {getUserInitials()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs sm:text-sm font-medium">
+                      U
+                    </div>
                   )}
                 </div>
                 <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-3 ${
@@ -403,6 +406,42 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
               </div>
             </div>
 
+            {/* Create Plan Button */}
+            {showCreatePlanButton && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 flex justify-center"
+              >
+                <Button
+                  onClick={handleCreatePlan}
+                  disabled={createPlanMutation.isPending}
+                  className={`gap-2 ${
+                    currentMode === 'quick'
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  }`}
+                  size="lg"
+                  data-testid="button-create-plan"
+                >
+                  {createPlanMutation.isPending ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ repeat: Infinity, duration: 1 }}
+                        className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                      />
+                      Creating Plan...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Create My Action Plan
+                    </>
+                  )}
+                </Button>
+              </motion.div>
+            )}
           </div>
         </div>
       </div>
