@@ -136,6 +136,212 @@ export class UniversalPlanningAgent {
       // Generate context chips for UI
       const contextChips = this.generateContextChips(mergedSlots, questions);
 
+      // USE CLAUDE TO INFER USER INTENT - This is the smart contextual layer
+      const intentInference = await this.inferUserIntent(
+        userMessage,
+        conversationHistory,
+        currentSlots,
+        currentDomain
+      );
+
+      console.log('[INTENT INFERENCE]', intentInference);
+
+      // Handle "none" responses - user indicating suggestions don't apply
+      if (intentInference.isNoneResponse && !currentSlots?._generatedPlan && gapAnalysis.answeredCount < gapAnalysis.totalCount) {
+        console.log('[NONE RESPONSE] User indicated none of the suggestions apply');
+        return {
+          message: "I understand none of those options work for you. Could you tell me more about what you're looking for? This will help me provide better suggestions tailored to your needs.",
+          phase: 'gathering',
+          progress: gapAnalysis.progress,
+          contextChips,
+          readyToGenerate: false,
+          planReady: false,
+          showGenerateButton: false,
+          updatedSlots: mergedSlots,
+          domain: context.domain
+        };
+      }
+
+      // If Claude detected a planning intent that doesn't match current domain OR it's a new session
+      if (intentInference.isPlanningRequest && intentInference.inferredDomain) {
+        const isDomainSwitch = currentDomain && intentInference.inferredDomain !== currentDomain;
+        const isNewSession = !currentDomain;
+
+        if (isDomainSwitch || isNewSession) {
+          console.log(`[${isDomainSwitch ? 'DOMAIN SWITCH' : 'NEW SESSION'}] Using inferred domain:`, intentInference.inferredDomain);
+
+          // Override with Claude's inference
+          context.domain = intentInference.inferredDomain;
+          context.extractedSlots = { ...context.extractedSlots, ...intentInference.extractedInfo };
+
+          // Get questions for inferred domain
+          const newQuestions = domainRegistry.getQuestions(intentInference.inferredDomain, planMode);
+
+          // Merge extracted info and re-analyze gaps
+          const mergedWithInference = this.mergeSlots(currentSlots || {}, intentInference.extractedInfo);
+          const newGapAnalysis = await this.analyzeGaps(userMessage, newQuestions, mergedWithInference);
+
+          console.log(`[GAP ANALYSIS] ${newGapAnalysis.answeredCount}/${newGapAnalysis.totalCount} for ${intentInference.inferredDomain}`);
+
+          if (newGapAnalysis.allQuestionsAnswered) {
+            // All questions answered - generate plan
+            const enrichmentRules = domainRegistry.getEnrichmentRules(intentInference.inferredDomain);
+            const enrichedData = await enrichmentService.enrichPlan(
+              intentInference.inferredDomain,
+              mergedWithInference,
+              enrichmentRules,
+              userProfile
+            );
+
+            const beautifulPlan = await this.synthesizePlan(
+              intentInference.inferredDomain,
+              mergedWithInference,
+              enrichedData,
+              userProfile
+            );
+
+            return {
+              message: beautifulPlan.richContent + "\n\n---\n\n**Are you comfortable with this plan?**\n\n• Say **'yes'** to proceed with generating\n• Say **'no'** to make changes",
+              phase: 'confirming',
+              progress: newGapAnalysis.progress,
+              contextChips: this.generateContextChips(mergedWithInference, newQuestions),
+              readyToGenerate: false,
+              planReady: false,
+              showGenerateButton: false,
+              enrichedPlan: beautifulPlan,
+              updatedSlots: { ...mergedWithInference, _generatedPlan: beautifulPlan, _planState: 'confirming' },
+              domain: intentInference.inferredDomain
+            };
+          } else {
+            // Ask remaining questions
+            const responseMessage = this.formatRemainingQuestions(
+              newGapAnalysis,
+              intentInference.inferredDomain,
+              planMode
+            );
+
+            return {
+              message: responseMessage,
+              phase: 'gathering',
+              progress: newGapAnalysis.progress,
+              contextChips: this.generateContextChips(mergedWithInference, newQuestions),
+              readyToGenerate: false,
+              planReady: false,
+              showGenerateButton: false,
+              updatedSlots: mergedWithInference,
+              domain: intentInference.inferredDomain
+            };
+          }
+        }
+      }
+
+      // If NOT a planning request and we're confident about it
+      if (!intentInference.isPlanningRequest && intentInference.confidence > 0.7 && !currentDomain) {
+        console.log('[NOT PLANNING] User request is not planning-related');
+        return {
+          message: intentInference.clarificationNeeded
+            ? `I'm not quite sure what you're asking for. ${intentInference.suggestedClarification || 'Could you clarify what you\'d like to plan?'}`
+            : "I'm a planning assistant designed to help you plan activities like:\n• 🗓️ Travel & trips\n• 💼 Interview preparation\n• 🌹 Date nights & romantic evenings\n• 💪 Workouts & fitness goals\n• 📋 Daily tasks & routines\n\nWhat would you like to plan today?",
+          phase: 'context_recognition',
+          readyToGenerate: false,
+          planReady: false,
+          showGenerateButton: false,
+          updatedSlots: currentSlots,
+          domain: undefined
+        };
+      }
+
+      // Check if user is in refinement mode (adding changes to plan)
+      const isRefinementMode = currentSlots?._planState === 'refining';
+      const hasGeneratedPlan = currentSlots?._generatedPlan;
+
+      // Handle user confirmation response
+      const userConfirmation = this.detectConfirmation(userMessage);
+
+      if (hasGeneratedPlan && userConfirmation === 'yes') {
+        console.log('[CONFIRMATION] User approved plan - ready to generate');
+        return {
+          message: "Perfect! Click the **Generate Plan** button below to create your actionable plan! 🚀",
+          phase: 'confirmed',
+          progress: { percentage: 100, answered: gapAnalysis.totalCount, total: gapAnalysis.totalCount },
+          contextChips,
+          readyToGenerate: true,
+          planReady: true,
+          showGenerateButton: true,
+          enrichedPlan: currentSlots._generatedPlan,
+          updatedSlots: { ...mergedSlots, _planState: 'confirmed' },
+          domain: context.domain
+        };
+      }
+
+      if (hasGeneratedPlan && userConfirmation === 'no') {
+        console.log('[REFINEMENT] User wants changes - entering refinement mode');
+        return {
+          message: "No problem! What would you like to add or change? (You can also say 'none' if you changed your mind)",
+          phase: 'refining',
+          progress: gapAnalysis.progress,
+          contextChips,
+          readyToGenerate: false,
+          planReady: false,
+          showGenerateButton: false,
+          updatedSlots: { ...mergedSlots, _planState: 'refining' },
+          domain: context.domain
+        };
+      }
+
+      // Handle refinement input (user providing changes one at a time)
+      if (isRefinementMode && userMessage.toLowerCase() !== 'none') {
+        console.log('[REFINEMENT] Processing user changes:', userMessage);
+
+        // Extract refinement from user message
+        const refinements = mergedSlots._refinements || [];
+        refinements.push(userMessage);
+
+        // Regenerate plan with refinements
+        const enrichmentRules = domainRegistry.getEnrichmentRules(context.domain);
+        const enrichedData = await enrichmentService.enrichPlan(
+          context.domain,
+          mergedSlots,
+          enrichmentRules,
+          userProfile
+        );
+
+        const refinedPlan = await this.synthesizePlan(
+          context.domain,
+          mergedSlots,
+          enrichedData,
+          userProfile,
+          refinements
+        );
+
+        return {
+          message: refinedPlan.richContent + "\n\n---\n\n**Are you comfortable with this updated plan?**\n\n• Say **'yes'** to proceed with generating\n• Say **'no'** to make more changes",
+          phase: 'confirming',
+          progress: gapAnalysis.progress,
+          contextChips,
+          readyToGenerate: false,
+          planReady: false,
+          showGenerateButton: false,
+          updatedSlots: { ...mergedSlots, _generatedPlan: refinedPlan, _refinements: refinements, _planState: 'confirming' },
+          domain: context.domain
+        };
+      }
+
+      if (isRefinementMode && userMessage.toLowerCase() === 'none') {
+        console.log('[REFINEMENT] User chose "none" - back to confirmation');
+        return {
+          message: currentSlots._generatedPlan.richContent + "\n\n---\n\n**Are you comfortable with this plan?**\n\n• Say **'yes'** to proceed with generating\n• Say **'no'** to make changes",
+          phase: 'confirming',
+          progress: gapAnalysis.progress,
+          contextChips,
+          readyToGenerate: false,
+          planReady: false,
+          showGenerateButton: false,
+          updatedSlots: { ...mergedSlots, _planState: 'confirming' },
+          domain: context.domain
+        };
+      }
+
       // If all questions answered, proceed to enrichment and synthesis
       if (gapAnalysis.allQuestionsAnswered) {
 
@@ -161,15 +367,15 @@ export class UniversalPlanningAgent {
         );
 
         return {
-          message: beautifulPlan.richContent,
-          phase: 'synthesis',
+          message: beautifulPlan.richContent + "\n\n---\n\n**Are you comfortable with this plan?**\n\n• Say **'yes'** to proceed with generating\n• Say **'no'** to make changes",
+          phase: 'confirming',
           progress: gapAnalysis.progress,
           contextChips,
-          readyToGenerate: true,
-          planReady: true,
-          showGenerateButton: true,
+          readyToGenerate: false,
+          planReady: false,
+          showGenerateButton: false,
           enrichedPlan: beautifulPlan,
-          updatedSlots: gapAnalysis.collectedSlots,
+          updatedSlots: { ...gapAnalysis.collectedSlots, _generatedPlan: beautifulPlan, _planState: 'confirming' },
           domain: context.domain
         };
 
@@ -432,7 +638,8 @@ Example for interview_prep:
     domain: string,
     slots: any,
     enrichedData: any,
-    userProfile: User
+    userProfile: User,
+    refinements?: string[]
   ): Promise<any> {
 
     console.log('[SYNTHESIS] Using contextualEnrichmentAgent for beautiful plan');
@@ -441,10 +648,314 @@ Example for interview_prep:
     const enrichedPlan = await contextualEnrichmentAgent.generateRichPlan(
       slots,
       userProfile,
-      domain
+      domain,
+      refinements
     );
 
     return enrichedPlan;
+  }
+
+  /**
+   * Detect user confirmation (yes/no)
+   */
+  private detectConfirmation(message: string): 'yes' | 'no' | null {
+    const lower = message.toLowerCase().trim();
+
+    // Yes patterns
+    const yesPatterns = [
+      /^yes$/i,
+      /^yeah$/i,
+      /^yep$/i,
+      /^sure$/i,
+      /^okay$/i,
+      /^ok$/i,
+      /^perfect$/i,
+      /^sounds good$/i,
+      /^looks good$/i,
+      /^i'm comfortable$/i,
+      /^comfortable$/i,
+      /^proceed$/i,
+      /^let's do it$/i,
+      /^let's go$/i,
+      /^create it$/i,
+      /^generate it$/i
+    ];
+
+    // No patterns
+    const noPatterns = [
+      /^no$/i,
+      /^nope$/i,
+      /^nah$/i,
+      /^not yet$/i,
+      /^not comfortable$/i,
+      /^i want.*change/i,
+      /^i'd like.*change/i,
+      /^i want.*add/i,
+      /^i'd like.*add/i,
+      /^let me.*change/i,
+      /^wait$/i,
+      /^hold on$/i
+    ];
+
+    if (yesPatterns.some(p => p.test(lower))) return 'yes';
+    if (noPatterns.some(p => p.test(lower))) return 'no';
+
+    return null;
+  }
+
+  /**
+   * Detect if user is saying "none" to indicate suggestions don't apply
+   */
+  private detectNoneResponse(message: string): boolean {
+    const lower = message.toLowerCase().trim();
+
+    const nonePatterns = [
+      /^none$/i,
+      /^none of (these|those|them|that)$/i,
+      /^none of (these|those|them|that) (work|apply|fit)$/i,
+      /^not any of (these|those|them|that)$/i,
+      /^neither$/i,
+      /^nothing (here|there)$/i,
+      /^none (apply|work|fit)/i,
+      /^none (of them )?work/i,
+      /^that (doesn't|does not) work/i,
+      /^those (don't|do not) work/i
+    ];
+
+    return nonePatterns.some(p => p.test(lower));
+  }
+
+  /**
+   * Use Claude to infer user intent - the smart contextual understanding layer
+   */
+  private async inferUserIntent(
+    userMessage: string,
+    conversationHistory: any[],
+    currentSlots: any,
+    currentDomain?: string
+  ): Promise<{
+    isPlanningRequest: boolean;
+    isNoneResponse: boolean;
+    inferredDomain?: string;
+    extractedInfo?: any;
+    confidence: number;
+    clarificationNeeded?: boolean;
+    suggestedClarification?: string;
+  }> {
+    try {
+      const availableDomains = Array.from(domainRegistry.getDomains().keys());
+      const conversationContext = conversationHistory.slice(-3).map(m => `${m.role}: ${m.content}`).join('\n');
+
+      const prompt = `You are an intelligent planning assistant. Analyze the user's message to determine their intent.
+
+AVAILABLE PLANNING DOMAINS:
+${availableDomains.map(d => `- ${d}: ${domainRegistry.getDomains().get(d)?.description || ''}`).join('\n')}
+
+CONVERSATION CONTEXT:
+${conversationContext || 'No previous context'}
+
+CURRENT DOMAIN: ${currentDomain || 'None (new session)'}
+
+CURRENT COLLECTED INFO:
+${JSON.stringify(currentSlots || {}, null, 2)}
+
+USER'S LATEST MESSAGE: "${userMessage}"
+
+ANALYZE AND RESPOND WITH JSON:
+{
+  "isPlanningRequest": true/false,
+  "isNoneResponse": true/false,  // True if user said "none", "none of these", "nothing", etc.
+  "inferredDomain": "domain_name or null",
+  "extractedInfo": {
+    // Any information you can extract from the message (dates, times, locations, etc.)
+    // Map to slot paths: "timing.date", "location.destination", "budget.range", etc.
+  },
+  "confidence": 0.0-1.0,
+  "reasoning": "Brief explanation of your analysis",
+  "clarificationNeeded": true/false,
+  "suggestedClarification": "What to ask the user if clarification is needed"
+}
+
+EXAMPLES:
+
+User: "dinner by 5"
+Response: {
+  "isPlanningRequest": true,
+  "isNoneResponse": false,
+  "inferredDomain": "date_night",
+  "extractedInfo": {"timing": {"time": "5pm"}, "mealType": "dinner"},
+  "confidence": 0.9,
+  "reasoning": "User wants to plan dinner by 5pm - this is date night planning",
+  "clarificationNeeded": false
+}
+
+User: "none of these"
+Response: {
+  "isPlanningRequest": false,
+  "isNoneResponse": true,
+  "inferredDomain": null,
+  "extractedInfo": {},
+  "confidence": 0.95,
+  "reasoning": "User indicated none of the suggestions apply",
+  "clarificationNeeded": true,
+  "suggestedClarification": "Could you tell me more about what you're looking for?"
+}
+
+User: "what's the weather"
+Response: {
+  "isPlanningRequest": false,
+  "isNoneResponse": false,
+  "inferredDomain": null,
+  "extractedInfo": {},
+  "confidence": 0.9,
+  "reasoning": "This is a weather query, not a planning request",
+  "clarificationNeeded": true,
+  "suggestedClarification": "I'm a planning assistant. Would you like to plan an activity?"
+}
+
+User: "workout tomorrow morning"
+Response: {
+  "isPlanningRequest": true,
+  "isNoneResponse": false,
+  "inferredDomain": "fitness",
+  "extractedInfo": {"timing": {"date": "tomorrow", "time": "morning"}},
+  "confidence": 0.95,
+  "reasoning": "User wants to plan a workout for tomorrow morning",
+  "clarificationNeeded": false
+}
+
+NOW ANALYZE THE USER'S MESSAGE AND RESPOND WITH ONLY JSON:`;
+
+      const response = await anthropic.messages.create({
+        model: DEFAULT_CLAUDE_MODEL,
+        max_tokens: 500,
+        temperature: 0.3,
+        messages: [{ role: 'user', content: prompt }]
+      });
+
+      const aiResponse = response.content[0].type === 'text' ? response.content[0].text : '{}';
+
+      // Extract JSON
+      let jsonStr = aiResponse;
+      if (aiResponse.includes('```json')) {
+        const match = aiResponse.match(/```json\s*([\s\S]*?)\s*```/);
+        if (match) jsonStr = match[1];
+      }
+
+      const inference = JSON.parse(jsonStr);
+      console.log('[CLAUDE INFERENCE]', inference);
+
+      return {
+        isPlanningRequest: inference.isPlanningRequest || false,
+        isNoneResponse: inference.isNoneResponse || false,
+        inferredDomain: inference.inferredDomain,
+        extractedInfo: inference.extractedInfo || {},
+        confidence: inference.confidence || 0.5,
+        clarificationNeeded: inference.clarificationNeeded,
+        suggestedClarification: inference.suggestedClarification
+      };
+
+    } catch (error) {
+      console.error('[INTENT INFERENCE] Error:', error);
+      // Fallback to basic detection
+      return {
+        isPlanningRequest: true,
+        isNoneResponse: this.detectNoneResponse(userMessage),
+        confidence: 0.5,
+        extractedInfo: {}
+      };
+    }
+  }
+
+  /**
+   * Detect contextual planning intent (e.g., "dinner by 5", "workout tomorrow") - LEGACY FALLBACK
+   */
+  private detectPlanningIntent(message: string): { detected: boolean; type?: string; details?: any } {
+    const lower = message.toLowerCase().trim();
+
+    // Meal/food planning patterns
+    const mealPatterns = [
+      /(?:plan|get|make|order|cook|prepare)?\s*(?:a\s+)?(breakfast|lunch|dinner|brunch|meal)\s+(?:by|at|for|around)\s+(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)/i,
+      /(breakfast|lunch|dinner|brunch|meal)\s+(?:by|at|for|around)\s+(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)/i,
+      /(?:eat|have)\s+(?:a\s+)?(breakfast|lunch|dinner|brunch)\s+(?:by|at|for|around)\s+(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)/i
+    ];
+
+    // Exercise/workout patterns
+    const workoutPatterns = [
+      /(?:do|go|have|plan)\s+(?:a\s+)?(workout|exercise|gym|run|jog)\s+(?:by|at|for|around|tomorrow|today)/i,
+      /(workout|exercise|gym|run|jog)\s+(?:session\s+)?(?:by|at|for|around|tomorrow|today)/i
+    ];
+
+    // Date/event patterns
+    const datePatterns = [
+      /(?:plan|organize|set up|arrange)\s+(?:a\s+)?(date|romantic.*?|evening)\s+(?:by|at|for|around|tonight|today)/i,
+      /(date|romantic.*?)\s+(?:night|evening)\s+(?:by|at|for|tonight)/i
+    ];
+
+    // Travel patterns
+    const travelPatterns = [
+      /(?:plan|book|organize)\s+(?:a\s+)?(trip|vacation|travel|getaway)\s+(?:to|for)\s+([a-z\s]+)/i,
+      /(?:going|traveling|heading)\s+to\s+([a-z\s]+)\s+(?:on|by|next|this)/i
+    ];
+
+    for (const pattern of mealPatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        return {
+          detected: true,
+          type: 'date_night',
+          details: {
+            mealType: match[1],
+            time: match[2],
+            extracted: `Planning ${match[1]} by ${match[2]}`
+          }
+        };
+      }
+    }
+
+    for (const pattern of workoutPatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        return {
+          detected: true,
+          type: 'fitness',
+          details: {
+            activityType: match[1],
+            extracted: `Planning ${match[1]}`
+          }
+        };
+      }
+    }
+
+    for (const pattern of datePatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        return {
+          detected: true,
+          type: 'date_night',
+          details: {
+            eventType: match[1],
+            extracted: `Planning ${match[1]}`
+          }
+        };
+      }
+    }
+
+    for (const pattern of travelPatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        return {
+          detected: true,
+          type: 'travel',
+          details: {
+            destination: match[1],
+            extracted: `Planning travel to ${match[1]}`
+          }
+        };
+      }
+    }
+
+    return { detected: false };
   }
 
   /**

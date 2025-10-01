@@ -288,18 +288,19 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       sessionState: response.sessionState
     }, userId);
 
-    // Check if plan is ready for confirmation
-    if (response.readyToGenerate || response.planReady) {
+    // Check if plan is ready for confirmation (using either old or new flag names)
+    if (response.readyToGenerate || response.planReady || response.showGenerateButton) {
       // Update session state to confirming
       await storage.updateLifestylePlannerSession(session.id, {
         sessionState: 'confirming'
       }, userId);
-      
+
       return res.json({
-        message: response.message + "\n\n🎯 **Ready to create your plan?** Click the \"Create Plan\" button below to turn this into an organized activity with trackable tasks!",
+        message: response.message,
         planReady: true,
         sessionId: session.id,
         showCreatePlanButton: true,
+        showGenerateButton: true,
         session
       });
     }

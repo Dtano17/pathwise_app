@@ -53,13 +53,14 @@ export class ContextualEnrichmentAgent {
   async generateRichPlan(
     slots: any,
     userProfile: User,
-    activityType: string
+    activityType: string,
+    refinements?: string[]
   ): Promise<EnrichedPlanResult> {
 
-    const enrichmentPrompt = this.buildEnrichmentPrompt(slots, userProfile, activityType);
+    const enrichmentPrompt = this.buildEnrichmentPrompt(slots, userProfile, activityType, refinements);
 
     try {
-      console.log('[ENRICHMENT] Generating rich plan for:', activityType);
+      console.log('[ENRICHMENT] Generating rich plan for:', activityType, refinements ? `with ${refinements.length} refinements` : '');
 
       const response = await anthropic.messages.create({
         model: DEFAULT_CLAUDE_MODEL,
@@ -86,7 +87,7 @@ export class ContextualEnrichmentAgent {
   /**
    * Build enrichment prompt for Claude
    */
-  private buildEnrichmentPrompt(slots: any, userProfile: User, activityType: string): string {
+  private buildEnrichmentPrompt(slots: any, userProfile: User, activityType: string, refinements?: string[]): string {
     const destination = slots.location?.destination || slots.location?.current || 'the destination';
     const timing = slots.timing?.date || slots.timing?.departureTime || 'the planned time';
     const duration = slots.timing?.duration || 'the duration';
@@ -177,6 +178,13 @@ OUTPUT STRUCTURE:
 7. Sample itinerary for the duration
 
 TONE: Enthusiastic, helpful, and practical. Write like an experienced friend giving advice.
+
+${refinements && refinements.length > 0 ? `
+USER REFINEMENTS/CHANGES REQUESTED:
+${refinements.map((r, i) => `${i + 1}. ${r}`).join('\n')}
+
+IMPORTANT: Incorporate these changes into the plan. Update relevant sections and make sure these refinements are clearly reflected in the final plan.
+` : ''}
 
 Generate the complete plan now:`;
   }
