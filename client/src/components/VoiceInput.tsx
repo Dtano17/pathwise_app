@@ -8,7 +8,70 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft } from 'lucide-react';
-// Using simple avatar placeholder instead of imported icon
+
+// Simple markdown formatter for Claude-style responses
+const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
+  const formatText = (text: string) => {
+    const parts: JSX.Element[] = [];
+    const lines = text.split('\n');
+    
+    lines.forEach((line, lineIndex) => {
+      // Check for bullet points and numbered lists first, then strip markers
+      const bulletMatch = line.trim().match(/^[•\-\*]\s(.+)/);
+      const numberMatch = line.trim().match(/^(\d+)\.\s(.+)/);
+      
+      // Get the text content without the marker
+      let textContent = line;
+      if (bulletMatch) {
+        textContent = bulletMatch[1];
+      } else if (numberMatch) {
+        textContent = numberMatch[2];
+      }
+      
+      // Handle bold text (**text**) on the cleaned content
+      const boldRegex = /\*\*(.*?)\*\*/g;
+      const segments: (string | JSX.Element)[] = [];
+      let lastIndex = 0;
+      let match;
+      
+      while ((match = boldRegex.exec(textContent)) !== null) {
+        if (match.index > lastIndex) {
+          segments.push(textContent.substring(lastIndex, match.index));
+        }
+        segments.push(<strong key={`bold-${lineIndex}-${match.index}`} className="font-semibold">{match[1]}</strong>);
+        lastIndex = boldRegex.lastIndex;
+      }
+      if (lastIndex < textContent.length) {
+        segments.push(textContent.substring(lastIndex));
+      }
+      
+      // Render with appropriate formatting
+      if (bulletMatch) {
+        parts.push(
+          <div key={lineIndex} className="flex gap-2 my-1 pl-2">
+            <span className="text-primary">•</span>
+            <span className="flex-1">{segments}</span>
+          </div>
+        );
+      } else if (numberMatch) {
+        parts.push(
+          <div key={lineIndex} className="flex gap-2 my-1 pl-2">
+            <span className="text-primary font-medium">{numberMatch[1]}.</span>
+            <span className="flex-1">{segments}</span>
+          </div>
+        );
+      } else if (line.trim()) {
+        parts.push(<div key={lineIndex} className="my-1">{segments}</div>);
+      } else {
+        parts.push(<div key={lineIndex} className="h-2" />);
+      }
+    });
+    
+    return parts;
+  };
+  
+  return <div className="text-sm leading-relaxed">{formatText(content)}</div>;
+};
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -51,15 +114,15 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     }
   }, [chatMessages, isNearBottom]);
 
-  // Click outside to deselect mode (but not when clicking textarea)
+  // Click outside to deselect mode (but not when clicking textarea or when in chat view)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const clickedElement = event.target as Node;
       const isClickInsideButtons = modeButtonsRef.current?.contains(clickedElement);
       const isClickInsideTextarea = textareaRef.current?.contains(clickedElement);
       
-      // Only deselect if clicking outside both buttons and textarea
-      if (currentMode && !isClickInsideButtons && !isClickInsideTextarea) {
+      // Only deselect if clicking outside both buttons and textarea, AND not in chat view
+      if (currentMode && chatMessages.length === 0 && !isClickInsideButtons && !isClickInsideTextarea) {
         setCurrentMode(null);
       }
     };
@@ -68,7 +131,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [currentMode]);
+  }, [currentMode, chatMessages.length]);
 
   // Track scroll position to determine if user is near bottom
   useEffect(() => {
@@ -232,10 +295,20 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     // Toggle: if clicking the same mode again, deselect it
     if (currentMode === mode) {
       setCurrentMode(null);
+      setChatMessages([]);
     } else {
       setCurrentMode(mode);
+      // Immediately show chat interface with welcome message
+      const welcomeMessage = mode === 'quick' 
+        ? "**Quick Plan activated!** Let's create your action plan quickly. What would you like to accomplish?"
+        : "**Smart Plan activated!** I'll help you create a comprehensive action plan. What's your goal?";
+      
+      setChatMessages([{
+        role: 'assistant',
+        content: welcomeMessage,
+        timestamp: new Date()
+      }]);
     }
-    // Don't immediately switch to chat mode - let user type first
     setShowCreatePlanButton(false);
   };
 
@@ -343,9 +416,13 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       : 'bg-purple-500 text-white'
                     : 'bg-muted text-foreground'
                 }`}>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                    {message.content}
-                  </p>
+                  {message.role === 'assistant' ? (
+                    <FormattedMessage content={message.content} />
+                  ) : (
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {message.content}
+                    </p>
+                  )}
                   <div className={`text-xs mt-2 opacity-70 ${
                     message.role === 'user' ? 'text-white/70' : 'text-muted-foreground'
                   }`}>
