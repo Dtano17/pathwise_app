@@ -94,6 +94,9 @@ export class LifestylePlannerAgent {
     
     // Create conversation context
     const conversationHistory = session.conversationHistory || [];
+    console.log('[CLAUDE] Conversation history length:', conversationHistory.length);
+    console.log('[CLAUDE] Last 2 messages:', JSON.stringify(conversationHistory.slice(-2), null, 2));
+    
     const messages = [
       ...conversationHistory.map(msg => ({
         role: msg.role as 'user' | 'assistant',
@@ -101,6 +104,8 @@ export class LifestylePlannerAgent {
       })),
       { role: 'user' as const, content: message }
     ];
+    
+    console.log('[CLAUDE] Total messages being sent to API:', messages.length);
 
     const response = await anthropic.messages.create({
       model: DEFAULT_CLAUDE_MODEL,
