@@ -294,6 +294,244 @@ export const SLOT_REGISTRY: Record<string, ActivityRequirements> = {
     minOptionalRequired: 1
   },
 
+  interview_prep: {
+    required: [
+      {
+        key: 'activityType',
+        label: 'Activity',
+        description: 'Interview preparation'
+      },
+      {
+        key: 'interviewType',
+        label: 'Interview Type',
+        description: 'Technical coding, system design, behavioral, or mixed',
+        validationRules: {
+          allowedValues: ['technical_coding', 'system_design', 'behavioral', 'mixed', 'general']
+        }
+      },
+      {
+        key: 'timing.date',
+        label: 'Interview Date',
+        description: 'When is the interview scheduled'
+      },
+      {
+        key: 'company',
+        label: 'Company',
+        description: 'Company name and position'
+      },
+      {
+        key: 'techStack',
+        label: 'Tech Stack/Topics',
+        description: 'Technologies, languages, or topics to focus on'
+      }
+    ],
+    optional: [
+      {
+        key: 'currentLevel',
+        label: 'Skill Level',
+        description: 'Current proficiency with required skills'
+      },
+      {
+        key: 'prepTime',
+        label: 'Available Prep Time',
+        description: 'How much time you have to prepare'
+      },
+      {
+        key: 'specificConcerns',
+        label: 'Concerns',
+        description: 'Specific areas you need help with'
+      },
+      {
+        key: 'resources',
+        label: 'Resources',
+        description: 'Study materials or practice platforms preferred'
+      }
+    ],
+    minOptionalRequired: 2
+  },
+
+  learning: {
+    required: [
+      {
+        key: 'activityType',
+        label: 'Activity',
+        description: 'Learning/Study activity'
+      },
+      {
+        key: 'subject',
+        label: 'Subject',
+        description: 'What you want to learn'
+      },
+      {
+        key: 'goal',
+        label: 'Learning Goal',
+        description: 'What you want to achieve'
+      },
+      {
+        key: 'timing.duration',
+        label: 'Time Available',
+        description: 'How much time you can dedicate'
+      }
+    ],
+    optional: [
+      {
+        key: 'currentLevel',
+        label: 'Current Level',
+        description: 'Beginner, intermediate, advanced'
+      },
+      {
+        key: 'learningStyle',
+        label: 'Learning Style',
+        description: 'Visual, hands-on, reading, video, etc.'
+      },
+      {
+        key: 'resources',
+        label: 'Resources',
+        description: 'Preferred learning platforms or materials'
+      },
+      {
+        key: 'deadline',
+        label: 'Deadline',
+        description: 'When you need to complete this'
+      }
+    ],
+    minOptionalRequired: 1
+  },
+
+  workout: {
+    required: [
+      {
+        key: 'activityType',
+        label: 'Activity',
+        description: 'Workout/Fitness activity'
+      },
+      {
+        key: 'fitnessGoal',
+        label: 'Fitness Goal',
+        description: 'Weight loss, muscle gain, cardio, flexibility, etc.'
+      },
+      {
+        key: 'timing.duration',
+        label: 'Duration',
+        description: 'How long you want to work out'
+      },
+      {
+        key: 'location.destination',
+        label: 'Location',
+        description: 'Gym, home, outdoors, etc.'
+      }
+    ],
+    optional: [
+      {
+        key: 'fitnessLevel',
+        label: 'Fitness Level',
+        description: 'Beginner, intermediate, advanced'
+      },
+      {
+        key: 'equipment',
+        label: 'Equipment',
+        description: 'Available equipment or preferences'
+      },
+      {
+        key: 'constraints',
+        label: 'Constraints',
+        description: 'Injuries, limitations, time constraints'
+      },
+      {
+        key: 'preferences',
+        label: 'Preferences',
+        description: 'Preferred workout types or styles'
+      }
+    ],
+    minOptionalRequired: 1
+  },
+
+  daily_routine: {
+    required: [
+      {
+        key: 'activityType',
+        label: 'Activity',
+        description: 'Daily routine planning'
+      },
+      {
+        key: 'timing.date',
+        label: 'Which Day',
+        description: 'Today, tomorrow, or specific date'
+      },
+      {
+        key: 'priorities',
+        label: 'Top Priorities',
+        description: 'Most important tasks or goals for the day'
+      },
+      {
+        key: 'constraints',
+        label: 'Constraints',
+        description: 'Fixed appointments, meetings, or commitments'
+      }
+    ],
+    optional: [
+      {
+        key: 'wakeTime',
+        label: 'Wake Time',
+        description: 'What time you wake up or start your day'
+      },
+      {
+        key: 'energy',
+        label: 'Energy Levels',
+        description: 'When you have most/least energy'
+      },
+      {
+        key: 'wellness',
+        label: 'Wellness Activities',
+        description: 'Exercise, meditation, breaks needed'
+      }
+    ],
+    minOptionalRequired: 1
+  },
+
+  wellness: {
+    required: [
+      {
+        key: 'activityType',
+        label: 'Activity',
+        description: 'Wellness/Meditation activity'
+      },
+      {
+        key: 'wellnessType',
+        label: 'Type',
+        description: 'Meditation, yoga, breathing, mindfulness, etc.'
+      },
+      {
+        key: 'timing.duration',
+        label: 'Duration',
+        description: 'How long you want to practice'
+      },
+      {
+        key: 'goal',
+        label: 'Goal',
+        description: 'What you want to achieve (stress relief, focus, etc.)'
+      }
+    ],
+    optional: [
+      {
+        key: 'experience',
+        label: 'Experience',
+        description: 'Beginner, practiced, advanced'
+      },
+      {
+        key: 'location.destination',
+        label: 'Location',
+        description: 'Where you will practice'
+      },
+      {
+        key: 'resources',
+        label: 'Resources',
+        description: 'Guided apps, videos, or self-guided'
+      }
+    ],
+    minOptionalRequired: 1
+  },
+
   // Default fallback for unknown activities
   general: {
     required: [
@@ -308,17 +546,22 @@ export const SLOT_REGISTRY: Record<string, ActivityRequirements> = {
         description: 'Date or time preference'
       },
       {
+        key: 'goal',
+        label: 'Goal',
+        description: 'What you want to achieve'
+      }
+    ],
+    optional: [
+      {
         key: 'location.destination',
         label: 'Where',
-        description: 'Location or area'
+        description: 'Location or area (if applicable)'
       },
       {
         key: 'budget.range',
         label: 'Budget',
-        description: 'Budget considerations'
-      }
-    ],
-    optional: [
+        description: 'Budget considerations (if applicable)'
+      },
       {
         key: 'companions.count',
         label: 'Group Size',
@@ -363,7 +606,28 @@ export class SlotCompletenessEngine {
       'get-together': 'social',
       'movie': 'entertainment',
       'show': 'entertainment',
-      'concert': 'entertainment'
+      'concert': 'entertainment',
+      'interview': 'interview_prep',
+      'job interview': 'interview_prep',
+      'interview prep': 'interview_prep',
+      'interview preparation': 'interview_prep',
+      'prep': 'interview_prep',
+      'study': 'learning',
+      'learn': 'learning',
+      'course': 'learning',
+      'education': 'learning',
+      'exercise': 'workout',
+      'gym': 'workout',
+      'fitness': 'workout',
+      'training': 'workout',
+      'meditation': 'wellness',
+      'yoga': 'wellness',
+      'mindfulness': 'wellness',
+      'breathing': 'wellness',
+      'daily': 'daily_routine',
+      'plan my day': 'daily_routine',
+      'day planning': 'daily_routine',
+      'routine': 'daily_routine'
     };
 
     const mappedType = typeMapping[normalizedType] || normalizedType;

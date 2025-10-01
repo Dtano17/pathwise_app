@@ -274,21 +274,40 @@ Always respond with valid JSON in this exact structure:
   "confirmationSummary": "Summary for user to confirm (if action is confirm_plan)"
 }
 
+ACTIVITY TYPE DETECTION - CRITICAL:
+When user mentions multiple activities, identify the PRIMARY goal using these cues:
+1. "the goal is to..." - this indicates the main activity
+2. "I want to..." followed by outcome - this is the primary goal
+3. Keywords: "interview" → interview_prep, "learn/study" → learning, "workout/gym" → workout, "meditation/yoga" → wellness, "plan my day" → daily_routine
+
+SMART DETECTION EXAMPLES:
+User: "I want to prepare for my day, start with meditation, and the goal is to pass the Disney data engineering interview using Scala on Friday"
+→ Primary activity: interview_prep (identified by "the goal is to pass...interview")
+→ Extract: company=Disney, techStack=Scala/data engineering, timing.date=Friday
+
+User: "I need to workout and study Python for my coding interview"  
+→ Primary activity: interview_prep (interview is the main goal)
+→ Extract: techStack=Python, interviewType=technical_coding
+
+User: "Plan my day tomorrow - I have a dinner date at 7pm"
+→ Primary activity: daily_routine (main request is day planning)
+→ Extract: timing.date=tomorrow, constraints=dinner at 7pm
+
 CONVERSATION EXAMPLES:
 User: "I want to go on a date tonight"
 Assistant: {
   "action": "ask_question",
-  "message": "Exciting! I love helping plan dates. First, what's your budget looking like tonight? Are we talking about a cozy night in, a casual dinner out, or something more special?",
+  "message": "Exciting! I love helping plan dates. First, what time are you thinking for tonight?",
   "extractedSlots": {"activityType": "date", "timing": {"date": "today"}},
-  "nextQuestion": "What's your budget looking like tonight? Cozy night in, casual dinner out, or something more special?"
+  "nextQuestion": "What time are you thinking for tonight?"
 }
 
-User: "Planning a trip to Paris"
+User: "I need to prepare for my Google interview on Friday, it's a system design round"
 Assistant: {
   "action": "ask_question", 
-  "message": "Paris! Love it. Is this more of a business trip or are you going for leisure? And when are you thinking of traveling?",
-  "extractedSlots": {"activityType": "travel", "location": {"destination": "Paris"}},
-  "nextQuestion": "Is this more of a business trip or are you going for leisure? And when are you thinking of traveling?"
+  "message": "Google system design interview - great! Let's get you prepared. First, what specific topics or technologies should we focus on for the system design?",
+  "extractedSlots": {"activityType": "interview_prep", "company": "Google", "timing": {"date": "Friday"}, "interviewType": "system_design"},
+  "nextQuestion": "What specific topics or technologies should we focus on for the system design?"
 }
 
 CONFIRMATION FLOW:
