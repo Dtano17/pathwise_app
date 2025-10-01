@@ -212,16 +212,16 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
 
   // Chat mutation for dialogue-based interaction
   const chatMutation = useMutation({
-    mutationFn: async (message: string) => {
+    mutationFn: async ({ message, mode }: { message: string; mode: ConversationMode }) => {
       const conversationHistory = chatMessages.map(msg => ({ role: msg.role, content: msg.content }));
       const response = await apiRequest('POST', '/api/chat/conversation', {
         message,
         conversationHistory,
-        mode: currentMode
+        mode
       });
       return response.json();
     },
-    onMutate: (message: string) => {
+    onMutate: ({ message }: { message: string; mode: ConversationMode }) => {
       // Add user message immediately
       const userMessage: ChatMessage = {
         role: 'user',
@@ -292,22 +292,33 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   };
 
   const startConversationWithMode = (mode: 'quick' | 'smart') => {
+    // Prevent duplicate requests on rapid clicks
+    if (chatMutation.isPending) return;
+    
     // Toggle: if clicking the same mode again, deselect it
     if (currentMode === mode) {
       setCurrentMode(null);
       setChatMessages([]);
     } else {
       setCurrentMode(mode);
-      // Immediately show chat interface with welcome message
-      const welcomeMessage = mode === 'quick' 
-        ? "**Quick Plan activated!** Let's create your action plan quickly. What would you like to accomplish?"
-        : "**Smart Plan activated!** I'll help you create a comprehensive action plan. What's your goal?";
       
-      setChatMessages([{
-        role: 'assistant',
-        content: welcomeMessage,
-        timestamp: new Date()
-      }]);
+      // Check if user already typed something - if yes, use that as first message
+      if (text.trim()) {
+        const userMessage = text.trim();
+        setText(''); // Clear input immediately
+        chatMutation.mutate({ message: userMessage, mode }); // Send user's pre-typed message with explicit mode
+      } else {
+        // No pre-typed text - show welcome message
+        const welcomeMessage = mode === 'quick' 
+          ? "**Quick Plan activated!** Let's create your action plan quickly. What would you like to accomplish?"
+          : "**Smart Plan activated!** I'll help you create a comprehensive action plan. What's your goal?";
+        
+        setChatMessages([{
+          role: 'assistant',
+          content: welcomeMessage,
+          timestamp: new Date()
+        }]);
+      }
     }
     setShowCreatePlanButton(false);
   };
@@ -318,7 +329,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     // If in conversation mode, start the chat dialogue
     if (currentMode) {
       // Send the user's initial message directly - backend will handle welcome and response
-      chatMutation.mutate(text.trim());
+      chatMutation.mutate({ message: text.trim(), mode: currentMode });
       setText('');
       return;
     }
@@ -338,7 +349,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
         handleSubmit();
       } else if (currentMode) {
         if (text.trim() && !chatMutation.isPending) {
-          chatMutation.mutate(text.trim());
+          chatMutation.mutate({ message: text.trim(), mode: currentMode });
           setText('');
         }
       } else if (!isGenerating) {
@@ -472,7 +483,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                 variant="ghost"
                 onClick={() => {
                   if (text.trim() && !chatMutation.isPending) {
-                    chatMutation.mutate(text.trim());
+                    chatMutation.mutate({ message: text.trim(), mode: currentMode });
                     setText('');
                   }
                 }}
