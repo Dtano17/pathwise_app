@@ -762,7 +762,6 @@ GENERAL ACTIVITY QUESTIONS:
     } else if (activityType && activityType.includes('travel')) {
       const isBusinessTravel = Boolean(
         slots.vibe?.includes?.('business') || 
-        (typeof slots.companions === 'string' && slots.companions.includes('business')) ||
         (slots.companions && 
          typeof slots.companions === 'object' && 
          'relationships' in slots.companions &&
