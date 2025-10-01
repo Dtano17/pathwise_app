@@ -200,6 +200,43 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       'chat' // Smart mode
     );
 
+    // SERVER-SIDE ACTIVITY TYPE DETECTION OVERRIDE
+    // If the message contains interview keywords but AI extracted wrong activity type, override it
+    const interviewKeywords = ['interview', 'job interview', 'interview prep', 'prepare for.*interview', 'interviewing'];
+    const learningKeywords = ['study', 'learn', 'course', 'education', 'prep for exam', 'test prep'];
+    const workoutKeywords = ['workout', 'exercise', 'gym', 'fitness', 'training session'];
+    const wellnessKeywords = ['meditation', 'yoga', 'mindfulness', 'breathing exercise'];
+    
+    const messageLower = message.toLowerCase();
+    const hasInterviewKeyword = interviewKeywords.some(kw => new RegExp(kw, 'i').test(messageLower));
+    const hasLearningKeyword = learningKeywords.some(kw => new RegExp(kw, 'i').test(messageLower));
+    const hasWorkoutKeyword = workoutKeywords.some(kw => new RegExp(kw, 'i').test(messageLower));
+    const hasWellnessKeyword = wellnessKeywords.some(kw => new RegExp(kw, 'i').test(messageLower));
+    
+    // Priority detection: "the goal is to..." phrase indicates primary activity
+    const goalPhraseMatch = messageLower.match(/(?:the )?goal (?:is|was) to (?:pass|prepare for|get ready for|ace|nail|do well in|succeed in).*?(?:interview|study|learn|workout|meditate)/i);
+    
+    if (response.updatedSlots) {
+      const currentActivityType = response.updatedSlots.activityType?.toLowerCase() || '';
+      
+      // Override if interview detected but not properly classified
+      if (hasInterviewKeyword || (goalPhraseMatch && goalPhraseMatch[0].includes('interview'))) {
+        if (currentActivityType !== 'interview_prep' && currentActivityType !== 'interview') {
+          console.log(`[OVERRIDE] Detected interview keywords but AI extracted activityType="${currentActivityType}". Overriding to "interview_prep".`);
+          response.updatedSlots.activityType = 'interview_prep';
+        }
+      } else if (hasLearningKeyword && currentActivityType !== 'learning') {
+        console.log(`[OVERRIDE] Detected learning keywords but AI extracted activityType="${currentActivityType}". Overriding to "learning".`);
+        response.updatedSlots.activityType = 'learning';
+      } else if (hasWorkoutKeyword && currentActivityType !== 'workout') {
+        console.log(`[OVERRIDE] Detected workout keywords but AI extracted activityType="${currentActivityType}". Overriding to "workout".`);
+        response.updatedSlots.activityType = 'workout';
+      } else if (hasWellnessKeyword && currentActivityType !== 'wellness') {
+        console.log(`[OVERRIDE] Detected wellness keywords but AI extracted activityType="${currentActivityType}". Overriding to "wellness".`);
+        response.updatedSlots.activityType = 'wellness';
+      }
+    }
+
     // Backend guardrail: NEVER generate plan on first interaction
     if (isFirstMessage && (response.readyToGenerate || response.planReady)) {
       console.warn('Attempted to generate plan on first message - blocking and forcing question');
@@ -1572,6 +1609,40 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       userProfile,
       'quick' // Quick mode
     );
+
+    // SERVER-SIDE ACTIVITY TYPE DETECTION OVERRIDE (same as Smart Plan)
+    const interviewKeywords = ['interview', 'job interview', 'interview prep', 'prepare for.*interview', 'interviewing'];
+    const learningKeywords = ['study', 'learn', 'course', 'education', 'prep for exam', 'test prep'];
+    const workoutKeywords = ['workout', 'exercise', 'gym', 'fitness', 'training session'];
+    const wellnessKeywords = ['meditation', 'yoga', 'mindfulness', 'breathing exercise'];
+    
+    const messageLower = message.toLowerCase();
+    const hasInterviewKeyword = interviewKeywords.some(kw => new RegExp(kw, 'i').test(messageLower));
+    const hasLearningKeyword = learningKeywords.some(kw => new RegExp(kw, 'i').test(messageLower));
+    const hasWorkoutKeyword = workoutKeywords.some(kw => new RegExp(kw, 'i').test(messageLower));
+    const hasWellnessKeyword = wellnessKeywords.some(kw => new RegExp(kw, 'i').test(messageLower));
+    
+    const goalPhraseMatch = messageLower.match(/(?:the )?goal (?:is|was) to (?:pass|prepare for|get ready for|ace|nail|do well in|succeed in).*?(?:interview|study|learn|workout|meditate)/i);
+    
+    if (response.updatedSlots) {
+      const currentActivityType = response.updatedSlots.activityType?.toLowerCase() || '';
+      
+      if (hasInterviewKeyword || (goalPhraseMatch && goalPhraseMatch[0].includes('interview'))) {
+        if (currentActivityType !== 'interview_prep' && currentActivityType !== 'interview') {
+          console.log(`[QUICK PLAN OVERRIDE] Detected interview keywords. Overriding to "interview_prep".`);
+          response.updatedSlots.activityType = 'interview_prep';
+        }
+      } else if (hasLearningKeyword && currentActivityType !== 'learning') {
+        console.log(`[QUICK PLAN OVERRIDE] Detected learning keywords. Overriding to "learning".`);
+        response.updatedSlots.activityType = 'learning';
+      } else if (hasWorkoutKeyword && currentActivityType !== 'workout') {
+        console.log(`[QUICK PLAN OVERRIDE] Detected workout keywords. Overriding to "workout".`);
+        response.updatedSlots.activityType = 'workout';
+      } else if (hasWellnessKeyword && currentActivityType !== 'wellness') {
+        console.log(`[QUICK PLAN OVERRIDE] Detected wellness keywords. Overriding to "wellness".`);
+        response.updatedSlots.activityType = 'wellness';
+      }
+    }
 
     // Backend guardrail: NEVER generate plan on first interaction
     if (isFirstMessage && (response.readyToGenerate || response.planReady)) {
