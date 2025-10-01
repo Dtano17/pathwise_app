@@ -251,47 +251,9 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           : "Smart Plan Mode activated! I'll ask you detailed questions to create a comprehensive action plan. What would you like to achieve?",
         timestamp: new Date()
       };
-      
-      const userMessage: ChatMessage = {
-        role: 'user',
-        content: text.trim(),
-        timestamp: new Date()
-      };
-      
-      // Set both messages at once to avoid state batching issues
-      setChatMessages([welcomeMessage, userMessage]);
-      
-      // Then send to API
-      const conversationHistory = [
-        { role: welcomeMessage.role, content: welcomeMessage.content },
-        { role: userMessage.role, content: userMessage.content }
-      ];
-      
-      apiRequest('POST', '/api/chat/conversation', {
-        message: text.trim(),
-        conversationHistory,
-        mode: currentMode
-      }).then(response => response.json())
-        .then(data => {
-          const aiMessage: ChatMessage = {
-            role: 'assistant',
-            content: data.message,
-            timestamp: new Date()
-          };
-          setChatMessages(prev => [...prev, aiMessage]);
-          
-          if (data.showCreatePlanButton) {
-            setShowCreatePlanButton(true);
-          }
-        })
-        .catch(error => {
-          toast({
-            title: "Error",
-            description: "Failed to send message. Please try again.",
-            variant: "destructive",
-          });
-        });
-      
+      setChatMessages([welcomeMessage]);
+      // Then send the user's initial message
+      chatMutation.mutate(text.trim());
       setText('');
       return;
     }
