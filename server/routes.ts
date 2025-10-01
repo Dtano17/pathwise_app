@@ -1610,6 +1610,11 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       'quick' // Quick mode
     );
 
+    // DEBUG: Log what slots were extracted
+    console.log('[QUICK PLAN DEBUG] Message:', message);
+    console.log('[QUICK PLAN DEBUG] Extracted slots:', JSON.stringify(response.updatedSlots || {}, null, 2));
+    console.log('[QUICK PLAN DEBUG] Session slots before:', JSON.stringify(session.slots || {}, null, 2));
+
     // SERVER-SIDE ACTIVITY TYPE DETECTION OVERRIDE (same as Smart Plan)
     const interviewKeywords = ['interview', 'job interview', 'interview prep', 'prepare for.*interview', 'interviewing'];
     const learningKeywords = ['study', 'learn', 'course', 'education', 'prep for exam', 'test prep'];
@@ -1698,6 +1703,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
     try {
       const { message, conversationHistory = [], mode } = req.body;
       
+      console.log('[API /chat/conversation] Received mode:', mode, 'Message:', message);
+      
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: 'Message is required and must be a string' });
       }
@@ -1707,11 +1714,13 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
 
       // Handle Smart Plan mode with structured conversation
       if (mode === 'smart') {
+        console.log('[ROUTING] Going to Smart Plan handler');
         return await handleSmartPlanConversation(req, res, message, conversationHistory, userId);
       }
 
       // Handle Quick Plan mode with structured conversation
       if (mode === 'quick') {
+        console.log('[ROUTING] Going to Quick Plan handler');
         return await handleQuickPlanConversation(req, res, message, conversationHistory, userId);
       }
 
