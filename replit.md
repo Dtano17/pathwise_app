@@ -73,6 +73,13 @@ A mobile-first AI-powered journaling application that transforms user intentions
 - **Anthropic Integration**: Active, Claude API for conversational planning
 
 ## Recent Changes
+- **October 1, 2025**:
+  - ✅ Fixed workflow: Type message first, then click Quick/Smart Plan to start conversation
+  - ✅ UI improvements: Send arrow now inside textarea (right side) matching Claude's interface
+  - ✅ Fixed mode propagation bug: chatMutation now passes mode explicitly to avoid race conditions
+  - ✅ Centered Quick Plan and Smart Plan buttons on landing page
+  - ✅ Simplified chat interface: Removed redundant upload/mic buttons from textarea
+  
 - **September 30, 2025**: 
   - ✅ Implemented dual authentication (Replit + Supabase for Facebook)
   - ✅ Fixed all API routes to use authenticated user IDs
