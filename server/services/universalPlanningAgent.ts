@@ -103,6 +103,19 @@ export class UniversalPlanningAgent {
 
       console.log('[PHASE 1] Context:', context);
 
+      // Check if user is asking about non-planning topic (low confidence)
+      if (context.confidence < 0.5) {
+        return {
+          message: "I'm sorry, I don't understand. This is a planning assistant designed to help you plan activities like travel, interviews, dates, workouts, and daily tasks. How can I help you plan something today?",
+          phase: 'context_recognition',
+          readyToGenerate: false,
+          planReady: false,
+          showGenerateButton: false,
+          updatedSlots: currentSlots,
+          domain: undefined
+        };
+      }
+
       // PHASE 2: Generate Top Questions
       const questions = domainRegistry.getQuestions(context.domain, planMode);
 
@@ -224,29 +237,37 @@ export class UniversalPlanningAgent {
   }
 
   /**
-   * Extract slots from user message using Claude
+   * Extract slots from user message using Claude (domain-aware)
    */
   private async extractSlotsFromMessage(message: string, domain: string): Promise<any> {
     try {
+      // Get the domain's questions to know what slot paths to extract
+      const quickQuestions = domainRegistry.getQuestions(domain, 'quick');
+      const smartQuestions = domainRegistry.getQuestions(domain, 'smart');
+      const allQuestions = [...quickQuestions, ...smartQuestions];
+
+      // Build slot path descriptions
+      const slotDescriptions = allQuestions
+        .map(q => `- ${q.slot_path}: ${q.question}`)
+        .join('\n');
+
       const prompt = `Extract all relevant information from this user message for ${domain} planning.
 
 User message: "${message}"
 
-Extract information like:
-- Locations/destinations
-- Dates and times
-- Durations
-- Budgets
-- Purposes/goals
-- Preferences
-- Any other relevant details
+Extract information that answers these questions and map to the correct slot paths:
+${slotDescriptions}
 
-Respond with JSON only:
+Respond with JSON using the exact slot paths. Use nested objects for paths with dots (e.g., "timing.date" becomes {"timing": {"date": "..."}}).
+Only include fields that are mentioned in the user's message. If nothing relevant is mentioned, return {}.
+
+Example for interview_prep:
 {
-  "location": {"destination": "..."},
-  "timing": {"date": "...", "duration": "..."},
-  "budget": {"range": "..."},
-  ...
+  "company": "Disney",
+  "role": "streaming data engineering position",
+  "timing": {"date": "Friday 5pm PST"},
+  "interviewType": "technical",
+  "techStack": "Scala"
 }`;
 
       const response = await anthropic.messages.create({
@@ -268,8 +289,99 @@ Respond with JSON only:
       return JSON.parse(jsonStr);
     } catch (error) {
       console.error('[SLOT EXTRACTION] Error:', error);
-      return {};
+
+      // Fallback: Use regex-based extraction as a safety net
+      return this.extractSlotsWithRegex(message, domain);
     }
+  }
+
+  /**
+   * Fallback regex-based slot extraction (domain-aware)
+   */
+  private extractSlotsWithRegex(message: string, domain: string): any {
+    const extracted: any = {};
+    const lowerMessage = message.toLowerCase();
+
+    // Common patterns across domains
+
+    // Interview prep specific
+    if (domain === 'interview_prep') {
+      // Company detection - improved to avoid false matches
+      const companyPatterns = [
+        /(?:at|with|for)\s+(disney|google|amazon|microsoft|apple|meta|netflix|uber|airbnb)/i,
+        /\b(disney|google|amazon|microsoft|apple|meta|netflix|uber|airbnb)\s+interview/i,
+        /my\s+(disney|google|amazon|microsoft|apple|meta|netflix|uber|airbnb)\s+interview/i
+      ];
+      for (const pattern of companyPatterns) {
+        const match = message.match(pattern);
+        if (match && match[1]) {
+          extracted.company = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+          break;
+        }
+      }
+
+      // Role detection - improved
+      const rolePatterns = [
+        /(?:for|as)\s+(?:a\s+)?([a-z\s]+(?:data\s+)?(?:streaming\s+)?(?:engineer|developer|analyst|manager|designer|scientist|architect)(?:ing)?(?:\s+position)?)/i,
+        /\b(data engineer|software engineer|frontend developer|backend developer|full stack|devops|ml engineer|data scientist|streaming.*?engineer)/i
+      ];
+      for (const pattern of rolePatterns) {
+        const match = message.match(pattern);
+        if (match && match[1]) {
+          extracted.role = match[1].trim();
+          break;
+        }
+      }
+
+      // Tech stack detection
+      const techMatch = message.match(/\b(?:using\s+)?(python|java|scala|javascript|typescript|react|vue|angular|node|go|rust|aws|gcp|azure|kubernetes|docker|spark|kafka|flink|airflow|sql|nosql|mongodb|postgres)\b/i);
+      if (techMatch) extracted.techStack = techMatch[1];
+
+      // Interview type detection
+      if (lowerMessage.includes('technical')) extracted.interviewType = 'technical';
+      else if (lowerMessage.includes('behavioral')) extracted.interviewType = 'behavioral';
+      else if (lowerMessage.includes('system design')) extracted.interviewType = 'system_design';
+    }
+
+    // Date/time patterns (common across domains)
+    const datePatterns = [
+      /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i,
+      /\b(today|tomorrow|next week|this week)\b/i,
+      /\b(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\b/,
+      /\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}/i
+    ];
+
+    for (const pattern of datePatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        if (!extracted.timing) extracted.timing = {};
+        extracted.timing.date = match[0];
+        break;
+      }
+    }
+
+    // Time patterns
+    const timeMatch = message.match(/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm|AM|PM)(?:\s+[A-Z]{3})?)\b/);
+    if (timeMatch) {
+      if (!extracted.timing) extracted.timing = {};
+      extracted.timing.time = timeMatch[0];
+    }
+
+    // Duration patterns
+    const durationMatch = message.match(/(\d+)\s*(day|night|week|month|hour)s?/i);
+    if (durationMatch) {
+      if (!extracted.timing) extracted.timing = {};
+      extracted.timing.duration = durationMatch[0];
+    }
+
+    // Budget patterns
+    const budgetMatch = message.match(/\$\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+    if (budgetMatch) {
+      if (!extracted.budget) extracted.budget = {};
+      extracted.budget.range = budgetMatch[0];
+    }
+
+    return extracted;
   }
 
   /**
