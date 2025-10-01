@@ -62,6 +62,8 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
     // Get or create a lifestyle planner session for this user
     let session = await storage.getActiveLifestylePlannerSession(userId);
     
+    const isFirstMessage = !session || (session.conversationHistory || []).length === 0;
+    
     if (!session) {
       // Create new session for Smart Plan mode
       session = await storage.createLifestylePlannerSession({
@@ -1443,6 +1445,8 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
   try {
     // Get or create a lifestyle planner session for this user
     let session = await storage.getActiveLifestylePlannerSession(userId);
+    
+    const isFirstMessage = !session || (session.conversationHistory || []).length === 0;
     
     if (!session) {
       // Create new session for Quick Plan mode

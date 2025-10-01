@@ -244,15 +244,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     
     // If in conversation mode, start the chat dialogue
     if (currentMode) {
-      const welcomeMessage: ChatMessage = {
-        role: 'assistant',
-        content: currentMode === 'quick' 
-          ? "Quick Plan Mode activated! Tell me what you want to accomplish and I'll help you create a plan quickly."
-          : "Smart Plan Mode activated! I'll ask you detailed questions to create a comprehensive action plan. What would you like to achieve?",
-        timestamp: new Date()
-      };
-      setChatMessages([welcomeMessage]);
-      // Then send the user's initial message
+      // Send the user's initial message directly - backend will handle welcome and response
       chatMutation.mutate(text.trim());
       setText('');
       return;

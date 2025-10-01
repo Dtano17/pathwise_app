@@ -191,12 +191,33 @@ export class LifestylePlannerAgent {
     const questionCount = externalContext.questionCount || { smart: 0, quick: 0 };
     const currentMode = mode || externalContext.currentMode || 'smart';
     
+    // Check if this is the first interaction (no conversation history yet)
+    const conversationHistory = session.conversationHistory || [];
+    const isFirstInteraction = conversationHistory.length <= 1; // Only user's first message
+    
     // Use slot completeness engine to determine what's missing
     const completenessAnalysis = SlotCompletenessEngine.analyzeCompleteness(
       currentSlots, 
       activityType || 'general', 
       currentMode as 'quick' | 'smart'
     );
+    
+    const firstMessageGuidance = isFirstInteraction 
+      ? `\n\n🎯 FIRST MESSAGE SPECIAL HANDLING:
+This is the user's FIRST message in this conversation. You MUST:
+1. Provide a warm, enthusiastic greeting about ${currentMode === 'quick' ? 'Quick Plan' : 'Smart Plan'} mode
+2. Acknowledge what they want to plan (extract from their message)
+3. Ask your FIRST clarifying question based on NEXT TO ASK below
+4. NEVER generate a plan on the first interaction - always ask at least one question first
+
+Example first response:
+{
+  "action": "ask_question",
+  "message": "Exciting! I'm in ${currentMode === 'quick' ? 'Quick Plan' : 'Smart Plan'} mode and ready to help you plan [their goal]. Let me ask you a few quick questions to create the perfect plan. First, [question based on NEXT TO ASK]?",
+  "extractedSlots": {"activityType": "[detected type]"},
+  "nextQuestion": "[The specific question for NEXT TO ASK field]"
+}`
+      : '';
     
     const modeInstructions = mode === 'quick' 
       ? `QUICK PLAN MODE: Server-enforced completeness tracking. Current count: ${questionCount.quick}/4 questions. You MUST ask for the next missing REQUIRED field only. Do not ask multiple questions at once. Current completion: ${completenessAnalysis.completionPercentage}%. 
@@ -215,6 +236,7 @@ COMPLETENESS RULE: Only move to confirmation when server says isReady: ${complet
     const activityGuide = activityType ? `\nACTIVITY CONTEXT: This is a ${activityType} activity. Ask questions relevant to planning this type of activity.` : '';
 
     return `You are a highly conversational lifestyle planning assistant. Your goal is to gather context through natural dialogue before generating a comprehensive plan.
+${firstMessageGuidance}
 
 USER CONTEXT:
 ${userContext}
