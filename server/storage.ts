@@ -821,12 +821,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(contacts).where(and(...conditions));
   }
 
-  // User lookup helpers
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
-  }
-
   // User Profile operations
   async getUserProfile(userId: string): Promise<UserProfile | undefined> {
     const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));

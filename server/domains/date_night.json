@@ -1,0 +1,153 @@
+{
+  "domain": "date_night",
+  "aliases": ["date", "romantic dinner", "date planning", "romantic evening", "dating"],
+  "description": "Planning romantic dates and special evenings with venue suggestions, timing, and activities",
+
+  "questions": {
+    "quick_plan": [
+      {
+        "id": "timing",
+        "question": "What time works best for your date?",
+        "why_matters": "Determines venue availability and activity options",
+        "type": "text",
+        "required": true,
+        "slot_path": "timing.time"
+      },
+      {
+        "id": "budget",
+        "question": "What's your budget? (Cozy night in ($0-30), casual dinner out ($50-100), or something special ($100+)?)",
+        "why_matters": "Determines venue and activity recommendations",
+        "type": "text",
+        "required": true,
+        "slot_path": "budget.range"
+      },
+      {
+        "id": "vibe",
+        "question": "What kind of mood are you going for? (Romantic, fun and playful, or relaxed?)",
+        "why_matters": "Helps match the right atmosphere and venues",
+        "type": "choice",
+        "options": ["romantic", "fun_playful", "relaxed", "adventurous"],
+        "required": true,
+        "slot_path": "vibe"
+      },
+      {
+        "id": "activities",
+        "question": "Just dinner, or dinner plus another activity like drinks or entertainment?",
+        "why_matters": "Affects timeline and budget allocation",
+        "type": "text",
+        "required": true,
+        "slot_path": "activities"
+      },
+      {
+        "id": "location_preference",
+        "question": "Any area or neighborhood preferences?",
+        "why_matters": "Helps narrow down venue options",
+        "type": "text",
+        "required": false,
+        "slot_path": "location.area"
+      }
+    ],
+
+    "smart_plan": [
+      {
+        "id": "timing",
+        "question": "What time works best for your date?",
+        "why_matters": "Determines venue availability and activity options",
+        "type": "text",
+        "required": true,
+        "slot_path": "timing.time"
+      },
+      {
+        "id": "budget",
+        "question": "What's your budget? (Cozy night in ($0-30), casual dinner out ($50-100), or something special ($100+)?)",
+        "why_matters": "Determines venue and activity recommendations",
+        "type": "text",
+        "required": true,
+        "slot_path": "budget.range"
+      },
+      {
+        "id": "vibe",
+        "question": "What kind of mood are you going for? (Romantic, fun and playful, or relaxed?)",
+        "why_matters": "Helps match the right atmosphere and venues",
+        "type": "choice",
+        "options": ["romantic", "fun_playful", "relaxed", "adventurous"],
+        "required": true,
+        "slot_path": "vibe"
+      },
+      {
+        "id": "activities",
+        "question": "Just dinner, or dinner plus another activity like drinks or entertainment?",
+        "why_matters": "Affects timeline and budget allocation",
+        "type": "text",
+        "required": true,
+        "slot_path": "activities"
+      },
+      {
+        "id": "location_preference",
+        "question": "Any area or neighborhood preferences?",
+        "why_matters": "Helps narrow down venue options",
+        "type": "text",
+        "required": false,
+        "slot_path": "location.area"
+      },
+      {
+        "id": "dietary_restrictions",
+        "question": "Any dietary restrictions or cuisine preferences?",
+        "why_matters": "Ensures venue recommendations work for both of you",
+        "type": "text",
+        "required": false,
+        "slot_path": "dietary"
+      },
+      {
+        "id": "special_occasion",
+        "question": "Is this for a special occasion? (Anniversary, birthday, first date, etc.)",
+        "why_matters": "Helps add special touches and recommendations",
+        "type": "text",
+        "required": false,
+        "slot_path": "occasion"
+      }
+    ]
+  },
+
+  "enrichment_rules": [
+    {
+      "condition": "has_area && has_vibe",
+      "web_searches": [
+        "best romantic restaurants in {location.area}",
+        "{vibe} date ideas {location.area}",
+        "date night spots {location.area}"
+      ]
+    }
+  ],
+
+  "plan_template": {
+    "sections": [
+      {
+        "title": "🌟 The Perfect Plan",
+        "required_data": ["timeline"]
+      },
+      {
+        "title": "🍽️ Venue Recommendations",
+        "required_data": ["venue_suggestions"]
+      },
+      {
+        "title": "💰 Budget Breakdown",
+        "required_data": ["budget_details"]
+      },
+      {
+        "title": "👔 Outfit Suggestions",
+        "required_data": ["outfit_advice"]
+      },
+      {
+        "title": "🚗 Transportation & Parking",
+        "required_data": ["logistics"]
+      },
+      {
+        "title": "💡 Pro Tips & Special Touches",
+        "required_data": ["date_tips"]
+      }
+    ]
+  },
+
+  "safety_checks": []
+}

@@ -233,7 +233,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       message,
       session,
       userProfile,
-      'chat' // Smart mode
+      'smart' // Smart mode - uses universal planning agent
     );
 
     // SERVER-SIDE ACTIVITY TYPE DETECTION OVERRIDE

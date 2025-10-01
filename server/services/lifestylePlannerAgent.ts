@@ -1,10 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { SlotCompletenessEngine } from "./slotRegistry";
-import type { 
-  LifestylePlannerSession, 
+import { contextualEnrichmentAgent } from "./contextualEnrichmentAgent";
+import { universalPlanningAgent } from "./universalPlanningAgent";
+import type {
+  LifestylePlannerSession,
   InsertLifestylePlannerSession,
-  User 
+  User
 } from "@shared/schema";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -53,6 +55,46 @@ export interface SlotExtractionResult {
 export class LifestylePlannerAgent {
   
   /**
+   * Check if two questions are semantically similar (to detect loops)
+   */
+  private areQuestionsSimilar(question1: string, question2: string): boolean {
+    // Normalize questions for comparison
+    const normalize = (q: string) => {
+      return q
+        .toLowerCase()
+        .replace(/[?.,!]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
+    const q1 = normalize(question1);
+    const q2 = normalize(question2);
+
+    // Exact match after normalization
+    if (q1 === q2) return true;
+
+    // Check for key phrase matches (e.g., both asking about "how long")
+    const keyPhrases = [
+      'how long',
+      'what time',
+      'where are you',
+      'what budget',
+      'who are you going with',
+      'what kind of',
+      'when are you',
+      'what date'
+    ];
+
+    for (const phrase of keyPhrases) {
+      if (q1.includes(phrase) && q2.includes(phrase)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Process a user message in the context of a lifestyle planning session
    */
   async processMessage(
@@ -62,9 +104,55 @@ export class LifestylePlannerAgent {
     mode?: 'quick' | 'chat'
   ): Promise<ConversationResponse> {
     try {
-      // Use Claude as primary model for conversational planning
+      // UNIVERSAL PLANNING AGENT - TRY FIRST (new 5-phase flow)
+      const useUniversalAgent = process.env.USE_UNIVERSAL_AGENT !== 'false'; // Default: true
+
+      if (useUniversalAgent && (mode === 'quick' || mode === 'smart')) {
+        console.log('[LIFECYCLE PLANNER] Using Universal Planning Agent');
+
+        const planMode = mode === 'quick' ? 'quick' : 'smart';
+        const currentDomain = session.externalContext?.detectedDomain;
+
+        const universalResponse = await universalPlanningAgent.processUserRequest(
+          message,
+          session.conversationHistory || [],
+          session.slots || {},
+          userProfile,
+          planMode,
+          currentDomain
+        );
+
+        // Transform Universal Agent response to ConversationResponse format
+        return {
+          message: universalResponse.message,
+          sessionState: this.mapPhaseToSessionState(universalResponse.phase),
+          nextQuestion: universalResponse.message,
+          contextChips: universalResponse.contextChips,
+          readyToGenerate: universalResponse.readyToGenerate || false,
+          planReady: universalResponse.planReady || false,
+          generatedPlan: universalResponse.enrichedPlan,
+          updatedSlots: universalResponse.updatedSlots || session.slots,
+          updatedExternalContext: {
+            ...(session.externalContext || {}),
+            detectedDomain: universalResponse.domain,
+            currentMode: planMode,
+            questionCount: {
+              ...(session.externalContext?.questionCount || { smart: 0, quick: 0 })
+            }
+          },
+          updatedConversationHistory: [
+            ...(session.conversationHistory || []),
+            { role: 'user', content: message, timestamp: new Date().toISOString() },
+            { role: 'assistant', content: universalResponse.message, timestamp: new Date().toISOString() }
+          ]
+        };
+      }
+
+      // FALLBACK: Original Claude/OpenAI processing (for chat mode or if universal agent disabled)
+      console.log('[LIFESTYLE PLANNER] Using original processing flow');
+
       const preferredModel = (process.env.ANTHROPIC_API_KEY && process.env.PREFERRED_MODEL !== 'openai') ? 'claude' : 'openai';
-      
+
       if (preferredModel === 'claude') {
         return await this.processWithClaude(message, session, userProfile, mode);
       } else {
@@ -78,6 +166,99 @@ export class LifestylePlannerAgent {
         nextQuestion: "What would you like to plan today?"
       };
     }
+  }
+
+  /**
+   * Map Universal Agent phase to session state
+   */
+  private mapPhaseToSessionState(phase: string): 'intake' | 'gathering' | 'confirming' | 'planning' | 'completed' {
+    switch (phase) {
+      case 'context_recognition':
+        return 'intake';
+      case 'gathering':
+        return 'gathering';
+      case 'enrichment':
+      case 'synthesis':
+        return 'confirming';
+      case 'completed':
+        return 'completed';
+      default:
+        return 'gathering';
+    }
+  }
+
+  /**
+   * Extract common entities from user message using regex patterns (safety net)
+   */
+  private extractEntitiesWithRegex(message: string, currentSlots: any): any {
+    const extracted: any = {};
+    const lowerMessage = message.toLowerCase();
+
+    // Duration patterns: "3 days", "2 weeks", "5 nights", etc.
+    const durationMatch = message.match(/(\d+)\s*(day|night|week|hour)s?/i);
+    if (durationMatch && !currentSlots.timing?.duration) {
+      extracted.timing = extracted.timing || {};
+      extracted.timing.duration = durationMatch[0];
+    }
+
+    // Date patterns: "next week", "tomorrow", "friday", "oct 15", "october 15th"
+    const relativeDateMatch = lowerMessage.match(/\b(today|tomorrow|next\s+(week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b/);
+    if (relativeDateMatch && !currentSlots.timing?.date) {
+      extracted.timing = extracted.timing || {};
+      extracted.timing.date = relativeDateMatch[0];
+    }
+
+    // Budget patterns: "$500", "$50-100", "low budget", "high budget"
+    const budgetMatch = message.match(/\$(\d+)(?:-\$?(\d+))?/);
+    const budgetTypeMatch = lowerMessage.match(/\b(low|medium|high)\s+budget\b/);
+    if (budgetMatch && !currentSlots.budget?.range) {
+      extracted.budget = extracted.budget || {};
+      extracted.budget.range = budgetMatch[0];
+    } else if (budgetTypeMatch && !currentSlots.budget?.range) {
+      extracted.budget = extracted.budget || {};
+      extracted.budget.range = budgetTypeMatch[1];
+    }
+
+    // Transportation patterns: "flying", "driving", "by car", "by plane", "by train"
+    const transportMatch = lowerMessage.match(/\b(flying|driving|by\s+(car|plane|train|bus))\b/);
+    if (transportMatch && !currentSlots.transportation) {
+      let transport = transportMatch[0].replace('by ', '');
+      if (transport.includes('plane')) transport = 'flying';
+      if (transport.includes('car')) transport = 'driving';
+      extracted.transportation = transport;
+    }
+
+    // Purpose patterns: "business trip", "leisure", "vacation", "work"
+    const purposeMatch = lowerMessage.match(/\b(business|leisure|vacation|work|pleasure|family)\s*(trip|travel)?\b/);
+    if (purposeMatch && !currentSlots.purpose) {
+      extracted.purpose = purposeMatch[1];
+    }
+
+    // Location/destination patterns (common cities)
+    const locationMatch = message.match(/\b(to|in|at)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?(?:,\s*[A-Z]{2})?)\b/);
+    if (locationMatch && !currentSlots.location?.destination) {
+      extracted.location = extracted.location || {};
+      extracted.location.destination = locationMatch[2];
+    }
+
+    // Activity type detection from keywords
+    if (!currentSlots.activityType) {
+      if (lowerMessage.includes('interview') || lowerMessage.includes('interview prep')) {
+        extracted.activityType = 'interview_prep';
+      } else if (lowerMessage.includes('trip') || lowerMessage.includes('travel')) {
+        extracted.activityType = 'travel';
+      } else if (lowerMessage.includes('date') || lowerMessage.includes('date night')) {
+        extracted.activityType = 'date';
+      } else if (lowerMessage.includes('workout') || lowerMessage.includes('gym') || lowerMessage.includes('exercise')) {
+        extracted.activityType = 'workout';
+      } else if (lowerMessage.includes('meditation') || lowerMessage.includes('yoga') || lowerMessage.includes('wellness')) {
+        extracted.activityType = 'wellness';
+      } else if (lowerMessage.includes('plan my day') || lowerMessage.includes('daily plan')) {
+        extracted.activityType = 'daily_routine';
+      }
+    }
+
+    return extracted;
   }
 
   /**
@@ -123,7 +304,11 @@ export class LifestylePlannerAgent {
     console.log('===== END CLAUDE =====\n');
 
     const aiResponse = (response.content[0] as any)?.text || "I didn't understand that. Could you rephrase?";
-    
+
+    // SAFETY NET: Extract entities from user message using regex patterns
+    const fallbackExtraction = this.extractEntitiesWithRegex(message, session.slots || {});
+    console.log('Fallback extraction found:', fallbackExtraction);
+
     // Extract structured response (Claude should return JSON)
     let structuredResponse: SlotExtractionResult;
     try {
@@ -136,24 +321,34 @@ export class LifestylePlannerAgent {
           cleanedResponse = jsonMatch[1];
         }
       }
-      
+
       structuredResponse = JSON.parse(cleanedResponse);
-      
+
       // Ensure we have a clean message field
       if (!structuredResponse.message && structuredResponse.nextQuestion) {
         structuredResponse.message = structuredResponse.nextQuestion;
       }
+
+      // Merge fallback extraction with AI extraction
+      if (Object.keys(fallbackExtraction).length > 0) {
+        structuredResponse.extractedSlots = {
+          ...(structuredResponse.extractedSlots || {}),
+          ...fallbackExtraction
+        };
+        console.log('Merged slots after fallback:', structuredResponse.extractedSlots);
+      }
     } catch (error) {
       console.log('JSON parsing failed for:', aiResponse);
-      // Fallback if Claude doesn't return valid JSON
+      // Fallback if Claude doesn't return valid JSON - but still use regex extraction
       structuredResponse = {
         action: 'ask_question',
         message: aiResponse,
-        nextQuestion: aiResponse
+        nextQuestion: aiResponse,
+        extractedSlots: fallbackExtraction
       };
     }
 
-    return await this.convertToConversationResponse(structuredResponse, session, message);
+    return await this.convertToConversationResponse(structuredResponse, session, message, userProfile);
   }
 
   /**
@@ -188,7 +383,7 @@ export class LifestylePlannerAgent {
     const aiResponse = response.choices[0]?.message?.content || '{}';
     const structuredResponse: SlotExtractionResult = JSON.parse(aiResponse);
 
-    return await this.convertToConversationResponse(structuredResponse, session, message);
+    return await this.convertToConversationResponse(structuredResponse, session, message, userProfile);
   }
 
   /**
@@ -274,6 +469,28 @@ SERVER-ENFORCED COMPLETENESS:
 - Do NOT decide when you have enough information - the server determines this
 - Only move to confirmation when "COMPLETENESS RULE" says isReady: true
 - Focus your question on getting the specific missing field identified by the server
+
+SLOT EXTRACTION - CRITICAL:
+Extract ALL information from user messages, even if not explicitly asked:
+- Duration: "3 days", "2 weeks" → timing.duration
+- Dates: "next week", "Friday", "tomorrow" → timing.date
+- Budget: "$500", "low budget", "$50-100" → budget.range
+- Transportation: "flying", "driving", "by car" → transportation
+- Purpose: "business trip", "vacation", "leisure" → purpose
+- Location: "to Dallas", "in New York" → location.destination
+- Numbers: "3 days" → extract the duration even if asking about something else
+- DO NOT ask for information the user has already provided in this or previous messages
+- Always check COLLECTED CONTEXT above to see what's already known
+
+EXTRACTION EXAMPLES:
+User: "3 days"
+→ Extract: {"timing": {"duration": "3 days"}}
+
+User: "help me plan my trip to Dallas next week"
+→ Extract: {"activityType": "travel", "location": {"destination": "Dallas"}, "timing": {"date": "next week"}}
+
+User: "I have a $500 budget and I'm flying"
+→ Extract: {"budget": {"range": "$500"}, "transportation": "flying"}
 
 RESPONSE FORMAT:
 Always respond with valid JSON in this exact structure:
@@ -489,7 +706,8 @@ GENERAL ACTIVITY QUESTIONS:
   private async convertToConversationResponse(
     aiResponse: SlotExtractionResult,
     session: LifestylePlannerSession,
-    userMessage: string  // Add parameter to include user message in history
+    userMessage: string,  // Add parameter to include user message in history
+    userProfile?: User    // Add userProfile for enriched plan generation
   ): Promise<ConversationResponse> {
     // CRITICAL: Merge extracted slots into session slots to persist conversation context
     const updatedSlots = this.mergeSlots(session.slots || {}, aiResponse.extractedSlots || {});
@@ -504,10 +722,45 @@ GENERAL ACTIVITY QUESTIONS:
     const externalContext = session.externalContext || {};
     const questionCount = externalContext.questionCount || { smart: 0, quick: 0 };
     const plannerMode = externalContext.currentMode || 'smart'; // Default to smart mode
-    
+
+    // LOOP DETECTION: Track asked questions and prevent repeats
+    const askedQuestions = externalContext.askedQuestions || [];
+    const lastUserMessage = externalContext.lastUserMessage || '';
+    const lastAIQuestion = externalContext.lastAIQuestion || '';
+
+    // Detect if we're stuck in a loop (same question asked multiple times)
+    const currentQuestion = aiResponse.nextQuestion || aiResponse.message || '';
+    const isRepeatQuestion = askedQuestions.some((q: string) =>
+      this.areQuestionsSimilar(q, currentQuestion)
+    );
+
+    // If asking a repeat question, force progression
+    if (isRepeatQuestion && aiResponse.action === 'ask_question') {
+      console.warn('[LOOP DETECTED] Same question asked multiple times:', currentQuestion);
+      console.log('[LOOP FIX] Forcing progression to next slot or confirmation');
+
+      // Check if we have new info from user - if yes, acknowledge and move on
+      const hasNewInfo = Object.keys(aiResponse.extractedSlots || {}).length > 0;
+      if (hasNewInfo) {
+        // Move to confirmation or next question
+        aiResponse.action = 'confirm_plan';
+        nextState = 'confirming';
+        aiResponse.message = `Great! I've captured your ${Object.keys(aiResponse.extractedSlots || {}).join(', ')}. Let me create a plan based on what we've discussed so far.`;
+      } else {
+        // User didn't provide info - skip this slot and move on
+        aiResponse.message = `I understand. Let's move forward with the information we have.`;
+        aiResponse.action = 'confirm_plan';
+        nextState = 'confirming';
+      }
+    }
+
     // If AI is asking a question, increment the counter for current mode
     if (aiResponse.action === 'ask_question') {
       questionCount[plannerMode as keyof typeof questionCount]++;
+      // Track this question to prevent repeats
+      if (currentQuestion && !askedQuestions.includes(currentQuestion)) {
+        askedQuestions.push(currentQuestion);
+      }
     }
     
     // Check if we've hit question limits
@@ -610,7 +863,10 @@ GENERAL ACTIVITY QUESTIONS:
     const updatedExternalContext = {
       ...externalContext,
       questionCount,
-      plannerMode
+      plannerMode,
+      askedQuestions,
+      lastUserMessage: userMessage,
+      lastAIQuestion: currentQuestion
     };
     
     const updatedSession = {
@@ -636,7 +892,7 @@ GENERAL ACTIVITY QUESTIONS:
       contextChips,
       readyToGenerate,
       planReady: showConfirmation, // Set planReady to trigger "Generate Plan" button in UI
-      generatedPlan: aiResponse.action === 'generate_plan' ? await this.generatePlan(updatedSession) : undefined,
+      generatedPlan: aiResponse.action === 'generate_plan' ? await this.generatePlan(updatedSession, userProfile) : undefined,
       updatedSlots, // Return updated slots so routes.ts can persist them
       updatedExternalContext, // Return updated external context for persistence
       updatedConversationHistory // Return full conversation history including user message and assistant response
@@ -731,9 +987,35 @@ GENERAL ACTIVITY QUESTIONS:
   /**
    * Generate budget-aware final plan when all context is collected
    */
-  private async generatePlan(session: LifestylePlannerSession): Promise<any> {
+  private async generatePlan(session: LifestylePlannerSession, userProfile?: User): Promise<any> {
     const slots = session.slots || {};
     const activityType = slots.activityType?.toLowerCase() || 'activity';
+
+    // TRY ENRICHED PLAN GENERATION FIRST
+    if (userProfile) {
+      try {
+        console.log('[PLAN GENERATION] Attempting enriched plan with contextualEnrichmentAgent');
+        const enrichedPlan = await contextualEnrichmentAgent.generateRichPlan(slots, userProfile, activityType);
+
+        // Return enriched plan with full rich content
+        return {
+          title: enrichedPlan.title,
+          summary: enrichedPlan.summary,
+          richContent: enrichedPlan.richContent, // This is the detailed markdown content
+          tasks: enrichedPlan.tasks,
+          // Legacy format for compatibility
+          activitySuggestions: enrichedPlan.tasks.map(t => t.title),
+          timeline: enrichedPlan.timeline || [],
+          tips: enrichedPlan.practicalInfo?.tips || [],
+          budgetBreakdown: enrichedPlan.practicalInfo?.budgetBreakdown || {}
+        };
+      } catch (error) {
+        console.error('[PLAN GENERATION] Enriched plan failed, falling back to basic plan:', error);
+        // Fall through to basic plan generation
+      }
+    }
+
+    // FALLBACK: Basic plan generation
     const budgetLevel = this.normalizeBudget(slots);
     const isLowBudget = budgetLevel === 'low';
     const isMediumBudget = budgetLevel === 'medium';

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node:*)",
+      "Bash(git credential-manager:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
