@@ -102,6 +102,14 @@ export class LifestylePlannerAgent {
       { role: 'user' as const, content: message }
     ];
 
+    console.log('\n===== CLAUDE REQUEST =====');
+    console.log('Session ID:', session.id);
+    console.log('Total messages being sent:', messages.length);
+    console.log('Last 4 messages:');
+    messages.slice(-4).forEach((msg, i) => {
+      console.log(`  ${i + messages.length - 4}. [${msg.role}]:`, msg.content.substring(0, 100) + (msg.content.length > 100 ? '...' : ''));
+    });
+
     const response = await anthropic.messages.create({
       model: DEFAULT_CLAUDE_MODEL,
       max_tokens: 1500,
@@ -109,6 +117,10 @@ export class LifestylePlannerAgent {
       system: systemPrompt,
       messages: messages,
     });
+
+    const claudeResponse = response.content[0].type === 'text' ? response.content[0].text : '';
+    console.log('Claude response:', claudeResponse.substring(0, 150) + (claudeResponse.length > 150 ? '...' : ''));
+    console.log('===== END CLAUDE =====\n');
 
     const aiResponse = (response.content[0] as any)?.text || "I didn't understand that. Could you rephrase?";
     
