@@ -623,6 +623,7 @@ GENERAL ACTIVITY QUESTIONS:
       nextQuestion: showConfirmation ? "Does this sound like a good plan? Would you like me to generate the full details?" : aiResponse.nextQuestion,
       contextChips,
       readyToGenerate,
+      planReady: showConfirmation, // Set planReady to trigger "Generate Plan" button in UI
       generatedPlan: aiResponse.action === 'generate_plan' ? await this.generatePlan(updatedSession) : undefined,
       updatedSlots, // Return updated slots so routes.ts can persist them
       updatedExternalContext, // Return updated external context for persistence
