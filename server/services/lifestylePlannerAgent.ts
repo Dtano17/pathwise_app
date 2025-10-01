@@ -38,6 +38,7 @@ export interface ConversationResponse {
   generatedPlan?: any;
   updatedSlots?: any;
   updatedExternalContext?: any;
+  updatedConversationHistory?: any[]; // Full conversation history including user message and assistant response
 }
 
 export interface SlotExtractionResult {
@@ -140,7 +141,7 @@ export class LifestylePlannerAgent {
       };
     }
 
-    return await this.convertToConversationResponse(structuredResponse, session);
+    return await this.convertToConversationResponse(structuredResponse, session, message);
   }
 
   /**
@@ -175,7 +176,7 @@ export class LifestylePlannerAgent {
     const aiResponse = response.choices[0]?.message?.content || '{}';
     const structuredResponse: SlotExtractionResult = JSON.parse(aiResponse);
 
-    return await this.convertToConversationResponse(structuredResponse, session);
+    return await this.convertToConversationResponse(structuredResponse, session, message);
   }
 
   /**
@@ -191,9 +192,8 @@ export class LifestylePlannerAgent {
     const questionCount = externalContext.questionCount || { smart: 0, quick: 0 };
     const currentMode = mode || externalContext.currentMode || 'smart';
     
-    // Check if this is the first interaction (no conversation history yet)
-    const conversationHistory = session.conversationHistory || [];
-    const isFirstInteraction = conversationHistory.length <= 1; // Only user's first message
+    // Check if this is the first interaction using external context flag
+    const isFirstInteraction = session.externalContext?.isFirstInteraction === true;
     
     // Use slot completeness engine to determine what's missing
     const completenessAnalysis = SlotCompletenessEngine.analyzeCompleteness(
@@ -457,7 +457,8 @@ GENERAL ACTIVITY QUESTIONS:
    */
   private async convertToConversationResponse(
     aiResponse: SlotExtractionResult,
-    session: LifestylePlannerSession
+    session: LifestylePlannerSession,
+    userMessage: string  // Add parameter to include user message in history
   ): Promise<ConversationResponse> {
     // CRITICAL: Merge extracted slots into session slots to persist conversation context
     const updatedSlots = this.mergeSlots(session.slots || {}, aiResponse.extractedSlots || {});
@@ -590,6 +591,13 @@ GENERAL ACTIVITY QUESTIONS:
       userConfirmedAdd: readyToGenerate ? false : session.userConfirmedAdd
     };
 
+    // Build updated conversation history with both user message and assistant response
+    const updatedConversationHistory = [
+      ...(session.conversationHistory || []),
+      { role: 'user', content: userMessage, timestamp: new Date().toISOString() },
+      { role: 'assistant', content: confirmationMessage, timestamp: new Date().toISOString() }
+    ];
+
     return {
       message: confirmationMessage,
       sessionState: nextState,
@@ -598,7 +606,8 @@ GENERAL ACTIVITY QUESTIONS:
       readyToGenerate,
       generatedPlan: aiResponse.action === 'generate_plan' ? await this.generatePlan(updatedSession) : undefined,
       updatedSlots, // Return updated slots so routes.ts can persist them
-      updatedExternalContext // Return updated external context for persistence
+      updatedExternalContext, // Return updated external context for persistence
+      updatedConversationHistory // Return full conversation history including user message and assistant response
     };
   }
 

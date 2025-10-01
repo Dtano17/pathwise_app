@@ -62,6 +62,7 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
     // Get or create a lifestyle planner session for this user
     let session = await storage.getActiveLifestylePlannerSession(userId);
     
+    // Check if this is the first message BEFORE adding to history
     const isFirstMessage = !session || (session.conversationHistory || []).length === 0;
     
     if (!session) {
@@ -73,7 +74,8 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
         conversationHistory: [],
         externalContext: {
           currentMode: 'smart',
-          questionCount: { smart: 0, quick: 0 }
+          questionCount: { smart: 0, quick: 0 },
+          isFirstInteraction: true
         }
       });
     }
@@ -81,17 +83,6 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
     // Get user profile and priorities for personalized questions
     const userProfile = await storage.getUserProfile(userId);
     const userPriorities = await storage.getUserPriorities(userId);
-
-    // Add current message to conversation history
-    const updatedHistory = [
-      ...(session.conversationHistory || []),
-      { role: 'user' as const, content: message, timestamp: new Date().toISOString() }
-    ];
-
-    // Update session with new history
-    session = await storage.updateLifestylePlannerSession(session.id, {
-      conversationHistory: updatedHistory
-    }, userId);
 
     // Check for help intent - if user asks about what the modes do
     const helpIntentPattern = /what.*do(es)?.*it.*do|how.*work|difference.*(quick|smart)|what.*is.*smart.*plan|what.*is.*quick.*plan|explain.*mode|help.*understand/i;
@@ -209,17 +200,18 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       'chat' // Smart mode
     );
 
-    // CRITICAL: Persist updated session data including question counts
-    // Note: User message already added to history in handleSmartPlanConversation, only add assistant response
-    const updatedConversationHistory = [
-      ...(session.conversationHistory || []),
-      { role: 'assistant', content: response.message, timestamp: new Date().toISOString() }
-    ];
+    // Backend guardrail: NEVER generate plan on first interaction
+    if (isFirstMessage && (response.readyToGenerate || response.planReady)) {
+      console.warn('Attempted to generate plan on first message - blocking and forcing question');
+      response.readyToGenerate = false;
+      response.planReady = false;
+    }
 
+    // Persist updated session data from agent (includes full conversation history)
     await storage.updateLifestylePlannerSession(session.id, {
-      conversationHistory: updatedConversationHistory,
+      conversationHistory: response.updatedConversationHistory || session.conversationHistory,
       slots: response.updatedSlots || session.slots,
-      externalContext: response.updatedExternalContext || session.externalContext,
+      externalContext: {...(response.updatedExternalContext || session.externalContext), isFirstInteraction: false},
       sessionState: response.sessionState
     }, userId);
 
@@ -296,16 +288,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       });
     }
 
-    // Update session with any changes (slots, external context, state)
-    if (response.updatedSlots || response.updatedExternalContext) {
-      await storage.updateLifestylePlannerSession(session.id, {
-        slots: response.updatedSlots || session.slots,
-        externalContext: response.updatedExternalContext || session.externalContext,
-        sessionState: response.sessionState || session.sessionState
-      }, userId);
-    }
-
-    // Regular conversation response
+    // Regular conversation response (session already updated above with conversation history, slots, and externalContext)
     return res.json({
       message: response.message,
       sessionId: session?.id,
@@ -1474,17 +1457,6 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
     // Get user profile for personalized questions
     const userProfile = await storage.getUserProfile(userId);
 
-    // Add current message to conversation history
-    const updatedHistory = [
-      ...(session.conversationHistory || []),
-      { role: 'user' as const, content: message, timestamp: new Date().toISOString() }
-    ];
-
-    // Update session with new history
-    session = await storage.updateLifestylePlannerSession(session.id, {
-      conversationHistory: updatedHistory
-    }, userId);
-
     // Check for help intent - same as Smart Plan
     const helpIntentPattern = /what.*do(es)?.*it.*do|how.*work|difference.*(quick|smart)|what.*is.*smart.*plan|what.*is.*quick.*plan|explain.*mode|help.*understand/i;
     if (helpIntentPattern.test(message)) {
@@ -1601,16 +1573,18 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       'quick' // Quick mode
     );
 
-    // Persist updated session data including question counts
-    const updatedConversationHistory = [
-      ...(session.conversationHistory || []),
-      { role: 'assistant', content: response.message, timestamp: new Date().toISOString() }
-    ];
+    // Backend guardrail: NEVER generate plan on first interaction
+    if (isFirstMessage && (response.readyToGenerate || response.planReady)) {
+      console.warn('Attempted to generate plan on first message - blocking and forcing question');
+      response.readyToGenerate = false;
+      response.planReady = false;
+    }
 
+    // Persist updated session data from agent (includes full conversation history)
     await storage.updateLifestylePlannerSession(session.id, {
-      conversationHistory: updatedConversationHistory,
+      conversationHistory: response.updatedConversationHistory || session.conversationHistory,
       slots: response.updatedSlots || session.slots,
-      externalContext: response.updatedExternalContext || session.externalContext,
+      externalContext: {...(response.updatedExternalContext || session.externalContext), isFirstInteraction: false},
       sessionState: response.sessionState
     }, userId);
 
