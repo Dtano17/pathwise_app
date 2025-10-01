@@ -59,14 +59,26 @@ function getUserId(req: any): string | null {
 // Helper function for Smart Plan structured conversation
 async function handleSmartPlanConversation(req: any, res: any, message: string, conversationHistory: any[], userId: string) {
   try {
-    // Get or create a lifestyle planner session for this user
-    let session = await storage.getActiveLifestylePlannerSession(userId);
+    // Check if this is a new conversation (frontend has no conversation history)
+    const isNewConversation = !conversationHistory || conversationHistory.length === 0;
     
-    // Check if this is the first message BEFORE adding to history
-    const isFirstMessage = !session || (session.conversationHistory || []).length === 0;
+    let session;
+    let isFirstMessage;
     
-    if (!session) {
-      // Create new session for Smart Plan mode
+    if (isNewConversation) {
+      // New conversation - create fresh session and clear old one
+      console.log('[SMART PLAN] NEW conversation detected - creating fresh session');
+      
+      const existingSession = await storage.getActiveLifestylePlannerSession(userId);
+      if (existingSession) {
+        console.log('[SMART PLAN] Completing old session:', existingSession.id, 'with', (existingSession.conversationHistory || []).length, 'messages');
+        await storage.updateLifestylePlannerSession(existingSession.id, {
+          isComplete: true,
+          sessionState: 'completed'
+        }, userId);
+      }
+      
+      // Create fresh new session for Smart Plan mode
       session = await storage.createLifestylePlannerSession({
         userId,
         sessionState: 'intake',
@@ -78,6 +90,30 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
           isFirstInteraction: true
         }
       });
+      
+      console.log('[SMART PLAN] Created fresh session:', session.id);
+      isFirstMessage = true;
+    } else {
+      // Continuing existing conversation - get active session
+      console.log('[SMART PLAN] CONTINUING conversation with', conversationHistory.length, 'messages');
+      session = await storage.getActiveLifestylePlannerSession(userId);
+      
+      if (!session) {
+        // Session was lost somehow - create new one
+        session = await storage.createLifestylePlannerSession({
+          userId,
+          sessionState: 'intake',
+          slots: {},
+          conversationHistory: [],
+          externalContext: {
+            currentMode: 'smart',
+            questionCount: { smart: 0, quick: 0 },
+            isFirstInteraction: true
+          }
+        });
+      }
+      
+      isFirstMessage = false;
     }
 
     // Get user profile and priorities for personalized questions
@@ -1463,13 +1499,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Helper function for Quick Plan structured conversation
 async function handleQuickPlanConversation(req: any, res: any, message: string, conversationHistory: any[], userId: string) {
   try {
-    // Get or create a lifestyle planner session for this user
-    let session = await storage.getActiveLifestylePlannerSession(userId);
+    // Check if this is a new conversation (frontend has no conversation history)
+    const isNewConversation = !conversationHistory || conversationHistory.length === 0;
     
-    const isFirstMessage = !session || (session.conversationHistory || []).length === 0;
+    let session;
+    let isFirstMessage;
     
-    if (!session) {
-      // Create new session for Quick Plan mode
+    if (isNewConversation) {
+      // New conversation - create fresh session and clear old one
+      console.log('[QUICK PLAN] NEW conversation detected - creating fresh session');
+      
+      const existingSession = await storage.getActiveLifestylePlannerSession(userId);
+      if (existingSession) {
+        console.log('[QUICK PLAN] Completing old session:', existingSession.id, 'with', (existingSession.conversationHistory || []).length, 'messages');
+        await storage.updateLifestylePlannerSession(existingSession.id, {
+          isComplete: true,
+          sessionState: 'completed'
+        }, userId);
+      }
+      
+      // Create fresh new session for Quick Plan mode
       session = await storage.createLifestylePlannerSession({
         userId,
         sessionState: 'intake',
@@ -1480,15 +1529,29 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
           questionCount: { smart: 0, quick: 0 }
         }
       });
+      
+      console.log('[QUICK PLAN] Created fresh session:', session.id);
+      isFirstMessage = true;
     } else {
-      // Update mode to quick if switching
-      const updatedContext = {
-        ...session.externalContext,
-        currentMode: 'quick'
-      };
-      session = await storage.updateLifestylePlannerSession(session.id, {
-        externalContext: updatedContext
-      }, userId);
+      // Continuing existing conversation - get active session
+      console.log('[QUICK PLAN] CONTINUING conversation with', conversationHistory.length, 'messages');
+      session = await storage.getActiveLifestylePlannerSession(userId);
+      
+      if (!session) {
+        // Session was lost somehow - create new one
+        session = await storage.createLifestylePlannerSession({
+          userId,
+          sessionState: 'intake',
+          slots: {},
+          conversationHistory: [],
+          externalContext: {
+            currentMode: 'quick',
+            questionCount: { smart: 0, quick: 0 }
+          }
+        });
+      }
+      
+      isFirstMessage = false;
     }
 
     // Get user profile for personalized questions
@@ -1610,11 +1673,6 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       'quick' // Quick mode
     );
 
-    // DEBUG: Log what slots were extracted
-    console.log('[QUICK PLAN DEBUG] Message:', message);
-    console.log('[QUICK PLAN DEBUG] Extracted slots:', JSON.stringify(response.updatedSlots || {}, null, 2));
-    console.log('[QUICK PLAN DEBUG] Session slots before:', JSON.stringify(session.slots || {}, null, 2));
-
     // SERVER-SIDE ACTIVITY TYPE DETECTION OVERRIDE (same as Smart Plan)
     const interviewKeywords = ['interview', 'job interview', 'interview prep', 'prepare for.*interview', 'interviewing'];
     const learningKeywords = ['study', 'learn', 'course', 'education', 'prep for exam', 'test prep'];
@@ -1703,8 +1761,6 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
     try {
       const { message, conversationHistory = [], mode } = req.body;
       
-      console.log('[API /chat/conversation] Received mode:', mode, 'Message:', message);
-      
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: 'Message is required and must be a string' });
       }
@@ -1714,13 +1770,11 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
 
       // Handle Smart Plan mode with structured conversation
       if (mode === 'smart') {
-        console.log('[ROUTING] Going to Smart Plan handler');
         return await handleSmartPlanConversation(req, res, message, conversationHistory, userId);
       }
 
       // Handle Quick Plan mode with structured conversation
       if (mode === 'quick') {
-        console.log('[ROUTING] Going to Quick Plan handler');
         return await handleQuickPlanConversation(req, res, message, conversationHistory, userId);
       }
 
