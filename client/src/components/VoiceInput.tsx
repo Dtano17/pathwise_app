@@ -351,83 +351,60 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   if (currentMode && chatMessages.length > 0) {
     return (
       <div className="flex flex-col min-h-[100dvh] w-full bg-background">
-        {/* Chat Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-[999]">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                setChatMessages([]);
-                setCurrentMode(null);
-                setShowCreatePlanButton(false);
-              }}
-              className="h-8 w-8"
-              data-testid="button-back"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                <NotebookPen className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-sm">JournalMate</h2>
-                <Badge variant="secondary" className={`text-xs flex items-center gap-1 ${currentMode === 'quick' 
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' 
-                  : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'}`}>
-                  {currentMode === 'quick' ? (
-                    <>
-                      <Zap className="w-3 h-3" />
-                      Quick Plan
-                    </>
-                  ) : (
-                    <>
-                      <Brain className="w-3 h-3" />
-                      Smart Plan
-                    </>
-                  )}
-                </Badge>
-              </div>
-            </div>
-          </div>
+        {/* Minimal Header - Claude Style */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 sticky top-0 z-[999] bg-background">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setChatMessages([]);
+              setCurrentMode(null);
+              setShowCreatePlanButton(false);
+            }}
+            className="h-9 w-9"
+            data-testid="button-back"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <Badge variant="secondary" className={`text-xs font-medium ${currentMode === 'quick' 
+            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' 
+            : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'}`}>
+            {currentMode === 'quick' ? 'Quick Plan' : 'Smart Plan'}
+          </Badge>
+          <div className="w-9" />
         </div>
 
-        {/* Chat Messages */}
+        {/* Chat Messages - Claude Style */}
         <div className="flex-1 overflow-y-auto" ref={chatContainerRef}>
-          <div className="max-w-4xl mx-auto p-4 space-y-6">
+          <div className="max-w-3xl mx-auto px-4 py-8">
             {chatMessages.map((message, index) => (
-              <div key={index} className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                <div className="flex-shrink-0">
+              <div key={index} className={`mb-8 ${message.role === 'user' ? '' : ''}`}>
+                {message.role === 'assistant' && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+                      <NotebookPen className="w-3.5 h-3.5 text-primary" />
+                    </div>
+                    <span className="text-sm font-medium text-muted-foreground">JournalMate</span>
+                  </div>
+                )}
+                {message.role === 'user' && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-md bg-muted flex items-center justify-center">
+                      <User className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-sm font-medium text-muted-foreground">You</span>
+                  </div>
+                )}
+                <div className="pl-8">
                   {message.role === 'assistant' ? (
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                      <NotebookPen className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <FormattedMessage content={message.content} />
                     </div>
                   ) : (
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs sm:text-sm font-medium">
-                      U
-                    </div>
-                  )}
-                </div>
-                <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-3 ${
-                  message.role === 'user' 
-                    ? currentMode === 'quick' 
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-purple-500 text-white'
-                    : 'bg-muted text-foreground'
-                }`}>
-                  {message.role === 'assistant' ? (
-                    <FormattedMessage content={message.content} />
-                  ) : (
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
                       {message.content}
                     </p>
                   )}
-                  <div className={`text-xs mt-2 opacity-70 ${
-                    message.role === 'user' ? 'text-white/70' : 'text-muted-foreground'
-                  }`}>
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
                 </div>
               </div>
             ))}
@@ -435,52 +412,14 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           </div>
         </div>
 
-        {/* Chat Input */}
-        <div className="border-t border-border p-4 bg-background/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex gap-3 items-end">
-              <div className="flex-1 relative">
-                <Textarea
-                  ref={textareaRef}
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type your message..."
-                  className="min-h-[50px] max-h-[120px] resize-none pr-12 rounded-2xl border-border text-sm"
-                  rows={1}
-                />
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => {
-                    if (text.trim() && !chatMutation.isPending) {
-                      chatMutation.mutate(text.trim());
-                      setText('');
-                    }
-                  }}
-                  disabled={!text.trim() || chatMutation.isPending}
-                  className="absolute right-2 bottom-2 h-8 w-8 rounded-full"
-                  data-testid="button-send-message"
-                >
-                  {chatMutation.isPending ? (
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ repeat: Infinity, duration: 1 }}
-                      className="w-4 h-4 border-2 border-current border-t-transparent rounded-full"
-                    />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            {/* Create Plan Button */}
-            {showCreatePlanButton && (
+        {/* Generate Plan Button - Shows when ready */}
+        {showCreatePlanButton && (
+          <div className="border-t border-border/50 px-4 py-4 bg-background">
+            <div className="max-w-3xl mx-auto">
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-4 flex justify-center"
+                className="flex justify-center"
               >
                 <Button
                   onClick={handleCreatePlan}
@@ -491,7 +430,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       : 'bg-purple-600 hover:bg-purple-700 text-white'
                   }`}
                   size="lg"
-                  data-testid="button-create-plan"
+                  data-testid="button-generate-plan"
                 >
                   {createPlanMutation.isPending ? (
                     <>
@@ -500,17 +439,58 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                         transition={{ repeat: Infinity, duration: 1 }}
                         className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
                       />
-                      Creating Plan...
+                      Generating Plan...
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4" />
-                      Create My Action Plan
+                      Generate Plan
                     </>
                   )}
                 </Button>
               </motion.div>
-            )}
+            </div>
+          </div>
+        )}
+
+        {/* Minimal Input - Claude Style */}
+        <div className="border-t border-border/50 px-4 py-4 bg-background pb-[env(safe-area-inset-bottom)]">
+          <div className="max-w-3xl mx-auto">
+            <div className="relative">
+              <Textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Reply to JournalMate..."
+                className="min-h-[52px] max-h-[200px] resize-none pr-12 rounded-lg border-border/50 focus-visible:border-border text-sm bg-background"
+                rows={1}
+                data-testid="input-message"
+              />
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                  if (text.trim() && !chatMutation.isPending) {
+                    chatMutation.mutate(text.trim());
+                    setText('');
+                  }
+                }}
+                disabled={!text.trim() || chatMutation.isPending}
+                className="absolute right-2 bottom-2 h-8 w-8 rounded-md hover-elevate"
+                data-testid="button-send-message"
+              >
+                {chatMutation.isPending ? (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1 }}
+                    className="w-4 h-4 border-2 border-current border-t-transparent rounded-full"
+                  />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
