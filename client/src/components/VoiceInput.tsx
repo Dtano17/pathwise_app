@@ -212,16 +212,16 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
 
   // Chat mutation for dialogue-based interaction
   const chatMutation = useMutation({
-    mutationFn: async ({ message, mode }: { message: string; mode: 'quick' | 'smart' }) => {
+    mutationFn: async (message: string) => {
       const conversationHistory = chatMessages.map(msg => ({ role: msg.role, content: msg.content }));
       const response = await apiRequest('POST', '/api/chat/conversation', {
         message,
         conversationHistory,
-        mode
+        mode: currentMode
       });
       return response.json();
     },
-    onMutate: ({ message }: { message: string; mode: 'quick' | 'smart' }) => {
+    onMutate: (message: string) => {
       // Add user message immediately
       const userMessage: ChatMessage = {
         role: 'user',
@@ -296,22 +296,9 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     if (currentMode === mode) {
       setCurrentMode(null);
       setChatMessages([]);
-      return;
-    }
-    
-    // Set the mode
-    setCurrentMode(mode);
-    setShowCreatePlanButton(false);
-    
-    // If user has typed something, immediately send it to start the conversation
-    if (text.trim()) {
-      const userMessage = text.trim();
-      setText('');
-      
-      // Add user message and send to backend with explicit mode
-      chatMutation.mutate({ message: userMessage, mode });
     } else {
-      // Show welcome message if no text entered
+      setCurrentMode(mode);
+      // Immediately show chat interface with welcome message
       const welcomeMessage = mode === 'quick' 
         ? "**Quick Plan activated!** Let's create your action plan quickly. What would you like to accomplish?"
         : "**Smart Plan activated!** I'll help you create a comprehensive action plan. What's your goal?";
@@ -322,6 +309,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
         timestamp: new Date()
       }]);
     }
+    setShowCreatePlanButton(false);
   };
 
   const handleSubmit = () => {
@@ -330,7 +318,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     // If in conversation mode, start the chat dialogue
     if (currentMode) {
       // Send the user's initial message directly - backend will handle welcome and response
-      chatMutation.mutate({ message: text.trim(), mode: currentMode });
+      chatMutation.mutate(text.trim());
       setText('');
       return;
     }
@@ -350,7 +338,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
         handleSubmit();
       } else if (currentMode) {
         if (text.trim() && !chatMutation.isPending) {
-          chatMutation.mutate({ message: text.trim(), mode: currentMode });
+          chatMutation.mutate(text.trim());
           setText('');
         }
       } else if (!isGenerating) {
@@ -483,8 +471,8 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                 size="icon"
                 variant="ghost"
                 onClick={() => {
-                  if (text.trim() && !chatMutation.isPending && currentMode) {
-                    chatMutation.mutate({ message: text.trim(), mode: currentMode });
+                  if (text.trim() && !chatMutation.isPending) {
+                    chatMutation.mutate(text.trim());
                     setText('');
                   }
                 }}
@@ -534,29 +522,39 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       onChange={(e) => setText(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder={placeholder}
-                      className="min-h-[80px] sm:min-h-[100px] lg:min-h-[120px] resize-none pr-12 text-sm sm:text-base"
+                      className="min-h-[80px] sm:min-h-[100px] lg:min-h-[120px] resize-none pr-20 text-sm sm:text-base"
                       rows={3}
                       data-testid="textarea-goal-input"
                     />
-                    {/* Send button at the end (right side) like Claude */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleSubmit}
-                      disabled={!text.trim() || isGenerating}
-                      className="absolute bottom-2 right-2 h-8 w-8 rounded-md hover-elevate"
-                      data-testid="button-submit-main"
-                    >
-                      {isGenerating ? (
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ repeat: Infinity, duration: 1 }}
-                          className="w-4 h-4 border-2 border-current border-t-transparent rounded-full"
-                        />
-                      ) : (
-                        <Send className="w-4 h-4" />
-                      )}
-                    </Button>
+                    {/* Integrated controls inside textarea */}
+                    <div className="absolute bottom-2 right-2 flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 sm:h-8 sm:w-8 opacity-60 hover:opacity-100 transition-opacity"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isGenerating}
+                        data-testid="button-upload"
+                      >
+                        <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
+                      </Button>
+                      <Button
+                        variant={isRecording ? "default" : "ghost"}
+                        size="icon"
+                        className={`h-7 w-7 sm:h-8 sm:w-8 transition-opacity ${
+                          isRecording ? '' : 'opacity-60 hover:opacity-100'
+                        }`}
+                        onClick={isRecording ? stopRecording : startRecording}
+                        disabled={isGenerating}
+                        data-testid="button-voice-record"
+                      >
+                        {isRecording ? (
+                          <MicOff className="h-3 w-3 sm:h-4 sm:w-4" />
+                        ) : (
+                          <Mic className="h-3 w-3 sm:h-4 sm:w-4" />
+                        )}
+                      </Button>
+                    </div>
                     <input
                       type="file"
                       ref={fileInputRef}
@@ -590,36 +588,77 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                   </AnimatePresence>
                 </div>
 
-                {/* Conversational Mode Buttons */}
-                <div ref={modeButtonsRef} className="flex gap-2 justify-center">
+                {/* Action buttons row */}
+                <div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  {/* Conversational Mode Buttons */}
+                  <div ref={modeButtonsRef} className="flex gap-2">
+                    <Button
+                      variant={currentMode === 'quick' ? 'default' : 'outline'}
+                      size="default"
+                      onClick={() => startConversationWithMode('quick')}
+                      className={`flex-1 sm:flex-none gap-1 sm:gap-2 ${
+                        currentMode === 'quick'
+                          ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 toggle-elevated'
+                          : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950'
+                      }`}
+                      data-testid="button-quick-plan"
+                    >
+                      <Zap className="w-3 h-3" />
+                      <span className="text-xs sm:text-sm">Quick Plan</span>
+                    </Button>
+                    <Button
+                      variant={currentMode === 'smart' ? 'default' : 'outline'}
+                      size="default"
+                      onClick={() => startConversationWithMode('smart')}
+                      className={`flex-1 sm:flex-none gap-1 sm:gap-2 ${
+                        currentMode === 'smart'
+                          ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700 toggle-elevated'
+                          : 'text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950'
+                      }`}
+                      data-testid="button-smart-plan"
+                    >
+                      <Brain className="w-3 h-3" />
+                      <span className="hidden sm:inline text-xs sm:text-sm">Smart Plan</span>
+                      <span className="sm:hidden text-xs sm:text-sm">Smart</span>
+                    </Button>
+                  </div>
+                  
                   <Button
-                    variant={currentMode === 'quick' ? 'default' : 'outline'}
-                    size="default"
-                    onClick={() => startConversationWithMode('quick')}
-                    className={`flex-1 sm:flex-none gap-1 sm:gap-2 ${
-                      currentMode === 'quick'
-                        ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 toggle-elevated'
-                        : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950'
-                    }`}
-                    data-testid="button-quick-plan"
+                    onClick={handleSubmit}
+                    disabled={!text.trim() || isGenerating}
+                    className="gap-1 sm:gap-2 w-full sm:w-auto"
+                    data-testid="button-submit"
                   >
-                    <Zap className="w-3 h-3" />
-                    <span className="text-xs sm:text-sm">Quick Plan</span>
-                  </Button>
-                  <Button
-                    variant={currentMode === 'smart' ? 'default' : 'outline'}
-                    size="default"
-                    onClick={() => startConversationWithMode('smart')}
-                    className={`flex-1 sm:flex-none gap-1 sm:gap-2 ${
-                      currentMode === 'smart'
-                        ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700 toggle-elevated'
-                        : 'text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950'
-                    }`}
-                    data-testid="button-smart-plan"
-                  >
-                    <Brain className="w-3 h-3" />
-                    <span className="hidden sm:inline text-xs sm:text-sm">Smart Plan</span>
-                    <span className="sm:hidden text-xs sm:text-sm">Smart</span>
+                    {isGenerating ? (
+                      <>
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ repeat: Infinity, duration: 1 }}
+                          className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full"
+                        />
+                        <span className="hidden sm:inline">Generating Plan...</span>
+                        <span className="sm:hidden">Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        {currentMode ? (
+                          <>
+                            <span className="hidden sm:inline">
+                              Start {currentMode === 'quick' ? 'Quick Plan' : 'Smart Plan'}
+                            </span>
+                            <span className="sm:hidden">
+                              Start {currentMode === 'quick' ? 'Quick' : 'Smart'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="hidden sm:inline">Create Action Plan</span>
+                            <span className="sm:hidden">Create Plan</span>
+                          </>
+                        )}
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
