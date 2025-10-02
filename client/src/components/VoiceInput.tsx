@@ -391,16 +391,14 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                   ? `User's context: ${userTypedContext}\n\n${chatContext}`
                   : chatContext;
 
-                const response = await apiRequest('/api/planner/parse-llm-content', {
-                  method: 'POST',
-                  body: {
-                    pastedContent: base64Image,
-                    contentType: 'image',
-                    precedingContext
-                  }
+                const response = await apiRequest('POST', '/api/planner/parse-llm-content', {
+                  pastedContent: base64Image,
+                  contentType: 'image',
+                  precedingContext
                 });
 
-                setParsedLLMContent(response.parsed);
+                const data = await response.json();
+                setParsedLLMContent(data.parsed);
                 setShowParsedContent(true);
                 // Clear the typed text since it's now part of the context
                 setText('');
@@ -434,13 +432,14 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     const pastedText = e.clipboardData.getData('text');
     if (!pastedText) return;
 
+    const numberedItems = pastedText.match(/\d+\./g);
     const looksLikeLLMContent =
       pastedText.length > 200 &&
       (pastedText.includes('Step') ||
        pastedText.includes('1.') ||
        pastedText.includes('**') ||
        pastedText.includes('###') ||
-       pastedText.match(/\d+\./g)?.length >= 3);
+       (numberedItems && numberedItems.length >= 3));
 
     if (looksLikeLLMContent) {
       e.preventDefault();
@@ -458,16 +457,14 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           ? `User's context: ${userTypedContext}\n\n${chatContext}`
           : chatContext;
 
-        const response = await apiRequest('/api/planner/parse-llm-content', {
-          method: 'POST',
-          body: {
-            pastedContent: pastedText,
-            contentType: 'text',
-            precedingContext
-          }
+        const response = await apiRequest('POST', '/api/planner/parse-llm-content', {
+          pastedContent: pastedText,
+          contentType: 'text',
+          precedingContext
         });
 
-        setParsedLLMContent(response.parsed);
+        const data = await response.json();
+        setParsedLLMContent(data.parsed);
         setShowParsedContent(true);
         // Clear the typed text since it's now part of the context
         setText('');
@@ -490,16 +487,14 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       if (!parsedLLMContent) return;
 
       // Re-analyze with modifications
-      const response = await apiRequest('/api/planner/parse-llm-content', {
-        method: 'POST',
-        body: {
-          pastedContent: JSON.stringify(parsedLLMContent),
-          contentType: 'text',
-          precedingContext: `User's modifications: ${modifications}\n\nOriginal parsed content needs to be refined based on these changes.`
-        }
+      const response = await apiRequest('POST', '/api/planner/parse-llm-content', {
+        pastedContent: JSON.stringify(parsedLLMContent),
+        contentType: 'text',
+        precedingContext: `User's modifications: ${modifications}\n\nOriginal parsed content needs to be refined based on these changes.`
       });
 
-      return response.parsed;
+      const data = await response.json();
+      return data.parsed;
     },
     onSuccess: (refinedContent) => {
       setParsedLLMContent(refinedContent);
@@ -523,13 +518,10 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     mutationFn: async () => {
       if (!parsedLLMContent) return;
 
-      const activityResponse = await apiRequest('/api/activities', {
-        method: 'POST',
-        body: {
-          ...parsedLLMContent.activity,
-          status: 'planning',
-          tags: [parsedLLMContent.activity.category]
-        }
+      const activityResponse = await apiRequest('POST', '/api/activities', {
+        ...parsedLLMContent.activity,
+        status: 'planning',
+        tags: [parsedLLMContent.activity.category]
       });
 
       const activity = await activityResponse.json();
@@ -541,10 +533,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
 
       await Promise.all(
         tasksWithActivity.map((task: any) =>
-          apiRequest('/api/tasks', {
-            method: 'POST',
-            body: task
-          })
+          apiRequest('POST', '/api/tasks', task)
         )
       );
 
