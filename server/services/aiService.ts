@@ -646,12 +646,14 @@ ${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}`
         ? `You are analyzing an image that was pasted by the user (likely a screenshot of an LLM conversation, a to-do list, a plan, or instructional content).
 The user wants to turn this into an actionable activity with specific tasks in their planning app.
 
-${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ''}The image has been provided. Please analyze it and extract actionable information.${prioritiesContext}`
+${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ''}The image has been provided. Please analyze it and extract actionable information.${prioritiesContext}
+
+Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:`
         : `You are analyzing content that was copied from another LLM conversation (like ChatGPT, Claude, Perplexity, etc.).
 The user wants to turn this into an actionable activity with specific tasks in their planning app.
 
 ${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ''}Pasted LLM Content:
-${pastedContent}${prioritiesContext}`
+${pastedContent}${prioritiesContext}
 
 Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
 {
