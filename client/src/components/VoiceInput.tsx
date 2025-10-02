@@ -101,6 +101,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const [isParsingPaste, setIsParsingPaste] = useState(false);
   const [showParsedContent, setShowParsedContent] = useState(false);
   const [parsedLLMContent, setParsedLLMContent] = useState<any>(null);
+  const [modificationText, setModificationText] = useState('');
 
   const recognitionRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -379,10 +380,16 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
               try {
                 const base64Image = event.target?.result as string;
 
-                const precedingContext = chatMessages
+                // Combine current input text with chat history for context
+                const userTypedContext = text.trim();
+                const chatContext = chatMessages
                   .slice(-3)
                   .map(msg => `${msg.role}: ${msg.content}`)
                   .join('\n');
+
+                const precedingContext = userTypedContext
+                  ? `User's context: ${userTypedContext}\n\n${chatContext}`
+                  : chatContext;
 
                 const response = await apiRequest('/api/planner/parse-llm-content', {
                   method: 'POST',
@@ -395,6 +402,8 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
 
                 setParsedLLMContent(response.parsed);
                 setShowParsedContent(true);
+                // Clear the typed text since it's now part of the context
+                setText('');
               } catch (error) {
                 console.error('Failed to parse image:', error);
                 toast({
@@ -438,10 +447,16 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       setIsParsingPaste(true);
 
       try {
-        const precedingContext = chatMessages
+        // Combine current input text with chat history for full context
+        const userTypedContext = text.trim();
+        const chatContext = chatMessages
           .slice(-3)
           .map(msg => `${msg.role}: ${msg.content}`)
           .join('\n');
+
+        const precedingContext = userTypedContext
+          ? `User's context: ${userTypedContext}\n\n${chatContext}`
+          : chatContext;
 
         const response = await apiRequest('/api/planner/parse-llm-content', {
           method: 'POST',
@@ -454,6 +469,8 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
 
         setParsedLLMContent(response.parsed);
         setShowParsedContent(true);
+        // Clear the typed text since it's now part of the context
+        setText('');
       } catch (error) {
         console.error('Failed to parse LLM content:', error);
         toast({
@@ -467,6 +484,40 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       }
     }
   };
+
+  const handleRefineParsedContent = useMutation({
+    mutationFn: async (modifications: string) => {
+      if (!parsedLLMContent) return;
+
+      // Re-analyze with modifications
+      const response = await apiRequest('/api/planner/parse-llm-content', {
+        method: 'POST',
+        body: {
+          pastedContent: JSON.stringify(parsedLLMContent),
+          contentType: 'text',
+          precedingContext: `User's modifications: ${modifications}\n\nOriginal parsed content needs to be refined based on these changes.`
+        }
+      });
+
+      return response.parsed;
+    },
+    onSuccess: (refinedContent) => {
+      setParsedLLMContent(refinedContent);
+      setModificationText('');
+      toast({
+        title: "Plan Refined!",
+        description: "Your modifications have been applied",
+      });
+    },
+    onError: (error) => {
+      console.error('Failed to refine content:', error);
+      toast({
+        title: "Refinement Error",
+        description: "Failed to apply modifications",
+        variant: "destructive"
+      });
+    }
+  });
 
   const handleConfirmParsedContent = useMutation({
     mutationFn: async () => {
@@ -502,6 +553,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     onSuccess: () => {
       setShowParsedContent(false);
       setParsedLLMContent(null);
+      setModificationText('');
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       toast({
@@ -977,12 +1029,41 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
             </div>
           )}
 
+          {/* Modification Input */}
+          <div className="border-t pt-4">
+            <div className="space-y-2">
+              <label htmlFor="modification-input" className="text-sm font-medium">
+                Want to refine this plan?
+              </label>
+              <Textarea
+                id="modification-input"
+                value={modificationText}
+                onChange={(e) => setModificationText(e.target.value)}
+                placeholder='e.g., "make it for next week instead" or "add more detail to the documentation task"'
+                className="min-h-[60px]"
+                disabled={handleRefineParsedContent.isPending}
+              />
+              {modificationText.trim() && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleRefineParsedContent.mutate(modificationText)}
+                  disabled={handleRefineParsedContent.isPending}
+                  className="w-full"
+                >
+                  {handleRefineParsedContent.isPending ? "Refining..." : "✨ Refine Plan"}
+                </Button>
+              )}
+            </div>
+          </div>
+
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
               onClick={() => {
                 setShowParsedContent(false);
                 setParsedLLMContent(null);
+                setModificationText('');
               }}
               disabled={handleConfirmParsedContent.isPending}
             >
