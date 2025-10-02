@@ -76,6 +76,149 @@ export class UniversalPlanningAgent {
   }
 
   /**
+   * Detect if message looks like a pasted conversation with numbered steps
+   */
+  private detectPastedConversation(message: string): { isPasted: boolean; steps: string[] } {
+    // Check if message has multiple numbered steps (like "1.", "2.", etc.)
+    const numberedStepsRegex = /(?:^|\n)\s*(?:(?:\d+\.|[™️©️🔐🧠])\s*(?:\d+\.|™️|©️|🔐|🧠)?\s*(.+?)(?=\n|$))/gm;
+    const matches = [...message.matchAll(numberedStepsRegex)];
+    
+    // Check for emoji-prefixed steps (like 🔐, 🧠, etc.)
+    const emojiStepsRegex = /(?:^|\n)\s*[🔐🧠™️©️🧪🧾]\s*\d+\.\s*(.+?)(?=\n|$)/gm;
+    const emojiMatches = [...message.matchAll(emojiStepsRegex)];
+    
+    const isPasted = (matches.length >= 3 || emojiMatches.length >= 3) && message.split('\n').length > 5;
+    
+    if (isPasted) {
+      // Extract step titles/descriptions
+      const steps: string[] = [];
+      
+      // Try to extract numbered steps first
+      const cleanedMessage = message.replace(/[™️©️🔐🧠🧪🧾]/g, '');
+      const lines = cleanedMessage.split('\n');
+      
+      for (const line of lines) {
+        // Match numbered items (1., 2., etc.)
+        const match = line.match(/^\s*\d+\.\s*(.+)/);
+        if (match && match[1]) {
+          const stepText = match[1].trim();
+          // Only include non-empty, meaningful steps
+          if (stepText.length > 5 && !stepText.match(/^(Step-by-Step|Steps?:|Here'?s|Perfect|Important|Note:)/i)) {
+            steps.push(stepText);
+          }
+        }
+      }
+      
+      return { isPasted: true, steps };
+    }
+    
+    return { isPasted: false, steps: [] };
+  }
+
+  /**
+   * Convert pasted conversation steps into a plan
+   */
+  private async convertPastedConversation(
+    steps: string[],
+    originalMessage: string,
+    userProfile: User
+  ): Promise<UniversalPlanningResponse> {
+    console.log('[PASTED CONVERSATION] Detected', steps.length, 'steps');
+    
+    // Use Claude to extract a title and organize the steps
+    const response = await anthropic.messages.create({
+      model: DEFAULT_CLAUDE_MODEL,
+      max_tokens: 2000,
+      messages: [{
+        role: 'user',
+        content: `The user pasted the following conversation with action steps. Extract a concise title for the overall plan and organize the steps:
+
+${originalMessage}
+
+Return a JSON object with:
+{
+  "title": "concise plan title (max 60 chars)",
+  "description": "brief summary (max 150 chars)",
+  "steps": [
+    {"title": "step title", "description": "step description", "priority": "high|medium|low"}
+  ]
+}
+
+Make sure each step has a clear, actionable title and helpful description.`
+      }]
+    });
+
+    // Fallback plan data in case parsing fails
+    const fallbackPlanData = {
+      title: "Action Plan from Pasted Conversation",
+      description: "Converted from pasted conversation",
+      steps: steps.slice(0, 10).map((step, i) => ({
+        title: step.slice(0, 80),
+        description: `Step ${i + 1}`,
+        priority: i < 3 ? 'high' : 'medium'
+      }))
+    };
+
+    let planData = fallbackPlanData;
+    
+    // Guard against non-text responses or empty content
+    if (response.content.length > 0 && response.content[0].type === 'text') {
+      const contentBlock = response.content[0];
+      try {
+        const jsonMatch = contentBlock.text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          // Validate that parsed data has required fields
+          if (parsed.title && parsed.steps && Array.isArray(parsed.steps)) {
+            planData = parsed;
+          }
+        }
+      } catch (e) {
+        console.warn('[PASTED CONVERSATION] JSON parsing failed, using fallback:', e);
+        // planData already set to fallbackPlanData
+      }
+    } else {
+      console.warn('[PASTED CONVERSATION] Non-text response, using fallback');
+    }
+
+    // Create enriched plan structure
+    const enrichedPlan = {
+      richContent: `# ${planData.title}\n\n${planData.description}\n\n` +
+        planData.steps.map((step: any, i: number) => 
+          `**${i + 1}. ${step.title}**\n${step.description || ''}`
+        ).join('\n\n'),
+      structuredData: {
+        activity: {
+          title: planData.title,
+          description: planData.description,
+          category: 'productivity'
+        },
+        tasks: planData.steps.map((step: any) => ({
+          title: step.title,
+          description: step.description || '',
+          priority: step.priority || 'medium'
+        }))
+      }
+    };
+
+    return {
+      message: enrichedPlan.richContent + "\n\n---\n\n**I've converted your pasted conversation into an action plan!**\n\n• Say **'yes'** or **'generate plan'** to create it\n• Say **'no'** if you want to make changes",
+      phase: 'confirming',
+      progress: { answered: steps.length, total: steps.length, percentage: 100 },
+      readyToGenerate: false,
+      planReady: false,
+      showGenerateButton: false,
+      enrichedPlan,
+      updatedSlots: { 
+        _generatedPlan: enrichedPlan, 
+        _planState: 'confirming',
+        _pastedConversation: true 
+      },
+      domain: 'productivity'
+    };
+  }
+
+  /**
    * Main entry point - process user request through 5-phase flow
    */
   async processUserRequest(
@@ -94,6 +237,18 @@ export class UniversalPlanningAgent {
     console.log('Current Slots:', JSON.stringify(currentSlots, null, 2));
 
     try {
+      // Check if this is a pasted conversation (first message only)
+      if (conversationHistory.length === 0) {
+        const pastedCheck = this.detectPastedConversation(userMessage);
+        if (pastedCheck.isPasted && pastedCheck.steps.length >= 3) {
+          console.log('[PASTED CONVERSATION] Converting to action plan');
+          return await this.convertPastedConversation(
+            pastedCheck.steps,
+            userMessage,
+            userProfile
+          );
+        }
+      }
       // PHASE 1: Recognize Context Switch
       const context = await this.recognizeContext(
         userMessage,
