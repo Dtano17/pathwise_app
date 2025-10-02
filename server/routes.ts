@@ -120,6 +120,69 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
     const userProfile = await storage.getUserProfile(userId);
     const userPriorities = await storage.getUserPriorities(userId);
 
+    // Check if we're awaiting plan confirmation
+    const awaitingConfirmation = session.externalContext?.awaitingPlanConfirmation;
+    
+    if (awaitingConfirmation) {
+      // User is responding to "Are you comfortable with this plan?"
+      const affirmativePattern = /^(yes|yeah|yep|sure|ok|okay|looks good|perfect|great|sounds good|i'm comfortable|that works|let's do it)/i;
+      const negativePattern = /^(no|nope|not really|not quite|i want to|i'd like to|can we|could we|change|add|modify)/i;
+      
+      if (affirmativePattern.test(message.trim())) {
+        // User confirmed - show Generate Plan button
+        const updatedContext = {
+          ...session.externalContext,
+          awaitingPlanConfirmation: false,
+          planConfirmed: true
+        };
+        
+        const updatedSession = await storage.updateLifestylePlannerSession(session.id, {
+          externalContext: updatedContext
+        }, userId);
+
+        // Don't re-run agent, just show the button with existing plan preview
+        // Extract the last AI message (plan preview) from conversation history
+        const lastAIMessage = session.conversationHistory?.slice().reverse().find((msg: any) => msg.role === 'assistant')?.content || '';
+        
+        return res.json({
+          message: "🎯 **Perfect!** Click \"Generate Plan\" to create your activity!",
+          planReady: true,
+          sessionId: session.id,
+          showCreatePlanButton: true,
+          showGenerateButton: true,
+          session: updatedSession
+        });
+      } else if (negativePattern.test(message.trim()) || message.toLowerCase().includes('change') || message.toLowerCase().includes('add')) {
+        // User wants to make changes - continue gathering info
+        const updatedContext = {
+          ...session.externalContext,
+          awaitingPlanConfirmation: false,
+          planConfirmed: false
+        };
+        
+        await storage.updateLifestylePlannerSession(session.id, {
+          externalContext: updatedContext
+        }, userId);
+
+        // Process their change request
+        const response = await lifestylePlannerAgent.processMessage(
+          message,
+          session,
+          userProfile,
+          'smart'
+        );
+
+        return res.json({
+          message: response.message,
+          sessionId: session.id,
+          contextChips: response.contextChips || [],
+          planReady: false,
+          session
+        });
+      }
+      // If unclear response, treat as wanting to make changes/continue conversation
+    }
+
     // Check for help intent - if user asks about what the modes do
     const helpIntentPattern = /what.*do(es)?.*it.*do|how.*work|difference.*(quick|smart)|what.*is.*smart.*plan|what.*is.*quick.*plan|explain.*mode|help.*understand/i;
     if (helpIntentPattern.test(message)) {
@@ -290,19 +353,42 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
 
     // Check if plan is ready for confirmation (using either old or new flag names)
     if (response.readyToGenerate || response.planReady || response.showGenerateButton) {
-      // Update session state to confirming
-      await storage.updateLifestylePlannerSession(session.id, {
-        sessionState: 'confirming'
-      }, userId);
+      // Check if plan is already confirmed
+      const planConfirmed = session.externalContext?.planConfirmed;
+      const awaitingConfirmation = session.externalContext?.awaitingPlanConfirmation;
+      
+      if (planConfirmed) {
+        // Plan already confirmed - show Generate Plan button immediately
+        return res.json({
+          message: response.message,
+          planReady: true,
+          sessionId: session.id,
+          showCreatePlanButton: true,
+          showGenerateButton: true,
+          session
+        });
+      } else if (!awaitingConfirmation) {
+        // First time plan is ready - ask for confirmation
+        const updatedContext = {
+          ...session.externalContext,
+          awaitingPlanConfirmation: true,
+          planConfirmed: false
+        };
+        
+        await storage.updateLifestylePlannerSession(session.id, {
+          sessionState: 'confirming',
+          externalContext: updatedContext
+        }, userId);
 
-      return res.json({
-        message: response.message,
-        planReady: true,
-        sessionId: session.id,
-        showCreatePlanButton: true,
-        showGenerateButton: true,
-        session
-      });
+        return res.json({
+          message: response.message + "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)",
+          planReady: false, // Don't show button yet
+          sessionId: session.id,
+          showCreatePlanButton: false, // Don't show button until confirmed
+          session
+        });
+      }
+      // If awaitingConfirmation is true but not confirmed yet, fall through to normal response
     }
 
     // If user confirmed, create the activity
@@ -1647,6 +1733,64 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
     // Get user profile for personalized questions
     const userProfile = await storage.getUserProfile(userId);
 
+    // Check if we're awaiting plan confirmation (same as Smart Plan)
+    const awaitingConfirmation = session.externalContext?.awaitingPlanConfirmation;
+    
+    if (awaitingConfirmation) {
+      // User is responding to "Are you comfortable with this plan?"
+      const affirmativePattern = /^(yes|yeah|yep|sure|ok|okay|looks good|perfect|great|sounds good|i'm comfortable|that works|let's do it)/i;
+      const negativePattern = /^(no|nope|not really|not quite|i want to|i'd like to|can we|could we|change|add|modify)/i;
+      
+      if (affirmativePattern.test(message.trim())) {
+        // User confirmed - show Generate Plan button
+        const updatedContext = {
+          ...session.externalContext,
+          awaitingPlanConfirmation: false,
+          planConfirmed: true
+        };
+        
+        const updatedSession = await storage.updateLifestylePlannerSession(session.id, {
+          externalContext: updatedContext
+        }, userId);
+
+        // Don't re-run agent, just show the button
+        return res.json({
+          message: "⚡ **Perfect!** Click \"Generate Plan\" to create your activity instantly!",
+          planReady: true,
+          sessionId: session.id,
+          showCreatePlanButton: true,
+          session: updatedSession
+        });
+      } else if (negativePattern.test(message.trim()) || message.toLowerCase().includes('change') || message.toLowerCase().includes('add')) {
+        // User wants to make changes - continue gathering info
+        const updatedContext = {
+          ...session.externalContext,
+          awaitingPlanConfirmation: false,
+          planConfirmed: false
+        };
+        
+        await storage.updateLifestylePlannerSession(session.id, {
+          externalContext: updatedContext
+        }, userId);
+
+        // Process their change request
+        const response = await lifestylePlannerAgent.processMessage(
+          message,
+          session,
+          userProfile,
+          'quick'
+        );
+
+        return res.json({
+          message: response.message,
+          sessionId: session.id,
+          planReady: false,
+          session
+        });
+      }
+      // If unclear response, treat as wanting to make changes/continue conversation
+    }
+
     // Check for help intent - same as Smart Plan
     const helpIntentPattern = /what.*do(es)?.*it.*do|how.*work|difference.*(quick|smart)|what.*is.*smart.*plan|what.*is.*quick.*plan|explain.*mode|help.*understand/i;
     if (helpIntentPattern.test(message)) {
@@ -1814,18 +1958,41 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
 
     // Check if plan is ready for confirmation
     if (response.readyToGenerate || response.planReady) {
-      // Update session state to confirming
-      await storage.updateLifestylePlannerSession(session.id, {
-        sessionState: 'confirming'
-      }, userId);
+      // Check if plan is already confirmed
+      const planConfirmed = session.externalContext?.planConfirmed;
+      const awaitingConfirmation = session.externalContext?.awaitingPlanConfirmation;
       
-      return res.json({
-        message: response.message + "\n\n⚡ **Ready for Quick Plan?** Click \"Create Plan\" to generate your activity instantly!",
-        planReady: true,
-        sessionId: session.id,
-        showCreatePlanButton: true,
-        session
-      });
+      if (planConfirmed) {
+        // Plan already confirmed - show Generate Plan button immediately
+        return res.json({
+          message: response.message,
+          planReady: true,
+          sessionId: session.id,
+          showCreatePlanButton: true,
+          session
+        });
+      } else if (!awaitingConfirmation) {
+        // First time plan is ready - ask for confirmation
+        const updatedContext = {
+          ...session.externalContext,
+          awaitingPlanConfirmation: true,
+          planConfirmed: false
+        };
+        
+        await storage.updateLifestylePlannerSession(session.id, {
+          sessionState: 'confirming',
+          externalContext: updatedContext
+        }, userId);
+
+        return res.json({
+          message: response.message + "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)",
+          planReady: false, // Don't show button yet
+          sessionId: session.id,
+          showCreatePlanButton: false, // Don't show button until confirmed
+          session
+        });
+      }
+      // If awaitingConfirmation is true but not confirmed yet, fall through to normal response
     }
 
     // Return conversational response
