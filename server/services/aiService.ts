@@ -646,12 +646,43 @@ ${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}`
         ? `You are analyzing an image that was pasted by the user (likely a screenshot of an LLM conversation, a to-do list, a plan, or instructional content).
 The user wants to turn this into an actionable activity with specific tasks in their planning app.
 
-${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ''}The image has been provided. Please analyze it and extract actionable information.${prioritiesContext}`
+${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ''}The image has been provided. Please analyze it and extract actionable information.${prioritiesContext}
+
+Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
+{
+  "activity": {
+    "title": "Clear, concise title for the overall activity/goal",
+    "description": "Brief description of what this activity is about",
+    "category": "Category (e.g., Work, Personal, Health, Learning, etc.)"
+  },
+  "tasks": [
+    {
+      "title": "Specific, actionable task title",
+      "description": "Detailed description of what to do",
+      "category": "Category name",
+      "priority": "high|medium|low",
+      "dueDate": null
+    }
+  ],
+  "summary": "Brief summary of the overall plan",
+  "estimatedTimeframe": "Realistic timeframe to complete everything",
+  "motivationalNote": "Encouraging note to help the user get started"
+}
+
+Guidelines:
+- Break down the pasted content into 3-8 actionable tasks
+- Extract the main themes, steps, or action items from the LLM response
+- If it's a step-by-step guide, convert each major step into a task
+- If it's advice or recommendations, convert them into actionable tasks
+- Make tasks specific, measurable, and achievable
+- Use the preceding context to understand the user's intent
+- Create a cohesive activity title that captures the essence
+- Add helpful descriptions that include key information from the LLM response`
         : `You are analyzing content that was copied from another LLM conversation (like ChatGPT, Claude, Perplexity, etc.).
 The user wants to turn this into an actionable activity with specific tasks in their planning app.
 
 ${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ''}Pasted LLM Content:
-${pastedContent}${prioritiesContext}`
+${pastedContent}${prioritiesContext}
 
 Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
 {
