@@ -79,50 +79,37 @@ export class UniversalPlanningAgent {
    * Detect if message looks like a pasted conversation with numbered steps
    */
   private detectPastedConversation(message: string): { isPasted: boolean; steps: string[] } {
-    const steps: string[] = [];
+    // Check if message has multiple numbered steps (like "1.", "2.", etc.)
+    const numberedStepsRegex = /(?:^|\n)\s*(?:(?:\d+\.|[™️©️🔐🧠])\s*(?:\d+\.|™️|©️|🔐|🧠)?\s*(.+?)(?=\n|$))/gm;
+    const matches = [...message.matchAll(numberedStepsRegex)];
     
-    // Method 1: Check for numbered steps on separate lines (original format)
-    const lineBasedSteps = /(?:^|\n)\s*\d+\.\s*(.+?)(?=\n|$)/gm;
-    const lineMatches = [...message.matchAll(lineBasedSteps)];
+    // Check for emoji-prefixed steps (like 🔐, 🧠, etc.)
+    const emojiStepsRegex = /(?:^|\n)\s*[🔐🧠™️©️🧪🧾]\s*\d+\.\s*(.+?)(?=\n|$)/gm;
+    const emojiMatches = [...message.matchAll(emojiStepsRegex)];
     
-    // Method 2: Check for numbered steps in continuous text (emoji or space-separated)
-    // Matches patterns like "🧠 1. Document" or "1. Document" anywhere in text
-    const inlineStepsRegex = /[🔐🧠™️©️🧪🧾🔧📋💡]?\s*\d+\.\s*([A-Z][^.!?]*(?:[.!?]|(?=\s*\d+\.|$)))/g;
-    const inlineMatches = [...message.matchAll(inlineStepsRegex)];
-    
-    // Determine if this looks like a pasted conversation
-    const hasMultipleSteps = lineMatches.length >= 3 || inlineMatches.length >= 3;
-    const hasLongText = message.length > 200;
-    const hasKeywords = /step|plan|action|workflow|process|guide/i.test(message);
-    
-    const isPasted = hasMultipleSteps && (hasLongText || hasKeywords);
+    const isPasted = (matches.length >= 3 || emojiMatches.length >= 3) && message.split('\n').length > 5;
     
     if (isPasted) {
-      // Extract from line-based matches first
-      for (const match of lineMatches) {
-        if (match[1]) {
+      // Extract step titles/descriptions
+      const steps: string[] = [];
+      
+      // Try to extract numbered steps first
+      const cleanedMessage = message.replace(/[™️©️🔐🧠🧪🧾]/g, '');
+      const lines = cleanedMessage.split('\n');
+      
+      for (const line of lines) {
+        // Match numbered items (1., 2., etc.)
+        const match = line.match(/^\s*\d+\.\s*(.+)/);
+        if (match && match[1]) {
           const stepText = match[1].trim();
+          // Only include non-empty, meaningful steps
           if (stepText.length > 5 && !stepText.match(/^(Step-by-Step|Steps?:|Here'?s|Perfect|Important|Note:)/i)) {
             steps.push(stepText);
           }
         }
       }
       
-      // If no line-based steps, try inline steps
-      if (steps.length === 0 && inlineMatches.length >= 3) {
-        for (const match of inlineMatches) {
-          if (match[1]) {
-            let stepText = match[1].trim();
-            // Clean up the step text
-            stepText = stepText.replace(/\s*Steps?:?\s*-?\s*/g, '').trim();
-            if (stepText.length > 10 && !stepText.match(/^(Step-by-Step|Here'?s|Perfect|Important|Note:)/i)) {
-              steps.push(stepText);
-            }
-          }
-        }
-      }
-      
-      return { isPasted: true, steps: steps.slice(0, 15) }; // Limit to 15 steps max
+      return { isPasted: true, steps };
     }
     
     return { isPasted: false, steps: [] };

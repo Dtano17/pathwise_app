@@ -2687,37 +2687,6 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
-  // Parse pasted LLM content into actionable tasks
-  app.post("/api/planner/parse-llm-content", isAuthenticatedGeneric, async (req, res) => {
-    try {
-      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
-      const { pastedContent, precedingContext, contentType } = req.body;
-
-      if (!pastedContent || typeof pastedContent !== 'string') {
-        return res.status(400).json({ error: 'Pasted content is required' });
-      }
-
-      // Validate contentType
-      const validContentType = contentType === 'image' ? 'image' : 'text';
-
-      // Parse the LLM content into an activity with tasks (supports both text and images)
-      const parsed = await aiService.parsePastedLLMContent(
-        pastedContent,
-        precedingContext || '',
-        userId,
-        validContentType
-      );
-
-      res.json({
-        success: true,
-        parsed
-      });
-    } catch (error) {
-      console.error('Error parsing LLM content:', error);
-      res.status(500).json({ error: 'Failed to parse LLM content' });
-    }
-  });
-
   // Get specific session
   app.get("/api/planner/session/:sessionId", isAuthenticatedGeneric, async (req, res) => {
     try {
