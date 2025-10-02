@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Mic, MicOff, Send, User, Bot } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Mic, MicOff, Send, User, Bot, Sparkles, Target, ListTodo, CheckCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 interface ChatMessage {
@@ -26,9 +28,13 @@ export default function LiveChatInterface({
   const [conversation, setConversation] = useState<ChatMessage[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [showParsedContent, setShowParsedContent] = useState(false);
+  const [parsedLLMContent, setParsedLLMContent] = useState<any>(null);
+  const [isParsingPaste, setIsParsingPaste] = useState(false);
   const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -169,6 +175,171 @@ export default function LiveChatInterface({
     setMessage('');
   };
 
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    // Check for image data first
+    const items = e.clipboardData.items;
+    let hasImage = false;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        hasImage = true;
+        e.preventDefault();
+
+        const file = items[i].getAsFile();
+        if (file) {
+          setIsParsingPaste(true);
+          try {
+            // Convert image to base64
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+              try {
+                const base64Image = event.target?.result as string;
+
+                // Get preceding conversation context
+                const precedingContext = conversation
+                  .slice(-3)
+                  .map(msg => `${msg.role}: ${msg.content}`)
+                  .join('\n');
+
+                // Call the parsing API with image
+                const response = await apiRequest('/api/planner/parse-llm-content', {
+                  method: 'POST',
+                  body: {
+                    pastedContent: base64Image,
+                    contentType: 'image',
+                    precedingContext
+                  }
+                });
+
+                setParsedLLMContent(response.parsed);
+                setShowParsedContent(true);
+              } catch (error) {
+                console.error('Failed to parse image:', error);
+                toast({
+                  title: "Image Parse Error",
+                  description: "Couldn't analyze the pasted image. Please try again.",
+                  variant: "destructive"
+                });
+              } finally {
+                setIsParsingPaste(false);
+              }
+            };
+            reader.readAsDataURL(file);
+          } catch (error) {
+            console.error('Failed to read image:', error);
+            toast({
+              title: "Image Read Error",
+              description: "Couldn't read the pasted image.",
+              variant: "destructive"
+            });
+            setIsParsingPaste(false);
+          }
+        }
+        return;
+      }
+    }
+
+    // Handle text paste
+    const pastedText = e.clipboardData.getData('text');
+    if (!pastedText) return;
+
+    // Check if this looks like LLM-generated content
+    const looksLikeLLMContent =
+      pastedText.length > 200 &&
+      (pastedText.includes('Step') ||
+       pastedText.includes('1.') ||
+       pastedText.includes('**') ||
+       pastedText.includes('###') ||
+       pastedText.match(/\d+\./g)?.length >= 3);
+
+    if (looksLikeLLMContent) {
+      e.preventDefault();
+      setIsParsingPaste(true);
+
+      try {
+        // Get preceding conversation context
+        const precedingContext = conversation
+          .slice(-3)
+          .map(msg => `${msg.role}: ${msg.content}`)
+          .join('\n');
+
+        // Call the parsing API
+        const response = await apiRequest('/api/planner/parse-llm-content', {
+          method: 'POST',
+          body: {
+            pastedContent: pastedText,
+            contentType: 'text',
+            precedingContext
+          }
+        });
+
+        setParsedLLMContent(response.parsed);
+        setShowParsedContent(true);
+      } catch (error) {
+        console.error('Failed to parse LLM content:', error);
+        toast({
+          title: "Paste Error",
+          description: "Couldn't parse the pasted content. It will be added as regular text.",
+          variant: "destructive"
+        });
+        setMessage(prev => prev + pastedText);
+      } finally {
+        setIsParsingPaste(false);
+      }
+    }
+  };
+
+  const handleConfirmParsedContent = useMutation({
+    mutationFn: async () => {
+      if (!parsedLLMContent) return;
+
+      const activityResponse = await apiRequest('/api/activities', {
+        method: 'POST',
+        body: {
+          ...parsedLLMContent.activity,
+          status: 'planning',
+          tags: [parsedLLMContent.activity.category]
+        }
+      });
+
+      const activity = await activityResponse.json();
+
+      const tasksWithActivity = parsedLLMContent.tasks.map((task: any) => ({
+        ...task,
+        activityId: activity.id
+      }));
+
+      await Promise.all(
+        tasksWithActivity.map((task: any) =>
+          apiRequest('/api/tasks', {
+            method: 'POST',
+            body: task
+          })
+        )
+      );
+
+      return { activity, tasks: tasksWithActivity };
+    },
+    onSuccess: () => {
+      setShowParsedContent(false);
+      setParsedLLMContent(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      toast({
+        title: "Content Imported!",
+        description: "Your LLM content has been converted into an activity with tasks",
+      });
+    },
+    onError: (error) => {
+      console.error('Failed to create activity from parsed content:', error);
+      toast({
+        title: "Import Error",
+        description: "Failed to create activity from parsed content",
+        variant: "destructive"
+      });
+    }
+  });
+
   return (
     <div className="w-full h-full flex flex-col" data-testid="live-chat-interface">
       {/* Chat Messages */}
@@ -245,16 +416,25 @@ export default function LiveChatInterface({
       {/* Input Area */}
       <div className="border-t p-4 bg-background">
         <div className="flex gap-2">
-          <div className="flex-1">
+          <div className="flex-1 relative">
             <Textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyPress}
+              onPaste={handlePaste}
               placeholder={placeholder}
               className="min-h-[60px] max-h-[120px] resize-none"
-              disabled={chatMutation.isPending}
+              disabled={chatMutation.isPending || isParsingPaste}
               data-testid="input-chat-message"
             />
+            {isParsingPaste && (
+              <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex items-center justify-center rounded-md">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Sparkles className="h-4 w-4 animate-pulse" />
+                  <span>Analyzing pasted content...</span>
+                </div>
+              </div>
+            )}
           </div>
           
           <div className="flex flex-col gap-2">
@@ -301,6 +481,134 @@ export default function LiveChatInterface({
           </div>
         )}
       </div>
+
+      {/* Parsed LLM Content Dialog */}
+      <Dialog open={showParsedContent} onOpenChange={setShowParsedContent}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-500" />
+              LLM Content Parsed!
+            </DialogTitle>
+            <DialogDescription>
+              We've analyzed your pasted content and created an activity with tasks. Review and confirm to add to your dashboard.
+            </DialogDescription>
+          </DialogHeader>
+
+          {parsedLLMContent && (
+            <div className="space-y-4 py-4">
+              {/* Activity Preview */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Target className="h-5 w-5 text-emerald-500" />
+                        {parsedLLMContent.activity?.title || "New Activity"}
+                      </CardTitle>
+                      <Badge variant="outline" className="mt-2">
+                        {parsedLLMContent.activity?.category || "General"}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    {parsedLLMContent.activity?.description || "Activity description"}
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Tasks Preview */}
+              {parsedLLMContent.tasks && parsedLLMContent.tasks.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <ListTodo className="h-5 w-5 text-purple-500" />
+                      Tasks ({parsedLLMContent.tasks.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {parsedLLMContent.tasks.map((task: any, index: number) => (
+                        <div key={index} className="flex gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 flex items-center justify-center text-sm font-semibold">
+                            {index + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-medium text-sm">{task.title}</h4>
+                              <Badge variant="outline" className="text-xs">
+                                {task.priority || "medium"}
+                              </Badge>
+                            </div>
+                            {task.description && (
+                              <p className="text-xs text-slate-600 dark:text-slate-400">
+                                {task.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Summary & Additional Info */}
+              {(parsedLLMContent.summary || parsedLLMContent.estimatedTimeframe || parsedLLMContent.motivationalNote) && (
+                <Card>
+                  <CardContent className="pt-4 space-y-3">
+                    {parsedLLMContent.summary && (
+                      <div>
+                        <h4 className="font-semibold text-sm mb-1">Summary</h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">{parsedLLMContent.summary}</p>
+                      </div>
+                    )}
+                    {parsedLLMContent.estimatedTimeframe && (
+                      <div>
+                        <h4 className="font-semibold text-sm mb-1 flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          Estimated Time
+                        </h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">{parsedLLMContent.estimatedTimeframe}</p>
+                      </div>
+                    )}
+                    {parsedLLMContent.motivationalNote && (
+                      <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
+                        <p className="text-sm text-purple-800 dark:text-purple-200 italic">
+                          ✨ {parsedLLMContent.motivationalNote}
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowParsedContent(false);
+                setParsedLLMContent(null);
+              }}
+              disabled={handleConfirmParsedContent.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleConfirmParsedContent.mutate()}
+              disabled={handleConfirmParsedContent.isPending}
+              className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              {handleConfirmParsedContent.isPending ? "Creating..." : "Create Activity & Tasks"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
