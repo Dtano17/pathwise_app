@@ -1,18 +1,48 @@
-import { useState, useRef, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { queryClient, apiRequest } from '@/lib/queryClient';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useRef, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  Send,
+  Sparkles,
+  Clock,
+  MapPin,
+  Car,
+  Shirt,
+  Zap,
+  MessageCircle,
+  CheckCircle,
+  ArrowRight,
+  Brain,
+  ArrowLeft,
+  RefreshCcw,
+  Target,
+  ListTodo,
+  Eye,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface ConversationMessage {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   timestamp: string;
 }
@@ -20,13 +50,18 @@ interface ConversationMessage {
 interface ContextChip {
   label: string;
   value: string;
-  category: 'required' | 'optional';
+  category: "required" | "optional";
   filled: boolean;
 }
 
 interface PlannerSession {
   id: string;
-  sessionState: 'intake' | 'gathering' | 'confirming' | 'planning' | 'completed';
+  sessionState:
+    | "intake"
+    | "gathering"
+    | "confirming"
+    | "planning"
+    | "completed";
   conversationHistory: ConversationMessage[];
   slots: any;
   isComplete: boolean;
@@ -47,16 +82,20 @@ interface PlannerSession {
   };
 }
 
-type PlanningMode = 'quick' | 'chat' | null;
+type PlanningMode = "quick" | "chat" | null;
 
 interface ConversationalPlannerProps {
   onClose?: () => void;
 }
 
-export default function ConversationalPlanner({ onClose }: ConversationalPlannerProps) {
+export default function ConversationalPlanner({
+  onClose,
+}: ConversationalPlannerProps) {
   const { toast } = useToast();
-  const [currentSession, setCurrentSession] = useState<PlannerSession | null>(null);
-  const [message, setMessage] = useState('');
+  const [currentSession, setCurrentSession] = useState<PlannerSession | null>(
+    null,
+  );
+  const [message, setMessage] = useState("");
   const [contextChips, setContextChips] = useState<ContextChip[]>([]);
   const [planningMode, setPlanningMode] = useState<PlanningMode>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -68,9 +107,9 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
 
   // Load session from localStorage on mount
   useEffect(() => {
-    const savedSession = localStorage.getItem('planner_session');
-    const savedMode = localStorage.getItem('planner_mode');
-    const savedChips = localStorage.getItem('planner_chips');
+    const savedSession = localStorage.getItem("planner_session");
+    const savedMode = localStorage.getItem("planner_mode");
+    const savedChips = localStorage.getItem("planner_chips");
 
     if (savedSession && savedMode) {
       setCurrentSession(JSON.parse(savedSession));
@@ -84,32 +123,45 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
   // Save session to localStorage whenever it changes
   useEffect(() => {
     if (currentSession) {
-      localStorage.setItem('planner_session', JSON.stringify(currentSession));
+      localStorage.setItem("planner_session", JSON.stringify(currentSession));
     }
     if (planningMode) {
-      localStorage.setItem('planner_mode', planningMode);
+      localStorage.setItem("planner_mode", planningMode);
     }
     if (contextChips.length > 0) {
-      localStorage.setItem('planner_chips', JSON.stringify(contextChips));
+      localStorage.setItem("planner_chips", JSON.stringify(contextChips));
     }
   }, [currentSession, planningMode, contextChips]);
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [currentSession?.conversationHistory]);
 
   // Check for agreement in chat mode
   useEffect(() => {
-    if (planningMode === 'chat' && currentSession?.conversationHistory) {
+    if (planningMode === "chat" && currentSession?.conversationHistory) {
       const lastUserMessage = currentSession.conversationHistory
-        .filter(msg => msg.role === 'user')
-        .pop()?.content.toLowerCase();
-      
+        .filter((msg) => msg.role === "user")
+        .pop()
+        ?.content.toLowerCase();
+
       if (lastUserMessage) {
-        const agreementWords = ['yes', 'sounds good', 'perfect', 'great', 'looks good', 'that works', 'agree', 'confirmed', 'correct'];
-        const hasAgreement = agreementWords.some(word => lastUserMessage.includes(word));
-        
+        const agreementWords = [
+          "yes",
+          "sounds good",
+          "perfect",
+          "great",
+          "looks good",
+          "that works",
+          "agree",
+          "confirmed",
+          "correct",
+        ];
+        const hasAgreement = agreementWords.some((word) =>
+          lastUserMessage.includes(word),
+        );
+
         if (hasAgreement && canGeneratePlan && !currentSession.isComplete) {
           setShowAgreementPrompt(true);
         }
@@ -119,56 +171,60 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
 
   // Start new session
   const startSessionMutation = useMutation({
-    mutationFn: () => apiRequest('/api/planner/session', { method: 'POST' }),
+    mutationFn: () => apiRequest("/api/planner/session", { method: "POST" }),
     onSuccess: (data) => {
       setCurrentSession(data.session);
       setContextChips([]);
       setShowAgreementPrompt(false);
     },
     onError: (error) => {
-      console.error('Failed to start session:', error);
-    }
+      console.error("Failed to start session:", error);
+    },
   });
 
   // Send message
   const sendMessageMutation = useMutation({
-    mutationFn: (messageData: { sessionId: string; message: string; mode?: string }) =>
-      apiRequest('/api/planner/message', {
-        method: 'POST',
-        body: messageData
+    mutationFn: (messageData: {
+      sessionId: string;
+      message: string;
+      mode?: string;
+    }) =>
+      apiRequest("/api/planner/message", {
+        method: "POST",
+        body: messageData,
       }),
     onSuccess: (data) => {
       setCurrentSession(data.session);
       setContextChips(data.contextChips || []);
-      setMessage('');
-      
+      setMessage("");
+
       // Handle plan creation with real task IDs
       if (data.createdTasks && data.activityCreated && data.planComplete) {
-        console.log('Plan created with real tasks:', data.createdTasks);
+        console.log("Plan created with real tasks:", data.createdTasks);
         // Invalidate queries to refresh tasks and activities with real data
-        queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
-        
+        queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+
         // Store the real task data for use in completion
         setPendingPlan({
           activity: data.activity,
           tasks: data.createdTasks,
-          planComplete: true
+          planComplete: true,
         });
       }
     },
     onError: (error) => {
-      console.error('Failed to send message:', error);
-    }
+      console.error("Failed to send message:", error);
+    },
   });
 
   // Get plan preview before generation
   const previewPlanMutation = useMutation({
     mutationFn: (sessionId: string) =>
-      apiRequest('/api/planner/preview', {
-        method: 'POST',
-        body: { sessionId }
+      apiRequest("/api/planner/preview", {
+        method: "POST",
+        body: { sessionId },
       }),
     onSuccess: (data) => {
       setPendingPlan(data.planPreview);
@@ -176,22 +232,23 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
       setIsGenerating(false);
     },
     onError: (error) => {
-      console.error('Failed to preview plan:', error);
+      console.error("Failed to preview plan:", error);
       setIsGenerating(false);
       toast({
         title: "Preview Error",
-        description: error instanceof Error ? error.message : "Failed to preview plan",
-        variant: "destructive"
+        description:
+          error instanceof Error ? error.message : "Failed to preview plan",
+        variant: "destructive",
       });
-    }
+    },
   });
 
   // Generate plan (after confirmation)
   const generatePlanMutation = useMutation({
     mutationFn: (sessionId: string) =>
-      apiRequest('/api/planner/generate', {
-        method: 'POST',
-        body: { sessionId }
+      apiRequest("/api/planner/generate", {
+        method: "POST",
+        body: { sessionId },
       }),
     onSuccess: (data) => {
       setCurrentSession(data.session);
@@ -199,23 +256,25 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
       setShowAgreementPrompt(false);
       setShowPlanConfirmation(false);
       setShowPlanDetails(true);
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
       toast({
         title: "Plan Created!",
-        description: "Your activity and tasks have been added to your dashboard",
+        description:
+          "Your activity and tasks have been added to your dashboard",
       });
     },
     onError: (error) => {
-      console.error('Failed to generate plan:', error);
+      console.error("Failed to generate plan:", error);
       setIsGenerating(false);
       toast({
         title: "Generation Error",
-        description: error instanceof Error ? error.message : "Failed to generate plan",
-        variant: "destructive"
+        description:
+          error instanceof Error ? error.message : "Failed to generate plan",
+        variant: "destructive",
       });
-    }
+    },
   });
 
   const handleModeSelect = (mode: PlanningMode) => {
@@ -225,11 +284,11 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
 
   const handleSendMessage = () => {
     if (!message.trim() || !currentSession) return;
-    
+
     sendMessageMutation.mutate({
       sessionId: currentSession.id,
       message: message.trim(),
-      mode: planningMode || undefined
+      mode: planningMode || undefined,
     });
   };
 
@@ -262,9 +321,9 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
   };
 
   const handleStartOver = () => {
-    localStorage.removeItem('planner_session');
-    localStorage.removeItem('planner_mode');
-    localStorage.removeItem('planner_chips');
+    localStorage.removeItem("planner_session");
+    localStorage.removeItem("planner_mode");
+    localStorage.removeItem("planner_chips");
     setCurrentSession(null);
     setPlanningMode(null);
     setContextChips([]);
@@ -284,7 +343,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -292,17 +351,28 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
 
   const getChipIcon = (label: string) => {
     switch (label.toLowerCase()) {
-      case 'time': return <Clock className="h-3 w-3" />;
-      case 'location': return <MapPin className="h-3 w-3" />;
-      case 'transport': return <Car className="h-3 w-3" />;
-      case 'outfit': return <Shirt className="h-3 w-3" />;
-      default: return <Sparkles className="h-3 w-3" />;
+      case "time":
+        return <Clock className="h-3 w-3" />;
+      case "location":
+        return <MapPin className="h-3 w-3" />;
+      case "transport":
+        return <Car className="h-3 w-3" />;
+      case "outfit":
+        return <Shirt className="h-3 w-3" />;
+      default:
+        return <Sparkles className="h-3 w-3" />;
     }
   };
 
-  const requiredSlotsFilled = contextChips.filter(chip => chip.category === 'required' && chip.filled).length;
-  const totalRequiredSlots = contextChips.filter(chip => chip.category === 'required').length;
-  const canGeneratePlan = totalRequiredSlots > 0 && requiredSlotsFilled >= Math.max(3, totalRequiredSlots - 1);
+  const requiredSlotsFilled = contextChips.filter(
+    (chip) => chip.category === "required" && chip.filled,
+  ).length;
+  const totalRequiredSlots = contextChips.filter(
+    (chip) => chip.category === "required",
+  ).length;
+  const canGeneratePlan =
+    totalRequiredSlots > 0 &&
+    requiredSlotsFilled >= Math.max(3, totalRequiredSlots - 1);
 
   // Mode selection screen
   if (!planningMode) {
@@ -317,12 +387,13 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
               How would you like to plan?
             </CardTitle>
             <p className="text-slate-600 dark:text-slate-400 mt-2">
-              Choose your planning style - quick and efficient, or smart and personalized
+              Choose your planning style - quick and efficient, or smart and
+              personalized
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button
-              onClick={() => handleModeSelect('quick')}
+              onClick={() => handleModeSelect("quick")}
               className="w-full h-20 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white border-none shadow-lg hover:shadow-xl transition-all"
               data-testid="button-quick-plan"
             >
@@ -333,7 +404,9 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                   </div>
                   <div className="text-left">
                     <div className="font-semibold text-lg">Quick Plan</div>
-                    <div className="text-sm opacity-90">Fast planning with minimal questions</div>
+                    <div className="text-sm opacity-90">
+                      Fast planning with minimal questions
+                    </div>
                   </div>
                 </div>
                 <ArrowRight className="h-5 w-5 opacity-70" />
@@ -341,7 +414,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
             </Button>
 
             <Button
-              onClick={() => handleModeSelect('chat')}
+              onClick={() => handleModeSelect("chat")}
               className="w-full h-20 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white border-none shadow-lg hover:shadow-xl transition-all"
               data-testid="button-smart-plan"
             >
@@ -352,7 +425,9 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                   </div>
                   <div className="text-left">
                     <div className="font-semibold text-lg">Smart Plan</div>
-                    <div className="text-sm opacity-90">Intuitive questions based on your profile</div>
+                    <div className="text-sm opacity-90">
+                      Intuitive questions based on your profile
+                    </div>
                   </div>
                 </div>
                 <ArrowRight className="h-5 w-5 opacity-70" />
@@ -382,22 +457,27 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                planningMode === 'quick' 
-                  ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900 dark:text-emerald-300'
-                  : 'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300'
-              }`}>
-                {planningMode === 'quick' ? <Zap className="h-4 w-4" /> : <Brain className="h-4 w-4" />}
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  planningMode === "quick"
+                    ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900 dark:text-emerald-300"
+                    : "bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300"
+                }`}
+              >
+                {planningMode === "quick" ? (
+                  <Zap className="h-4 w-4" />
+                ) : (
+                  <Brain className="h-4 w-4" />
+                )}
               </div>
               <div>
                 <h3 className="font-semibold">
-                  {planningMode === 'quick' ? 'Quick Plan' : 'Smart Plan'}
+                  {planningMode === "quick" ? "Quick Plan" : "Smart Plan"}
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                  {planningMode === 'quick' 
-                    ? 'Fast planning with smart suggestions'
-                    : 'Personalized questions and detailed recommendations'
-                  }
+                  {planningMode === "quick"
+                    ? "Fast planning with smart suggestions"
+                    : "Personalized questions and detailed recommendations"}
                 </p>
               </div>
             </div>
@@ -428,11 +508,11 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                   key={index}
                   variant={chip.filled ? "default" : "outline"}
                   className={`flex items-center gap-2 px-3 py-1 ${
-                    chip.category === 'required' 
-                      ? chip.filled 
-                        ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-100' 
-                        : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900 dark:text-amber-100'
-                      : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-100'
+                    chip.category === "required"
+                      ? chip.filled
+                        ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-100"
+                        : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900 dark:text-amber-100"
+                      : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-100"
                   }`}
                   data-testid={`chip-${chip.label.toLowerCase()}`}
                 >
@@ -442,14 +522,15 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                 </Badge>
               ))}
             </div>
-            
+
             {/* Generate Button Logic */}
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Context gathered: {requiredSlotsFilled}/{totalRequiredSlots} required
+                Context gathered: {requiredSlotsFilled}/{totalRequiredSlots}{" "}
+                required
               </p>
-              
-              {planningMode === 'quick' && canGeneratePlan && (
+
+              {planningMode === "quick" && canGeneratePlan && (
                 <Button
                   onClick={handleQuickGenerate}
                   disabled={isGenerating}
@@ -457,11 +538,11 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                   data-testid="button-quick-generate"
                 >
                   <Zap className="h-4 w-4 mr-2" />
-                  {isGenerating ? 'Generating...' : 'Quick Generate'}
+                  {isGenerating ? "Generating..." : "Quick Generate"}
                 </Button>
               )}
-              
-              {planningMode === 'chat' && showAgreementPrompt && (
+
+              {planningMode === "chat" && showAgreementPrompt && (
                 <Button
                   onClick={handleChatGenerate}
                   disabled={isGenerating}
@@ -469,7 +550,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                   data-testid="button-chat-generate"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  {isGenerating ? 'Generating...' : 'Generate Plan'}
+                  {isGenerating ? "Generating..." : "Generate Plan"}
                 </Button>
               )}
             </div>
@@ -484,21 +565,28 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
           <ScrollArea className="flex-1 p-4">
             {!currentSession ? (
               <div className="text-center py-12">
-                <div className={`h-16 w-16 mx-auto rounded-full flex items-center justify-center mb-4 ${
-                  planningMode === 'quick' 
-                    ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900 dark:text-emerald-300'
-                    : 'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300'
-                }`}>
-                  {planningMode === 'quick' ? <Zap className="h-8 w-8" /> : <Brain className="h-8 w-8" />}
+                <div
+                  className={`h-16 w-16 mx-auto rounded-full flex items-center justify-center mb-4 ${
+                    planningMode === "quick"
+                      ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900 dark:text-emerald-300"
+                      : "bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300"
+                  }`}
+                >
+                  {planningMode === "quick" ? (
+                    <Zap className="h-8 w-8" />
+                  ) : (
+                    <Brain className="h-8 w-8" />
+                  )}
                 </div>
                 <h3 className="text-xl font-semibold mb-2">
-                  {planningMode === 'quick' ? 'Quick Planning Ready!' : 'Smart Planning Ready!'}
+                  {planningMode === "quick"
+                    ? "Quick Planning Ready!"
+                    : "Smart Planning Ready!"}
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mb-6">
-                  {planningMode === 'quick'
-                    ? 'I\'ll ask a few key questions and generate your plan quickly.'
-                    : 'I\'ll ask intuitive questions based on your activity type and profile, then confirm before creating the perfect plan.'
-                  }
+                  {planningMode === "quick"
+                    ? "I'll ask a few key questions and generate your plan quickly."
+                    : "I'll ask intuitive questions based on your activity type and profile, then confirm before creating the perfect plan."}
                 </p>
               </div>
             ) : (
@@ -506,16 +594,16 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                 {currentSession.conversationHistory.map((msg, index) => (
                   <div
                     key={index}
-                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                     data-testid={`message-${msg.role}-${index}`}
                   >
                     <div
                       className={`max-w-[80%] p-4 rounded-xl ${
-                        msg.role === 'user'
-                          ? planningMode === 'quick'
-                            ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white'
-                            : 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
+                        msg.role === "user"
+                          ? planningMode === "quick"
+                            ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white"
+                            : "bg-gradient-to-r from-purple-500 to-indigo-500 text-white"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                       }`}
                     >
                       <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -525,18 +613,27 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                     </div>
                   </div>
                 ))}
-                
-                {(sendMessageMutation.isPending || generatePlanMutation.isPending) && (
+
+                {(sendMessageMutation.isPending ||
+                  generatePlanMutation.isPending) && (
                   <div className="flex justify-start">
                     <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-xl">
                       <div className="flex items-center space-x-2">
                         <div className="animate-pulse flex space-x-1">
                           <div className="h-2 w-2 bg-slate-400 rounded-full animate-bounce"></div>
-                          <div className="h-2 w-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                          <div className="h-2 w-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                          <div
+                            className="h-2 w-2 bg-slate-400 rounded-full animate-bounce"
+                            style={{ animationDelay: "0.1s" }}
+                          ></div>
+                          <div
+                            className="h-2 w-2 bg-slate-400 rounded-full animate-bounce"
+                            style={{ animationDelay: "0.2s" }}
+                          ></div>
                         </div>
                         <span className="text-sm text-slate-600 dark:text-slate-400">
-                          {isGenerating ? 'Generating your plan...' : 'Thinking...'}
+                          {isGenerating
+                            ? "Generating your plan..."
+                            : "Thinking..."}
                         </span>
                       </div>
                     </div>
@@ -557,7 +654,11 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder={planningMode === 'quick' ? "Tell me what you're planning... or paste a ChatGPT conversation!" : "Chat about your plans... or paste a ChatGPT conversation!"}
+                    placeholder={
+                      planningMode === "quick"
+                        ? "Tell me what you're planning... or paste a ChatGPT conversation!"
+                        : "Chat about your plans... or paste a ChatGPT conversation!"
+                    }
                     disabled={sendMessageMutation.isPending}
                     className="flex-1"
                     data-testid="input-message"
@@ -566,9 +667,10 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                     onClick={handleSendMessage}
                     disabled={!message.trim() || sendMessageMutation.isPending}
                     size="icon"
-                    className={planningMode === 'quick' 
-                      ? 'bg-emerald-500 hover:bg-emerald-600' 
-                      : 'bg-blue-500 hover:bg-blue-600'
+                    className={
+                      planningMode === "quick"
+                        ? "bg-emerald-500 hover:bg-emerald-600"
+                        : "bg-blue-500 hover:bg-blue-600"
                     }
                     data-testid="button-send-message"
                   >
@@ -578,7 +680,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
               </div>
             </>
           )}
-          
+
           {/* Action Buttons */}
           {currentSession && (
             <>
@@ -613,7 +715,10 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
       </Card>
 
       {/* Plan Confirmation Dialog */}
-      <Dialog open={showPlanConfirmation} onOpenChange={setShowPlanConfirmation}>
+      <Dialog
+        open={showPlanConfirmation}
+        onOpenChange={setShowPlanConfirmation}
+      >
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -621,7 +726,8 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
               Review Your Plan
             </DialogTitle>
             <DialogDescription>
-              Please review the proposed plan. You can accept it or request modifications.
+              Please review the proposed plan. You can accept it or request
+              modifications.
             </DialogDescription>
           </DialogHeader>
 
@@ -644,7 +750,8 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
-                    {pendingPlan.activity?.description || "Activity description will appear here"}
+                    {pendingPlan.activity?.description ||
+                      "Activity description will appear here"}
                   </p>
                 </CardContent>
               </Card>
@@ -661,13 +768,18 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                   <CardContent>
                     <div className="space-y-3">
                       {pendingPlan.tasks.map((task: any, index: number) => (
-                        <div key={index} className="flex gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                        <div
+                          key={index}
+                          className="flex gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50"
+                        >
                           <div className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 flex items-center justify-center text-sm font-semibold">
                             {index + 1}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-medium text-sm">{task.title}</h4>
+                              <h4 className="font-medium text-sm">
+                                {task.title}
+                              </h4>
                               <Badge variant="outline" className="text-xs">
                                 {task.priority || "medium"}
                               </Badge>
@@ -686,13 +798,17 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
               )}
 
               {/* Summary & Additional Info */}
-              {(pendingPlan.summary || pendingPlan.estimatedTimeframe || pendingPlan.motivationalNote) && (
+              {(pendingPlan.summary ||
+                pendingPlan.estimatedTimeframe ||
+                pendingPlan.motivationalNote) && (
                 <Card>
                   <CardContent className="pt-4 space-y-3">
                     {pendingPlan.summary && (
                       <div>
                         <h4 className="font-semibold text-sm mb-1">Summary</h4>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">{pendingPlan.summary}</p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          {pendingPlan.summary}
+                        </p>
                       </div>
                     )}
                     {pendingPlan.estimatedTimeframe && (
@@ -701,7 +817,9 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                           <Clock className="h-4 w-4" />
                           Estimated Time
                         </h4>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">{pendingPlan.estimatedTimeframe}</p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          {pendingPlan.estimatedTimeframe}
+                        </p>
                       </div>
                     )}
                     {pendingPlan.motivationalNote && (
@@ -755,15 +873,13 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
               <Target className="h-8 w-8 text-green-600 dark:text-green-300" />
             </div>
             <p className="text-slate-600 dark:text-slate-400 mb-4">
-              You can now view and manage your plan from the Activities tab or the home page.
+              You can now view and manage your plan from the Activities tab or
+              the home page.
             </p>
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowPlanDetails(false)}
-            >
+            <Button variant="outline" onClick={() => setShowPlanDetails(false)}>
               Continue Planning
             </Button>
             <Button
