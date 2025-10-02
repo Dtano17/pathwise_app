@@ -39,16 +39,20 @@ interface AppSidebarProps {
   onShowContacts?: () => void;
   onShowChatHistory?: () => void;
   onShowLifestylePlanner?: () => void;
+  onShowRecentGoals?: () => void;
+  onShowProgressReport?: () => void;
 }
 
-export function AppSidebar({ 
-  selectedTheme, 
-  onThemeSelect, 
+export function AppSidebar({
+  selectedTheme,
+  onThemeSelect,
   onShowThemeSelector,
   onShowDatePlanner,
   onShowContacts,
   onShowChatHistory,
-  onShowLifestylePlanner
+  onShowLifestylePlanner,
+  onShowRecentGoals,
+  onShowProgressReport
 }: AppSidebarProps) {
   const { user, isAuthenticated, isLoading, login, logout, isLoggingOut } = useAuth();
   const selectedThemeData = selectedTheme ? themes.find(t => t.id === selectedTheme) : null;
@@ -239,7 +243,7 @@ export function AppSidebar({
               <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton data-testid="button-recent-goals">
+                <SidebarMenuButton data-testid="button-recent-goals" onClick={onShowRecentGoals}>
                   <Clock className="w-4 h-4" />
                   <span>Recent Goals</span>
                 </SidebarMenuButton>
@@ -251,7 +255,7 @@ export function AppSidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton data-testid="button-completed-tasks">
+                <SidebarMenuButton data-testid="button-completed-tasks" onClick={onShowProgressReport}>
                   <BarChart3 className="w-4 h-4" />
                   <span>Progress Report</span>
                 </SidebarMenuButton>

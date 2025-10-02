@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Brain, MessageSquare, Clock, ExternalLink, Lightbulb, Sparkles } from 'lucide-react';
+import { Brain, MessageSquare, Clock, ExternalLink, Lightbulb, Sparkles, CheckCircle2, Target, ArrowRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ChatImport {
@@ -12,6 +12,13 @@ interface ChatImport {
   chatHistory: Array<{role: 'user' | 'assistant', content: string}>;
   extractedGoals: string[];
   createdAt: string;
+  relatedActivities?: Array<{
+    id: string;
+    title: string;
+    status: string;
+    completedTasks: number;
+    totalTasks: number;
+  }>;
 }
 
 const getSourceIcon = (source: string) => {
@@ -166,7 +173,42 @@ export default function ChatHistory() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-2">
+                {/* Related Activities */}
+                {chatImport.relatedActivities && chatImport.relatedActivities.length > 0 && (
+                  <div className="border-t pt-3 mt-3">
+                    <p className="text-sm font-medium mb-2 flex items-center gap-1">
+                      <Target className="w-4 h-4" />
+                      Created Activities ({chatImport.relatedActivities.length})
+                    </p>
+                    <div className="space-y-2">
+                      {chatImport.relatedActivities.map((activity) => (
+                        <div
+                          key={activity.id}
+                          className="flex items-center justify-between p-2 bg-muted/50 rounded-lg hover-elevate"
+                        >
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{activity.title}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="secondary" className="text-xs capitalize">
+                                {activity.status}
+                              </Badge>
+                              {activity.totalTasks > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  {activity.completedTasks}/{activity.totalTasks} tasks
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="sm">
+                            <ArrowRight className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-2 border-t mt-3">
                   <div className="text-xs text-muted-foreground">
                     {chatImport.chatHistory.length} messages total
                   </div>

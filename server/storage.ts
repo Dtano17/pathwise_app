@@ -30,6 +30,8 @@ import {
   type InsertExternalOAuthToken,
   type Contact,
   type InsertContact,
+  type ContactShare,
+  type InsertContactShare,
   type Activity,
   type InsertActivity,
   type ActivityTask,
@@ -54,6 +56,7 @@ import {
   authIdentities,
   externalOAuthTokens,
   contacts,
+  contactShares,
   activities,
   activityTasks,
   lifestylePlannerSessions,
@@ -979,6 +982,277 @@ export class DatabaseStorage implements IStorage {
   async deleteLifestylePlannerSession(sessionId: string, userId: string): Promise<void> {
     await db.delete(lifestylePlannerSessions)
       .where(and(eq(lifestylePlannerSessions.id, sessionId), eq(lifestylePlannerSessions.userId, userId)));
+  }
+
+  // NEW METHODS FOR SIDEBAR FEATURES
+
+  async getActivitiesWithProgress(userId: string, filters: { status?: string; category?: string; includeArchived?: boolean }) {
+    try {
+      const conditions = [eq(activities.userId, userId)];
+
+      if (filters.status) {
+        conditions.push(eq(activities.status, filters.status));
+      }
+
+      if (filters.category) {
+        conditions.push(eq(activities.category, filters.category));
+      }
+
+      if (!filters.includeArchived) {
+        conditions.push(eq(activities.archived, false));
+      }
+
+      const activitiesList = await db.select()
+        .from(activities)
+        .where(and(...conditions))
+        .orderBy(desc(activities.createdAt));
+
+      // Get task counts for each activity
+      const activitiesWithProgress = await Promise.all(
+        activitiesList.map(async (activity) => {
+          const activityTasksList = await db.select({
+            task: tasks,
+            activityTask: activityTasks
+          })
+            .from(activityTasks)
+            .innerJoin(tasks, eq(activityTasks.taskId, tasks.id))
+            .where(eq(activityTasks.activityId, activity.id));
+
+          const totalTasks = activityTasksList.length;
+          const completedTasks = activityTasksList.filter(at => at.task.completed).length;
+          const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+          return {
+            ...activity,
+            completedTasks,
+            totalTasks,
+            progressPercentage
+          };
+        })
+      );
+
+      return activitiesWithProgress;
+    } catch (error) {
+      console.error('[STORAGE] Error getting activities with progress:', error);
+      return [];
+    }
+  }
+
+  async getProgressStats(userId: string, days: number) {
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      // Get all activities for the user
+      const allActivities = await db.select()
+        .from(activities)
+        .where(eq(activities.userId, userId));
+
+      const completedActivities = allActivities.filter(a => a.status === 'completed');
+      const activeActivities = allActivities.filter(a => a.status === 'active');
+
+      const completionRate = allActivities.length > 0
+        ? Math.round((completedActivities.length / allActivities.length) * 100)
+        : 0;
+
+      // Category stats
+      const categoryMap = new Map<string, { completed: number; total: number }>();
+      allActivities.forEach(activity => {
+        const cat = activity.category || 'uncategorized';
+        if (!categoryMap.has(cat)) {
+          categoryMap.set(cat, { completed: 0, total: 0 });
+        }
+        const stats = categoryMap.get(cat)!;
+        stats.total++;
+        if (activity.status === 'completed') {
+          stats.completed++;
+        }
+      });
+
+      const categoryStats = Array.from(categoryMap.entries()).map(([name, stats]) => ({
+        name,
+        completed: stats.completed,
+        total: stats.total,
+        percentage: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0
+      }));
+
+      // Timeline data (last N days)
+      const timelineData: Array<{ date: string; completed: number; created: number }> = [];
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+
+        const completed = completedActivities.filter(a =>
+          a.completedAt && a.completedAt.toISOString().split('T')[0] === dateStr
+        ).length;
+
+        const created = allActivities.filter(a =>
+          a.createdAt.toISOString().split('T')[0] === dateStr
+        ).length;
+
+        timelineData.push({ date: dateStr, completed, created });
+      }
+
+      // Get all tasks
+      const allTasks = await db.select()
+        .from(tasks)
+        .where(eq(tasks.userId, userId));
+
+      const completedTasks = allTasks.filter(t => t.completed);
+
+      // Calculate streak
+      let currentStreak = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (let i = 0; i < 365; i++) {
+        const checkDate = new Date(today);
+        checkDate.setDate(checkDate.getDate() - i);
+        const dateStr = checkDate.toISOString().split('T')[0];
+
+        const hasActivity = completedTasks.some(t =>
+          t.completedAt && t.completedAt.toISOString().split('T')[0] === dateStr
+        );
+
+        if (hasActivity) {
+          currentStreak++;
+        } else if (i > 0) {
+          break;
+        }
+      }
+
+      // Milestones
+      const milestones: Array<{
+        id: string;
+        title: string;
+        description: string;
+        achievedAt: string;
+        type: string;
+      }> = [];
+
+      if (completedActivities.length >= 10) {
+        milestones.push({
+          id: 'milestone-10-activities',
+          title: '10 Activities Completed!',
+          description: `You've completed ${completedActivities.length} activities`,
+          achievedAt: new Date().toISOString(),
+          type: 'completion'
+        });
+      }
+
+      if (currentStreak >= 7) {
+        milestones.push({
+          id: 'milestone-7-day-streak',
+          title: '7-Day Streak!',
+          description: `You've been active for ${currentStreak} days in a row`,
+          achievedAt: new Date().toISOString(),
+          type: 'streak'
+        });
+      }
+
+      // Top rated activities
+      const topRatedActivities = completedActivities
+        .filter(a => a.rating && a.rating >= 4)
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .slice(0, 5)
+        .map(a => ({
+          id: a.id,
+          title: a.title,
+          rating: a.rating || 0,
+          category: a.category || 'uncategorized'
+        }));
+
+      const averageRating = completedActivities.filter(a => a.rating).length > 0
+        ? completedActivities.reduce((sum, a) => sum + (a.rating || 0), 0) / completedActivities.filter(a => a.rating).length
+        : 0;
+
+      return {
+        totalActivities: allActivities.length,
+        completedActivities: completedActivities.length,
+        activeActivities: activeActivities.length,
+        completionRate,
+        currentStreak,
+        longestStreak: currentStreak,
+        categoryStats,
+        timelineData,
+        milestones,
+        totalTasks: allTasks.length,
+        completedTasks: completedTasks.length,
+        taskCompletionRate: allTasks.length > 0 ? Math.round((completedTasks.length / allTasks.length) * 100) : 0,
+        averageRating,
+        topRatedActivities
+      };
+    } catch (error) {
+      console.error('[STORAGE] Error getting progress stats:', error);
+      throw error;
+    }
+  }
+
+  async getActivitiesByChatImportId(importId: string, userId: string) {
+    try {
+      // This would require adding a chatImportId field to activities table
+      // For now, return empty array as placeholder
+      // TODO: Add relationship between chat imports and activities
+      return [];
+    } catch (error) {
+      console.error('[STORAGE] Error getting activities by chat import:', error);
+      return [];
+    }
+  }
+
+  async createContactShare(shareData: {
+    contactId: string;
+    sharedBy: string;
+    shareType: string;
+    activityId?: string;
+    groupId?: string;
+    invitationMessage?: string;
+    status: string;
+  }) {
+    try {
+      const [share] = await db.insert(contactShares).values({
+        ...shareData,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+      }).returning();
+
+      return share;
+    } catch (error) {
+      console.error('[STORAGE] Error creating contact share:', error);
+      throw error;
+    }
+  }
+
+  async getContactsWithShareStatus(userId: string) {
+    try {
+      const userContacts = await db.select()
+        .from(contacts)
+        .where(eq(contacts.ownerUserId, userId));
+
+      const contactsWithStatus = await Promise.all(
+        userContacts.map(async (contact) => {
+          const shares = await db.select()
+            .from(contactShares)
+            .where(and(
+              eq(contactShares.contactId, contact.id),
+              eq(contactShares.sharedBy, userId)
+            ))
+            .orderBy(desc(contactShares.sharedAt));
+
+          return {
+            ...contact,
+            shares: shares || [],
+            hasActiveShare: shares.some(s => s.status === 'accepted'),
+            pendingInvitations: shares.filter(s => s.status === 'pending').length
+          };
+        })
+      );
+
+      return contactsWithStatus;
+    } catch (error) {
+      console.error('[STORAGE] Error getting contacts with share status:', error);
+      return [];
+    }
   }
 }
 

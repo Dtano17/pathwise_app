@@ -23,6 +23,8 @@ function AppContent() {
   const [showContacts, setShowContacts] = useState(false);
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [showLifestylePlanner, setShowLifestylePlanner] = useState(false);
+  const [showRecentGoals, setShowRecentGoals] = useState(false);
+  const [showProgressReport, setShowProgressReport] = useState(false);
 
   // Custom sidebar width for better content display
   const style = {
@@ -43,7 +45,7 @@ function AppContent() {
         <Route>
           <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
             <div className="flex h-screen w-full overflow-auto">
-              <AppSidebar 
+              <AppSidebar
                 selectedTheme={selectedTheme}
                 onThemeSelect={setSelectedTheme}
                 onShowThemeSelector={() => setShowThemeSelector(true)}
@@ -51,9 +53,11 @@ function AppContent() {
                 onShowContacts={() => setShowContacts(true)}
                 onShowChatHistory={() => setShowChatHistory(true)}
                 onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
+                onShowRecentGoals={() => setShowRecentGoals(true)}
+                onShowProgressReport={() => setShowProgressReport(true)}
               />
               <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-                <MainApp 
+                <MainApp
                   selectedTheme={selectedTheme}
                   onThemeSelect={setSelectedTheme}
                   showThemeSelector={showThemeSelector}
@@ -66,6 +70,10 @@ function AppContent() {
                   onShowChatHistory={setShowChatHistory}
                   showLifestylePlanner={showLifestylePlanner}
                   onShowLifestylePlanner={setShowLifestylePlanner}
+                  showRecentGoals={showRecentGoals}
+                  onShowRecentGoals={setShowRecentGoals}
+                  showProgressReport={showProgressReport}
+                  onShowProgressReport={setShowProgressReport}
                 />
               </div>
             </div>

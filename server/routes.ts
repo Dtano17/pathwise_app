@@ -880,6 +880,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // NEW ENDPOINTS FOR SIDEBAR FEATURES
+
+  // Get recent activities with progress info
+  app.get("/api/activities/recent", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { status, category } = req.query;
+
+      const activities = await storage.getActivitiesWithProgress(userId, {
+        status: status as string,
+        category: category as string,
+        includeArchived: false
+      });
+
+      res.json(activities);
+    } catch (error) {
+      console.error('Get recent activities error:', error);
+      res.status(500).json({ error: 'Failed to fetch recent activities' });
+    }
+  });
+
+  // Get comprehensive progress statistics
+  app.get("/api/progress/stats", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const days = parseInt(req.query.days as string) || 7;
+
+      const stats = await storage.getProgressStats(userId, days);
+
+      res.json(stats);
+    } catch (error) {
+      console.error('Get progress stats error:', error);
+      res.status(500).json({ error: 'Failed to fetch progress statistics' });
+    }
+  });
+
+  // Get activities created from a specific chat import
+  app.get("/api/chat-imports/:importId/activities", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { importId } = req.params;
+
+      const activities = await storage.getActivitiesByChatImportId(importId, userId);
+
+      res.json(activities);
+    } catch (error) {
+      console.error('Get chat import activities error:', error);
+      res.status(500).json({ error: 'Failed to fetch chat import activities' });
+    }
+  });
+
+  // Share app or activity with a contact
+  app.post("/api/contacts/:contactId/share", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { contactId } = req.params;
+      const { shareType, activityId, groupId, invitationMessage } = req.body;
+
+      const share = await storage.createContactShare({
+        contactId,
+        sharedBy: userId,
+        shareType: shareType || 'app_invitation',
+        activityId,
+        groupId,
+        invitationMessage,
+        status: 'pending'
+      });
+
+      res.json(share);
+    } catch (error) {
+      console.error('Share with contact error:', error);
+      res.status(500).json({ error: 'Failed to share with contact' });
+    }
+  });
+
+  // Get contacts with sharing status
+  app.get("/api/contacts/shared", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      const contactsWithShares = await storage.getContactsWithShareStatus(userId);
+
+      res.json(contactsWithShares);
+    } catch (error) {
+      console.error('Get shared contacts error:', error);
+      res.status(500).json({ error: 'Failed to fetch shared contacts' });
+    }
+  });
+
   // Get user tasks
   app.get("/api/tasks", async (req, res) => {
     try {
@@ -2031,6 +2120,75 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
+  // Preview plan before generation
+  app.post("/api/planner/preview", isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      const { sessionId } = req.body;
+
+      if (!sessionId) {
+        return res.status(400).json({ error: 'Session ID is required' });
+      }
+
+      const session = await storage.getLifestylePlannerSession(sessionId, userId);
+      if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Generate plan preview
+      const slots = session.slots || {};
+      const activityType = slots.activityType || 'Lifestyle Activity';
+      const location = slots.location?.destination || slots.location?.current || 'Your location';
+      const timing = slots.timing?.departureTime || slots.timing?.date || 'TBD';
+      const budget = slots.budget || 'moderate';
+
+      // Create preview structure
+      const planPreview = {
+        activity: {
+          title: `${activityType} Plan`,
+          description: `A personalized ${activityType.toLowerCase()} experience at ${location}`,
+          category: slots.activityType?.toLowerCase().includes('date') ? 'romance' :
+                    slots.activityType?.toLowerCase().includes('work') ? 'work' :
+                    slots.activityType?.toLowerCase().includes('fitness') ? 'wellness' : 'adventure'
+        },
+        tasks: [
+          {
+            title: `Prepare for ${activityType}`,
+            description: `Get ready with ${slots.outfit?.style || 'appropriate attire'}, check weather and traffic`,
+            priority: 'high'
+          },
+          {
+            title: `Travel to ${location}`,
+            description: `Use ${slots.transportation || 'preferred transportation'}, depart at ${timing}`,
+            priority: 'high'
+          },
+          {
+            title: `Enjoy ${activityType}`,
+            description: `Make the most of your experience, ${slots.mood ? `embrace the ${slots.mood} vibe` : 'have fun'}`,
+            priority: 'medium'
+          }
+        ],
+        summary: `This plan includes preparation, travel, and the main activity. Estimated budget: ${budget}.`,
+        estimatedTimeframe: slots.timing?.duration || '2-4 hours',
+        motivationalNote: slots.mood === 'romantic'
+          ? 'Create unforgettable memories together! ❤️'
+          : slots.mood === 'adventurous'
+          ? 'Get ready for an amazing adventure! 🚀'
+          : 'Enjoy every moment of this experience! ✨'
+      };
+
+      res.json({ planPreview });
+    } catch (error) {
+      console.error('Error previewing plan:', error);
+      res.status(500).json({ error: 'Failed to preview plan' });
+    }
+  });
+
   // Generate final plan
   app.post("/api/planner/generate", isAuthenticatedGeneric, async (req, res) => {
     try {
@@ -2073,46 +2231,106 @@ You can find these tasks in your task list and start working on them right away!
         });
       }
 
-      // Here we would generate the final comprehensive plan
-      const generatedPlan = {
-        title: `Your ${session.slots?.activityType || 'Lifestyle'} Plan`,
-        summary: "Your personalized plan is ready!",
-        timeline: [
-          {
-            time: session.slots?.timing?.departureTime || "TBD",
-            activity: `${session.slots?.activityType || 'Activity'} at ${session.slots?.location?.destination || 'destination'}`,
-            location: session.slots?.location?.current || "Current location",
-            notes: `Travel by ${session.slots?.transportation || 'preferred method'}`,
-            outfit_suggestion: session.slots?.outfit?.style || "weather-appropriate attire"
-          }
-        ],
-        outfit_recommendations: session.slots?.outfit ? [{
-          occasion: session.slots.activityType || 'activity',
-          suggestion: session.slots.outfit.style || 'casual and comfortable',
-          weather_notes: "Check weather before leaving"
-        }] : [],
-        tips: [
-          "Double-check timing and location",
-          "Confirm any reservations",
-          "Check traffic before leaving",
-          "Have a wonderful time!"
-        ]
-      };
+      // Generate activity and tasks from the session slots
+      const activityType = slots.activityType || 'Lifestyle Activity';
+      const location = slots.location?.destination || slots.location?.current || 'Your location';
+      const timing = slots.timing?.departureTime || slots.timing?.date || new Date().toISOString();
+      const budget = slots.budget || 'moderate';
 
-      // Create tasks from the plan
-      const tasks = [];
-      if (generatedPlan.timeline.length > 0) {
-        const planTask = await storage.createTask({
-          userId,
-          title: `Execute: ${generatedPlan.title}`,
-          description: generatedPlan.summary,
-          category: 'Lifestyle',
-          priority: 'high',
-          timeEstimate: '2 hours',
-          context: generatedPlan.tips.join(' | ')
-        });
-        tasks.push(planTask);
+      // Determine category
+      const category = slots.activityType?.toLowerCase().includes('date') ? 'romance' :
+                      slots.activityType?.toLowerCase().includes('work') ? 'work' :
+                      slots.activityType?.toLowerCase().includes('fitness') ? 'wellness' : 'adventure';
+
+      // Create the Activity (this becomes the header on landing page)
+      const activity = await storage.createActivity({
+        userId,
+        title: `${activityType} Plan`,
+        description: `A personalized ${activityType.toLowerCase()} experience at ${location}. Budget: ${budget}`,
+        category,
+        status: 'planning',
+        startDate: timing,
+        tags: [activityType, location, budget].filter(Boolean)
+      });
+
+      // Create the Tasks (these become the task details under the activity)
+      const createdTasks = [];
+
+      // Task 1: Preparation
+      const prepTask = await storage.createTask({
+        userId,
+        title: `Prepare for ${activityType}`,
+        description: `Get ready with ${slots.outfit?.style || 'appropriate attire'}, check weather and traffic conditions`,
+        category: 'Preparation',
+        priority: 'high',
+        timeEstimate: '30-45 min',
+        activityId: activity.id
+      });
+      createdTasks.push(prepTask);
+
+      // Task 2: Travel
+      const travelTask = await storage.createTask({
+        userId,
+        title: `Travel to ${location}`,
+        description: `Use ${slots.transportation || 'preferred transportation'}, depart at ${slots.timing?.departureTime || 'planned time'}. Check traffic before leaving.`,
+        category: 'Travel',
+        priority: 'high',
+        timeEstimate: slots.timing?.travelDuration || '30 min',
+        activityId: activity.id
+      });
+      createdTasks.push(travelTask);
+
+      // Task 3: Main Activity
+      const mainTask = await storage.createTask({
+        userId,
+        title: `Enjoy ${activityType}`,
+        description: `Make the most of your experience${slots.mood ? `, embrace the ${slots.mood} vibe` : ''}. ${slots.companions ? `With ${slots.companions}` : ''}`,
+        category: 'Experience',
+        priority: 'medium',
+        timeEstimate: slots.timing?.duration || '2-3 hours',
+        activityId: activity.id
+      });
+      createdTasks.push(mainTask);
+
+      // Task 4: Post-activity (optional but nice)
+      const followUpTask = await storage.createTask({
+        userId,
+        title: 'Reflect and Share',
+        description: 'Take photos, share memories, and reflect on the experience',
+        category: 'Follow-up',
+        priority: 'low',
+        timeEstimate: '15 min',
+        activityId: activity.id
+      });
+      createdTasks.push(followUpTask);
+
+      // Link tasks to activity
+      for (const task of createdTasks) {
+        await storage.addTaskToActivity(activity.id, task.id, createdTasks.indexOf(task));
       }
+
+      // Prepare plan summary for session
+      const generatedPlan = {
+        activity: {
+          id: activity.id,
+          title: activity.title,
+          description: activity.description,
+          category: activity.category
+        },
+        tasks: createdTasks.map(t => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          priority: t.priority
+        })),
+        summary: `Created activity "${activity.title}" with ${createdTasks.length} tasks`,
+        estimatedTimeframe: slots.timing?.duration || '2-4 hours',
+        motivationalNote: slots.mood === 'romantic'
+          ? 'Create unforgettable memories together! ❤️'
+          : slots.mood === 'adventurous'
+          ? 'Get ready for an amazing adventure! 🚀'
+          : 'Enjoy every moment of this experience! ✨'
+      };
 
       // Update session as completed
       const updatedSession = await storage.updateLifestylePlannerSession(sessionId, {
@@ -2122,10 +2340,11 @@ You can find these tasks in your task list and start working on them right away!
       }, userId);
 
       res.json({
-        plan: generatedPlan,
-        tasks,
+        activity,
+        tasks: createdTasks,
         session: updatedSession,
-        message: "Your plan is ready! I've created tasks to help you execute it perfectly."
+        generatedPlan,
+        message: "Your plan is ready! Activity and tasks have been added to your dashboard."
       });
     } catch (error) {
       console.error('Error generating plan:', error);

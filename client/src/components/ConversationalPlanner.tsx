@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -28,6 +30,21 @@ interface PlannerSession {
   conversationHistory: ConversationMessage[];
   slots: any;
   isComplete: boolean;
+  generatedPlan?: {
+    activity: {
+      title: string;
+      description: string;
+      category: string;
+    };
+    tasks: Array<{
+      title: string;
+      description: string;
+      priority: string;
+    }>;
+    summary?: string;
+    estimatedTimeframe?: string;
+    motivationalNote?: string;
+  };
 }
 
 type PlanningMode = 'quick' | 'chat' | null;
@@ -37,6 +54,7 @@ interface ConversationalPlannerProps {
 }
 
 export default function ConversationalPlanner({ onClose }: ConversationalPlannerProps) {
+  const { toast } = useToast();
   const [currentSession, setCurrentSession] = useState<PlannerSession | null>(null);
   const [message, setMessage] = useState('');
   const [contextChips, setContextChips] = useState<ContextChip[]>([]);
@@ -44,7 +62,37 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAgreementPrompt, setShowAgreementPrompt] = useState(false);
   const [pendingPlan, setPendingPlan] = useState<any>(null);
+  const [showPlanConfirmation, setShowPlanConfirmation] = useState(false);
+  const [showPlanDetails, setShowPlanDetails] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load session from localStorage on mount
+  useEffect(() => {
+    const savedSession = localStorage.getItem('planner_session');
+    const savedMode = localStorage.getItem('planner_mode');
+    const savedChips = localStorage.getItem('planner_chips');
+
+    if (savedSession && savedMode) {
+      setCurrentSession(JSON.parse(savedSession));
+      setPlanningMode(savedMode as PlanningMode);
+      if (savedChips) {
+        setContextChips(JSON.parse(savedChips));
+      }
+    }
+  }, []);
+
+  // Save session to localStorage whenever it changes
+  useEffect(() => {
+    if (currentSession) {
+      localStorage.setItem('planner_session', JSON.stringify(currentSession));
+    }
+    if (planningMode) {
+      localStorage.setItem('planner_mode', planningMode);
+    }
+    if (contextChips.length > 0) {
+      localStorage.setItem('planner_chips', JSON.stringify(contextChips));
+    }
+  }, [currentSession, planningMode, contextChips]);
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -115,7 +163,30 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
     }
   });
 
-  // Generate plan
+  // Get plan preview before generation
+  const previewPlanMutation = useMutation({
+    mutationFn: (sessionId: string) =>
+      apiRequest('/api/planner/preview', {
+        method: 'POST',
+        body: { sessionId }
+      }),
+    onSuccess: (data) => {
+      setPendingPlan(data.planPreview);
+      setShowPlanConfirmation(true);
+      setIsGenerating(false);
+    },
+    onError: (error) => {
+      console.error('Failed to preview plan:', error);
+      setIsGenerating(false);
+      toast({
+        title: "Preview Error",
+        description: error instanceof Error ? error.message : "Failed to preview plan",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Generate plan (after confirmation)
   const generatePlanMutation = useMutation({
     mutationFn: (sessionId: string) =>
       apiRequest('/api/planner/generate', {
@@ -126,11 +197,24 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
       setCurrentSession(data.session);
       setIsGenerating(false);
       setShowAgreementPrompt(false);
+      setShowPlanConfirmation(false);
+      setShowPlanDetails(true);
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+      toast({
+        title: "Plan Created!",
+        description: "Your activity and tasks have been added to your dashboard",
+      });
     },
     onError: (error) => {
       console.error('Failed to generate plan:', error);
       setIsGenerating(false);
+      toast({
+        title: "Generation Error",
+        description: error instanceof Error ? error.message : "Failed to generate plan",
+        variant: "destructive"
+      });
     }
   });
 
@@ -152,14 +236,51 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
   const handleQuickGenerate = () => {
     if (!currentSession) return;
     setIsGenerating(true);
-    generatePlanMutation.mutate(currentSession.id);
+    previewPlanMutation.mutate(currentSession.id);
   };
 
   const handleChatGenerate = () => {
     if (!currentSession) return;
     setIsGenerating(true);
     setShowAgreementPrompt(false);
+    previewPlanMutation.mutate(currentSession.id);
+  };
+
+  const handleConfirmPlan = () => {
+    if (!currentSession) return;
+    setIsGenerating(true);
     generatePlanMutation.mutate(currentSession.id);
+  };
+
+  const handleModifyPlan = () => {
+    setShowPlanConfirmation(false);
+    setPendingPlan(null);
+    toast({
+      title: "Plan Cancelled",
+      description: "Please provide the changes you'd like to make",
+    });
+  };
+
+  const handleStartOver = () => {
+    localStorage.removeItem('planner_session');
+    localStorage.removeItem('planner_mode');
+    localStorage.removeItem('planner_chips');
+    setCurrentSession(null);
+    setPlanningMode(null);
+    setContextChips([]);
+    setPendingPlan(null);
+    setShowPlanConfirmation(false);
+    setShowPlanDetails(false);
+    setShowAgreementPrompt(false);
+    toast({
+      title: "Session Cleared",
+      description: "Starting fresh!",
+    });
+  };
+
+  const handleBackToHome = () => {
+    handleStartOver();
+    if (onClose) onClose();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -458,35 +579,203 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
             </>
           )}
           
-          {/* Completion State */}
-          {currentSession?.isComplete && (
+          {/* Action Buttons */}
+          {currentSession && (
             <>
               <Separator />
-              <div className="p-4">
-                <div className="text-center">
-                  <CheckCircle className="h-8 w-8 mx-auto text-green-500 mb-2" />
-                  <p className="text-sm font-medium text-green-600 dark:text-green-400 mb-3">
-                    Plan Generated Successfully!
-                  </p>
+              <div className="p-4 flex gap-2">
+                <Button
+                  onClick={handleStartOver}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  data-testid="button-start-over"
+                >
+                  <RefreshCcw className="h-4 w-4 mr-2" />
+                  Start Over
+                </Button>
+                {currentSession.isComplete && (
                   <Button
-                    onClick={() => {
-                      setPlanningMode(null);
-                      setCurrentSession(null);
-                      setContextChips([]);
-                      setShowAgreementPrompt(false);
-                    }}
-                    variant="outline"
+                    onClick={handleBackToHome}
+                    variant="default"
                     size="sm"
-                    data-testid="button-new-plan"
+                    className="flex-1"
+                    data-testid="button-back-to-home"
                   >
-                    Create New Plan
+                    <Target className="h-4 w-4 mr-2" />
+                    Back to Home
                   </Button>
-                </div>
+                )}
               </div>
             </>
           )}
         </CardContent>
       </Card>
+
+      {/* Plan Confirmation Dialog */}
+      <Dialog open={showPlanConfirmation} onOpenChange={setShowPlanConfirmation}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-blue-500" />
+              Review Your Plan
+            </DialogTitle>
+            <DialogDescription>
+              Please review the proposed plan. You can accept it or request modifications.
+            </DialogDescription>
+          </DialogHeader>
+
+          {pendingPlan && (
+            <div className="space-y-4 py-4">
+              {/* Activity Preview */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Target className="h-5 w-5 text-emerald-500" />
+                        {pendingPlan.activity?.title || "Your Activity"}
+                      </CardTitle>
+                      <Badge variant="outline" className="mt-2">
+                        {pendingPlan.activity?.category || "General"}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    {pendingPlan.activity?.description || "Activity description will appear here"}
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Tasks Preview */}
+              {pendingPlan.tasks && pendingPlan.tasks.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <ListTodo className="h-5 w-5 text-purple-500" />
+                      Tasks ({pendingPlan.tasks.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {pendingPlan.tasks.map((task: any, index: number) => (
+                        <div key={index} className="flex gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 flex items-center justify-center text-sm font-semibold">
+                            {index + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-medium text-sm">{task.title}</h4>
+                              <Badge variant="outline" className="text-xs">
+                                {task.priority || "medium"}
+                              </Badge>
+                            </div>
+                            {task.description && (
+                              <p className="text-xs text-slate-600 dark:text-slate-400">
+                                {task.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Summary & Additional Info */}
+              {(pendingPlan.summary || pendingPlan.estimatedTimeframe || pendingPlan.motivationalNote) && (
+                <Card>
+                  <CardContent className="pt-4 space-y-3">
+                    {pendingPlan.summary && (
+                      <div>
+                        <h4 className="font-semibold text-sm mb-1">Summary</h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">{pendingPlan.summary}</p>
+                      </div>
+                    )}
+                    {pendingPlan.estimatedTimeframe && (
+                      <div>
+                        <h4 className="font-semibold text-sm mb-1 flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          Estimated Time
+                        </h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">{pendingPlan.estimatedTimeframe}</p>
+                      </div>
+                    )}
+                    {pendingPlan.motivationalNote && (
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <p className="text-sm text-blue-800 dark:text-blue-200 italic">
+                          💪 {pendingPlan.motivationalNote}
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={handleModifyPlan}
+              disabled={isGenerating}
+            >
+              No, Make Changes
+            </Button>
+            <Button
+              onClick={handleConfirmPlan}
+              disabled={isGenerating}
+              className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              {isGenerating ? "Creating..." : "Yes, Create This Plan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Plan Details Dialog (after generation) */}
+      <Dialog open={showPlanDetails} onOpenChange={setShowPlanDetails}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-6 w-6 text-green-500" />
+              Plan Created Successfully!
+            </DialogTitle>
+            <DialogDescription>
+              Your activity and tasks have been added to your dashboard
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 text-center">
+            <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Target className="h-8 w-8 text-green-600 dark:text-green-300" />
+            </div>
+            <p className="text-slate-600 dark:text-slate-400 mb-4">
+              You can now view and manage your plan from the Activities tab or the home page.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowPlanDetails(false)}
+            >
+              Continue Planning
+            </Button>
+            <Button
+              onClick={handleBackToHome}
+              className="bg-gradient-to-r from-blue-500 to-indigo-500"
+            >
+              <Target className="h-4 w-4 mr-2" />
+              Go to Dashboard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

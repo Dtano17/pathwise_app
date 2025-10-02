@@ -16,6 +16,8 @@ import LocationDatePlanner from '@/components/LocationDatePlanner';
 import ConversationalPlanner from '@/components/ConversationalPlanner';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
+import RecentGoals from './RecentGoals';
+import ProgressReport from './ProgressReport';
 import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, Archive } from 'lucide-react';
 import { Link } from 'wouter';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
@@ -57,10 +59,14 @@ interface MainAppProps {
   onShowChatHistory: (show: boolean) => void;
   showLifestylePlanner: boolean;
   onShowLifestylePlanner: (show: boolean) => void;
+  showRecentGoals: boolean;
+  onShowRecentGoals: (show: boolean) => void;
+  showProgressReport: boolean;
+  onShowProgressReport: (show: boolean) => void;
 }
 
-export default function MainApp({ 
-  selectedTheme, 
+export default function MainApp({
+  selectedTheme,
   onThemeSelect,
   showThemeSelector,
   onShowThemeSelector,
@@ -71,7 +77,11 @@ export default function MainApp({
   showChatHistory,
   onShowChatHistory,
   showLifestylePlanner,
-  onShowLifestylePlanner
+  onShowLifestylePlanner,
+  showRecentGoals,
+  onShowRecentGoals,
+  showProgressReport,
+  onShowProgressReport
 }: MainAppProps) {
   const [activeTab, setActiveTab] = useState("input"); // Start with Goal Input as the landing page
   const { toast } = useToast();
@@ -2050,6 +2060,34 @@ Assistant: For nutrition, I recommend..."
           </DialogHeader>
           <div className="flex-1 overflow-hidden">
             <ChatHistory />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showRecentGoals} onOpenChange={onShowRecentGoals}>
+        <DialogContent className="max-w-6xl h-[90vh]" data-testid="modal-recent-goals">
+          <DialogHeader>
+            <DialogTitle>Recent Goals</DialogTitle>
+            <DialogDescription>
+              View all your activities, track progress, and manage your goals
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            <RecentGoals />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showProgressReport} onOpenChange={onShowProgressReport}>
+        <DialogContent className="max-w-6xl h-[90vh]" data-testid="modal-progress-report">
+          <DialogHeader>
+            <DialogTitle>Progress Report</DialogTitle>
+            <DialogDescription>
+              Comprehensive analytics, milestones, and insights about your achievements
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            <ProgressReport />
           </div>
         </DialogContent>
       </Dialog>

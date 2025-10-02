@@ -583,6 +583,25 @@ export const contacts = pgTable("contacts", {
   uniqueSyncedContact: uniqueIndex("unique_synced_contact").on(table.ownerUserId, table.source, table.externalId),
 }));
 
+// Contact shares for tracking app invitations and shared activities
+export const contactShares = pgTable("contact_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: "cascade" }).notNull(),
+  sharedBy: varchar("shared_by").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  shareType: text("share_type").notNull(), // 'app_invitation' | 'activity' | 'group'
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "cascade" }), // Optional: specific activity shared
+  groupId: varchar("group_id").references(() => groups.id, { onDelete: "cascade" }), // Optional: specific group shared
+  status: text("status").notNull().default("pending"), // 'pending' | 'accepted' | 'declined' | 'expired'
+  invitationMessage: text("invitation_message"),
+  sharedAt: timestamp("shared_at").defaultNow(),
+  respondedAt: timestamp("responded_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  contactShareIndex: index("contact_share_index").on(table.contactId, table.status),
+  sharedByIndex: index("shared_by_index").on(table.sharedBy, table.shareType),
+}));
+
 // Activities table for social sharable experiences
 export const activities = pgTable("activities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -671,6 +690,13 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
   lastSyncAt: true,
 });
 
+export const insertContactShareSchema = createInsertSchema(contactShares).omit({
+  id: true,
+  sharedBy: true,
+  createdAt: true,
+  respondedAt: true,
+});
+
 // Add TypeScript types for new tables
 export type AuthIdentity = typeof authIdentities.$inferSelect;
 export type InsertAuthIdentity = z.infer<typeof insertAuthIdentitySchema>;
@@ -680,6 +706,9 @@ export type InsertExternalOAuthToken = z.infer<typeof insertExternalOAuthTokenSc
 
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
+
+export type ContactShare = typeof contactShares.$inferSelect;
+export type InsertContactShare = z.infer<typeof insertContactShareSchema>;
 
 // Additional contact sync validation
 export const syncContactsSchema = z.object({
