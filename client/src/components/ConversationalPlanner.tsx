@@ -366,11 +366,16 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
               try {
                 const base64Image = event.target?.result as string;
 
-                // Get preceding conversation context
-                const precedingContext = currentSession?.conversationHistory
+                // Combine current input text with conversation history for context
+                const userTypedContext = message.trim();
+                const chatContext = currentSession?.conversationHistory
                   .slice(-3)
                   .map(msg => `${msg.role}: ${msg.content}`)
                   .join('\n');
+
+                const precedingContext = userTypedContext
+                  ? `User's context: ${userTypedContext}\n\n${chatContext}`
+                  : chatContext;
 
                 // Call the parsing API with image
                 const response = await apiRequest('/api/planner/parse-llm-content', {
@@ -381,6 +386,8 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                     precedingContext
                   }
                 });
+
+                setMessage(''); // Clear typed text since it's now part of context
 
                 setParsedLLMContent(response.parsed);
                 setShowParsedContent(true);
@@ -428,11 +435,16 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
       setIsParsingPaste(true);
 
       try {
-        // Get preceding conversation context
-        const precedingContext = currentSession?.conversationHistory
+        // Combine current input text with conversation history for full context
+        const userTypedContext = message.trim();
+        const chatContext = currentSession?.conversationHistory
           .slice(-3) // Last 3 messages
           .map(msg => `${msg.role}: ${msg.content}`)
           .join('\n');
+
+        const precedingContext = userTypedContext
+          ? `User's context: ${userTypedContext}\n\n${chatContext}`
+          : chatContext;
 
         // Call the parsing API
         const response = await apiRequest('/api/planner/parse-llm-content', {
@@ -446,6 +458,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
 
         setParsedLLMContent(response.parsed);
         setShowParsedContent(true);
+        setMessage(''); // Clear typed text since it's now part of context
       } catch (error) {
         console.error('Failed to parse LLM content:', error);
         toast({

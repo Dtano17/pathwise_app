@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import Anthropic from '@anthropic-ai/sdk';
+import Anthropic from "@anthropic-ai/sdk";
 import { type InsertTask, type InsertChatImport } from "@shared/schema";
 
 // Using GPT-4 Turbo which is currently the latest available OpenAI model
@@ -24,27 +24,31 @@ const anthropic = new Anthropic({
 interface GoalProcessingResult {
   planTitle?: string;
   summary?: string;
-  tasks: Omit<InsertTask, 'userId'>[];
+  tasks: Omit<InsertTask, "userId">[];
   goalCategory: string;
-  goalPriority: 'low' | 'medium' | 'high';
+  goalPriority: "low" | "medium" | "high";
   estimatedTimeframe: string;
   motivationalNote?: string;
 }
 
 interface ChatMessage {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   timestamp?: string;
 }
 
 interface ChatProcessingResult {
   extractedGoals: string[];
-  tasks: Omit<InsertTask, 'userId'>[];
+  tasks: Omit<InsertTask, "userId">[];
   summary: string;
 }
 
 export class AIService {
-  async processGoalIntoTasks(goalText: string, preferredModel: 'openai' | 'claude' = 'claude', userId?: string): Promise<GoalProcessingResult> {
+  async processGoalIntoTasks(
+    goalText: string,
+    preferredModel: "openai" | "claude" = "claude",
+    userId?: string,
+  ): Promise<GoalProcessingResult> {
     // Fetch user priorities if userId is provided
     let userPriorities: any[] = [];
     if (userId) {
@@ -52,19 +56,22 @@ export class AIService {
         const { storage } = await import("../storage");
         userPriorities = await storage.getUserPriorities(userId);
       } catch (error) {
-        console.error('Failed to fetch user priorities:', error);
+        console.error("Failed to fetch user priorities:", error);
       }
     }
-    
-    if (preferredModel === 'claude' && process.env.ANTHROPIC_API_KEY) {
+
+    if (preferredModel === "claude" && process.env.ANTHROPIC_API_KEY) {
       return this.processGoalWithClaude(goalText, userPriorities);
     }
     return this.processGoalWithOpenAI(goalText, userPriorities);
   }
 
   async chatConversation(
-    message: string, 
-    conversationHistory: Array<{role: 'user' | 'assistant', content: string}> = []
+    message: string,
+    conversationHistory: Array<{
+      role: "user" | "assistant";
+      content: string;
+    }> = [],
   ): Promise<{
     message: string;
     actionPlan?: any;
@@ -83,18 +90,18 @@ export class AIService {
 3. Provide personalized advice and motivation
 4. When appropriate, suggest concrete action plans with specific tasks
 
-Keep responses conversational, encouraging, and actionable. If the user shares goals or intentions, offer to help them create a structured action plan.`
+Keep responses conversational, encouraging, and actionable. If the user shares goals or intentions, offer to help them create a structured action plan.`,
         },
         ...conversationHistory,
         {
           role: "user" as const,
-          content: message
-        }
+          content: message,
+        },
       ];
 
       // Get AI response using Claude (primary) or OpenAI (fallback)
       let aiMessage: string;
-      
+
       if (process.env.ANTHROPIC_API_KEY) {
         try {
           const response = await anthropic.messages.create({
@@ -104,16 +111,20 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
             messages: messages.slice(1), // Remove system message for Claude
             system: messages[0].content, // Claude uses separate system parameter
           });
-          aiMessage = (response.content[0] as any)?.text || "I'm sorry, I didn't understand that. Could you rephrase your question?";
+          aiMessage =
+            (response.content[0] as any)?.text ||
+            "I'm sorry, I didn't understand that. Could you rephrase your question?";
         } catch (error) {
-          console.error('Claude chat error, falling back to OpenAI:', error);
+          console.error("Claude chat error, falling back to OpenAI:", error);
           const response = await openai.chat.completions.create({
             model: "gpt-4-turbo-preview",
             messages: messages,
             temperature: 0.7,
             max_tokens: 1000,
           });
-          aiMessage = response.choices[0]?.message?.content || "I'm sorry, I didn't understand that. Could you rephrase your question?";
+          aiMessage =
+            response.choices[0]?.message?.content ||
+            "I'm sorry, I didn't understand that. Could you rephrase your question?";
         }
       } else {
         const response = await openai.chat.completions.create({
@@ -122,62 +133,87 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
           temperature: 0.7,
           max_tokens: 1000,
         });
-        aiMessage = response.choices[0]?.message?.content || "I'm sorry, I didn't understand that. Could you rephrase your question?";
+        aiMessage =
+          response.choices[0]?.message?.content ||
+          "I'm sorry, I didn't understand that. Could you rephrase your question?";
       }
 
       // Check if the user is expressing goals/intentions and suggest action plan creation
       const containsGoals = this.detectGoalsInMessage(message);
-      
+
       let actionPlan = null;
       let extractedGoals = null;
       let tasks = null;
 
       if (containsGoals) {
         // Suggest creating an action plan
-        const enhancedMessage = aiMessage + "\n\n💡 It sounds like you have some great goals! Would you like me to help you create a structured action plan to make these a reality?";
-        
+        const enhancedMessage =
+          aiMessage +
+          "\n\n💡 It sounds like you have some great goals! Would you like me to help you create a structured action plan to make these a reality?";
+
         return {
           message: enhancedMessage,
           actionPlan,
           extractedGoals,
-          tasks
+          tasks,
         };
       }
 
       return {
         message: aiMessage,
         actionPlan,
-        extractedGoals, 
-        tasks
+        extractedGoals,
+        tasks,
       };
     } catch (error) {
-      console.error('Chat conversation error:', error);
+      console.error("Chat conversation error:", error);
       return {
-        message: "I'm having trouble processing your message right now. Please try again in a moment.",
+        message:
+          "I'm having trouble processing your message right now. Please try again in a moment.",
         actionPlan: null,
         extractedGoals: null,
-        tasks: null
+        tasks: null,
       };
     }
   }
 
   detectGoalsInMessage(message: string): boolean {
     const goalKeywords = [
-      'want to', 'need to', 'plan to', 'goal', 'objective', 'aim to', 
-      'hope to', 'intend to', 'wish to', 'would like to', 'trying to',
-      'working on', 'focused on', 'planning', 'organizing', 'improve',
-      'learn', 'start', 'begin', 'achieve', 'accomplish'
+      "want to",
+      "need to",
+      "plan to",
+      "goal",
+      "objective",
+      "aim to",
+      "hope to",
+      "intend to",
+      "wish to",
+      "would like to",
+      "trying to",
+      "working on",
+      "focused on",
+      "planning",
+      "organizing",
+      "improve",
+      "learn",
+      "start",
+      "begin",
+      "achieve",
+      "accomplish",
     ];
-    
+
     const lowerMessage = message.toLowerCase();
-    return goalKeywords.some(keyword => lowerMessage.includes(keyword));
+    return goalKeywords.some((keyword) => lowerMessage.includes(keyword));
   }
 
-  async processChatHistory(chatData: {
-    source: string;
-    conversationTitle?: string;
-    chatHistory: ChatMessage[];
-  }, userId?: string): Promise<ChatProcessingResult> {
+  async processChatHistory(
+    chatData: {
+      source: string;
+      conversationTitle?: string;
+      chatHistory: ChatMessage[];
+    },
+    userId?: string,
+  ): Promise<ChatProcessingResult> {
     // Fetch user priorities if userId is provided
     let userPriorities: any[] = [];
     if (userId) {
@@ -185,34 +221,42 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
         const { storage } = await import("../storage");
         userPriorities = await storage.getUserPriorities(userId);
       } catch (error) {
-        console.error('Failed to fetch user priorities for chat processing:', error);
+        console.error(
+          "Failed to fetch user priorities for chat processing:",
+          error,
+        );
       }
     }
     // Use Claude if the source is 'claude' and we have the API key
-    const shouldUseClaude = chatData.source === 'claude' && process.env.ANTHROPIC_API_KEY;
-    
+    const shouldUseClaude =
+      chatData.source === "claude" && process.env.ANTHROPIC_API_KEY;
+
     if (shouldUseClaude) {
       return this.processChatHistoryWithClaude(chatData, userPriorities);
     }
-    
+
     return this.processChatHistoryWithOpenAI(chatData, userPriorities);
   }
 
-  private async processChatHistoryWithOpenAI(chatData: {
-    source: string;
-    conversationTitle?: string;
-    chatHistory: ChatMessage[];
-  }, userPriorities: any[] = []): Promise<ChatProcessingResult> {
+  private async processChatHistoryWithOpenAI(
+    chatData: {
+      source: string;
+      conversationTitle?: string;
+      chatHistory: ChatMessage[];
+    },
+    userPriorities: any[] = [],
+  ): Promise<ChatProcessingResult> {
     try {
-      const prioritiesContext = userPriorities.length > 0 
-        ? `\nUser's Life Priorities (consider these when creating tasks):
-${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}`
-        : '';
+      const prioritiesContext =
+        userPriorities.length > 0
+          ? `\nUser's Life Priorities (consider these when creating tasks):
+${userPriorities.map((p) => `- ${p.title}: ${p.description}`).join("\n")}`
+          : "";
 
       const prompt = `Analyze this chat conversation and extract actionable goals that the user mentioned or discussed:
 
 Chat History:
-${chatData.chatHistory.map((msg, idx) => `${idx + 1}. ${msg.role}: ${msg.content}`).join('\n\n')}${prioritiesContext}
+${chatData.chatHistory.map((msg, idx) => `${idx + 1}. ${msg.role}: ${msg.content}`).join("\n\n")}${prioritiesContext}
 
 Respond with JSON in this exact format:
 {
@@ -243,52 +287,59 @@ Create actionable tasks from these conversations that can help hold the user acc
         messages: [
           {
             role: "system",
-            content: "You are an accountability assistant who extracts actionable goals from conversations and creates specific tasks to help users follow through on their intentions."
+            content:
+              "You are an accountability assistant who extracts actionable goals from conversations and creates specific tasks to help users follow through on their intentions.",
           },
           {
             role: "user",
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         response_format: { type: "json_object" },
       });
 
-      const result = JSON.parse(response.choices[0].message.content || '{}');
-      
+      const result = JSON.parse(response.choices[0].message.content || "{}");
+
       return {
         extractedGoals: result.extractedGoals || [],
-        tasks: result.tasks?.map((task: any) => ({
-          title: task.title || 'Follow up on conversation',
-          description: task.description || 'Take action based on chat discussion',
-          category: task.category || 'Personal',
-          priority: this.validatePriority(task.priority),
-          goalId: null,
-          completed: false,
-          dueDate: task.dueDate ? new Date(task.dueDate) : null
-        })) || [],
-        summary: result.summary || 'Chat conversation processed'
+        tasks:
+          result.tasks?.map((task: any) => ({
+            title: task.title || "Follow up on conversation",
+            description:
+              task.description || "Take action based on chat discussion",
+            category: task.category || "Personal",
+            priority: this.validatePriority(task.priority),
+            goalId: null,
+            completed: false,
+            dueDate: task.dueDate ? new Date(task.dueDate) : null,
+          })) || [],
+        summary: result.summary || "Chat conversation processed",
       };
     } catch (error) {
-      console.error('OpenAI chat processing failed:', error);
+      console.error("OpenAI chat processing failed:", error);
       return this.createFallbackChatResult();
     }
   }
 
-  private async processChatHistoryWithClaude(chatData: {
-    source: string;
-    conversationTitle?: string;
-    chatHistory: ChatMessage[];
-  }, userPriorities: any[] = []): Promise<ChatProcessingResult> {
+  private async processChatHistoryWithClaude(
+    chatData: {
+      source: string;
+      conversationTitle?: string;
+      chatHistory: ChatMessage[];
+    },
+    userPriorities: any[] = [],
+  ): Promise<ChatProcessingResult> {
     try {
-      const prioritiesContext = userPriorities.length > 0 
-        ? `\nUser's Life Priorities (consider these when creating tasks):
-${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}`
-        : '';
+      const prioritiesContext =
+        userPriorities.length > 0
+          ? `\nUser's Life Priorities (consider these when creating tasks):
+${userPriorities.map((p) => `- ${p.title}: ${p.description}`).join("\n")}`
+          : "";
 
       const prompt = `Analyze this chat conversation and extract actionable goals that the user mentioned or discussed:
 
 Chat History:
-${chatData.chatHistory.map((msg, idx) => `${idx + 1}. ${msg.role}: ${msg.content}`).join('\n\n')}${prioritiesContext}
+${chatData.chatHistory.map((msg, idx) => `${idx + 1}. ${msg.role}: ${msg.content}`).join("\n\n")}${prioritiesContext}
 
 Respond with JSON in this exact format:
 {
@@ -317,35 +368,38 @@ Create actionable tasks from these conversations that can help hold the user acc
       const response = await anthropic.messages.create({
         model: DEFAULT_CLAUDE_MODEL, // "claude-sonnet-4-20250514"
         max_tokens: 1500,
-        system: "You are an accountability assistant who extracts actionable goals from conversations and creates specific tasks to help users follow through on their intentions. Always respond with valid JSON.",
+        system:
+          "You are an accountability assistant who extracts actionable goals from conversations and creates specific tasks to help users follow through on their intentions. Always respond with valid JSON.",
         messages: [
           {
             role: "user",
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
       });
 
       const result = JSON.parse((response.content[0] as any).text);
-      
+
       return {
         extractedGoals: result.extractedGoals || [],
-        tasks: result.tasks?.map((task: any) => ({
-          title: task.title || 'Follow up on conversation',
-          description: task.description || 'Take action based on chat discussion',
-          category: task.category || 'Personal',
-          priority: this.validatePriority(task.priority),
-          goalId: null,
-          completed: false,
-          dueDate: task.dueDate ? new Date(task.dueDate) : null
-        })) || [],
-        summary: result.summary || 'Chat conversation processed with Claude'
+        tasks:
+          result.tasks?.map((task: any) => ({
+            title: task.title || "Follow up on conversation",
+            description:
+              task.description || "Take action based on chat discussion",
+            category: task.category || "Personal",
+            priority: this.validatePriority(task.priority),
+            goalId: null,
+            completed: false,
+            dueDate: task.dueDate ? new Date(task.dueDate) : null,
+          })) || [],
+        summary: result.summary || "Chat conversation processed with Claude",
       };
     } catch (error) {
-      console.error('Claude chat processing failed:', error);
+      console.error("Claude chat processing failed:", error);
       // Fallback to OpenAI if available
       if (process.env.OPENAI_API_KEY) {
-        console.log('Falling back to OpenAI for chat processing');
+        console.log("Falling back to OpenAI for chat processing");
         return this.processChatHistoryWithOpenAI(chatData);
       }
       return this.createFallbackChatResult();
@@ -354,26 +408,32 @@ Create actionable tasks from these conversations that can help hold the user acc
 
   private createFallbackChatResult(): ChatProcessingResult {
     return {
-      extractedGoals: ['Follow up on conversation'],
-      tasks: [{
-        title: 'Review and act on chat discussion',
-        description: 'Take action based on your recent conversation',
-        category: 'Personal',
-        priority: 'medium' as const,
-        goalId: null,
-        completed: false,
-        dueDate: null
-      }],
-      summary: 'Chat imported successfully'
+      extractedGoals: ["Follow up on conversation"],
+      tasks: [
+        {
+          title: "Review and act on chat discussion",
+          description: "Take action based on your recent conversation",
+          category: "Personal",
+          priority: "medium" as const,
+          goalId: null,
+          completed: false,
+          dueDate: null,
+        },
+      ],
+      summary: "Chat imported successfully",
     };
   }
 
-  private async processGoalWithOpenAI(goalText: string, userPriorities: any[] = []): Promise<GoalProcessingResult> {
+  private async processGoalWithOpenAI(
+    goalText: string,
+    userPriorities: any[] = [],
+  ): Promise<GoalProcessingResult> {
     try {
-      const prioritiesContext = userPriorities.length > 0 
-        ? `\nUser's Life Priorities (consider these when creating the plan):
-${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}`
-        : '';
+      const prioritiesContext =
+        userPriorities.length > 0
+          ? `\nUser's Life Priorities (consider these when creating the plan):
+${userPriorities.map((p) => `- ${p.title}: ${p.description}`).join("\n")}`
+          : "";
 
       const prompt = `You are an AI productivity assistant. Transform the user's goal into a structured, actionable plan like Claude AI would format it - clear, organized, and visually appealing.
 
@@ -421,54 +481,63 @@ Examples of excellent task formatting:
         messages: [
           {
             role: "system",
-            content: "You are a productivity expert who helps people break down goals into actionable tasks. Always respond with valid JSON."
+            content:
+              "You are a productivity expert who helps people break down goals into actionable tasks. Always respond with valid JSON.",
           },
           {
             role: "user",
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         response_format: { type: "json_object" },
       });
 
-      const result = JSON.parse(response.choices[0].message.content || '{}');
-      
+      const result = JSON.parse(response.choices[0].message.content || "{}");
+
       // Validate and ensure proper structure
       const processedResult: GoalProcessingResult = {
         planTitle: result.planTitle || `Plan for: ${goalText}`,
-        summary: result.summary || 'Generated actionable plan from your goal',
-        tasks: result.tasks?.map((task: any) => ({
-          title: task.title || 'Untitled Task',
-          description: task.description || 'No description provided',
-          category: task.category || result.goalCategory || 'Personal',
-          priority: this.validatePriority(task.priority),
-          goalId: null,
-          completed: false,
-          dueDate: task.dueDate ? new Date(task.dueDate) : null,
-          timeEstimate: task.timeEstimate || '30 min',
-          context: task.context || 'Complete this task to progress toward your goal'
-        })) || [],
-        goalCategory: result.goalCategory || 'Personal',
+        summary: result.summary || "Generated actionable plan from your goal",
+        tasks:
+          result.tasks?.map((task: any) => ({
+            title: task.title || "Untitled Task",
+            description: task.description || "No description provided",
+            category: task.category || result.goalCategory || "Personal",
+            priority: this.validatePriority(task.priority),
+            goalId: null,
+            completed: false,
+            dueDate: task.dueDate ? new Date(task.dueDate) : null,
+            timeEstimate: task.timeEstimate || "30 min",
+            context:
+              task.context || "Complete this task to progress toward your goal",
+          })) || [],
+        goalCategory: result.goalCategory || "Personal",
         goalPriority: this.validatePriority(result.goalPriority),
-        estimatedTimeframe: result.estimatedTimeframe || 'Unknown',
-        motivationalNote: result.motivationalNote || 'You got this! Take it one task at a time.'
+        estimatedTimeframe: result.estimatedTimeframe || "Unknown",
+        motivationalNote:
+          result.motivationalNote ||
+          "You got this! Take it one task at a time.",
       };
 
       return processedResult;
     } catch (error) {
-      console.error('AI processing failed:', error);
-      
+      console.error("AI processing failed:", error);
+
       // Fallback to manual task creation
       return this.createFallbackTasks(goalText);
     }
   }
 
-  private async processGoalWithClaude(goalText: string, userPriorities: any[] = []): Promise<GoalProcessingResult> {
+  private async processGoalWithClaude(
+    goalText: string,
+    userPriorities: any[] = [],
+  ): Promise<GoalProcessingResult> {
     try {
-      const prioritiesContext = userPriorities.length > 0 
-        ? `\nUser's Life Priorities (consider these when creating the plan):
-${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}`
-        : '';
+      const prioritiesContext =
+        userPriorities.length > 0
+          ? `\nUser's Life Priorities (consider these when creating the plan):
+${userPriorities.map((p) => `- ${p.title}: ${p.description}`).join("\n")}`
+          : "";
 
       const prompt = `You are an AI productivity assistant. Transform the user's goal or intention into specific, actionable tasks.
 
@@ -507,37 +576,39 @@ Examples:
       const response = await anthropic.messages.create({
         model: DEFAULT_CLAUDE_MODEL, // "claude-sonnet-4-20250514"
         max_tokens: 1500,
-        system: "You are a productivity expert who helps people break down goals into actionable tasks. Always respond with valid JSON.",
+        system:
+          "You are a productivity expert who helps people break down goals into actionable tasks. Always respond with valid JSON.",
         messages: [
           {
             role: "user",
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
       });
 
       const result = JSON.parse((response.content[0] as any).text);
-      
+
       // Validate and ensure proper structure
       const processedResult: GoalProcessingResult = {
-        tasks: result.tasks?.map((task: any) => ({
-          title: task.title || 'Untitled Task',
-          description: task.description || 'No description provided',
-          category: task.category || result.goalCategory || 'Personal',
-          priority: this.validatePriority(task.priority),
-          goalId: null,
-          completed: false,
-          dueDate: task.dueDate ? new Date(task.dueDate) : null
-        })) || [],
-        goalCategory: result.goalCategory || 'Personal',
+        tasks:
+          result.tasks?.map((task: any) => ({
+            title: task.title || "Untitled Task",
+            description: task.description || "No description provided",
+            category: task.category || result.goalCategory || "Personal",
+            priority: this.validatePriority(task.priority),
+            goalId: null,
+            completed: false,
+            dueDate: task.dueDate ? new Date(task.dueDate) : null,
+          })) || [],
+        goalCategory: result.goalCategory || "Personal",
         goalPriority: this.validatePriority(result.goalPriority),
-        estimatedTimeframe: result.estimatedTimeframe || 'Unknown'
+        estimatedTimeframe: result.estimatedTimeframe || "Unknown",
       };
 
       return processedResult;
     } catch (error) {
-      console.error('Claude processing failed:', error);
-      
+      console.error("Claude processing failed:", error);
+
       // Fallback to OpenAI or manual task creation
       if (process.env.OPENAI_API_KEY) {
         return this.processGoalWithOpenAI(goalText);
@@ -547,15 +618,15 @@ Examples:
   }
 
   async generateLifestyleSuggestions(
-    completedTasks: string[], 
+    completedTasks: string[],
     categories: { name: string; completed: number; total: number }[],
-    streakDays: number
+    streakDays: number,
   ): Promise<string[]> {
     try {
       const prompt = `Based on this user's productivity data, suggest 3-4 lifestyle activities or habits that would complement their progress:
 
-Recent completed tasks: ${completedTasks.join(', ')}
-Category performance: ${categories.map(c => `${c.name}: ${c.completed}/${c.total}`).join(', ')}
+Recent completed tasks: ${completedTasks.join(", ")}
+Category performance: ${categories.map((c) => `${c.name}: ${c.completed}/${c.total}`).join(", ")}
 Current streak: ${streakDays} days
 
 Respond with JSON in this format:
@@ -576,49 +647,50 @@ Examples: "Try a 10-minute morning meditation", "Take a walk after lunch", "Sche
         model: "gpt-4-turbo-preview",
         messages: [
           {
-            role: "system", 
-            content: "You are a wellness coach who provides personalized lifestyle suggestions based on user behavior patterns."
+            role: "system",
+            content:
+              "You are a wellness coach who provides personalized lifestyle suggestions based on user behavior patterns.",
           },
           {
             role: "user",
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         response_format: { type: "json_object" },
       });
 
-      const result = JSON.parse(response.choices[0].message.content || '{}');
+      const result = JSON.parse(response.choices[0].message.content || "{}");
       return result.suggestions || [];
     } catch (error) {
-      console.error('Suggestion generation failed:', error);
+      console.error("Suggestion generation failed:", error);
       return [
-        'Take a 5-minute break every hour',
-        'Try a new healthy recipe this week',
-        'Schedule time for a hobby you enjoy',
-        'Connect with a friend or family member'
+        "Take a 5-minute break every hour",
+        "Try a new healthy recipe this week",
+        "Schedule time for a hobby you enjoy",
+        "Connect with a friend or family member",
       ];
     }
   }
 
-  private validatePriority(priority: any): 'low' | 'medium' | 'high' {
-    if (priority === 'low' || priority === 'medium' || priority === 'high') {
+  private validatePriority(priority: any): "low" | "medium" | "high" {
+    if (priority === "low" || priority === "medium" || priority === "high") {
       return priority;
     }
-    return 'medium'; // Default fallback
+    return "medium"; // Default fallback
   }
 
   async parsePastedLLMContent(
     pastedContent: string,
-    precedingContext: string = '',
+    precedingContext: string = "",
     userId?: string,
-    contentType: 'text' | 'image' = 'text'
+    contentType: "text" | "image" = "text",
   ): Promise<{
     activity: {
       title: string;
       description: string;
       category: string;
     };
-    tasks: Omit<InsertTask, 'userId'>[];
+    tasks: Omit<InsertTask, "userId">[];
     summary: string;
     estimatedTimeframe?: string;
     motivationalNote?: string;
@@ -630,58 +702,34 @@ Examples: "Try a 10-minute morning meditation", "Take a walk after lunch", "Sche
         const { storage } = await import("../storage");
         userPriorities = await storage.getUserPriorities(userId);
       } catch (error) {
-        console.error('Failed to fetch user priorities for LLM paste parsing:', error);
+        console.error(
+          "Failed to fetch user priorities for LLM paste parsing:",
+          error,
+        );
       }
     }
 
     try {
-      const prioritiesContext = userPriorities.length > 0
-        ? `\nUser's Life Priorities (consider these when creating tasks):
-${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}`
-        : '';
+      const prioritiesContext =
+        userPriorities.length > 0
+          ? `\nUser's Life Priorities (consider these when creating tasks):
+${userPriorities.map((p) => `- ${p.title}: ${p.description}`).join("\n")}`
+          : "";
 
-      const isImage = contentType === 'image' && pastedContent.startsWith('data:image');
+      const isImage =
+        contentType === "image" && pastedContent.startsWith("data:image");
 
       const prompt = isImage
         ? `You are analyzing an image that was pasted by the user (likely a screenshot of an LLM conversation, a to-do list, a plan, or instructional content).
 The user wants to turn this into an actionable activity with specific tasks in their planning app.
 
-${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ''}The image has been provided. Please analyze it and extract actionable information.${prioritiesContext}
+${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ""}The image has been provided. Please analyze it and extract actionable information.${prioritiesContext}
 
-Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
-{
-  "activity": {
-    "title": "Clear, concise title for the overall activity/goal",
-    "description": "Brief description of what this activity is about",
-    "category": "Category (e.g., Work, Personal, Health, Learning, etc.)"
-  },
-  "tasks": [
-    {
-      "title": "Specific, actionable task title",
-      "description": "Detailed description of what to do",
-      "category": "Category name",
-      "priority": "high|medium|low",
-      "dueDate": null
-    }
-  ],
-  "summary": "Brief summary of the overall plan",
-  "estimatedTimeframe": "Realistic timeframe to complete everything",
-  "motivationalNote": "Encouraging note to help the user get started"
-}
-
-Guidelines:
-- Break down the pasted content into 3-8 actionable tasks
-- Extract the main themes, steps, or action items from the LLM response
-- If it's a step-by-step guide, convert each major step into a task
-- If it's advice or recommendations, convert them into actionable tasks
-- Make tasks specific, measurable, and achievable
-- Use the preceding context to understand the user's intent
-- Create a cohesive activity title that captures the essence
-- Add helpful descriptions that include key information from the LLM response`
+Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:`
         : `You are analyzing content that was copied from another LLM conversation (like ChatGPT, Claude, Perplexity, etc.).
 The user wants to turn this into an actionable activity with specific tasks in their planning app.
 
-${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ''}Pasted LLM Content:
+${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ""}Pasted LLM Content:
 ${pastedContent}${prioritiesContext}
 
 Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
@@ -723,31 +771,37 @@ Guidelines:
                   type: "image" as const,
                   source: {
                     type: "base64" as const,
-                    media_type: pastedContent.match(/data:image\/(.*?);/)?.[1] as "image/jpeg" | "image/png" | "image/gif" | "image/webp" || "image/png",
-                    data: pastedContent.split(',')[1] // Remove data:image/png;base64, prefix
-                  }
+                    media_type:
+                      (pastedContent.match(/data:image\/(.*?);/)?.[1] as
+                        | "image/jpeg"
+                        | "image/png"
+                        | "image/gif"
+                        | "image/webp") || "image/png",
+                    data: pastedContent.split(",")[1], // Remove data:image/png;base64, prefix
+                  },
                 },
                 {
                   type: "text" as const,
-                  text: prompt
-                }
+                  text: prompt,
+                },
               ]
             : [
                 {
                   type: "text" as const,
-                  text: prompt
-                }
+                  text: prompt,
+                },
               ];
 
           const response = await anthropic.messages.create({
             model: DEFAULT_CLAUDE_MODEL,
             max_tokens: 2000,
-            system: "You are an expert at analyzing LLM-generated content and converting it into structured, actionable tasks. Always respond with valid JSON.",
+            system:
+              "You are an expert at analyzing LLM-generated content and converting it into structured, actionable tasks. Always respond with valid JSON.",
             messages: [
               {
                 role: "user",
-                content: messageContent
-              }
+                content: messageContent,
+              },
             ],
           });
 
@@ -756,24 +810,28 @@ Guidelines:
           return {
             activity: {
               title: result.activity?.title || "New Activity from LLM Content",
-              description: result.activity?.description || "Activity created from pasted content",
-              category: result.activity?.category || "Personal"
+              description:
+                result.activity?.description ||
+                "Activity created from pasted content",
+              category: result.activity?.category || "Personal",
             },
-            tasks: result.tasks?.map((task: any) => ({
-              title: task.title || 'Untitled Task',
-              description: task.description || 'No description provided',
-              category: task.category || result.activity?.category || 'Personal',
-              priority: this.validatePriority(task.priority),
-              goalId: null,
-              completed: false,
-              dueDate: task.dueDate ? new Date(task.dueDate) : null
-            })) || [],
+            tasks:
+              result.tasks?.map((task: any) => ({
+                title: task.title || "Untitled Task",
+                description: task.description || "No description provided",
+                category:
+                  task.category || result.activity?.category || "Personal",
+                priority: this.validatePriority(task.priority),
+                goalId: null,
+                completed: false,
+                dueDate: task.dueDate ? new Date(task.dueDate) : null,
+              })) || [],
             summary: result.summary || "Plan created from LLM content",
             estimatedTimeframe: result.estimatedTimeframe,
-            motivationalNote: result.motivationalNote
+            motivationalNote: result.motivationalNote,
           };
         } catch (error) {
-          console.error('Claude LLM parsing failed, trying OpenAI:', error);
+          console.error("Claude LLM parsing failed, trying OpenAI:", error);
         }
       }
 
@@ -781,8 +839,9 @@ Guidelines:
       const openAIMessages: any[] = [
         {
           role: "system",
-          content: "You are an expert at analyzing LLM-generated content and converting it into structured, actionable tasks. Always respond with valid JSON."
-        }
+          content:
+            "You are an expert at analyzing LLM-generated content and converting it into structured, actionable tasks. Always respond with valid JSON.",
+        },
       ];
 
       if (isImage) {
@@ -792,19 +851,19 @@ Guidelines:
             {
               type: "image_url",
               image_url: {
-                url: pastedContent
-              }
+                url: pastedContent,
+              },
             },
             {
               type: "text",
-              text: prompt
-            }
-          ]
+              text: prompt,
+            },
+          ],
         });
       } else {
         openAIMessages.push({
           role: "user",
-          content: prompt
+          content: prompt,
         });
       }
 
@@ -815,47 +874,52 @@ Guidelines:
         max_tokens: isImage ? 4096 : undefined,
       });
 
-      const result = JSON.parse(response.choices[0].message.content || '{}');
+      const result = JSON.parse(response.choices[0].message.content || "{}");
 
       return {
         activity: {
           title: result.activity?.title || "New Activity from LLM Content",
-          description: result.activity?.description || "Activity created from pasted content",
-          category: result.activity?.category || "Personal"
+          description:
+            result.activity?.description ||
+            "Activity created from pasted content",
+          category: result.activity?.category || "Personal",
         },
-        tasks: result.tasks?.map((task: any) => ({
-          title: task.title || 'Untitled Task',
-          description: task.description || 'No description provided',
-          category: task.category || result.activity?.category || 'Personal',
-          priority: this.validatePriority(task.priority),
-          goalId: null,
-          completed: false,
-          dueDate: task.dueDate ? new Date(task.dueDate) : null
-        })) || [],
+        tasks:
+          result.tasks?.map((task: any) => ({
+            title: task.title || "Untitled Task",
+            description: task.description || "No description provided",
+            category: task.category || result.activity?.category || "Personal",
+            priority: this.validatePriority(task.priority),
+            goalId: null,
+            completed: false,
+            dueDate: task.dueDate ? new Date(task.dueDate) : null,
+          })) || [],
         summary: result.summary || "Plan created from LLM content",
         estimatedTimeframe: result.estimatedTimeframe,
-        motivationalNote: result.motivationalNote
+        motivationalNote: result.motivationalNote,
       };
     } catch (error) {
-      console.error('LLM content parsing failed:', error);
+      console.error("LLM content parsing failed:", error);
 
       // Create a single task from the pasted content
       return {
         activity: {
           title: "New Activity",
           description: "Activity created from pasted content",
-          category: "Personal"
+          category: "Personal",
         },
-        tasks: [{
-          title: 'Review and act on pasted content',
-          description: pastedText.substring(0, 500),
-          category: 'Personal',
-          priority: 'medium' as const,
-          goalId: null,
-          completed: false,
-          dueDate: null
-        }],
-        summary: "Content imported successfully"
+        tasks: [
+          {
+            title: "Review and act on pasted content",
+            description: pastedText.substring(0, 500),
+            category: "Personal",
+            priority: "medium" as const,
+            goalId: null,
+            completed: false,
+            dueDate: null,
+          },
+        ],
+        summary: "Content imported successfully",
       };
     }
   }
@@ -865,18 +929,18 @@ Guidelines:
     const task = {
       title: `Work on: ${goalText}`,
       description: `Take action towards achieving: ${goalText}`,
-      category: 'Personal',
-      priority: 'medium' as const,
+      category: "Personal",
+      priority: "medium" as const,
       goalId: null,
       completed: false,
-      dueDate: null
+      dueDate: null,
     };
 
     return {
       tasks: [task],
-      goalCategory: 'Personal',
-      goalPriority: 'medium',
-      estimatedTimeframe: '1-2 hours'
+      goalCategory: "Personal",
+      goalPriority: "medium",
+      estimatedTimeframe: "1-2 hours",
     };
   }
 }
