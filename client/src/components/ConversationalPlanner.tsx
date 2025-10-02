@@ -557,7 +557,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder={planningMode === 'quick' ? "Tell me what you're planning..." : "Chat about your plans..."}
+                    placeholder={planningMode === 'quick' ? "Tell me what you're planning... or paste a ChatGPT conversation!" : "Chat about your plans... or paste a ChatGPT conversation!"}
                     disabled={sendMessageMutation.isPending}
                     className="flex-1"
                     data-testid="input-message"
