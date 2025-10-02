@@ -120,6 +120,84 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
     const userProfile = await storage.getUserProfile(userId);
     const userPriorities = await storage.getUserPriorities(userId);
 
+    // Check if user wants to generate/create the plan (natural language commands)
+    // Accept: "yes", "generate plan", "create plan", "please generate", etc.
+    const lowerMsg = message.toLowerCase().trim();
+    const planConfirmed = session.externalContext?.planConfirmed;
+    
+    // Strip punctuation and normalize contractions
+    const msgNormalized = lowerMsg
+      .replace(/[!?.,:;]+/g, ' ')
+      .replace(/let'?s/g, 'lets')
+      .replace(/that'?s/g, 'thats')
+      .replace(/it'?s/g, 'its')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    // Check for negations - but exclude positive idioms like "no problem", "no worries"
+    const hasNegation = /\b(don'?t|not|stop|wait|hold|never|cancel|abort)\b/i.test(msgNormalized) ||
+                       (/\bno\b/.test(msgNormalized) && !/\bno (problem|worries|issues?|concerns?)\b/i.test(msgNormalized));
+    
+    // Common affirmative patterns (flexible matching)
+    const hasAffirmative = /\b(yes|yeah|yep|sure|ok|okay|perfect|great|good|fine|alright|absolutely|definitely|sounds? good|that works|lets do|go ahead|proceed)\b/i.test(msgNormalized);
+    
+    // Generate/create command patterns
+    const hasGenerateCommand = /\b(generate|create|make)\b.*(plan|activity|it)\b/i.test(msgNormalized);
+    
+    const isGenerateCommand = !hasNegation && (hasAffirmative || hasGenerateCommand);
+    
+    if (planConfirmed && isGenerateCommand) {
+      // User wants to create the activity - extract the generated plan
+      const generatedPlan = session.slots?._generatedPlan;
+      
+      if (generatedPlan) {
+        // Create activity from the structured plan
+        const activity = await storage.createActivity({
+          title: generatedPlan.title || 'Smart Plan Activity',
+          description: generatedPlan.summary || 'Generated from Smart Plan conversation',
+          category: generatedPlan.category || 'personal',
+          status: 'planning',
+          userId
+        });
+
+        // Create tasks and link them to the activity
+        const createdTasks = [];
+        if (generatedPlan.tasks && Array.isArray(generatedPlan.tasks)) {
+          for (let i = 0; i < generatedPlan.tasks.length; i++) {
+            const taskData = generatedPlan.tasks[i];
+            const task = await storage.createTask({
+              title: taskData.title,
+              description: taskData.description,
+              category: taskData.category,
+              priority: taskData.priority,
+              timeEstimate: taskData.timeEstimate,
+              userId
+            });
+            await storage.addTaskToActivity(activity.id, task.id, i);
+            createdTasks.push(task);
+          }
+        }
+
+        // Mark session as completed  
+        await storage.updateLifestylePlannerSession(session.id, {
+          sessionState: 'completed',
+          isComplete: true,
+          generatedPlan: { ...generatedPlan, tasks: createdTasks }
+        }, userId);
+
+        const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
+        
+        return res.json({
+          message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 **You can find it in:**\n• **Home screen** - Check your recent activities\n• **Activities pane** - View all details and progress\n• **Tasks section** - See the ${createdTasks.length} individual tasks I created\n\nAll tasks are ready for you to start working on! 🚀`,
+          activityCreated: true,
+          activity,
+          planComplete: true,
+          createdTasks,
+          session: updatedSession
+        });
+      }
+    }
+    
     // Check if we're awaiting plan confirmation
     const awaitingConfirmation = session.externalContext?.awaitingPlanConfirmation;
     
@@ -145,7 +223,7 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
         const lastAIMessage = session.conversationHistory?.slice().reverse().find((msg: any) => msg.role === 'assistant')?.content || '';
         
         return res.json({
-          message: "🎯 **Perfect!** Click \"Generate Plan\" to create your activity!",
+          message: "🎯 **Perfect!** You can now say \"generate plan\" or click the Generate Plan button to create your activity!",
           planReady: true,
           sessionId: session.id,
           showCreatePlanButton: true,
@@ -1733,6 +1811,84 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
     // Get user profile for personalized questions
     const userProfile = await storage.getUserProfile(userId);
 
+    // Check if user wants to generate/create the plan (natural language commands)
+    // Accept: "yes", "generate plan", "create plan", "please generate", etc.
+    const lowerMsg = message.toLowerCase().trim();
+    const planConfirmed = session.externalContext?.planConfirmed;
+    
+    // Strip punctuation and normalize contractions
+    const msgNormalized = lowerMsg
+      .replace(/[!?.,:;]+/g, ' ')
+      .replace(/let'?s/g, 'lets')
+      .replace(/that'?s/g, 'thats')
+      .replace(/it'?s/g, 'its')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    // Check for negations - but exclude positive idioms like "no problem", "no worries"
+    const hasNegation = /\b(don'?t|not|stop|wait|hold|never|cancel|abort)\b/i.test(msgNormalized) ||
+                       (/\bno\b/.test(msgNormalized) && !/\bno (problem|worries|issues?|concerns?)\b/i.test(msgNormalized));
+    
+    // Common affirmative patterns (flexible matching)
+    const hasAffirmative = /\b(yes|yeah|yep|sure|ok|okay|perfect|great|good|fine|alright|absolutely|definitely|sounds? good|that works|lets do|go ahead|proceed)\b/i.test(msgNormalized);
+    
+    // Generate/create command patterns
+    const hasGenerateCommand = /\b(generate|create|make)\b.*(plan|activity|it)\b/i.test(msgNormalized);
+    
+    const isGenerateCommand = !hasNegation && (hasAffirmative || hasGenerateCommand);
+    
+    if (planConfirmed && isGenerateCommand) {
+      // User wants to create the activity - extract the generated plan
+      const generatedPlan = session.slots?._generatedPlan;
+      
+      if (generatedPlan) {
+        // Create activity from the structured plan
+        const activity = await storage.createActivity({
+          title: generatedPlan.title || 'Quick Plan Activity',
+          description: generatedPlan.summary || 'Generated from Quick Plan conversation',
+          category: generatedPlan.category || 'personal',
+          status: 'planning',
+          userId
+        });
+
+        // Create tasks and link them to the activity
+        const createdTasks = [];
+        if (generatedPlan.tasks && Array.isArray(generatedPlan.tasks)) {
+          for (let i = 0; i < generatedPlan.tasks.length; i++) {
+            const taskData = generatedPlan.tasks[i];
+            const task = await storage.createTask({
+              title: taskData.title,
+              description: taskData.description,
+              category: taskData.category,
+              priority: taskData.priority,
+              timeEstimate: taskData.timeEstimate,
+              userId
+            });
+            await storage.addTaskToActivity(activity.id, task.id, i);
+            createdTasks.push(task);
+          }
+        }
+
+        // Mark session as completed  
+        await storage.updateLifestylePlannerSession(session.id, {
+          sessionState: 'completed',
+          isComplete: true,
+          generatedPlan: { ...generatedPlan, tasks: createdTasks }
+        }, userId);
+
+        const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
+        
+        return res.json({
+          message: `⚡ **Boom!** Activity "${activity.title}" created instantly!\n\n📋 **Find it on:**\n• **Home screen** - Your recent activities\n• **Activities pane** - Full details\n• **Tasks section** - ${createdTasks.length} tasks ready to go\n\nLet's make it happen! 🚀`,
+          activityCreated: true,
+          activity,
+          planComplete: true,
+          createdTasks,
+          session: updatedSession
+        });
+      }
+    }
+
     // Check if we're awaiting plan confirmation (same as Smart Plan)
     const awaitingConfirmation = session.externalContext?.awaitingPlanConfirmation;
     
@@ -1755,7 +1911,7 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
 
         // Don't re-run agent, just show the button
         return res.json({
-          message: "⚡ **Perfect!** Click \"Generate Plan\" to create your activity instantly!",
+          message: "⚡ **Perfect!** You can now say \"generate plan\" or click the Generate Plan button to create your activity instantly!",
           planReady: true,
           sessionId: session.id,
           showCreatePlanButton: true,
