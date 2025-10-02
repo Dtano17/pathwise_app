@@ -607,6 +607,228 @@ Examples: "Try a 10-minute morning meditation", "Take a walk after lunch", "Sche
     return 'medium'; // Default fallback
   }
 
+  async parsePastedLLMContent(
+    pastedContent: string,
+    precedingContext: string = '',
+    userId?: string,
+    contentType: 'text' | 'image' = 'text'
+  ): Promise<{
+    activity: {
+      title: string;
+      description: string;
+      category: string;
+    };
+    tasks: Omit<InsertTask, 'userId'>[];
+    summary: string;
+    estimatedTimeframe?: string;
+    motivationalNote?: string;
+  }> {
+    // Fetch user priorities if userId is provided
+    let userPriorities: any[] = [];
+    if (userId) {
+      try {
+        const { storage } = await import("../storage");
+        userPriorities = await storage.getUserPriorities(userId);
+      } catch (error) {
+        console.error('Failed to fetch user priorities for LLM paste parsing:', error);
+      }
+    }
+
+    try {
+      const prioritiesContext = userPriorities.length > 0
+        ? `\nUser's Life Priorities (consider these when creating tasks):
+${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}`
+        : '';
+
+      const isImage = contentType === 'image' && pastedContent.startsWith('data:image');
+
+      const prompt = isImage
+        ? `You are analyzing an image that was pasted by the user (likely a screenshot of an LLM conversation, a to-do list, a plan, or instructional content).
+The user wants to turn this into an actionable activity with specific tasks in their planning app.
+
+${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ''}The image has been provided. Please analyze it and extract actionable information.${prioritiesContext}`
+        : `You are analyzing content that was copied from another LLM conversation (like ChatGPT, Claude, Perplexity, etc.).
+The user wants to turn this into an actionable activity with specific tasks in their planning app.
+
+${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ''}Pasted LLM Content:
+${pastedContent}${prioritiesContext}`
+
+Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
+{
+  "activity": {
+    "title": "Clear, concise title for the overall activity/goal",
+    "description": "Brief description of what this activity is about",
+    "category": "Category (e.g., Work, Personal, Health, Learning, etc.)"
+  },
+  "tasks": [
+    {
+      "title": "Specific, actionable task title",
+      "description": "Detailed description of what to do",
+      "category": "Category name",
+      "priority": "high|medium|low",
+      "dueDate": null
+    }
+  ],
+  "summary": "Brief summary of the overall plan",
+  "estimatedTimeframe": "Realistic timeframe to complete everything",
+  "motivationalNote": "Encouraging note to help the user get started"
+}
+
+Guidelines:
+- Break down the pasted content into 3-8 actionable tasks
+- Extract the main themes, steps, or action items from the LLM response
+- If it's a step-by-step guide, convert each major step into a task
+- If it's advice or recommendations, convert them into actionable tasks
+- Make tasks specific, measurable, and achievable
+- Use the preceding context to understand the user's intent
+- Create a cohesive activity title that captures the essence
+- Add helpful descriptions that include key information from the LLM response`;
+
+      if (process.env.ANTHROPIC_API_KEY) {
+        try {
+          const messageContent = isImage
+            ? [
+                {
+                  type: "image" as const,
+                  source: {
+                    type: "base64" as const,
+                    media_type: pastedContent.match(/data:image\/(.*?);/)?.[1] as "image/jpeg" | "image/png" | "image/gif" | "image/webp" || "image/png",
+                    data: pastedContent.split(',')[1] // Remove data:image/png;base64, prefix
+                  }
+                },
+                {
+                  type: "text" as const,
+                  text: prompt
+                }
+              ]
+            : [
+                {
+                  type: "text" as const,
+                  text: prompt
+                }
+              ];
+
+          const response = await anthropic.messages.create({
+            model: DEFAULT_CLAUDE_MODEL,
+            max_tokens: 2000,
+            system: "You are an expert at analyzing LLM-generated content and converting it into structured, actionable tasks. Always respond with valid JSON.",
+            messages: [
+              {
+                role: "user",
+                content: messageContent
+              }
+            ],
+          });
+
+          const result = JSON.parse((response.content[0] as any).text);
+
+          return {
+            activity: {
+              title: result.activity?.title || "New Activity from LLM Content",
+              description: result.activity?.description || "Activity created from pasted content",
+              category: result.activity?.category || "Personal"
+            },
+            tasks: result.tasks?.map((task: any) => ({
+              title: task.title || 'Untitled Task',
+              description: task.description || 'No description provided',
+              category: task.category || result.activity?.category || 'Personal',
+              priority: this.validatePriority(task.priority),
+              goalId: null,
+              completed: false,
+              dueDate: task.dueDate ? new Date(task.dueDate) : null
+            })) || [],
+            summary: result.summary || "Plan created from LLM content",
+            estimatedTimeframe: result.estimatedTimeframe,
+            motivationalNote: result.motivationalNote
+          };
+        } catch (error) {
+          console.error('Claude LLM parsing failed, trying OpenAI:', error);
+        }
+      }
+
+      // OpenAI fallback with vision support
+      const openAIMessages: any[] = [
+        {
+          role: "system",
+          content: "You are an expert at analyzing LLM-generated content and converting it into structured, actionable tasks. Always respond with valid JSON."
+        }
+      ];
+
+      if (isImage) {
+        openAIMessages.push({
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: {
+                url: pastedContent
+              }
+            },
+            {
+              type: "text",
+              text: prompt
+            }
+          ]
+        });
+      } else {
+        openAIMessages.push({
+          role: "user",
+          content: prompt
+        });
+      }
+
+      const response = await openai.chat.completions.create({
+        model: isImage ? "gpt-4-vision-preview" : "gpt-4-turbo-preview",
+        messages: openAIMessages,
+        response_format: isImage ? undefined : { type: "json_object" },
+        max_tokens: isImage ? 4096 : undefined,
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || '{}');
+
+      return {
+        activity: {
+          title: result.activity?.title || "New Activity from LLM Content",
+          description: result.activity?.description || "Activity created from pasted content",
+          category: result.activity?.category || "Personal"
+        },
+        tasks: result.tasks?.map((task: any) => ({
+          title: task.title || 'Untitled Task',
+          description: task.description || 'No description provided',
+          category: task.category || result.activity?.category || 'Personal',
+          priority: this.validatePriority(task.priority),
+          goalId: null,
+          completed: false,
+          dueDate: task.dueDate ? new Date(task.dueDate) : null
+        })) || [],
+        summary: result.summary || "Plan created from LLM content",
+        estimatedTimeframe: result.estimatedTimeframe,
+        motivationalNote: result.motivationalNote
+      };
+    } catch (error) {
+      console.error('LLM content parsing failed:', error);
+
+      // Create a single task from the pasted content
+      return {
+        activity: {
+          title: "New Activity",
+          description: "Activity created from pasted content",
+          category: "Personal"
+        },
+        tasks: [{
+          title: 'Review and act on pasted content',
+          description: pastedText.substring(0, 500),
+          category: 'Personal',
+          priority: 'medium' as const,
+          goalId: null,
+          completed: false,
+          dueDate: null
+        }],
+        summary: "Content imported successfully"
+      };
+    }
+  }
+
   private createFallbackTasks(goalText: string): GoalProcessingResult {
     // Simple fallback when AI fails
     const task = {
