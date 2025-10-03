@@ -725,7 +725,36 @@ The user wants to turn this into an actionable activity with specific tasks in t
 
 ${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ""}The image has been provided. Please analyze it and extract actionable information.${prioritiesContext}
 
-Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:`
+Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
+{
+  "activity": {
+    "title": "Clear, concise title for the overall activity/goal",
+    "description": "Brief description of what this activity is about",
+    "category": "Category (e.g., Work, Personal, Health, Learning, etc.)"
+  },
+  "tasks": [
+    {
+      "title": "Specific, actionable task title",
+      "description": "Detailed description of what to do",
+      "category": "Category name",
+      "priority": "high|medium|low",
+      "dueDate": null
+    }
+  ],
+  "summary": "Brief summary of the overall plan",
+  "estimatedTimeframe": "Realistic timeframe to complete everything",
+  "motivationalNote": "Encouraging note to help the user get started"
+}
+
+IMPORTANT: If the image shows numbered steps (1., 2., 3., etc.) or bullet points, convert EACH ONE into a separate task. For example, if you see "1. Document Your Workflow", "2. File a Trademark", "3. Register Copyright" - create 3 separate tasks, not one combined task.
+
+Guidelines:
+- Break down the content into 3-8 actionable tasks
+- Extract each numbered step or major bullet point as a separate task
+- Make tasks specific, measurable, and achievable
+- Extract key details from sub-bullets into task descriptions
+- Use the preceding context to understand the user's intent
+- Create a cohesive activity title that captures the essence`
         : `You are analyzing content that was copied from another LLM conversation (like ChatGPT, Claude, Perplexity, etc.).
 The user wants to turn this into an actionable activity with specific tasks in their planning app.
 
@@ -753,15 +782,28 @@ Analyze this content and create a structured activity with tasks. Respond with J
   "motivationalNote": "Encouraging note to help the user get started"
 }
 
+Example: If the pasted content is:
+"🔐 1. Document Your Workflow - Create a record of your logic
+ 2. File a Trademark - Protect your brand name
+ 3. Register Copyright - Protect your codebase"
+
+Create 3 separate tasks:
+- Task 1: title="Document Your Workflow", description="Create a clean, timestamped record of your agentic logic..."
+- Task 2: title="File a Trademark", description="Protect your brand name (e.g. JournalMate), logo, and tagline..."
+- Task 3: title="Register Copyright", description="Protect your codebase, UI designs, onboarding flows..."
+
 Guidelines:
 - Break down the pasted content into 3-8 actionable tasks
+- IMPORTANT: If the content has numbered steps (1., 2., 3., etc.) or bullet points, convert EACH ONE into a separate task
 - Extract the main themes, steps, or action items from the LLM response
 - If it's a step-by-step guide, convert each major step into a task
 - If it's advice or recommendations, convert them into actionable tasks
 - Make tasks specific, measurable, and achievable
 - Use the preceding context to understand the user's intent
 - Create a cohesive activity title that captures the essence
-- Add helpful descriptions that include key information from the LLM response`;
+- Add helpful descriptions that include key information from the LLM response
+- For numbered plans with emojis (e.g., "🔐 1. Document Your Workflow"), extract the core action as the task title
+- Preserve sub-bullets and details in the task description for reference`;
 
       if (process.env.ANTHROPIC_API_KEY) {
         try {
