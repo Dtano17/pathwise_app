@@ -772,7 +772,9 @@ Guidelines:
 - Make tasks specific, measurable, and achievable
 - Extract key details from sub-bullets into task descriptions
 - Use the preceding context to understand the user's intent
-- Create a cohesive activity title that captures the essence`
+- **IMPORTANT: For activity title, use the MAIN HEADING from the pasted content** (e.g., if content says "🔐 Step-by-Step: Securing IP for Your Agentic Framework", use that as the activity title, NOT generic "Generated Plan")
+- If pasted content has a clear title/heading with emojis, PRESERVE the emojis in the activity title
+- Activity title should be descriptive and match the content, not generic`
         : `You are analyzing content that was copied from another LLM conversation (like ChatGPT, Claude, Perplexity, etc.).
 The user wants to turn this into an actionable activity with specific tasks in their planning app.
 
@@ -818,7 +820,9 @@ Guidelines:
 - If it's advice or recommendations, convert them into actionable tasks
 - Make tasks specific, measurable, and achievable
 - Use the preceding context to understand the user's intent
-- Create a cohesive activity title that captures the essence
+- **IMPORTANT: For activity title, extract and use the MAIN HEADING from the pasted content** (e.g., "🔐 Step-by-Step: Securing IP for Your Agentic Framework") - DO NOT use generic titles like "Generated Plan" or "New Activity"
+- If pasted content has a clear title/heading with emojis (🔐, ™️, ©️, 🧪, 🧾), PRESERVE the emojis in the activity title
+- Activity title must be specific and descriptive, matching the actual content topic
 - Add helpful descriptions that include key information from the LLM response
 - For numbered plans with emojis (e.g., "🔐 1. Document Your Workflow"), extract the core action as the task title
 - Preserve sub-bullets and details in the task description for reference`;

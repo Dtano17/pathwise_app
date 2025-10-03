@@ -28,7 +28,6 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import ThemeToggle from '@/components/ThemeToggle';
 import NotificationManager from '@/components/NotificationManager';
@@ -1030,100 +1029,76 @@ export default function MainApp({
                             </div>
                             <div className="flex items-center gap-2 ml-4">
                               <Badge variant="secondary" className="text-xs">{activity.category || 'General'}</Badge>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm"
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        try {
-                                          // Generate proper shareable link via backend
-                                          const response = await apiRequest('POST', `/api/activities/${activity.id}/share`);
-                                          const data = await response.json();
-                                          const shareUrl = data.shareableLink;
-                                          const shareText = `Check out my activity: ${activity.title} - ${progressPercent}% complete!`;
-                                          
-                                          if (navigator.share) {
-                                            await navigator.share({
-                                              title: activity.title,
-                                              text: shareText,
-                                              url: shareUrl
-                                            });
-                                            toast({ 
-                                              title: "Shared Successfully!", 
-                                              description: "Activity shared with your contacts!" 
-                                            });
-                                          } else {
-                                            await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
-                                            toast({ 
-                                              title: "Link Copied!", 
-                                              description: "Activity link copied to clipboard - share it anywhere!" 
-                                            });
-                                          }
-                                        } catch (error) {
-                                          console.error('Share error:', error);
-                                          toast({
-                                            title: "Share Failed",
-                                            description: "Unable to generate share link. Please try again.",
-                                            variant: "destructive"
-                                          });
-                                        }
-                                      }}
-                                      data-testid={`button-share-${activity.id}`}
-                                    >
-                                      <Share2 className="w-4 h-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Share to social media or contacts</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleArchiveActivity.mutate(activity.id);
-                                      }}
-                                      disabled={handleArchiveActivity.isPending}
-                                      data-testid={`button-archive-${activity.id}`}
-                                    >
-                                      <Archive className="w-4 h-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Archive</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeleteDialog({ open: true, activity });
-                                      }}
-                                      disabled={handleDeleteActivity.isPending}
-                                      data-testid={`button-delete-${activity.id}`}
-                                      className="text-destructive hover:text-destructive"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Delete</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    // Generate proper shareable link via backend
+                                    const response = await apiRequest('POST', `/api/activities/${activity.id}/share`);
+                                    const data = await response.json();
+                                    const shareUrl = data.shareableLink;
+                                    const shareText = `Check out my activity: ${activity.title} - ${progressPercent}% complete!`;
+                                    
+                                    if (navigator.share) {
+                                      await navigator.share({
+                                        title: activity.title,
+                                        text: shareText,
+                                        url: shareUrl
+                                      });
+                                      toast({ 
+                                        title: "Shared Successfully!", 
+                                        description: "Activity shared with your contacts!" 
+                                      });
+                                    } else {
+                                      await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+                                      toast({ 
+                                        title: "Link Copied!", 
+                                        description: "Activity link copied to clipboard - share it anywhere!" 
+                                      });
+                                    }
+                                  } catch (error) {
+                                    console.error('Share error:', error);
+                                    toast({
+                                      title: "Share Failed",
+                                      description: "Unable to generate share link. Please try again.",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                                data-testid={`button-share-${activity.id}`}
+                                title="Share to social media or contacts"
+                              >
+                                <Share2 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleArchiveActivity.mutate(activity.id);
+                                }}
+                                disabled={handleArchiveActivity.isPending}
+                                data-testid={`button-archive-${activity.id}`}
+                                title="Archive activity"
+                              >
+                                <Archive className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteDialog({ open: true, activity });
+                                }}
+                                disabled={handleDeleteActivity.isPending}
+                                data-testid={`button-delete-${activity.id}`}
+                                className="text-destructive hover:text-destructive"
+                                title="Delete activity"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
                           </div>
 
