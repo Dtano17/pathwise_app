@@ -123,7 +123,10 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
 
   // Start new session
   const startSessionMutation = useMutation({
-    mutationFn: () => apiRequest('/api/planner/session', { method: 'POST' }),
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/planner/session');
+      return response.json();
+    },
     onSuccess: (data) => {
       setCurrentSession(data.session);
       setContextChips([]);
@@ -136,11 +139,10 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
 
   // Send message
   const sendMessageMutation = useMutation({
-    mutationFn: (messageData: { sessionId: string; message: string; mode?: string }) =>
-      apiRequest('/api/planner/message', {
-        method: 'POST',
-        body: messageData
-      }),
+    mutationFn: async (messageData: { sessionId: string; message: string; mode?: string }) => {
+      const response = await apiRequest('POST', '/api/planner/message', messageData);
+      return response.json();
+    },
     onSuccess: (data) => {
       setCurrentSession(data.session);
       setContextChips(data.contextChips || []);
@@ -169,11 +171,10 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
 
   // Get plan preview before generation
   const previewPlanMutation = useMutation({
-    mutationFn: (sessionId: string) =>
-      apiRequest('/api/planner/preview', {
-        method: 'POST',
-        body: { sessionId }
-      }),
+    mutationFn: async (sessionId: string) => {
+      const response = await apiRequest('POST', '/api/planner/preview', { sessionId });
+      return response.json();
+    },
     onSuccess: (data) => {
       setPendingPlan(data.planPreview);
       setShowPlanConfirmation(true);
@@ -192,11 +193,10 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
 
   // Generate plan (after confirmation)
   const generatePlanMutation = useMutation({
-    mutationFn: (sessionId: string) =>
-      apiRequest('/api/planner/generate', {
-        method: 'POST',
-        body: { sessionId }
-      }),
+    mutationFn: async (sessionId: string) => {
+      const response = await apiRequest('POST', '/api/planner/generate', { sessionId });
+      return response.json();
+    },
     onSuccess: (data) => {
       setCurrentSession(data.session);
       setIsGenerating(false);
@@ -402,18 +402,16 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                   : chatContext;
 
                 // Call the parsing API with image
-                const response = await apiRequest('/api/planner/parse-llm-content', {
-                  method: 'POST',
-                  body: {
-                    pastedContent: base64Image,
-                    contentType: 'image',
-                    precedingContext
-                  }
+                const response = await apiRequest('POST', '/api/planner/parse-llm-content', {
+                  pastedContent: base64Image,
+                  contentType: 'image',
+                  precedingContext
                 });
+                const data = await response.json();
 
                 setMessage(''); // Clear typed text since it's now part of context
 
-                setParsedLLMContent(response.parsed);
+                setParsedLLMContent(data.parsed);
                 setShowParsedContent(true);
               } catch (error) {
                 console.error('Failed to parse image:', error);
@@ -471,16 +469,14 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
           : chatContext;
 
         // Call the parsing API
-        const response = await apiRequest('/api/planner/parse-llm-content', {
-          method: 'POST',
-          body: {
-            pastedContent: pastedText,
-            contentType: 'text',
-            precedingContext
-          }
+        const response = await apiRequest('POST', '/api/planner/parse-llm-content', {
+          pastedContent: pastedText,
+          contentType: 'text',
+          precedingContext
         });
+        const data = await response.json();
 
-        setParsedLLMContent(response.parsed);
+        setParsedLLMContent(data.parsed);
         setShowParsedContent(true);
         setMessage(''); // Clear typed text since it's now part of context
       } catch (error) {
