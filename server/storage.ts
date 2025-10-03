@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { eq, and, desc, isNull, or, lte } from "drizzle-orm";
+import { eq, and, desc, isNull, or, lte, inArray } from "drizzle-orm";
 import crypto from "crypto";
 import { 
   type User, 
@@ -398,7 +398,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteActivity(activityId: string, userId: string): Promise<void> {
+    // First get all task IDs associated with this activity
+    const activityTasksToDelete = await db
+      .select({ taskId: activityTasks.taskId })
+      .from(activityTasks)
+      .where(eq(activityTasks.activityId, activityId));
+
+    const taskIds = activityTasksToDelete.map(at => at.taskId);
+
+    // Delete the activity (this will cascade delete activityTasks join table entries)
     await db.delete(activities).where(and(eq(activities.id, activityId), eq(activities.userId, userId)));
+
+    // Delete all associated tasks
+    if (taskIds.length > 0) {
+      await db.delete(tasks).where(inArray(tasks.id, taskIds));
+    }
   }
 
   async archiveActivity(activityId: string, userId: string): Promise<Activity | undefined> {

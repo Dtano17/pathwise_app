@@ -746,14 +746,14 @@ ${precedingContext ? `Context from what the user said before pasting:\n${precedi
 Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
 {
   "activity": {
-    "title": "EXTRACT THE ACTUAL HEADER/TITLE FROM THE PASTED CONTENT - use it exactly as written with emojis preserved. Examples: '🔐 Step-by-Step: Securing IP for Your Agentic Framework' or '🏋️ 30-Day Fitness Transformation Plan'. If the preceding context mentions 'weekend' or 'next week', add that context to the title.",
+    "title": "COMBINE the preceding context + pasted content header. Pattern: [Emoji from paste] + [Timeframe from context] + [Title from paste]. Example: Context='plan my weekend' + Pasted='🔐 Securing IP' → Title='🔐 Weekend Plans: Securing IP for Your Agentic Framework'. NEVER use 'Generated Plan'!",
     "description": "Brief description of what this activity is about",
     "category": "Category (e.g., Work, Personal, Health, Learning, etc.)"
   },
   "tasks": [
     {
-      "title": "Specific, actionable task title",
-      "description": "Detailed description of what to do",
+      "title": "INTUITIVE, actionable task title extracted from the pasted content (e.g., 'Document Your Workflow', 'File a Trademark', NOT generic like 'Task 1' or 'Step 1')",
+      "description": "Detailed description of what to do, including key details from sub-bullets",
       "category": "Category name",
       "priority": "high|medium|low",
       "dueDate": null
@@ -802,14 +802,14 @@ ${pastedContent}${prioritiesContext}
 Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
 {
   "activity": {
-    "title": "EXTRACT THE ACTUAL HEADER/TITLE FROM THE PASTED CONTENT - use it exactly as written with emojis preserved. Examples: '🔐 Step-by-Step: Securing IP for Your Agentic Framework' or '🏋️ 30-Day Fitness Transformation Plan'. If the preceding context mentions 'weekend' or 'next week', add that context to the title.",
+    "title": "COMBINE the preceding context + pasted content header. Pattern: [Emoji from paste] + [Timeframe from context] + [Title from paste]. Example: Context='plan my weekend' + Pasted='🔐 Securing IP' → Title='🔐 Weekend Plans: Securing IP for Your Agentic Framework'. NEVER use 'Generated Plan'!",
     "description": "Brief description of what this activity is about",
     "category": "Category (e.g., Work, Personal, Health, Learning, etc.)"
   },
   "tasks": [
     {
-      "title": "Specific, actionable task title",
-      "description": "Detailed description of what to do",
+      "title": "INTUITIVE, actionable task title extracted from the pasted content (e.g., 'Document Your Workflow', 'File a Trademark', NOT generic like 'Task 1' or 'Step 1')",
+      "description": "Detailed description of what to do, including key details from sub-bullets",
       "category": "Category name",
       "priority": "high|medium|low",
       "dueDate": null
