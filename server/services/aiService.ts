@@ -746,7 +746,7 @@ ${precedingContext ? `Context from what the user said before pasting:\n${precedi
 Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
 {
   "activity": {
-    "title": "Descriptive, engaging title that captures the essence of the activity (e.g., '🔐 Step-by-Step: Securing IP for Your Agentic Framework' or '🏋️ 30-Day Fitness Transformation Plan'). Include an emoji if relevant.",
+    "title": "EXTRACT THE ACTUAL HEADER/TITLE FROM THE PASTED CONTENT - use it exactly as written with emojis preserved. Examples: '🔐 Step-by-Step: Securing IP for Your Agentic Framework' or '🏋️ 30-Day Fitness Transformation Plan'. If the preceding context mentions 'weekend' or 'next week', add that context to the title.",
     "description": "Brief description of what this activity is about",
     "category": "Category (e.g., Work, Personal, Health, Learning, etc.)"
   },
@@ -766,15 +766,33 @@ Analyze this content and create a structured activity with tasks. Respond with J
 
 IMPORTANT: If the image shows numbered steps (1., 2., 3., etc.) or bullet points, convert EACH ONE into a separate task. For example, if you see "1. Document Your Workflow", "2. File a Trademark", "3. Register Copyright" - create 3 separate tasks, not one combined task.
 
+CRITICAL RULES FOR ACTIVITY TITLE (MANDATORY - FOLLOW EXACTLY):
+1. READ the preceding context to find what the user wants (e.g., "plan my weekend with this")
+2. EXTRACT the main title/header from the pasted content (usually the first line, often has emojis)
+3. COMBINE them using this exact pattern:
+
+   Pattern: [Emoji from pasted content] + [Timeframe/Action from context] + [Title from pasted content]
+
+   Examples:
+   - Context: "plan my weekend with this" + Pasted: "🔐 Securing IP for Your Agentic Framework"
+     → Activity Title: "🔐 Weekend Plans: Securing IP for Your Agentic Framework"
+
+   - Context: "help me organize this for next week" + Pasted: "🏋️ Fitness Transformation Plan"
+     → Activity Title: "🏋️ Next Week: Fitness Transformation Plan"
+
+   - Context: "I want to do this today" + Pasted: "📚 Learn Python Basics"
+     → Activity Title: "📚 Today: Learn Python Basics"
+
+4. ALWAYS extract the header from the pasted content - look for the first line or lines with emojis
+5. NEVER use generic titles like "Generated Plan", "Your Action Plan", "New Activity", etc.
+6. PRESERVE ALL emojis from the pasted content (🔐, ™️, ©️, 🧪, 🧾, 🏋️, 📚, etc.)
+
 Guidelines:
 - Break down the content into 3-8 actionable tasks
 - Extract each numbered step or major bullet point as a separate task
 - Make tasks specific, measurable, and achievable
 - Extract key details from sub-bullets into task descriptions
-- Use the preceding context to understand the user's intent
-- **IMPORTANT: For activity title, use the MAIN HEADING from the pasted content** (e.g., if content says "🔐 Step-by-Step: Securing IP for Your Agentic Framework", use that as the activity title, NOT generic "Generated Plan")
-- If pasted content has a clear title/heading with emojis, PRESERVE the emojis in the activity title
-- Activity title should be descriptive and match the content, not generic`
+- Use the preceding context to understand the user's intent and timeframe`
         : `You are analyzing content that was copied from another LLM conversation (like ChatGPT, Claude, Perplexity, etc.).
 The user wants to turn this into an actionable activity with specific tasks in their planning app.
 
@@ -784,7 +802,7 @@ ${pastedContent}${prioritiesContext}
 Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
 {
   "activity": {
-    "title": "Descriptive, engaging title that captures the essence of the activity (e.g., '🔐 Step-by-Step: Securing IP for Your Agentic Framework' or '🏋️ 30-Day Fitness Transformation Plan'). Include an emoji if relevant.",
+    "title": "EXTRACT THE ACTUAL HEADER/TITLE FROM THE PASTED CONTENT - use it exactly as written with emojis preserved. Examples: '🔐 Step-by-Step: Securing IP for Your Agentic Framework' or '🏋️ 30-Day Fitness Transformation Plan'. If the preceding context mentions 'weekend' or 'next week', add that context to the title.",
     "description": "Brief description of what this activity is about",
     "category": "Category (e.g., Work, Personal, Health, Learning, etc.)"
   },
@@ -812,17 +830,34 @@ Create 3 separate tasks:
 - Task 2: title="File a Trademark", description="Protect your brand name (e.g. JournalMate), logo, and tagline..."
 - Task 3: title="Register Copyright", description="Protect your codebase, UI designs, onboarding flows..."
 
+CRITICAL RULES FOR ACTIVITY TITLE (MANDATORY - FOLLOW EXACTLY):
+1. READ the preceding context to find what the user wants (e.g., "plan my weekend with this")
+2. EXTRACT the main title/header from the pasted content (usually the first line, often has emojis)
+3. COMBINE them using this exact pattern:
+
+   Pattern: [Emoji from pasted content] + [Timeframe/Action from context] + [Title from pasted content]
+
+   Examples:
+   - Context: "plan my weekend with this" + Pasted: "🔐 Securing IP for Your Agentic Framework"
+     → Activity Title: "🔐 Weekend Plans: Securing IP for Your Agentic Framework"
+
+   - Context: "help me organize this for next week" + Pasted: "🏋️ Fitness Transformation Plan"
+     → Activity Title: "🏋️ Next Week: Fitness Transformation Plan"
+
+   - Context: "I want to do this today" + Pasted: "📚 Learn Python Basics"
+     → Activity Title: "📚 Today: Learn Python Basics"
+
+4. ALWAYS extract the header from the pasted content - look for the first line or lines with emojis
+5. NEVER use generic titles like "Generated Plan", "Your Action Plan", "New Activity", etc.
+6. PRESERVE ALL emojis from the pasted content (🔐, ™️, ©️, 🧪, 🧾, 🏋️, 📚, etc.)
+
 Guidelines:
 - Break down the pasted content into 3-8 actionable tasks
 - IMPORTANT: If the content has numbered steps (1., 2., 3., etc.) or bullet points, convert EACH ONE into a separate task
 - Extract the main themes, steps, or action items from the LLM response
 - If it's a step-by-step guide, convert each major step into a task
-- If it's advice or recommendations, convert them into actionable tasks
 - Make tasks specific, measurable, and achievable
-- Use the preceding context to understand the user's intent
-- **IMPORTANT: For activity title, extract and use the MAIN HEADING from the pasted content** (e.g., "🔐 Step-by-Step: Securing IP for Your Agentic Framework") - DO NOT use generic titles like "Generated Plan" or "New Activity"
-- If pasted content has a clear title/heading with emojis (🔐, ™️, ©️, 🧪, 🧾), PRESERVE the emojis in the activity title
-- Activity title must be specific and descriptive, matching the actual content topic
+- Use the preceding context to understand the user's intent and desired timeframe
 - Add helpful descriptions that include key information from the LLM response
 - For numbered plans with emojis (e.g., "🔐 1. Document Your Workflow"), extract the core action as the task title
 - Preserve sub-bullets and details in the task description for reference`;
