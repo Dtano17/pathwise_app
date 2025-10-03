@@ -746,7 +746,7 @@ ${precedingContext ? `Context from what the user said before pasting:\n${precedi
 Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
 {
   "activity": {
-    "title": "Clear, concise title for the overall activity/goal",
+    "title": "Descriptive, engaging title that captures the essence of the activity (e.g., '🔐 Step-by-Step: Securing IP for Your Agentic Framework' or '🏋️ 30-Day Fitness Transformation Plan'). Include an emoji if relevant.",
     "description": "Brief description of what this activity is about",
     "category": "Category (e.g., Work, Personal, Health, Learning, etc.)"
   },
@@ -782,7 +782,7 @@ ${pastedContent}${prioritiesContext}
 Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
 {
   "activity": {
-    "title": "Clear, concise title for the overall activity/goal",
+    "title": "Descriptive, engaging title that captures the essence of the activity (e.g., '🔐 Step-by-Step: Securing IP for Your Agentic Framework' or '🏋️ 30-Day Fitness Transformation Plan'). Include an emoji if relevant.",
     "description": "Brief description of what this activity is about",
     "category": "Category (e.g., Work, Personal, Health, Learning, etc.)"
   },
