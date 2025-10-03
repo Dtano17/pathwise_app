@@ -44,6 +44,24 @@ interface ChatProcessingResult {
 }
 
 export class AIService {
+  // Helper function to extract JSON from markdown code blocks or plain text
+  private extractJSON(text: string): any {
+    // Try to find JSON in markdown code blocks first
+    const jsonBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (jsonBlockMatch) {
+      return JSON.parse(jsonBlockMatch[1].trim());
+    }
+
+    // Try to find JSON object directly (starting with { and ending with })
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+
+    // If no pattern matches, try parsing the whole text
+    return JSON.parse(text);
+  }
+
   async processGoalIntoTasks(
     goalText: string,
     preferredModel: "openai" | "claude" = "claude",
@@ -378,7 +396,7 @@ Create actionable tasks from these conversations that can help hold the user acc
         ],
       });
 
-      const result = JSON.parse((response.content[0] as any).text);
+      const result = this.extractJSON((response.content[0] as any).text);
 
       return {
         extractedGoals: result.extractedGoals || [],
@@ -586,7 +604,7 @@ Examples:
         ],
       });
 
-      const result = JSON.parse((response.content[0] as any).text);
+      const result = this.extractJSON((response.content[0] as any).text);
 
       // Validate and ensure proper structure
       const processedResult: GoalProcessingResult = {
@@ -847,7 +865,7 @@ Guidelines:
             ],
           });
 
-          const result = JSON.parse((response.content[0] as any).text);
+          const result = this.extractJSON((response.content[0] as any).text);
 
           return {
             activity: {

@@ -12,3 +12,10 @@ vite.config.ts.*
 
 # Exclude development workspace assets from deployment
 attached_assets/
+
+# Intellectual Property Documentation (Keep Private)
+IP_DOCUMENTATION/
+*.patent
+*.trademark
+*_Deposit.pdf
+*_NDA.pdf
