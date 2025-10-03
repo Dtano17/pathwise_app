@@ -67,6 +67,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
   const [showParsedContent, setShowParsedContent] = useState(false);
   const [parsedLLMContent, setParsedLLMContent] = useState<any>(null);
   const [isParsingPaste, setIsParsingPaste] = useState(false);
+  const [createdActivityId, setCreatedActivityId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load session from localStorage on mount
@@ -268,43 +269,66 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
     mutationFn: async () => {
       if (!parsedLLMContent) return;
 
-      // Create the activity
-      const activityResponse = await apiRequest('/api/activities', {
-        method: 'POST',
-        body: {
+      let activityId = createdActivityId;
+      let activity;
+
+      if (activityId) {
+        // Update existing activity
+        const activityResponse = await apiRequest('PUT', `/api/activities/${activityId}`, {
+          title: parsedLLMContent.activity.title,
+          description: parsedLLMContent.activity.description,
+        });
+        activity = await activityResponse.json();
+      } else {
+        // Create new activity with summary
+        const activityResponse = await apiRequest('POST', '/api/activities', {
           ...parsedLLMContent.activity,
           status: 'planning',
           tags: [parsedLLMContent.activity.category]
-        }
-      });
+        });
+        activity = await activityResponse.json();
+        activityId = activity.id;
+      }
 
-      const activity = await activityResponse.json();
+      // Create tasks and link them to the activity
+      const createdTasks = [];
+      for (let i = 0; i < parsedLLMContent.tasks.length; i++) {
+        const taskData = parsedLLMContent.tasks[i];
+        
+        // Create the task
+        const taskResponse = await apiRequest('POST', '/api/tasks', {
+          title: taskData.title,
+          description: taskData.description,
+          category: taskData.category || parsedLLMContent.activity.category,
+          priority: taskData.priority || 'medium',
+          timeEstimate: taskData.timeEstimate
+        });
+        const task = await taskResponse.json();
+        
+        // Link task to activity
+        await apiRequest('POST', `/api/activities/${activityId}/tasks`, {
+          taskId: task.id,
+          order: i
+        });
+        
+        createdTasks.push(task);
+      }
 
-      // Create tasks with activity ID
-      const tasksWithActivity = parsedLLMContent.tasks.map((task: any) => ({
-        ...task,
-        activityId: activity.id
-      }));
-
-      await Promise.all(
-        tasksWithActivity.map((task: any) =>
-          apiRequest('/api/tasks', {
-            method: 'POST',
-            body: task
-          })
-        )
-      );
-
-      return { activity, tasks: tasksWithActivity };
+      return { activity, tasks: createdTasks, activityId };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data) {
+        setCreatedActivityId(data.activityId);
+      }
       setShowParsedContent(false);
       setParsedLLMContent(null);
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       toast({
         title: "Content Imported!",
-        description: "Your LLM content has been converted into an activity with tasks",
+        description: data?.activityId && createdActivityId
+          ? "Your existing plan has been updated with new tasks"
+          : "Your LLM content has been converted into an activity with tasks",
       });
     },
     onError: (error) => {

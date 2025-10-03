@@ -102,6 +102,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const [showParsedContent, setShowParsedContent] = useState(false);
   const [parsedLLMContent, setParsedLLMContent] = useState<any>(null);
   const [modificationText, setModificationText] = useState('');
+  const [createdActivityId, setCreatedActivityId] = useState<string | null>(null);
 
   const recognitionRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -518,28 +519,57 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     mutationFn: async () => {
       if (!parsedLLMContent) return;
 
-      const activityResponse = await apiRequest('POST', '/api/activities', {
-        ...parsedLLMContent.activity,
-        status: 'planning',
-        tags: [parsedLLMContent.activity.category]
-      });
+      let activityId = createdActivityId;
+      let activity;
 
-      const activity = await activityResponse.json();
+      if (activityId) {
+        // Update existing activity
+        const activityResponse = await apiRequest('PUT', `/api/activities/${activityId}`, {
+          title: parsedLLMContent.activity.title,
+          description: parsedLLMContent.activity.description,
+        });
+        activity = await activityResponse.json();
+      } else {
+        // Create new activity with summary
+        const activityResponse = await apiRequest('POST', '/api/activities', {
+          ...parsedLLMContent.activity,
+          status: 'planning',
+          tags: [parsedLLMContent.activity.category]
+        });
+        activity = await activityResponse.json();
+        activityId = activity.id;
+      }
 
-      const tasksWithActivity = parsedLLMContent.tasks.map((task: any) => ({
-        ...task,
-        activityId: activity.id
-      }));
+      // Create tasks and link them to the activity
+      const createdTasks = [];
+      for (let i = 0; i < parsedLLMContent.tasks.length; i++) {
+        const taskData = parsedLLMContent.tasks[i];
+        
+        // Create the task
+        const taskResponse = await apiRequest('POST', '/api/tasks', {
+          title: taskData.title,
+          description: taskData.description,
+          category: taskData.category || parsedLLMContent.activity.category,
+          priority: taskData.priority || 'medium',
+          timeEstimate: taskData.timeEstimate
+        });
+        const task = await taskResponse.json();
+        
+        // Link task to activity
+        await apiRequest('POST', `/api/activities/${activityId}/tasks`, {
+          taskId: task.id,
+          order: i
+        });
+        
+        createdTasks.push(task);
+      }
 
-      await Promise.all(
-        tasksWithActivity.map((task: any) =>
-          apiRequest('POST', '/api/tasks', task)
-        )
-      );
-
-      return { activity, tasks: tasksWithActivity };
+      return { activity, tasks: createdTasks, activityId };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data) {
+        setCreatedActivityId(data.activityId);
+      }
       setShowParsedContent(false);
       setParsedLLMContent(null);
       setModificationText('');
@@ -547,7 +577,9 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       toast({
         title: "Content Imported!",
-        description: "Your LLM content has been converted into an activity with tasks",
+        description: data?.activityId && createdActivityId
+          ? "Your existing plan has been updated with new tasks"
+          : "Your LLM content has been converted into an activity with tasks",
       });
     },
     onError: (error) => {
