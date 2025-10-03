@@ -481,12 +481,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
         setMessage(''); // Clear typed text since it's now part of context
       } catch (error) {
         console.error('Failed to parse LLM content:', error);
-        toast({
-          title: "Paste Error",
-          description: "Couldn't parse the pasted content. It will be added as regular text.",
-          variant: "destructive"
-        });
-        // Fall back to regular paste
+        // Silently fall back to regular paste - no need to show error to user
         setMessage(prev => prev + pastedText);
       } finally {
         setIsParsingPaste(false);
