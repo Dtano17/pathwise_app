@@ -1,0 +1,38 @@
+{
+  "request": "fall on ice",
+  "current_behavior": {
+    "activity": {
+      "title": "Ice Fall Recovery and Prevention Plan",
+      "description": "Steps to recover from a fall on ice and prevent future incidents",
+      "category": "Health"
+    },
+    "tasks": [
+      {
+        "title": "Assess injuries and seek medical attention if needed",
+        "description": "Check for sprains, fractures, or head injuries. Visit urgent care or ER if severe pain or symptoms occur.",
+        "category": "Health",
+        "priority": "high"
+      },
+      {
+        "title": "Apply RICE method (Rest, Ice, Compression, Elevation)",
+        "description": "For minor injuries, rest the affected area, apply ice packs, use compression bandages, and elevate to reduce swelling.",
+        "category": "Health",
+        "priority": "high"
+      },
+      {
+        "title": "Purchase ice cleats or traction devices",
+        "description": "Get attachable ice cleats for boots to prevent future falls on icy surfaces.",
+        "category": "Personal",
+        "priority": "medium"
+      },
+      {
+        "title": "Review proper walking techniques on ice",
+        "description": "Learn penguin walk technique: short steps, flat feet, center of gravity over front leg.",
+        "category": "Learning",
+        "priority": "low"
+      }
+    ]
+  },
+  "issue": "Claude tries to be helpful and creates a plan even for non-planning requests. It interprets 'fall on ice' as something that needs a recovery/prevention plan.",
+  "solution_needed": "Add guardrails to detect if user input is actually requesting a plan vs just making a statement or asking a question."
+}

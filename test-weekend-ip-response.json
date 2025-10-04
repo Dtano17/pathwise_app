@@ -1,0 +1,144 @@
+{
+  "request": "help plan my weekend with these activities, with clear timestamp: 🔐 Step-by-Step: Securing IP for Your Agentic Framework...",
+  "response": {
+    "activity": {
+      "title": "Weekend: IP Protection for Agentic Framework",
+      "description": "Comprehensive plan to secure intellectual property including trademark, copyright, and provisional patent filings for JournalMate",
+      "category": "Work"
+    },
+    "tasks": [
+      {
+        "title": "📝 Document Agentic Workflow and IP Foundation",
+        "description": "Create timestamped record of generatePlan(), adjustForWeather(), syncCalendar(), suggestFallbacks() modules. Include behavioral nudging logic, fallback routines, Claude Code guardrails, and adaptation mechanisms. This becomes foundation for all IP filings.",
+        "category": "Work",
+        "priority": "high",
+        "timeEstimate": "2-3 hours"
+      },
+      {
+        "title": "🔍 Search Trademark Availability (USPTO TESS)",
+        "description": "Search JournalMate brand name, logo, and tagline availability on USPTO TESS database. Check Class 9 (software) and Class 42 (SaaS) classifications.",
+        "category": "Work",
+        "priority": "high",
+        "timeEstimate": "1 hour"
+      },
+      {
+        "title": "™️ File Trademark Application",
+        "description": "Submit trademark application via USPTO.gov for JournalMate name, logo, and tagline 'Build routines. Build habits. Share it with the world.' Include all brand assets and specify software/SaaS classes.",
+        "category": "Work",
+        "priority": "high",
+        "timeEstimate": "2-3 hours"
+      },
+      {
+        "title": "©️ Register Copyright for Source Code",
+        "description": "Register copyright at copyright.gov for Python/TypeScript codebase, including all agentic prompt logic and fallback flows. Prepare code submission package.",
+        "category": "Work",
+        "priority": "high",
+        "timeEstimate": "1-2 hours"
+      },
+      {
+        "title": "©️ Register Copyright for Brand Assets and UI",
+        "description": "Register copyright for logo, onboarding copy, journaling UI designs, and written content. Compile all visual and textual materials for submission.",
+        "category": "Work",
+        "priority": "medium",
+        "timeEstimate": "1 hour"
+      },
+      {
+        "title": "📐 Create Technical Abstract for Patent",
+        "description": "Write detailed technical abstract describing agentic execution engine: intent-to-plan conversion with timestamps, weather/traffic adaptation, energy rhythm detection, fallback logic, and journaling hooks.",
+        "category": "Work",
+        "priority": "high",
+        "timeEstimate": "3-4 hours"
+      },
+      {
+        "title": "📊 Prepare Patent Diagrams and Flowcharts",
+        "description": "Create visual documentation: system architecture diagrams, agentic workflow flowcharts, and pseudocode for key algorithms. Strengthen patent claim with clear technical illustrations.",
+        "category": "Work",
+        "priority": "high",
+        "timeEstimate": "2-3 hours"
+      },
+      {
+        "title": "🧪 File Provisional Patent Application",
+        "description": "Submit provisional patent via USPTO Patent Portal with complete technical abstract, diagrams, flowcharts, and pseudocode. Covers agentic execution engine, fallback routines, and behavioral nudging system. Provides 12-month window for full patent.",
+        "category": "Work",
+        "priority": "high",
+        "timeEstimate": "2-3 hours"
+      }
+    ]
+  },
+  "formatted_display": {
+    "activity_card": {
+      "title": "Weekend: IP Protection for Agentic Framework",
+      "icon": "🔐",
+      "timeframe": "2-3 hours spread across the weekend",
+      "total_tasks": 8,
+      "high_priority": 6,
+      "estimated_total_time": "14-19 hours"
+    },
+    "task_breakdown": [
+      {
+        "order": 1,
+        "emoji": "📝",
+        "title": "Document Agentic Workflow and IP Foundation",
+        "time": "2-3 hours",
+        "priority": "HIGH",
+        "when": "Saturday morning (fresh mind for documentation)"
+      },
+      {
+        "order": 2,
+        "emoji": "🔍",
+        "title": "Search Trademark Availability (USPTO TESS)",
+        "time": "1 hour",
+        "priority": "HIGH",
+        "when": "Saturday early afternoon"
+      },
+      {
+        "order": 3,
+        "emoji": "™️",
+        "title": "File Trademark Application",
+        "time": "2-3 hours",
+        "priority": "HIGH",
+        "when": "Saturday late afternoon"
+      },
+      {
+        "order": 4,
+        "emoji": "©️",
+        "title": "Register Copyright for Source Code",
+        "time": "1-2 hours",
+        "priority": "HIGH",
+        "when": "Saturday evening or Sunday morning"
+      },
+      {
+        "order": 5,
+        "emoji": "©️",
+        "title": "Register Copyright for Brand Assets and UI",
+        "time": "1 hour",
+        "priority": "MEDIUM",
+        "when": "Sunday morning"
+      },
+      {
+        "order": 6,
+        "emoji": "📐",
+        "title": "Create Technical Abstract for Patent",
+        "time": "3-4 hours",
+        "priority": "HIGH",
+        "when": "Sunday afternoon (main focus)"
+      },
+      {
+        "order": 7,
+        "emoji": "📊",
+        "title": "Prepare Patent Diagrams and Flowcharts",
+        "time": "2-3 hours",
+        "priority": "HIGH",
+        "when": "Sunday late afternoon"
+      },
+      {
+        "order": 8,
+        "emoji": "🧪",
+        "title": "File Provisional Patent Application",
+        "time": "2-3 hours",
+        "priority": "HIGH",
+        "when": "Sunday evening (submit before end of weekend)"
+      }
+    ]
+  }
+}

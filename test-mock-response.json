@@ -1,0 +1,42 @@
+{
+  "request": "plan my weekend",
+  "response": {
+    "activity": {
+      "title": "Weekend Planning",
+      "description": "Activities and tasks to organize and enjoy the weekend",
+      "category": "Personal"
+    },
+    "tasks": [
+      {
+        "title": "Review upcoming week's schedule",
+        "description": "Check calendar for meetings, deadlines, and appointments to prepare accordingly",
+        "category": "Personal",
+        "priority": "medium"
+      },
+      {
+        "title": "Plan weekend meals and grocery shopping",
+        "description": "Create meal plan for Saturday and Sunday, make shopping list",
+        "category": "Personal",
+        "priority": "medium"
+      },
+      {
+        "title": "Schedule relaxation and leisure time",
+        "description": "Block out time for hobbies, entertainment, or personal activities",
+        "category": "Personal",
+        "priority": "low"
+      },
+      {
+        "title": "Handle pending errands or chores",
+        "description": "Complete any outstanding tasks from the week that need attention",
+        "category": "Personal",
+        "priority": "medium"
+      },
+      {
+        "title": "Plan social activities or family time",
+        "description": "Coordinate meetups with friends or quality time with family",
+        "category": "Social",
+        "priority": "medium"
+      }
+    ]
+  }
+}

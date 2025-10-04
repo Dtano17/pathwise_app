@@ -2,6 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { domainRegistry, type Question, type DomainConfig } from './domainRegistry';
 import { enrichmentService } from './enrichmentService';
 import { contextualEnrichmentAgent } from './contextualEnrichmentAgent';
+import { claudeQuestionGenerator } from './claudeQuestionGenerator';
+import { claudeGapAnalyzer } from './claudeGapAnalyzer';
+import { claudeWebEnrichment } from './claudeWebEnrichment';
 import type { User } from '@shared/schema';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -284,22 +287,49 @@ Make sure each step has a clear, actionable title and helpful description.`
         };
       }
 
-      // PHASE 2: Generate Top Questions
-      const questions = domainRegistry.getQuestions(context.domain, planMode);
+      // PHASE 2: Generate Top Questions (Dynamic with Claude)
+      console.log(`[PHASE 2] Generating ${planMode} questions for ${context.domain} using Claude...`);
 
-      console.log(`[PHASE 2] Generated ${questions.length} questions for ${planMode} plan`);
+      const questionResult = await claudeQuestionGenerator.generateQuestions(
+        context.domain,
+        planMode,
+        userProfile,
+        userMessage
+      );
+
+      const questions = questionResult.questions;
+      console.log(`[PHASE 2] Generated ${questions.length} questions (Claude-powered, ordered by priority)`);
 
       // Merge extracted slots with existing slots
       const mergedSlots = this.mergeSlots(currentSlots || {}, context.extractedSlots);
 
-      // PHASE 3: Identify Information Needs (Gap Analysis)
-      const gapAnalysis = await this.analyzeGaps(
+      // PHASE 3: Identify Information Needs (Intelligent Gap Analysis with Claude)
+      console.log(`[PHASE 3] Analyzing gaps using Claude NLU...`);
+
+      const gapAnalysisResult = await claudeGapAnalyzer.analyzeGaps(
         userMessage,
+        conversationHistory,
         questions,
         mergedSlots
       );
 
+      // Map to old structure for compatibility
+      const gapAnalysis = {
+        answeredQuestions: gapAnalysisResult.answeredQuestions,
+        remainingQuestions: gapAnalysisResult.unansweredQuestions,
+        answeredCount: gapAnalysisResult.answeredQuestions.length,
+        totalCount: questions.length,
+        allQuestionsAnswered: gapAnalysisResult.readyToGenerate,
+        collectedSlots: gapAnalysisResult.extractedSlots,
+        progress: {
+          percentage: gapAnalysisResult.completionPercentage,
+          answered: gapAnalysisResult.answeredQuestions.length,
+          total: questions.length
+        }
+      };
+
       console.log(`[PHASE 3] Gap Analysis: ${gapAnalysis.answeredCount}/${gapAnalysis.totalCount} questions answered`);
+      console.log(`[PHASE 3] Completion: ${gapAnalysis.progress.percentage}% | Ready: ${gapAnalysis.allQuestionsAnswered}`);
 
       // Generate context chips for UI
       const contextChips = this.generateContextChips(mergedSlots, questions);
@@ -465,15 +495,11 @@ Make sure each step has a clear, actionable title and helpful description.`
         const refinements = mergedSlots._refinements || [];
         refinements.push(userMessage);
 
-        // Regenerate plan with refinements
-        const enrichmentRules = domainRegistry.getEnrichmentRules(context.domain);
-        const enrichedData = await enrichmentService.enrichPlan(
-          context.domain,
-          mergedSlots,
-          enrichmentRules,
-          userProfile
-        );
+        // Use CACHED enriched data (don't re-run enrichment - saves API calls!)
+        const enrichedData = mergedSlots._enrichedData || {};
+        console.log('[REFINEMENT] Using cached enrichment data (no API calls)');
 
+        // Regenerate plan with refinements using cached data
         const refinedPlan = await this.synthesizePlan(
           context.domain,
           mergedSlots,
@@ -482,15 +508,26 @@ Make sure each step has a clear, actionable title and helpful description.`
           refinements
         );
 
+        // Show refinement history to user
+        const refinementHistory = refinements.length > 0
+          ? `\n\n**Changes applied (${refinements.length}):**\n${refinements.map((r, i) => `${i + 1}. ${r}`).join('\n')}\n`
+          : '';
+
         return {
-          message: refinedPlan.richContent + "\n\n---\n\n**Are you comfortable with this updated plan?**\n\n• Say **'yes'** to proceed with generating\n• Say **'no'** to make more changes",
+          message: refinedPlan.richContent + refinementHistory + "\n\n---\n\n**Are you comfortable with this updated plan?**\n\n• Say **'yes'** to proceed with generating\n• Say **'no'** to make more changes",
           phase: 'confirming',
           progress: gapAnalysis.progress,
           contextChips,
           readyToGenerate: false,
           planReady: false,
           showGenerateButton: false,
-          updatedSlots: { ...mergedSlots, _generatedPlan: refinedPlan, _refinements: refinements, _planState: 'confirming' },
+          updatedSlots: {
+            ...mergedSlots,
+            _generatedPlan: refinedPlan,
+            _refinements: refinements,
+            _enrichedData: enrichedData, // Keep cached enrichment
+            _planState: 'confirming'
+          },
           domain: context.domain
         };
       }
@@ -513,18 +550,19 @@ Make sure each step has a clear, actionable title and helpful description.`
       // If all questions answered, proceed to enrichment and synthesis
       if (gapAnalysis.allQuestionsAnswered) {
 
-        console.log('[PHASE 4] All questions answered - starting enrichment');
+        console.log('[PHASE 4] All questions answered - starting Claude web search enrichment');
 
-        // PHASE 4: Real-time Information Enrichment
+        // PHASE 4: Real-time Information Enrichment (Claude Web Search)
         const enrichmentRules = domainRegistry.getEnrichmentRules(context.domain);
-        const enrichedData = await enrichmentService.enrichPlan(
+        const enrichedData = await claudeWebEnrichment.enrichPlan(
           context.domain,
           gapAnalysis.collectedSlots,
           enrichmentRules,
           userProfile
         );
 
-        console.log('[PHASE 5] Generating beautiful plan');
+        console.log('[PHASE 4] Enrichment complete:', Object.keys(enrichedData));
+        console.log('[PHASE 5] Generating beautiful plan with enriched data');
 
         // PHASE 5: Generate Beautiful, Actionable Plan
         const beautifulPlan = await this.synthesizePlan(
@@ -543,19 +581,41 @@ Make sure each step has a clear, actionable title and helpful description.`
           planReady: false,
           showGenerateButton: false,
           enrichedPlan: beautifulPlan,
-          updatedSlots: { ...gapAnalysis.collectedSlots, _generatedPlan: beautifulPlan, _planState: 'confirming' },
+          updatedSlots: {
+            ...gapAnalysis.collectedSlots,
+            _generatedPlan: beautifulPlan,
+            _enrichedData: enrichedData, // Cache for refinements
+            _planState: 'confirming'
+          },
           domain: context.domain
         };
 
       } else {
-        // Ask remaining questions
-        console.log(`[PHASE 3] Asking remaining questions: ${gapAnalysis.remainingQuestions.length}`);
+        // Ask next question (Claude intelligently selected highest priority)
+        console.log(`[PHASE 3] Asking next question: ${gapAnalysis.remainingQuestions.length} remaining`);
 
-        const responseMessage = this.formatRemainingQuestions(
-          gapAnalysis,
-          context.domain,
-          planMode
-        );
+        // Use Claude's next question recommendation
+        const nextQuestion = gapAnalysisResult.nextQuestionToAsk;
+
+        let responseMessage = '';
+        if (gapAnalysis.answeredCount === 0) {
+          responseMessage = `Great! Let's plan your ${context.domain.replace('_', ' ')}. `;
+        } else {
+          responseMessage = `Perfect! `;
+        }
+
+        if (nextQuestion) {
+          responseMessage += `${nextQuestion.question}`;
+          if (nextQuestion.why_needs_asking && gapAnalysis.answeredCount > 0) {
+            // Add context on why this question matters (but not on first question to avoid verbosity)
+            console.log(`[NEXT QUESTION WHY] ${nextQuestion.why_needs_asking}`);
+          }
+        } else {
+          // Fallback if Claude didn't provide next question
+          responseMessage += `Could you tell me more about your plans?`;
+        }
+
+        responseMessage += `\n\n📊 Progress: ${gapAnalysis.progress.answered}/${gapAnalysis.progress.total} (${gapAnalysis.progress.percentage}%)`;
 
         return {
           message: responseMessage,

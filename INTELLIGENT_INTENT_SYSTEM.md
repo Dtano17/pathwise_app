@@ -1,7 +1,11 @@
 # Intelligent Intent Inference System
 
 ## Overview
-The Universal Planning Agent now uses **Claude Sonnet 4** to intelligently understand user intent in natural language, rather than relying on rigid regex patterns.
+The Universal Planning Agent uses **Claude AI** to intelligently understand user intent in natural language, rather than relying on rigid regex patterns.
+
+**Model Strategy:**
+- **Claude Haiku** for fast, routine tasks (question generation, gap analysis, guardrails)
+- **Claude Sonnet-4** for complex tasks (web enrichment, plan synthesis, direct generation)
 
 ## How It Works
 

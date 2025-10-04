@@ -1,0 +1,96 @@
+{
+  "guardrail_examples": {
+    "rejected_inputs": [
+      {
+        "input": "fall on ice",
+        "guardrail_result": "NOT PLAN-RELATED ❌",
+        "response": {
+          "error": "Not Plan-Related",
+          "message": "Your input doesn't appear to be requesting a plan. Please describe what you want to plan or accomplish.",
+          "suggestion": "Try describing what you want to plan, organize, or accomplish. For example: 'plan my weekend', 'organize home office', or paste a list of tasks."
+        }
+      },
+      {
+        "input": "it's cold outside",
+        "guardrail_result": "NOT PLAN-RELATED ❌",
+        "response": {
+          "error": "Not Plan-Related",
+          "message": "Your input doesn't appear to be requesting a plan. Please describe what you want to plan or accomplish.",
+          "suggestion": "Try describing what you want to plan, organize, or accomplish. For example: 'plan my weekend', 'organize home office', or paste a list of tasks."
+        }
+      },
+      {
+        "input": "what is the weather?",
+        "guardrail_result": "NOT PLAN-RELATED ❌",
+        "response": {
+          "error": "Not Plan-Related",
+          "message": "Your input doesn't appear to be requesting a plan. Please describe what you want to plan or accomplish.",
+          "suggestion": "Try describing what you want to plan, organize, or accomplish. For example: 'plan my weekend', 'organize home office', or paste a list of tasks."
+        }
+      },
+      {
+        "input": "hello",
+        "guardrail_result": "NOT PLAN-RELATED ❌",
+        "response": {
+          "error": "Not Plan-Related",
+          "message": "Your input doesn't appear to be requesting a plan. Please describe what you want to plan or accomplish.",
+          "suggestion": "Try describing what you want to plan, organize, or accomplish. For example: 'plan my weekend', 'organize home office', or paste a list of tasks."
+        }
+      }
+    ],
+    "accepted_inputs": [
+      {
+        "input": "plan my weekend",
+        "guardrail_result": "PLAN-RELATED ✅",
+        "generates_plan": true,
+        "activity_title": "Weekend Planning"
+      },
+      {
+        "input": "help plan my weekend with these activities: 🔐 Step-by-Step: Securing IP...",
+        "guardrail_result": "PLAN-RELATED ✅",
+        "generates_plan": true,
+        "activity_title": "Weekend: IP Protection for Agentic Framework"
+      },
+      {
+        "input": "I need to organize my home office this week",
+        "guardrail_result": "PLAN-RELATED ✅",
+        "generates_plan": true,
+        "activity_title": "Home Office Organization - This Week"
+      },
+      {
+        "input": "prepare for Google interview next week",
+        "guardrail_result": "PLAN-RELATED ✅",
+        "generates_plan": true,
+        "activity_title": "Google Interview Prep - Next Week"
+      },
+      {
+        "input": "1. Buy groceries\n2. Clean house\n3. Do laundry",
+        "guardrail_result": "PLAN-RELATED ✅",
+        "generates_plan": true,
+        "activity_title": "Weekend Chores and Errands",
+        "note": "Pasted lists are detected as plan-related"
+      },
+      {
+        "input": "I want to create a 30-day fitness challenge",
+        "guardrail_result": "PLAN-RELATED ✅",
+        "generates_plan": true,
+        "activity_title": "30-Day Fitness Challenge"
+      }
+    ]
+  },
+  "how_it_works": {
+    "step_1": "User submits input via Create Action Plan mode",
+    "step_2": "Backend calls validatePlanIntent() using Claude Haiku",
+    "step_3": "Haiku analyzes if input requests planning/organizing/creating",
+    "step_4a_rejected": "If NO → Return 400 error with helpful message",
+    "step_4b_accepted": "If YES → Proceed to generate plan with Claude Sonnet",
+    "step_5": "Return plan with clear activity title and tasks"
+  },
+  "cost_impact": {
+    "guardrail_check": "$0.0008 per request (Haiku, ~1000 tokens)",
+    "plan_generation": "$0.003-0.01 per request (Sonnet-4)",
+    "total_cost_if_rejected": "$0.0008 (saves Sonnet-4 call)",
+    "total_cost_if_accepted": "$0.004-0.011",
+    "benefit": "Prevents wasted Sonnet-4 calls on irrelevant inputs"
+  }
+}

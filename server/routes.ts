@@ -2687,7 +2687,98 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
-  // Parse pasted LLM content into actionable tasks
+  // SIMPLIFIED: Direct plan generation - no questions, just generate!
+  app.post("/api/planner/direct-plan", isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      const { userInput, contentType, sessionId, isModification } = req.body;
+
+      if (!userInput || typeof userInput !== 'string') {
+        return res.status(400).json({ error: 'User input is required' });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Import direct plan generator
+      const { directPlanGenerator } = await import('./services/directPlanGenerator');
+
+      let existingPlan = null;
+
+      // If this is a modification, get the existing plan from session
+      if (isModification && sessionId) {
+        const session = await storage.getLifestylePlannerSession(sessionId, userId);
+        if (session?.generatedPlan) {
+          existingPlan = {
+            activity: session.generatedPlan.activity,
+            tasks: session.generatedPlan.tasks
+          };
+        }
+      }
+
+      // Generate plan directly - no questions!
+      const plan = await directPlanGenerator.generatePlan(
+        userInput,
+        contentType || 'text',
+        user,
+        existingPlan
+      );
+
+      // Create or update session
+      let session;
+      if (sessionId) {
+        // Update existing session
+        session = await storage.updateLifestylePlannerSession(sessionId, {
+          generatedPlan: plan,
+          sessionState: 'completed',
+          conversationHistory: [
+            ...(await storage.getLifestylePlannerSession(sessionId, userId))?.conversationHistory || [],
+            { role: 'user', content: userInput, timestamp: new Date().toISOString() },
+            { role: 'assistant', content: `Generated plan: ${plan.activity.title}`, timestamp: new Date().toISOString() }
+          ]
+        }, userId);
+      } else {
+        // Create new session
+        session = await storage.createLifestylePlannerSession({
+          userId,
+          sessionState: 'completed',
+          slots: {},
+          conversationHistory: [
+            { role: 'user', content: userInput, timestamp: new Date().toISOString() },
+            { role: 'assistant', content: `Generated plan: ${plan.activity.title}`, timestamp: new Date().toISOString() }
+          ],
+          generatedPlan: plan
+        });
+      }
+
+      res.json({
+        success: true,
+        plan,
+        session,
+        message: isModification
+          ? `Updated plan: ${plan.activity.title}`
+          : `Generated plan: ${plan.activity.title} with ${plan.tasks.length} tasks`
+      });
+
+    } catch (error) {
+      console.error('Error generating direct plan:', error);
+
+      // Handle guardrail rejection
+      if (error instanceof Error && error.message.startsWith('INPUT_NOT_PLAN_RELATED')) {
+        return res.status(400).json({
+          error: 'Not Plan-Related',
+          message: error.message.replace('INPUT_NOT_PLAN_RELATED: ', ''),
+          suggestion: 'Try describing what you want to plan, organize, or accomplish. For example: "plan my weekend", "organize home office", or paste a list of tasks.'
+        });
+      }
+
+      res.status(500).json({ error: 'Failed to generate plan' });
+    }
+  });
+
+  // Parse pasted LLM content into actionable tasks (OLD - keeping for backwards compatibility)
   app.post("/api/planner/parse-llm-content", isAuthenticatedGeneric, async (req, res) => {
     try {
       const userId = (req as any).user?.id || (req as any).user?.claims?.sub;

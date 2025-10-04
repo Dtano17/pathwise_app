@@ -1,0 +1,94 @@
+{
+  "test_case": "User types context + pastes screenshot",
+  "user_input": {
+    "typed_text": "plan my weekend with these details",
+    "content_type": "image",
+    "image_contains": "🧠 Tactical Next Steps:\n1. File Trademark for JournalMate, tagline, and campaign visuals.\n2. Draft and file Provisional Patent for your agent logic, fallback routines, and behavioral nudging system.\n3. Copyright your codebase and brand assets (logo, onboarding flow, journaling UI).\n4. Use NDAs with any collaborators, contractors, or early testers.\n5. Document your workflows—especially Claude Code guardrails and agent logic."
+  },
+  "guardrail_check": {
+    "typed_text_validation": "PLAN-RELATED ✅",
+    "reason": "Contains 'plan my weekend' which is a clear planning request",
+    "image_validation": "SKIPPED",
+    "note": "Images bypass guardrail check since visual content may contain plans"
+  },
+  "claude_processing": {
+    "step_1": "Receives typed context: 'plan my weekend with these details'",
+    "step_2": "Analyzes screenshot image (OCR extracts text)",
+    "step_3": "Combines context + screenshot content",
+    "step_4": "Generates plan based on both inputs"
+  },
+  "generated_plan": {
+    "activity": {
+      "title": "Weekend: Tactical IP Protection Steps",
+      "description": "Execute strategic IP protection tasks for JournalMate including trademark filing, provisional patent, copyright registration, NDAs, and workflow documentation",
+      "category": "Work"
+    },
+    "tasks": [
+      {
+        "title": "🏢 File Trademark for JournalMate Brand",
+        "description": "File trademark application for JournalMate name, tagline, and campaign visuals via USPTO.gov. Include all brand assets and specify software/SaaS classifications.",
+        "category": "Work",
+        "priority": "high",
+        "timeEstimate": "2-3 hours",
+        "order": 1
+      },
+      {
+        "title": "📝 Draft and File Provisional Patent",
+        "description": "Prepare and submit provisional patent application for agent logic, fallback routines, and behavioral nudging system. Include technical diagrams and pseudocode.",
+        "category": "Work",
+        "priority": "high",
+        "timeEstimate": "3-4 hours",
+        "order": 2
+      },
+      {
+        "title": "©️ Copyright Codebase and Brand Assets",
+        "description": "Register copyright at copyright.gov for source code, logo, onboarding flow, and journaling UI. Compile all materials for submission.",
+        "category": "Work",
+        "priority": "high",
+        "timeEstimate": "1-2 hours",
+        "order": 3
+      },
+      {
+        "title": "📄 Prepare NDAs for Collaborators",
+        "description": "Draft or obtain NDA templates for use with any collaborators, contractors, or early testers to protect confidential information.",
+        "category": "Work",
+        "priority": "medium",
+        "timeEstimate": "1 hour",
+        "order": 4
+      },
+      {
+        "title": "📊 Document Workflows and Agent Logic",
+        "description": "Create comprehensive documentation of workflows, especially Claude Code guardrails and agent logic. Include behavioral patterns and fallback routines.",
+        "category": "Work",
+        "priority": "high",
+        "timeEstimate": "2-3 hours",
+        "order": 5
+      }
+    ]
+  },
+  "key_features_demonstrated": {
+    "1_context_aware": "Uses typed text 'plan my weekend' to understand timeframe",
+    "2_image_analysis": "OCR extracts text from screenshot automatically",
+    "3_smart_title": "Creates clear title 'Weekend: Tactical IP Protection Steps' (NOT generic)",
+    "4_preserves_structure": "Maintains the 5-step structure from screenshot",
+    "5_adds_details": "Enhances each step with descriptions, priorities, time estimates",
+    "6_emoji_preservation": "Keeps emojis from original (🏢, 📝, ©️, 📄, 📊)"
+  },
+  "user_flow_in_app": {
+    "step_1": "User clicks 'Create Action Plan' mode",
+    "step_2": "Types: 'plan my weekend with these details'",
+    "step_3": "Pastes screenshot (Ctrl+V or right-click paste)",
+    "step_4": "App detects image paste, converts to base64",
+    "step_5": "Sends to /api/planner/direct-plan with contentType: 'image'",
+    "step_6": "Backend: Guardrail skips validation (images bypass)",
+    "step_7": "Backend: Claude Sonnet-4 analyzes image + context",
+    "step_8": "Backend: Returns plan JSON",
+    "step_9": "Frontend: Shows plan preview dialog",
+    "step_10": "User clicks 'Create Activity' → Saves to dashboard"
+  },
+  "precedingContext_usage": {
+    "typed_before_paste": "plan my weekend with these details",
+    "how_its_used": "Combined with screenshot content to provide full context to Claude",
+    "example_prompt_to_claude": "USER TYPED CONTEXT: 'plan my weekend with these details'\n\n[IMAGE CONTENT FROM SCREENSHOT]\n\nGenerate plan combining the typed context with the visual content..."
+  }
+}

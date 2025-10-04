@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ConversationMessage {
@@ -47,7 +47,7 @@ interface PlannerSession {
   };
 }
 
-type PlanningMode = 'quick' | 'chat' | null;
+type PlanningMode = 'quick' | 'chat' | 'direct' | null;
 
 interface ConversationalPlannerProps {
   onClose?: () => void;
@@ -68,6 +68,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
   const [parsedLLMContent, setParsedLLMContent] = useState<any>(null);
   const [isParsingPaste, setIsParsingPaste] = useState(false);
   const [createdActivityId, setCreatedActivityId] = useState<string | null>(null);
+  const [generatedPlan, setGeneratedPlan] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load session from localStorage on mount
@@ -265,6 +266,92 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
     });
   };
 
+  // Direct plan generation (Create Action Plan mode)
+  const directPlanMutation = useMutation({
+    mutationFn: async (data: { userInput: string; contentType: 'text' | 'image'; isModification: boolean }) => {
+      const response = await apiRequest('POST', '/api/planner/direct-plan', {
+        userInput: data.userInput,
+        contentType: data.contentType,
+        sessionId: currentSession?.id,
+        isModification: data.isModification
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setCurrentSession(data.session);
+      setGeneratedPlan(data.plan);
+      setMessage('');
+      toast({
+        title: data.message,
+        description: "Review your plan and create activity when ready",
+      });
+    },
+    onError: (error) => {
+      console.error('Failed to generate plan:', error);
+      toast({
+        title: "Generation Error",
+        description: error instanceof Error ? error.message : "Failed to generate plan",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Create activity from direct plan
+  const createActivityFromPlan = useMutation({
+    mutationFn: async (plan: any) => {
+      // Create activity
+      const activityResponse = await apiRequest('POST', '/api/activities', {
+        title: plan.activity.title,
+        description: plan.activity.description,
+        category: plan.activity.category,
+        status: 'planning',
+        tags: [plan.activity.category]
+      });
+      const activity = await activityResponse.json();
+
+      // Create tasks and link them to the activity
+      const createdTasks = [];
+      for (let i = 0; i < plan.tasks.length; i++) {
+        const taskData = plan.tasks[i];
+
+        const taskResponse = await apiRequest('POST', '/api/tasks', {
+          title: taskData.title,
+          description: taskData.description,
+          category: taskData.category,
+          priority: taskData.priority || 'medium',
+        });
+        const task = await taskResponse.json();
+
+        await apiRequest('POST', `/api/activities/${activity.id}/tasks`, {
+          taskId: task.id,
+          order: i
+        });
+
+        createdTasks.push(task);
+      }
+
+      return { activity, tasks: createdTasks };
+    },
+    onSuccess: (data) => {
+      setGeneratedPlan(null);
+      setShowPlanDetails(true);
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      toast({
+        title: "Plan Created!",
+        description: `Created ${data.activity.title} with ${data.tasks.length} tasks`,
+      });
+    },
+    onError: (error) => {
+      console.error('Failed to create activity:', error);
+      toast({
+        title: "Creation Error",
+        description: "Failed to create activity from plan",
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleConfirmParsedContent = useMutation({
     mutationFn: async () => {
       if (!parsedLLMContent) return;
@@ -294,7 +381,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
       const createdTasks = [];
       for (let i = 0; i < parsedLLMContent.tasks.length; i++) {
         const taskData = parsedLLMContent.tasks[i];
-        
+
         // Create the task
         const taskResponse = await apiRequest('POST', '/api/tasks', {
           title: taskData.title,
@@ -304,13 +391,13 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
           timeEstimate: taskData.timeEstimate
         });
         const task = await taskResponse.json();
-        
+
         // Link task to activity
         await apiRequest('POST', `/api/activities/${activityId}/tasks`, {
           taskId: task.id,
           order: i
         });
-        
+
         createdTasks.push(task);
       }
 
@@ -341,6 +428,27 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
     }
   });
 
+  // Handlers for direct plan mode
+  const handleDirectPlan = () => {
+    if (!message.trim()) return;
+
+    directPlanMutation.mutate({
+      userInput: message.trim(),
+      contentType: 'text',
+      isModification: !!generatedPlan
+    });
+  };
+
+  const handleBackToInput = () => {
+    setGeneratedPlan(null);
+    setCurrentSession(null);
+    setMessage('');
+    toast({
+      title: "Session Reset",
+      description: "Start fresh with a new plan",
+    });
+  };
+
   const handleStartOver = () => {
     localStorage.removeItem('planner_session');
     localStorage.removeItem('planner_mode');
@@ -349,6 +457,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
     setPlanningMode(null);
     setContextChips([]);
     setPendingPlan(null);
+    setGeneratedPlan(null);
     setShowPlanConfirmation(false);
     setShowPlanDetails(false);
     setShowAgreementPrompt(false);
@@ -552,6 +661,25 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                   <div className="text-left">
                     <div className="font-semibold text-lg">Smart Plan</div>
                     <div className="text-sm opacity-90">Intuitive questions based on your profile</div>
+                  </div>
+                </div>
+                <ArrowRight className="h-5 w-5 opacity-70" />
+              </div>
+            </Button>
+
+            <Button
+              onClick={() => handleModeSelect('direct')}
+              className="w-full h-20 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-none shadow-lg hover:shadow-xl transition-all"
+              data-testid="button-create-action-plan"
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                    <FileText className="h-6 w-6" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold text-lg">Create Action Plan</div>
+                    <div className="text-sm opacity-90">Paste or type - instant plan generation</div>
                   </div>
                 </div>
                 <ArrowRight className="h-5 w-5 opacity-70" />

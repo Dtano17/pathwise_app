@@ -24,11 +24,36 @@ JournalMate is a revolutionary **AI-powered lifestyle planner and journaling app
 
 ## 🚀 **Core Features**
 
-### 🎙️ **Voice & AI Planning**
+### 🎙️ **Voice & AI Planning (Three Modes)**
+
+#### **Quick Plan** - Fast planning with minimal questions
+- 5 AI-generated questions ordered by priority
+- Claude-powered gap analysis
+- Real-time web enrichment (weather, events, etc.)
+- Complete plan in 2-3 minutes
+- Cost-optimized with Claude Haiku (~$0.025 per plan)
+
+#### **Smart Plan** - Detailed, personalized planning
+- 7 questions tailored to your profile
+- Profile-aware recommendations (location, timezone, preferences)
+- Enhanced enrichment with multiple data sources
+- Motivational notes and detailed timeframes
+- ~$0.037 per plan
+
+#### **Create Action Plan** - Instant plan from any input
+- **Zero questions** - just type/paste/upload and go!
+- Accepts ANY format: text, numbered lists, screenshots, AI content
+- Claude guardrail validates plan-related inputs
+- Session-based editing for iterative refinement
+- Fastest mode: 10-30 seconds
+- Most cost-effective: ~$0.004-0.011 per plan
+
+**All modes include:**
 - **Natural Language Processing**: Speak your goals conversationally
-- **AI Goal Breakdown**: Intelligent task creation with timing and priority suggestions
-- **Copy & Paste Support**: Import goals from ChatGPT, Claude, and other AI assistants
-- **Smart Suggestions**: Context-aware recommendations based on your history
+- **Intelligent Title Extraction**: Clear, specific activity titles
+- **Copy & Paste Support**: Import from ChatGPT, Claude, screenshots
+- **Smart Task Generation**: Actionable tasks with priorities and time estimates
+- **Cross-Pane Sync**: Activities and tasks appear in all tabs automatically
 
 ### 📱 **Swipeable Task Management**
 - **Intuitive Gestures**: Swipe right to complete, left to skip tasks
