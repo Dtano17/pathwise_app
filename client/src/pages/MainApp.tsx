@@ -265,61 +265,34 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       
-      // Automatically create activity from the processed goal first
-      let createdActivityId: string | undefined;
-      if (data.planTitle && data.tasks && data.tasks.length > 0) {
-        try {
-          const activityResponse = await apiRequest('POST', '/api/activities/from-dialogue', {
-            title: data.planTitle,
-            description: data.summary || 'AI-generated activity plan',
-            category: 'goal',
-            tasks: data.tasks.map((task: any) => ({
-              title: task.title,
-              description: task.description,
-              priority: task.priority || 'medium',
-              category: task.category || 'general',
-              timeEstimate: task.timeEstimate
-            }))
-          });
-          const activityData = await activityResponse.json();
-          createdActivityId = activityData.id;
-          
-          // Invalidate activities query to show the new activity
-          queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
-          queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-          
-          toast({
-            title: "Activity Created!",
-            description: `"${activityData.title}" is ready to share with ${data.tasks.length} tasks!`,
-            action: (
-              <ToastAction onClick={() => setActiveTab("tasks")} altText="View Activity">
-                View Activity
-              </ToastAction>
-            ),
-          });
-        } catch (error) {
-          console.error('Failed to create activity:', error);
-          // Still show the regular success toast if activity creation fails
-          toast({
-            title: "Goal Processed!",
-            description: data.message || `Created ${data.tasks?.length || 0} actionable tasks!`,
-          });
-        }
-      } else {
-        toast({
-          title: "Goal Processed!",
-          description: data.message || `Created ${data.tasks?.length || 0} actionable tasks!`,
-        });
-      }
+      // Show success toast
+      toast({
+        title: "Plan Created!",
+        description: `Generated ${data.tasks?.length || 0} actionable tasks!`,
+      });
 
-      // Capture plan output for display on Goal Input page (after activity is created)
-      setCurrentPlanOutput({
-        planTitle: data.planTitle,
-        summary: data.summary,
-        tasks: data.tasks || [],
-        estimatedTimeframe: data.estimatedTimeframe,
-        motivationalNote: data.motivationalNote,
-        activityId: createdActivityId
+      // Update or set plan output for display
+      setCurrentPlanOutput(prev => {
+        // If there's an existing plan in the session, merge the new tasks
+        if (prev) {
+          return {
+            planTitle: data.planTitle || prev.planTitle,
+            summary: data.summary || prev.summary,
+            tasks: [...(prev.tasks || []), ...(data.tasks || [])],
+            estimatedTimeframe: data.estimatedTimeframe || prev.estimatedTimeframe,
+            motivationalNote: data.motivationalNote || prev.motivationalNote,
+            activityId: prev.activityId // Keep existing activity ID if any
+          };
+        }
+        // First plan in session
+        return {
+          planTitle: data.planTitle,
+          summary: data.summary,
+          tasks: data.tasks || [],
+          estimatedTimeframe: data.estimatedTimeframe,
+          motivationalNote: data.motivationalNote,
+          activityId: undefined // No activity created yet
+        };
       });
       
       // Stay on input tab to show Claude-style output
@@ -584,12 +557,15 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+      
+      // Update current plan with the created activity ID
+      setCurrentPlanOutput(prev => prev ? { ...prev, activityId: data.id } : null);
+      
       toast({
         title: "Activity Created!",
-        description: `"${data.title}" has been created with ${data.tasks?.length || 0} tasks. Check your Activities tab!`,
+        description: `"${data.title}" is ready to share! Click "Your Activity" to view it.`,
       });
-      setActiveTab("tasks"); // Switch to activities view
-      // Keep plan visible - only clear when new plan is created
+      // Keep plan visible so user can see the "Your Activity" button
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.error || error.message || "Failed to create activity. Please try again.";
@@ -941,8 +917,36 @@ export default function MainApp({
                     })}
                     estimatedTimeframe={currentPlanOutput.estimatedTimeframe}
                     motivationalNote={currentPlanOutput.motivationalNote}
+                    activityId={currentPlanOutput.activityId}
                     onCompleteTask={(taskId) => completeTaskMutation.mutate(taskId)}
                     onCreateActivity={(planData) => createActivityMutation.mutate(planData)}
+                    onSharePlan={() => {
+                      const shareText = `Check out my action plan: ${currentPlanOutput.planTitle || 'My Plan'}\n\n${currentPlanOutput.summary || ''}\n\n${currentPlanOutput.tasks.length} tasks to complete!`;
+                      
+                      if (navigator.share) {
+                        navigator.share({
+                          title: currentPlanOutput.planTitle || 'My Action Plan',
+                          text: shareText,
+                        }).then(() => {
+                          toast({ title: "Shared Successfully!", description: "Plan shared!" });
+                        }).catch(() => {
+                          // User cancelled, do nothing
+                        });
+                      } else {
+                        navigator.clipboard.writeText(shareText);
+                        toast({ 
+                          title: "Copied to Clipboard!", 
+                          description: "Share your plan anywhere!" 
+                        });
+                      }
+                    }}
+                    onSetAsTheme={() => {
+                      // TODO: Implement theme/quick actions functionality
+                      toast({
+                        title: "Theme Set!",
+                        description: "This plan is now your focus theme for today. (Feature coming soon!)",
+                      });
+                    }}
                     showConfetti={true}
                   />
                   

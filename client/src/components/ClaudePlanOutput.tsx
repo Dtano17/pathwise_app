@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Target, Sparkles, ChevronRight } from 'lucide-react';
+import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 
@@ -25,7 +25,10 @@ interface ClaudePlanOutputProps {
   motivationalNote?: string;
   onCompleteTask: (taskId: string) => void;
   onCreateActivity?: (planData: { title: string; description: string; tasks: Task[] }) => void;
+  onSharePlan?: () => void;
+  onSetAsTheme?: () => void;
   showConfetti?: boolean;
+  activityId?: string;
 }
 
 export default function ClaudePlanOutput({
@@ -36,7 +39,10 @@ export default function ClaudePlanOutput({
   motivationalNote,
   onCompleteTask,
   onCreateActivity,
-  showConfetti = false
+  onSharePlan,
+  onSetAsTheme,
+  showConfetti = false,
+  activityId
 }: ClaudePlanOutputProps) {
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [showCelebration, setShowCelebration] = useState(false);
@@ -266,27 +272,61 @@ export default function ClaudePlanOutput({
         })()}
       </div>
 
-      {/* Create Activity Button */}
-      {onCreateActivity && (
-        <div className="text-center pt-6">
-          <Button
-            onClick={() => onCreateActivity({
-              title: planTitle || 'Generated Plan',
-              description: summary || 'AI-generated activity plan',
-              tasks: tasks
-            })}
-            className="gap-2"
-            variant="outline"
-            data-testid="button-create-activity-from-plan"
-          >
-            <Target className="w-4 h-4" />
-            Create Activity from Plan
-          </Button>
-          <p className="text-xs text-muted-foreground mt-2">
-            Convert this plan into a shareable activity with timeline and progress tracking
-          </p>
+      {/* Action Buttons */}
+      <div className="pt-6 border-t">
+        <h3 className="text-sm font-semibold text-center mb-4 text-muted-foreground">
+          Quick Actions
+        </h3>
+        <div className="flex flex-wrap gap-3 justify-center">
+          {/* Create Activity - Only show if not already created */}
+          {onCreateActivity && !activityId && (
+            <Button
+              onClick={() => onCreateActivity({
+                title: planTitle || 'Generated Plan',
+                description: summary || 'AI-generated activity plan',
+                tasks: tasks
+              })}
+              className="gap-2"
+              variant="default"
+              data-testid="button-create-activity-from-plan"
+            >
+              <Target className="w-4 h-4" />
+              Create Activity
+            </Button>
+          )}
+
+          {/* Share to Social Media */}
+          {onSharePlan && (
+            <Button
+              onClick={onSharePlan}
+              className="gap-2"
+              variant="outline"
+              data-testid="button-share-plan"
+            >
+              <Share2 className="w-4 h-4" />
+              Share Plan
+            </Button>
+          )}
+
+          {/* Set as Theme */}
+          {onSetAsTheme && (
+            <Button
+              onClick={onSetAsTheme}
+              className="gap-2"
+              variant="outline"
+              data-testid="button-set-as-theme"
+            >
+              <Zap className="w-4 h-4" />
+              Set as Theme
+            </Button>
+          )}
         </div>
-      )}
+        <p className="text-xs text-muted-foreground text-center mt-3">
+          {!activityId 
+            ? "Create an activity to share and track progress, or set this plan as today's theme"
+            : "Share your progress or set this as today's focus theme"}
+        </p>
+      </div>
     </motion.div>
   );
 }
