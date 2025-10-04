@@ -262,12 +262,15 @@ export default function MainApp({
       return response.json();
     },
     onSuccess: async (data: any) => {
+      console.log('[DEBUG] Goal processed, data:', data);
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       
       // Automatically create activity from the processed goal first
       let createdActivityId: string | undefined;
+      console.log('[DEBUG] Checking condition - planTitle:', data.planTitle, 'tasks:', data.tasks?.length);
       if (data.planTitle && data.tasks && data.tasks.length > 0) {
+        console.log('[DEBUG] Creating activity...');
         try {
           const activityResponse = await apiRequest('POST', '/api/activities/from-dialogue', {
             title: data.planTitle,
@@ -283,6 +286,7 @@ export default function MainApp({
           });
           const activityData = await activityResponse.json();
           createdActivityId = activityData.id;
+          console.log('[DEBUG] Activity created with ID:', createdActivityId);
           
           // Invalidate activities query to show the new activity
           queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
@@ -313,6 +317,7 @@ export default function MainApp({
       }
 
       // Capture plan output for display on Goal Input page (after activity is created)
+      console.log('[DEBUG] Setting currentPlanOutput with activityId:', createdActivityId);
       setCurrentPlanOutput({
         planTitle: data.planTitle,
         summary: data.summary,
