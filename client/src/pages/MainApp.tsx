@@ -100,6 +100,7 @@ export default function MainApp({
     tasks: Task[];
     estimatedTimeframe?: string;
     motivationalNote?: string;
+    activityId?: string;
   } | null>(null);
 
   // Activity selection and delete dialog state
@@ -264,16 +265,8 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       
-      // Capture plan output for display on Goal Input page
-      setCurrentPlanOutput({
-        planTitle: data.planTitle,
-        summary: data.summary,
-        tasks: data.tasks || [],
-        estimatedTimeframe: data.estimatedTimeframe,
-        motivationalNote: data.motivationalNote
-      });
-
-      // Automatically create activity from the processed goal
+      // Automatically create activity from the processed goal first
+      let createdActivityId: string | undefined;
       if (data.planTitle && data.tasks && data.tasks.length > 0) {
         try {
           const activityResponse = await apiRequest('POST', '/api/activities/from-dialogue', {
@@ -289,6 +282,7 @@ export default function MainApp({
             }))
           });
           const activityData = await activityResponse.json();
+          createdActivityId = activityData.id;
           
           // Invalidate activities query to show the new activity
           queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
@@ -317,6 +311,16 @@ export default function MainApp({
           description: data.message || `Created ${data.tasks?.length || 0} actionable tasks!`,
         });
       }
+
+      // Capture plan output for display on Goal Input page (after activity is created)
+      setCurrentPlanOutput({
+        planTitle: data.planTitle,
+        summary: data.summary,
+        tasks: data.tasks || [],
+        estimatedTimeframe: data.estimatedTimeframe,
+        motivationalNote: data.motivationalNote,
+        activityId: createdActivityId
+      });
       
       // Stay on input tab to show Claude-style output
     },
@@ -887,7 +891,7 @@ export default function MainApp({
 
               {/* Claude-style Plan Output */}
               {currentPlanOutput && (
-                <div className="max-w-4xl mx-auto">
+                <div className="max-w-4xl mx-auto overflow-y-auto">
                   {/* Back to Input Button */}
                   <div className="flex items-center justify-between mb-6 p-4 bg-muted/30 rounded-lg">
                     <Button
@@ -899,9 +903,25 @@ export default function MainApp({
                       <ArrowLeft className="w-4 h-4" />
                       Back to Goal Input
                     </Button>
-                    <div className="text-sm text-muted-foreground">
-                      AI-Generated Action Plan
-                    </div>
+                    {currentPlanOutput.activityId ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedActivityId(currentPlanOutput.activityId!);
+                          setActiveTab('tasks');
+                          setCurrentPlanOutput(null);
+                        }}
+                        className="gap-2"
+                        data-testid="button-view-your-activity"
+                      >
+                        <Target className="w-4 h-4" />
+                        Your Activity
+                      </Button>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">
+                        AI-Generated Action Plan
+                      </div>
+                    )}
                   </div>
                   
                   <ClaudePlanOutput
