@@ -920,26 +920,6 @@ export default function MainApp({
                     activityId={currentPlanOutput.activityId}
                     onCompleteTask={(taskId) => completeTaskMutation.mutate(taskId)}
                     onCreateActivity={(planData) => createActivityMutation.mutate(planData)}
-                    onSharePlan={() => {
-                      const shareText = `Check out my action plan: ${currentPlanOutput.planTitle || 'My Plan'}\n\n${currentPlanOutput.summary || ''}\n\n${currentPlanOutput.tasks.length} tasks to complete!`;
-                      
-                      if (navigator.share) {
-                        navigator.share({
-                          title: currentPlanOutput.planTitle || 'My Action Plan',
-                          text: shareText,
-                        }).then(() => {
-                          toast({ title: "Shared Successfully!", description: "Plan shared!" });
-                        }).catch(() => {
-                          // User cancelled, do nothing
-                        });
-                      } else {
-                        navigator.clipboard.writeText(shareText);
-                        toast({ 
-                          title: "Copied to Clipboard!", 
-                          description: "Share your plan anywhere!" 
-                        });
-                      }
-                    }}
                     onSetAsTheme={() => {
                       // TODO: Implement theme/quick actions functionality
                       toast({

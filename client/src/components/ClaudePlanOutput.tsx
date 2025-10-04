@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
+import ShareDialog from './ShareDialog';
 
 interface Task {
   id: string;
@@ -25,7 +26,6 @@ interface ClaudePlanOutputProps {
   motivationalNote?: string;
   onCompleteTask: (taskId: string) => void;
   onCreateActivity?: (planData: { title: string; description: string; tasks: Task[] }) => void;
-  onSharePlan?: () => void;
   onSetAsTheme?: () => void;
   showConfetti?: boolean;
   activityId?: string;
@@ -39,13 +39,13 @@ export default function ClaudePlanOutput({
   motivationalNote,
   onCompleteTask,
   onCreateActivity,
-  onSharePlan,
   onSetAsTheme,
   showConfetti = false,
   activityId
 }: ClaudePlanOutputProps) {
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
 
   // Sync completed tasks from actual task data (additive to preserve optimistic UI, prune stale IDs)
   useEffect(() => {
@@ -278,8 +278,8 @@ export default function ClaudePlanOutput({
           Quick Actions
         </h3>
         <div className="flex flex-wrap gap-3 justify-center">
-          {/* Create Activity - Only show if not already created */}
-          {onCreateActivity && !activityId && (
+          {/* Create Activity - Always show */}
+          {onCreateActivity && (
             <Button
               onClick={() => onCreateActivity({
                 title: planTitle || 'Generated Plan',
@@ -291,22 +291,20 @@ export default function ClaudePlanOutput({
               data-testid="button-create-activity-from-plan"
             >
               <Target className="w-4 h-4" />
-              Create Activity
+              {activityId ? 'Activity Created' : 'Create Activity'}
             </Button>
           )}
 
           {/* Share to Social Media */}
-          {onSharePlan && (
-            <Button
-              onClick={onSharePlan}
-              className="gap-2"
-              variant="outline"
-              data-testid="button-share-plan"
-            >
-              <Share2 className="w-4 h-4" />
-              Share Plan
-            </Button>
-          )}
+          <Button
+            onClick={() => setShowShareDialog(true)}
+            className="gap-2"
+            variant="outline"
+            data-testid="button-share-plan"
+          >
+            <Share2 className="w-4 h-4" />
+            Share Plan
+          </Button>
 
           {/* Set as Theme */}
           {onSetAsTheme && (
@@ -327,6 +325,14 @@ export default function ClaudePlanOutput({
             : "Share your progress or set this as today's focus theme"}
         </p>
       </div>
+
+      {/* Share Dialog */}
+      <ShareDialog
+        open={showShareDialog}
+        onOpenChange={setShowShareDialog}
+        title={planTitle || 'My Action Plan'}
+        description={summary || `Generated plan with ${tasks.length} tasks`}
+      />
     </motion.div>
   );
 }
