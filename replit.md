@@ -73,6 +73,13 @@ A mobile-first AI-powered journaling application that transforms user intentions
 - **Anthropic Integration**: Active, Claude API for conversational planning
 
 ## Recent Changes
+- **October 4, 2025**:
+  - ✅ Implemented activity-first workflow - no automatic task creation
+  - ✅ Plans now show preview-only data until "Create Activity" button clicked
+  - ✅ All tasks created through activity creation (no orphan tasks)
+  - ✅ Improved conversation refinement - context regenerates full plan
+  - ✅ Create Activity button always visible (disabled after creation)
+  - ✅ Single operation creates activity AND links all tasks
 - **September 30, 2025**: 
   - ✅ Implemented dual authentication (Replit + Supabase for Facebook)
   - ✅ Fixed all API routes to use authenticated user IDs
