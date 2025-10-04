@@ -1956,24 +1956,61 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
       const negativePattern = /^(no|nope|not really|not quite|i want to|i'd like to|can we|could we|change|add|modify)/i;
       
       if (affirmativePattern.test(message.trim())) {
-        // User confirmed - show Generate Plan button
-        const updatedContext = {
-          ...session.externalContext,
-          awaitingPlanConfirmation: false,
-          planConfirmed: true
-        };
+        // User confirmed - create activity immediately!
+        const generatedPlan = session.slots?._generatedPlan;
         
-        const updatedSession = await storage.updateLifestylePlannerSession(session.id, {
-          externalContext: updatedContext
-        }, userId);
+        if (generatedPlan) {
+          // Create activity from the structured plan
+          const activity = await storage.createActivity({
+            title: generatedPlan.title || 'Quick Plan Activity',
+            description: generatedPlan.summary || 'Generated from Quick Plan conversation',
+            category: generatedPlan.category || 'personal',
+            status: 'planning',
+            userId
+          });
 
-        // Don't re-run agent, just show the button
+          // Create tasks and link them to the activity
+          const createdTasks = [];
+          if (generatedPlan.tasks && Array.isArray(generatedPlan.tasks)) {
+            for (let i = 0; i < generatedPlan.tasks.length; i++) {
+              const taskData = generatedPlan.tasks[i];
+              const task = await storage.createTask({
+                title: taskData.title,
+                description: taskData.description,
+                category: taskData.category,
+                priority: taskData.priority,
+                timeEstimate: taskData.timeEstimate,
+                userId
+              });
+              await storage.addTaskToActivity(activity.id, task.id, i);
+              createdTasks.push(task);
+            }
+          }
+
+          // Mark session as completed  
+          await storage.updateLifestylePlannerSession(session.id, {
+            sessionState: 'completed',
+            isComplete: true,
+            generatedPlan: { ...generatedPlan, tasks: createdTasks }
+          }, userId);
+
+          const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
+          
+          return res.json({
+            message: `⚡ **Boom!** Activity "${activity.title}" created instantly!\n\n📋 **Find it on:**\n• **Home screen** - Your recent activities\n• **Activities pane** - Full details\n• **Tasks section** - ${createdTasks.length} tasks ready to go\n\nLet's make it happen! 🚀`,
+            activityCreated: true,
+            activity,
+            planComplete: true,
+            createdTasks,
+            session: updatedSession
+          });
+        }
+        
+        // Fallback if no plan data
         return res.json({
-          message: "⚡ **Perfect!** You can now say \"generate plan\" or click the Generate Plan button to create your activity instantly!",
-          planReady: true,
+          message: "⚠️ Sorry, I couldn't find the plan data. Let's start over!",
           sessionId: session.id,
-          showCreatePlanButton: true,
-          session: updatedSession
+          session
         });
       } else if (negativePattern.test(message.trim()) || message.toLowerCase().includes('change') || message.toLowerCase().includes('add')) {
         // User wants to make changes - continue gathering info

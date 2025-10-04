@@ -293,6 +293,85 @@ Generate the complete plan now:`;
       });
     }
 
+    // For fitness/workout plans
+    if (activityType === 'workout' || activityType === 'fitness' || activityType === 'exercise') {
+      const goals = slots.fitness?.goals || slots.goals || ['fitness'];
+      const goalsText = Array.isArray(goals) ? goals.join(', ') : goals;
+      
+      tasks.push({
+        title: 'Complete Saturday workout session',
+        description: `Follow the morning routine: warm-up, cardio, and strength training as outlined in the plan`,
+        category: 'Health',
+        priority: 'high' as const,
+        timeEstimate: '2 hours'
+      });
+
+      tasks.push({
+        title: 'Complete Sunday workout session',
+        description: `Complete strength training and active recovery exercises from the plan`,
+        category: 'Health',
+        priority: 'high' as const,
+        timeEstimate: '2 hours'
+      });
+
+      tasks.push({
+        title: 'Prepare workout gear',
+        description: `Pack water bottles, towel, workout clothes, and any needed equipment`,
+        category: 'Health',
+        priority: 'medium' as const,
+        timeEstimate: '15 minutes'
+      });
+
+      tasks.push({
+        title: 'Track progress',
+        description: `Log workouts, energy levels, and how you feel after each session`,
+        category: 'Health',
+        priority: 'medium' as const,
+        timeEstimate: '10 minutes'
+      });
+    }
+
+    // For wellness/meditation
+    if (activityType === 'wellness' || activityType === 'meditation' || activityType === 'mindfulness') {
+      tasks.push({
+        title: 'Morning meditation session',
+        description: `Complete guided meditation or breathing exercises`,
+        category: 'Wellness',
+        priority: 'high' as const,
+        timeEstimate: '20 minutes'
+      });
+
+      tasks.push({
+        title: 'Evening reflection',
+        description: `Journal about the day and practice gratitude`,
+        category: 'Wellness',
+        priority: 'medium' as const,
+        timeEstimate: '15 minutes'
+      });
+    }
+
+    // For daily planning
+    if (activityType === 'daily_planning' || activityType === 'weekend') {
+      const activities = slots.objectives?.primary || slots.purpose?.primary || [];
+      const activitiesText = Array.isArray(activities) ? activities.join(', ') : activities;
+      
+      tasks.push({
+        title: `Plan weekend schedule`,
+        description: `Create a detailed schedule for ${activitiesText || 'planned activities'}`,
+        category: 'Planning',
+        priority: 'high' as const,
+        timeEstimate: '30 minutes'
+      });
+
+      tasks.push({
+        title: 'Complete planned activities',
+        description: `Follow through with the activities outlined in the plan`,
+        category: 'Personal',
+        priority: 'high' as const,
+        timeEstimate: 'varies'
+      });
+    }
+
     return tasks;
   }
 
