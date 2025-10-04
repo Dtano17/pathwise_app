@@ -27,7 +27,11 @@ interface ConversationSession {
   lastInteractionAt: string;
 }
 
-export default function ChatHistory() {
+interface ChatHistoryProps {
+  onLoadSession?: (sessionId: string) => void;
+}
+
+export default function ChatHistory({ onLoadSession }: ChatHistoryProps) {
   const { data: sessions = [], isLoading } = useQuery<ConversationSession[]>({
     queryKey: ['/api/conversations']
   });
@@ -194,11 +198,12 @@ export default function ChatHistory() {
                       size="sm" 
                       data-testid={`button-view-session-${session.id}`}
                       onClick={() => {
-                        // TODO: Load and resume this conversation session
-                        console.log('Load session:', session.id);
+                        if (onLoadSession) {
+                          onLoadSession(session.id);
+                        }
                       }}
                     >
-                      View Details
+                      Resume Conversation
                     </Button>
                   </div>
                 </div>

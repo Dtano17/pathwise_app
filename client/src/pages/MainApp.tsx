@@ -126,6 +126,54 @@ export default function MainApp({
     description: string;
   } | null>(null);
 
+  // Load and resume a conversation session
+  const loadConversationSession = async (sessionId: string) => {
+    try {
+      const response = await fetch(`/api/conversations/${sessionId}`);
+      if (!response.ok) {
+        throw new Error('Failed to load conversation');
+      }
+      
+      const session = await response.json();
+      
+      // Extract conversation history
+      const history = session.conversationHistory.map((msg: any) => msg.content);
+      setConversationHistory(history);
+      
+      // Set plan output if available
+      if (session.generatedPlan) {
+        setCurrentPlanOutput({
+          planTitle: session.generatedPlan.title,
+          summary: session.generatedPlan.summary,
+          tasks: session.generatedPlan.tasks || [],
+          estimatedTimeframe: session.generatedPlan.estimatedTimeframe,
+          motivationalNote: session.generatedPlan.motivationalNote
+        });
+      }
+      
+      // Set session ID for future updates
+      setCurrentSessionId(sessionId);
+      
+      // Set plan version based on conversation length
+      setPlanVersion(history.length);
+      
+      // Navigate to input tab
+      setActiveTab('input');
+      
+      toast({
+        title: "Conversation Loaded",
+        description: "You can now continue refining this plan with additional context.",
+      });
+    } catch (error) {
+      console.error('Failed to load conversation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load conversation session.",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Expanded activities for collapsible view
   const handleActivityClick = (activity: ActivityType) => {
     // Set the selected activity and navigate to tasks tab
@@ -2106,11 +2154,14 @@ Assistant: For nutrition, I recommend..."
           <DialogHeader>
             <DialogTitle>Chat History</DialogTitle>
             <DialogDescription>
-              View your imported conversations from ChatGPT, Claude, and other LLMs
+              View your conversation sessions and resume refining your plans
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-hidden">
-            <ChatHistory />
+            <ChatHistory onLoadSession={(sessionId) => {
+              loadConversationSession(sessionId);
+              onShowChatHistory(false);
+            }} />
           </div>
         </DialogContent>
       </Dialog>
