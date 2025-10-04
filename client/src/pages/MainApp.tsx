@@ -103,6 +103,10 @@ export default function MainApp({
     activityId?: string;
   } | null>(null);
 
+  // Conversation history for contextual plan regeneration
+  const [conversationHistory, setConversationHistory] = useState<string[]>([]);
+  const [planVersion, setPlanVersion] = useState(0);
+
   // Activity selection and delete dialog state
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
@@ -258,41 +262,41 @@ export default function MainApp({
   // Process goal mutation
   const processGoalMutation = useMutation({
     mutationFn: async (goalText: string) => {
-      const response = await apiRequest('POST', '/api/goals/process', { goalText });
+      // Combine conversation history with new input for full context
+      const fullContext = conversationHistory.length > 0
+        ? `${conversationHistory.join('\n\n')}\n\nAdditional context: ${goalText}`
+        : goalText;
+      
+      const response = await apiRequest('POST', '/api/goals/process', { goalText: fullContext });
       return response.json();
     },
-    onSuccess: async (data: any) => {
+    onSuccess: async (data: any, variables: string) => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       
+      // Add the new user input to conversation history
+      setConversationHistory(prev => [...prev, variables]);
+      
+      // Increment plan version
+      setPlanVersion(prev => prev + 1);
+      
       // Show success toast
+      const isRefinement = conversationHistory.length > 0;
       toast({
-        title: "Plan Created!",
-        description: `Generated ${data.tasks?.length || 0} actionable tasks!`,
+        title: isRefinement ? "Plan Refined!" : "Plan Created!",
+        description: isRefinement 
+          ? `Updated plan with ${data.tasks?.length || 0} tasks based on your additional context!`
+          : `Generated ${data.tasks?.length || 0} actionable tasks!`,
       });
 
-      // Update or set plan output for display
-      setCurrentPlanOutput(prev => {
-        // If there's an existing plan in the session, merge the new tasks
-        if (prev) {
-          return {
-            planTitle: data.planTitle || prev.planTitle,
-            summary: data.summary || prev.summary,
-            tasks: [...(prev.tasks || []), ...(data.tasks || [])],
-            estimatedTimeframe: data.estimatedTimeframe || prev.estimatedTimeframe,
-            motivationalNote: data.motivationalNote || prev.motivationalNote,
-            activityId: prev.activityId // Keep existing activity ID if any
-          };
-        }
-        // First plan in session
-        return {
-          planTitle: data.planTitle,
-          summary: data.summary,
-          tasks: data.tasks || [],
-          estimatedTimeframe: data.estimatedTimeframe,
-          motivationalNote: data.motivationalNote,
-          activityId: undefined // No activity created yet
-        };
+      // REPLACE the plan completely (regeneration from scratch, not merging)
+      setCurrentPlanOutput({
+        planTitle: data.planTitle,
+        summary: data.summary,
+        tasks: data.tasks || [],
+        estimatedTimeframe: data.estimatedTimeframe,
+        motivationalNote: data.motivationalNote,
+        activityId: currentPlanOutput?.activityId // Preserve activity ID if it exists
       });
       
       // Stay on input tab to show Claude-style output
@@ -872,7 +876,10 @@ export default function MainApp({
                   <div className="flex items-center justify-between mb-6 p-4 bg-muted/30 rounded-lg">
                     <Button
                       variant="outline"
-                      onClick={() => setCurrentPlanOutput(null)}
+                      onClick={() => {
+                        // Don't reset conversation history here - user might want to refine
+                        setCurrentPlanOutput(null);
+                      }}
                       className="gap-2"
                       data-testid="button-back-to-input"
                     >
@@ -895,7 +902,7 @@ export default function MainApp({
                       </Button>
                     ) : (
                       <div className="text-sm text-muted-foreground">
-                        AI-Generated Action Plan
+                        {planVersion === 1 ? 'AI-Generated Action Plan' : `Refined Plan v${planVersion}`}
                       </div>
                     )}
                   </div>
@@ -934,7 +941,11 @@ export default function MainApp({
                   <div className="flex justify-center gap-4 mt-8">
                     <Button
                       variant="outline"
-                      onClick={() => setCurrentPlanOutput(null)}
+                      onClick={() => {
+                        setCurrentPlanOutput(null);
+                        setConversationHistory([]);
+                        setPlanVersion(0);
+                      }}
                       data-testid="button-new-goal"
                     >
                       <Plus className="w-4 h-4 mr-2" />
