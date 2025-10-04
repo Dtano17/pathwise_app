@@ -78,11 +78,13 @@ CURRENTLY EXTRACTED INFORMATION (from previous analysis):
 ${JSON.stringify(currentSlots, null, 2)}
 
 TASK:
-1. For EACH question in the list, determine if the user has provided enough information to answer it
-2. Extract specific values from the conversation (look for implicit AND explicit info)
-3. Identify which questions are COMPLETELY unanswered
-4. Determine the NEXT most important question to ask (highest priority unanswered required question)
-5. Calculate completion percentage
+1. Read the FULL conversation history to understand what has been discussed
+2. For EACH question in the list, check if the user answered it ANYWHERE in the conversation (including the current message)
+3. Extract specific values from the conversation (look for implicit AND explicit info)
+4. Use CONTEXTUAL AWARENESS: Look at what question was most recently asked and how the user responded
+5. Identify which questions are COMPLETELY unanswered (never addressed in any way)
+6. Determine the NEXT most important question to ask (highest priority unanswered required question)
+7. Calculate completion percentage based on ALL messages, not just the latest one
 
 IMPORTANT - IMPLICIT INFORMATION:
 - "weekend trip" → 2-3 days duration
@@ -92,11 +94,29 @@ IMPORTANT - IMPLICIT INFORMATION:
 - "next month" → extract approximate date
 - "somewhere warm" → climate preference
 
-FLEXIBLE/OPEN RESPONSES (treat as valid answers with 0.7 confidence):
-- For budget: "flexible", "none for now", "no budget", "I'm flexible", "open", "not sure yet", "TBD" → extractedValue: "flexible"
-- For dates: "flexible", "not sure", "open", "whenever" → extractedValue: "flexible"
-- For any question: "I don't know", "not sure", "flexible", "open to anything" → extractedValue: "flexible"
-These ARE valid responses - mark them as answered with extractedValue set to "flexible" so we don't ask again.
+CRITICAL - CONTEXTUAL ANSWER RECOGNITION:
+When analyzing the conversation, pay special attention to question-answer pairs:
+
+1. Look at each assistant message to see what question was asked
+2. Look at the following user message to see how they responded
+3. Use CONTEXT to determine if they answered it, even with uncertainty/negation
+
+Examples:
+- Assistant: "What is your budget?"
+  User: "no" / "none" / "flexible" / "not sure" / "I don't know" / "none for now, I am flexible"
+  → That IS an answer! Extract as: {budget: "flexible", confidence: 0.7}
+
+- Assistant: "What dates are you planning?"
+  User: "not sure" / "flexible" / "whenever" / "open"
+  → That IS an answer! Extract as: {dates: "flexible", confidence: 0.7}
+
+- Assistant: "What's the purpose?"
+  User: "no" / "just because" / "nothing specific"
+  → That IS an answer! Extract as: {purpose: "flexible", confidence: 0.7}
+
+RULE: If a question was asked in the conversation and the user responded (even with uncertainty, negation, or flexibility), mark it as ANSWERED. The user shouldn't be asked the same question twice.
+
+NEVER put a question in the "unanswered" list if it appears in the conversation history with a response (any response, including negative/uncertain ones).
 
 CONFIDENCE SCORING:
 - 1.0 = Explicitly stated with clear details
