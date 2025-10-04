@@ -110,11 +110,6 @@ export default function MainApp({
   
   // Ref to track activityId to prevent race conditions during refinements
   const activityIdRef = useRef<string | undefined>(undefined);
-  
-  // Keep ref in sync with state
-  useEffect(() => {
-    activityIdRef.current = currentPlanOutput?.activityId;
-  }, [currentPlanOutput?.activityId]);
 
   // Activity selection and delete dialog state
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
@@ -150,12 +145,21 @@ export default function MainApp({
       
       // Set plan output if available
       if (session.generatedPlan) {
+        const activityId = session.generatedPlan.activityId;
+        
+        // Set ref first if activityId exists
+        if (activityId) {
+          activityIdRef.current = activityId;
+          console.log('📥 Loaded session with activityId:', activityId);
+        }
+        
         setCurrentPlanOutput({
           planTitle: session.generatedPlan.title,
           summary: session.generatedPlan.summary,
           tasks: session.generatedPlan.tasks || [],
           estimatedTimeframe: session.generatedPlan.estimatedTimeframe,
-          motivationalNote: session.generatedPlan.motivationalNote
+          motivationalNote: session.generatedPlan.motivationalNote,
+          activityId: activityId // Restore activityId from saved session
         });
       }
       
@@ -360,6 +364,7 @@ export default function MainApp({
       // REPLACE the plan completely (regeneration from scratch, not merging)
       // Use ref to get latest activityId (prevents race conditions during refinements)
       const preservedActivityId = activityIdRef.current;
+      console.log('🔄 Plan refinement - preserving activityId:', preservedActivityId);
       
       const newPlanOutput = {
         planTitle: data.planTitle,
@@ -370,6 +375,7 @@ export default function MainApp({
         activityId: preservedActivityId // Preserve activity ID if it exists
       };
       
+      console.log('📋 New plan output:', { ...newPlanOutput, tasks: `${newPlanOutput.tasks.length} tasks` });
       setCurrentPlanOutput(newPlanOutput);
 
       // Auto-save conversation session
@@ -674,11 +680,18 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       
+      console.log('✅ Activity created with ID:', data.id);
+      
       // Update ref first to ensure all future refinements preserve this activityId
       activityIdRef.current = data.id;
+      console.log('📌 Set activityIdRef.current to:', activityIdRef.current);
       
       // Update current plan with the created activity ID
-      setCurrentPlanOutput(prev => prev ? { ...prev, activityId: data.id } : null);
+      setCurrentPlanOutput(prev => {
+        const updated = prev ? { ...prev, activityId: data.id } : null;
+        console.log('📝 Updated currentPlanOutput with activityId:', updated?.activityId);
+        return updated;
+      });
       
       toast({
         title: "Activity Created!",
@@ -1061,6 +1074,7 @@ export default function MainApp({
                         setConversationHistory([]);
                         setPlanVersion(0);
                         setCurrentSessionId(null);
+                        activityIdRef.current = undefined; // Reset ref
                       }}
                       data-testid="button-new-goal"
                     >
