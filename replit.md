@@ -88,6 +88,10 @@ A mobile-first AI-powered journaling application that transforms user intentions
   - ✅ Added 6 new planning categories: Health & Fitness, Work Focus, Investment, Spiritual, Romance, Adventure
   - ✅ Enhanced plan output with timeframe-adaptive structure (day/week/month/year)
   - ✅ Improved plan formatting with Goals, Action Steps, Timing, Motivation, and Checkpoints sections
+  - ✅ Fixed duplicate question bug - questions are tracked and never asked twice
+  - ✅ Enhanced gap analyzer to recognize "no budget", "none", "flexible" as valid answers
+  - ✅ Implemented intelligent inference - generates plan at 85%+ completion or when all required questions answered
+  - ✅ Added fallback logic - if all questions asked, generates plan with available information
 - **September 30, 2025**: 
   - ✅ Implemented dual authentication (Replit + Supabase for Facebook)
   - ✅ Fixed all API routes to use authenticated user IDs
