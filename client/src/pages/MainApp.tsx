@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
@@ -107,6 +107,14 @@ export default function MainApp({
   const [conversationHistory, setConversationHistory] = useState<string[]>([]);
   const [planVersion, setPlanVersion] = useState(0);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  
+  // Ref to track activityId to prevent race conditions during refinements
+  const activityIdRef = useRef<string | undefined>(undefined);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    activityIdRef.current = currentPlanOutput?.activityId;
+  }, [currentPlanOutput?.activityId]);
 
   // Activity selection and delete dialog state
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
@@ -350,15 +358,19 @@ export default function MainApp({
       });
 
       // REPLACE the plan completely (regeneration from scratch, not merging)
-      // Use functional update to ensure we get the latest activityId
-      setCurrentPlanOutput(prev => ({
+      // Use ref to get latest activityId (prevents race conditions during refinements)
+      const preservedActivityId = activityIdRef.current;
+      
+      const newPlanOutput = {
         planTitle: data.planTitle,
         summary: data.summary,
         tasks: data.tasks || [],
         estimatedTimeframe: data.estimatedTimeframe,
         motivationalNote: data.motivationalNote,
-        activityId: prev?.activityId // Preserve activity ID if it exists
-      }));
+        activityId: preservedActivityId // Preserve activity ID if it exists
+      };
+      
+      setCurrentPlanOutput(newPlanOutput);
 
       // Auto-save conversation session
       try {
@@ -369,14 +381,14 @@ export default function MainApp({
           type: 'question' as const
         }));
 
-        // Get the updated plan output after state update
+        // Use the same plan data with preserved activityId
         const planToSave = {
           planTitle: data.planTitle,
           summary: data.summary,
           tasks: data.tasks || [],
           estimatedTimeframe: data.estimatedTimeframe,
           motivationalNote: data.motivationalNote,
-          activityId: currentPlanOutput?.activityId
+          activityId: preservedActivityId
         };
 
         if (currentSessionId) {
@@ -661,6 +673,9 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+      
+      // Update ref first to ensure all future refinements preserve this activityId
+      activityIdRef.current = data.id;
       
       // Update current plan with the created activity ID
       setCurrentPlanOutput(prev => prev ? { ...prev, activityId: data.id } : null);
