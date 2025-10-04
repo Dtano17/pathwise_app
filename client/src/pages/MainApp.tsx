@@ -13,7 +13,7 @@ import ProgressDashboard from '@/components/ProgressDashboard';
 import ClaudePlanOutput from '@/components/ClaudePlanOutput';
 import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
-import ConversationalPlanner from '@/components/ConversationalPlanner';
+import PersonalJournal from '@/components/PersonalJournal';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
@@ -898,8 +898,8 @@ export default function MainApp({
                       className="gap-2"
                       data-testid="button-lifestyle-planner"
                     >
-                      <Brain className="w-4 h-4" />
-                      Lifestyle Planner
+                      <BookOpen className="w-4 h-4" />
+                      Personal Journal
                     </Button>
                     <Button
                       onClick={() => onShowThemeSelector(true)}
@@ -2245,15 +2245,15 @@ Assistant: For nutrition, I recommend..."
       </Dialog>
 
       <Dialog open={showLifestylePlanner} onOpenChange={onShowLifestylePlanner}>
-        <DialogContent className="max-w-6xl h-[90vh]" data-testid="modal-lifestyle-planner">
-          <DialogHeader>
-            <DialogTitle>Conversational Lifestyle Planner</DialogTitle>
+        <DialogContent className="max-w-7xl h-[90vh] overflow-hidden" data-testid="modal-lifestyle-planner">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-2xl">Personal Journal</DialogTitle>
             <DialogDescription>
-              AI-powered planning that asks clarifying questions and generates personalized lifestyle plans
+              Capture your unique interests, preferences, and personal notes
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden">
-            <ConversationalPlanner onClose={() => onShowLifestylePlanner(false)} />
+          <div className="flex-1 overflow-hidden h-[calc(90vh-100px)]">
+            <PersonalJournal onClose={() => onShowLifestylePlanner(false)} />
           </div>
         </DialogContent>
       </Dialog>

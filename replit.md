@@ -73,7 +73,16 @@ A mobile-first AI-powered journaling application that transforms user intentions
 - **Anthropic Integration**: Active, Claude API for conversational planning
 
 ## Recent Changes
-- **October 4, 2025**:
+- **October 4, 2025** (Evening):
+  - ✅ Transformed "Lifestyle Planner" into responsive "Personal Journal" 
+  - ✅ Created journal-style interface for capturing personal interests and preferences
+  - ✅ Added 9 journal categories: Restaurants & Food, Movies & TV, Music, Books, Hobbies, Travel, Personal Style, Favorites, Personal Notes
+  - ✅ Implemented auto-save functionality with backend persistence
+  - ✅ Fully responsive design (mobile-first with sidebar navigation)
+  - ✅ Journal data stored in user preferences JSONB field
+  - ✅ Backend routes: PUT /api/user/journal for saving entries
+  - ✅ Fixed "Your Activity" button persistence after refinements and session reloads
+- **October 4, 2025** (Morning):
   - ✅ Implemented activity-first workflow - no automatic task creation
   - ✅ Plans now show preview-only data until "Create Activity" button clicked
   - ✅ All tasks created through activity creation (no orphan tasks)

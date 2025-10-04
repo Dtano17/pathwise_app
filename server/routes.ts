@@ -2400,8 +2400,11 @@ You can find these tasks in your task list and start working on them right away!
         }
       }
       
-      console.log('Returning profile:', profile);
-      res.json(profile);
+      // Also fetch user preferences for journal data
+      const preferences = await storage.getUserPreferences(userId);
+      
+      console.log('Returning profile with preferences:', { profile, preferences });
+      res.json({ ...profile, preferences: preferences?.preferences });
     } catch (error) {
       console.error('Error fetching user profile:', error);
       res.status(500).json({ error: 'Failed to fetch user profile' });
@@ -2417,6 +2420,41 @@ You can find these tasks in your task list and start working on them right away!
     } catch (error) {
       console.error('Error updating user profile:', error);
       res.status(500).json({ error: 'Failed to update user profile' });
+    }
+  });
+
+  // Personal Journal - Save journal entry
+  app.put("/api/user/journal", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { category, items } = req.body;
+      
+      if (!category || !Array.isArray(items)) {
+        return res.status(400).json({ error: 'Category and items array required' });
+      }
+
+      // Get existing preferences
+      let prefs = await storage.getUserPreferences(userId);
+      
+      // Initialize journal data if it doesn't exist
+      const currentPrefs = prefs?.preferences || {};
+      const journalData = currentPrefs.journalData || {};
+      
+      // Update the specific category
+      journalData[category] = items;
+      
+      // Save back to preferences
+      const updatedPrefs = await storage.upsertUserPreferences(userId, {
+        preferences: {
+          ...currentPrefs,
+          journalData
+        }
+      });
+
+      res.json({ success: true, journalData });
+    } catch (error) {
+      console.error('Error saving journal entry:', error);
+      res.status(500).json({ error: 'Failed to save journal entry' });
     }
   });
 
