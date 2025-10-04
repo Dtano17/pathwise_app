@@ -40,7 +40,7 @@ export interface GapAnalysis {
 
 export interface UniversalPlanningResponse {
   message: string;
-  phase: 'context_recognition' | 'gathering' | 'enrichment' | 'synthesis' | 'completed';
+  phase: 'context_recognition' | 'gathering' | 'enrichment' | 'synthesis' | 'completed' | 'confirming' | 'confirmed' | 'refining';
   progress?: {
     answered: number;
     total: number;
@@ -86,12 +86,12 @@ export class UniversalPlanningAgent {
     
     // Method 1: Check for numbered steps on separate lines (original format)
     const lineBasedSteps = /(?:^|\n)\s*\d+\.\s*(.+?)(?=\n|$)/gm;
-    const lineMatches = [...message.matchAll(lineBasedSteps)];
+    const lineMatches = Array.from(message.matchAll(lineBasedSteps));
     
     // Method 2: Check for numbered steps in continuous text (emoji or space-separated)
     // Matches patterns like "🧠 1. Document" or "1. Document" anywhere in text
     const inlineStepsRegex = /[🔐🧠™️©️🧪🧾🔧📋💡]?\s*\d+\.\s*([A-Z][^.!?]*(?:[.!?]|(?=\s*\d+\.|$)))/g;
-    const inlineMatches = [...message.matchAll(inlineStepsRegex)];
+    const inlineMatches = Array.from(message.matchAll(inlineStepsRegex));
     
     // Determine if this looks like a pasted conversation
     const hasMultipleSteps = lineMatches.length >= 3 || inlineMatches.length >= 3;
@@ -524,7 +524,7 @@ Make sure each step has a clear, actionable title and helpful description.`
 
         // Show refinement history to user
         const refinementHistory = refinements.length > 0
-          ? `\n\n**Changes applied (${refinements.length}):**\n${refinements.map((r, i) => `${i + 1}. ${r}`).join('\n')}\n`
+          ? `\n\n**Changes applied (${refinements.length}):**\n${refinements.map((r: string, i: number) => `${i + 1}. ${r}`).join('\n')}\n`
           : '';
 
         return {
@@ -669,7 +669,7 @@ Make sure each step has a clear, actionable title and helpful description.`
     const detection = await domainRegistry.detectDomain(userMessage);
 
     // Check if this is a context switch
-    const isContextSwitch = currentDomain && currentDomain !== detection.domain;
+    const isContextSwitch = !!currentDomain && currentDomain !== detection.domain;
 
     // Also extract slots from the message using Claude
     const extractedSlots = await this.extractSlotsFromMessage(userMessage, detection.domain);
@@ -986,13 +986,13 @@ Example for interview_prep:
     suggestedClarification?: string;
   }> {
     try {
-      const availableDomains = Array.from(domainRegistry.getDomains().keys());
+      const availableDomains = domainRegistry.getAvailableDomains();
       const conversationContext = conversationHistory.slice(-3).map(m => `${m.role}: ${m.content}`).join('\n');
 
       const prompt = `You are an intelligent planning assistant. Analyze the user's message to determine their intent.
 
 AVAILABLE PLANNING DOMAINS:
-${availableDomains.map(d => `- ${d}: ${domainRegistry.getDomains().get(d)?.description || ''}`).join('\n')}
+${availableDomains.map(d => `- ${d}: ${domainRegistry.getDomain(d)?.description || ''}`).join('\n')}
 
 CONVERSATION CONTEXT:
 ${conversationContext || 'No previous context'}
