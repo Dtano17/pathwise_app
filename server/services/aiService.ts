@@ -563,6 +563,8 @@ User's goal: "${goalText}"${prioritiesContext}
 
 Analyze this goal and respond with JSON in this exact format:
 {
+  "planTitle": "A catchy, concise title for this action plan (3-5 words)",
+  "summary": "A brief, motivating summary of what this plan will accomplish (1-2 sentences)",
   "tasks": [
     {
       "title": "Specific task title",
@@ -574,7 +576,8 @@ Analyze this goal and respond with JSON in this exact format:
   ],
   "goalCategory": "Overall category for the goal",
   "goalPriority": "high|medium|low", 
-  "estimatedTimeframe": "Time estimate to complete all tasks"
+  "estimatedTimeframe": "Time estimate to complete all tasks",
+  "motivationalNote": "An encouraging message to keep the user motivated (1 sentence)"
 }
 
 Guidelines:
@@ -608,6 +611,8 @@ Examples:
 
       // Validate and ensure proper structure
       const processedResult: GoalProcessingResult = {
+        planTitle: result.planTitle || `${goalText.slice(0, 30)}${goalText.length > 30 ? '...' : ''}`,
+        summary: result.summary || "Let's accomplish this together!",
         tasks:
           result.tasks?.map((task: any) => ({
             title: task.title || "Untitled Task",
@@ -621,6 +626,7 @@ Examples:
         goalCategory: result.goalCategory || "Personal",
         goalPriority: this.validatePriority(result.goalPriority),
         estimatedTimeframe: result.estimatedTimeframe || "Unknown",
+        motivationalNote: result.motivationalNote || "You got this! One step at a time.",
       };
 
       return processedResult;
