@@ -350,15 +350,15 @@ export default function MainApp({
       });
 
       // REPLACE the plan completely (regeneration from scratch, not merging)
-      const newPlanOutput = {
+      // Use functional update to ensure we get the latest activityId
+      setCurrentPlanOutput(prev => ({
         planTitle: data.planTitle,
         summary: data.summary,
         tasks: data.tasks || [],
         estimatedTimeframe: data.estimatedTimeframe,
         motivationalNote: data.motivationalNote,
-        activityId: currentPlanOutput?.activityId // Preserve activity ID if it exists
-      };
-      setCurrentPlanOutput(newPlanOutput);
+        activityId: prev?.activityId // Preserve activity ID if it exists
+      }));
 
       // Auto-save conversation session
       try {
@@ -369,17 +369,27 @@ export default function MainApp({
           type: 'question' as const
         }));
 
+        // Get the updated plan output after state update
+        const planToSave = {
+          planTitle: data.planTitle,
+          summary: data.summary,
+          tasks: data.tasks || [],
+          estimatedTimeframe: data.estimatedTimeframe,
+          motivationalNote: data.motivationalNote,
+          activityId: currentPlanOutput?.activityId
+        };
+
         if (currentSessionId) {
           // Update existing session
           await apiRequest('PUT', `/api/conversations/${currentSessionId}`, {
             conversationHistory: conversationMessages,
-            generatedPlan: newPlanOutput
+            generatedPlan: planToSave
           });
         } else {
           // Create new session
           const sessionResponse = await apiRequest('POST', '/api/conversations', {
             conversationHistory: conversationMessages,
-            generatedPlan: newPlanOutput
+            generatedPlan: planToSave
           });
           const session = await sessionResponse.json();
           setCurrentSessionId(session.id);
@@ -1441,6 +1451,7 @@ export default function MainApp({
                           ...task,
                           description: task.description || '',
                           priority: (task.priority as 'low' | 'medium' | 'high') || 'medium',
+                          completed: task.completed ?? false,
                           dueDate: task.dueDate ? new Date(task.dueDate).toISOString() : undefined
                         }}
                         onComplete={handleCompleteTask}
