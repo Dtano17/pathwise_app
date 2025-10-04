@@ -92,6 +92,7 @@ A mobile-first AI-powered journaling application that transforms user intentions
   - ✅ Enhanced gap analyzer to recognize "no budget", "none", "flexible" as valid answers
   - ✅ Implemented intelligent inference - generates plan at 85%+ completion or when all required questions answered
   - ✅ Added fallback logic - if all questions asked, generates plan with available information
+  - ✅ Updated app thumbnail/icon with new JournalMate logo (512x512 for web, 180x180 for iOS)
 - **September 30, 2025**: 
   - ✅ Implemented dual authentication (Replit + Supabase for Facebook)
   - ✅ Fixed all API routes to use authenticated user IDs
