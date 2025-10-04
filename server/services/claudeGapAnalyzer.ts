@@ -92,6 +92,12 @@ IMPORTANT - IMPLICIT INFORMATION:
 - "next month" → extract approximate date
 - "somewhere warm" → climate preference
 
+FLEXIBLE/OPEN RESPONSES (treat as valid answers with 0.7 confidence):
+- For budget: "flexible", "none for now", "no budget", "I'm flexible", "open", "not sure yet", "TBD" → extractedValue: "flexible"
+- For dates: "flexible", "not sure", "open", "whenever" → extractedValue: "flexible"
+- For any question: "I don't know", "not sure", "flexible", "open to anything" → extractedValue: "flexible"
+These ARE valid responses - mark them as answered with extractedValue set to "flexible" so we don't ask again.
+
 CONFIDENCE SCORING:
 - 1.0 = Explicitly stated with clear details
 - 0.8 = Clearly implied or stated with minor ambiguity

@@ -276,6 +276,20 @@ Make sure each step has a clear, actionable title and helpful description.`
 
       // Check if user is asking about non-planning topic (low confidence)
       if (context.confidence < 0.5) {
+        // If we have conversation history, don't reset - just ask for clarification
+        if (conversationHistory && conversationHistory.length > 0) {
+          return {
+            message: "I didn't quite catch that. Could you rephrase what you said?",
+            phase: 'gathering',
+            readyToGenerate: false,
+            planReady: false,
+            showGenerateButton: false,
+            updatedSlots: currentSlots,
+            domain: currentDomain
+          };
+        }
+        
+        // First message with low confidence - explain what we do
         return {
           message: "I'm sorry, I don't understand. This is a planning assistant designed to help you plan activities like travel, interviews, dates, workouts, and daily tasks. How can I help you plan something today?",
           phase: 'context_recognition',
@@ -355,7 +369,7 @@ Make sure each step has a clear, actionable title and helpful description.`
           readyToGenerate: false,
           planReady: false,
           showGenerateButton: false,
-          updatedSlots: mergedSlots,
+          updatedSlots: gapAnalysis.collectedSlots,
           domain: context.domain
         };
       }
@@ -633,10 +647,11 @@ Make sure each step has a clear, actionable title and helpful description.`
     } catch (error) {
       console.error('[UNIVERSAL AGENT] Error:', error);
       return {
-        message: "I encountered an error processing your request. Could you try rephrasing that?",
-        phase: 'context_recognition',
+        message: "I didn't quite catch that. Could you rephrase what you said?",
+        phase: 'gathering',
         readyToGenerate: false,
-        updatedSlots: currentSlots
+        updatedSlots: currentSlots,
+        domain: currentDomain
       };
     }
   }
