@@ -605,11 +605,110 @@ Make sure each step has a clear, actionable title and helpful description.`
         };
 
       } else {
-        // Ask next question (Claude intelligently selected highest priority)
-        console.log(`[PHASE 3] Asking next question: ${gapAnalysis.remainingQuestions.length} remaining`);
+        // INTELLIGENT INFERENCE: Check if we have enough info to generate plan
+        const completionPercentage = gapAnalysis.progress.percentage;
+        const requiredQuestions = questions.filter(q => q.required);
+        const requiredAnswered = requiredQuestions.filter(rq => 
+          gapAnalysis.answeredQuestions.some(aq => aq.id === rq.id)
+        ).length;
+        const allRequiredAnswered = requiredAnswered === requiredQuestions.length;
 
-        // Use Claude's next question recommendation
-        const nextQuestion = gapAnalysisResult.nextQuestionToAsk;
+        // Generate plan if:
+        // 1. All required questions answered, OR
+        // 2. 85%+ overall completion (enough context to infer)
+        const shouldInferAndGenerate = allRequiredAnswered || completionPercentage >= 85;
+
+        if (shouldInferAndGenerate) {
+          console.log(`[SMART INFERENCE] Sufficient info to generate plan (${completionPercentage}% complete, ${requiredAnswered}/${requiredQuestions.length} required answered)`);
+
+          // Generate plan with available information
+          const enrichmentRules = domainRegistry.getEnrichmentRules(context.domain);
+          const enrichedData = await claudeWebEnrichment.enrichPlan(
+            context.domain,
+            gapAnalysis.collectedSlots,
+            enrichmentRules,
+            userProfile
+          );
+
+          const beautifulPlan = await this.synthesizePlan(
+            context.domain,
+            gapAnalysis.collectedSlots,
+            enrichedData,
+            userProfile
+          );
+
+          return {
+            message: beautifulPlan.richContent + "\n\n---\n\n**Are you comfortable with this plan?**\n\n• Say **'yes'** to proceed with generating\n• Say **'no'** to make changes",
+            phase: 'confirming',
+            progress: gapAnalysis.progress,
+            contextChips,
+            readyToGenerate: false,
+            planReady: false,
+            showGenerateButton: false,
+            enrichedPlan: beautifulPlan,
+            updatedSlots: {
+              ...gapAnalysis.collectedSlots,
+              _generatedPlan: beautifulPlan,
+              _enrichedData: enrichedData,
+              _planState: 'confirming'
+            },
+            domain: context.domain
+          };
+        }
+
+        // Track questions that have been asked to prevent repeats
+        const askedQuestionIds = new Set(mergedSlots._askedQuestions || []);
+        console.log(`[ASKED QUESTIONS] Already asked: ${Array.from(askedQuestionIds).join(', ')}`);
+
+        // Use Claude's next question recommendation, but ensure it hasn't been asked before
+        let nextQuestion = gapAnalysisResult.nextQuestionToAsk;
+
+        // CRITICAL: Never ask a question that's already been asked
+        if (nextQuestion && askedQuestionIds.has(nextQuestion.id)) {
+          console.warn(`[DUPLICATE PREVENTION] Question "${nextQuestion.id}" already asked, finding alternative...`);
+          
+          // Find first unanswered question that hasn't been asked yet
+          nextQuestion = gapAnalysis.remainingQuestions.find(q => !askedQuestionIds.has(q.id)) || null;
+          
+          if (!nextQuestion) {
+            // All questions have been asked - generate plan with what we have
+            console.log(`[INFERENCE] All questions asked, generating plan with available info`);
+            const enrichmentRules = domainRegistry.getEnrichmentRules(context.domain);
+            const enrichedData = await claudeWebEnrichment.enrichPlan(
+              context.domain,
+              gapAnalysis.collectedSlots,
+              enrichmentRules,
+              userProfile
+            );
+
+            const beautifulPlan = await this.synthesizePlan(
+              context.domain,
+              gapAnalysis.collectedSlots,
+              enrichedData,
+              userProfile
+            );
+
+            return {
+              message: beautifulPlan.richContent + "\n\n---\n\n**Are you comfortable with this plan?**\n\n• Say **'yes'** to proceed with generating\n• Say **'no'** to make changes",
+              phase: 'confirming',
+              progress: gapAnalysis.progress,
+              contextChips,
+              readyToGenerate: false,
+              planReady: false,
+              showGenerateButton: false,
+              enrichedPlan: beautifulPlan,
+              updatedSlots: {
+                ...gapAnalysis.collectedSlots,
+                _generatedPlan: beautifulPlan,
+                _enrichedData: enrichedData,
+                _planState: 'confirming'
+              },
+              domain: context.domain
+            };
+          }
+        }
+
+        console.log(`[PHASE 3] Asking next question: ${gapAnalysis.remainingQuestions.length} remaining`);
 
         let responseMessage = '';
         if (gapAnalysis.answeredCount === 0) {
@@ -620,12 +719,14 @@ Make sure each step has a clear, actionable title and helpful description.`
 
         if (nextQuestion) {
           responseMessage += `${nextQuestion.question}`;
+          
+          // Track this question as asked
+          askedQuestionIds.add(nextQuestion.id);
+          
           if (nextQuestion.why_needs_asking && gapAnalysis.answeredCount > 0) {
-            // Add context on why this question matters (but not on first question to avoid verbosity)
             console.log(`[NEXT QUESTION WHY] ${nextQuestion.why_needs_asking}`);
           }
         } else {
-          // Fallback if Claude didn't provide next question
           responseMessage += `Could you tell me more about your plans?`;
         }
 
@@ -639,7 +740,10 @@ Make sure each step has a clear, actionable title and helpful description.`
           readyToGenerate: false,
           planReady: false,
           showGenerateButton: false,
-          updatedSlots: gapAnalysis.collectedSlots,
+          updatedSlots: {
+            ...gapAnalysis.collectedSlots,
+            _askedQuestions: Array.from(askedQuestionIds)
+          },
           domain: context.domain
         };
       }

@@ -101,22 +101,28 @@ When analyzing the conversation, pay special attention to question-answer pairs:
 2. Look at the following user message to see how they responded
 3. Use CONTEXT to determine if they answered it, even with uncertainty/negation
 
-Examples:
+Examples of VALID ANSWERS that should be marked as ANSWERED:
 - Assistant: "What is your budget?"
-  User: "no" / "none" / "flexible" / "not sure" / "I don't know" / "none for now, I am flexible"
+  User: "no" / "none" / "no budget" / "none for now" / "flexible" / "not sure" / "I don't know" / "none for now, no budget" / "no budget for now"
   → That IS an answer! Extract as: {budget: "flexible", confidence: 0.7}
 
 - Assistant: "What dates are you planning?"
-  User: "not sure" / "flexible" / "whenever" / "open"
+  User: "not sure" / "flexible" / "whenever" / "open" / "haven't decided" / "not yet"
   → That IS an answer! Extract as: {dates: "flexible", confidence: 0.7}
 
 - Assistant: "What's the purpose?"
-  User: "no" / "just because" / "nothing specific"
+  User: "no" / "just because" / "nothing specific" / "none really"
   → That IS an answer! Extract as: {purpose: "flexible", confidence: 0.7}
 
-RULE: If a question was asked in the conversation and the user responded (even with uncertainty, negation, or flexibility), mark it as ANSWERED. The user shouldn't be asked the same question twice.
+- Assistant: "How many people are traveling?"
+  User: "2" / "me and my girlfriend" / "two of us" / "just us two"
+  → That IS an answer! Extract the number and any relationship info
 
-NEVER put a question in the "unanswered" list if it appears in the conversation history with a response (any response, including negative/uncertain ones).
+ABSOLUTE RULE: If a question was asked in ANY previous assistant message and the VERY NEXT user message contains ANY response (even "no", "none", "not sure", "flexible", negation, or uncertainty), mark it as ANSWERED with confidence >= 0.6. The user should NEVER be asked the same question twice.
+
+NEVER put a question in the "unanswered" list if:
+1. It appears in the conversation history followed by a user response, OR
+2. The user explicitly said "no", "none", "not sure", "flexible" or similar when that question was asked
 
 CONFIDENCE SCORING:
 - 1.0 = Explicitly stated with clear details
