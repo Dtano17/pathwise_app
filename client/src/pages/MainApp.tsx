@@ -311,12 +311,22 @@ export default function MainApp({
   // Process goal mutation
   const processGoalMutation = useMutation({
     mutationFn: async (goalText: string) => {
-      // Combine conversation history with new input for full context
+      // For refinements, incorporate additional context into the original request
+      // Example: "plan my weekend" + "add timeline with timestamps" = "plan my weekend with detailed timeline and timestamps"
       const fullContext = conversationHistory.length > 0
-        ? `${conversationHistory.join('\n\n')}\n\nAdditional context: ${goalText}`
+        ? `${conversationHistory[0]}, and make sure to ${goalText}` // Rephrase as refinement of original goal
         : goalText;
       
-      const response = await apiRequest('POST', '/api/goals/process', { goalText: fullContext });
+      const response = await apiRequest('POST', '/api/goals/process', { 
+        goalText: fullContext,
+        sessionId: currentSessionId,
+        conversationHistory: [...conversationHistory, goalText].map((msg, idx) => ({
+          role: 'user' as const,
+          content: msg,
+          timestamp: new Date().toISOString(),
+          type: 'question' as const
+        }))
+      });
       return response.json();
     },
     onSuccess: async (data: any, variables: string) => {
