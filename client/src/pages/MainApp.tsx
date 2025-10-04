@@ -907,8 +907,8 @@ export default function MainApp({
                       <Button
                         variant="outline"
                         onClick={() => {
-                          setSelectedActivityId(currentPlanOutput.activityId!);
-                          setActiveTab('tasks');
+                          setSelectedActivityId(null);
+                          setActiveTab('activities');
                           setCurrentPlanOutput(null);
                         }}
                         className="gap-2"
