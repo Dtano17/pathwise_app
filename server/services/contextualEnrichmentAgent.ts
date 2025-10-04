@@ -143,9 +143,75 @@ DAILY PLANNING REQUIREMENTS:
 - Consider energy levels throughout day
 - Add buffer time between activities
 - Include evening wind-down routine`;
+    } else if (activityType === 'fitness' || activityType === 'workout' || activityType.includes('health')) {
+      activitySpecificGuidance = `
+HEALTH & FITNESS PLANNING REQUIREMENTS:
+- Create workout schedule adapted to user's fitness level
+- Include warm-up, main workout, and cool-down phases
+- Provide nutrition guidance aligned with fitness goals
+- Add rest/recovery days for muscle repair
+- Include progress tracking metrics (weight, reps, distance, etc.)
+- Suggest specific exercises with proper form notes
+- Consider available equipment and gym access
+- Balance cardio, strength, and flexibility training`;
+    } else if (activityType === 'work' || activityType.includes('productivity') || activityType.includes('focus')) {
+      activitySpecificGuidance = `
+WORK FOCUS & PRODUCTIVITY PLANNING REQUIREMENTS:
+- Create time-blocked schedule using productivity techniques (Pomodoro, time batching)
+- Prioritize tasks by urgency and importance (Eisenhower Matrix)
+- Include deep work blocks for complex tasks
+- Add scheduled breaks to prevent burnout
+- Suggest focus tools and techniques (noise-canceling, website blockers)
+- Create morning routine to maximize productivity
+- Include accountability checkpoints
+- Balance high-focus tasks with lighter administrative work`;
+    } else if (activityType === 'investment' || activityType.includes('financial') || activityType.includes('trading')) {
+      activitySpecificGuidance = `
+INVESTMENT & FINANCIAL PLANNING REQUIREMENTS:
+- Assess risk tolerance and investment goals
+- Provide portfolio allocation suggestions (stocks, bonds, crypto, etc.)
+- Include AI-based market insights and trends
+- Suggest specific investment opportunities with risk/reward analysis
+- Add timeline for investment horizon (short, medium, long-term)
+- Include dollar-cost averaging strategies if applicable
+- Provide resources for research and due diligence
+- Add risk management and diversification tips`;
+    } else if (activityType === 'spiritual' || activityType.includes('devotion') || activityType.includes('meditation')) {
+      activitySpecificGuidance = `
+SPIRITUAL & DEVOTIONAL PLANNING REQUIREMENTS:
+- Create morning and evening spiritual rituals
+- Include meditation/prayer time with specific techniques
+- Suggest reflection and journaling prompts
+- Add scripture/spiritual reading recommendations
+- Include gratitude practices and affirmations
+- Suggest mindfulness exercises throughout the day
+- Balance spiritual practice with daily responsibilities
+- Provide community or group spiritual activities`;
+    } else if (activityType === 'romance' || activityType === 'relationship' || activityType.includes('date')) {
+      activitySpecificGuidance = `
+ROMANCE & RELATIONSHIP PLANNING REQUIREMENTS:
+- Suggest meaningful date ideas tailored to interests
+- Create timeline from preparation to date end
+- Include conversation starters and connection activities
+- Provide outfit and grooming suggestions
+- Add romantic gestures and special touches
+- Include backup plans for weather/availability
+- Suggest ways to deepen emotional connection
+- Add follow-up ideas to maintain momentum`;
+    } else if (activityType === 'adventure' || activityType.includes('hiking') || activityType.includes('exploration')) {
+      activitySpecificGuidance = `
+ADVENTURE & EXPLORATION PLANNING REQUIREMENTS:
+- Suggest specific trails, locations, or exploration routes
+- Include safety checks and emergency preparedness
+- Provide detailed packing list for the adventure
+- Add weather and terrain considerations
+- Include physical preparation and fitness requirements
+- Suggest navigation tools and maps
+- Add local tips and hidden gems
+- Include photography spots and memorable experiences`;
     }
 
-    return `You are an expert lifestyle planning assistant. Generate a comprehensive, detailed, and practical plan based on the user's requirements.
+    return `You are my intelligent lifestyle and productivity planner. Using personal profile inputs (preferences, goals, constraints, schedule, values, fitness level, risk tolerance, relationship status, interests, etc.), create a structured plan that is flexible for any time frame (day, week, month, year).
 
 USER PROFILE:
 ${userProfile ? `- Location: ${userProfile.location || 'Not specified'}
@@ -159,25 +225,43 @@ ACTIVITY TYPE: ${activityType}
 
 ${activitySpecificGuidance}
 
-FORMAT REQUIREMENTS:
-- Use emojis to make it visually engaging (🌤️, 🎯, 🍽️, 🏨, 📍, 💡, etc.)
-- Structure with clear sections and headers
-- Include practical, actionable information
-- Provide specific recommendations, not generic advice
+YOUR OUTPUT SHOULD:
+
+1. **Be Adaptive to Timeframe** → If a day is specified, focus on daily activities; if a week, create a weekly flow; if a month/year, build long-term milestones.
+
+2. **Cover Key Dimensions** (adjust depending on the chosen theme/topic):
+   - Health & Fitness → workout plans, nutrition guidance, rest/recovery
+   - Work Focus → productivity routines, task batching, focus techniques
+   - Investment → portfolio suggestions, risk/reward balance, AI-based insights
+   - Spiritual → morning/evening rituals, reflection, journaling prompts
+   - Romance → meaningful date ideas, communication tips, emotional connection
+   - Adventure → travel/hiking plans, packing lists, safety checks, exploration
+
+3. **Be Personalized** → Integrate custom profile inputs (e.g., "I have access to a gym," "I work 9-5," "I'm vegetarian," "I want low-risk investments," "I live near hiking trails")
+
+4. **Be Practical & Actionable** → Provide clear step-by-step plan with suggested timelines, milestones, and resources/tools
+
+5. **Balance Structure & Flexibility** → Give structured flow but allow space for adjustments based on preferences, energy, or schedule
+
+6. **Prioritize Outcomes** → Align with goals (better fitness, more productivity, financial growth, stronger relationship, meaningful adventures)
+
+FORMAT THE PLAN CLEARLY WITH:
+- 📅 **Timeframe** (Day/Week/Month/Year)
+- 🎯 **Goals** - What you'll achieve
+- ✅ **Action Steps** - Specific, actionable tasks
+- ⏱ **Suggested Timing / Routine** - When to do each task
+- ⚡ **Motivation / Reflection prompts** - Stay inspired
+- 🔁 **Checkpoints for progress** - Track your success
+
+FORMATTING REQUIREMENTS:
+- Use emojis to make it visually engaging (🌤️, 🎯, 🍽️, 🏨, 📍, 💡, ⚡, 🔁, etc.)
+- Structure with clear markdown sections (##, ###, bullet points, **bold**)
+- Include practical, actionable information (specific, not vague)
 - Add pro tips and insider knowledge
-- Format with markdown (##, ###, bullet points, **bold**)
 - Make it comprehensive but easy to scan
+- Provide alternatives for key decisions
 
-OUTPUT STRUCTURE:
-1. Weather/Context section (if applicable)
-2. Top recommendations/activities
-3. Detailed itinerary or schedule
-4. Practical information (budget, transportation, etc.)
-5. Packing list or preparation checklist (if applicable)
-6. Pro tips and important notes
-7. Sample itinerary for the duration
-
-TONE: Enthusiastic, helpful, and practical. Write like an experienced friend giving advice.
+TONE: Enthusiastic, helpful, and practical. Write like an experienced coach/mentor giving personalized advice.
 
 ${refinements && refinements.length > 0 ? `
 USER REFINEMENTS/CHANGES REQUESTED:
@@ -347,6 +431,141 @@ Generate the complete plan now:`;
         category: 'Wellness',
         priority: 'medium' as const,
         timeEstimate: '15 minutes'
+      });
+    }
+
+    // For work/productivity plans
+    if (activityType === 'work' || activityType.includes('productivity') || activityType.includes('focus')) {
+      tasks.push({
+        title: 'Set up focus environment',
+        description: `Prepare workspace with minimal distractions and productivity tools`,
+        category: 'Work',
+        priority: 'high' as const,
+        timeEstimate: '30 minutes'
+      });
+
+      tasks.push({
+        title: 'Execute deep work blocks',
+        description: `Complete focused work sessions on high-priority tasks`,
+        category: 'Work',
+        priority: 'high' as const,
+        timeEstimate: '4 hours'
+      });
+
+      tasks.push({
+        title: 'Review and plan next day',
+        description: `Assess progress and prepare tomorrow's priority tasks`,
+        category: 'Work',
+        priority: 'medium' as const,
+        timeEstimate: '20 minutes'
+      });
+    }
+
+    // For investment/financial plans
+    if (activityType === 'investment' || activityType.includes('financial') || activityType.includes('trading')) {
+      tasks.push({
+        title: 'Research investment opportunities',
+        description: `Analyze recommended stocks/assets and review market insights`,
+        category: 'Finance',
+        priority: 'high' as const,
+        timeEstimate: '2 hours'
+      });
+
+      tasks.push({
+        title: 'Review portfolio allocation',
+        description: `Assess current portfolio and rebalance according to plan`,
+        category: 'Finance',
+        priority: 'high' as const,
+        timeEstimate: '1 hour'
+      });
+
+      tasks.push({
+        title: 'Set up tracking and alerts',
+        description: `Configure price alerts and portfolio monitoring tools`,
+        category: 'Finance',
+        priority: 'medium' as const,
+        timeEstimate: '30 minutes'
+      });
+    }
+
+    // For spiritual/devotional plans
+    if (activityType === 'spiritual' || activityType.includes('devotion') || activityType.includes('meditation')) {
+      tasks.push({
+        title: 'Morning spiritual practice',
+        description: `Complete meditation, prayer, or devotional reading`,
+        category: 'Spiritual',
+        priority: 'high' as const,
+        timeEstimate: '30 minutes'
+      });
+
+      tasks.push({
+        title: 'Evening reflection and gratitude',
+        description: `Journal reflections and practice gratitude exercises`,
+        category: 'Spiritual',
+        priority: 'medium' as const,
+        timeEstimate: '20 minutes'
+      });
+
+      tasks.push({
+        title: 'Mindfulness check-ins',
+        description: `Take 3 mindfulness breaks throughout the day`,
+        category: 'Spiritual',
+        priority: 'medium' as const,
+        timeEstimate: '15 minutes'
+      });
+    }
+
+    // For romance/relationship plans
+    if (activityType === 'romance' || activityType === 'relationship') {
+      tasks.push({
+        title: 'Plan and book date activities',
+        description: `Make reservations and prepare all date logistics`,
+        category: 'Personal',
+        priority: 'high' as const,
+        timeEstimate: '45 minutes'
+      });
+
+      tasks.push({
+        title: 'Prepare for the date',
+        description: `Outfit selection, grooming, and review conversation topics`,
+        category: 'Personal',
+        priority: 'high' as const,
+        timeEstimate: '1 hour'
+      });
+
+      tasks.push({
+        title: 'Follow-up connection',
+        description: `Send thoughtful message and plan next meaningful interaction`,
+        category: 'Personal',
+        priority: 'medium' as const,
+        timeEstimate: '15 minutes'
+      });
+    }
+
+    // For adventure/exploration plans
+    if (activityType === 'adventure' || activityType.includes('hiking') || activityType.includes('exploration')) {
+      tasks.push({
+        title: 'Prepare gear and supplies',
+        description: `Pack all recommended items from the adventure checklist`,
+        category: 'Adventure',
+        priority: 'high' as const,
+        timeEstimate: '1 hour'
+      });
+
+      tasks.push({
+        title: 'Review safety and navigation',
+        description: `Study trail maps, check weather, and prepare emergency contacts`,
+        category: 'Adventure',
+        priority: 'high' as const,
+        timeEstimate: '30 minutes'
+      });
+
+      tasks.push({
+        title: 'Physical preparation',
+        description: `Complete recommended warm-up and stretching exercises`,
+        category: 'Adventure',
+        priority: 'medium' as const,
+        timeEstimate: '20 minutes'
       });
     }
 
