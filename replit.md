@@ -80,6 +80,10 @@ A mobile-first AI-powered journaling application that transforms user intentions
   - ✅ Improved conversation refinement - context regenerates full plan
   - ✅ Create Activity button always visible (disabled after creation)
   - ✅ Single operation creates activity AND links all tasks
+  - ✅ Refactored gap analyzer to use contextual intelligence instead of hardcoded patterns
+  - ✅ Claude now understands flexible/uncertain responses through conversation context
+  - ✅ Updated app icon and PWA manifest with proper dimensions (512x512, 180x180)
+  - ✅ Added proper favicon, Apple touch icon, and theme color support
 - **September 30, 2025**: 
   - ✅ Implemented dual authentication (Replit + Supabase for Facebook)
   - ✅ Fixed all API routes to use authenticated user IDs
