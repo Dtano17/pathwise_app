@@ -39,7 +39,7 @@ export class ClaudeQuestionGenerator {
   async generateQuestions(
     domain: string,
     planMode: 'quick' | 'smart',
-    userProfile: User,
+    userProfile: User | undefined,
     userMessage: string
   ): Promise<QuestionGenerationResult> {
 
@@ -52,9 +52,9 @@ export class ClaudeQuestionGenerator {
 TASK: Generate the top ${questionCount} MOST IMPORTANT questions to ask when planning a ${domain} activity.
 
 USER PROFILE:
-- Name: ${userProfile.name || 'User'}
-- Location: ${userProfile.location || 'Not specified'}
-- Timezone: ${userProfile.timezone || 'Not specified'}
+- Name: ${userProfile?.name || 'User'}
+- Location: ${userProfile?.location || 'Not specified'}
+- Timezone: ${userProfile?.timezone || 'Not specified'}
 
 USER'S INITIAL REQUEST:
 "${userMessage}"
