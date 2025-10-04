@@ -995,7 +995,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // AI-powered goal processing
+  // AI-powered goal processing - Returns plan data WITHOUT creating tasks/goals
+  // Tasks are only created when user clicks "Create Activity" button
   app.post("/api/goals/process", async (req, res) => {
     try {
       const { goalText, sessionId } = req.body;
@@ -1010,29 +1011,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use AI to process the goal into tasks - switched to Claude as default
       const result = await aiService.processGoalIntoTasks(goalText, 'claude', userId);
       
-      // Create the goal record
-      const goal = await storage.createGoal({
-        userId,
-        title: goalText,
-        description: `Generated ${result.tasks.length} tasks from: ${goalText}`,
-        category: result.goalCategory,
-        priority: result.goalPriority
-      });
-
-      // Create the tasks
-      const tasks = await Promise.all(
-        result.tasks.map(task => 
-          storage.createTask({
-            ...task,
-            userId,
-            goalId: goal.id
-          })
-        )
-      );
-
-      // Save or update conversation session
+      // Save or update conversation session for history
       if (sessionId) {
-        // Update existing session
         await storage.updateLifestylePlannerSession(sessionId, {
           conversationHistory: req.body.conversationHistory || [],
           generatedPlan: {
@@ -1046,15 +1026,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }, userId);
       }
 
+      // Return plan data WITHOUT creating tasks or goals
+      // Tasks will be created when user clicks "Create Activity" button
       res.json({
-        goal,
-        tasks,
         planTitle: result.planTitle,
         summary: result.summary,
+        tasks: result.tasks, // Return task data for preview, but don't save to DB
         estimatedTimeframe: result.estimatedTimeframe,
         motivationalNote: result.motivationalNote,
         sessionId,
-        message: `Created ${tasks.length} actionable tasks from your goal!`
+        message: `Generated ${result.tasks.length} task previews! Click "Create Activity" to save them.`
       });
     } catch (error) {
       console.error('Goal processing error:', error);
@@ -1520,8 +1501,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create activity from dialogue (AI-generated tasks)
+  // This creates BOTH the activity AND all tasks linked to it
   app.post("/api/activities/from-dialogue", async (req, res) => {
     try {
+      const userId = getUserId(req) || DEMO_USER_ID;
       const { title, description, category, tasks } = req.body;
       
       // Create the activity
@@ -1530,16 +1513,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description,
         category,
         status: 'planning',
-        userId: DEMO_USER_ID
+        userId
       });
 
       // Create tasks and link them to the activity
+      // This ensures ALL tasks belong to an activity (no orphan tasks)
       if (tasks && Array.isArray(tasks)) {
         for (let i = 0; i < tasks.length; i++) {
           const taskData = tasks[i];
           const task = await storage.createTask({
             ...taskData,
-            userId: DEMO_USER_ID
+            userId,
+            category: taskData.category || category || 'general'
           });
           await storage.addTaskToActivity(activity.id, task.id, i);
         }

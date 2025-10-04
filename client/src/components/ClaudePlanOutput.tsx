@@ -278,7 +278,7 @@ export default function ClaudePlanOutput({
           Quick Actions
         </h3>
         <div className="flex flex-wrap gap-3 justify-center">
-          {/* Create Activity - Always show */}
+          {/* Create Activity - Always visible, disabled after creation */}
           {onCreateActivity && (
             <Button
               onClick={() => onCreateActivity({
@@ -288,10 +288,11 @@ export default function ClaudePlanOutput({
               })}
               className="gap-2"
               variant="default"
+              disabled={!!activityId}
               data-testid="button-create-activity-from-plan"
             >
               <Target className="w-4 h-4" />
-              {activityId ? 'Activity Created' : 'Create Activity'}
+              {activityId ? 'Activity Created ✓' : 'Create Activity'}
             </Button>
           )}
 
