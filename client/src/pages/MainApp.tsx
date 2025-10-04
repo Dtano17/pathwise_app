@@ -106,6 +106,7 @@ export default function MainApp({
   // Conversation history for contextual plan regeneration
   const [conversationHistory, setConversationHistory] = useState<string[]>([]);
   const [planVersion, setPlanVersion] = useState(0);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   // Activity selection and delete dialog state
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
@@ -275,7 +276,8 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       
       // Add the new user input to conversation history
-      setConversationHistory(prev => [...prev, variables]);
+      const updatedHistory = [...conversationHistory, variables];
+      setConversationHistory(updatedHistory);
       
       // Increment plan version
       setPlanVersion(prev => prev + 1);
@@ -290,14 +292,44 @@ export default function MainApp({
       });
 
       // REPLACE the plan completely (regeneration from scratch, not merging)
-      setCurrentPlanOutput({
+      const newPlanOutput = {
         planTitle: data.planTitle,
         summary: data.summary,
         tasks: data.tasks || [],
         estimatedTimeframe: data.estimatedTimeframe,
         motivationalNote: data.motivationalNote,
         activityId: currentPlanOutput?.activityId // Preserve activity ID if it exists
-      });
+      };
+      setCurrentPlanOutput(newPlanOutput);
+
+      // Auto-save conversation session
+      try {
+        const conversationMessages = updatedHistory.map((msg, idx) => ({
+          role: 'user' as const,
+          content: msg,
+          timestamp: new Date().toISOString(),
+          type: 'question' as const
+        }));
+
+        if (currentSessionId) {
+          // Update existing session
+          await apiRequest('PUT', `/api/conversations/${currentSessionId}`, {
+            conversationHistory: conversationMessages,
+            generatedPlan: newPlanOutput
+          });
+        } else {
+          // Create new session
+          const sessionResponse = await apiRequest('POST', '/api/conversations', {
+            conversationHistory: conversationMessages,
+            generatedPlan: newPlanOutput
+          });
+          const session = await sessionResponse.json();
+          setCurrentSessionId(session.id);
+        }
+      } catch (error) {
+        console.error('Failed to save conversation session:', error);
+        // Don't show error to user - auto-save is background functionality
+      }
       
       // Stay on input tab to show Claude-style output
     },
@@ -945,6 +977,7 @@ export default function MainApp({
                         setCurrentPlanOutput(null);
                         setConversationHistory([]);
                         setPlanVersion(0);
+                        setCurrentSessionId(null);
                       }}
                       data-testid="button-new-goal"
                     >

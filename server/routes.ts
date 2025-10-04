@@ -998,7 +998,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI-powered goal processing
   app.post("/api/goals/process", async (req, res) => {
     try {
-      const { goalText } = req.body;
+      const { goalText, sessionId } = req.body;
+      const userId = getUserId(req) || DEMO_USER_ID;
       
       if (!goalText || typeof goalText !== 'string') {
         return res.status(400).json({ error: 'Goal text is required' });
@@ -1007,11 +1008,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Processing goal:', goalText);
       
       // Use AI to process the goal into tasks - switched to Claude as default
-      const result = await aiService.processGoalIntoTasks(goalText, 'claude', DEMO_USER_ID);
+      const result = await aiService.processGoalIntoTasks(goalText, 'claude', userId);
       
       // Create the goal record
       const goal = await storage.createGoal({
-        userId: DEMO_USER_ID,
+        userId,
         title: goalText,
         description: `Generated ${result.tasks.length} tasks from: ${goalText}`,
         category: result.goalCategory,
@@ -1023,11 +1024,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         result.tasks.map(task => 
           storage.createTask({
             ...task,
-            userId: DEMO_USER_ID,
+            userId,
             goalId: goal.id
           })
         )
       );
+
+      // Save or update conversation session
+      if (sessionId) {
+        // Update existing session
+        await storage.updateLifestylePlannerSession(sessionId, {
+          conversationHistory: req.body.conversationHistory || [],
+          generatedPlan: {
+            title: result.planTitle,
+            summary: result.summary,
+            tasks: result.tasks,
+            estimatedTimeframe: result.estimatedTimeframe,
+            motivationalNote: result.motivationalNote
+          },
+          sessionState: 'completed'
+        }, userId);
+      }
 
       res.json({
         goal,
@@ -1036,11 +1053,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         summary: result.summary,
         estimatedTimeframe: result.estimatedTimeframe,
         motivationalNote: result.motivationalNote,
+        sessionId,
         message: `Created ${tasks.length} actionable tasks from your goal!`
       });
     } catch (error) {
       console.error('Goal processing error:', error);
       res.status(500).json({ error: 'Failed to process goal' });
+    }
+  });
+
+  // Save conversation session
+  app.post("/api/conversations", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { conversationHistory, generatedPlan } = req.body;
+      
+      const session = await storage.createLifestylePlannerSession({
+        userId,
+        sessionState: 'completed',
+        conversationHistory: conversationHistory || [],
+        generatedPlan: generatedPlan || {},
+        slots: {},
+        externalContext: {}
+      });
+      
+      res.json(session);
+    } catch (error) {
+      console.error('Save conversation error:', error);
+      res.status(500).json({ error: 'Failed to save conversation' });
+    }
+  });
+
+  // Get all conversation sessions for history
+  app.get("/api/conversations", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      const sessions = await storage.getUserLifestylePlannerSessions(userId);
+      
+      res.json(sessions);
+    } catch (error) {
+      console.error('Get conversations error:', error);
+      res.status(500).json({ error: 'Failed to fetch conversations' });
+    }
+  });
+
+  // Get specific conversation session
+  app.get("/api/conversations/:sessionId", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { sessionId } = req.params;
+      
+      const session = await storage.getLifestylePlannerSession(sessionId, userId);
+      
+      if (!session) {
+        return res.status(404).json({ error: 'Conversation not found' });
+      }
+      
+      res.json(session);
+    } catch (error) {
+      console.error('Get conversation error:', error);
+      res.status(500).json({ error: 'Failed to fetch conversation' });
     }
   });
 

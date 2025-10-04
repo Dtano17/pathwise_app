@@ -2,52 +2,34 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Brain, MessageSquare, Clock, ExternalLink, Lightbulb, Sparkles, CheckCircle2, Target, ArrowRight } from 'lucide-react';
+import { MessageSquare, Clock, Lightbulb, Target, CheckCircle2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
-interface ChatImport {
+interface ConversationSession {
   id: string;
-  source: string;
-  conversationTitle: string;
-  chatHistory: Array<{role: 'user' | 'assistant', content: string}>;
-  extractedGoals: string[];
-  createdAt: string;
-  relatedActivities?: Array<{
-    id: string;
-    title: string;
-    status: string;
-    completedTasks: number;
-    totalTasks: number;
+  userId: string;
+  sessionState: string;
+  conversationHistory: Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: string;
+    type?: string;
   }>;
+  generatedPlan?: {
+    title?: string;
+    summary?: string;
+    tasks?: Array<any>;
+    estimatedTimeframe?: string;
+    motivationalNote?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+  lastInteractionAt: string;
 }
 
-const getSourceIcon = (source: string) => {
-  switch (source.toLowerCase()) {
-    case 'chatgpt':
-    case 'openai':
-      return <Brain className="w-4 h-4" />;
-    case 'claude':
-      return <Lightbulb className="w-4 h-4" />;
-    default:
-      return <Sparkles className="w-4 h-4" />;
-  }
-};
-
-const getSourceColor = (source: string) => {
-  switch (source.toLowerCase()) {
-    case 'chatgpt':
-    case 'openai':
-      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-    case 'claude':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-    default:
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-  }
-};
-
 export default function ChatHistory() {
-  const { data: chatImports = [], isLoading } = useQuery<ChatImport[]>({
-    queryKey: ['/api/chat/imports']
+  const { data: sessions = [], isLoading } = useQuery<ConversationSession[]>({
+    queryKey: ['/api/conversations']
   });
 
   if (isLoading) {
@@ -55,7 +37,7 @@ export default function ChatHistory() {
       <div className="p-6 space-y-4">
         <div className="flex items-center gap-2 mb-6">
           <MessageSquare className="w-6 h-6" />
-          <h1 className="text-2xl font-bold" data-testid="text-chat-history-title">Chat History</h1>
+          <h1 className="text-2xl font-bold" data-testid="text-chat-history-title">Conversation History</h1>
         </div>
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
@@ -76,22 +58,22 @@ export default function ChatHistory() {
     );
   }
 
-  if (chatImports.length === 0) {
+  if (sessions.length === 0) {
     return (
       <div className="p-6">
         <div className="flex items-center gap-2 mb-6">
           <MessageSquare className="w-6 h-6" />
-          <h1 className="text-2xl font-bold" data-testid="text-chat-history-title">Chat History</h1>
+          <h1 className="text-2xl font-bold" data-testid="text-chat-history-title">Conversation History</h1>
         </div>
         <Card>
           <CardContent className="p-8 text-center">
             <MessageSquare className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-medium mb-2">No chat history yet</h3>
+            <h3 className="text-lg font-medium mb-2">No conversations yet</h3>
             <p className="text-muted-foreground mb-4">
-              Import conversations from ChatGPT, Claude, or other LLMs to see them here.
+              Start creating plans and refining them with additional context.
             </p>
             <p className="text-sm text-muted-foreground">
-              Go to the Chat Import tab to sync your conversations and extract actionable goals.
+              Your conversation sessions will be saved here for future reference.
             </p>
           </CardContent>
         </Card>
@@ -103,124 +85,127 @@ export default function ChatHistory() {
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-2 mb-6">
         <MessageSquare className="w-6 h-6" />
-        <h1 className="text-2xl font-bold" data-testid="text-chat-history-title">Chat History</h1>
+        <h1 className="text-2xl font-bold" data-testid="text-chat-history-title">Conversation History</h1>
         <Badge variant="secondary" className="ml-2">
-          {chatImports.length} conversations
+          {sessions.length} sessions
         </Badge>
       </div>
 
       <div className="space-y-4">
-        {chatImports.map((chatImport) => (
-          <Card key={chatImport.id} className="hover-elevate" data-testid={`card-chat-import-${chatImport.id}`}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  {getSourceIcon(chatImport.source)}
-                  <span data-testid={`text-conversation-title-${chatImport.id}`}>
-                    {chatImport.conversationTitle}
-                  </span>
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Badge className={getSourceColor(chatImport.source)}>
-                    {chatImport.source}
-                  </Badge>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Clock className="w-3 h-3" />
-                    <span data-testid={`text-import-time-${chatImport.id}`}>
-                      {formatDistanceToNow(new Date(chatImport.createdAt), { addSuffix: true })}
+        {sessions.map((session) => {
+          const firstMessage = session.conversationHistory[0]?.content || 'No messages';
+          const planTitle = session.generatedPlan?.title || 'Untitled Plan';
+          const taskCount = session.generatedPlan?.tasks?.length || 0;
+          
+          return (
+            <Card key={session.id} className="hover-elevate" data-testid={`card-conversation-${session.id}`}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Lightbulb className="w-5 h-5 text-primary" />
+                    <span data-testid={`text-plan-title-${session.id}`}>
+                      {planTitle}
                     </span>
-                  </div>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Chat snippet */}
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-sm text-muted-foreground mb-2">Conversation snippet:</p>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {chatImport.chatHistory.slice(0, 3).map((message, idx) => (
-                      <div key={idx} className="text-sm">
-                        <span className="font-medium text-foreground">
-                          {message.role === 'user' ? 'You' : 'AI'}:
-                        </span>
-                        <span className="ml-2 text-muted-foreground">
-                          {message.content.length > 100 
-                            ? `${message.content.substring(0, 100)}...` 
-                            : message.content}
-                        </span>
-                      </div>
-                    ))}
-                    {chatImport.chatHistory.length > 3 && (
-                      <p className="text-xs text-muted-foreground">
-                        +{chatImport.chatHistory.length - 3} more messages
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Extracted goals */}
-                {chatImport.extractedGoals && chatImport.extractedGoals.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Extracted Goals:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {chatImport.extractedGoals.map((goal, idx) => (
-                        <Badge key={idx} variant="outline" className="text-xs">
-                          {goal}
-                        </Badge>
-                      ))}
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">
+                      {session.conversationHistory.length} exchanges
+                    </Badge>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Clock className="w-3 h-3" />
+                      <span data-testid={`text-session-time-${session.id}`}>
+                        {formatDistanceToNow(new Date(session.lastInteractionAt || session.createdAt), { addSuffix: true })}
+                      </span>
                     </div>
                   </div>
-                )}
-
-                {/* Related Activities */}
-                {chatImport.relatedActivities && chatImport.relatedActivities.length > 0 && (
-                  <div className="border-t pt-3 mt-3">
-                    <p className="text-sm font-medium mb-2 flex items-center gap-1">
-                      <Target className="w-4 h-4" />
-                      Created Activities ({chatImport.relatedActivities.length})
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Initial Goal */}
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <p className="text-sm text-muted-foreground mb-2">Initial Goal:</p>
+                    <p className="text-sm text-foreground">
+                      {firstMessage.length > 150 
+                        ? `${firstMessage.substring(0, 150)}...` 
+                        : firstMessage}
                     </p>
-                    <div className="space-y-2">
-                      {chatImport.relatedActivities.map((activity) => (
-                        <div
-                          key={activity.id}
-                          className="flex items-center justify-between p-2 bg-muted/50 rounded-lg hover-elevate"
-                        >
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{activity.title}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="secondary" className="text-xs capitalize">
-                                {activity.status}
-                              </Badge>
-                              {activity.totalTasks > 0 && (
-                                <span className="text-xs text-muted-foreground">
-                                  {activity.completedTasks}/{activity.totalTasks} tasks
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <Button variant="ghost" size="sm">
-                            <ArrowRight className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
                   </div>
-                )}
 
-                <div className="flex items-center justify-between pt-2 border-t mt-3">
-                  <div className="text-xs text-muted-foreground">
-                    {chatImport.chatHistory.length} messages total
+                  {/* Conversation Exchanges */}
+                  {session.conversationHistory.length > 1 && (
+                    <div className="bg-muted/30 rounded-lg p-3">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Additional Context ({session.conversationHistory.length - 1} refinements):
+                      </p>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {session.conversationHistory.slice(1).map((message, idx) => (
+                          <div key={idx} className="text-sm">
+                            <span className="font-medium text-foreground">
+                              Refinement {idx + 1}:
+                            </span>
+                            <span className="ml-2 text-muted-foreground">
+                              {message.content.length > 100 
+                                ? `${message.content.substring(0, 100)}...` 
+                                : message.content}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Generated Plan Summary */}
+                  {session.generatedPlan && (
+                    <div className="border-t pt-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium flex items-center gap-1">
+                          <Target className="w-4 h-4" />
+                          Generated Plan
+                        </p>
+                        {taskCount > 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            {taskCount} tasks
+                          </Badge>
+                        )}
+                      </div>
+                      {session.generatedPlan.summary && (
+                        <p className="text-sm text-muted-foreground">
+                          {session.generatedPlan.summary.length > 120
+                            ? `${session.generatedPlan.summary.substring(0, 120)}...`
+                            : session.generatedPlan.summary}
+                        </p>
+                      )}
+                      {session.generatedPlan.estimatedTimeframe && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Timeframe: {session.generatedPlan.estimatedTimeframe}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <div className="text-xs text-muted-foreground">
+                      {session.sessionState === 'completed' ? 'Completed' : 'In Progress'}
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      data-testid={`button-view-session-${session.id}`}
+                      onClick={() => {
+                        // TODO: Load and resume this conversation session
+                        console.log('Load session:', session.id);
+                      }}
+                    >
+                      View Details
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="sm" data-testid={`button-view-details-${chatImport.id}`}>
-                    <ExternalLink className="w-3 h-3 mr-1" />
-                    View Details
-                  </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
