@@ -104,6 +104,11 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentSession?.conversationHistory]);
 
+  // Calculate plan generation readiness (must be before useEffect that uses it)
+  const requiredSlotsFilled = contextChips.filter(chip => chip.category === 'required' && chip.filled).length;
+  const totalRequiredSlots = contextChips.filter(chip => chip.category === 'required').length;
+  const canGeneratePlan = totalRequiredSlots > 0 && requiredSlotsFilled >= Math.max(3, totalRequiredSlots - 1);
+
   // Check for agreement in chat mode
   useEffect(() => {
     if (planningMode === 'chat' && currentSession?.conversationHistory) {
@@ -559,7 +564,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
        pastedText.includes('1.') ||
        pastedText.includes('**') ||
        pastedText.includes('###') ||
-       pastedText.match(/\d+\./g)?.length >= 3); // Multiple numbered items
+       (pastedText.match(/\d+\./g)?.length ?? 0) >= 3); // Multiple numbered items
 
     if (looksLikeLLMContent) {
       e.preventDefault(); // Prevent default paste
@@ -607,10 +612,6 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
       default: return <Sparkles className="h-3 w-3" />;
     }
   };
-
-  const requiredSlotsFilled = contextChips.filter(chip => chip.category === 'required' && chip.filled).length;
-  const totalRequiredSlots = contextChips.filter(chip => chip.category === 'required').length;
-  const canGeneratePlan = totalRequiredSlots > 0 && requiredSlotsFilled >= Math.max(3, totalRequiredSlots - 1);
 
   // Mode selection screen
   if (!planningMode) {
