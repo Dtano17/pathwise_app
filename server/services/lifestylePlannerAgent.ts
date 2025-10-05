@@ -101,7 +101,8 @@ export class LifestylePlannerAgent {
     message: string,
     session: LifestylePlannerSession,
     userProfile: User,
-    mode?: 'quick' | 'chat'
+    mode?: 'quick' | 'chat',
+    storage?: any
   ): Promise<ConversationResponse> {
     try {
       // UNIVERSAL PLANNING AGENT - TRY FIRST (new 5-phase flow)
@@ -119,7 +120,8 @@ export class LifestylePlannerAgent {
           session.slots || {},
           userProfile,
           planMode,
-          currentDomain
+          currentDomain,
+          storage
         );
 
         // Transform Universal Agent response to ConversationResponse format

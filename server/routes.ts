@@ -247,7 +247,8 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
           message,
           session,
           userProfile,
-          'smart'
+          'smart',
+          storage
         );
 
         return res.json({
@@ -374,7 +375,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       message,
       session,
       userProfile,
-      'smart' // Smart mode - uses universal planning agent
+      'smart', // Smart mode - uses universal planning agent
+      storage
     );
 
     // SERVER-SIDE ACTIVITY TYPE DETECTION OVERRIDE
@@ -2029,7 +2031,8 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
           message,
           session,
           userProfile,
-          'quick'
+          'quick',
+          storage
         );
 
         return res.json({
@@ -2155,7 +2158,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       message,
       session,
       userProfile,
-      'quick' // Quick mode
+      'quick', // Quick mode
+      storage
     );
 
     // SERVER-SIDE ACTIVITY TYPE DETECTION OVERRIDE (same as Smart Plan)
@@ -2547,7 +2551,7 @@ You can find these tasks in your task list and start working on them right away!
       }
 
       // Process the message with the lifestyle planner agent
-      const response = await lifestylePlannerAgent.processMessage(message, session, user, mode);
+      const response = await lifestylePlannerAgent.processMessage(message, session, user, mode, storage);
 
       // Update conversation history
       const updatedHistory = [

@@ -6,6 +6,7 @@ import { claudeQuestionGenerator } from './claudeQuestionGenerator';
 import { claudeGapAnalyzer } from './claudeGapAnalyzer';
 import { claudeWebEnrichment } from './claudeWebEnrichment';
 import type { User } from '@shared/schema';
+import type { IStorage } from '../storage';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -58,6 +59,7 @@ export interface UniversalPlanningResponse {
   enrichedPlan?: any;
   updatedSlots?: any;
   domain?: string;
+  createdActivity?: any;
 }
 
 /**
@@ -243,7 +245,8 @@ Make sure each step has a clear, actionable title and helpful description.`
     currentSlots: any,
     userProfile: User,
     planMode: 'quick' | 'smart',
-    currentDomain?: string
+    currentDomain?: string,
+    storage?: IStorage
   ): Promise<UniversalPlanningResponse> {
 
     console.log('\n===== UNIVERSAL PLANNING AGENT =====');
@@ -275,18 +278,87 @@ Make sure each step has a clear, actionable title and helpful description.`
 
       // If we're in confirming mode and user says yes/no, handle it immediately
       if (isConfirmingMode && userConfirmation === 'yes') {
-        console.log('[CONFIRMATION] User approved plan - ready to generate');
-        return {
-          message: "Perfect! Click the **Create Activity** button below to create your actionable plan! 🚀",
-          phase: 'confirmed',
-          progress: { percentage: 100, answered: 100, total: 100 },
-          readyToGenerate: true,
-          planReady: true,
-          showGenerateButton: true,
-          enrichedPlan: currentSlots._generatedPlan,
-          updatedSlots: { ...currentSlots, _planState: 'confirmed' },
-          domain: currentDomain
-        };
+        console.log('[CONFIRMATION] User approved plan - auto-creating activity');
+        
+        // Extract activity data from the generated plan
+        const enrichedPlan = currentSlots._generatedPlan;
+        const structuredData = enrichedPlan?.structuredData;
+        
+        // Handle both formats: { activity: {...}, tasks: [...] } and { title, description, category, tasks: [...] }
+        const activityData = structuredData?.activity || structuredData;
+        const tasksData = structuredData?.tasks || [];
+        
+        if (activityData && activityData.title && tasksData.length > 0 && storage) {
+          try {
+            // Create the activity
+            const activity = await storage.createActivity({
+              title: activityData.title,
+              description: activityData.description || '',
+              category: activityData.category || 'general',
+              status: 'planning',
+              userId: userProfile.id
+            });
+            
+            console.log('[CONFIRMATION] Created activity:', activity.id);
+            
+            // Create tasks and link them to the activity
+            for (let i = 0; i < tasksData.length; i++) {
+              const taskData = tasksData[i];
+              const task = await storage.createTask({
+                ...taskData,
+                userId: userProfile.id,
+                category: taskData.category || activityData.category || 'general'
+              });
+              await storage.addTaskToActivity(activity.id, task.id, i);
+              console.log('[CONFIRMATION] Created and linked task:', task.id);
+            }
+            
+            // Get the complete activity with tasks
+            const activityTasks = await storage.getActivityTasks(activity.id, userProfile.id);
+            const createdActivity = { ...activity, tasks: activityTasks };
+            
+            console.log('[CONFIRMATION] Activity created with', activityTasks.length, 'tasks');
+            
+            return {
+              message: `✨ **Activity Created!**\n\nYour "${activityData.title}" plan is ready! I've created ${activityTasks.length} actionable ${activityTasks.length === 1 ? 'task' : 'tasks'} for you. Check the "Your Activity" section to start making progress!`,
+              phase: 'confirmed',
+              progress: { percentage: 100, answered: 100, total: 100 },
+              readyToGenerate: true,
+              planReady: true,
+              showGenerateButton: false,
+              enrichedPlan: enrichedPlan,
+              createdActivity: createdActivity,
+              updatedSlots: { ...currentSlots, _planState: 'confirmed', _activityCreated: true },
+              domain: currentDomain
+            };
+          } catch (error) {
+            console.error('[CONFIRMATION] Error creating activity:', error);
+            return {
+              message: "I encountered an error creating your activity. Please try again or contact support if the issue persists.",
+              phase: 'confirmed',
+              progress: { percentage: 100, answered: 100, total: 100 },
+              readyToGenerate: false,
+              planReady: false,
+              showGenerateButton: false,
+              enrichedPlan: enrichedPlan,
+              updatedSlots: { ...currentSlots, _planState: 'error' },
+              domain: currentDomain
+            };
+          }
+        } else {
+          // No structured data - fallback to button
+          return {
+            message: "Perfect! Click the **Create Activity** button below to create your actionable plan!",
+            phase: 'confirmed',
+            progress: { percentage: 100, answered: 100, total: 100 },
+            readyToGenerate: true,
+            planReady: true,
+            showGenerateButton: true,
+            enrichedPlan: enrichedPlan,
+            updatedSlots: { ...currentSlots, _planState: 'confirmed' },
+            domain: currentDomain
+          };
+        }
       }
 
       if (isConfirmingMode && userConfirmation === 'no') {
