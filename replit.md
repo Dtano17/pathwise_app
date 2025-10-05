@@ -74,6 +74,9 @@ A mobile-first AI-powered journaling application that transforms user intentions
 
 ## Recent Changes
 - **October 5, 2025** (Latest):
+  - ✅ **Fixed conversation confirmation bug**: "Yes" responses now properly trigger activity creation in Quick Plan and Smart Plan modes
+  - ✅ Implemented early confirmation detection before context analysis to prevent "yes"/"no" from being flagged as low confidence
+  - ✅ Confirmation, refinement, and "none" responses now handled immediately without going through ambiguous context analysis
   - ✅ **Fixed Progress Dashboard real-time updates**: Progress now updates instantly when tasks are completed, archived, skipped, or snoozed from ANY tab
   - ✅ Implemented staleTime: 0 with refetchOnMount: 'always' on progress query for immediate updates
   - ✅ All mutations (complete, skip, snooze, archive) now properly invalidate progress query
