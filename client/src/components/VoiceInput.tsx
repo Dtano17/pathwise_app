@@ -78,6 +78,7 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  createdActivity?: { id: string; title: string };
 }
 
 type ConversationMode = 'quick' | 'smart' | null;
@@ -241,13 +242,21 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       const aiMessage: ChatMessage = {
         role: 'assistant',
         content: data.message,
-        timestamp: new Date()
+        timestamp: new Date(),
+        createdActivity: data.createdActivity // Include activity data if present
       };
       setChatMessages(prev => [...prev, aiMessage]);
       
       // Handle Smart Plan specific responses
       if (data.showCreatePlanButton) {
         setShowCreatePlanButton(true);
+      }
+      
+      // Invalidate queries if activity was created
+      if (data.createdActivity) {
+        queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       }
     },
     onError: (error) => {
@@ -645,9 +654,38 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                 )}
                 <div className="pl-8">
                   {message.role === 'assistant' ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <FormattedMessage content={message.content} />
-                    </div>
+                    <>
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <FormattedMessage content={message.content} />
+                      </div>
+                      {message.createdActivity && (
+                        <div className="mt-4">
+                          <Button 
+                            variant="default" 
+                            className="gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white"
+                            data-testid="button-view-activity"
+                            onClick={() => {
+                              // Exit conversation mode and switch to activities tab
+                              setChatMessages([]);
+                              setCurrentMode(null);
+                              setShowCreatePlanButton(false);
+                              setTimeout(() => {
+                                const tabsElement = document.querySelector('[data-testid="tab-activities"]') as HTMLElement;
+                                tabsElement?.click();
+                                // Scroll to top of main content
+                                const mainContent = document.querySelector('main');
+                                if (mainContent) {
+                                  mainContent.scrollTo({ top: 0, behavior: 'smooth' });
+                                }
+                              }, 100);
+                            }}
+                          >
+                            <Target className="w-4 h-4" />
+                            View "{message.createdActivity.title}"
+                          </Button>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
                       {message.content}

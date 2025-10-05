@@ -534,6 +534,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       sessionId: session?.id,
       contextChips: response.contextChips || [],
       planReady: response.planReady || false,
+      createdActivity: response.createdActivity ? { id: response.createdActivity.id, title: response.createdActivity.title } : undefined,
       session
     });
 
@@ -2256,6 +2257,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       sessionId: session.id,
       contextChips: response.contextChips || [],
       planReady: response.planReady || false,
+      createdActivity: response.createdActivity ? { id: response.createdActivity.id, title: response.createdActivity.title } : undefined,
       session
     });
 
