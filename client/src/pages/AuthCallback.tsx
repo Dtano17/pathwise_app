@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 export default function AuthCallback() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
+  const [isFacebookError, setIsFacebookError] = useState(false)
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -38,7 +39,18 @@ export default function AuthCallback() {
         if (error || hashError) {
           console.error('OAuth error from URL:', error || hashError, errorDescription || hashErrorDescription)
           setStatus('error')
-          setMessage(errorDescription || hashErrorDescription || error || hashError || 'Authentication failed')
+          
+          // Check if this is a Facebook OAuth error
+          const fullError = errorDescription || hashErrorDescription || error || hashError || ''
+          const isFbError = fullError.toLowerCase().includes('facebook') || 
+                           window.location.href.includes('provider=facebook')
+          
+          if (isFbError) {
+            setIsFacebookError(true)
+            setMessage('Facebook sign-in is temporarily unavailable due to app configuration. Please try signing in with Google, Email, or another provider.')
+          } else {
+            setMessage(errorDescription || hashErrorDescription || error || hashError || 'Authentication failed')
+          }
           return
         }
 
@@ -234,13 +246,26 @@ export default function AuthCallback() {
             {status === 'error' && (
               <>
                 <XCircle className="w-12 h-12 text-red-600" />
-                <p className="text-foreground">{message}</p>
+                <p className="text-foreground font-medium">{message}</p>
+                {isFacebookError && (
+                  <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm text-blue-900 dark:text-blue-100 mb-2">
+                      <strong>Alternative sign-in methods available:</strong>
+                    </p>
+                    <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
+                      <li>Google</li>
+                      <li>Email & Password</li>
+                      <li>X (Twitter)</li>
+                      <li>Apple</li>
+                    </ul>
+                  </div>
+                )}
                 <Button 
                   onClick={handleReturnHome}
                   className="mt-4"
                   data-testid="button-return-home"
                 >
-                  Return to Home
+                  Try Another Sign-In Method
                 </Button>
               </>
             )}

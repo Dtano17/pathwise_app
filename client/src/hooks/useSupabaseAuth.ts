@@ -69,8 +69,8 @@ export function useSupabaseAuth() {
     } catch (error: any) {
       console.error('Facebook sign-in error:', error)
       toast({
-        title: "Facebook Login Failed",
-        description: error.message || "Failed to sign in with Facebook",
+        title: "Facebook Sign-In Unavailable",
+        description: "Facebook login is temporarily unavailable due to app configuration. Please try Google, Email, or another sign-in method.",
         variant: "destructive",
       })
       throw error
