@@ -18,7 +18,7 @@ import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
 import ProgressReport from './ProgressReport';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, Archive } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, Archive, Plug, Info } from 'lucide-react';
 import { Link } from 'wouter';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
@@ -891,11 +891,11 @@ export default function MainApp({
                 <span>Groups</span>
               </TabsTrigger>
               <TabsTrigger value="sync" className="gap-2 text-sm font-medium" data-testid="tab-integrations">
-                <Sparkles className="w-4 h-4" />
+                <Plug className="w-4 h-4" />
                 <span>Integrations</span>
               </TabsTrigger>
               <TabsTrigger value="about" className="gap-2 text-sm font-medium" data-testid="tab-about">
-                <Sparkles className="w-4 h-4" />
+                <Info className="w-4 h-4" />
                 <span>About</span>
               </TabsTrigger>
             </TabsList>
@@ -1047,9 +1047,8 @@ export default function MainApp({
                       <Button
                         variant="outline"
                         onClick={() => {
-                          setSelectedActivityId(null);
+                          setSelectedActivityId(currentPlanOutput.activityId || null);
                           setActiveTab('activities');
-                          setCurrentPlanOutput(null);
                         }}
                         className="gap-2"
                         data-testid="button-view-your-activity"

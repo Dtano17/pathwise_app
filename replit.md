@@ -74,6 +74,9 @@ A mobile-first AI-powered journaling application that transforms user intentions
 
 ## Recent Changes
 - **October 5, 2025** (Latest):
+  - ✅ **Fixed activity tracker reset bug**: Plan output now persists when navigating between tabs
+  - ✅ **Fixed icon duplication**: Integrations tab now uses Plug icon, About tab uses Info icon
+  - ✅ Navigation preservation: Clicking "Your Activity" no longer clears the current plan
   - ✅ **Comprehensive mobile responsiveness overhaul**: All screens now work perfectly on iPhone and small devices
   - ✅ Fixed activity cards: Text wrapping, overflow prevention, responsive padding (p-4 sm:p-6)
   - ✅ Fixed TaskCard buttons: Now stack vertically on mobile (grid-cols-1 sm:grid-cols-2) preventing cramped buttons
