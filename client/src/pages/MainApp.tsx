@@ -18,6 +18,7 @@ import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
 import ProgressReport from './ProgressReport';
+import { SocialLogin } from '@/components/SocialLogin';
 import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, Archive, Plug, Info, LogIn } from 'lucide-react';
 import { Link } from 'wouter';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
@@ -295,6 +296,9 @@ export default function MainApp({
     queryKey: ['/api/user'],
   });
   const isAuthenticated = !!user;
+  
+  // Sign-in dialog state
+  const [showSignInDialog, setShowSignInDialog] = useState(false);
 
   // Sign-in gate component for restricted features
   const SignInGate = ({ children, feature }: { children: React.ReactNode; feature: string }) => {
@@ -316,7 +320,7 @@ export default function MainApp({
           </div>
           <div className="space-y-3">
             <Button 
-              onClick={() => window.location.href = '/api/login'} 
+              onClick={() => setShowSignInDialog(true)} 
               className="gap-2 w-full"
               data-testid="button-signin-gate"
             >
@@ -1009,7 +1013,7 @@ export default function MainApp({
                         if (isAuthenticated) {
                           onShowLifestylePlanner(true);
                         } else {
-                          window.location.href = '/api/login';
+                          setShowSignInDialog(true);
                         }
                       }}
                       variant="outline"
@@ -2377,6 +2381,12 @@ Assistant: For nutrition, I recommend..."
           <div className="flex-1 overflow-hidden h-[calc(90vh-100px)]">
             <PersonalJournal onClose={() => onShowLifestylePlanner(false)} />
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>
+        <DialogContent className="max-w-md p-0" data-testid="modal-signin">
+          <SocialLogin />
         </DialogContent>
       </Dialog>
 
