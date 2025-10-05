@@ -320,6 +320,45 @@ export default function MainApp({
     staleTime: 30000, // 30 seconds
   });
 
+  // Sync task completion status with plan output whenever tasks change
+  // This ensures progress persists across tabs and updates in real-time
+  useEffect(() => {
+    if (currentPlanOutput && tasks.length > 0) {
+      const hasTasksInPlan = currentPlanOutput.tasks.some(planTask => 
+        tasks.some(actualTask => actualTask.id === planTask.id)
+      );
+      
+      if (hasTasksInPlan) {
+        // Check if any task completion status has changed
+        const hasChanges = currentPlanOutput.tasks.some(planTask => {
+          const actualTask = tasks.find(t => t.id === planTask.id);
+          return actualTask && actualTask.completed !== planTask.completed;
+        });
+        
+        if (hasChanges) {
+          setCurrentPlanOutput(prevPlan => {
+            if (!prevPlan) return null;
+            
+            return {
+              ...prevPlan,
+              tasks: prevPlan.tasks.map(planTask => {
+                const actualTask = tasks.find(t => t.id === planTask.id);
+                if (actualTask) {
+                  return {
+                    ...planTask,
+                    completed: actualTask.completed,
+                  };
+                }
+                return planTask;
+              })
+            };
+          });
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks]); // Only re-run when tasks array changes
+
   // Process goal mutation
   const processGoalMutation = useMutation({
     mutationFn: async (goalText: string) => {

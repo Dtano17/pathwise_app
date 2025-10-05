@@ -74,6 +74,8 @@ A mobile-first AI-powered journaling application that transforms user intentions
 
 ## Recent Changes
 - **October 5, 2025** (Latest):
+  - ✅ **Fixed task completion persistence across tabs**: Tasks now sync in real-time using React Query and useEffect
+  - ✅ **Task progress persists everywhere**: Whether you complete tasks from the main page or activity/task tabs, progress is reflected everywhere
   - ✅ **Fixed activity tracker reset bug**: Plan output now persists when navigating between tabs
   - ✅ **Fixed icon duplication**: Integrations tab now uses Plug icon, About tab uses Info icon
   - ✅ Navigation preservation: Clicking "Your Activity" no longer clears the current plan
