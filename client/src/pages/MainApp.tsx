@@ -257,6 +257,7 @@ export default function MainApp({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       toast({
         title: "Task Archived",
         description: "The task has been archived and hidden from view."
@@ -304,7 +305,8 @@ export default function MainApp({
   // Fetch progress data
   const { data: progressData, isLoading: progressLoading, error: progressError, refetch: refetchProgress } = useQuery<ProgressData>({
     queryKey: ['/api/progress'],
-    staleTime: 60000, // 1 minute
+    staleTime: 0, // Always fresh - refetch immediately when invalidated
+    refetchOnMount: 'always', // Always refetch when component mounts
   });
 
   // Fetch chat imports
