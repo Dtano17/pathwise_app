@@ -4,7 +4,7 @@ import { enrichmentService } from './enrichmentService';
 import { contextualEnrichmentAgent } from './contextualEnrichmentAgent';
 import { claudeQuestionGenerator } from './claudeQuestionGenerator';
 import { claudeGapAnalyzer } from './claudeGapAnalyzer';
-import { claudeWebEnrichment } from './claudeWebEnrichment';
+import { universalEnrichment } from './universalEnrichment';
 import type { User } from '@shared/schema';
 import type { IStorage } from '../storage';
 
@@ -522,12 +522,10 @@ Make sure each step has a clear, actionable title and helpful description.`
           console.log(`[GAP ANALYSIS] ${newGapAnalysis.answeredCount}/${newGapAnalysis.totalCount} for ${intentInference.inferredDomain}`);
 
           if (newGapAnalysis.allQuestionsAnswered) {
-            // All questions answered - generate plan
-            const enrichmentRules = domainRegistry.getEnrichmentRules(intentInference.inferredDomain);
-            const enrichedData = await enrichmentService.enrichPlan(
+            // All questions answered - generate plan with universal enrichment
+            const enrichedData = await universalEnrichment.enrichPlan(
               intentInference.inferredDomain,
               mergedWithInference,
-              enrichmentRules,
               userProfile
             );
 
@@ -637,14 +635,12 @@ Make sure each step has a clear, actionable title and helpful description.`
       // If all questions answered, proceed to enrichment and synthesis
       if (gapAnalysis.allQuestionsAnswered) {
 
-        console.log('[PHASE 4] All questions answered - starting Claude web search enrichment');
+        console.log('[PHASE 4] All questions answered - starting universal enrichment with comprehensive details');
 
-        // PHASE 4: Real-time Information Enrichment (Claude Web Search)
-        const enrichmentRules = domainRegistry.getEnrichmentRules(context.domain);
-        const enrichedData = await claudeWebEnrichment.enrichPlan(
+        // PHASE 4: Real-time Information Enrichment (Universal Enrichment with critical details)
+        const enrichedData = await universalEnrichment.enrichPlan(
           context.domain,
           gapAnalysis.collectedSlots,
-          enrichmentRules,
           userProfile
         );
 
@@ -694,12 +690,10 @@ Make sure each step has a clear, actionable title and helpful description.`
         if (shouldInferAndGenerate) {
           console.log(`[SMART INFERENCE] Sufficient info to generate plan (${completionPercentage}% complete, ${requiredAnswered}/${requiredQuestions.length} required answered)`);
 
-          // Generate plan with available information
-          const enrichmentRules = domainRegistry.getEnrichmentRules(context.domain);
-          const enrichedData = await claudeWebEnrichment.enrichPlan(
+          // Generate plan with available information using universal enrichment
+          const enrichedData = await universalEnrichment.enrichPlan(
             context.domain,
             gapAnalysis.collectedSlots,
-            enrichmentRules,
             userProfile
           );
 
@@ -746,11 +740,9 @@ Make sure each step has a clear, actionable title and helpful description.`
           if (!nextQuestion) {
             // All questions have been asked - generate plan with what we have
             console.log(`[INFERENCE] All questions asked, generating plan with available info`);
-            const enrichmentRules = domainRegistry.getEnrichmentRules(context.domain);
-            const enrichedData = await claudeWebEnrichment.enrichPlan(
+            const enrichedData = await universalEnrichment.enrichPlan(
               context.domain,
               gapAnalysis.collectedSlots,
-              enrichmentRules,
               userProfile
             );
 

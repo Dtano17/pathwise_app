@@ -9,58 +9,159 @@ const CLAUDE_SONNET = "claude-sonnet-4-20250514";
 const DEFAULT_CLAUDE_MODEL = CLAUDE_SONNET;
 
 export interface EnrichedData {
+  fetchedAt?: Date;
+  expiresAt?: Date;
+  domain: string;
+
+  // Universal critical details
+  criticalActions?: {
+    action: string;
+    priority: 'urgent' | 'high' | 'medium' | 'low';
+    deadline?: string;
+    reason: string;
+    link?: string;
+  }[];
+
+  warnings?: {
+    type: 'timing' | 'cost' | 'availability' | 'safety' | 'weather' | 'traffic';
+    severity: 'critical' | 'warning' | 'info';
+    message: string;
+    suggestion?: string;
+  }[];
+
+  timing?: {
+    optimalTiming: string;
+    peakTimes?: string[];
+    avoidTimes?: string[];
+    leadTime?: string; // "Book 2-3 weeks early"
+    bufferTime?: string; // "Add 30min buffer for traffic"
+  };
+
+  // Travel-specific
   weather?: {
     forecast: string;
     temperature?: { high: number; low: number };
     conditions: string;
     advice: string;
-    source?: string;
+    fetchedAt?: Date;
   };
-  events?: {
-    events: string[];
-    highlights?: string;
-    source?: string;
-  };
+
   flights?: {
     priceRange: string;
-    cheapestDays?: string;
-    bookingAdvice?: string;
-    source?: string;
+    optimalBookingWindow: string; // "3-8 weeks before departure"
+    cheapestDays?: string[];
+    priceAlert?: string;
+    airportTiming: {
+      arrivalTime: string; // "2 hours before domestic, 3 hours international"
+      securityWait: string; // "Expect 30-45min TSA wait"
+      parkingTime?: string;
+      trafficBuffer: string;
+    };
   };
+
   hotels?: {
-    budget?: string;
-    midRange?: string;
-    luxury?: string;
-    recommendations?: string[];
-    source?: string;
+    priceRange: string;
+    optimalBooking: string;
+    cancellationPolicies: string;
+    peakSeason?: boolean;
+    recommendations: Array<{
+      name: string;
+      priceRange: string;
+      bookingLink?: string;
+      cancellationPolicy?: string;
+    }>;
   };
+
+  // Restaurant/Dining-specific
+  restaurants?: {
+    recommendations: Array<{
+      name: string;
+      cuisine: string;
+      priceRange: string;
+      reservations: {
+        required: boolean;
+        recommended: boolean;
+        bookingWindow: string; // "2-3 days advance"
+        phone?: string;
+        bookingLink?: string;
+        walkInWait?: string; // "45-60min on weekends"
+      };
+      dressCode?: string;
+      peakTimes?: string[];
+    }>;
+  };
+
+  // Events-specific
+  events?: {
+    events: Array<{
+      name: string;
+      time: string;
+      tickets: {
+        required: boolean;
+        priceRange: string;
+        availability: string;
+        bookingLink?: string;
+        sellingOut?: boolean;
+      };
+      crowdLevel?: string;
+    }>;
+  };
+
+  // Transportation-specific
+  transportation?: {
+    trafficPatterns: {
+      current: string;
+      expectedAtTime: string;
+      peakHours: string[];
+      estimatedDuration: string;
+      buffer: string;
+    };
+    parking?: {
+      availability: string;
+      cost: string;
+      recommendations: string;
+      fillUpTime?: string; // "Lot fills by 7pm on weekends"
+    };
+    publicTransit?: {
+      options: string[];
+      schedule: string;
+      cost: string;
+      travelTime: string;
+    };
+  };
+
+  // Interview prep-specific
+  interviewPrep?: {
+    companyResearch: string[];
+    commonQuestions: string[];
+    dresscode: string;
+    interviewFormat: string;
+    timing: {
+      arrivalTime: string; // "15min early"
+      parkingTime?: string;
+      buildingAccessTime?: string;
+    };
+  };
+
+  // Generic enrichments
   attractions?: {
     top: string[];
     hidden_gems?: string[];
-    source?: string;
+    ticketing?: Record<string, any>;
   };
-  restaurants?: {
-    recommendations: string[];
-    cuisines?: string[];
-    priceRanges?: string[];
-    source?: string;
-  };
-  transportation?: {
-    options: string[];
-    recommendations: string;
-    costs?: string;
-    source?: string;
-  };
+
   packingList?: {
     essentials: string[];
     optional?: string[];
     weatherDependent?: string[];
   };
+
   localTips?: {
     tips: string[];
     warnings?: string[];
     culturalNotes?: string[];
   };
+
   [key: string]: any;
 }
 

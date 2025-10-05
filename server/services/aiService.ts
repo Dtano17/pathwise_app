@@ -122,11 +122,12 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
 
       if (process.env.ANTHROPIC_API_KEY) {
         try {
+          const claudeMessages = messages.slice(1) as Array<{ role: "user" | "assistant"; content: string }>;
           const response = await anthropic.messages.create({
             model: DEFAULT_CLAUDE_MODEL,
             max_tokens: 1000,
             temperature: 0.7,
-            messages: messages.slice(1), // Remove system message for Claude
+            messages: claudeMessages,
             system: messages[0].content, // Claude uses separate system parameter
           });
           aiMessage =
@@ -159,9 +160,9 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
       // Check if the user is expressing goals/intentions and suggest action plan creation
       const containsGoals = this.detectGoalsInMessage(message);
 
-      let actionPlan = null;
-      let extractedGoals = null;
-      let tasks = null;
+      let actionPlan: any = undefined;
+      let extractedGoals: string[] | undefined = undefined;
+      let tasks: any[] | undefined = undefined;
 
       if (containsGoals) {
         // Suggest creating an action plan
@@ -188,9 +189,9 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
       return {
         message:
           "I'm having trouble processing your message right now. Please try again in a moment.",
-        actionPlan: null,
-        extractedGoals: null,
-        tasks: null,
+        actionPlan: undefined,
+        extractedGoals: undefined,
+        tasks: undefined,
       };
     }
   }
@@ -1027,7 +1028,7 @@ Guidelines:
         tasks: [
           {
             title: "Review and act on pasted content",
-            description: pastedText.substring(0, 500),
+            description: pastedContent.substring(0, 500),
             category: "Personal",
             priority: "medium" as const,
             goalId: null,

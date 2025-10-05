@@ -253,15 +253,68 @@ FORMAT THE PLAN CLEARLY WITH:
 - ⚡ **Motivation / Reflection prompts** - Stay inspired
 - 🔁 **Checkpoints for progress** - Track your success
 
+🚨 CRITICAL: INCLUDE COMPREHENSIVE DETAILS:
+${activityType === 'travel' || activityType.includes('trip') ? `
+- ✈️ FLIGHT BOOKING: Optimal booking window (3-8 weeks out?), current price trends, cheapest days
+- 🛂 AIRPORT TIMING: Arrive 2-2.5 hours early domestic, 3 hours international
+- 🚗 TRAFFIC & PARKING: Expected wait times, parking options, buffer time needed
+- 🏨 HOTEL BOOKING: When to book, cancellation policies, price trends
+- 🎫 EVENT TICKETS: Availability, sell-out risk, booking deadlines
+- 📦 PACKING: Weather-based essentials, TSA rules
+` : ''}${activityType === 'date_night' || activityType === 'date' ? `
+- 🍽️ RESERVATIONS: Required? Recommended? Booking window (2-3 days)? Walk-in wait times?
+- 📞 CONTACT INFO: Phone numbers, OpenTable/Resy links for each restaurant
+- 🚗 TRAFFIC & PARKING: Peak time delays, parking costs, valet availability
+- 👔 DRESS CODE: Specific requirements for each venue
+- ⏰ TIMING: Peak busy times (6-8pm), optimal arrival time
+` : ''}${activityType === 'interview_prep' ? `
+- 🏢 ARRIVAL TIMING: 15min early (not more, not less), parking time, building access time
+- 🚗 TRAFFIC: Morning rush patterns, leave time, buffer needed
+- 👔 DRESS CODE: Company-specific expectations
+- 📋 COMPANY RESEARCH: Recent news, culture, interview format
+` : ''}
+- ⚠️ CRITICAL ACTIONS: Things that MUST be done NOW (with deadlines)
+- 🚨 WARNINGS: Traffic, crowds, costs, availability issues
+- 🔗 ACTIONABLE LINKS: Booking URLs, phone numbers, reservation systems
+
 FORMATTING REQUIREMENTS:
 - Use emojis to make it visually engaging (🌤️, 🎯, 🍽️, 🏨, 📍, 💡, ⚡, 🔁, etc.)
 - Structure with clear markdown sections (##, ###, bullet points, **bold**)
-- Include practical, actionable information (specific, not vague)
+- Include SPECIFIC numbers: exact times, prices, wait times (not "arrive early" but "arrive 2.5 hours early")
 - Add pro tips and insider knowledge
 - Make it comprehensive but easy to scan
 - Provide alternatives for key decisions
+- FLAG URGENT items with ⚠️ or 🚨 emoji
 
 TONE: Enthusiastic, helpful, and practical. Write like an experienced coach/mentor giving personalized advice.
+
+📋 STRUCTURE FOR ACTIVITY + TASKS CONVERSION:
+After your main plan content, include a clearly marked section with actionable tasks:
+
+## ✅ Action Tasks
+
+For each major step in your plan, create a specific task:
+
+**Task 1: [ACTION TITLE]**
+- Description: What exactly needs to be done
+- Priority: high/medium/low
+- Time Estimate: How long it will take
+- Deadline/Timing: When it should be done
+
+Example for travel:
+**Task 1: Book Flight Tickets NOW**
+- Description: Search and book round-trip flights. Aim for 3-8 week window for best prices ($450-750 range). Use Tuesday/Wednesday departures to save $80-120.
+- Priority: high
+- Time Estimate: 1-2 hours
+- Deadline: Within 24-48 hours (prices rising)
+
+**Task 2: Reserve Hotel**
+- Description: Book hotel with free cancellation policy. Downtown area recommended. Price: $150-250/night mid-range.
+- Priority: high
+- Time Estimate: 30-45 minutes
+- Deadline: Within 1 week
+
+Create 5-10 tasks covering ALL critical steps from your plan.
 
 ${refinements && refinements.length > 0 ? `
 USER REFINEMENTS/CHANGES REQUESTED:
@@ -270,7 +323,7 @@ ${refinements.map((r, i) => `${i + 1}. ${r}`).join('\n')}
 IMPORTANT: Incorporate these changes into the plan. Update relevant sections and make sure these refinements are clearly reflected in the final plan.
 ` : ''}
 
-Generate the complete plan now:`;
+Generate the complete plan now with the Action Tasks section at the end:`;
   }
 
   /**
