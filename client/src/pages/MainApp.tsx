@@ -1006,10 +1006,10 @@ export default function MainApp({
                   <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 mb-6">
                     <Button
                       onClick={() => {
-                        if (user?.id !== 'DEMO_USER_ID') {
+                        if (isAuthenticated) {
                           onShowLifestylePlanner(true);
                         } else {
-                          setShowSignIn(true);
+                          window.location.href = '/api/login';
                         }
                       }}
                       variant="outline"
@@ -2100,47 +2100,13 @@ Assistant: For nutrition, I recommend..."
                 {/* Hero Section */}
                 <div className="text-center mb-12">
                   <div className="inline-flex items-center justify-center w-32 h-32 mb-6">
-                    <img src="/journalmate-logo-transparent.png" alt="JournalMate AI - AI-Powered Life Planner with SSO" className="w-32 h-32 object-contain" />
+                    <img src="/journalmate-logo-transparent.png" alt="AI Planner - Smart Goal Tracker and AI Journal for Life Planning" className="w-32 h-32 object-contain" />
                 </div>
                 <h2 className="text-4xl font-bold text-foreground mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
-                  JournalMate AI - Life Planning with Easy Sign-In
+                  AI-Powered Life Planner & Smart Goal Tracker
                 </h2>
                 <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                  Your AI-powered journaling companion that transforms goals into actionable plans. Sign in with Google, Facebook, Apple, X/Twitter, or Email for seamless access and secure cloud sync.
-                </p>
-              </div>
-
-              {/* Authentication Options SEO Section */}
-              <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-xl border mb-8">
-                <h3 className="text-xl font-semibold mb-4 text-center">Multiple Sign-In Options - Choose Your Preferred Method</h3>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
-                    <p className="font-medium text-sm">🔐 Google Sign-In (SSO)</p>
-                    <p className="text-xs text-muted-foreground">One-click authentication with your Google account</p>
-                  </div>
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
-                    <p className="font-medium text-sm">📘 Facebook Login</p>
-                    <p className="text-xs text-muted-foreground">Quick access using Facebook OAuth</p>
-                  </div>
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
-                    <p className="font-medium text-sm">🍎 Apple ID Sign-In</p>
-                    <p className="text-xs text-muted-foreground">Secure authentication with Apple</p>
-                  </div>
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
-                    <p className="font-medium text-sm">🐦 X/Twitter Login</p>
-                    <p className="text-xs text-muted-foreground">Sign in with your X (Twitter) account</p>
-                  </div>
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
-                    <p className="font-medium text-sm">✉️ Email Authentication</p>
-                    <p className="text-xs text-muted-foreground">Traditional email-based sign-in</p>
-                  </div>
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
-                    <p className="font-medium text-sm">🔒 Secure SSO</p>
-                    <p className="text-xs text-muted-foreground">Enterprise-grade single sign-on security</p>
-                  </div>
-                </div>
-                <p className="text-sm text-center text-muted-foreground mt-4">
-                  All authentication methods use industry-standard OAuth 2.0 and OpenID Connect protocols for maximum security
+                  Transform your goals into action with our intelligent AI planner. Track tasks, manage daily activities, and achieve your objectives with personalized AI-powered planning and goal tracking.
                 </p>
               </div>
 
@@ -2158,16 +2124,16 @@ Assistant: For nutrition, I recommend..."
                       <Mic className="w-7 h-7 text-white" />
                     </div>
                     <h3 className="text-lg font-semibold mb-2">Voice & AI Planning</h3>
-                    <p className="text-sm text-muted-foreground">Speak your goals naturally and get personalized action plans instantly</p>
+                    <p className="text-sm text-muted-foreground">AI goal planner with voice input - speak your objectives and get instant personalized action plans</p>
                     
                     {expandedFeature === 'voice' && (
                       <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700 text-left">
                         <p className="text-sm text-muted-foreground mb-3">
-                          Speak or write your goals—"I want to work out, take vitamins, prep for my Dallas trip"—and the app curates a personalized, step-by-step plan.
+                          Intelligent AI planner that understands natural language. Speak or type your goals like "I want to work out, take vitamins, prep for my Dallas trip" and get a personalized step-by-step action plan with task breakdowns.
                         </p>
                         <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
                           <Copy className="w-3 h-3" />
-                          <span>Copy & paste from ChatGPT, Claude, and other AI assistants supported</span>
+                          <span>Import from ChatGPT, Claude, and other AI assistants</span>
                         </div>
                       </div>
                     )}
@@ -2181,16 +2147,16 @@ Assistant: For nutrition, I recommend..."
                     <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <CheckSquare className="w-7 h-7 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">Swipe to Complete</h3>
-                    <p className="text-sm text-muted-foreground">Interactive task cards with instant celebrations and progress tracking</p>
+                    <h3 className="text-lg font-semibold mb-2">Smart Task Manager</h3>
+                    <p className="text-sm text-muted-foreground">Interactive task tracker with swipeable cards, instant progress updates, and celebration animations</p>
                     
                     {expandedFeature === 'swipe' && (
                       <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700 text-left">
                         <p className="text-sm text-muted-foreground mb-3">
-                          Receive task reminders as swipeable cards: Swipe right = task completed → logged as a checkpoint. Swipe left = task skipped → logged as missed.
+                          Modern task management system with swipeable cards. Swipe right to complete tasks, swipe left to skip. Every action is tracked with visual progress indicators and celebration effects.
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Control how often the app nudges you—hourly, daily, weekly—based on your preferred cadence. Friendly pop-ups keep you on track without overwhelming you.
+                          Customizable reminder frequency—hourly, daily, or weekly task notifications. Stay productive without feeling overwhelmed.
                         </p>
                       </div>
                     )}
@@ -2204,8 +2170,8 @@ Assistant: For nutrition, I recommend..."
                     <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <Users className="w-7 h-7 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">Share & Collaborate</h3>
-                    <p className="text-sm text-muted-foreground">Connect with contacts to share journals, plans, and accountability</p>
+                    <h3 className="text-lg font-semibold mb-2">Collaborative Goal Planning</h3>
+                    <p className="text-sm text-muted-foreground">Share goals, track group progress, and achieve objectives together with team collaboration tools</p>
                     
                     {expandedFeature === 'collaborate' && (
                       <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700 text-left">
@@ -2308,17 +2274,17 @@ Assistant: For nutrition, I recommend..."
                   <div className="p-4 bg-muted/50 rounded-xl border">
                     <div className="flex items-center gap-3 mb-2">
                       <BarChart3 className="w-5 h-5 text-primary" />
-                      <h4 className="font-semibold">Progress Analytics</h4>
+                      <h4 className="font-semibold">Productivity Analytics Dashboard</h4>
                     </div>
-                    <p className="text-sm text-muted-foreground">Track streaks, completion rates, and lifestyle insights</p>
+                    <p className="text-sm text-muted-foreground">Track goal completion rates, daily streaks, habit formation, and productivity insights with visual charts</p>
                   </div>
 
                   <div className="p-4 bg-muted/50 rounded-xl border">
                     <div className="flex items-center gap-3 mb-2">
                       <Copy className="w-5 h-5 text-primary" />
-                      <h4 className="font-semibold">AI Chat Import</h4>
+                      <h4 className="font-semibold">AI Assistant Integration</h4>
                     </div>
-                    <p className="text-sm text-muted-foreground">Import conversations from ChatGPT, Claude, and more</p>
+                    <p className="text-sm text-muted-foreground">Import and sync plans from ChatGPT, Claude, and other AI chatbots directly into your task manager</p>
                   </div>
                 </div>
 

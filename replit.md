@@ -79,8 +79,9 @@ A mobile-first AI-powered journaling application that transforms user intentions
   - ✅ **Backend Activity Limit**: Validates DEMO_USER_ID cannot create more than 1 activity (returns 403 error)
   - ✅ **Shared Activity Auth**: Shared activities require sign-in to view, with "shared by" attribution
   - ✅ **Personal Journal Auth**: Personal Journal button prompts sign-in for non-authenticated users
-  - ✅ **SEO Optimization**: About tab now public with SSO/authentication keywords for search discoverability
-  - ✅ **About Tab SEO**: Added comprehensive authentication options (Google, Facebook, Apple, X/Twitter, Email, SSO) with OAuth 2.0 descriptions
+  - ✅ **SEO Optimization**: About tab now public and optimized for search engines with AI planner, goal tracker, task manager keywords
+  - ✅ **About Tab Public Access**: Removed authentication gate from About tab for better search discoverability
+  - ✅ **Search-Friendly Content**: Added keywords like "AI planner", "smart goal tracker", "AI journal", "task manager", "productivity analytics" for better SEO
   - ✅ **Automatic Activity Creation**: "Yes" confirmations now automatically create activities and tasks - no manual button click needed!
   - ✅ When user confirms a plan with "yes", the system instantly creates the activity with all tasks and displays a success message
   - ✅ Supports both structured data formats: { activity, tasks } and flat { title, description, category, tasks }
