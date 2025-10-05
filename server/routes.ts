@@ -207,29 +207,60 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
       const negativePattern = /^(no|nope|not really|not quite|i want to|i'd like to|can we|could we|change|add|modify)/i;
       
       if (affirmativePattern.test(message.trim())) {
-        // User confirmed - show Generate Plan button
-        const updatedContext = {
-          ...session.externalContext,
-          awaitingPlanConfirmation: false,
-          planConfirmed: true
-        };
+        // User confirmed - AUTOMATICALLY create the activity and tasks
+        const generatedPlan = session.slots?._generatedPlan;
         
-        const updatedSession = await storage.updateLifestylePlannerSession(session.id, {
-          externalContext: updatedContext
-        }, userId);
+        if (generatedPlan) {
+          // Create activity from the structured plan
+          const activity = await storage.createActivity({
+            title: generatedPlan.title || 'Smart Plan Activity',
+            description: generatedPlan.summary || 'Generated from Smart Plan conversation',
+            category: generatedPlan.category || 'personal',
+            status: 'planning',
+            userId
+          });
 
-        // Don't re-run agent, just show the button with existing plan preview
-        // Extract the last AI message (plan preview) from conversation history
-        const lastAIMessage = session.conversationHistory?.slice().reverse().find((msg: any) => msg.role === 'assistant')?.content || '';
-        
-        return res.json({
-          message: "🎯 **Perfect!** You can now say \"generate plan\" or click the Generate Plan button to create your activity!",
-          planReady: true,
-          sessionId: session.id,
-          showCreatePlanButton: true,
-          showGenerateButton: true,
-          session: updatedSession
-        });
+          // Create tasks and link them to the activity
+          const createdTasks = [];
+          if (generatedPlan.tasks && Array.isArray(generatedPlan.tasks)) {
+            for (let i = 0; i < generatedPlan.tasks.length; i++) {
+              const taskData = generatedPlan.tasks[i];
+              const task = await storage.createTask({
+                title: taskData.title,
+                description: taskData.description,
+                category: taskData.category,
+                priority: taskData.priority,
+                timeEstimate: taskData.timeEstimate,
+                userId
+              });
+              await storage.addTaskToActivity(activity.id, task.id, i);
+              createdTasks.push(task);
+            }
+          }
+
+          // Mark session as completed  
+          await storage.updateLifestylePlannerSession(session.id, {
+            sessionState: 'completed',
+            isComplete: true,
+            generatedPlan: { ...generatedPlan, tasks: createdTasks },
+            externalContext: {
+              ...session.externalContext,
+              awaitingPlanConfirmation: false,
+              planConfirmed: true
+            }
+          }, userId);
+
+          const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
+          
+          return res.json({
+            message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 **You can find it in:**\n• **Home screen** - Check your recent activities\n• **Activities pane** - View all details and progress\n• **Tasks section** - See the ${createdTasks.length} individual tasks I created\n\nAll tasks are ready for you to start working on! 🚀`,
+            activityCreated: true,
+            activity,
+            planComplete: true,
+            createdTasks,
+            session: updatedSession
+          });
+        }
       } else if (negativePattern.test(message.trim()) || message.toLowerCase().includes('change') || message.toLowerCase().includes('add')) {
         // User wants to make changes - continue gathering info
         const updatedContext = {

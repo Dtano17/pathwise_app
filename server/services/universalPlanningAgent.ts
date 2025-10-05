@@ -282,11 +282,14 @@ Make sure each step has a clear, actionable title and helpful description.`
         
         // Extract activity data from the generated plan
         const enrichedPlan = currentSlots._generatedPlan;
-        const structuredData = enrichedPlan?.structuredData;
+        // Handle different data formats: nested structuredData OR direct plan object
+        const structuredData = enrichedPlan?.structuredData || enrichedPlan;
         
         // Handle both formats: { activity: {...}, tasks: [...] } and { title, description, category, tasks: [...] }
         const activityData = structuredData?.activity || structuredData;
         const tasksData = structuredData?.tasks || [];
+        
+        console.log('[CONFIRMATION] Activity data:', activityData?.title, '| Tasks:', tasksData?.length);
         
         if (activityData && activityData.title && tasksData.length > 0 && storage) {
           try {
