@@ -74,6 +74,9 @@ A mobile-first AI-powered journaling application that transforms user intentions
 
 ## Recent Changes
 - **October 5, 2025** (Latest):
+  - ✅ **Fixed Progress Dashboard real-time updates**: Progress now updates instantly when tasks are completed, archived, skipped, or snoozed from ANY tab
+  - ✅ Implemented staleTime: 0 with refetchOnMount: 'always' on progress query for immediate updates
+  - ✅ All mutations (complete, skip, snooze, archive) now properly invalidate progress query
   - ✅ **Fixed task completion persistence across tabs**: Tasks now sync in real-time using React Query and useEffect
   - ✅ **Task progress persists everywhere**: Whether you complete tasks from the main page or activity/task tabs, progress is reflected everywhere
   - ✅ **Fixed activity tracker reset bug**: Plan output now persists when navigating between tabs
