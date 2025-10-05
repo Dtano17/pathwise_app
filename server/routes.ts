@@ -804,73 +804,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to get user from request (supports both authenticated and guest users)
+  const getUserFromRequest = async (req: any) => {
+    let userId: string | null = null;
+    
+    // Check multiple authentication methods for session persistence
+    if (req.isAuthenticated && req.isAuthenticated() && req.user?.id) {
+      // Passport authentication (OAuth and manual login)
+      userId = req.user.id;
+    } else if (req.session?.userId) {
+      // Direct session-based authentication
+      userId = req.session.userId;
+    } else if (req.session?.passport?.user?.id) {
+      // Passport session serialization
+      userId = req.session.passport.user.id;
+    } else if (req.user?.claims?.sub) {
+      // Replit auth user
+      userId = req.user.claims.sub;
+    }
+    
+    if (userId) {
+      try {
+        const user = await storage.getUser(userId);
+        if (user) {
+          // Remove password from response and add authenticated flag
+          const { password, ...userWithoutPassword } = user;
+          console.log('Authenticated user found:', { userId, username: user.username, email: user.email });
+          return { ...userWithoutPassword, authenticated: true, isGuest: false };
+        }
+      } catch (error) {
+        console.error('Error fetching authenticated user:', error);
+      }
+    }
+    
+    // Return demo user for guest access
+    const demoUser = {
+      id: 'demo-user',
+      username: 'guest',
+      authenticationType: 'guest' as const,
+      email: 'guest@example.com',
+      firstName: 'Guest',
+      lastName: 'User',
+      profileImageUrl: null,
+      age: null,
+      occupation: null,
+      location: null,
+      timezone: null,
+      workingHours: null,
+      fitnessLevel: null,
+      sleepSchedule: null,
+      primaryGoalCategories: [],
+      motivationStyle: null,
+      difficultyPreference: 'medium' as const,
+      interests: [],
+      personalityType: null,
+      communicationStyle: null,
+      aboutMe: null,
+      currentChallenges: null,
+      successFactors: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      authenticated: false,
+      isGuest: true,
+    };
+    
+    console.log('No authenticated user found, returning demo user');
+    return demoUser;
+  };
+
   // Auth routes - supports both authenticated and guest users
   app.get('/api/auth/user', async (req: any, res) => {
     try {
-      let userId: string | null = null;
-      
-      // Check multiple authentication methods for session persistence
-      if (req.isAuthenticated && req.isAuthenticated() && req.user?.id) {
-        // Passport authentication (OAuth and manual login)
-        userId = req.user.id;
-      } else if (req.session?.userId) {
-        // Direct session-based authentication
-        userId = req.session.userId;
-      } else if (req.session?.passport?.user?.id) {
-        // Passport session serialization
-        userId = req.session.passport.user.id;
-      } else if (req.user?.claims?.sub) {
-        // Replit auth user
-        userId = req.user.claims.sub;
-      }
-      
-      if (userId) {
-        try {
-          const user = await storage.getUser(userId);
-          if (user) {
-            // Remove password from response and add authenticated flag
-            const { password, ...userWithoutPassword } = user;
-            console.log('Authenticated user found:', { userId, username: user.username, email: user.email });
-            return res.json({ ...userWithoutPassword, authenticated: true, isGuest: false });
-          }
-        } catch (error) {
-          console.error('Error fetching authenticated user:', error);
-        }
-      }
-      
-      // Return demo user for guest access
-      const demoUser = {
-        id: 'demo-user',
-        username: 'guest',
-        authenticationType: 'guest' as const,
-        email: 'guest@example.com',
-        firstName: 'Guest',
-        lastName: 'User',
-        profileImageUrl: null,
-        age: null,
-        occupation: null,
-        location: null,
-        timezone: null,
-        workingHours: null,
-        fitnessLevel: null,
-        sleepSchedule: null,
-        primaryGoalCategories: [],
-        motivationStyle: null,
-        difficultyPreference: 'medium' as const,
-        interests: [],
-        personalityType: null,
-        communicationStyle: null,
-        aboutMe: null,
-        currentChallenges: null,
-        successFactors: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        authenticated: false,
-        isGuest: true,
-      };
-      
-      console.log('No authenticated user found, returning demo user');
-      res.json(demoUser);
+      const user = await getUserFromRequest(req);
+      res.json(user);
+    } catch (error) {
+      console.error('Error getting user:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Main user endpoint (alias for /api/auth/user for backward compatibility)
+  app.get('/api/user', async (req: any, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      res.json(user);
     } catch (error) {
       console.error('Error getting user:', error);
       res.status(500).json({ error: 'Internal server error' });
