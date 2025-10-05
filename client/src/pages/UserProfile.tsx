@@ -90,17 +90,17 @@ export default function UserProfile() {
 
   if (isLoading || profileLoading) {
     return (
-      <div className="container mx-auto p-6 max-w-4xl">
-        <div className="space-y-6">
-          <div className="h-8 bg-muted animate-pulse rounded" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-4">
-              <div className="h-32 bg-muted animate-pulse rounded-lg" />
-              <div className="h-24 bg-muted animate-pulse rounded-lg" />
+      <div className="container mx-auto p-3 sm:p-6 max-w-4xl">
+        <div className="space-y-4 sm:space-y-6">
+          <div className="h-6 sm:h-8 bg-muted animate-pulse rounded" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6">
+            <div className="space-y-3 sm:space-y-4">
+              <div className="h-24 sm:h-32 bg-muted animate-pulse rounded-lg" />
+              <div className="h-20 sm:h-24 bg-muted animate-pulse rounded-lg" />
             </div>
-            <div className="md:col-span-2 space-y-4">
-              <div className="h-48 bg-muted animate-pulse rounded-lg" />
-              <div className="h-32 bg-muted animate-pulse rounded-lg" />
+            <div className="md:col-span-2 space-y-3 sm:space-y-4">
+              <div className="h-40 sm:h-48 bg-muted animate-pulse rounded-lg" />
+              <div className="h-24 sm:h-32 bg-muted animate-pulse rounded-lg" />
             </div>
           </div>
         </div>
@@ -110,12 +110,12 @@ export default function UserProfile() {
 
   if (!isAuthenticated || !profile) {
     return (
-      <div className="container mx-auto p-6 max-w-4xl">
+      <div className="container mx-auto p-3 sm:p-6 max-w-4xl">
         <Card>
-          <CardContent className="p-8 text-center">
-            <User className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">Sign in required</h3>
-            <p className="text-muted-foreground">Please sign in to view your profile.</p>
+          <CardContent className="p-6 sm:p-8 text-center">
+            <User className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 text-muted-foreground" />
+            <h3 className="text-base sm:text-lg font-semibold mb-2">Sign in required</h3>
+            <p className="text-sm sm:text-base text-muted-foreground">Please sign in to view your profile.</p>
           </CardContent>
         </Card>
       </div>

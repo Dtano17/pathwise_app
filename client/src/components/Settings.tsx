@@ -149,12 +149,12 @@ export default function Settings() {
 
   if (!isAuthenticated) {
     return (
-      <div className="container mx-auto p-6 max-w-2xl">
+      <div className="container mx-auto p-3 sm:p-6 max-w-2xl">
         <Card>
-          <CardContent className="p-8 text-center">
-            <SettingsIcon className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">Sign in required</h3>
-            <p className="text-muted-foreground">Please sign in to access your settings.</p>
+          <CardContent className="p-6 sm:p-8 text-center">
+            <SettingsIcon className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 text-muted-foreground" />
+            <h3 className="text-base sm:text-lg font-semibold mb-2">Sign in required</h3>
+            <p className="text-sm sm:text-base text-muted-foreground">Please sign in to access your settings.</p>
           </CardContent>
         </Card>
       </div>
@@ -162,41 +162,41 @@ export default function Settings() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-2xl space-y-6" data-testid="page-settings">
-      <div className="flex items-center gap-3 mb-6">
-        <SettingsIcon className="w-6 h-6" />
-        <h1 className="text-2xl font-bold">Settings</h1>
+    <div className="container mx-auto p-3 sm:p-6 max-w-2xl space-y-4 sm:space-y-6" data-testid="page-settings">
+      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <SettingsIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+        <h1 className="text-xl sm:text-2xl font-bold">Settings</h1>
       </div>
 
       {/* Notifications Settings */}
       <Card data-testid="card-notifications-settings">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Bell className="w-5 h-5" />
+        <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
+          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+            <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
             Notifications
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Smartphone className="w-4 h-4 text-muted-foreground" />
-              <div>
-                <Label htmlFor="browser-notifications" className="text-base">
+        <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1">
+              <Smartphone className="w-4 h-4 text-muted-foreground mt-0.5 sm:mt-0 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <Label htmlFor="browser-notifications" className="text-sm sm:text-base">
                   Browser
                 </Label>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Receive desktop notifications for important updates
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-6 sm:ml-0">
               <Switch
                 id="browser-notifications"
                 checked={browserNotificationsEnabled}
                 onCheckedChange={handleBrowserNotificationToggle}
                 data-testid="switch-browser-notifications"
               />
-              <span className="text-sm font-medium">
+              <span className="text-xs sm:text-sm font-medium">
                 {browserNotificationsEnabled ? (
                   <span className="text-green-600 dark:text-green-400">Enable</span>
                 ) : (
@@ -208,60 +208,62 @@ export default function Settings() {
 
           <Separator />
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Bell className="w-4 h-4 text-muted-foreground" />
-              <div>
-                <Label htmlFor="general-notifications" className="text-base">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1">
+              <Bell className="w-4 h-4 text-muted-foreground mt-0.5 sm:mt-0 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <Label htmlFor="general-notifications" className="text-sm sm:text-base">
                   General Notifications
                 </Label>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Task reminders, goal updates, and system notifications
                 </p>
               </div>
             </div>
-            <Switch
-              id="general-notifications"
-              checked={preferences?.notifications ?? true}
-              onCheckedChange={(checked) => 
-                updatePreferencesMutation.mutate({ notifications: checked })
-              }
-              data-testid="switch-general-notifications"
-            />
+            <div className="ml-6 sm:ml-0">
+              <Switch
+                id="general-notifications"
+                checked={preferences?.notifications ?? true}
+                onCheckedChange={(checked) => 
+                  updatePreferencesMutation.mutate({ notifications: checked })
+                }
+                data-testid="switch-general-notifications"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Smart Scheduler Settings */}
       <Card data-testid="card-smart-scheduler">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
+        <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
+          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+            <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
             Smart Scheduler
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
+        <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
+          <div className="flex items-start justify-between gap-2">
             <div>
-              <Label htmlFor="scheduler-date" className="text-base">
+              <Label htmlFor="scheduler-date" className="text-sm sm:text-base">
                 Generate suggestions for:
               </Label>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Select a date to view or generate scheduling suggestions
               </p>
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
             <Input
               id="scheduler-date"
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-auto"
+              className="w-full sm:w-auto"
               data-testid="input-scheduler-date"
             />
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
               <span data-testid="text-suggestions-count">
                 {suggestions.length} suggestion{suggestions.length !== 1 ? 's' : ''}
               </span>

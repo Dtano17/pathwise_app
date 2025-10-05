@@ -259,17 +259,17 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       {/* Main Content - Journal Entries */}
       <div className="flex-1 min-w-0">
         <Card className="border-none shadow-sm h-full">
-          <CardHeader className="pb-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 min-w-0">
+          <CardHeader className="pb-3 sm:pb-4 p-3 sm:p-6">
+            <div className="flex items-start justify-between gap-3 sm:gap-4">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 {currentCategory && (
                   <>
-                    <div className={`p-3 rounded-xl bg-gradient-to-br ${currentCategory.color} text-white flex-shrink-0`}>
-                      <currentCategory.icon className="w-6 h-6" />
+                    <div className={`p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gradient-to-br ${currentCategory.color} text-white flex-shrink-0`}>
+                      <currentCategory.icon className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
                     <div className="min-w-0">
-                      <CardTitle className="text-xl sm:text-2xl truncate">{currentCategory.label}</CardTitle>
-                      <CardDescription className="text-xs sm:text-sm mt-1">
+                      <CardTitle className="text-base sm:text-xl md:text-2xl truncate">{currentCategory.label}</CardTitle>
+                      <CardDescription className="text-xs sm:text-sm mt-0.5 sm:mt-1 line-clamp-1">
                         {activeCategory === 'restaurants' && 'Your favorite restaurants, cuisines, and food preferences'}
                         {activeCategory === 'movies' && 'Movies, shows, genres, and actors you love'}
                         {activeCategory === 'music' && 'Artists, bands, genres, and playlists that move you'}

@@ -132,7 +132,11 @@ export default function Priorities() {
   };
 
   const handleAddPreset = (preset: typeof priorityPresets[0]) => {
-    addPriorityMutation.mutate(preset);
+    addPriorityMutation.mutate({
+      ...preset,
+      category: preset.category as Priority['category'],
+      importance: preset.importance as Priority['importance']
+    });
   };
 
   const getCategoryInfo = (categoryId: string) => {
@@ -149,26 +153,26 @@ export default function Priorities() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold mb-2 flex items-center justify-center gap-2">
-          <Target className="w-6 h-6" />
+    <div className="space-y-4 sm:space-y-6">
+      <div className="text-center px-2">
+        <h2 className="text-xl sm:text-2xl font-bold mb-2 flex items-center justify-center gap-2">
+          <Target className="w-5 h-5 sm:w-6 sm:h-6" />
           Life Priorities
         </h2>
-        <p className="text-muted-foreground">
+        <p className="text-sm sm:text-base text-muted-foreground">
           Define your core values and priorities to help AI create more meaningful and aligned action plans
         </p>
       </div>
 
       {/* Priority Categories Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
         {priorityCategories.map((category) => {
           const Icon = category.icon;
           const count = priorities.filter(p => p.category === category.id).length;
           return (
-            <Card key={category.id} className="p-3 text-center hover-elevate">
-              <Icon className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm font-medium">{category.name}</p>
+            <Card key={category.id} className="p-2 sm:p-3 text-center hover-elevate">
+              <Icon className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-1 sm:mb-2 text-muted-foreground" />
+              <p className="text-xs sm:text-sm font-medium break-words">{category.name}</p>
               <Badge variant="outline" className="text-xs mt-1">
                 {count} {count === 1 ? 'priority' : 'priorities'}
               </Badge>
@@ -178,9 +182,9 @@ export default function Priorities() {
       </div>
 
       {/* Quick Add Presets */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Star className="w-5 h-5" />
+      <Card className="p-3 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+          <Star className="w-4 h-4 sm:w-5 sm:h-5" />
           Quick Add Common Priorities
         </h3>
         <div className="grid gap-2">
@@ -190,16 +194,16 @@ export default function Priorities() {
             const alreadyAdded = priorities.some(p => p.title.toLowerCase() === preset.title.toLowerCase());
             
             return (
-              <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div key={index} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                   <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{preset.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{preset.description}</p>
+                    <p className="text-xs sm:text-sm font-medium line-clamp-1">{preset.title}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-1 hidden sm:block">{preset.description}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 ml-2">
-                  <Badge className={getImportanceColor(preset.importance)}>
+                <div className="flex items-center gap-2 ml-6 sm:ml-0">
+                  <Badge className={`${getImportanceColor(preset.importance)} text-xs`}>
                     {preset.importance}
                   </Badge>
                   <Button
@@ -209,7 +213,7 @@ export default function Priorities() {
                     disabled={alreadyAdded || addPriorityMutation.isPending}
                     data-testid={`button-add-preset-${index}`}
                   >
-                    {alreadyAdded ? 'Added' : <Plus className="w-3 h-3" />}
+                    {alreadyAdded ? <span className="text-xs">Added</span> : <Plus className="w-3 h-3" />}
                   </Button>
                 </div>
               </div>
