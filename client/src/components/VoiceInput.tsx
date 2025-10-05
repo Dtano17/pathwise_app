@@ -601,6 +601,13 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
               setChatMessages([]);
               setCurrentMode(null);
               setShowCreatePlanButton(false);
+              // Scroll parent container to top when exiting conversation mode
+              setTimeout(() => {
+                const mainContent = document.querySelector('main');
+                if (mainContent) {
+                  mainContent.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }, 50);
             }}
             className="h-9 w-9"
             data-testid="button-back"
