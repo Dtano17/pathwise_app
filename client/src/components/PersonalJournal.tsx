@@ -115,11 +115,11 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       <div className="w-full lg:w-64 flex-shrink-0">
         <Card className="border-none shadow-sm bg-card/50 backdrop-blur">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-primary" />
               My Journal
             </CardTitle>
-            <CardDescription className="text-xs">
+            <CardDescription className="text-xs sm:text-sm">
               Capture what makes you unique
             </CardDescription>
           </CardHeader>

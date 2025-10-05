@@ -234,11 +234,11 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
         
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h3 className="font-semibold text-lg text-foreground mb-2" data-testid={`task-title-${task.id}`}>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-base sm:text-lg text-foreground mb-2 break-words" data-testid={`task-title-${task.id}`}>
               {task.title}
             </h3>
-            <p className="text-sm text-muted-foreground mb-3" data-testid={`task-description-${task.id}`}>
+            <p className="text-sm text-muted-foreground mb-3 break-words" data-testid={`task-description-${task.id}`}>
               {task.description}
             </p>
           </div>
@@ -261,7 +261,7 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-2 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
           <Button 
             onClick={handleComplete}
             disabled={isProcessing}
@@ -304,7 +304,7 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
             disabled={isProcessing}
             variant="outline"
             size="default"
-            className={`w-full text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950 ${onArchive ? '' : 'col-start-2'}`}
+            className={`w-full text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950 ${onArchive ? '' : 'sm:col-start-2'}`}
             data-testid={`button-skip-${task.id}`}
           >
             <X className="w-4 h-4 mr-2 flex-shrink-0" />

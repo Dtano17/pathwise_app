@@ -73,7 +73,14 @@ A mobile-first AI-powered journaling application that transforms user intentions
 - **Anthropic Integration**: Active, Claude API for conversational planning
 
 ## Recent Changes
-- **October 5, 2025** (Morning - Latest):
+- **October 5, 2025** (Latest):
+  - ✅ **Comprehensive mobile responsiveness overhaul**: All screens now work perfectly on iPhone and small devices
+  - ✅ Fixed activity cards: Text wrapping, overflow prevention, responsive padding (p-4 sm:p-6)
+  - ✅ Fixed TaskCard buttons: Now stack vertically on mobile (grid-cols-1 sm:grid-cols-2) preventing cramped buttons
+  - ✅ Added responsive text sizes across all headings (text-base sm:text-lg, text-xl sm:text-2xl patterns)
+  - ✅ Fixed filter controls: Stack properly on mobile with flex-wrap and responsive widths
+  - ✅ Verified all task buttons work correctly: Complete, Skip, Snooze, Archive all functional
+  - ✅ Mobile navigation: Already has responsive dropdown for small screens
   - ✅ **Fixed critical bug**: Task completion now works correctly - only completes individual tasks
   - ✅ **Time estimates added**: All activities and tasks now include prominent time estimates
   - ✅ Time estimates displayed near task headers (next to Complete button) with clock icon
