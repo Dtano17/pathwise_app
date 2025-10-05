@@ -37,6 +37,8 @@ import {
   type ActivityTask,
   type InsertActivityTask,
   type ActivityWithProgress,
+  type ActivityPermissionRequest,
+  type InsertActivityPermissionRequest,
   type LifestylePlannerSession,
   type InsertLifestylePlannerSession,
   type UserProfile,
@@ -59,6 +61,7 @@ import {
   contactShares,
   activities,
   activityTasks,
+  activityPermissionRequests,
   lifestylePlannerSessions,
   userProfiles,
   userPreferences
@@ -108,6 +111,13 @@ export interface IStorage {
   getActivityTasks(activityId: string, userId: string): Promise<Task[]>;
   removeTaskFromActivity(activityId: string, taskId: string): Promise<void>;
   updateActivityTaskOrder(activityId: string, taskId: string, order: number): Promise<void>;
+
+  // Activity Permission Requests
+  createPermissionRequest(request: InsertActivityPermissionRequest): Promise<ActivityPermissionRequest>;
+  getActivityPermissionRequests(activityId: string): Promise<ActivityPermissionRequest[]>;
+  getUserPermissionRequests(userId: string): Promise<ActivityPermissionRequest[]>;
+  getOwnerPermissionRequests(ownerId: string): Promise<ActivityPermissionRequest[]>;
+  updatePermissionRequest(requestId: string, status: string, ownerId: string): Promise<ActivityPermissionRequest | undefined>;
 
   // Journal Entries
   createJournalEntry(entry: InsertJournalEntry & { userId: string }): Promise<JournalEntry>;
@@ -540,6 +550,38 @@ export class DatabaseStorage implements IStorage {
     await db.update(activityTasks)
       .set({ order })
       .where(and(eq(activityTasks.activityId, activityId), eq(activityTasks.taskId, taskId)));
+  }
+
+  // Activity Permission Requests
+  async createPermissionRequest(request: InsertActivityPermissionRequest): Promise<ActivityPermissionRequest> {
+    const result = await db.insert(activityPermissionRequests).values(request).returning();
+    return result[0];
+  }
+
+  async getActivityPermissionRequests(activityId: string): Promise<ActivityPermissionRequest[]> {
+    return await db.select().from(activityPermissionRequests)
+      .where(eq(activityPermissionRequests.activityId, activityId))
+      .orderBy(desc(activityPermissionRequests.requestedAt));
+  }
+
+  async getUserPermissionRequests(userId: string): Promise<ActivityPermissionRequest[]> {
+    return await db.select().from(activityPermissionRequests)
+      .where(eq(activityPermissionRequests.requestedBy, userId))
+      .orderBy(desc(activityPermissionRequests.requestedAt));
+  }
+
+  async getOwnerPermissionRequests(ownerId: string): Promise<ActivityPermissionRequest[]> {
+    return await db.select().from(activityPermissionRequests)
+      .where(eq(activityPermissionRequests.ownerId, ownerId))
+      .orderBy(desc(activityPermissionRequests.requestedAt));
+  }
+
+  async updatePermissionRequest(requestId: string, status: string, ownerId: string): Promise<ActivityPermissionRequest | undefined> {
+    const result = await db.update(activityPermissionRequests)
+      .set({ status, respondedAt: new Date() })
+      .where(and(eq(activityPermissionRequests.id, requestId), eq(activityPermissionRequests.ownerId, ownerId)))
+      .returning();
+    return result[0];
   }
 
   // Journal Entries

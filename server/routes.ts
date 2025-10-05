@@ -1559,6 +1559,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Request edit permission for a shared activity
+  app.post("/api/activities/:activityId/request-permission", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        return res.status(401).json({ 
+          error: 'Sign in required',
+          message: 'You must be signed in to request permission to edit this activity.',
+          requiresAuth: true
+        });
+      }
+
+      const { message, permissionType = 'edit' } = req.body;
+      
+      // Get the activity to find the owner
+      const [activity] = await db.select().from(activities).where(eq(activities.id, activityId)).limit(1);
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      // Check if user is already the owner
+      if (activity.userId === userId) {
+        return res.status(400).json({ error: 'You already own this activity' });
+      }
+
+      // Create permission request
+      const request = await storage.createPermissionRequest({
+        activityId,
+        requestedBy: userId,
+        ownerId: activity.userId,
+        permissionType,
+        message,
+        status: 'pending'
+      });
+
+      res.json({ success: true, request });
+    } catch (error) {
+      console.error('Request permission error:', error);
+      res.status(500).json({ error: 'Failed to request permission' });
+    }
+  });
+
+  // Get permission requests for an activity (owner only)
+  app.get("/api/activities/:activityId/permission-requests", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Verify the user owns this activity
+      const activity = await storage.getActivity(activityId, userId);
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found or unauthorized' });
+      }
+
+      const requests = await storage.getActivityPermissionRequests(activityId);
+      res.json(requests);
+    } catch (error) {
+      console.error('Get permission requests error:', error);
+      res.status(500).json({ error: 'Failed to fetch permission requests' });
+    }
+  });
+
+  // Get all permission requests for the current user (as requester)
+  app.get("/api/permission-requests", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const requests = await storage.getUserPermissionRequests(userId);
+      res.json(requests);
+    } catch (error) {
+      console.error('Get user permission requests error:', error);
+      res.status(500).json({ error: 'Failed to fetch permission requests' });
+    }
+  });
+
+  // Get all permission requests for the current user (as owner)
+  app.get("/api/permission-requests/owner", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const requests = await storage.getOwnerPermissionRequests(userId);
+      res.json(requests);
+    } catch (error) {
+      console.error('Get owner permission requests error:', error);
+      res.status(500).json({ error: 'Failed to fetch permission requests' });
+    }
+  });
+
+  // Approve or deny a permission request (owner only)
+  app.patch("/api/permission-requests/:requestId", async (req, res) => {
+    try {
+      const { requestId } = req.params;
+      const { status } = req.body; // 'approved' or 'denied'
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      if (!['approved', 'denied'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status. Must be approved or denied' });
+      }
+
+      const request = await storage.updatePermissionRequest(requestId, status, userId);
+      
+      if (!request) {
+        return res.status(404).json({ error: 'Permission request not found or unauthorized' });
+      }
+
+      res.json({ success: true, request });
+    } catch (error) {
+      console.error('Update permission request error:', error);
+      res.status(500).json({ error: 'Failed to update permission request' });
+    }
+  });
+
   // Create activity from dialogue (AI-generated tasks)
   // This creates BOTH the activity AND all tasks linked to it
   app.post("/api/activities/from-dialogue", async (req, res) => {
