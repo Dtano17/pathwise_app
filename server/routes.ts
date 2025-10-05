@@ -1478,12 +1478,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Shared activity not found or link has expired' });
       }
 
-      // Get the tasks for this activity (no user restriction for shared activities)
-      const activityTasks = await storage.getActivityTasks(activity.id);
+      // Check if activity requires authentication (not public)
+      const requiresAuth = !activity.isPublic;
+      const currentUserId = getUserId(req);
+      
+      // If activity requires auth and user is not authenticated, return 401
+      if (requiresAuth && !currentUserId) {
+        return res.status(401).json({ 
+          error: 'Authentication required',
+          requiresAuth: true 
+        });
+      }
+
+      // Get the tasks for this activity (using the owner's userId)
+      const activityTasks = await storage.getActivityTasks(activity.id, activity.userId);
+      
+      // Get owner information for "sharedBy"
+      let sharedBy = undefined;
+      try {
+        const owner = await storage.getUser(activity.userId);
+        if (owner) {
+          const ownerName = owner.firstName && owner.lastName 
+            ? `${owner.firstName} ${owner.lastName}`
+            : owner.firstName || owner.lastName || owner.email || 'Anonymous';
+          sharedBy = {
+            name: ownerName,
+            email: owner.email || undefined
+          };
+        }
+      } catch (err) {
+        console.error('Failed to get owner info:', err);
+      }
+
+      // Generate plan summary if not present
+      const planSummary = activity.socialText || 
+        `${activity.title} - A ${activity.category} plan with ${activityTasks.length} tasks`;
       
       res.json({
-        activity,
-        tasks: activityTasks.map(item => item.task)
+        activity: {
+          ...activity,
+          planSummary
+        },
+        tasks: activityTasks,
+        requiresAuth,
+        sharedBy
       });
     } catch (error) {
       console.error('Get shared activity error:', error);
