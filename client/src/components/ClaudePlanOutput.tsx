@@ -185,28 +185,31 @@ export default function ClaudePlanOutput({
                         <Badge variant="outline" className="text-xs">
                           {task.category}
                         </Badge>
-                        {task.timeEstimate && (
-                          <Badge variant="outline" className="gap-1 text-xs">
-                            <Clock className="w-3 h-3" />
-                            {task.timeEstimate}
-                          </Badge>
-                        )}
                       </div>
                     </div>
                     
-                    {!isCompleted && (
-                      <Button
-                        onClick={() => handleCompleteTask(task.id)}
-                        size="sm"
-                        variant="outline"
-                        className="gap-2 shrink-0 w-full sm:w-auto"
-                        disabled={!task.id || !activityId}
-                        data-testid={`button-complete-task-${index}`}
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        {!activityId ? 'Create Activity First' : 'Complete'}
-                      </Button>
-                    )}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                      {task.timeEstimate && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-700">
+                          <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{task.timeEstimate}</span>
+                        </div>
+                      )}
+                      
+                      {!isCompleted && (
+                        <Button
+                          onClick={() => handleCompleteTask(task.id)}
+                          size="sm"
+                          variant="outline"
+                          className="gap-2 shrink-0 w-full sm:w-auto"
+                          disabled={!task.id || !activityId}
+                          data-testid={`button-complete-task-${index}`}
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          {!activityId ? 'Create Activity First' : 'Complete'}
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Task Details */}

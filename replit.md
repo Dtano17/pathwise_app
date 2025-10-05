@@ -73,7 +73,14 @@ A mobile-first AI-powered journaling application that transforms user intentions
 - **Anthropic Integration**: Active, Claude API for conversational planning
 
 ## Recent Changes
-- **October 4, 2025** (Evening - Latest):
+- **October 5, 2025** (Morning - Latest):
+  - ✅ **Fixed critical bug**: Task completion now works correctly - only completes individual tasks
+  - ✅ **Time estimates added**: All activities and tasks now include prominent time estimates
+  - ✅ Time estimates displayed near task headers (next to Complete button) with clock icon
+  - ✅ AI now generates realistic time estimates (15 min - 4 hours) for every task
+  - ✅ Overall activity timeframe shown in plan output
+  - ✅ Fixed task ID synchronization when creating activities
+- **October 4, 2025** (Evening):
   - ✅ Cleaned up VoiceInput placeholder text - simplified to "describe your goals"
   - ✅ Enhanced activity tracking on main page with prominent progress bar
   - ✅ Added visual activity progress card with emerald gradient when activity is created

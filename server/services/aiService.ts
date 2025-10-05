@@ -557,7 +557,7 @@ Examples of excellent task formatting:
 ${userPriorities.map((p) => `- ${p.title}: ${p.description}`).join("\n")}`
           : "";
 
-      const prompt = `You are an AI productivity assistant. Transform the user's goal or intention into specific, actionable tasks.
+      const prompt = `You are an AI productivity assistant. Transform the user's goal or intention into specific, actionable tasks with realistic time estimates.
 
 User's goal: "${goalText}"${prioritiesContext}
 
@@ -571,28 +571,38 @@ Analyze this goal and respond with JSON in this exact format:
       "description": "Detailed description of what to do",
       "category": "Category name",
       "priority": "high|medium|low",
+      "timeEstimate": "15 min|30 min|1 hour|2 hours|3 hours|4 hours|1 day",
       "dueDate": null
     }
   ],
   "goalCategory": "Overall category for the goal",
   "goalPriority": "high|medium|low", 
-  "estimatedTimeframe": "Time estimate to complete all tasks",
+  "estimatedTimeframe": "Overall time to complete all tasks (e.g., '2 hours', '1 day', '3 days', '1 week')",
   "motivationalNote": "An encouraging message to keep the user motivated (1 sentence)"
 }
 
-Guidelines:
+CRITICAL Guidelines:
+- ALWAYS include a "timeEstimate" for every single task - never omit this field
+- Time estimates should be realistic and based on the average time it would take to complete the task well
 - Break down complex goals into 2-5 specific, actionable tasks
-- Each task should be completable in one session (15 minutes to 2 hours)
+- Each task should be completable in one session (15 minutes to 4 hours max)
 - Use clear, action-oriented language ("Do X", "Complete Y", "Practice Z")
 - Assign realistic priorities based on urgency and importance
 - Categories should be simple: Health, Work, Personal, Learning, Social, Finance, etc.
 - For recurring goals (daily habits), create tasks for the next few instances
 - Make tasks specific enough that completion is clear and measurable
 
+Time Estimate Examples:
+- Research task → "30 min"
+- Filing paperwork → "1 hour"
+- Writing documentation → "2 hours"
+- Complex coding feature → "4 hours"
+- Multi-step processes → "1 day"
+
 Examples:
-- "Get healthier" → Tasks for meal prep, workout schedule, sleep routine
-- "Learn programming" → Tasks for course selection, practice projects, skill assessment
-- "Organize life" → Tasks for decluttering spaces, organizing documents, creating systems`;
+- "Get healthier" → Tasks for meal prep (30 min), workout schedule (15 min), sleep routine (1 hour)
+- "Learn programming" → Tasks for course selection (1 hour), practice projects (4 hours), skill assessment (30 min)
+- "Organize life" → Tasks for decluttering spaces (2 hours), organizing documents (1 hour), creating systems (3 hours)`;
 
       const response = await anthropic.messages.create({
         model: DEFAULT_CLAUDE_MODEL, // "claude-sonnet-4-20250514"
@@ -619,6 +629,7 @@ Examples:
             description: task.description || "No description provided",
             category: task.category || result.goalCategory || "Personal",
             priority: this.validatePriority(task.priority),
+            timeEstimate: task.timeEstimate || "30 min",
             goalId: null,
             completed: false,
             dueDate: task.dueDate ? new Date(task.dueDate) : null,
