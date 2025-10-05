@@ -177,14 +177,14 @@ export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onTaskSnoo
       {/* Completed Tasks */}
       {completedTasks.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">Completed Today</h3>
+          <h3 className="text-lg font-semibold text-foreground">Completed Tasks</h3>
           <div className="space-y-2">
-            {completedTasks.slice(0, 5).map((task, index) => (
+            {completedTasks.map((task, index) => (
               <motion.div
                 key={task.id}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.2, delay: index * 0.05 }}
+                transition={{ duration: 0.2, delay: Math.min(index * 0.05, 0.3) }}
               >
                 <Card className="p-3 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700">
                   <div className="flex items-center gap-3">
@@ -199,11 +199,6 @@ export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onTaskSnoo
                 </Card>
               </motion.div>
             ))}
-            {completedTasks.length > 5 && (
-              <p className="text-sm text-muted-foreground text-center">
-                +{completedTasks.length - 5} more completed tasks
-              </p>
-            )}
           </div>
         </div>
       )}

@@ -1375,7 +1375,7 @@ export default function MainApp({
             </TabsContent>
 
             {/* All Tasks Tab */}
-            <TabsContent value="tasks" className="space-y-6">
+            <TabsContent value="tasks" className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-8">
               <div className="text-center mb-6 px-4">
                 {selectedActivityId ? (
                   <>
