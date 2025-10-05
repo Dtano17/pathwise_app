@@ -159,10 +159,10 @@ export function AppSidebar({
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   onClick={onShowLifestylePlanner}
-                  data-testid="button-lifestyle-planner-sidebar"
+                  data-testid="button-personal-journal-sidebar"
                 >
-                  <Brain className="w-4 h-4" />
-                  <span>Lifestyle Planner</span>
+                  <BookOpen className="w-4 h-4" />
+                  <span>Personal Journal</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

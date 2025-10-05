@@ -6,18 +6,25 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { 
   BookOpen, Coffee, Film, Music, MapPin, Heart, Star, 
   Save, Plus, X, Utensils, Palette, Book, Sparkles,
-  Plane, Home, ShoppingBag, Gamepad2
+  Plane, Home, ShoppingBag, Gamepad2, Folder
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface JournalEntry {
   category: string;
   items: string[];
+}
+
+interface CustomCategory {
+  id: string;
+  name: string;
+  color: string;
 }
 
 interface PersonalJournalProps {
@@ -29,6 +36,10 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const [activeCategory, setActiveCategory] = useState<string>('restaurants');
   const [newItem, setNewItem] = useState('');
   const [journalData, setJournalData] = useState<Record<string, string[]>>({});
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [selectedColor, setSelectedColor] = useState('from-teal-500 to-cyan-500');
 
   const categories = [
     { id: 'restaurants', label: 'Restaurants & Food', icon: Utensils, color: 'from-orange-500 to-red-500' },
@@ -42,7 +53,13 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     { id: 'notes', label: 'Personal Notes', icon: BookOpen, color: 'from-slate-500 to-gray-500' }
   ];
 
-  const currentCategory = categories.find(c => c.id === activeCategory);
+  const colorOptions = [
+    'from-teal-500 to-cyan-500',
+    'from-violet-500 to-purple-500',
+    'from-fuchsia-500 to-pink-500',
+    'from-rose-500 to-red-500',
+    'from-lime-500 to-green-500'
+  ];
 
   // Load user's journal data
   const { data: userData, isLoading } = useQuery({
@@ -57,9 +74,22 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
         setJournalData(data.preferences.journalData);
       }
       
+      // Load custom categories from preferences
+      if (data?.preferences?.customJournalCategories) {
+        setCustomCategories(data.preferences.customJournalCategories);
+      }
+      
       return data;
     }
   });
+
+  // Merge default and custom categories
+  const allCategories = [
+    ...categories.map(c => ({ ...c, isCustom: false })),
+    ...customCategories.map(c => ({ id: c.id, label: c.name, icon: Folder, color: c.color, isCustom: true }))
+  ];
+
+  const currentCategory = allCategories.find(c => c.id === activeCategory);
 
   // Save journal entry mutation
   const saveEntryMutation = useMutation({
@@ -82,6 +112,57 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       });
     }
   });
+
+  // Save custom category mutation
+  const saveCustomCategoryMutation = useMutation({
+    mutationFn: async (categories: CustomCategory[]) => {
+      const response = await apiRequest('PUT', '/api/user/journal/custom-categories', {
+        customJournalCategories: categories
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
+      toast({
+        title: "Category Added!",
+        description: "Your custom category has been created.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Failed",
+        description: "Could not create category. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleAddCustomCategory = () => {
+    if (!newCategoryName.trim()) {
+      toast({
+        title: "Name Required",
+        description: "Please enter a category name.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const categoryId = newCategoryName.toLowerCase().replace(/\s+/g, '-');
+    const newCategory: CustomCategory = {
+      id: `custom-${categoryId}-${Date.now()}`,
+      name: newCategoryName.trim(),
+      color: selectedColor
+    };
+
+    const updatedCategories = [...customCategories, newCategory];
+    setCustomCategories(updatedCategories);
+    saveCustomCategoryMutation.mutate(updatedCategories);
+    
+    setNewCategoryName('');
+    setSelectedColor('from-teal-500 to-cyan-500');
+    setShowAddCategoryDialog(false);
+    setActiveCategory(newCategory.id);
+  };
 
   const handleAddItem = () => {
     if (!newItem.trim()) return;
@@ -126,7 +207,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
           <CardContent className="p-2">
             <ScrollArea className="h-[400px] lg:h-[calc(90vh-180px)]">
               <div className="space-y-1">
-                {categories.map((category) => {
+                {allCategories.map((category) => {
                   const Icon = category.icon;
                   const isActive = activeCategory === category.id;
                   const itemCount = journalData[category.id]?.length || 0;
@@ -153,6 +234,22 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                     </Button>
                   );
                 })}
+                
+                <Separator className="my-2" />
+                
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-3 h-auto py-3 px-3 border-dashed"
+                  onClick={() => setShowAddCategoryDialog(true)}
+                  data-testid="button-add-category"
+                >
+                  <div className="p-2 rounded-lg bg-muted flex-shrink-0">
+                    <Plus className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className="text-sm font-medium">Add Custom Category</div>
+                  </div>
+                </Button>
               </div>
             </ScrollArea>
           </CardContent>
@@ -295,6 +392,67 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Add Custom Category Dialog */}
+      <Dialog open={showAddCategoryDialog} onOpenChange={setShowAddCategoryDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Custom Category</DialogTitle>
+            <DialogDescription>
+              Create a new category to organize your journal entries.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Category Name</label>
+              <Input
+                placeholder="e.g., Goals, Dreams, Quotes..."
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAddCustomCategory()}
+                data-testid="input-category-name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Color</label>
+              <div className="flex gap-2 flex-wrap">
+                {colorOptions.map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => setSelectedColor(color)}
+                    className={`w-10 h-10 rounded-lg bg-gradient-to-br ${color} ${
+                      selectedColor === color ? 'ring-2 ring-offset-2 ring-primary' : ''
+                    } transition-all`}
+                    data-testid={`color-${color}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddCategoryDialog(false);
+                setNewCategoryName('');
+                setSelectedColor('from-teal-500 to-cyan-500');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddCustomCategory}
+              disabled={!newCategoryName.trim() || saveCustomCategoryMutation.isPending}
+              data-testid="button-create-category"
+            >
+              {saveCustomCategoryMutation.isPending ? 'Creating...' : 'Create Category'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

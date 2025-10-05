@@ -2464,6 +2464,35 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
+  // Personal Journal - Save custom categories
+  app.put("/api/user/journal/custom-categories", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { customJournalCategories } = req.body;
+      
+      if (!Array.isArray(customJournalCategories)) {
+        return res.status(400).json({ error: 'customJournalCategories array required' });
+      }
+
+      // Get existing preferences
+      let prefs = await storage.getUserPreferences(userId);
+      
+      // Update custom categories
+      const currentPrefs = prefs?.preferences || {};
+      const updatedPrefs = await storage.upsertUserPreferences(userId, {
+        preferences: {
+          ...currentPrefs,
+          customJournalCategories
+        }
+      });
+
+      res.json({ success: true, customJournalCategories });
+    } catch (error) {
+      console.error('Error saving custom categories:', error);
+      res.status(500).json({ error: 'Failed to save custom categories' });
+    }
+  });
+
   // ===== CONVERSATIONAL LIFESTYLE PLANNER API ENDPOINTS =====
 
   // Start a new lifestyle planning session

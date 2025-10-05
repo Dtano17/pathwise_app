@@ -825,6 +825,8 @@ export const userPreferences = pgTable("user_preferences", {
     constraints?: string[]; // ['limited_mobility', 'time_constraints', 'budget_conscious']
     communicationTone?: 'formal' | 'casual' | 'encouraging' | 'direct';
     focusAreas?: string[]; // ['career', 'health', 'relationships', 'personal_growth', 'finance']
+    journalData?: { [category: string]: string[] }; // Personal journal entries by category
+    customJournalCategories?: Array<{ id: string; name: string; color: string }>; // User-created journal categories
   }>().default({}),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
