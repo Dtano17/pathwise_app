@@ -2096,20 +2096,53 @@ Assistant: For nutrition, I recommend..."
 
             {/* About Tab */}
             <TabsContent value="about" className="space-y-8">
-              <SignInGate feature="About & Features">
-                <div className="max-w-4xl mx-auto">
-                  {/* Hero Section */}
-                  <div className="text-center mb-12">
-                    <div className="inline-flex items-center justify-center w-32 h-32 mb-6">
-                      <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-32 h-32 object-contain" />
-                  </div>
-                  <h2 className="text-4xl font-bold text-foreground mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
-                    JournalMate AI
-                  </h2>
-                  <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                    Your AI-powered journaling companion that transforms goals into actionable plans and connects you with loved ones on your journey.
-                  </p>
+              <div className="max-w-4xl mx-auto">
+                {/* Hero Section */}
+                <div className="text-center mb-12">
+                  <div className="inline-flex items-center justify-center w-32 h-32 mb-6">
+                    <img src="/journalmate-logo-transparent.png" alt="JournalMate AI - AI-Powered Life Planner with SSO" className="w-32 h-32 object-contain" />
                 </div>
+                <h2 className="text-4xl font-bold text-foreground mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
+                  JournalMate AI - Life Planning with Easy Sign-In
+                </h2>
+                <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                  Your AI-powered journaling companion that transforms goals into actionable plans. Sign in with Google, Facebook, Apple, X/Twitter, or Email for seamless access and secure cloud sync.
+                </p>
+              </div>
+
+              {/* Authentication Options SEO Section */}
+              <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-xl border mb-8">
+                <h3 className="text-xl font-semibold mb-4 text-center">Multiple Sign-In Options - Choose Your Preferred Method</h3>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
+                    <p className="font-medium text-sm">🔐 Google Sign-In (SSO)</p>
+                    <p className="text-xs text-muted-foreground">One-click authentication with your Google account</p>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
+                    <p className="font-medium text-sm">📘 Facebook Login</p>
+                    <p className="text-xs text-muted-foreground">Quick access using Facebook OAuth</p>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
+                    <p className="font-medium text-sm">🍎 Apple ID Sign-In</p>
+                    <p className="text-xs text-muted-foreground">Secure authentication with Apple</p>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
+                    <p className="font-medium text-sm">🐦 X/Twitter Login</p>
+                    <p className="text-xs text-muted-foreground">Sign in with your X (Twitter) account</p>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
+                    <p className="font-medium text-sm">✉️ Email Authentication</p>
+                    <p className="text-xs text-muted-foreground">Traditional email-based sign-in</p>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
+                    <p className="font-medium text-sm">🔒 Secure SSO</p>
+                    <p className="text-xs text-muted-foreground">Enterprise-grade single sign-on security</p>
+                  </div>
+                </div>
+                <p className="text-sm text-center text-muted-foreground mt-4">
+                  All authentication methods use industry-standard OAuth 2.0 and OpenID Connect protocols for maximum security
+                </p>
+              </div>
 
                 {/* Core Features */}
                 <div className="grid gap-6 md:grid-cols-3 mb-12">
@@ -2300,7 +2333,6 @@ Assistant: For nutrition, I recommend..."
                   </Button>
                 </div>
               </div>
-              </SignInGate>
             </TabsContent>
 
           </Tabs>
