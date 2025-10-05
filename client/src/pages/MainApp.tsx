@@ -1125,9 +1125,9 @@ export default function MainApp({
 
             {/* Activities Tab - Primary Focus */}
             <TabsContent value="activities" className="space-y-6">
-              <div className="text-center mb-6">
-                <h2 className="text-3xl font-bold text-foreground mb-2">Your Activities</h2>
-                <p className="text-muted-foreground">
+              <div className="text-center mb-6 px-4">
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Your Activities</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
                   Shareable activities with progress tracking and social features. Click an activity to view its tasks.
                 </p>
               </div>
@@ -1191,18 +1191,18 @@ export default function MainApp({
                         }}
                         data-testid={`activity-card-${activity.id}`}
                       >
-                        <div className="w-full p-6">
-                          <div className="flex justify-between items-start mb-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h3 className="text-lg font-semibold">{activity.title}</h3>
+                        <div className="w-full p-4 sm:p-6">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start gap-2 mb-2">
+                                <h3 className="text-base sm:text-lg font-semibold break-words flex-1">{activity.title}</h3>
+                                <Badge variant="secondary" className="text-xs shrink-0">{activity.category || 'General'}</Badge>
                               </div>
-                              <p className="text-muted-foreground text-sm mb-3">
+                              <p className="text-muted-foreground text-sm line-clamp-2 break-words">
                                 {activity.description || 'No description provided'}
                               </p>
                             </div>
-                            <div className="flex items-center gap-2 ml-4">
-                              <Badge variant="secondary" className="text-xs">{activity.category || 'General'}</Badge>
+                            <div className="flex items-center gap-2 sm:ml-4 shrink-0">
                               <Button 
                                 variant="ghost" 
                                 size="sm"
@@ -1276,30 +1276,28 @@ export default function MainApp({
                             </div>
                           </div>
 
-                          <div className="flex justify-between items-center mb-4">
-                            <div className="flex items-center gap-4">
-                              <div className="flex items-center gap-1 text-sm">
-                                <CheckSquare className="w-4 h-4 text-green-600" />
-                                <span className="font-medium">{completedTasks}/{totalTasks}</span>
-                                <span className="text-muted-foreground">tasks</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-sm">
-                                <Badge variant="outline" className="text-xs font-semibold text-primary">
-                                  {progressPercent}% Complete
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-1 text-sm">
-                                <Badge variant="outline" className="text-xs">
-                                  <span className="capitalize">{activity.status || 'planning'}</span>
-                                </Badge>
-                              </div>
-                              {activity.endDate && (
-                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                  <Calendar className="w-4 h-4" />
-                                  <span>Due {new Date(activity.endDate).toLocaleDateString()}</span>
-                                </div>
-                              )}
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
+                            <div className="flex items-center gap-1 text-sm">
+                              <CheckSquare className="w-4 h-4 text-green-600" />
+                              <span className="font-medium">{completedTasks}/{totalTasks}</span>
+                              <span className="text-muted-foreground">tasks</span>
                             </div>
+                            <div className="flex items-center gap-1 text-sm">
+                              <Badge variant="outline" className="text-xs font-semibold text-primary">
+                                {progressPercent}% Complete
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1 text-sm">
+                              <Badge variant="outline" className="text-xs">
+                                <span className="capitalize">{activity.status || 'planning'}</span>
+                              </Badge>
+                            </div>
+                            {activity.endDate && (
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Calendar className="w-4 h-4" />
+                                <span className="whitespace-nowrap">Due {new Date(activity.endDate).toLocaleDateString()}</span>
+                              </div>
+                            )}
                           </div>
 
                           {/* Progress Bar with Percentage */}
@@ -1338,11 +1336,11 @@ export default function MainApp({
 
             {/* All Tasks Tab */}
             <TabsContent value="tasks" className="space-y-6">
-              <div className="text-center mb-6">
+              <div className="text-center mb-6 px-4">
                 {selectedActivityId ? (
                   <>
-                    <h2 className="text-3xl font-bold text-foreground mb-2">Activity Tasks</h2>
-                    <p className="text-muted-foreground">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Activity Tasks</h2>
+                    <p className="text-sm sm:text-base text-muted-foreground">
                       Tasks for: {activities.find(a => a.id === selectedActivityId)?.title || 'Selected Activity'}
                     </p>
                     <Button 
@@ -1356,13 +1354,14 @@ export default function MainApp({
                       data-testid="button-back-to-activity"
                     >
                       <ArrowLeft className="w-4 h-4 mr-2" />
-                      Back to {activities.find(a => a.id === selectedActivityId)?.title || 'Activity'}
+                      <span className="hidden sm:inline">Back to {activities.find(a => a.id === selectedActivityId)?.title || 'Activity'}</span>
+                      <span className="sm:hidden">Back</span>
                     </Button>
                   </>
                 ) : (
                   <>
-                    <h2 className="text-3xl font-bold text-foreground mb-2">All Tasks</h2>
-                    <p className="text-muted-foreground">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">All Tasks</h2>
+                    <p className="text-sm sm:text-base text-muted-foreground">
                       Manage and track all your tasks. Use filters to find specific tasks.
                     </p>
                   </>
@@ -1396,10 +1395,10 @@ export default function MainApp({
               ) : (
                 <div className="space-y-4 max-w-4xl mx-auto">
                   {/* Filter and Search Controls */}
-                  <div className="flex gap-4 justify-between items-center mb-6">
-                    <div className="flex gap-4 items-center">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:justify-between sm:items-center mb-6">
+                    <div className="flex flex-wrap gap-2 sm:gap-4 items-center">
                       <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger className="w-32">
+                        <SelectTrigger className="w-28 sm:w-32">
                           <SelectValue placeholder="Category" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1413,7 +1412,7 @@ export default function MainApp({
                       </Select>
                       
                       <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-                        <SelectTrigger className="w-32">
+                        <SelectTrigger className="w-28 sm:w-32">
                           <SelectValue placeholder="Priority" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1425,7 +1424,7 @@ export default function MainApp({
                       </Select>
                       
                       <Select value={filter} onValueChange={setFilter}>
-                        <SelectTrigger className="w-40">
+                        <SelectTrigger className="w-32 sm:w-40">
                           <SelectValue placeholder="Status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1442,7 +1441,7 @@ export default function MainApp({
                       placeholder="Search tasks..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="max-w-xs"
+                      className="w-full sm:max-w-xs"
                       data-testid="input-search-tasks"
                     />
                   </div>
