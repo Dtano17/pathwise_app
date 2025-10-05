@@ -1555,6 +1555,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = getUserId(req) || DEMO_USER_ID;
       const { title, description, category, tasks } = req.body;
       
+      // Check if user is authenticated - non-authenticated users limited to 1 activity
+      const isAuthenticated = getUserId(req) !== null;
+      if (!isAuthenticated) {
+        const existingActivities = await storage.getUserActivities(userId);
+        if (existingActivities.length >= 1) {
+          return res.status(403).json({ 
+            error: 'Sign in required',
+            message: 'Free users are limited to 1 activity. Sign in to create unlimited activities and access premium features!',
+            requiresAuth: true
+          });
+        }
+      }
+      
       // Create the activity
       const activity = await storage.createActivity({
         title,

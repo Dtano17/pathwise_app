@@ -290,6 +290,48 @@ export default function MainApp({
   // About page expandable features state
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
 
+  // Check user authentication
+  const { data: user } = useQuery({
+    queryKey: ['/api/user'],
+  });
+  const isAuthenticated = !!user;
+
+  // Sign-in gate component for restricted features
+  const SignInGate = ({ children, feature }: { children: React.ReactNode; feature: string }) => {
+    if (isAuthenticated) {
+      return <>{children}</>;
+    }
+    
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4">
+        <div className="max-w-md text-center space-y-6">
+          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+            <Sparkles className="w-10 h-10 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-2xl font-bold mb-2">Premium Feature</h3>
+            <p className="text-muted-foreground mb-4">
+              {feature} requires a free account. Sign in to unlock unlimited activities, progress tracking, and more!
+            </p>
+          </div>
+          <div className="space-y-3">
+            <Button 
+              onClick={() => window.location.href = '/api/login'} 
+              className="gap-2 w-full"
+              data-testid="button-signin-gate"
+            >
+              <Sparkles className="w-4 h-4" />
+              Sign In Free
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              ✨ Free users: 1 activity • Signed in: Unlimited activities + premium features
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Fetch tasks
   const { data: tasks = [], isLoading: tasksLoading, error: tasksError, refetch: refetchTasks } = useQuery<Task[]>({
     queryKey: ['/api/tasks'],
@@ -963,7 +1005,13 @@ export default function MainApp({
                   {/* Quick Action Buttons */}
                   <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 mb-6">
                     <Button
-                      onClick={() => onShowLifestylePlanner(true)}
+                      onClick={() => {
+                        if (user?.id !== 'DEMO_USER_ID') {
+                          onShowLifestylePlanner(true);
+                        } else {
+                          setShowSignIn(true);
+                        }
+                      }}
                       variant="outline"
                       className="gap-2"
                       data-testid="button-lifestyle-planner"
@@ -1566,20 +1614,22 @@ export default function MainApp({
 
             {/* Progress Tab */}
             <TabsContent value="progress" className="space-y-6">
-              {progressLoading ? (
-                <div className="text-center py-12">
-                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Loading your progress...</p>
-                </div>
-              ) : progressData ? (
-                <ProgressDashboard data={progressData} />
-              ) : (
-                <div className="text-center py-12">
-                  <BarChart3 className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">No progress data yet</h3>
-                  <p className="text-muted-foreground">Complete some tasks to see your analytics!</p>
-                </div>
-              )}
+              <SignInGate feature="Progress tracking">
+                {progressLoading ? (
+                  <div className="text-center py-12">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading your progress...</p>
+                  </div>
+                ) : progressData ? (
+                  <ProgressDashboard data={progressData} />
+                ) : (
+                  <div className="text-center py-12">
+                    <BarChart3 className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold mb-2">No progress data yet</h3>
+                    <p className="text-muted-foreground">Complete some tasks to see your analytics!</p>
+                  </div>
+                )}
+              </SignInGate>
 
               {/* Lifestyle Suggestions */}
               {progressData?.lifestyleSuggestions && progressData.lifestyleSuggestions.length > 0 && (
@@ -1601,11 +1651,12 @@ export default function MainApp({
 
             {/* App Integrations Tab */}
             <TabsContent value="sync" className="h-full flex flex-col">
-              <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
-                  <Sparkles className="w-6 h-6" />
-                  App Integrations
-                </h2>
+              <SignInGate feature="App integrations">
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
+                    <Sparkles className="w-6 h-6" />
+                    App Integrations
+                  </h2>
                 <p className="text-muted-foreground">
                   Connect your favorite AI assistants, music platforms, and social media to create personalized life plans
                 </p>
@@ -1840,20 +1891,22 @@ Assistant: For nutrition, I recommend..."
                   </Card>
                 )}
               </div>
+              </SignInGate>
             </TabsContent>
 
             {/* Groups Tab */}
             <TabsContent value="groups" className="space-y-6">
-              <div className="max-w-4xl mx-auto">
-                <div className="text-center mb-8">
-                  <h2 className="text-3xl font-bold text-foreground mb-4 flex items-center justify-center gap-2">
-                    <Users className="w-8 h-8" />
-                    Group Goals & Shared Accountability
-                  </h2>
-                  <p className="text-xl text-muted-foreground">
-                    Create groups, share goals, and celebrate progress together!
-                  </p>
-                </div>
+              <SignInGate feature="Group collaboration">
+                <div className="max-w-4xl mx-auto">
+                  <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold text-foreground mb-4 flex items-center justify-center gap-2">
+                      <Users className="w-8 h-8" />
+                      Group Goals & Shared Accountability
+                    </h2>
+                    <p className="text-xl text-muted-foreground">
+                      Create groups, share goals, and celebrate progress together!
+                    </p>
+                  </div>
 
                 <div className="grid gap-6 md:grid-cols-2">
                   {/* Create New Group */}
@@ -2038,15 +2091,17 @@ Assistant: For nutrition, I recommend..."
                   </Card>
                 </div>
               </div>
+              </SignInGate>
             </TabsContent>
 
             {/* About Tab */}
             <TabsContent value="about" className="space-y-8">
-              <div className="max-w-4xl mx-auto">
-                {/* Hero Section */}
-                <div className="text-center mb-12">
-                  <div className="inline-flex items-center justify-center w-32 h-32 mb-6">
-                    <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-32 h-32 object-contain" />
+              <SignInGate feature="About & Features">
+                <div className="max-w-4xl mx-auto">
+                  {/* Hero Section */}
+                  <div className="text-center mb-12">
+                    <div className="inline-flex items-center justify-center w-32 h-32 mb-6">
+                      <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-32 h-32 object-contain" />
                   </div>
                   <h2 className="text-4xl font-bold text-foreground mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
                     JournalMate AI
@@ -2245,6 +2300,7 @@ Assistant: For nutrition, I recommend..."
                   </Button>
                 </div>
               </div>
+              </SignInGate>
             </TabsContent>
 
           </Tabs>
