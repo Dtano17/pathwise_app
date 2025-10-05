@@ -667,6 +667,24 @@ export const activityTasks = pgTable("activity_tasks", {
   activityOrderIndex: index("activity_order_index").on(table.activityId, table.order),
 }));
 
+// Activity permission requests for shared activities
+export const activityPermissionRequests = pgTable("activity_permission_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "cascade" }).notNull(),
+  requestedBy: varchar("requested_by").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  ownerId: varchar("owner_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  permissionType: text("permission_type").notNull().default("edit"), // 'edit' | 'view' | 'admin'
+  status: text("status").notNull().default("pending"), // 'pending' | 'approved' | 'denied'
+  message: text("message"), // Optional message from requester
+  requestedAt: timestamp("requested_at").defaultNow(),
+  respondedAt: timestamp("responded_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  activityRequestIndex: index("activity_request_index").on(table.activityId, table.status),
+  requesterIndex: index("requester_index").on(table.requestedBy, table.status),
+  ownerStatusIndex: index("owner_status_index").on(table.ownerId, table.status),
+}));
+
 // Add Zod schemas for new tables
 export const insertAuthIdentitySchema = createInsertSchema(authIdentities).omit({
   id: true,
@@ -697,6 +715,13 @@ export const insertContactShareSchema = createInsertSchema(contactShares).omit({
   respondedAt: true,
 });
 
+export const insertActivityPermissionRequestSchema = createInsertSchema(activityPermissionRequests).omit({
+  id: true,
+  requestedAt: true,
+  respondedAt: true,
+  createdAt: true,
+});
+
 // Add TypeScript types for new tables
 export type AuthIdentity = typeof authIdentities.$inferSelect;
 export type InsertAuthIdentity = z.infer<typeof insertAuthIdentitySchema>;
@@ -709,6 +734,9 @@ export type InsertContact = z.infer<typeof insertContactSchema>;
 
 export type ContactShare = typeof contactShares.$inferSelect;
 export type InsertContactShare = z.infer<typeof insertContactShareSchema>;
+
+export type ActivityPermissionRequest = typeof activityPermissionRequests.$inferSelect;
+export type InsertActivityPermissionRequest = z.infer<typeof insertActivityPermissionRequestSchema>;
 
 // Additional contact sync validation
 export const syncContactsSchema = z.object({

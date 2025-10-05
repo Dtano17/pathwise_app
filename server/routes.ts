@@ -1193,7 +1193,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user tasks
   app.get("/api/tasks", async (req, res) => {
     try {
-      const tasks = await storage.getUserTasks(DEMO_USER_ID);
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const tasks = await storage.getUserTasks(userId);
       res.json(tasks);
     } catch (error) {
       console.error('Get tasks error:', error);
@@ -1205,7 +1206,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/tasks/:taskId/complete", async (req, res) => {
     try {
       const { taskId } = req.params;
-      const task = await storage.completeTask(taskId, DEMO_USER_ID);
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const task = await storage.completeTask(taskId, userId);
       
       if (!task) {
         return res.status(404).json({ error: 'Task not found' });
@@ -1231,11 +1233,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/tasks/:taskId/skip", async (req, res) => {
     try {
       const { taskId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
       
       // Mark task as skipped
       const task = await storage.updateTask(taskId, {
         skipped: true
-      }, DEMO_USER_ID);
+      }, userId);
 
       if (!task) {
         return res.status(404).json({ error: 'Task not found' });
@@ -1255,6 +1258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/tasks/:taskId/snooze", async (req, res) => {
     try {
       const { taskId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
       const snoozeSchema = z.object({
         hours: z.number().int().positive().max(168) // Max 1 week
       });
@@ -1267,7 +1271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const task = await storage.updateTask(taskId, {
         snoozeUntil: snoozeUntil
-      }, DEMO_USER_ID);
+      }, userId);
 
       if (!task) {
         return res.status(404).json({ error: 'Task not found' });
@@ -1287,10 +1291,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new task manually
   app.post("/api/tasks", async (req, res) => {
     try {
+      const userId = getUserId(req) || DEMO_USER_ID;
       const taskData = insertTaskSchema.parse(req.body);
       const task = await storage.createTask({
         ...taskData,
-        userId: DEMO_USER_ID
+        userId
       });
       
       res.json(task);
@@ -1323,7 +1328,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user activities
   app.get("/api/activities", async (req, res) => {
     try {
-      const activities = await storage.getUserActivities(DEMO_USER_ID);
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const activities = await storage.getUserActivities(userId);
       res.json(activities);
     } catch (error) {
       console.error('Get activities error:', error);
@@ -1334,10 +1340,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new activity
   app.post("/api/activities", async (req, res) => {
     try {
+      const userId = getUserId(req) || DEMO_USER_ID;
       const activityData = insertActivitySchema.parse(req.body);
       const activity = await storage.createActivity({
         ...activityData,
-        userId: DEMO_USER_ID
+        userId
       });
       res.json(activity);
     } catch (error) {
@@ -1350,7 +1357,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/activities/:activityId", async (req, res) => {
     try {
       const { activityId } = req.params;
-      const activity = await storage.getActivity(activityId, DEMO_USER_ID);
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const activity = await storage.getActivity(activityId, userId);
       
       if (!activity) {
         return res.status(404).json({ error: 'Activity not found' });
@@ -1368,8 +1376,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/activities/:activityId", async (req, res) => {
     try {
       const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
       const updates = req.body;
-      const activity = await storage.updateActivity(activityId, updates, DEMO_USER_ID);
+      const activity = await storage.updateActivity(activityId, updates, userId);
       
       if (!activity) {
         return res.status(404).json({ error: 'Activity not found' });
@@ -1386,7 +1395,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/activities/:activityId", async (req, res) => {
     try {
       const { activityId } = req.params;
-      await storage.deleteActivity(activityId, DEMO_USER_ID);
+      const userId = getUserId(req) || DEMO_USER_ID;
+      await storage.deleteActivity(activityId, userId);
       res.json({ success: true });
     } catch (error) {
       console.error('Delete activity error:', error);
@@ -1429,7 +1439,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/activities/:activityId/tasks", async (req, res) => {
     try {
       const { activityId } = req.params;
-      const tasks = await storage.getActivityTasks(activityId, DEMO_USER_ID);
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const tasks = await storage.getActivityTasks(activityId, userId);
       res.json(tasks);
     } catch (error) {
       console.error('Get activity tasks error:', error);
@@ -1453,7 +1464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/activities/:activityId/share", async (req, res) => {
     try {
       const { activityId } = req.params;
-      const userId = DEMO_USER_ID; // Use demo user for now, would be req.user.id in authenticated app
+      const userId = getUserId(req) || DEMO_USER_ID;
       const shareToken = await storage.generateShareableLink(activityId, userId);
       
       if (!shareToken) {
@@ -1603,7 +1614,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get progress dashboard data
   app.get("/api/progress", async (req, res) => {
     try {
-      const tasks = await storage.getUserTasks(DEMO_USER_ID);
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const tasks = await storage.getUserTasks(userId);
       const today = new Date().toISOString().split('T')[0];
       
       // Calculate today's progress
@@ -1672,7 +1684,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/journal/:date", async (req, res) => {
     try {
       const { date } = req.params;
-      const entry = await storage.getUserJournalEntry(DEMO_USER_ID, date);
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const entry = await storage.getUserJournalEntry(userId, date);
       res.json(entry || null);
     } catch (error) {
       console.error('Get journal error:', error);
@@ -1682,10 +1695,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/journal", async (req, res) => {
     try {
+      const userId = getUserId(req) || DEMO_USER_ID;
       const entryData = insertJournalEntrySchema.parse(req.body);
       const entry = await storage.createJournalEntry({
         ...entryData,
-        userId: DEMO_USER_ID
+        userId
       });
       res.json(entry);
     } catch (error) {
@@ -1697,8 +1711,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/journal/:entryId", async (req, res) => {
     try {
       const { entryId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
       const updates = req.body;
-      const entry = await storage.updateJournalEntry(entryId, updates, DEMO_USER_ID);
+      const entry = await storage.updateJournalEntry(entryId, updates, userId);
       
       if (!entry) {
         return res.status(404).json({ error: 'Journal entry not found' });
@@ -1714,6 +1729,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Chat Import routes
   app.post("/api/chat/import", async (req, res) => {
     try {
+      const userId = getUserId(req) || DEMO_USER_ID;
       const data = insertChatImportSchema.parse(req.body);
       
       if (!data.chatHistory || !Array.isArray(data.chatHistory) || data.chatHistory.length === 0) {
@@ -1725,12 +1741,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         source: data.source,
         conversationTitle: data.conversationTitle || 'Imported Conversation',
         chatHistory: data.chatHistory as Array<{role: 'user' | 'assistant', content: string, timestamp?: string}>
-      }, DEMO_USER_ID);
+      }, userId);
 
       // Create chat import record
       const chatImport = await storage.createChatImport({
         ...data,
-        userId: DEMO_USER_ID,
+        userId,
         extractedGoals: chatProcessingResult.extractedGoals
       });
 
@@ -1739,7 +1755,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         chatProcessingResult.tasks.map(task =>
           storage.createTask({
             ...task,
-            userId: DEMO_USER_ID,
+            userId,
           })
         )
       );
@@ -1762,7 +1778,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/chat/imports", async (req, res) => {
     try {
-      const imports = await storage.getUserChatImports(DEMO_USER_ID);
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const imports = await storage.getUserChatImports(userId);
       res.json(imports);
     } catch (error) {
       console.error('Get chat imports error:', error);
@@ -1772,7 +1789,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/chat/imports/:id", async (req, res) => {
     try {
-      const chatImport = await storage.getChatImport(req.params.id, DEMO_USER_ID);
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const chatImport = await storage.getChatImport(req.params.id, userId);
       if (!chatImport) {
         return res.status(404).json({ error: 'Chat import not found' });
       }
@@ -3137,8 +3155,9 @@ You can find these tasks in your task list and start working on them right away!
   // Scheduling Suggestions
   app.get("/api/scheduling/suggestions", async (req, res) => {
     try {
+      const userId = getUserId(req) || DEMO_USER_ID;
       const date = req.query.date as string;
-      const suggestions = await storage.getUserSchedulingSuggestions(DEMO_USER_ID, date);
+      const suggestions = await storage.getUserSchedulingSuggestions(userId, date);
       res.json(suggestions);
     } catch (error) {
       console.error('Error fetching scheduling suggestions:', error);
@@ -3148,6 +3167,7 @@ You can find these tasks in your task list and start working on them right away!
 
   app.post("/api/scheduling/generate", async (req, res) => {
     try {
+      const userId = getUserId(req) || DEMO_USER_ID;
       const { targetDate } = z.object({ targetDate: z.string() }).parse(req.body);
       
       if (!targetDate) {
@@ -3155,7 +3175,7 @@ You can find these tasks in your task list and start working on them right away!
       }
       
       // Generate smart scheduling suggestions
-      const suggestions = await generateSchedulingSuggestions(DEMO_USER_ID, targetDate);
+      const suggestions = await generateSchedulingSuggestions(userId, targetDate);
       
       res.json({ success: true, suggestions, message: `Generated ${suggestions.length} scheduling suggestions` });
     } catch (error) {
@@ -3166,16 +3186,17 @@ You can find these tasks in your task list and start working on them right away!
 
   app.post("/api/scheduling/suggestions/:suggestionId/accept", async (req, res) => {
     try {
+      const userId = getUserId(req) || DEMO_USER_ID;
       const { suggestionId } = req.params;
       
-      const suggestion = await storage.acceptSchedulingSuggestion(suggestionId, DEMO_USER_ID);
+      const suggestion = await storage.acceptSchedulingSuggestion(suggestionId, userId);
       
       if (!suggestion) {
         return res.status(404).json({ error: 'Scheduling suggestion not found' });
       }
       
       // Create reminders for each task in the accepted schedule
-      await createRemindersFromSchedule(suggestion, DEMO_USER_ID);
+      await createRemindersFromSchedule(suggestion, userId);
       
       res.json({ 
         success: true, 
