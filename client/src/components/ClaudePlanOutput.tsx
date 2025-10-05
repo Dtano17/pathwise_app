@@ -251,26 +251,67 @@ export default function ClaudePlanOutput({
         </Card>
       )}
 
-      {/* Progress Summary */}
-      <div className="text-center pt-4">
-        {(() => {
-          const completedCount = tasks.filter(t => t.completed || completedTasks.has(t.id)).length;
-          const progressPercent = tasks.length > 0 ? Math.min(100, (completedCount / tasks.length) * 100) : 0;
-          return (
-            <>
-              <p className="text-sm text-muted-foreground">
-                {completedCount} of {tasks.length} tasks completed
-              </p>
-              <div className="w-full bg-secondary/20 rounded-full h-2 mt-2">
-                <div 
-                  className="bg-primary h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${progressPercent}%` }}
-                />
+      {/* Activity Progress Tracking */}
+      {activityId && (
+        <Card className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 border-emerald-200 dark:border-emerald-700">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center">
+                <Target className="w-4 h-4 text-white" />
               </div>
-            </>
-          );
-        })()}
-      </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-emerald-900 dark:text-emerald-100">Activity Created!</h4>
+                <p className="text-xs text-emerald-700 dark:text-emerald-300">Track your progress below</p>
+              </div>
+            </div>
+            {(() => {
+              const completedCount = tasks.filter(t => t.completed || completedTasks.has(t.id)).length;
+              const progressPercent = tasks.length > 0 ? Math.min(100, (completedCount / tasks.length) * 100) : 0;
+              return (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-emerald-800 dark:text-emerald-200 font-medium">Progress</span>
+                    <span className="text-emerald-900 dark:text-emerald-100 font-bold">{completedCount} / {tasks.length} tasks</span>
+                  </div>
+                  <div className="w-full bg-emerald-200/50 dark:bg-emerald-800/30 rounded-full h-3">
+                    <div 
+                      className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-3 rounded-full transition-all duration-500 flex items-center justify-end pr-1"
+                      style={{ width: `${progressPercent}%` }}
+                    >
+                      {progressPercent > 15 && (
+                        <span className="text-[10px] font-bold text-white">{Math.round(progressPercent)}%</span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </Card>
+      )}
+      
+      {/* Progress Summary (when no activity created yet) */}
+      {!activityId && (
+        <div className="text-center pt-4">
+          {(() => {
+            const completedCount = tasks.filter(t => t.completed || completedTasks.has(t.id)).length;
+            const progressPercent = tasks.length > 0 ? Math.min(100, (completedCount / tasks.length) * 100) : 0;
+            return (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  {completedCount} of {tasks.length} tasks completed
+                </p>
+                <div className="w-full bg-secondary/20 rounded-full h-2 mt-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="pt-6 border-t">

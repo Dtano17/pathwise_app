@@ -884,7 +884,6 @@ export default function MainApp({
               <VoiceInput
                 onSubmit={(text) => processGoalMutation.mutate(text)}
                 isGenerating={processGoalMutation.isPending}
-                placeholder="Tell me about your goals... or copy/paste a ChatGPT conversation to convert it into an action plan!"
               />
 
               {/* Interactive Options */}

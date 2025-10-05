@@ -73,6 +73,12 @@ A mobile-first AI-powered journaling application that transforms user intentions
 - **Anthropic Integration**: Active, Claude API for conversational planning
 
 ## Recent Changes
+- **October 4, 2025** (Evening - Latest):
+  - ✅ Cleaned up VoiceInput placeholder text - simplified to "describe your goals"
+  - ✅ Enhanced activity tracking on main page with prominent progress bar
+  - ✅ Added visual activity progress card with emerald gradient when activity is created
+  - ✅ Task completion with strikethrough and confetti celebration working on main page
+  - ✅ Free-to-use features: All activity and task features work without sign-in on main page
 - **October 4, 2025** (Evening):
   - ✅ Transformed "Lifestyle Planner" into responsive "Personal Journal" 
   - ✅ Created journal-style interface for capturing personal interests and preferences
