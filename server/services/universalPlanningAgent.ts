@@ -265,6 +265,59 @@ Make sure each step has a clear, actionable title and helpful description.`
           );
         }
       }
+
+      // EARLY CHECK: Handle confirmation/refinement responses BEFORE context analysis
+      // This prevents "yes"/"no" from being flagged as low confidence
+      const hasGeneratedPlan = currentSlots?._generatedPlan;
+      const isRefinementMode = currentSlots?._planState === 'refining';
+      const isConfirmingMode = currentSlots?._planState === 'confirming';
+      const userConfirmation = this.detectConfirmation(userMessage);
+
+      // If we're in confirming mode and user says yes/no, handle it immediately
+      if (isConfirmingMode && userConfirmation === 'yes') {
+        console.log('[CONFIRMATION] User approved plan - ready to generate');
+        return {
+          message: "Perfect! Click the **Create Activity** button below to create your actionable plan! 🚀",
+          phase: 'confirmed',
+          progress: { percentage: 100, answered: 100, total: 100 },
+          readyToGenerate: true,
+          planReady: true,
+          showGenerateButton: true,
+          enrichedPlan: currentSlots._generatedPlan,
+          updatedSlots: { ...currentSlots, _planState: 'confirmed' },
+          domain: currentDomain
+        };
+      }
+
+      if (isConfirmingMode && userConfirmation === 'no') {
+        console.log('[REFINEMENT] User wants changes - entering refinement mode');
+        return {
+          message: "No problem! What would you like to add or change? (You can also say 'none' if you changed your mind)",
+          phase: 'refining',
+          progress: { percentage: 100, answered: 100, total: 100 },
+          readyToGenerate: false,
+          planReady: false,
+          showGenerateButton: false,
+          updatedSlots: { ...currentSlots, _planState: 'refining' },
+          domain: currentDomain
+        };
+      }
+
+      // Handle refinement "none" response early
+      if (isRefinementMode && userMessage.toLowerCase() === 'none') {
+        console.log('[REFINEMENT] User chose "none" - back to confirmation');
+        return {
+          message: currentSlots._generatedPlan.richContent + "\n\n---\n\n**Are you comfortable with this plan?**\n\n• Say **'yes'** to proceed with generating\n• Say **'no'** to make changes",
+          phase: 'confirming',
+          progress: { percentage: 100, answered: 100, total: 100 },
+          readyToGenerate: false,
+          planReady: false,
+          showGenerateButton: false,
+          updatedSlots: { ...currentSlots, _planState: 'confirming' },
+          domain: currentDomain
+        };
+      }
+      
       // PHASE 1: Recognize Context Switch
       const context = await this.recognizeContext(
         userMessage,
@@ -275,7 +328,8 @@ Make sure each step has a clear, actionable title and helpful description.`
       console.log('[PHASE 1] Context:', context);
 
       // Check if user is asking about non-planning topic (low confidence)
-      if (context.confidence < 0.5) {
+      // Skip this check if we're in refinement mode (user is providing changes)
+      if (context.confidence < 0.5 && !isRefinementMode) {
         // If we have conversation history, don't reset - just ask for clarification
         if (conversationHistory && conversationHistory.length > 0) {
           return {
@@ -463,44 +517,6 @@ Make sure each step has a clear, actionable title and helpful description.`
         };
       }
 
-      // Check if user is in refinement mode (adding changes to plan)
-      const isRefinementMode = currentSlots?._planState === 'refining';
-      const hasGeneratedPlan = currentSlots?._generatedPlan;
-
-      // Handle user confirmation response
-      const userConfirmation = this.detectConfirmation(userMessage);
-
-      if (hasGeneratedPlan && userConfirmation === 'yes') {
-        console.log('[CONFIRMATION] User approved plan - ready to generate');
-        return {
-          message: "Perfect! Click the **Generate Plan** button below to create your actionable plan! 🚀",
-          phase: 'confirmed',
-          progress: { percentage: 100, answered: gapAnalysis.totalCount, total: gapAnalysis.totalCount },
-          contextChips,
-          readyToGenerate: true,
-          planReady: true,
-          showGenerateButton: true,
-          enrichedPlan: currentSlots._generatedPlan,
-          updatedSlots: { ...mergedSlots, _planState: 'confirmed' },
-          domain: context.domain
-        };
-      }
-
-      if (hasGeneratedPlan && userConfirmation === 'no') {
-        console.log('[REFINEMENT] User wants changes - entering refinement mode');
-        return {
-          message: "No problem! What would you like to add or change? (You can also say 'none' if you changed your mind)",
-          phase: 'refining',
-          progress: gapAnalysis.progress,
-          contextChips,
-          readyToGenerate: false,
-          planReady: false,
-          showGenerateButton: false,
-          updatedSlots: { ...mergedSlots, _planState: 'refining' },
-          domain: context.domain
-        };
-      }
-
       // Handle refinement input (user providing changes one at a time)
       if (isRefinementMode && userMessage.toLowerCase() !== 'none') {
         console.log('[REFINEMENT] Processing user changes:', userMessage);
@@ -542,21 +558,6 @@ Make sure each step has a clear, actionable title and helpful description.`
             _enrichedData: enrichedData, // Keep cached enrichment
             _planState: 'confirming'
           },
-          domain: context.domain
-        };
-      }
-
-      if (isRefinementMode && userMessage.toLowerCase() === 'none') {
-        console.log('[REFINEMENT] User chose "none" - back to confirmation');
-        return {
-          message: currentSlots._generatedPlan.richContent + "\n\n---\n\n**Are you comfortable with this plan?**\n\n• Say **'yes'** to proceed with generating\n• Say **'no'** to make changes",
-          phase: 'confirming',
-          progress: gapAnalysis.progress,
-          contextChips,
-          readyToGenerate: false,
-          planReady: false,
-          showGenerateButton: false,
-          updatedSlots: { ...mergedSlots, _planState: 'confirming' },
           domain: context.domain
         };
       }
