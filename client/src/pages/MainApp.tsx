@@ -675,7 +675,7 @@ export default function MainApp({
       });
       return response.json();
     },
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
@@ -686,10 +686,40 @@ export default function MainApp({
       activityIdRef.current = data.id;
       console.log('📌 Set activityIdRef.current to:', activityIdRef.current);
       
-      // Update current plan with the created activity ID
+      // Fetch the newly created tasks to get their IDs
+      await queryClient.refetchQueries({ queryKey: ['/api/tasks'] });
+      const updatedTasks = queryClient.getQueryData<Task[]>(['/api/tasks']) || [];
+      
+      // Get the task IDs from the response (backend should return created tasks)
+      const createdTaskIds = data.tasks?.map((t: any) => t.id) || [];
+      
+      // Update current plan with the created activity ID AND the real tasks with IDs
       setCurrentPlanOutput(prev => {
-        const updated = prev ? { ...prev, activityId: data.id } : null;
-        console.log('📝 Updated currentPlanOutput with activityId:', updated?.activityId);
+        if (!prev) return null;
+        
+        // Map preview tasks to actual created tasks by matching title
+        const tasksWithIds = prev.tasks.map((previewTask, index) => {
+          // Try to find by ID first (if backend returned it)
+          const taskId = createdTaskIds[index];
+          if (taskId) {
+            const createdTask = updatedTasks.find(t => t.id === taskId);
+            if (createdTask) return createdTask;
+          }
+          
+          // Fallback: match by title from recently fetched tasks
+          const createdTask = updatedTasks.find(t => 
+            t.title === previewTask.title &&
+            !prev.tasks.some((pt, i) => i < index && pt.title === t.title) // Avoid duplicate matches
+          );
+          return createdTask || previewTask;
+        });
+        
+        const updated = {
+          ...prev,
+          activityId: data.id,
+          tasks: tasksWithIds
+        };
+        console.log('📝 Updated currentPlanOutput with activityId and real task IDs:', updated.activityId, tasksWithIds.map(t => t.id));
         return updated;
       });
       

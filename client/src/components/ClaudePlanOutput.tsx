@@ -62,6 +62,12 @@ export default function ClaudePlanOutput({
   }, [tasks]);
 
   const handleCompleteTask = (taskId: string) => {
+    // Prevent completing preview tasks (tasks without IDs)
+    if (!taskId) {
+      console.warn('Cannot complete preview task without ID');
+      return;
+    }
+    
     const newCompleted = new Set(completedTasks);
     newCompleted.add(taskId);
     setCompletedTasks(newCompleted);
@@ -194,10 +200,11 @@ export default function ClaudePlanOutput({
                         size="sm"
                         variant="outline"
                         className="gap-2 shrink-0 w-full sm:w-auto"
+                        disabled={!task.id || !activityId}
                         data-testid={`button-complete-task-${index}`}
                       >
                         <CheckCircle className="w-4 h-4" />
-                        Complete
+                        {!activityId ? 'Create Activity First' : 'Complete'}
                       </Button>
                     )}
                   </div>
