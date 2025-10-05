@@ -82,6 +82,7 @@ A mobile-first AI-powered journaling application that transforms user intentions
   - ✅ **SEO Optimization**: About tab now public and optimized for search engines with AI planner, goal tracker, task manager keywords
   - ✅ **About Tab Public Access**: Removed authentication gate from About tab for better search discoverability
   - ✅ **Search-Friendly Content**: Added keywords like "AI planner", "smart goal tracker", "AI journal", "task manager", "productivity analytics" for better SEO
+  - ✅ **SignInGate UX Update**: Changed "Premium Feature" to "Sign in to access this feature", replaced Sparkles icon with LogIn icon, maintains unified sign-in flow via /api/login
   - ✅ **Automatic Activity Creation**: "Yes" confirmations now automatically create activities and tasks - no manual button click needed!
   - ✅ When user confirms a plan with "yes", the system instantly creates the activity with all tasks and displays a success message
   - ✅ Supports both structured data formats: { activity, tasks } and flat { title, description, category, tasks }

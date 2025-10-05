@@ -18,7 +18,7 @@ import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
 import ProgressReport from './ProgressReport';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, Archive, Plug, Info } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, Archive, Plug, Info, LogIn } from 'lucide-react';
 import { Link } from 'wouter';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
@@ -306,12 +306,12 @@ export default function MainApp({
       <div className="flex flex-col items-center justify-center py-12 px-4">
         <div className="max-w-md text-center space-y-6">
           <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-            <Sparkles className="w-10 h-10 text-primary" />
+            <LogIn className="w-10 h-10 text-primary" />
           </div>
           <div>
-            <h3 className="text-2xl font-bold mb-2">Premium Feature</h3>
+            <h3 className="text-2xl font-bold mb-2">Sign in to access this feature</h3>
             <p className="text-muted-foreground mb-4">
-              {feature} requires a free account. Sign in to unlock unlimited activities, progress tracking, and more!
+              {feature} and other features require a free account. Sign in to unlock unlimited activities, progress tracking, and more!
             </p>
           </div>
           <div className="space-y-3">
@@ -320,11 +320,11 @@ export default function MainApp({
               className="gap-2 w-full"
               data-testid="button-signin-gate"
             >
-              <Sparkles className="w-4 h-4" />
+              <LogIn className="w-4 h-4" />
               Sign In Free
             </Button>
             <p className="text-xs text-muted-foreground">
-              ✨ Free users: 1 activity • Signed in: Unlimited activities + premium features
+              Free users: 1 activity • Signed in: Unlimited activities + features
             </p>
           </div>
         </div>
