@@ -1491,7 +1491,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get the tasks for this activity (using the owner's userId)
-      const activityTasks = await storage.getActivityTasks(activity.id, activity.userId);
+      let activityTasks: any[] = [];
+      try {
+        activityTasks = await storage.getActivityTasks(activity.id, activity.userId);
+      } catch (taskError) {
+        console.error('Error fetching activity tasks:', taskError);
+        // Continue with empty tasks array if there's an error
+        activityTasks = [];
+      }
       
       // Get owner information for "sharedBy"
       let sharedBy = undefined;
