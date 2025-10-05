@@ -88,7 +88,7 @@ interface VoiceInputProps {
   placeholder?: string;
 }
 
-const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "Tell me what you'd like to accomplish..." }) => {
+const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "describe your goals" }) => {
   const [text, setText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -779,33 +779,6 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                     )}
                     {/* Integrated controls inside textarea */}
                     <div className="absolute bottom-2 right-2 flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 sm:h-8 sm:w-8 opacity-60 hover:opacity-100 transition-opacity"
-                        onClick={async () => {
-                          try {
-                            const clipboardText = await navigator.clipboard.readText();
-                            if (clipboardText) {
-                              setText(clipboardText);
-                              toast({
-                                title: "Pasted!",
-                                description: "ChatGPT conversation pasted successfully",
-                              });
-                            }
-                          } catch (err) {
-                            toast({
-                              title: "Paste manually",
-                              description: "Use Ctrl+V (or Cmd+V) to paste",
-                              variant: "destructive"
-                            });
-                          }
-                        }}
-                        disabled={isGenerating}
-                        data-testid="button-paste"
-                      >
-                        <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
-                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
