@@ -103,19 +103,19 @@ export default function ClaudePlanOutput({
       )}
 
       {/* Plan Header */}
-      <Card className="p-6 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
-        <div className="space-y-4">
+      <Card className="p-4 sm:p-6 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
+        <div className="space-y-3 sm:space-y-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
               <Target className="w-5 h-5 text-primary" />
             </div>
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold text-foreground" data-testid="text-plan-title">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground break-words" data-testid="text-plan-title">
                 {planTitle || 'Your Action Plan'}
               </h2>
               {estimatedTimeframe && (
                 <div className="flex items-center gap-2 mt-1">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
                   <span className="text-sm text-muted-foreground" data-testid="text-timeframe">
                     {estimatedTimeframe}
                   </span>
@@ -125,7 +125,7 @@ export default function ClaudePlanOutput({
           </div>
           
           {summary && (
-            <p className="text-muted-foreground leading-relaxed" data-testid="text-plan-summary">
+            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed break-words" data-testid="text-plan-summary">
               {summary}
             </p>
           )}

@@ -902,11 +902,11 @@ export default function MainApp({
 
             {/* Goal Input Tab */}
             <TabsContent value="input" className="space-y-6">
-              <div className="text-center mb-6">
-                <h2 className="text-3xl font-bold text-foreground mb-2">
+              <div className="text-center mb-6 px-4">
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
                   What do you want to achieve?
                 </h2>
-                <p className="text-muted-foreground">
+                <p className="text-sm sm:text-base text-muted-foreground">
                   Share your goals through voice or text - AI will create actionable tasks for you
                 </p>
               </div>
