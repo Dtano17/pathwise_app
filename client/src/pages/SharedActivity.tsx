@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, Sparkles, ArrowLeft } from 'lucide-react';
+import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, Sparkles, ArrowLeft, Edit } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
 
 interface SharedActivityData {
   activity: {
@@ -46,6 +47,7 @@ export default function SharedActivity() {
   const { token } = useParams<{ token: string }>();
   const { toast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [permissionRequested, setPermissionRequested] = useState(false);
 
   // Check authentication status
   const { data: user } = useQuery({
@@ -78,6 +80,31 @@ export default function SharedActivity() {
   const handleSignIn = () => {
     window.location.href = '/api/login';
   };
+
+  // Request permission to edit mutation
+  const requestPermissionMutation = useMutation({
+    mutationFn: async () => {
+      if (!data?.activity?.id) throw new Error('Activity ID not found');
+      return await apiRequest(`/api/activities/${data.activity.id}/request-permission`, {
+        method: 'POST',
+        body: JSON.stringify({ permissionType: 'edit' })
+      });
+    },
+    onSuccess: () => {
+      setPermissionRequested(true);
+      toast({
+        title: 'Permission Requested',
+        description: 'The activity owner will be notified of your request.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Request Failed',
+        description: error.message || 'Failed to request permission. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
 
   if (isLoading) {
     return (
@@ -371,12 +398,48 @@ export default function SharedActivity() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.3 }}
-            className="mt-8 text-center"
+            className="mt-8"
           >
-            <Button onClick={() => window.location.href = '/'} variant="outline" className="gap-2">
-              <Sparkles className="w-4 h-4" />
-              Create Your Own Activity
-            </Button>
+            <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+              <div className="flex flex-col items-center gap-4">
+                {activity.userId !== user?.id && !permissionRequested && (
+                  <div className="w-full">
+                    <h3 className="text-lg font-bold mb-2">Want to collaborate on this activity?</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Request permission to edit and contribute to this plan
+                    </p>
+                    <Button 
+                      onClick={() => requestPermissionMutation.mutate()}
+                      disabled={requestPermissionMutation.isPending}
+                      className="gap-2"
+                      data-testid="button-request-permission"
+                    >
+                      <Edit className="w-4 h-4" />
+                      {requestPermissionMutation.isPending ? 'Requesting...' : 'Request Permission to Edit'}
+                    </Button>
+                  </div>
+                )}
+                
+                {permissionRequested && (
+                  <div className="w-full">
+                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <CheckSquare className="w-6 h-6 text-green-600 dark:text-green-400" />
+                    </div>
+                    <h3 className="text-lg font-bold mb-2">Request Sent!</h3>
+                    <p className="text-muted-foreground mb-4">
+                      The activity owner has been notified. You'll receive access once they approve your request.
+                    </p>
+                  </div>
+                )}
+                
+                <div className="pt-4 border-t w-full">
+                  <Button onClick={() => window.location.href = '/'} variant="outline" className="gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Create Your Own Activity
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </motion.div>
         )}
       </main>
