@@ -74,6 +74,12 @@ A mobile-first AI-powered journaling application that transforms user intentions
 
 ## Recent Changes
 - **October 5, 2025** (Latest):
+  - ✅ **Authentication Fix for Premium Features**: All API routes now properly use authenticated user IDs instead of DEMO_USER_ID
+  - ✅ **Signed-in users now have full access to all premium features**: sharing activities, group activities, AI-powered planning, and collaboration
+  - ✅ **Permission Request System**: Added complete workflow for requesting edit access to shared activities
+  - ✅ **SharedActivity Enhancement**: Authenticated users can now request permission to edit shared activities with immediate UI feedback
+  - ✅ **Database Schema Update**: Added activityPermissionRequests table with status tracking (pending/approved/denied)
+  - ✅ **API Endpoints**: Created routes for requesting, viewing, and managing edit permissions on shared activities
   - ✅ **Access Control Implementation**: Free users limited to 1 activity; premium features require authentication
   - ✅ **SignInGate Component**: Created reusable gate component for restricted features (Progress, Groups, Integrations, Personal Journal)
   - ✅ **Backend Activity Limit**: Validates DEMO_USER_ID cannot create more than 1 activity (returns 403 error)
