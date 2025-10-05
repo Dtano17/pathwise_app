@@ -2634,6 +2634,33 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
+  // Upload profile image
+  app.put("/api/user/profile/image", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { imageData } = req.body;
+      
+      if (!imageData || typeof imageData !== 'string') {
+        return res.status(400).json({ error: 'Invalid image data' });
+      }
+
+      // Validate it's a data URL
+      if (!imageData.startsWith('data:image/')) {
+        return res.status(400).json({ error: 'Invalid image format' });
+      }
+
+      // Update profile with the new image
+      const profile = await storage.upsertUserProfile(userId, {
+        profileImageUrl: imageData
+      });
+
+      res.json({ success: true, profileImageUrl: imageData });
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      res.status(500).json({ error: 'Failed to upload profile image' });
+    }
+  });
+
   // Personal Journal - Save journal entry
   app.put("/api/user/journal", async (req: any, res) => {
     try {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +27,9 @@ import {
   X,
   Star,
   TrendingUp,
-  Clock
+  Clock,
+  Upload,
+  Camera
 } from 'lucide-react';
 
 interface UserProfile {
@@ -60,6 +62,7 @@ export default function UserProfile() {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Get full user profile
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
@@ -87,6 +90,64 @@ export default function UserProfile() {
       });
     },
   });
+
+  const uploadImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      // Convert file to base64
+      const reader = new FileReader();
+      return new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const base64String = reader.result as string;
+          apiRequest('PUT', '/api/user/profile/image', { imageData: base64String })
+            .then(() => resolve(base64String))
+            .catch(reject);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
+      toast({
+        title: "Image uploaded",
+        description: "Your profile picture has been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file",
+        description: "Please select an image file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    uploadImageMutation.mutate(file);
+  };
 
   if (isLoading || profileLoading) {
     return (
@@ -188,15 +249,44 @@ export default function UserProfile() {
           {/* Profile Picture & Basic Info */}
           <Card data-testid="card-profile-basic">
             <CardContent className="p-6 text-center">
-              <Avatar className="w-24 h-24 mx-auto mb-4">
-                <AvatarImage 
-                  src={profile.profileImageUrl} 
-                  alt={profile.nickname || profile.firstName || profile.username} 
+              <div className="relative inline-block mb-4">
+                <Avatar className="w-24 h-24 mx-auto">
+                  <AvatarImage 
+                    src={profile.profileImageUrl} 
+                    alt={profile.nickname || profile.firstName || profile.username} 
+                  />
+                  <AvatarFallback className="text-lg">
+                    {(profile.nickname || profile.firstName || profile.username)?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                {!profile.profileImageUrl && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="absolute -bottom-2 left-1/2 -translate-x-1/2 h-8 px-3 gap-1"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadImageMutation.isPending}
+                    data-testid="button-upload-image"
+                  >
+                    {uploadImageMutation.isPending ? (
+                      <span className="text-xs">Uploading...</span>
+                    ) : (
+                      <>
+                        <Camera className="w-3 h-3" />
+                        <span className="text-xs">Upload</span>
+                      </>
+                    )}
+                  </Button>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                  data-testid="input-upload-image"
                 />
-                <AvatarFallback className="text-lg">
-                  {(profile.nickname || profile.firstName || profile.username)?.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              </div>
               
               <h2 className="text-xl font-bold mb-1" data-testid="text-profile-name">
                 {profile.nickname || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.username}
@@ -275,12 +365,12 @@ export default function UserProfile() {
         </div>
 
         {/* Right Column - Detailed Information */}
-        <div className="md:col-span-2 space-y-6">
+        <div className="md:col-span-2 space-y-4 sm:space-y-6">
           <Tabs defaultValue="personal" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="personal" data-testid="tab-personal">Personal</TabsTrigger>
-              <TabsTrigger value="interests" data-testid="tab-interests">Interests & Goals</TabsTrigger>
-              <TabsTrigger value="private" data-testid="tab-private">Private Notes</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 h-auto">
+              <TabsTrigger value="personal" data-testid="tab-personal" className="text-xs sm:text-sm py-2">Personal</TabsTrigger>
+              <TabsTrigger value="interests" data-testid="tab-interests" className="text-xs sm:text-sm py-2">Interests</TabsTrigger>
+              <TabsTrigger value="private" data-testid="tab-private" className="text-xs sm:text-sm py-2">Private</TabsTrigger>
             </TabsList>
 
             {/* Personal Information Tab */}
