@@ -566,6 +566,9 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       contextChips: response.contextChips || [],
       planReady: response.planReady || false,
       createdActivity: response.createdActivity ? { id: response.createdActivity.id, title: response.createdActivity.title } : undefined,
+      progress: response.progress || 0,
+      phase: response.phase || 'gathering',
+      domain: response.domain || 'general',
       session
     });
 
@@ -2494,6 +2497,9 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       contextChips: response.contextChips || [],
       planReady: response.planReady || false,
       createdActivity: response.createdActivity ? { id: response.createdActivity.id, title: response.createdActivity.title } : undefined,
+      progress: response.progress || 0,
+      phase: response.phase || 'gathering',
+      domain: response.domain || 'general',
       session
     });
 

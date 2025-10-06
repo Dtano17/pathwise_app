@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -103,6 +104,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const [showParsedContent, setShowParsedContent] = useState(false);
   const [parsedLLMContent, setParsedLLMContent] = useState<any>(null);
   const [modificationText, setModificationText] = useState('');
+  const [conversationProgress, setConversationProgress] = useState<{ progress: number; phase: string; domain: string } | null>(null);
   const [createdActivityId, setCreatedActivityId] = useState<string | null>(null);
 
   const recognitionRef = useRef<any>(null);
@@ -246,6 +248,15 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
         createdActivity: data.createdActivity // Include activity data if present
       };
       setChatMessages(prev => [...prev, aiMessage]);
+      
+      // Update progress data
+      if (data.progress !== undefined) {
+        setConversationProgress({
+          progress: data.progress,
+          phase: data.phase || 'gathering',
+          domain: data.domain || 'general'
+        });
+      }
       
       // Handle Smart Plan specific responses
       if (data.showCreatePlanButton) {
@@ -630,6 +641,23 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           </Badge>
           <div className="w-9" />
         </div>
+
+        {/* Progress Bar */}
+        {conversationProgress && conversationProgress.progress > 0 && conversationProgress.progress < 100 && (
+          <div className="px-4 py-3 bg-muted/30 border-b border-border/50">
+            <div className="max-w-3xl mx-auto">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-muted-foreground capitalize">
+                  {conversationProgress.domain.replace('_', ' ')} Planning
+                </span>
+                <span className="text-xs font-medium text-primary">
+                  {Math.round(conversationProgress.progress)}%
+                </span>
+              </div>
+              <Progress value={conversationProgress.progress} className="h-1.5" />
+            </div>
+          </div>
+        )}
 
         {/* Chat Messages - Claude Style */}
         <div className="flex-1 overflow-y-auto" ref={chatContainerRef}>
