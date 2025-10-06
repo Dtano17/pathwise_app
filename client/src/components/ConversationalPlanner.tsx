@@ -953,7 +953,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
 
       {/* Plan Confirmation Dialog */}
       <Dialog open={showPlanConfirmation} onOpenChange={setShowPlanConfirmation}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto" backLabel="Back to Planning">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-blue-500" />
@@ -1078,7 +1078,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
 
       {/* Plan Details Dialog (after generation) */}
       <Dialog open={showPlanDetails} onOpenChange={setShowPlanDetails}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" backLabel="Back to Planning">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle className="h-6 w-6 text-green-500" />
@@ -1118,7 +1118,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
 
       {/* Parsed LLM Content Dialog */}
       <Dialog open={showParsedContent} onOpenChange={setShowParsedContent}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto" backLabel="Back to Planning">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-500" />

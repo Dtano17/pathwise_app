@@ -130,7 +130,7 @@ export default function SharePlanModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl" data-testid="modal-share-plan">
+      <DialogContent className="max-w-2xl" backLabel="Back to Activity" data-testid="modal-share-plan">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share className="w-5 h-5" />

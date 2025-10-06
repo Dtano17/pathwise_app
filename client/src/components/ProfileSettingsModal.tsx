@@ -18,7 +18,7 @@ export default function ProfileSettingsModal({
 }: ProfileSettingsModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" data-testid="modal-profile-settings">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" backLabel="Back to Home" data-testid="modal-profile-settings">
         <DialogHeader>
           <DialogTitle className="sr-only">Profile & Settings</DialogTitle>
         </DialogHeader>

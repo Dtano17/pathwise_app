@@ -194,7 +194,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" backLabel="Back to Home">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">{getTitle()}</DialogTitle>
           <DialogDescription>{getDescription()}</DialogDescription>

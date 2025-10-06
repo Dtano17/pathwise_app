@@ -231,7 +231,7 @@ export default function Contacts() {
                   <span className="sm:hidden">Add Manually</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-[95vw] sm:max-w-md" data-testid="modal-add-contact">
+              <DialogContent className="max-w-[95vw] sm:max-w-md" backLabel="Back to Contacts" data-testid="modal-add-contact">
                 <DialogHeader>
                   <DialogTitle>Add Contact</DialogTitle>
                   <DialogDescription>

@@ -155,7 +155,7 @@ export default function ShareDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" backLabel="Back to Activity">
         <DialogHeader>
           <DialogTitle>Share Plan</DialogTitle>
         </DialogHeader>
