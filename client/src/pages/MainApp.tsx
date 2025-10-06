@@ -2099,7 +2099,7 @@ Assistant: For nutrition, I recommend..."
             </TabsContent>
 
             {/* About Tab */}
-            <TabsContent value="about" className="space-y-8">
+            <TabsContent value="about" className="space-y-8 pb-12">
               <div className="max-w-4xl mx-auto">
                 {/* Hero Section */}
                 <div className="text-center mb-12">
