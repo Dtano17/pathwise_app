@@ -128,7 +128,8 @@ export class ClaudeProvider implements ILLMProvider {
         top_p: options.topP ?? 1.0,
         system: systemMessage,
         messages: conversationMessages,
-        tools: tools as any
+        tools: tools as any,
+        tool_choice: { type: 'any' } // Force Claude to use one of the provided tools
       });
 
       const content = response.content[0];
