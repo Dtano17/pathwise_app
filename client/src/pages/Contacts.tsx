@@ -209,27 +209,29 @@ export default function Contacts() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl" data-testid="page-contacts">
-      <div className="space-y-6">
+    <div className="container mx-auto p-4 sm:p-6 max-w-4xl" data-testid="page-contacts">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-contacts-title">Friends & Family</h1>
-            <p className="text-muted-foreground">Share your goals and plans with people you care about.</p>
+            <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-contacts-title">Friends & Family</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Share your goals and plans with people you care about.</p>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={handleSyncPhoneContacts} disabled={syncContactsMutation.isPending} data-testid="button-sync-contacts">
+          <div className="flex gap-2 flex-wrap">
+            <Button onClick={handleSyncPhoneContacts} disabled={syncContactsMutation.isPending} size="sm" className="flex-1 sm:flex-none" data-testid="button-sync-contacts">
               <Phone className="w-4 h-4 mr-2" />
-              {syncContactsMutation.isPending ? 'Syncing...' : 'Sync Phone Contacts'}
+              <span className="hidden sm:inline">{syncContactsMutation.isPending ? 'Syncing...' : 'Sync Phone Contacts'}</span>
+              <span className="sm:hidden">Sync Contacts</span>
             </Button>
             <Dialog open={isAddContactOpen} onOpenChange={setIsAddContactOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" data-testid="button-add-contact">
+                <Button variant="outline" size="sm" className="flex-1 sm:flex-none" data-testid="button-add-contact">
                   <UserPlus className="w-4 h-4 mr-2" />
-                  Add Contact
+                  <span className="hidden sm:inline">Add Contact</span>
+                  <span className="sm:hidden">Add Manually</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent data-testid="modal-add-contact">
+              <DialogContent className="max-w-[95vw] sm:max-w-md" data-testid="modal-add-contact">
                 <DialogHeader>
                   <DialogTitle>Add Contact</DialogTitle>
                   <DialogDescription>
@@ -290,18 +292,18 @@ export default function Contacts() {
         {/* Contacts List */}
         {contacts.length === 0 ? (
           <Card>
-            <CardContent className="text-center py-12">
+            <CardContent className="text-center py-8 sm:py-12 px-4">
               <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="font-semibold mb-2" data-testid="text-no-contacts">No contacts yet</h3>
-              <p className="text-muted-foreground mb-4">
+              <h3 className="font-semibold text-base sm:text-lg mb-2" data-testid="text-no-contacts">No contacts yet</h3>
+              <p className="text-sm sm:text-base text-muted-foreground mb-4 max-w-md mx-auto">
                 Sync your phone contacts or add people manually to start sharing your goals.
               </p>
-              <div className="flex gap-2 justify-center">
-                <Button onClick={handleSyncPhoneContacts} data-testid="button-sync-contacts-empty">
+              <div className="flex flex-col sm:flex-row gap-2 justify-center max-w-sm mx-auto">
+                <Button onClick={handleSyncPhoneContacts} size="sm" className="w-full sm:w-auto" data-testid="button-sync-contacts-empty">
                   <Phone className="w-4 h-4 mr-2" />
                   Sync Phone Contacts
                 </Button>
-                <Button variant="outline" onClick={() => setIsAddContactOpen(true)} data-testid="button-add-contact-empty">
+                <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setIsAddContactOpen(true)} data-testid="button-add-contact-empty">
                   <UserPlus className="w-4 h-4 mr-2" />
                   Add Manually
                 </Button>
@@ -312,54 +314,54 @@ export default function Contacts() {
           <div className="grid gap-4">
             {contacts.map((contact) => (
               <Card key={contact.id} className="hover-elevate" data-testid={`contact-card-${contact.id}`}>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold" data-testid={`text-contact-name-${contact.id}`}>
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <h3 className="font-semibold text-sm sm:text-base" data-testid={`text-contact-name-${contact.id}`}>
                           {contact.name}
                         </h3>
                         {getStatusIcon(contact.status)}
-                        <Badge variant={contact.status === 'on_journalmate' ? 'default' : 'secondary'}>
+                        <Badge variant={contact.status === 'on_journalmate' ? 'default' : 'secondary'} className="text-xs">
                           {getStatusText(contact.status)}
                         </Badge>
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="text-xs hidden sm:inline-flex">
                           {contact.source === 'phone' ? 'Phone Contact' : 'Added Manually'}
                         </Badge>
                       </div>
                       
-                      <div className="space-y-1 text-sm text-muted-foreground">
+                      <div className="space-y-1 text-xs sm:text-sm text-muted-foreground">
                         {contact.emails.length > 0 && (
                           <div className="flex items-center gap-2">
-                            <Mail className="w-3 h-3" />
-                            <span data-testid={`text-contact-email-${contact.id}`}>{contact.emails[0]}</span>
+                            <Mail className="w-3 h-3 shrink-0" />
+                            <span className="truncate" data-testid={`text-contact-email-${contact.id}`}>{contact.emails[0]}</span>
                           </div>
                         )}
                         {contact.phones.length > 0 && (
                           <div className="flex items-center gap-2">
-                            <Phone className="w-3 h-3" />
+                            <Phone className="w-3 h-3 shrink-0" />
                             <span data-testid={`text-contact-phone-${contact.id}`}>{contact.phones[0]}</span>
                           </div>
                         )}
                       </div>
 
                       {contact.user && (
-                        <div className="mt-2 text-sm text-green-600">
+                        <div className="mt-2 text-xs sm:text-sm text-green-600">
                           <CheckCircle className="w-3 h-3 inline mr-1" />
                           Connected as {contact.user.firstName} {contact.user.lastName}
                         </div>
                       )}
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 sm:shrink-0">
                       {contact.status === 'not_invited' && (
-                        <Button size="sm" variant="outline" data-testid={`button-invite-${contact.id}`}>
+                        <Button size="sm" variant="outline" className="flex-1 sm:flex-none" data-testid={`button-invite-${contact.id}`}>
                           <Share className="w-3 h-3 mr-1" />
                           Invite
                         </Button>
                       )}
                       {contact.status === 'on_journalmate' && (
-                        <Button size="sm" data-testid={`button-share-${contact.id}`}>
+                        <Button size="sm" className="flex-1 sm:flex-none" data-testid={`button-share-${contact.id}`}>
                           <Share className="w-3 h-3 mr-1" />
                           Share Plan
                         </Button>
