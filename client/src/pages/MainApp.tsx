@@ -2320,28 +2320,28 @@ Assistant: For nutrition, I recommend..."
       {/* Modals */}
 
       <Dialog open={showContacts} onOpenChange={onShowContacts}>
-        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" data-testid="modal-contacts">
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh] flex flex-col" data-testid="modal-contacts">
           <DialogHeader backLabel="Back to Home">
             <DialogTitle>Friends & Family</DialogTitle>
             <DialogDescription>
               Manage your contacts and share your goals with friends and family
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto min-h-0">
             <Contacts />
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showChatHistory} onOpenChange={onShowChatHistory}>
-        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" data-testid="modal-chat-history">
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh] flex flex-col" data-testid="modal-chat-history">
           <DialogHeader backLabel="Back to Home">
             <DialogTitle>Chat History</DialogTitle>
             <DialogDescription>
               View your conversation sessions and resume refining your plans
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto min-h-0">
             <ChatHistory onLoadSession={(sessionId) => {
               loadConversationSession(sessionId);
               onShowChatHistory(false);
@@ -2351,42 +2351,42 @@ Assistant: For nutrition, I recommend..."
       </Dialog>
 
       <Dialog open={showRecentGoals} onOpenChange={onShowRecentGoals}>
-        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" data-testid="modal-recent-goals">
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh] flex flex-col" data-testid="modal-recent-goals">
           <DialogHeader backLabel="Back to Home">
             <DialogTitle>Recent Goals</DialogTitle>
             <DialogDescription>
               View all your activities, track progress, and manage your goals
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto min-h-0">
             <RecentGoals />
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showProgressReport} onOpenChange={onShowProgressReport}>
-        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" data-testid="modal-progress-report">
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh] flex flex-col" data-testid="modal-progress-report">
           <DialogHeader backLabel="Back to Home">
             <DialogTitle>Progress Report</DialogTitle>
             <DialogDescription>
               Comprehensive analytics, milestones, and insights about your achievements
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto min-h-0">
             <ProgressReport />
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showLifestylePlanner} onOpenChange={onShowLifestylePlanner}>
-        <DialogContent className="max-w-[95vw] sm:max-w-7xl h-[90vh] overflow-hidden" data-testid="modal-lifestyle-planner">
+        <DialogContent className="max-w-[95vw] sm:max-w-7xl h-[90vh] flex flex-col" data-testid="modal-lifestyle-planner">
           <DialogHeader className="pb-2" backLabel="Back to Home">
             <DialogTitle className="text-2xl">Personal Journal</DialogTitle>
             <DialogDescription>
               Capture your unique interests, preferences, and personal notes
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden h-[calc(90vh-100px)]">
+          <div className="flex-1 overflow-y-auto min-h-0">
             <PersonalJournal onClose={() => onShowLifestylePlanner(false)} />
           </div>
         </DialogContent>
