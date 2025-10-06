@@ -11,12 +11,28 @@
 
 import { StateGraph, Annotation, END } from "@langchain/langgraph";
 import { MemorySaver } from "@langchain/langgraph";
-import { executeLLMCall } from './llmProvider';
+import { executeLLMCall, type LLMCompletionResult } from './llmProvider';
 import { OpenAIProvider } from './openAIProvider';
+import { ClaudeProvider } from './claudeProvider';
 import type { User } from '@shared/schema';
 import type { DomainConfig, Question } from './domainRegistry';
 import { domainRegistry } from './domainRegistry';
 import type { IStorage } from '../storage';
+
+/**
+ * Provider-aware function call parser
+ * Automatically detects which provider was used and calls the appropriate parser
+ */
+function parseFunctionCall<T>(result: LLMCompletionResult & { __providerName?: string }): T {
+  const providerName = result.__providerName || 'openai';
+  
+  // Use provider-specific parser
+  if (providerName.includes('claude')) {
+    return ClaudeProvider.parseFunctionCall<T>(result);
+  } else {
+    return OpenAIProvider.parseFunctionCall<T>(result);
+  }
+}
 
 /**
  * State schema for the planning conversation
@@ -163,7 +179,7 @@ Return high confidence (0.8-1.0) only if clearly matches domain.`
     }
   );
 
-  const classified = OpenAIProvider.parseFunctionCall<{
+  const classified = parseFunctionCall<{
     domain: string;
     confidence: number;
     reasoning?: string;
@@ -250,7 +266,7 @@ async function extractSlots(state: PlanningStateType): Promise<Partial<PlanningS
     }
   );
 
-  const extractedSlots = OpenAIProvider.parseFunctionCall<Record<string, any>>(result);
+  const extractedSlots = parseFunctionCall<Record<string, any>>(result);
 
   // Filter out empty/null values
   const validSlots: Record<string, any> = {};
@@ -367,7 +383,7 @@ Determine:
     }
   );
 
-  const analysis = OpenAIProvider.parseFunctionCall<{
+  const analysis = parseFunctionCall<{
     answeredQuestionIds: string[];
     unansweredQuestionIds: string[];
     nextQuestionId?: string;
@@ -562,7 +578,7 @@ Create a plan that feels personal, thoughtful, and motivating - like advice from
     }
   );
 
-  const planData = OpenAIProvider.parseFunctionCall<{
+  const planData = parseFunctionCall<{
     title: string;
     description: string;
     tasks: Array<{ title: string; description: string; priority: string; estimatedTime: string }>;
