@@ -494,8 +494,17 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
     }, userId);
 
     // Handle plan confirmation flow
+    console.log('[SMART PLAN] Confirmation flow check:', {
+      readyToGenerate: response.readyToGenerate,
+      planReady: response.planReady,
+      smartPlanConfirmed,
+      smartAwaitingConfirmation,
+      isFirstPlanReady
+    });
+
     if (response.readyToGenerate || response.planReady || response.showGenerateButton) {
       if (smartPlanConfirmed) {
+        console.log('[SMART PLAN] Plan already confirmed - showing generate button');
         // Plan already confirmed - show Generate Plan button immediately
         return res.json({
           message: response.message,
@@ -506,6 +515,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           session
         });
       } else if (!smartAwaitingConfirmation) {
+        console.log('[SMART PLAN] First time plan ready - adding confirmation prompt');
         // First time plan is ready - ask for confirmation
         return res.json({
           message: response.message + "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)",
@@ -514,6 +524,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           showCreatePlanButton: false, // Don't show button until confirmed
           session
         });
+      } else {
+        console.log('[SMART PLAN] Awaiting user response to confirmation');
       }
       // If awaitingConfirmation is true but not confirmed yet, fall through to normal response
     }
