@@ -5,6 +5,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupMultiProviderAuth, isAuthenticatedGeneric } from "./multiProviderAuth";
 import { aiService } from "./services/aiService";
 import { lifestylePlannerAgent } from "./services/lifestylePlannerAgent";
+import { langGraphPlanningAgent } from "./services/langgraphPlanningAgent";
 import { contactSyncService } from "./contactSync";
 import { 
   insertGoalSchema,
@@ -401,14 +402,31 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       });
     }
 
-    // Process with lifestyle planner agent
-    const response = await lifestylePlannerAgent.processMessage(
+    // Process with LangGraph planning agent for Smart Plan mode
+    const langGraphResponse = await langGraphPlanningAgent.processMessage(
+      parseInt(userId),
       message,
-      session,
       userProfile,
-      'smart', // Smart mode - uses universal planning agent
-      storage
+      session.conversationHistory,
+      storage,
+      'smart'
     );
+
+    // Map LangGraph response to ConversationResponse format
+    const response = {
+      message: langGraphResponse.message,
+      readyToGenerate: langGraphResponse.readyToGenerate || false,
+      planReady: langGraphResponse.readyToGenerate || false,
+      updatedSlots: session.slots,
+      updatedConversationHistory: [...session.conversationHistory, { role: 'user', content: message }, { role: 'assistant', content: langGraphResponse.message }],
+      updatedExternalContext: session.externalContext,
+      sessionState: langGraphResponse.phase as 'gathering' | 'processing' | 'confirming' | 'completed',
+      generatedPlan: langGraphResponse.finalPlan,
+      createActivity: false,
+      progress: langGraphResponse.progress,
+      phase: langGraphResponse.phase,
+      domain: langGraphResponse.domain
+    };
 
     // SERVER-SIDE ACTIVITY TYPE DETECTION OVERRIDE
     // If the message contains interview keywords but AI extracted wrong activity type, override it
