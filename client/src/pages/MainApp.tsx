@@ -1083,7 +1083,7 @@ export default function MainApp({
 
               {/* Theme Selector Modal */}
               <Dialog open={showThemeSelector} onOpenChange={onShowThemeSelector}>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[80vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Set Your Daily Theme</DialogTitle>
                     <DialogDescription>
@@ -1103,7 +1103,7 @@ export default function MainApp({
 
               {/* Location Date Planner Modal */}
               <Dialog open={showLocationDatePlanner} onOpenChange={onShowLocationDatePlanner}>
-                <DialogContent className="max-w-4xl">
+                <DialogContent className="max-w-[95vw] sm:max-w-4xl">
                   <DialogHeader>
                     <DialogTitle>Plan Your Perfect Date</DialogTitle>
                     <DialogDescription>
@@ -2301,6 +2301,14 @@ Assistant: For nutrition, I recommend..."
                       Connect on LinkedIn
                     </a>
                   </Button>
+                  <div className="mt-6 pt-4 border-t border-muted">
+                    <p className="text-xs text-muted-foreground">
+                      © {new Date().getFullYear()} JournalMate. All rights reserved.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      The JournalMate name, logo, design, and all related intellectual property are protected by copyright and trademark laws.
+                    </p>
+                  </div>
                 </div>
               </div>
             </TabsContent>
@@ -2312,7 +2320,7 @@ Assistant: For nutrition, I recommend..."
       {/* Modals */}
 
       <Dialog open={showContacts} onOpenChange={onShowContacts}>
-        <DialogContent className="max-w-6xl h-[90vh]" data-testid="modal-contacts">
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" data-testid="modal-contacts">
           <DialogHeader>
             <DialogTitle>Friends & Family</DialogTitle>
             <DialogDescription>
@@ -2326,7 +2334,7 @@ Assistant: For nutrition, I recommend..."
       </Dialog>
 
       <Dialog open={showChatHistory} onOpenChange={onShowChatHistory}>
-        <DialogContent className="max-w-6xl h-[90vh]" data-testid="modal-chat-history">
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" data-testid="modal-chat-history">
           <DialogHeader>
             <DialogTitle>Chat History</DialogTitle>
             <DialogDescription>
@@ -2343,7 +2351,7 @@ Assistant: For nutrition, I recommend..."
       </Dialog>
 
       <Dialog open={showRecentGoals} onOpenChange={onShowRecentGoals}>
-        <DialogContent className="max-w-6xl h-[90vh]" data-testid="modal-recent-goals">
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" data-testid="modal-recent-goals">
           <DialogHeader>
             <DialogTitle>Recent Goals</DialogTitle>
             <DialogDescription>
@@ -2357,7 +2365,7 @@ Assistant: For nutrition, I recommend..."
       </Dialog>
 
       <Dialog open={showProgressReport} onOpenChange={onShowProgressReport}>
-        <DialogContent className="max-w-6xl h-[90vh]" data-testid="modal-progress-report">
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" data-testid="modal-progress-report">
           <DialogHeader>
             <DialogTitle>Progress Report</DialogTitle>
             <DialogDescription>
@@ -2371,7 +2379,7 @@ Assistant: For nutrition, I recommend..."
       </Dialog>
 
       <Dialog open={showLifestylePlanner} onOpenChange={onShowLifestylePlanner}>
-        <DialogContent className="max-w-7xl h-[90vh] overflow-hidden" data-testid="modal-lifestyle-planner">
+        <DialogContent className="max-w-[95vw] sm:max-w-7xl h-[90vh] overflow-hidden" data-testid="modal-lifestyle-planner">
           <DialogHeader className="pb-2">
             <DialogTitle className="text-2xl">Personal Journal</DialogTitle>
             <DialogDescription>
