@@ -155,8 +155,8 @@ export default function ShareDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" backLabel="Back to Activity">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader backLabel="Back to Activity">
           <DialogTitle>Share Plan</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 py-4">

@@ -1083,8 +1083,8 @@ export default function MainApp({
 
               {/* Theme Selector Modal */}
               <Dialog open={showThemeSelector} onOpenChange={onShowThemeSelector}>
-                <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[80vh] overflow-y-auto" backLabel="Back to Planning">
-                  <DialogHeader>
+                <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader backLabel="Back to Planning">
                     <DialogTitle>Set Your Daily Theme</DialogTitle>
                     <DialogDescription>
                       Choose a focus area to get personalized goal suggestions and themed planning
@@ -1103,8 +1103,8 @@ export default function MainApp({
 
               {/* Location Date Planner Modal */}
               <Dialog open={showLocationDatePlanner} onOpenChange={onShowLocationDatePlanner}>
-                <DialogContent className="max-w-[95vw] sm:max-w-4xl" backLabel="Back to Planning">
-                  <DialogHeader>
+                <DialogContent className="max-w-[95vw] sm:max-w-4xl">
+                  <DialogHeader backLabel="Back to Planning">
                     <DialogTitle>Plan Your Perfect Date</DialogTitle>
                     <DialogDescription>
                       Let us help you find the perfect spots for your date based on your location
@@ -2320,8 +2320,8 @@ Assistant: For nutrition, I recommend..."
       {/* Modals */}
 
       <Dialog open={showContacts} onOpenChange={onShowContacts}>
-        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" backLabel="Back to Home" data-testid="modal-contacts">
-          <DialogHeader>
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" data-testid="modal-contacts">
+          <DialogHeader backLabel="Back to Home">
             <DialogTitle>Friends & Family</DialogTitle>
             <DialogDescription>
               Manage your contacts and share your goals with friends and family
@@ -2334,8 +2334,8 @@ Assistant: For nutrition, I recommend..."
       </Dialog>
 
       <Dialog open={showChatHistory} onOpenChange={onShowChatHistory}>
-        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" backLabel="Back to Home" data-testid="modal-chat-history">
-          <DialogHeader>
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" data-testid="modal-chat-history">
+          <DialogHeader backLabel="Back to Home">
             <DialogTitle>Chat History</DialogTitle>
             <DialogDescription>
               View your conversation sessions and resume refining your plans
@@ -2351,8 +2351,8 @@ Assistant: For nutrition, I recommend..."
       </Dialog>
 
       <Dialog open={showRecentGoals} onOpenChange={onShowRecentGoals}>
-        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" backLabel="Back to Home" data-testid="modal-recent-goals">
-          <DialogHeader>
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" data-testid="modal-recent-goals">
+          <DialogHeader backLabel="Back to Home">
             <DialogTitle>Recent Goals</DialogTitle>
             <DialogDescription>
               View all your activities, track progress, and manage your goals
@@ -2365,8 +2365,8 @@ Assistant: For nutrition, I recommend..."
       </Dialog>
 
       <Dialog open={showProgressReport} onOpenChange={onShowProgressReport}>
-        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" backLabel="Back to Home" data-testid="modal-progress-report">
-          <DialogHeader>
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl h-[90vh]" data-testid="modal-progress-report">
+          <DialogHeader backLabel="Back to Home">
             <DialogTitle>Progress Report</DialogTitle>
             <DialogDescription>
               Comprehensive analytics, milestones, and insights about your achievements
@@ -2379,8 +2379,8 @@ Assistant: For nutrition, I recommend..."
       </Dialog>
 
       <Dialog open={showLifestylePlanner} onOpenChange={onShowLifestylePlanner}>
-        <DialogContent className="max-w-[95vw] sm:max-w-7xl h-[90vh] overflow-hidden" backLabel="Back to Home" data-testid="modal-lifestyle-planner">
-          <DialogHeader className="pb-2">
+        <DialogContent className="max-w-[95vw] sm:max-w-7xl h-[90vh] overflow-hidden" data-testid="modal-lifestyle-planner">
+          <DialogHeader className="pb-2" backLabel="Back to Home">
             <DialogTitle className="text-2xl">Personal Journal</DialogTitle>
             <DialogDescription>
               Capture your unique interests, preferences, and personal notes
@@ -2393,7 +2393,7 @@ Assistant: For nutrition, I recommend..."
       </Dialog>
 
       <Dialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>
-        <DialogContent className="max-w-md p-0" backLabel="Back to Home" data-testid="modal-signin">
+        <DialogContent className="max-w-md p-0" data-testid="modal-signin">
           <SocialLogin />
         </DialogContent>
       </Dialog>

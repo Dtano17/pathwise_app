@@ -395,8 +395,8 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
 
       {/* Add Custom Category Dialog */}
       <Dialog open={showAddCategoryDialog} onOpenChange={setShowAddCategoryDialog}>
-        <DialogContent className="sm:max-w-md" backLabel="Back to Journal">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader backLabel="Back to Journal">
             <DialogTitle>Add Custom Category</DialogTitle>
             <DialogDescription>
               Create a new category to organize your journal entries.

@@ -43,34 +43,45 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] border bg-background p-4 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
         className
       )}
       {...props}
     >
-      {!hideBackButton && (
-        <DialogPrimitive.Close className="absolute left-4 top-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>{backLabel || "Back"}</span>
-        </DialogPrimitive.Close>
-      )}
       {children}
     </DialogPrimitive.Content>
   </DialogPortal>
 ))
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
+interface DialogHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
+  backLabel?: string;
+  hideBackButton?: boolean;
+}
+
 const DialogHeader = ({
   className,
+  backLabel,
+  hideBackButton = false,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
+}: DialogHeaderProps) => (
   <div
     className={cn(
-      "flex flex-col space-y-1.5 text-left",
+      "flex items-center gap-3 mb-4",
       className
     )}
     {...props}
-  />
+  >
+    {!hideBackButton && (
+      <DialogPrimitive.Close className="shrink-0 h-8 w-8 rounded-md border bg-background hover:bg-accent hover:text-accent-foreground inline-flex items-center justify-center transition-colors">
+        <ArrowLeft className="h-4 w-4" />
+        <span className="sr-only">{backLabel || "Back"}</span>
+      </DialogPrimitive.Close>
+    )}
+    <div className="flex-1 min-w-0">
+      {props.children}
+    </div>
+  </div>
 )
 DialogHeader.displayName = "DialogHeader"
 
