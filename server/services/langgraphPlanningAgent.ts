@@ -305,13 +305,33 @@ async function generateQuestions(state: PlanningStateType): Promise<Partial<Plan
 
   console.log(`[LANGGRAPH] Generated ${questions.length} questions for domain: ${state.domain}`);
 
+  // Create initial greeting message with all questions listed
+  const domainName = state.domain?.replace('_', ' ') || 'activity';
+  let initialMessage = `Great! Let's plan your ${domainName}. I have ${questions.length} quick questions:\n\n`;
+  
+  // Show first 3 questions
+  const questionsToShow = questions.slice(0, 3);
+  questionsToShow.forEach((q, i) => {
+    initialMessage += `${i + 1}. ${q.question}\n`;
+  });
+  
+  // Add "...and X more" if there are more questions
+  if (questions.length > 3) {
+    initialMessage += `\n...and ${questions.length - 3} more.\n`;
+  }
+  
+  // Add progress indicator
+  initialMessage += `\n📊 Progress: 0/${questions.length} (0%)`;
+
   return {
     allQuestions: questions,
     progress: {
       answered: 0,
       total: questions.length,
       percentage: 0
-    }
+    },
+    responseMessage: initialMessage,
+    showInitialQuestions: true
   };
 }
 
@@ -466,7 +486,16 @@ async function askQuestion(state: PlanningStateType): Promise<Partial<PlanningSt
   
   // Pick a random intro
   const randomIntro = friendlyIntros[Math.floor(Math.random() * friendlyIntros.length)];
-  const friendlyQuestion = randomIntro + questionText;
+  let friendlyQuestion = randomIntro + questionText;
+  
+  // Add progress indicator
+  const answered = state.progress?.answered || 0;
+  const total = state.progress?.total || 0;
+  const percentage = state.progress?.percentage || 0;
+  
+  if (total > 0) {
+    friendlyQuestion += `\n\n📊 Progress: ${answered}/${total} (${Math.round(percentage)}%)`;
+  }
 
   return {
     responseMessage: friendlyQuestion,
@@ -691,12 +720,12 @@ function routeAfterSlotExtraction(state: PlanningStateType): string {
     return 'enrich_data';
   }
   
-  // Generate questions if we don't have them yet
+  // Generate questions if we don't have them yet (first interaction)
   if (!state.allQuestions || state.allQuestions.length === 0) {
     return 'generate_questions';
   }
   
-  // Otherwise analyze gaps
+  // Otherwise analyze gaps (subsequent interactions)
   return 'analyze_gaps';
 }
 
@@ -758,7 +787,11 @@ function buildWorkflow() {
     // Conditional edges
     .addConditionalEdges('detect_domain', routeAfterDomainDetection)
     .addConditionalEdges('extract_slots', routeAfterSlotExtraction)
-    .addConditionalEdges('generate_questions', () => 'analyze_gaps')
+    .addConditionalEdges('generate_questions', (state: PlanningStateType) => {
+      // After generating questions for the first time, show them to user (END)
+      // On subsequent turns, the questions are already generated, so we skip this node
+      return END;
+    })
     .addConditionalEdges('analyze_gaps', routeAfterGapAnalysis)
     .addConditionalEdges('ask_question', routeAfterAskQuestion)
     .addConditionalEdges('enrich_data', routeAfterEnrichment)

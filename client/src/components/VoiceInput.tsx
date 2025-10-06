@@ -642,23 +642,6 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           <div className="w-9" />
         </div>
 
-        {/* Progress Bar */}
-        {conversationProgress && conversationProgress.progress >= 0 && conversationProgress.progress < 100 && (
-          <div className="px-4 py-3 bg-muted/30 border-b border-border/50">
-            <div className="max-w-3xl mx-auto">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-muted-foreground capitalize">
-                  {conversationProgress.domain.replace('_', ' ')} Planning • {conversationProgress.phase === 'gathering' ? 'Gathering info' : 'Creating plan'}
-                </span>
-                <span className="text-xs font-medium text-primary">
-                  {Math.round(conversationProgress.progress)}%
-                </span>
-              </div>
-              <Progress value={conversationProgress.progress} className="h-1.5" />
-            </div>
-          </div>
-        )}
-
         {/* Chat Messages - Claude Style */}
         <div className="flex-1 overflow-y-auto" ref={chatContainerRef}>
           <div className="max-w-3xl mx-auto px-4 py-8">
