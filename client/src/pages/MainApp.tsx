@@ -2303,10 +2303,10 @@ Assistant: For nutrition, I recommend..."
                     </a>
                   </Button>
                   <div className="mt-6 pt-4 border-t border-muted">
-                    <p className="text-xs text-muted-foreground">
-                      © {new Date().getFullYear()} JournalMate. All rights reserved.
+                    <p className="text-sm font-medium text-foreground mb-2">
+                      © 2025 JournalMate. All rights reserved.
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-sm text-muted-foreground">
                       The JournalMate name, logo, design, and all related intellectual property are protected by copyright and trademark laws.
                     </p>
                   </div>
