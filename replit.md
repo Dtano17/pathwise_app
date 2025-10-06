@@ -24,7 +24,7 @@ The application employs a mobile-first responsive design with a clean, card-base
 - **Animations**: React Confetti, React Spring, Framer Motion for celebratory effects.
 
 **Core Features & Implementations:**
-- **AI-Powered Planning**: Features "Smart Plan" (comprehensive information gathering) and "Quick Plan" (rapid task generation) modes, utilizing LangGraph for conversation state and multi-LLM support. Includes conversation-aware classification, confidence decay for domain switching, and automatic fallback between AI providers.
+- **AI-Powered Planning**: Features "Smart Plan" (comprehensive information gathering) and "Quick Plan" (rapid task generation) modes, utilizing LangGraph for conversation state and multi-LLM support. Includes conversation-aware classification, confidence decay for domain switching, conversation-wide slot extraction (prevents redundant questions), and automatic fallback between AI providers.
 - **Task Management**: Swipeable task cards with completion/skip actions, real-time progress dashboard with streaks and analytics, task lists with search/filter, and automatic activity/task creation upon plan confirmation.
 - **Personal Journal**: A dedicated journal interface with 9 categories for capturing personal interests, featuring auto-save and backend persistence.
 - **Authentication & User Management**: Dual authentication system (Replit Auth + Supabase for Facebook) with unified session management, functional profile management (Priorities & Settings), and access control for premium features.
