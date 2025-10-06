@@ -138,6 +138,7 @@ async function detectDomain(state: PlanningStateType): Promise<Partial<PlanningS
           {
             role: 'system',
             content: `You are a domain classification expert. Classify user requests into one of these domains:
+- daily_planning: Planning daily schedule, organizing the day, time management
 - travel: Trip planning, vacations, destinations
 - interview_prep: Job interviews, career preparation
 - event_planning: Parties, weddings, conferences
@@ -161,7 +162,7 @@ Return high confidence (0.8-1.0) only if clearly matches domain.`
               properties: {
                 domain: {
                   type: 'string',
-                  enum: ['travel', 'interview_prep', 'event_planning', 'fitness', 'learning', 'general']
+                  enum: ['daily_planning', 'travel', 'interview_prep', 'event_planning', 'fitness', 'learning', 'general']
                 },
                 confidence: {
                   type: 'number',
