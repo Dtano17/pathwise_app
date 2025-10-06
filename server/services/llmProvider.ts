@@ -139,9 +139,9 @@ export function getProviderForTask(task: TaskType): ProviderStrategy {
       reason: 'DeepSeek: 27x cheaper for bulk operations, good enough quality for web search'
     },
     plan_synthesis: {
-      primary: 'claude',
-      fallback: 'openai',
-      reason: 'Claude Sonnet-4: Best at creative writing and long-form content'
+      primary: 'openai',
+      fallback: 'claude',
+      reason: 'OpenAI GPT-4o: Fast structured generation, Claude fallback for quality'
     },
     general: {
       primary: 'openai',
