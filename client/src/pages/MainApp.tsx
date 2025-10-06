@@ -1049,6 +1049,7 @@ export default function MainApp({
                     <p className="text-sm text-muted-foreground mb-4 text-center">Or try these quick examples:</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {[
+                        { text: "Start conversations", theme: "Social", Icon: MessageSquare },
                         { text: "Devise a workout plan", theme: "Health & Fitness", Icon: Dumbbell },
                         { text: "Focus on work productivity", theme: "Work Focus", Icon: Briefcase }, 
                         { text: "Trade stocks using AI insights", theme: "Investment", Icon: TrendingUp },
