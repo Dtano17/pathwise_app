@@ -454,10 +454,13 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       response.planReady = false;
     }
 
-    // Persist updated session data from agent (includes full conversation history)
+    // Persist updated session data from agent (includes full conversation history and generated plan)
     await storage.updateLifestylePlannerSession(session.id, {
       conversationHistory: response.updatedConversationHistory || session.conversationHistory,
-      slots: response.updatedSlots || session.slots,
+      slots: {
+        ...(response.updatedSlots || session.slots),
+        _generatedPlan: response.generatedPlan || session.slots?._generatedPlan
+      },
       externalContext: {...(response.updatedExternalContext || session.externalContext), isFirstInteraction: false},
       sessionState: response.sessionState
     }, userId);
@@ -2443,10 +2446,13 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       response.planReady = false;
     }
 
-    // Persist updated session data from agent (includes full conversation history)
+    // Persist updated session data from agent (includes full conversation history and generated plan)
     await storage.updateLifestylePlannerSession(session.id, {
       conversationHistory: response.updatedConversationHistory || session.conversationHistory,
-      slots: response.updatedSlots || session.slots,
+      slots: {
+        ...(response.updatedSlots || session.slots),
+        _generatedPlan: response.generatedPlan || session.slots?._generatedPlan
+      },
       externalContext: {...(response.updatedExternalContext || session.externalContext), isFirstInteraction: false},
       sessionState: response.sessionState
     }, userId);

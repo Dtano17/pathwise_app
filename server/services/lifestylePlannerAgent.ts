@@ -151,8 +151,13 @@ export class LifestylePlannerAgent {
           readyToGenerate: langGraphResponse.readyToGenerate || false,
           planReady: !!langGraphResponse.finalPlan,
           generatedPlan: langGraphResponse.finalPlan,
-          createActivity: !!langGraphResponse.createdActivity,
-          updatedSlots: session.slots, // LangGraph manages slots internally
+          createActivity: langGraphResponse.createdActivity, // Pass the actual activity object, not boolean
+          updatedSlots: {
+            ...session.slots,
+            // Include finalPlan in slots, OR preserve existing _generatedPlan if it exists
+            // This ensures the plan persists across turns until confirmation
+            _generatedPlan: langGraphResponse.finalPlan || session.slots?._generatedPlan
+          },
           updatedExternalContext: {
             ...(session.externalContext || {}),
             detectedDomain: langGraphResponse.domain,

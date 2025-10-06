@@ -716,8 +716,9 @@ Create a plan that feels personal, thoughtful, and motivating - like advice from
       domain: state.domain,
       slots: state.slots
     },
-    responseMessage: `# ✨ ${planData.title}\n\n${planData.description}\n\n## 🎯 Your Action Plan\n\n${formattedTasks}\n\n---\n\n💡 **Ready to get started?** Your plan is ready! Click "Create Activity" below to add these tasks to your activity tracker.`,
-    phase: 'completed'
+    responseMessage: `# ✨ ${planData.title}\n\n${planData.description}\n\n## 🎯 Your Action Plan\n\n${formattedTasks}`,
+    phase: 'completed',
+    readyToGenerate: true
   };
 }
 
@@ -827,11 +828,8 @@ function routeAfterEnrichment(state: PlanningStateType): string {
 }
 
 function routeAfterSynthesis(state: PlanningStateType): string {
-  // Create activity if storage is available
-  if (state.storage) {
-    return 'create_activity';
-  }
-  // Otherwise end
+  // DON'T create activity automatically - wait for user confirmation first
+  // The confirmation and activity creation happens in routes.ts when user says "yes"
   return END;
 }
 
@@ -929,6 +927,7 @@ export class LangGraphPlanningAgent {
         userMessage,
         userProfile,
         planMode,
+        storage,
         conversationHistory: [{ role: 'user', content: userMessage }]
       },
       config
