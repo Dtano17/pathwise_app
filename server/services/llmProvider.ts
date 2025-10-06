@@ -135,7 +135,7 @@ export function getProviderForTask(task: TaskType): ProviderStrategy {
     },
     enrichment: {
       primary: 'deepseek',
-      fallback: 'openai',
+      fallback: 'claude',
       reason: 'DeepSeek: 27x cheaper for bulk operations, good enough quality for web search'
     },
     plan_synthesis: {
