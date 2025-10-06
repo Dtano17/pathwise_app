@@ -28,6 +28,7 @@ const PlanningState = Annotation.Root({
   userId: Annotation<number>(),
   userMessage: Annotation<string>(),
   userProfile: Annotation<User>(),
+  planMode: Annotation<'quick' | 'smart'>({ default: () => 'quick' }),
   conversationHistory: Annotation<Array<{ role: string; content: string }>>({
     reducer: (prev, next) => [...prev, ...next],
     default: () => []
@@ -196,11 +197,21 @@ async function extractSlots(state: PlanningStateType): Promise<Partial<PlanningS
     return {};
   }
 
+  // Get the right question set based on plan mode (quick_plan or smart_plan)
+  const planMode = state.planMode || 'quick';
+  const questionKey = planMode === 'quick' ? 'quick_plan' : 'smart_plan';
+  const questions = state.domainConfig.questions[questionKey] || state.domainConfig.questions.quick_plan || [];
+
+  if (!Array.isArray(questions) || questions.length === 0) {
+    console.warn('[LANGGRAPH] No questions found for domain config');
+    return {};
+  }
+
   // Build schema from domain config
   const slotProperties: Record<string, any> = {};
   const requiredSlots: string[] = [];
 
-  for (const question of state.domainConfig.questions) {
+  for (const question of questions) {
     const slotName = question.slot_path.split('.').pop() || question.id;
     slotProperties[slotName] = {
       type: 'string',
@@ -270,9 +281,10 @@ async function generateQuestions(state: PlanningStateType): Promise<Partial<Plan
     };
   }
 
-  // Use domain config questions (default to quick_plan for now)
-  // TODO: Add planMode to state to choose between quick_plan and smart_plan
-  const questions = state.domainConfig.questions.quick_plan || state.domainConfig.questions.smart_plan || [];
+  // Get the right question set based on plan mode
+  const planMode = state.planMode || 'quick';
+  const questionKey = planMode === 'quick' ? 'quick_plan' : 'smart_plan';
+  const questions = state.domainConfig.questions[questionKey] || state.domainConfig.questions.quick_plan || [];
 
   console.log(`[LANGGRAPH] Generated ${questions.length} questions for domain: ${state.domain}`);
 
@@ -752,6 +764,7 @@ export class LangGraphPlanningAgent {
         userId,
         userMessage,
         userProfile,
+        planMode,
         conversationHistory: [{ role: 'user', content: userMessage }]
       },
       config
