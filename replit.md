@@ -73,7 +73,17 @@ A mobile-first AI-powered journaling application that transforms user intentions
 - **Anthropic Integration**: Active, Claude API for conversational planning
 
 ## Recent Changes
-- **October 5, 2025** (Latest):
+- **October 6, 2025** (Latest):
+  - ✅ **LangChain Integration Complete**: Smart Plan and Quick Plan now use LangGraph state machine
+  - ✅ **Multi-LLM Support**: Automatic provider switching (OpenAI GPT-4o-mini, Claude Sonnet-4, DeepSeek)
+  - ✅ **Cost Optimization**: Intelligent routing - cheap models for classification, premium for synthesis
+  - ✅ **State Persistence**: LangGraph MemorySaver maintains conversation state across turns
+  - ✅ **Duplicate Prevention**: Graph-level enforcement prevents asking same question twice
+  - ✅ **Automatic Fallback**: If OpenAI fails, automatically falls back to Claude or DeepSeek
+  - ✅ **Installed Packages**: @langchain/langgraph, @langchain/core
+  - ✅ **Adaptive Layout**: Fixed mobile scrolling with flexbox (h-screen flex-col overflow-hidden)
+  - ✅ **Bottom Padding**: Added pb-20 to all tabs to prevent content cutoff on mobile
+- **October 5, 2025**:
   - ✅ **Authentication Fix for Premium Features**: All API routes now properly use authenticated user IDs instead of DEMO_USER_ID
   - ✅ **Signed-in users now have full access to all premium features**: sharing activities, group activities, AI-powered planning, and collaboration
   - ✅ **Permission Request System**: Added complete workflow for requesting edit access to shared activities

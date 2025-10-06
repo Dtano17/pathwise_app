@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { SlotCompletenessEngine } from "./slotRegistry";
 import { contextualEnrichmentAgent } from "./contextualEnrichmentAgent";
 import { universalPlanningAgent } from "./universalPlanningAgent";
+import { langGraphPlanningAgent } from "./langgraphPlanningAgent";
 import type {
   LifestylePlannerSession,
   InsertLifestylePlannerSession,
@@ -101,15 +102,62 @@ export class LifestylePlannerAgent {
     message: string,
     session: LifestylePlannerSession,
     userProfile: User,
-    mode?: 'quick' | 'chat',
+    mode?: 'quick' | 'smart' | 'chat',
     storage?: any
   ): Promise<ConversationResponse> {
     try {
-      // UNIVERSAL PLANNING AGENT - TRY FIRST (new 5-phase flow)
-      const useUniversalAgent = process.env.USE_UNIVERSAL_AGENT !== 'false'; // Default: true
+      // LANGGRAPH PLANNING AGENT - TRY FIRST (new LangChain state machine)
+      const useLangGraph = process.env.USE_LANGGRAPH !== 'false'; // Default: true
+
+      if (useLangGraph && (mode === 'quick' || mode === 'smart')) {
+        console.log('[LIFECYCLE PLANNER] Using LangGraph Planning Agent (LangChain)');
+
+        const planMode = mode === 'quick' ? 'quick' : 'smart';
+        
+        // Extract userId from session (handle both string and number IDs)
+        const userId = typeof session.userId === 'string' ? parseInt(session.userId, 10) : session.userId;
+
+        const langGraphResponse = await langGraphPlanningAgent.processMessage(
+          userId,
+          message,
+          userProfile,
+          session.conversationHistory || [],
+          storage,
+          planMode
+        );
+
+        // Transform LangGraph response to ConversationResponse format
+        return {
+          message: langGraphResponse.message,
+          sessionState: this.mapPhaseToSessionState(langGraphResponse.phase),
+          nextQuestion: langGraphResponse.message,
+          contextChips: undefined, // LangGraph doesn't use context chips yet
+          readyToGenerate: langGraphResponse.readyToGenerate || false,
+          planReady: !!langGraphResponse.finalPlan,
+          generatedPlan: langGraphResponse.finalPlan,
+          createActivity: !!langGraphResponse.createdActivity,
+          updatedSlots: session.slots, // LangGraph manages slots internally
+          updatedExternalContext: {
+            ...(session.externalContext || {}),
+            detectedDomain: langGraphResponse.domain,
+            currentMode: planMode,
+            questionCount: {
+              ...(session.externalContext?.questionCount || { smart: 0, quick: 0 })
+            }
+          },
+          updatedConversationHistory: [
+            ...(session.conversationHistory || []),
+            { role: 'user', content: message, timestamp: new Date().toISOString() },
+            { role: 'assistant', content: langGraphResponse.message, timestamp: new Date().toISOString() }
+          ]
+        };
+      }
+
+      // FALLBACK: Universal Planning Agent (non-LangChain)
+      const useUniversalAgent = process.env.USE_UNIVERSAL_AGENT !== 'false';
 
       if (useUniversalAgent && (mode === 'quick' || mode === 'smart')) {
-        console.log('[LIFECYCLE PLANNER] Using Universal Planning Agent');
+        console.log('[LIFECYCLE PLANNER] Using Universal Planning Agent (fallback)');
 
         const planMode = mode === 'quick' ? 'quick' : 'smart';
         const currentDomain = session.externalContext?.detectedDomain;
