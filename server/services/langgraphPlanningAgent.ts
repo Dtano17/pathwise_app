@@ -580,12 +580,40 @@ async function askQuestion(state: PlanningStateType): Promise<Partial<PlanningSt
 
 /**
  * Node: Enrich Data
- * Performs web research and data enrichment
+ * Performs contextual research and planning enrichment
  */
 async function enrichData(state: PlanningStateType): Promise<Partial<PlanningStateType>> {
   console.log('[LANGGRAPH] Node: enrich_data');
 
-  // Use DeepSeek for cost-effective enrichment
+  // Build enrichment request based on domain
+  let enrichmentPrompt = `Based on the planning information provided, give comprehensive contextual advice including:
+
+1. **Timing & Seasonal Considerations**: Typical weather patterns, best times, seasonal factors
+2. **Practical Logistics**: Common challenges, what to expect, preparation tips
+3. **Smart Recommendations**: Insider tips, things people often overlook, pro advice
+4. **Current Trends**: Popular approaches, what's working well in 2025
+
+Be specific and practical. Use your knowledge up to your training cutoff.`;
+
+  // Add domain-specific enrichment requests
+  if (state.domain === 'travel') {
+    enrichmentPrompt += `\n\n**Travel-Specific:**
+- Typical weather for the destination/season mentioned
+- Transportation and traffic patterns for that area
+- Local events, festivals, or busy periods to consider
+- Budget-conscious tips and money-saving advice`;
+  } else if (state.domain === 'daily_planning') {
+    enrichmentPrompt += `\n\n**Daily Planning:**
+- Time management best practices
+- Energy optimization throughout the day
+- Common pitfalls and how to avoid them`;
+  } else if (state.domain === 'event_planning') {
+    enrichmentPrompt += `\n\n**Event Planning:**
+- Timeline considerations and milestones
+- Vendor/resource recommendations
+- Weather backup plans if outdoor event`;
+  }
+
   const result = await executeLLMCall(
     'enrichment',
     async (provider) => {
@@ -593,19 +621,25 @@ async function enrichData(state: PlanningStateType): Promise<Partial<PlanningSta
         [
           {
             role: 'system',
-            content: `You are a research assistant. Given user's planning information, provide helpful context and suggestions.
+            content: `You are an expert planning advisor with deep knowledge across domains. Provide rich, contextual advice to enhance planning.
 
-Domain: ${state.domain}
-User Information: ${JSON.stringify(state.slots, null, 2)}`
+**Domain:** ${state.domain}
+**Planning Information:** ${JSON.stringify(state.slots, null, 2)}
+
+Your advice should be:
+- Specific and actionable (not generic)
+- Based on typical patterns and best practices
+- Practical and immediately useful
+- Consider logistics, timing, weather patterns, and common challenges`
           },
           {
             role: 'user',
-            content: 'Provide 3-5 helpful suggestions or tips based on the information provided.'
+            content: enrichmentPrompt
           }
         ],
         {
           temperature: 0.7,
-          maxTokens: 500
+          maxTokens: 800
         }
       );
     }
@@ -615,7 +649,8 @@ User Information: ${JSON.stringify(state.slots, null, 2)}`
 
   return {
     enrichedData: {
-      suggestions: result.content,
+      contextualAdvice: result.content,
+      domain: state.domain,
       timestamp: new Date().toISOString()
     },
     phase: 'synthesis'
