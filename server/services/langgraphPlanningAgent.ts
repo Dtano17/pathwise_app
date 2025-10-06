@@ -437,7 +437,7 @@ async function askQuestion(state: PlanningStateType): Promise<Partial<PlanningSt
   if (!state.nextQuestion) {
     console.warn('[LANGGRAPH] No next question to ask');
     return {
-      responseMessage: "I have all the information I need. Ready to generate your plan!",
+      responseMessage: "Perfect! I've got everything I need. Let's create your plan! 🎯",
       readyToGenerate: true
     };
   }
@@ -446,7 +446,7 @@ async function askQuestion(state: PlanningStateType): Promise<Partial<PlanningSt
   if (state.askedQuestionIds.has(state.nextQuestion.id)) {
     console.error(`[LANGGRAPH] DUPLICATE PREVENTION: Question ${state.nextQuestion.id} already asked!`);
     return {
-      responseMessage: "Let me think of another question...",
+      responseMessage: "Hmm, let me think of something else...",
       nextQuestion: null
     };
   }
@@ -455,8 +455,21 @@ async function askQuestion(state: PlanningStateType): Promise<Partial<PlanningSt
 
   console.log(`[LANGGRAPH] Asking question: ${questionText}`);
 
+  // Make questions sound more casual and friendly
+  const friendlyIntros = [
+    "",  // Sometimes no intro
+    "Quick question – ",
+    "Just curious – ",
+    "One more thing – ",
+    "Oh, also – "
+  ];
+  
+  // Pick a random intro
+  const randomIntro = friendlyIntros[Math.floor(Math.random() * friendlyIntros.length)];
+  const friendlyQuestion = randomIntro + questionText;
+
   return {
-    responseMessage: questionText,
+    responseMessage: friendlyQuestion,
     askedQuestionIds: new Set([state.nextQuestion.id]),
     nextQuestion: null
   };
