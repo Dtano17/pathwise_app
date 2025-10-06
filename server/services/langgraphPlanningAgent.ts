@@ -285,6 +285,16 @@ async function extractSlots(state: PlanningStateType): Promise<Partial<PlanningS
     }
   }
 
+  // Build full conversation context for extraction
+  // This allows extracting information from ANY previous message, not just the current one
+  const conversationContext = state.conversationHistory
+    ?.map(msg => `${msg.role}: ${msg.content}`)
+    .join('\n') || '';
+  
+  const fullContext = conversationContext 
+    ? `Conversation history:\n${conversationContext}\n\nCurrent message: ${state.userMessage}`
+    : state.userMessage;
+
   const result = await executeLLMCall(
     'slot_extraction',
     async (provider) => {
@@ -292,11 +302,17 @@ async function extractSlots(state: PlanningStateType): Promise<Partial<PlanningS
         [
           {
             role: 'system',
-            content: `Extract information from user message into structured slots. Only extract information explicitly mentioned. Leave slots empty if not mentioned.`
+            content: `Extract information from the conversation into structured slots. 
+Search through ALL messages (not just the current one) to find information that answers each slot.
+Only extract information explicitly mentioned. Use <UNKNOWN> for slots not mentioned anywhere in the conversation.
+
+IMPORTANT: When the user provides multiple pieces of information in a single comprehensive answer, extract ALL of them.
+For example: "I'm planning today, I have a medication appointment, my priorities are meditation and naps"
+Should extract: date="today", fixedCommitments="medication appointment", priorities="meditation and naps"`
           },
           {
             role: 'user',
-            content: state.userMessage
+            content: fullContext
           }
         ],
         [
@@ -388,6 +404,15 @@ async function generateQuestions(state: PlanningStateType): Promise<Partial<Plan
 async function analyzeGaps(state: PlanningStateType): Promise<Partial<PlanningStateType>> {
   console.log('[LANGGRAPH] Node: analyze_gaps');
 
+  // Build full conversation context
+  const conversationContext = state.conversationHistory
+    ?.map(msg => `${msg.role}: ${msg.content}`)
+    .join('\n') || '';
+  
+  const fullContext = conversationContext 
+    ? `Conversation:\n${conversationContext}\n\nCurrent: ${state.userMessage}`
+    : state.userMessage;
+
   const result = await executeLLMCall(
     'gap_analysis',
     async (provider) => {
@@ -395,25 +420,28 @@ async function analyzeGaps(state: PlanningStateType): Promise<Partial<PlanningSt
         [
           {
             role: 'system',
-            content: `You are analyzing which planning questions have been answered.
+            content: `You are analyzing which planning questions have been answered based on the ENTIRE conversation.
 
 Questions to analyze:
 ${JSON.stringify(state.allQuestions, null, 2)}
 
-User's current slots/information:
+User's extracted information (from ALL messages):
 ${JSON.stringify(state.slots, null, 2)}
 
 Already asked question IDs (don't ask again):
 ${JSON.stringify([...state.askedQuestionIds], null, 2)}
 
 Determine:
-1. Which questions are fully answered (have slot values)
+1. Which questions are fully answered (check slots AND conversation history)
 2. Which questions still need answers
-3. What's the most important unanswered question to ask next`
+3. What's the most important unanswered question to ask next
+
+CRITICAL: A question is answered if the information exists in the slots OR anywhere in the conversation history.
+Do NOT ask questions that were already answered in previous messages!`
           },
           {
             role: 'user',
-            content: state.userMessage
+            content: fullContext
           }
         ],
         [
