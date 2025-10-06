@@ -124,11 +124,18 @@ type PlanningStateType = typeof PlanningState.State;
 async function detectDomain(state: PlanningStateType): Promise<Partial<PlanningStateType>> {
   console.log('[LANGGRAPH] Node: detect_domain');
 
-  // If domain already detected with high confidence, skip
-  if (state.domain !== 'general' && state.domainConfidence > 0.8) {
-    console.log(`[LANGGRAPH] Domain already detected: ${state.domain} (confidence: ${state.domainConfidence})`);
-    return {};
-  }
+  // Re-detect domain with full conversation context to handle:
+  // 1. Topic switches (e.g., "plan my day" -> "plan my trip to dallas")
+  // 2. Short follow-up answers (e.g., "Friday" after "Which day?" should stay in travel domain)
+
+  // Build conversation context for classification
+  const conversationContext = state.conversationHistory
+    ?.map(msg => `${msg.role}: ${msg.content}`)
+    .join('\n') || '';
+  
+  const fullContext = conversationContext 
+    ? `Previous conversation:\n${conversationContext}\n\nCurrent message: ${state.userMessage}`
+    : state.userMessage;
 
   const result = await executeLLMCall(
     'domain_detection',
@@ -146,11 +153,13 @@ async function detectDomain(state: PlanningStateType): Promise<Partial<PlanningS
 - learning: Educational goals, skill development
 - general: Everything else
 
+When the user sends short follow-up responses (like "Friday" or "yes"), use the conversation context to understand which domain they're still discussing.
+Only switch domains if the user clearly starts a new topic.
 Return high confidence (0.8-1.0) only if clearly matches domain.`
           },
           {
             role: 'user',
-            content: `Classify this request:\n\n${state.userMessage}`
+            content: `Classify this conversation:\n\n${fullContext}`
           }
         ],
         [
@@ -186,10 +195,47 @@ Return high confidence (0.8-1.0) only if clearly matches domain.`
     reasoning?: string;
   }>(result);
 
-  console.log(`[LANGGRAPH] Domain: ${classified.domain} (confidence: ${classified.confidence})`);
+  console.log(`[LANGGRAPH] New classification: ${classified.domain} (confidence: ${classified.confidence})`);
   if (classified.reasoning) {
     console.log(`[LANGGRAPH] Reasoning: ${classified.reasoning}`);
   }
+
+  // Hysteresis-based domain switching to prevent weak reclassifications while allowing topic changes
+  // Strategy: Decay incumbent confidence each turn, then require new domain to exceed decayed confidence + margin
+  // This allows legitimate topic switches while blocking weak misclassifications
+  
+  // If same domain detected, accept immediately (no switching needed)
+  if (state.domain && classified.domain === state.domain) {
+    console.log(`[LANGGRAPH] Same domain confirmed: ${classified.domain} (${classified.confidence.toFixed(2)})`);
+    return {
+      domainConfidence: classified.confidence // Update confidence
+    };
+  }
+  
+  // Apply confidence decay to incumbent domain (allows topic changes over time)
+  const decayFactor = 0.85;
+  const existingConfidence = state.domainConfidence || 0;
+  const decayedConfidence = existingConfidence * decayFactor;
+  const requiredMargin = 0.06; // Require 6% margin over decayed confidence (allows topic switch at 0.90, blocks misclass at 0.86)
+  const requiredConfidence = decayedConfidence + requiredMargin;
+  
+  console.log(`[LANGGRAPH] Decay: ${existingConfidence.toFixed(2)} → ${decayedConfidence.toFixed(2)}, required: ${requiredConfidence.toFixed(2)}, new: ${classified.confidence.toFixed(2)}`);
+  
+  // For different domains, require strong evidence to switch:
+  // Must meet BOTH criteria: exceed decayed confidence by margin AND meet absolute floor
+  const shouldSwitchDomain = 
+    !state.domain || // No existing domain
+    state.domain === 'general' || // Currently in generic domain
+    (classified.confidence >= requiredConfidence && classified.confidence >= 0.85); // Beat decayed confidence AND high absolute confidence
+  
+  if (!shouldSwitchDomain) {
+    console.log(`[LANGGRAPH] Keeping existing domain: ${state.domain} - persisting decayed confidence: ${decayedConfidence.toFixed(2)}`);
+    return {
+      domainConfidence: decayedConfidence // Persist decayed confidence for future comparisons
+    };
+  }
+
+  console.log(`[LANGGRAPH] Switching to domain: ${classified.domain}`);
 
   // Load domain config
   const domainConfig = domainRegistry.getDomain(classified.domain);
