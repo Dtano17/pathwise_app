@@ -454,6 +454,11 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       response.planReady = false;
     }
 
+    // Check if plan is ready for confirmation
+    const smartPlanConfirmed = session.externalContext?.planConfirmed;
+    const smartAwaitingConfirmation = session.externalContext?.awaitingPlanConfirmation;
+    const isFirstPlanReady = (response.readyToGenerate || response.planReady || response.showGenerateButton) && !smartAwaitingConfirmation;
+
     // Persist updated session data from agent (includes full conversation history and generated plan)
     await storage.updateLifestylePlannerSession(session.id, {
       conversationHistory: response.updatedConversationHistory || session.conversationHistory,
@@ -461,17 +466,18 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         ...(response.updatedSlots || session.slots),
         _generatedPlan: response.generatedPlan || session.slots?._generatedPlan
       },
-      externalContext: {...(response.updatedExternalContext || session.externalContext), isFirstInteraction: false},
-      sessionState: response.sessionState
+      externalContext: {
+        ...(response.updatedExternalContext || session.externalContext),
+        isFirstInteraction: false,
+        // Set confirmation flags if plan is ready for first time
+        ...(isFirstPlanReady ? { awaitingPlanConfirmation: true, planConfirmed: false } : {})
+      },
+      sessionState: isFirstPlanReady ? 'confirming' : response.sessionState
     }, userId);
 
-    // Check if plan is ready for confirmation (using either old or new flag names)
+    // Handle plan confirmation flow
     if (response.readyToGenerate || response.planReady || response.showGenerateButton) {
-      // Check if plan is already confirmed
-      const planConfirmed = session.externalContext?.planConfirmed;
-      const awaitingConfirmation = session.externalContext?.awaitingPlanConfirmation;
-      
-      if (planConfirmed) {
+      if (smartPlanConfirmed) {
         // Plan already confirmed - show Generate Plan button immediately
         return res.json({
           message: response.message,
@@ -481,19 +487,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           showGenerateButton: true,
           session
         });
-      } else if (!awaitingConfirmation) {
+      } else if (!smartAwaitingConfirmation) {
         // First time plan is ready - ask for confirmation
-        const updatedContext = {
-          ...session.externalContext,
-          awaitingPlanConfirmation: true,
-          planConfirmed: false
-        };
-        
-        await storage.updateLifestylePlannerSession(session.id, {
-          sessionState: 'confirming',
-          externalContext: updatedContext
-        }, userId);
-
         return res.json({
           message: response.message + "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)",
           planReady: false, // Don't show button yet
@@ -2446,6 +2441,11 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       response.planReady = false;
     }
 
+    // Check if plan is ready for confirmation
+    const quickPlanConfirmed = session.externalContext?.planConfirmed;
+    const quickAwaitingConfirmation = session.externalContext?.awaitingPlanConfirmation;
+    const isFirstPlanReady = (response.readyToGenerate || response.planReady) && !quickAwaitingConfirmation;
+
     // Persist updated session data from agent (includes full conversation history and generated plan)
     await storage.updateLifestylePlannerSession(session.id, {
       conversationHistory: response.updatedConversationHistory || session.conversationHistory,
@@ -2453,17 +2453,18 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         ...(response.updatedSlots || session.slots),
         _generatedPlan: response.generatedPlan || session.slots?._generatedPlan
       },
-      externalContext: {...(response.updatedExternalContext || session.externalContext), isFirstInteraction: false},
-      sessionState: response.sessionState
+      externalContext: {
+        ...(response.updatedExternalContext || session.externalContext),
+        isFirstInteraction: false,
+        // Set confirmation flags if plan is ready for first time
+        ...(isFirstPlanReady ? { awaitingPlanConfirmation: true, planConfirmed: false } : {})
+      },
+      sessionState: isFirstPlanReady ? 'confirming' : response.sessionState
     }, userId);
 
-    // Check if plan is ready for confirmation
+    // Handle plan confirmation flow
     if (response.readyToGenerate || response.planReady) {
-      // Check if plan is already confirmed
-      const planConfirmed = session.externalContext?.planConfirmed;
-      const awaitingConfirmation = session.externalContext?.awaitingPlanConfirmation;
-      
-      if (planConfirmed) {
+      if (quickPlanConfirmed) {
         // Plan already confirmed - show Generate Plan button immediately
         return res.json({
           message: response.message,
@@ -2472,19 +2473,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           showCreatePlanButton: true,
           session
         });
-      } else if (!awaitingConfirmation) {
+      } else if (!quickAwaitingConfirmation) {
         // First time plan is ready - ask for confirmation
-        const updatedContext = {
-          ...session.externalContext,
-          awaitingPlanConfirmation: true,
-          planConfirmed: false
-        };
-        
-        await storage.updateLifestylePlannerSession(session.id, {
-          sessionState: 'confirming',
-          externalContext: updatedContext
-        }, userId);
-
         return res.json({
           message: response.message + "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)",
           planReady: false, // Don't show button yet
