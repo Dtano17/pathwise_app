@@ -922,7 +922,7 @@ export default function MainApp({
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 h-full overflow-auto">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 min-h-[calc(100vh-80px)] overflow-auto">
         <div className="max-w-6xl mx-auto">
           {/* Navigation */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -988,7 +988,7 @@ export default function MainApp({
             </TabsList>
 
             {/* Goal Input Tab */}
-            <TabsContent value="input" className="space-y-6">
+            <TabsContent value="input" className="space-y-6 pb-20">
               <div className="text-center mb-6 px-4">
                 <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
                   What do you want to achieve?
@@ -1216,7 +1216,7 @@ export default function MainApp({
             </TabsContent>
 
             {/* Activities Tab - Primary Focus */}
-            <TabsContent value="activities" className="space-y-6">
+            <TabsContent value="activities" className="space-y-6 pb-20">
               <div className="text-center mb-6 px-4">
                 <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Your Activities</h2>
                 <p className="text-sm sm:text-base text-muted-foreground">
@@ -1427,7 +1427,7 @@ export default function MainApp({
             </TabsContent>
 
             {/* All Tasks Tab */}
-            <TabsContent value="tasks" className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-8">
+            <TabsContent value="tasks" className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-20">
               <div className="text-center mb-6 px-4">
                 {selectedActivityId ? (
                   <>
@@ -1617,7 +1617,7 @@ export default function MainApp({
             </TabsContent>
 
             {/* Progress Tab */}
-            <TabsContent value="progress" className="space-y-6">
+            <TabsContent value="progress" className="space-y-6 pb-20">
               <SignInGate feature="Progress tracking">
                 {progressLoading ? (
                   <div className="text-center py-12">
@@ -1654,7 +1654,7 @@ export default function MainApp({
             </TabsContent>
 
             {/* App Integrations Tab */}
-            <TabsContent value="sync" className="h-full flex flex-col">
+            <TabsContent value="sync" className="h-full flex flex-col pb-20">
               <SignInGate feature="App integrations">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
@@ -1899,7 +1899,7 @@ Assistant: For nutrition, I recommend..."
             </TabsContent>
 
             {/* Groups Tab */}
-            <TabsContent value="groups" className="space-y-6">
+            <TabsContent value="groups" className="space-y-6 pb-20">
               <SignInGate feature="Group collaboration">
                 <div className="max-w-4xl mx-auto">
                   <div className="text-center mb-8">
@@ -2099,7 +2099,7 @@ Assistant: For nutrition, I recommend..."
             </TabsContent>
 
             {/* About Tab */}
-            <TabsContent value="about" className="space-y-8 pb-12">
+            <TabsContent value="about" className="space-y-8 pb-20">
               <div className="max-w-4xl mx-auto">
                 {/* Hero Section */}
                 <div className="text-center mb-12">
