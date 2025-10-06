@@ -115,7 +115,23 @@ export class LifestylePlannerAgent {
         const planMode = mode === 'quick' ? 'quick' : 'smart';
         
         // Extract userId from session (handle both string and number IDs)
-        const userId = typeof session.userId === 'string' ? parseInt(session.userId, 10) : session.userId;
+        let userId: number;
+        if (typeof session.userId === 'string') {
+          // Handle special case for demo-user
+          if (session.userId === 'demo-user') {
+            userId = 0; // Use 0 for demo user
+          } else {
+            userId = parseInt(session.userId, 10);
+          }
+        } else {
+          userId = session.userId;
+        }
+        
+        // Validate userId is a valid number
+        if (isNaN(userId)) {
+          console.error('[LIFECYCLE PLANNER] Invalid userId:', session.userId);
+          userId = 0; // Fallback to 0 for invalid IDs
+        }
 
         const langGraphResponse = await langGraphPlanningAgent.processMessage(
           userId,
