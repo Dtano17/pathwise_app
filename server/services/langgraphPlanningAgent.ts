@@ -655,10 +655,17 @@ function routeAfterDomainDetection(state: PlanningStateType): string {
 }
 
 function routeAfterSlotExtraction(state: PlanningStateType): string {
+  // If no domain config (general domain), skip questions and go straight to enrichment
+  if (!state.domainConfig) {
+    console.log('[LANGGRAPH] No domain config - skipping questions, going to enrichment');
+    return 'enrich_data';
+  }
+  
   // Generate questions if we don't have them yet
-  if (state.allQuestions.length === 0) {
+  if (!state.allQuestions || state.allQuestions.length === 0) {
     return 'generate_questions';
   }
+  
   // Otherwise analyze gaps
   return 'analyze_gaps';
 }
