@@ -195,6 +195,7 @@ export async function getProviderWithFallback(
 
 /**
  * Execute LLM call with automatic fallback and error handling
+ * Returns both the result and metadata about which provider was used
  */
 export async function executeLLMCall<T = LLMCompletionResult>(
   task: TaskType,
@@ -203,7 +204,7 @@ export async function executeLLMCall<T = LLMCompletionResult>(
     customStrategy?: ProviderStrategy;
     retries?: number;
   }
-): Promise<T> {
+): Promise<T & { __providerName?: string }> {
   const strategy = options?.customStrategy || getProviderForTask(task);
   const maxRetries = options?.retries ?? 2;
 
@@ -214,7 +215,9 @@ export async function executeLLMCall<T = LLMCompletionResult>(
     const provider = await getProviderWithFallback(strategy.primary, strategy.fallback);
     console.log(`[LLM PROVIDER] Task: ${task} | Using: ${provider.name} | Reason: ${strategy.reason}`);
 
-    return await executor(provider);
+    const result = await executor(provider);
+    // Attach provider metadata to result
+    return { ...result, __providerName: provider.name };
   } catch (error) {
     lastError = error as Error;
     console.error(`[LLM PROVIDER] Primary failed for ${task}:`, error);
@@ -226,7 +229,9 @@ export async function executeLLMCall<T = LLMCompletionResult>(
       const fallbackProvider = await getProviderWithFallback(strategy.fallback);
       console.warn(`[LLM PROVIDER] Retrying ${task} with fallback: ${fallbackProvider.name}`);
 
-      return await executor(fallbackProvider);
+      const result = await executor(fallbackProvider);
+      // Attach provider metadata to result
+      return { ...result, __providerName: fallbackProvider.name };
     } catch (error) {
       lastError = error as Error;
       console.error(`[LLM PROVIDER] Fallback failed for ${task}:`, error);
