@@ -503,15 +503,28 @@ async function synthesizePlan(state: PlanningStateType): Promise<Partial<Plannin
         [
           {
             role: 'system',
-            content: `You are an expert plan creator. Create a beautiful, actionable plan with structured output.
+            content: `You are a warm, thoughtful lifestyle planning assistant. Create beautiful, inspiring, and actionable plans.
 
-Domain: ${state.domain}
-User Information: ${JSON.stringify(state.slots, null, 2)}
-Enrichment: ${JSON.stringify(state.enrichedData, null, 2)}`
+**Your Style:**
+- Be conversational and encouraging
+- Add personality and warmth to your language
+- Use vivid, specific language (not generic)
+- Show you understand the user's goals
+- Make tasks feel achievable and exciting
+
+**Domain:** ${state.domain}
+**User Information:** ${JSON.stringify(state.slots, null, 2)}
+**Additional Context:** ${JSON.stringify(state.enrichedData, null, 2)}
+
+Create a plan that feels personal, thoughtful, and motivating - like advice from a knowledgeable friend.`
           },
           {
             role: 'user',
-            content: `Create a comprehensive plan with a title, description, and 3-7 actionable tasks.`
+            content: `Create a comprehensive plan with:
+- A catchy, inspiring title (max 60 chars)
+- A motivating description that shows you understand my goals (max 150 chars)
+- 3-7 specific, actionable tasks with clear next steps
+- Each task should feel achievable and include realistic time estimates`
           }
         ],
         [
@@ -528,11 +541,12 @@ Enrichment: ${JSON.stringify(state.enrichedData, null, 2)}`
                   items: {
                     type: 'object',
                     properties: {
-                      title: { type: 'string', description: 'Task title' },
-                      description: { type: 'string', description: 'Task description' },
-                      priority: { type: 'string', enum: ['high', 'medium', 'low'] }
+                      title: { type: 'string', description: 'Specific, actionable task title' },
+                      description: { type: 'string', description: 'Detailed task description with clear next steps' },
+                      priority: { type: 'string', enum: ['high', 'medium', 'low'] },
+                      estimatedTime: { type: 'string', description: 'Realistic time estimate (e.g., "30 min", "2 hours", "3 days")' }
                     },
-                    required: ['title', 'description', 'priority']
+                    required: ['title', 'description', 'priority', 'estimatedTime']
                   }
                 }
               },
@@ -551,10 +565,16 @@ Enrichment: ${JSON.stringify(state.enrichedData, null, 2)}`
   const planData = OpenAIProvider.parseFunctionCall<{
     title: string;
     description: string;
-    tasks: Array<{ title: string; description: string; priority: string }>;
+    tasks: Array<{ title: string; description: string; priority: string; estimatedTime: string }>;
   }>(result);
 
   console.log(`[LANGGRAPH] Plan synthesis complete: "${planData.title}" with ${planData.tasks.length} tasks (cost: $${result.usage?.totalCost.toFixed(4)})`);
+
+  // Format response message beautifully like Claude
+  const formattedTasks = planData.tasks.map((t, i) => {
+    const priorityEmoji = t.priority === 'high' ? '🔴' : t.priority === 'medium' ? '🟡' : '🟢';
+    return `**${i + 1}. ${t.title}** ${priorityEmoji}\n   ${t.description}\n   ⏱️ *${t.estimatedTime}*`;
+  }).join('\n\n');
 
   return {
     finalPlan: {
@@ -563,7 +583,7 @@ Enrichment: ${JSON.stringify(state.enrichedData, null, 2)}`
       domain: state.domain,
       slots: state.slots
     },
-    responseMessage: `# ${planData.title}\n\n${planData.description}\n\n## Tasks\n\n${planData.tasks.map((t, i) => `${i + 1}. **${t.title}** (${t.priority})\n   ${t.description}`).join('\n\n')}`,
+    responseMessage: `# ✨ ${planData.title}\n\n${planData.description}\n\n## 🎯 Your Action Plan\n\n${formattedTasks}\n\n---\n\n💡 **Ready to get started?** Your plan is ready! Click "Create Activity" below to add these tasks to your activity tracker.`,
     phase: 'completed'
   };
 }
