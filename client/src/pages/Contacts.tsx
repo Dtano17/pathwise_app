@@ -209,84 +209,78 @@ export default function Contacts() {
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-4xl" data-testid="page-contacts">
-      <div className="space-y-4 sm:space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-contacts-title">Friends & Family</h1>
-            <p className="text-sm sm:text-base text-muted-foreground">Share your goals and plans with people you care about.</p>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button onClick={handleSyncPhoneContacts} disabled={syncContactsMutation.isPending} size="sm" className="flex-1 sm:flex-none" data-testid="button-sync-contacts">
-              <Phone className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">{syncContactsMutation.isPending ? 'Syncing...' : 'Sync Phone Contacts'}</span>
-              <span className="sm:hidden">Sync Contacts</span>
-            </Button>
-            <Dialog open={isAddContactOpen} onOpenChange={setIsAddContactOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="flex-1 sm:flex-none" data-testid="button-add-contact">
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline">Add Contact</span>
-                  <span className="sm:hidden">Add Manually</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-[95vw] sm:max-w-md" backLabel="Back to Contacts" data-testid="modal-add-contact">
-                <DialogHeader>
-                  <DialogTitle>Add Contact</DialogTitle>
-                  <DialogDescription>
-                    Add someone manually to share your goals and plans with them.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name *</Label>
-                    <Input
-                      id="name"
-                      value={newContact.name}
-                      onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
-                      placeholder="John Doe"
-                      data-testid="input-contact-name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newContact.email}
-                      onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
-                      placeholder="john@example.com"
-                      data-testid="input-contact-email"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={newContact.phone}
-                      onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
-                      placeholder="+1 (555) 123-4567"
-                      data-testid="input-contact-phone"
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsAddContactOpen(false)} data-testid="button-cancel-add">
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleAddContact}
-                      disabled={addContactMutation.isPending}
-                      data-testid="button-save-contact"
-                    >
-                      {addContactMutation.isPending ? 'Adding...' : 'Add Contact'}
-                    </Button>
-                  </div>
+    <div className="h-full flex flex-col" data-testid="page-contacts">
+      <div className="flex-1 overflow-auto p-1">
+        {/* Action Buttons */}
+        <div className="flex gap-2 flex-wrap mb-4">
+          <Button onClick={handleSyncPhoneContacts} disabled={syncContactsMutation.isPending} size="sm" className="flex-1 sm:flex-none" data-testid="button-sync-contacts">
+            <Phone className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">{syncContactsMutation.isPending ? 'Syncing...' : 'Sync Phone Contacts'}</span>
+            <span className="sm:hidden">Sync Contacts</span>
+          </Button>
+          <Dialog open={isAddContactOpen} onOpenChange={setIsAddContactOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="flex-1 sm:flex-none" data-testid="button-add-contact">
+                <UserPlus className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Add Contact</span>
+                <span className="sm:hidden">Add Manually</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-[95vw] sm:max-w-md" backLabel="Back to Contacts" data-testid="modal-add-contact">
+              <DialogHeader>
+                <DialogTitle>Add Contact</DialogTitle>
+                <DialogDescription>
+                  Add someone manually to share your goals and plans with them.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name *</Label>
+                  <Input
+                    id="name"
+                    value={newContact.name}
+                    onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+                    placeholder="John Doe"
+                    data-testid="input-contact-name"
+                  />
                 </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newContact.email}
+                    onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                    placeholder="john@example.com"
+                    data-testid="input-contact-email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={newContact.phone}
+                    onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
+                    placeholder="+1 (555) 123-4567"
+                    data-testid="input-contact-phone"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsAddContactOpen(false)} data-testid="button-cancel-add">
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleAddContact}
+                    disabled={addContactMutation.isPending}
+                    data-testid="button-save-contact"
+                  >
+                    {addContactMutation.isPending ? 'Adding...' : 'Add Contact'}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Contacts List */}
