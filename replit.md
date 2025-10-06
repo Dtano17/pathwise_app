@@ -80,6 +80,10 @@ A mobile-first AI-powered journaling application that transforms user intentions
   - ✅ **State Persistence**: LangGraph MemorySaver maintains conversation state across turns
   - ✅ **Duplicate Prevention**: Graph-level enforcement prevents asking same question twice
   - ✅ **Automatic Fallback**: If OpenAI fails, automatically falls back to Claude or DeepSeek
+  - ✅ **Provider-Aware Parsing**: Fixed critical bug where Claude fallback responses were parsed using OpenAI format
+  - ✅ **Universal Function Call Parser**: Added provider metadata to executeLLMCall, routes to correct parser (Claude tool_use vs OpenAI function_call)
+  - ✅ **Claude Tool Forcing**: Added tool_choice: 'any' to Claude's generateStructured to guarantee tool usage in structured calls
+  - ✅ **End-to-End Validation**: Tested full conversation flow with Claude-only fallback (OpenAI billing inactive)
   - ✅ **Installed Packages**: @langchain/langgraph, @langchain/core
   - ✅ **Adaptive Layout**: Fixed mobile scrolling with flexbox (h-screen flex-col overflow-hidden)
   - ✅ **Bottom Padding**: Added pb-20 to all tabs to prevent content cutoff on mobile
