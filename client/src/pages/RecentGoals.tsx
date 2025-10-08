@@ -46,7 +46,11 @@ interface ActivityWithProgress extends Activity {
   progressPercentage: number;
 }
 
-export default function RecentGoals() {
+interface RecentGoalsProps {
+  onSelectActivity?: (activityId: string) => void;
+}
+
+export default function RecentGoals({ onSelectActivity }: RecentGoalsProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -238,7 +242,13 @@ export default function RecentGoals() {
 
                 {/* Actions */}
                 <div className="flex items-center justify-between pt-2 border-t gap-2">
-                  <Button variant="ghost" size="sm" className="h-7 text-xs px-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 text-xs px-2"
+                    onClick={() => onSelectActivity?.(activity.id)}
+                    data-testid={`button-view-activity-${activity.id}`}
+                  >
                     <Eye className="w-3 h-3 mr-1" />
                     <span className="hidden sm:inline">View Details</span>
                     <span className="sm:hidden">View</span>

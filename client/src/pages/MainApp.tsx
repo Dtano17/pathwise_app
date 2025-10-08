@@ -2361,7 +2361,11 @@ Assistant: For nutrition, I recommend..."
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto min-h-0">
-            <RecentGoals />
+            <RecentGoals onSelectActivity={(activityId) => {
+              setSelectedActivityId(activityId);
+              setActiveTab("activities");
+              onShowRecentGoals(false);
+            }} />
           </div>
         </DialogContent>
       </Dialog>
