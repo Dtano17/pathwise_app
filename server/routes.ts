@@ -1654,10 +1654,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { activityId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Check if activity exists and is public
+      const activity = await storage.getActivity(activityId, userId);
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+      
+      if (!activity.isPublic) {
+        return res.status(403).json({ error: 'Activity must be public to share. Change privacy settings first.' });
+      }
+      
       const shareToken = await storage.generateShareableLink(activityId, userId);
       
       if (!shareToken) {
-        return res.status(404).json({ error: 'Activity not found or access denied' });
+        return res.status(404).json({ error: 'Failed to generate share token' });
       }
       
       // Use REPLIT_DOMAINS for production, fall back to current host for dev

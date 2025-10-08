@@ -105,7 +105,7 @@ export interface IStorage {
   deleteActivity(activityId: string, userId: string): Promise<void>;
   archiveActivity(activityId: string, userId: string): Promise<Activity | undefined>;
   getPublicActivities(limit?: number): Promise<Activity[]>;
-  generateShareableLink(activityId: string): Promise<string>;
+  generateShareableLink(activityId: string, userId: string): Promise<string | null>;
   
   // Activity Tasks
   addTaskToActivity(activityId: string, taskId: string, order?: number): Promise<ActivityTask>;

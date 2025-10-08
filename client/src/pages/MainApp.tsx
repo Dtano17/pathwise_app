@@ -19,7 +19,7 @@ import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
 import ProgressReport from './ProgressReport';
 import { SocialLogin } from '@/components/SocialLogin';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, Archive, Plug, Info, LogIn } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, Archive, Plug, Info, LogIn, Lock, Unlock } from 'lucide-react';
 import { Link } from 'wouter';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
@@ -1302,43 +1302,91 @@ export default function MainApp({
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   try {
-                                    // Generate proper shareable link via backend
-                                    const response = await apiRequest('POST', `/api/activities/${activity.id}/share`);
-                                    const data = await response.json();
-                                    const shareUrl = data.shareableLink;
-                                    const shareText = `Check out my activity: ${activity.title} - ${progressPercent}% complete!`;
-                                    
-                                    if (navigator.share) {
-                                      await navigator.share({
-                                        title: activity.title,
-                                        text: shareText,
-                                        url: shareUrl
-                                      });
-                                      toast({ 
-                                        title: "Shared Successfully!", 
-                                        description: "Activity shared with your contacts!" 
-                                      });
-                                    } else {
-                                      await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
-                                      toast({ 
-                                        title: "Link Copied!", 
-                                        description: "Activity link copied to clipboard - share it anywhere!" 
-                                      });
-                                    }
+                                    const newIsPublic = !activity.isPublic;
+                                    await apiRequest('PATCH', `/api/activities/${activity.id}`, {
+                                      body: JSON.stringify({ isPublic: newIsPublic })
+                                    });
+                                    await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+                                    toast({ 
+                                      title: newIsPublic ? "Made Public" : "Made Private", 
+                                      description: newIsPublic 
+                                        ? "Activity can now be shared publicly" 
+                                        : "Activity is now private and cannot be shared"
+                                    });
                                   } catch (error) {
-                                    console.error('Share error:', error);
+                                    console.error('Privacy toggle error:', error);
                                     toast({
-                                      title: "Share Failed",
-                                      description: "Unable to generate share link. Please try again.",
+                                      title: "Update Failed",
+                                      description: "Unable to update privacy settings. Please try again.",
                                       variant: "destructive"
                                     });
                                   }
                                 }}
-                                data-testid={`button-share-${activity.id}`}
-                                title="Share to social media or contacts"
+                                data-testid={`button-privacy-${activity.id}`}
+                                title={activity.isPublic ? "Make Private" : "Make Public"}
                               >
-                                <Share2 className="w-4 h-4" />
+                                {activity.isPublic ? (
+                                  <Unlock className="w-4 h-4 text-green-600" />
+                                ) : (
+                                  <Lock className="w-4 h-4 text-muted-foreground" />
+                                )}
                               </Button>
+                              {activity.isPublic ? (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      // Generate proper shareable link via backend
+                                      const response = await apiRequest('POST', `/api/activities/${activity.id}/share`);
+                                      const data = await response.json();
+                                      const shareUrl = data.shareableLink;
+                                      const shareText = `Check out my activity: ${activity.title} - ${progressPercent}% complete!`;
+                                      
+                                      if (navigator.share) {
+                                        await navigator.share({
+                                          title: activity.title,
+                                          text: shareText,
+                                          url: shareUrl
+                                        });
+                                        toast({ 
+                                          title: "Shared Successfully!", 
+                                          description: "Activity shared with your contacts!" 
+                                        });
+                                      } else {
+                                        await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+                                        toast({ 
+                                          title: "Link Copied!", 
+                                          description: "Activity link copied to clipboard - share it anywhere!" 
+                                        });
+                                      }
+                                    } catch (error) {
+                                      console.error('Share error:', error);
+                                      toast({
+                                        title: "Share Failed",
+                                        description: "Unable to generate share link. Please try again.",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  }}
+                                  data-testid={`button-share-${activity.id}`}
+                                  title="Share to social media or contacts"
+                                >
+                                  <Share2 className="w-4 h-4 text-blue-600" />
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  disabled
+                                  data-testid={`button-share-disabled-${activity.id}`}
+                                  title="Make activity public first to share"
+                                  className="opacity-50 cursor-not-allowed"
+                                >
+                                  <Share2 className="w-4 h-4" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
