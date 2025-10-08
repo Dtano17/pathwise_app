@@ -1573,7 +1573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tasks = await storage.getActivityTasks(activity.id, activity.userId);
       
       // Get owner info (without sensitive data)
-      const owner = await storage.getUserById(activity.userId);
+      const owner = await storage.getUser(activity.userId);
       
       res.json({
         activity: {
@@ -1583,11 +1583,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           category: activity.category,
           startDate: activity.startDate,
           endDate: activity.endDate,
-          timeline: activity.timeline,
-          tags: activity.tags,
+          planSummary: activity.planSummary,
+          userId: activity.userId,
           status: activity.status,
-          location: activity.location,
           createdAt: activity.createdAt,
+          updatedAt: activity.updatedAt,
         },
         tasks: tasks.map(task => ({
           id: task.id,
@@ -1596,13 +1596,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           category: task.category,
           priority: task.priority,
           completed: task.completed,
+          completedAt: task.completedAt,
           timeEstimate: task.timeEstimate,
           dueDate: task.dueDate,
         })),
-        owner: {
-          username: owner?.username || 'Anonymous',
-          firstName: owner?.firstName,
-          profileImageUrl: owner?.profileImageUrl,
+        requiresAuth: false,
+        sharedBy: {
+          name: owner?.firstName || owner?.username || 'Anonymous'
         }
       });
     } catch (error) {

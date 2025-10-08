@@ -980,7 +980,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           <DialogHeader backLabel="Back to Planning">
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-500" />
-              LLM Content Parsed!
+              Plan Generated!
             </DialogTitle>
             <DialogDescription>
               We've analyzed your pasted content and created an activity with tasks. Review and confirm to add to your dashboard.
