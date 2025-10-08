@@ -153,9 +153,9 @@ export default function ProgressReport() {
       <ProgressCharts
         categoryStats={progressData.categoryStats}
         timelineData={progressData.timelineData}
-        totalCompleted={progressData.completedActivities}
-        totalActive={progressData.activeActivities}
-        completionRate={progressData.completionRate}
+        totalCompleted={progressData.completedTasks}
+        totalActive={progressData.totalTasks - progressData.completedTasks}
+        completionRate={progressData.taskCompletionRate}
         currentStreak={progressData.currentStreak}
       />
 

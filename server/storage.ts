@@ -1111,16 +1111,23 @@ export class DatabaseStorage implements IStorage {
         ? Math.round((completedActivities.length / allActivities.length) * 100)
         : 0;
 
-      // Category stats
+      // Get all tasks for category stats
+      const allTasks = await db.select()
+        .from(tasks)
+        .where(eq(tasks.userId, userId));
+
+      const completedTasks = allTasks.filter(t => t.completed);
+      
+      // Category stats based on tasks
       const categoryMap = new Map<string, { completed: number; total: number }>();
-      allActivities.forEach(activity => {
-        const cat = activity.category || 'uncategorized';
+      allTasks.forEach(task => {
+        const cat = task.category || 'uncategorized';
         if (!categoryMap.has(cat)) {
           categoryMap.set(cat, { completed: 0, total: 0 });
         }
         const stats = categoryMap.get(cat)!;
         stats.total++;
-        if (activity.status === 'completed') {
+        if (task.completed) {
           stats.completed++;
         }
       });
@@ -1149,13 +1156,6 @@ export class DatabaseStorage implements IStorage {
 
         timelineData.push({ date: dateStr, completed, created });
       }
-
-      // Get all tasks
-      const allTasks = await db.select()
-        .from(tasks)
-        .where(eq(tasks.userId, userId));
-
-      const completedTasks = allTasks.filter(t => t.completed);
 
       // Calculate streak
       let currentStreak = 0;
