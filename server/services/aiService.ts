@@ -882,18 +882,27 @@ Guidelines:
 
       if (process.env.ANTHROPIC_API_KEY) {
         try {
+          // Extract media type and normalize it
+          const extractMediaType = (dataUrl: string): "image/jpeg" | "image/png" | "image/gif" | "image/webp" => {
+            const match = dataUrl.match(/data:image\/(.*?);/);
+            if (!match) return "image/png";
+            
+            const type = match[1].toLowerCase();
+            if (type === "jpg") return "image/jpeg";
+            if (type === "jpeg") return "image/jpeg";
+            if (type === "png") return "image/png";
+            if (type === "gif") return "image/gif";
+            if (type === "webp") return "image/webp";
+            return "image/png"; // Default fallback
+          };
+
           const messageContent = isImage
             ? [
                 {
                   type: "image" as const,
                   source: {
                     type: "base64" as const,
-                    media_type:
-                      (pastedContent.match(/data:image\/(.*?);/)?.[1] as
-                        | "image/jpeg"
-                        | "image/png"
-                        | "image/gif"
-                        | "image/webp") || "image/png",
+                    media_type: extractMediaType(pastedContent),
                     data: pastedContent.split(",")[1], // Remove data:image/png;base64, prefix
                   },
                 },
@@ -985,10 +994,10 @@ Guidelines:
       }
 
       const response = await openai.chat.completions.create({
-        model: isImage ? "gpt-4-vision-preview" : "gpt-4-turbo-preview",
+        model: "gpt-4o",
         messages: openAIMessages,
-        response_format: isImage ? undefined : { type: "json_object" },
-        max_tokens: isImage ? 4096 : undefined,
+        response_format: { type: "json_object" },
+        max_tokens: 4096,
       });
 
       const result = JSON.parse(response.choices[0].message.content || "{}");
