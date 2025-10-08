@@ -776,7 +776,7 @@ Create a plan that feels personal, thoughtful, and motivating - like advice from
       domain: state.domain,
       slots: state.slots
     },
-    responseMessage: `# ✨ ${planData.title}\n\n${planData.description}\n\n## 🎯 Your Action Plan\n\n${formattedTasks}`,
+    responseMessage: `# ✨ ${planData.title}\n\n${planData.description}\n\n## 🎯 Your Action Plan\n\n${formattedTasks}\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)`,
     phase: 'completed',
     readyToGenerate: true
   };
