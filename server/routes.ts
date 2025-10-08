@@ -3287,9 +3287,9 @@ You can find these tasks in your task list and start working on them right away!
   });
 
   // Parse pasted LLM content into actionable tasks (OLD - keeping for backwards compatibility)
-  app.post("/api/planner/parse-llm-content", isAuthenticatedGeneric, async (req, res) => {
+  app.post("/api/planner/parse-llm-content", async (req, res) => {
     try {
-      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
       const { pastedContent, precedingContext, contentType } = req.body;
 
       if (!pastedContent || typeof pastedContent !== 'string') {
