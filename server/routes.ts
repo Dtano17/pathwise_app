@@ -1809,14 +1809,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tasks = await storage.getUserTasks(userId);
       const today = new Date().toISOString().split('T')[0];
       
-      // Calculate today's progress
-      const todayTasks = tasks.filter(task => {
-        const taskDate = task.createdAt?.toISOString().split('T')[0];
-        return taskDate === today;
-      });
+      // Calculate today's progress based on completion date
+      const completedTasks = tasks.filter(task => task.completed);
+      const completedToday = completedTasks.filter(task => {
+        const completionDate = task.completedAt?.toISOString().split('T')[0];
+        return completionDate === today;
+      }).length;
       
-      const completedToday = todayTasks.filter(task => task.completed).length;
-      const totalToday = todayTasks.length;
+      // Count all active tasks (not completed or completed today)
+      const activeTasks = tasks.filter(task => !task.completed || task.completedAt?.toISOString().split('T')[0] === today);
+      const totalToday = activeTasks.length;
       
       // Calculate categories
       const categoryMap = new Map<string, { completed: number; total: number }>();
@@ -1833,7 +1835,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
 
       // Calculate streak (simplified - just based on recent activity)
-      const completedTasks = tasks.filter(task => task.completed);
       const weeklyStreak = Math.min(completedTasks.length, 7); // Simple streak calculation
       
       const totalCompleted = completedTasks.length;
