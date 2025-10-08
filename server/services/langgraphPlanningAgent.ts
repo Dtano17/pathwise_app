@@ -271,11 +271,13 @@ async function extractSlots(state: PlanningStateType): Promise<Partial<PlanningS
   }
 
   // Build schema from domain config
+  // Use question ID as slot name for consistent mapping
   const slotProperties: Record<string, any> = {};
   const requiredSlots: string[] = [];
 
   for (const question of questions) {
-    const slotName = question.slot_path.split('.').pop() || question.id;
+    // Use question ID directly as slot name (not last part of slot_path)
+    const slotName = question.id;
     slotProperties[slotName] = {
       type: 'string',
       description: question.question
@@ -432,11 +434,16 @@ Already asked question IDs (don't ask again):
 ${JSON.stringify([...state.askedQuestionIds], null, 2)}
 
 Determine:
-1. Which questions are fully answered (check slots AND conversation history)
-2. Which questions still need answers
+1. Which questions are fully answered - A question with ID "X" is answered if slots["X"] exists and is not <UNKNOWN>
+2. Which questions still need answers - Missing slot or slot value is <UNKNOWN>
 3. What's the most important unanswered question to ask next
 
-CRITICAL: A question is answered if the information exists in the slots OR anywhere in the conversation history.
+CRITICAL MAPPING RULES:
+- Each question has an ID (e.g., "destination", "dates_duration", "budget")
+- A question is ANSWERED if slots[question.id] has a real value (not <UNKNOWN>)
+- Example: Question ID "destination" is answered if slots["destination"] = "Dallas"
+- Example: Question ID "budget" is answered if slots["budget"] has a value
+
 Do NOT ask questions that were already answered in previous messages!`
           },
           {
@@ -585,23 +592,33 @@ async function askQuestion(state: PlanningStateType): Promise<Partial<PlanningSt
 async function enrichData(state: PlanningStateType): Promise<Partial<PlanningStateType>> {
   console.log('[LANGGRAPH] Node: enrich_data');
 
-  // Build enrichment request based on domain
+  // Extract key information from slots for context-aware enrichment
+  const location = state.slots?.destination || state.slots?.location || null;
+  const dates = state.slots?.dates_duration || state.slots?.date || state.slots?.when || null;
+  const budget = state.slots?.budget || state.slots?.range || null;
+  const duration = state.slots?.duration || null;
+
+  // Build enrichment request based on domain and extracted data
   let enrichmentPrompt = `Based on the planning information provided, give comprehensive contextual advice including:
 
-1. **Timing & Seasonal Considerations**: Typical weather patterns, best times, seasonal factors
-2. **Practical Logistics**: Common challenges, what to expect, preparation tips
-3. **Smart Recommendations**: Insider tips, things people often overlook, pro advice
+1. **Timing & Seasonal Considerations**: ${location && dates ? `Weather patterns for ${location} during ${dates}, best timing advice` : 'Typical weather patterns, best times, seasonal factors'}
+2. **Practical Logistics**: ${location ? `Specific logistics for ${location}, common challenges, what to expect` : 'Common challenges, what to expect, preparation tips'}
+3. **Smart Recommendations**: ${budget ? `Budget-conscious tips for ${budget} budget` : 'Insider tips, things people often overlook, pro advice'}
 4. **Current Trends**: Popular approaches, what's working well in 2025
 
-Be specific and practical. Use your knowledge up to your training cutoff.`;
+Be specific and practical${location ? ` for ${location}` : ''}${dates ? ` during ${dates}` : ''}${budget ? ` with a ${budget} budget` : ''}.`;
 
-  // Add domain-specific enrichment requests
+  // Add domain-specific enrichment requests with budget sensitivity
   if (state.domain === 'travel') {
+    const budgetValue = budget ? budget.toLowerCase() : '';
+    const isLowBudget = budgetValue.includes('500') || budgetValue.includes('low') || budgetValue.includes('budget') || budgetValue.includes('cheap');
+    
     enrichmentPrompt += `\n\n**Travel-Specific:**
-- Typical weather for the destination/season mentioned
-- Transportation and traffic patterns for that area
-- Local events, festivals, or busy periods to consider
-- Budget-conscious tips and money-saving advice`;
+- **Weather & Packing**: ${location && dates ? `Typical weather in ${location} during ${dates}, what to pack` : 'Weather considerations and packing tips'}
+- **Traffic & Transportation**: ${location ? `Getting around ${location}, peak traffic times, parking costs, public transit options` : 'Transportation options and traffic patterns'}
+- **Accommodation**: ${isLowBudget ? 'Budget-friendly options like Airbnb, hostels, colivingspaces.com for coliving, budget hotels ($50-100/night)' : 'Recommended areas to stay, hotel vs Airbnb considerations'}
+- **Activities**: ${budget ? `Must-see spots that fit ${budget} budget, free experiences` : 'Popular attractions and hidden gems'}
+- **Local Tips**: Best times to visit attractions, food scene, safety considerations`;
   } else if (state.domain === 'daily_planning') {
     enrichmentPrompt += `\n\n**Daily Planning:**
 - Time management best practices
@@ -712,9 +729,10 @@ Create a plan that feels personal, thoughtful, and motivating - like advice from
                       title: { type: 'string', description: 'Specific, actionable task title' },
                       description: { type: 'string', description: 'Detailed task description with clear next steps' },
                       priority: { type: 'string', enum: ['high', 'medium', 'low'] },
-                      estimatedTime: { type: 'string', description: 'Realistic time estimate (e.g., "30 min", "2 hours", "3 days")' }
+                      estimatedTime: { type: 'string', description: 'Realistic time estimate (e.g., "30 min", "2 hours", "3 days")' },
+                      category: { type: 'string', description: 'Task category matching domain type' }
                     },
-                    required: ['title', 'description', 'priority', 'estimatedTime']
+                    required: ['title', 'description', 'priority', 'estimatedTime', 'category']
                   }
                 }
               },
@@ -733,8 +751,15 @@ Create a plan that feels personal, thoughtful, and motivating - like advice from
   const planData = parseFunctionCall<{
     title: string;
     description: string;
-    tasks: Array<{ title: string; description: string; priority: string; estimatedTime: string }>;
+    tasks: Array<{ title: string; description: string; priority: string; estimatedTime: string; category?: string }>;
   }>(result);
+
+  // Ensure all tasks have a category (use domain as fallback)
+  const categoryFromDomain = state.domain || 'personal';
+  planData.tasks = planData.tasks.map(task => ({
+    ...task,
+    category: task.category || categoryFromDomain
+  }));
 
   console.log(`[LANGGRAPH] Plan synthesis complete: "${planData.title}" with ${planData.tasks.length} tasks (cost: $${result.usage?.totalCost.toFixed(4)})`);
 

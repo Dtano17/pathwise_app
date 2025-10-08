@@ -229,7 +229,7 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
               const task = await storage.createTask({
                 title: taskData.title,
                 description: taskData.description,
-                category: taskData.category,
+                category: taskData.category || generatedPlan.domain || generatedPlan.category || 'personal',
                 priority: taskData.priority,
                 timeEstimate: taskData.timeEstimate,
                 userId
@@ -2247,7 +2247,7 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
               const task = await storage.createTask({
                 title: taskData.title,
                 description: taskData.description,
-                category: taskData.category,
+                category: taskData.category || generatedPlan.domain || generatedPlan.category || 'personal',
                 priority: taskData.priority,
                 timeEstimate: taskData.timeEstimate,
                 userId
