@@ -39,7 +39,7 @@ function AppContent() {
         <Route path="/auth/callback" component={AuthCallback} />
         
         {/* Shared Activity Page (no sidebar) */}
-        <Route path="/share/activity/:token" component={SharedActivity} />
+        <Route path="/share/:token" component={SharedActivity} />
         
         {/* Main App with Sidebar */}
         <Route>

@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, Sparkles, ArrowLeft, Edit } from 'lucide-react';
+import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, Sparkles, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, type LucideIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -43,13 +43,71 @@ interface SharedActivityData {
   };
 }
 
+const categoryThemes: Record<string, { gradient: string; Icon: LucideIcon; accentColor: string }> = {
+  fitness: {
+    gradient: 'from-orange-500/20 via-red-500/20 to-pink-500/20',
+    Icon: Dumbbell,
+    accentColor: 'text-orange-600 dark:text-orange-400'
+  },
+  health: {
+    gradient: 'from-emerald-500/20 via-teal-500/20 to-cyan-500/20',
+    Icon: HeartPulse,
+    accentColor: 'text-emerald-600 dark:text-emerald-400'
+  },
+  career: {
+    gradient: 'from-blue-500/20 via-indigo-500/20 to-purple-500/20',
+    Icon: Briefcase,
+    accentColor: 'text-blue-600 dark:text-blue-400'
+  },
+  learning: {
+    gradient: 'from-violet-500/20 via-purple-500/20 to-fuchsia-500/20',
+    Icon: BookOpen,
+    accentColor: 'text-violet-600 dark:text-violet-400'
+  },
+  finance: {
+    gradient: 'from-green-500/20 via-emerald-500/20 to-teal-500/20',
+    Icon: DollarSign,
+    accentColor: 'text-green-600 dark:text-green-400'
+  },
+  relationships: {
+    gradient: 'from-pink-500/20 via-rose-500/20 to-red-500/20',
+    Icon: Heart,
+    accentColor: 'text-pink-600 dark:text-pink-400'
+  },
+  creativity: {
+    gradient: 'from-yellow-500/20 via-amber-500/20 to-orange-500/20',
+    Icon: Palette,
+    accentColor: 'text-yellow-600 dark:text-yellow-400'
+  },
+  travel: {
+    gradient: 'from-sky-500/20 via-blue-500/20 to-indigo-500/20',
+    Icon: Plane,
+    accentColor: 'text-sky-600 dark:text-sky-400'
+  },
+  home: {
+    gradient: 'from-amber-500/20 via-orange-500/20 to-red-500/20',
+    Icon: Home,
+    accentColor: 'text-amber-600 dark:text-amber-400'
+  },
+  personal: {
+    gradient: 'from-purple-500/20 via-pink-500/20 to-rose-500/20',
+    Icon: Star,
+    accentColor: 'text-purple-600 dark:text-purple-400'
+  },
+  other: {
+    gradient: 'from-slate-500/20 via-gray-500/20 to-zinc-500/20',
+    Icon: ClipboardList,
+    accentColor: 'text-slate-600 dark:text-slate-400'
+  }
+};
+
 export default function SharedActivity() {
   const { token } = useParams<{ token: string }>();
   const { toast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [permissionRequested, setPermissionRequested] = useState(false);
+  const [copyingLink, setCopyingLink] = useState(false);
 
-  // Check authentication status
   const { data: user } = useQuery({
     queryKey: ['/api/user'],
   });
@@ -58,11 +116,10 @@ export default function SharedActivity() {
     setIsAuthenticated(!!user);
   }, [user]);
 
-  // Fetch shared activity data
   const { data, isLoading, error: queryError } = useQuery<SharedActivityData>({
-    queryKey: ['/api/share/activity', token],
+    queryKey: ['/api/share', token],
     queryFn: async () => {
-      const response = await fetch(`/api/share/activity/${token}`);
+      const response = await fetch(`/api/share/${token}`);
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('This shared activity link is invalid or has expired.');
@@ -77,11 +134,32 @@ export default function SharedActivity() {
     enabled: !!token,
   });
 
+  useEffect(() => {
+    if (data?.activity) {
+      const { title, description, category } = data.activity;
+      document.title = `${title || 'Shared Activity'} - JournalMate`;
+      
+      const metaDescription = document.querySelector('meta[name="description"]');
+      if (metaDescription) {
+        metaDescription.setAttribute('content', description || `Check out this ${category} activity plan on JournalMate`);
+      }
+      
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      if (ogTitle) {
+        ogTitle.setAttribute('content', title || 'Shared Activity');
+      }
+      
+      const ogDescription = document.querySelector('meta[property="og:description"]');
+      if (ogDescription) {
+        ogDescription.setAttribute('content', description || `Check out this ${category} activity plan on JournalMate`);
+      }
+    }
+  }, [data]);
+
   const handleSignIn = () => {
     window.location.href = '/api/login';
   };
 
-  // Request permission to edit mutation
   const requestPermissionMutation = useMutation({
     mutationFn: async () => {
       if (!data?.activity?.id) throw new Error('Activity ID not found');
@@ -106,6 +184,42 @@ export default function SharedActivity() {
     },
   });
 
+  const handleCopyLink = async () => {
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyingLink(true);
+      toast({
+        title: 'Link Copied!',
+        description: 'Share link copied to clipboard',
+      });
+      setTimeout(() => setCopyingLink(false), 2000);
+    } catch (err) {
+      toast({
+        title: 'Failed to Copy',
+        description: 'Please copy the URL manually',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleShareTwitter = () => {
+    if (!data?.activity) return;
+    const text = `Check out my ${data.activity.category} plan: ${data.activity.planSummary || data.activity.title}`;
+    const url = window.location.href;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+  };
+
+  const handleShareFacebook = () => {
+    const url = window.location.href;
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+  };
+
+  const handleShareLinkedIn = () => {
+    const url = window.location.href;
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank');
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -120,7 +234,6 @@ export default function SharedActivity() {
   if (queryError || !data) {
     const errorMessage = queryError instanceof Error ? queryError.message : 'Failed to load activity';
     
-    // Require authentication
     if (errorMessage === 'AUTH_REQUIRED' || (data?.requiresAuth && !isAuthenticated)) {
       return (
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -167,59 +280,99 @@ export default function SharedActivity() {
   const activeTasks = tasks.filter(t => !t.completed);
   const completedTasksList = tasks.filter(t => t.completed);
 
+  const theme = categoryThemes[activity.category.toLowerCase()] || categoryThemes.other;
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Share2 className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-primary" />
-                  Shared Activity
-                </h1>
-                {data.sharedBy?.name && (
-                  <p className="text-xs text-muted-foreground">
-                    Shared by {data.sharedBy.name}
-                  </p>
-                )}
+      {/* Hero Section with Themed Backdrop */}
+      <div className={`relative bg-gradient-to-br ${theme.gradient} border-b`}>
+        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,black)]" />
+        <div className="container mx-auto px-4 py-8 sm:py-12 relative">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <Button variant="outline" size="sm" onClick={() => window.location.href = '/'} data-testid="button-go-home" className="bg-background/80 backdrop-blur-sm">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Home
+              </Button>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleCopyLink}
+                  data-testid="button-copy-link"
+                  className="bg-background/80 backdrop-blur-sm gap-2"
+                >
+                  <Link2 className="w-4 h-4" />
+                  {copyingLink ? 'Copied!' : 'Copy Link'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={handleShareTwitter}
+                  data-testid="button-share-twitter"
+                  className="bg-background/80 backdrop-blur-sm"
+                >
+                  <Twitter className="w-4 h-4" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={handleShareFacebook}
+                  data-testid="button-share-facebook"
+                  className="bg-background/80 backdrop-blur-sm"
+                >
+                  <Facebook className="w-4 h-4" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={handleShareLinkedIn}
+                  data-testid="button-share-linkedin"
+                  className="bg-background/80 backdrop-blur-sm"
+                >
+                  <Linkedin className="w-4 h-4" />
+                </Button>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => window.location.href = '/'} data-testid="button-go-home">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Go to Home</span>
-              <span className="sm:hidden">Home</span>
-            </Button>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="text-center"
+            >
+              <div className="mb-4 flex items-center justify-center">
+                <theme.Icon className={`w-16 h-16 ${theme.accentColor}`} />
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-3 break-words">
+                {activity.planSummary || activity.title}
+              </h1>
+              {activity.description && (
+                <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6 break-words">
+                  {activity.description}
+                </p>
+              )}
+              {data.sharedBy?.name && (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Sparkles className="w-4 h-4" />
+                  <span>Shared by {data.sharedBy.name}</span>
+                </div>
+              )}
+            </motion.div>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 sm:py-8 max-w-4xl">
-        {/* Activity Summary Card */}
+        {/* Progress Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
         >
           <Card className="p-6 sm:p-8 mb-8">
             <div className="space-y-6">
-              {/* Title and Description */}
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-3 break-words">
-                  {activity.planSummary || activity.title}
-                </h2>
-                {activity.description && (
-                  <p className="text-muted-foreground text-base leading-relaxed break-words">
-                    {activity.description}
-                  </p>
-                )}
-              </div>
-
               {/* Metadata */}
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <Badge variant="outline" className="gap-1">
@@ -265,7 +418,7 @@ export default function SharedActivity() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
             className="mb-8"
           >
             <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
@@ -329,7 +482,7 @@ export default function SharedActivity() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
           >
             <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
               <CheckSquare className="w-5 h-5 text-green-600" />
@@ -376,7 +529,7 @@ export default function SharedActivity() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.3 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
             className="mt-8"
           >
             <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
@@ -397,7 +550,7 @@ export default function SharedActivity() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.3 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
             className="mt-8"
           >
             <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
