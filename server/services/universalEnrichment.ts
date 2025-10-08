@@ -116,10 +116,21 @@ export class UniversalEnrichment {
     const dates = slots?.timing?.date || slots?.timing?.time || '';
     const budget = slots?.budget?.range || slots?.budget?.perPerson || slots?.budget || '';
 
+    // Build temporal context for relative dates
+    const temporalContext = this.buildTemporalContext(dates, now);
+    const budgetContext = this.buildBudgetContext(budget);
+
     let request = `🔍 COMPREHENSIVE REAL-TIME PLANNING ENRICHMENT
 
-TODAY: ${now.toDateString()}
+📅 CURRENT DATE & TIME CONTEXT:
+TODAY: ${now.toDateString()} (${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })})
 TIME: ${now.toLocaleTimeString()}
+CURRENT MONTH: ${now.toLocaleString('en-US', { month: 'long' })} ${now.getFullYear()}
+CURRENT SEASON: ${this.getCurrentSeason(now)}
+
+${temporalContext}
+${budgetContext}
+
 DOMAIN: ${domain}
 
 ${this.getDomainSpecificContext(domain, slots)}
@@ -134,6 +145,9 @@ Use web search to provide ACTIONABLE, SPECIFIC, CURRENT information that helps t
 4. FLAG AVAILABILITY ISSUES - Sold out? Requires reservation? Limited spots?
 5. WARN ABOUT COSTS - Hidden fees, surge pricing, optimal booking windows
 6. INCLUDE ACTIONABLE LINKS - Phone numbers, booking URLs, reservation systems
+7. WEATHER FORECASTS - Specific temperature, conditions, precipitation for the exact dates and location
+8. TRAFFIC PATTERNS - Rush hour times, best/worst times to travel in the specific location
+9. BUDGET-AWARE RECOMMENDATIONS - Match accommodation and activity suggestions to user's budget tier
 
 📋 RETURN THIS EXACT JSON STRUCTURE:
 {
@@ -180,6 +194,9 @@ ${this.getSearchFocusAreas(domain, slots)}
 - ✅ "Restaurant requires reservation 2-3 days ahead" NOT "reservations recommended"
 - ✅ "Traffic adds 30min during rush hour" NOT "check traffic"
 - ✅ "$450-750 round trip currently" NOT "moderate prices"
+- ✅ "Weather: 75°F high, 55°F low, 20% rain chance" NOT "nice weather expected"
+- ✅ "Budget hostels $25-45/night, Airbnb $60-90, hotels $120-180" NOT "various price points"
+- ✅ "Rush hour 7-9am and 4-7pm adds 45min" NOT "traffic varies"
 
 RETURN ONLY VALID JSON (no markdown, no code blocks, just raw JSON).`;
 
@@ -235,17 +252,36 @@ RETURN ONLY VALID JSON (no markdown, no code blocks, just raw JSON).`;
       "trafficBuffer": "30-45min rush hour buffer to airport"
     }
   },
-  "hotels": {
-    "priceRange": "Specific nightly rates by tier",
-    "optimalBooking": "When to book for savings",
-    "cancellationPolicies": "Typical policies",
+  "accommodation": {
+    "budgetTier": "Based on user budget - recommend appropriate tier",
+    "recommendedType": "Hotels for $250+/night, Airbnb/boutique for $100-250, hostels/coliving/budget Airbnb for <$100",
+    "options": [
+      {
+        "type": "Hotel/Airbnb/Hostel/Coliving",
+        "priceRange": "Specific nightly rates",
+        "location": "Neighborhood",
+        "pros": ["List specific advantages"],
+        "cons": ["List specific drawbacks"],
+        "bookingWindow": "How far in advance to book",
+        "link": "Booking URL if available"
+      }
+    ],
+    "optimalBooking": "When to book for savings based on dates and destination",
+    "cancellationPolicies": "Typical policies for this tier",
     "peakSeason": true/false
   },
   "weather": {
-    "forecast": "Specific forecast for dates",
+    "forecast": "Specific forecast for destination during travel dates",
     "temperature": {"high": <number>, "low": <number>},
-    "conditions": "Description",
-    "advice": "What to pack"
+    "conditions": "Description with precipitation chance",
+    "advice": "What to pack based on weather",
+    "timezone": "Timezone difference if traveling from origin"
+  },
+  "traffic": {
+    "patterns": "Rush hour times and typical traffic in destination",
+    "bestTimes": "Best times to travel/explore",
+    "avoidTimes": "Times to avoid based on congestion",
+    "transportation": "Best local transit options"
   }`,
 
       'date_night': `"restaurants": {
@@ -310,38 +346,155 @@ RETURN ONLY VALID JSON (no markdown, no code blocks, just raw JSON).`;
    * Get search focus areas by domain
    */
   private getSearchFocusAreas(domain: string, slots: Record<string, any>): string {
+    const destination = slots?.location?.destination || slots?.location?.city || slots?.location?.venue || '[destination]';
+    const origin = slots?.location?.origin || slots?.location?.current || '[origin]';
+    const dates = slots?.timing?.date || '[dates]';
+    const time = slots?.timing?.time || '';
+
     const focuses: Record<string, string> = {
-      'travel': `- Current flight prices and optimal booking window
-- Hotel availability and pricing trends
-- Weather forecast for destination during travel dates
-- Airport security wait times and traffic patterns
-- Events/festivals happening during dates
-- Packing recommendations based on weather`,
+      'travel': `🔍 SEARCH FOR THESE SPECIFIC ITEMS:
+- Weather forecast for ${destination} during ${dates} (specific temperatures, conditions, rainfall)
+- Current flight prices from ${origin} to ${destination} for ${dates}
+- Traffic patterns in ${destination} (rush hours, best times to travel)
+- Hotel vs Airbnb pricing comparison in ${destination} for ${dates}
+- Events/festivals happening in ${destination} during ${dates}
+- Time zone differences between ${origin} and ${destination}
+- Best times to visit attractions in ${destination} (crowd patterns)
+- Local transportation options and costs in ${destination}
+- Packing recommendations based on ${destination} weather in ${dates}`,
 
-      'date_night': `- Restaurant reservation requirements and booking windows
-- Current wait times for walk-ins
-- Traffic patterns at planned time
-- Parking availability and costs
-- Dress codes
-- Alternative venues if first choice unavailable`,
+      'date_night': `🔍 SEARCH FOR THESE SPECIFIC ITEMS:
+- Weather forecast for ${destination} on ${dates} at ${time}
+- Restaurant reservation requirements in ${destination} (specific booking windows)
+- Traffic patterns to ${destination} at ${time} (specific drive times)
+- Current wait times for walk-ins at restaurants in ${destination}
+- Parking availability and costs near ${destination} at ${time}
+- Public transit options to ${destination} at ${time}
+- Dress codes for restaurants in ${destination}
+- Alternative venues if first choice unavailable in ${destination}`,
 
-      'interview_prep': `- Recent company news and developments
-- Interview format and process for this company
-- Traffic to interview location at interview time
-- Parking options and timing
-- Building access/security procedures
-- Dress code expectations`,
+      'interview_prep': `🔍 SEARCH FOR THESE SPECIFIC ITEMS:
+- Recent news about ${slots?.company || '[company]'} (last 30 days)
+- Weather forecast for ${destination} on ${dates} at ${time}
+- Traffic to ${destination} at ${time} (specific drive times, rush hour impact)
+- Parking options near ${destination} (cost, availability, walking time)
+- Public transit routes to ${destination} arriving by ${time}
+- Building access/security procedures at ${destination}
+- Interview format and process for ${slots?.role || '[role]'} at ${slots?.company || '[company]'}
+- Dress code expectations at ${slots?.company || '[company]'}`,
 
-      'fitness': `- Gym crowd patterns (peak vs off-peak)
-- Form and safety guidelines for this workout type
-- Equipment availability at popular times
-- Progression recommendations for experience level`,
+      'fitness': `🔍 SEARCH FOR THESE SPECIFIC ITEMS:
+- Gym crowd patterns at ${destination} at ${time} (peak vs off-peak)
+- Weather for outdoor workout in ${destination} on ${dates} at ${time}
+- Form and safety guidelines for ${slots?.workout?.type || slots?.preferences?.type || '[workout type]'}
+- Equipment availability at popular times at ${destination}
+- Progression recommendations for ${slots?.experience || '[experience level]'} level`,
     };
 
-    return focuses[domain] || `- Relevant current information for ${domain}
+    return focuses[domain] || `🔍 SEARCH FOR THESE SPECIFIC ITEMS:
+- Relevant current information for ${destination} on ${dates}
+- Weather forecast for ${destination} during ${dates}
+- Traffic patterns in ${destination} at ${time}
 - Timing and availability details
-- Cost considerations
+- Cost considerations specific to ${destination}
 - Safety or logistical factors`;
+  }
+
+  /**
+   * Build temporal context - converts relative dates to absolute
+   */
+  private buildTemporalContext(dates: string, now: Date): string {
+    if (!dates) return '';
+
+    const lowerDates = dates.toLowerCase();
+    let temporalInfo = `\n🕐 TEMPORAL CONTEXT FOR "${dates}":\n`;
+
+    // Parse relative dates
+    if (lowerDates.includes('tomorrow')) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      temporalInfo += `- "tomorrow" = ${tomorrow.toDateString()}\n`;
+    } else if (lowerDates.includes('next week')) {
+      const nextWeek = new Date(now);
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      temporalInfo += `- "next week" = Week of ${nextWeek.toDateString()}\n`;
+    } else if (lowerDates.includes('next month')) {
+      const nextMonth = new Date(now);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      temporalInfo += `- "next month" = ${nextMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' })}\n`;
+    } else if (lowerDates.includes('next year')) {
+      const nextYear = new Date(now);
+      nextYear.setFullYear(nextYear.getFullYear() + 1);
+      temporalInfo += `- "next year" = ${nextYear.getFullYear()}\n`;
+    } else if (lowerDates.includes('next weekend')) {
+      const daysUntilFriday = (5 - now.getDay() + 7) % 7;
+      const nextFriday = new Date(now);
+      nextFriday.setDate(nextFriday.getDate() + (daysUntilFriday === 0 ? 7 : daysUntilFriday));
+      temporalInfo += `- "next weekend" = ${nextFriday.toDateString()} - ${new Date(nextFriday.getTime() + 2 * 24 * 60 * 60 * 1000).toDateString()}\n`;
+    }
+
+    // Add season/holiday awareness
+    const month = now.getMonth();
+    if (month === 11 || month === 0) {
+      temporalInfo += `- ⚠️ PEAK HOLIDAY SEASON (Dec-Jan): Expect higher prices, limited availability, more crowds\n`;
+    } else if (month >= 5 && month <= 7) {
+      temporalInfo += `- ☀️ SUMMER SEASON: Peak travel time, book early for best prices\n`;
+    }
+
+    return temporalInfo;
+  }
+
+  /**
+   * Build budget context - provides budget tier and recommendations
+   */
+  private buildBudgetContext(budget: string): string {
+    if (!budget || budget.toLowerCase().includes('flexible')) {
+      return '\n💰 BUDGET CONTEXT: Flexible budget - provide options across price ranges\n';
+    }
+
+    // Extract numeric budget
+    const budgetMatch = budget.match(/\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+    if (!budgetMatch) {
+      return `\n💰 BUDGET CONTEXT: ${budget}\n`;
+    }
+
+    const amount = parseInt(budgetMatch[1].replace(/,/g, ''));
+    let tier = '';
+    let recommendations = '';
+
+    // Budget tiers (assuming per night for accommodation)
+    if (amount < 100) {
+      tier = 'BUDGET-CONSCIOUS';
+      recommendations = `
+- Prioritize: Airbnb, hostels, budget hotels, coliving spaces
+- Avoid: Luxury hotels, high-end restaurants
+- Focus: Free/cheap activities, public transit, meal prep options`;
+    } else if (amount < 250) {
+      tier = 'MID-RANGE';
+      recommendations = `
+- Good fit: 3-star hotels, mid-range Airbnb, boutique stays
+- Balance: Some nice dining, mix of activities
+- Options: Mix of paid attractions and free experiences`;
+    } else {
+      tier = 'PREMIUM/LUXURY';
+      recommendations = `
+- Recommended: 4-5 star hotels, luxury Airbnb, resorts
+- Include: Fine dining, premium experiences, private tours
+- Priority: Quality and convenience over cost`;
+    }
+
+    return `\n💰 BUDGET CONTEXT: ${budget} (${tier})${recommendations}\n`;
+  }
+
+  /**
+   * Get current season for context
+   */
+  private getCurrentSeason(now: Date): string {
+    const month = now.getMonth();
+    if (month >= 2 && month <= 4) return 'Spring';
+    if (month >= 5 && month <= 7) return 'Summer';
+    if (month >= 8 && month <= 10) return 'Fall';
+    return 'Winter';
   }
 
   /**

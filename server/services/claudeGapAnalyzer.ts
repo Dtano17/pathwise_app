@@ -177,6 +177,7 @@ RULES:
 - readyToGenerate = true only if ALL required questions are answered with confidence >= 0.6
 - completionPercentage = (answeredQuestions.length / totalQuestions) * 100
 - extractedSlots should be nested objects matching slot_path structure (e.g., "location.destination" → {"location": {"destination": "value"}})
+- CRITICAL: Use slot_path (not question ID) to determine if a question is answered. For example, question ID "budget" with slot_path "budget.range" should check if slots.budget.range exists.
 
 Return ONLY valid JSON, no markdown code blocks.`;
 
