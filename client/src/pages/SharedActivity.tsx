@@ -289,6 +289,17 @@ export default function SharedActivity() {
         <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,black)]" />
         <div className="container mx-auto px-4 py-8 sm:py-12 relative">
           <div className="max-w-4xl mx-auto">
+            {/* JournalMate Branding */}
+            <div className="text-center mb-6">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Sparkles className="w-6 h-6 text-primary" />
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
+                  JournalMate
+                </h1>
+              </div>
+              <p className="text-sm text-muted-foreground">Plan and Share Your Activities</p>
+            </div>
+
             <div className="flex items-center justify-between mb-6">
               <Button variant="outline" size="sm" onClick={() => window.location.href = '/'} data-testid="button-go-home" className="bg-background/80 backdrop-blur-sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -344,20 +355,42 @@ export default function SharedActivity() {
               <div className="mb-4 flex items-center justify-center">
                 <theme.Icon className={`w-16 h-16 ${theme.accentColor}`} />
               </div>
-              <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-3 break-words">
-                {activity.planSummary || activity.title}
-              </h1>
-              {activity.description && (
-                <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6 break-words">
-                  {activity.description}
-                </p>
-              )}
-              {data.sharedBy?.name && (
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <Sparkles className="w-4 h-4" />
-                  <span>Shared by {data.sharedBy.name}</span>
+              
+              {/* Activity Summary */}
+              <div className="mb-4">
+                <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3 break-words">
+                  {activity.planSummary || activity.title}
+                </h2>
+                {activity.description && (
+                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto break-words">
+                    {activity.description}
+                  </p>
+                )}
+              </div>
+
+              {/* Activity Meta Info */}
+              <div className="flex flex-col items-center gap-2 text-sm">
+                {data.sharedBy?.name && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Sparkles className="w-4 h-4" />
+                    <span>Shared by {data.sharedBy.name}</span>
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <Badge variant="outline" className="bg-background/80 backdrop-blur-sm">
+                    <span className="capitalize">{activity.category}</span>
+                  </Badge>
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <CheckSquare className="w-4 h-4" />
+                    <span>{completedTasks}/{totalTasks} tasks completed</span>
+                  </div>
+                  {progressPercent === 100 && (
+                    <Badge className="bg-green-600 text-white">
+                      Complete!
+                    </Badge>
+                  )}
                 </div>
-              )}
+              </div>
             </motion.div>
           </div>
         </div>

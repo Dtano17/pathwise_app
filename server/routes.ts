@@ -1660,7 +1660,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Activity not found or access denied' });
       }
       
-      const shareableLink = `${req.protocol}://${req.get('host')}/share/activity/${shareToken}`;
+      // Use REPLIT_DOMAINS for production, fall back to current host for dev
+      const replitDomains = process.env.REPL_SLUG;
+      const baseUrl = replitDomains 
+        ? `https://${replitDomains}.replit.app`
+        : `${req.protocol}://${req.get('host')}`;
+      
+      const shareableLink = `${baseUrl}/share/${shareToken}`;
       res.json({ shareableLink });
     } catch (error) {
       console.error('Generate share link error:', error);
