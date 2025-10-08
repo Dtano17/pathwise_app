@@ -625,6 +625,7 @@ export const activities = pgTable("activities", {
   
   // Social sharing
   isPublic: boolean("is_public").default(false),
+  shareToken: varchar("share_token").unique(), // Unique token for public sharing URLs
   shareableLink: varchar("shareable_link"),
   socialText: text("social_text"), // Custom text for social media sharing
   tags: jsonb("tags").$type<string[]>().default([]),

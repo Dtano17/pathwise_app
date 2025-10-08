@@ -1503,6 +1503,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate shareable link for activity
+  app.post("/api/activities/:activityId/share", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Generate unique share token
+      const crypto = await import('crypto');
+      const shareToken = crypto.randomBytes(16).toString('hex');
+      
+      const activity = await storage.updateActivity(activityId, {
+        isPublic: true,
+        shareToken,
+        shareableLink: `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:5000'}/share/${shareToken}`
+      }, userId);
+      
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      res.json({
+        shareToken: activity.shareToken,
+        shareableLink: activity.shareableLink,
+        isPublic: activity.isPublic
+      });
+    } catch (error) {
+      console.error('Generate share link error:', error);
+      res.status(500).json({ error: 'Failed to generate share link' });
+    }
+  });
+
+  // Revoke shareable link
+  app.delete("/api/activities/:activityId/share", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      const activity = await storage.updateActivity(activityId, {
+        isPublic: false,
+        shareToken: null,
+        shareableLink: null
+      }, userId);
+      
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Revoke share link error:', error);
+      res.status(500).json({ error: 'Failed to revoke share link' });
+    }
+  });
+
+  // Get public activity by share token (no auth required)
+  app.get("/api/share/:shareToken", async (req, res) => {
+    try {
+      const { shareToken } = req.params;
+      
+      // Get activity and its tasks
+      const activity = await storage.getActivityByShareToken(shareToken);
+      
+      if (!activity || !activity.isPublic) {
+        return res.status(404).json({ error: 'Shared activity not found' });
+      }
+
+      // Get tasks for this activity
+      const tasks = await storage.getActivityTasks(activity.id, activity.userId);
+      
+      // Get owner info (without sensitive data)
+      const owner = await storage.getUserById(activity.userId);
+      
+      res.json({
+        activity: {
+          id: activity.id,
+          title: activity.title,
+          description: activity.description,
+          category: activity.category,
+          startDate: activity.startDate,
+          endDate: activity.endDate,
+          timeline: activity.timeline,
+          tags: activity.tags,
+          status: activity.status,
+          location: activity.location,
+          createdAt: activity.createdAt,
+        },
+        tasks: tasks.map(task => ({
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          category: task.category,
+          priority: task.priority,
+          completed: task.completed,
+          timeEstimate: task.timeEstimate,
+          dueDate: task.dueDate,
+        })),
+        owner: {
+          username: owner?.username || 'Anonymous',
+          firstName: owner?.firstName,
+          profileImageUrl: owner?.profileImageUrl,
+        }
+      });
+    } catch (error) {
+      console.error('Get shared activity error:', error);
+      res.status(500).json({ error: 'Failed to fetch shared activity' });
+    }
+  });
+
   // Add task to activity
   app.post("/api/activities/:activityId/tasks", async (req, res) => {
     try {

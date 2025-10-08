@@ -100,6 +100,7 @@ export interface IStorage {
   createActivity(activity: InsertActivity & { userId: string }): Promise<Activity>;
   getUserActivities(userId: string): Promise<ActivityWithProgress[]>;
   getActivity(activityId: string, userId: string): Promise<Activity | undefined>;
+  getActivityByShareToken(shareToken: string): Promise<Activity | undefined>;
   updateActivity(activityId: string, updates: Partial<Activity>, userId: string): Promise<Activity | undefined>;
   deleteActivity(activityId: string, userId: string): Promise<void>;
   archiveActivity(activityId: string, userId: string): Promise<Activity | undefined>;
@@ -393,6 +394,12 @@ export class DatabaseStorage implements IStorage {
   async getActivity(activityId: string, userId: string): Promise<Activity | undefined> {
     const [result] = await db.select().from(activities)
       .where(and(eq(activities.id, activityId), eq(activities.userId, userId)));
+    return result;
+  }
+
+  async getActivityByShareToken(shareToken: string): Promise<Activity | undefined> {
+    const [result] = await db.select().from(activities)
+      .where(eq(activities.shareToken, shareToken));
     return result;
   }
 
