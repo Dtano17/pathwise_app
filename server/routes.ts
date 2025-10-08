@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, db } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupMultiProviderAuth, isAuthenticatedGeneric } from "./multiProviderAuth";
 import { aiService } from "./services/aiService";
@@ -26,6 +26,7 @@ import {
   insertActivitySchema,
   insertActivityTaskSchema,
   insertLifestylePlannerSessionSchema,
+  tasks as tasksTable,
   type Task,
   type Activity,
   type ActivityTask,
@@ -34,6 +35,7 @@ import {
   type ProfileCompletion,
   type LifestylePlannerSession
 } from "@shared/schema";
+import { eq, and, or, isNull } from "drizzle-orm";
 import bcrypt from 'bcrypt';
 import { z } from "zod";
 import crypto from 'crypto';
@@ -1805,19 +1807,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get progress dashboard data
   app.get("/api/progress", async (req, res) => {
     try {
+      // Disable caching and ETags for this endpoint to always get fresh data
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('ETag', ''); // Disable ETag
+      res.removeHeader('ETag'); // Ensure no ETag
+      
       const userId = getUserId(req) || DEMO_USER_ID;
-      const tasks = await storage.getUserTasks(userId);
-      const today = new Date().toISOString().split('T')[0];
+      
+      // Get ALL tasks (including completed) for progress calculation
+      // Note: getUserTasks() filters out completed tasks, so we query directly
+      const tasks = await db.select().from(tasksTable)
+        .where(and(
+          eq(tasksTable.userId, userId),
+          or(eq(tasksTable.archived, false), isNull(tasksTable.archived))
+        ));
+      
+      // Get today's date in YYYY-MM-DD format (local timezone)
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      
+      console.log('[PROGRESS] Today\'s date:', today);
       
       // Calculate today's progress based on completion date
-      const completedTasks = tasks.filter(task => task.completed);
+      console.log('[PROGRESS] Sample task data:', tasks.slice(0, 3).map(t => ({ 
+        title: t.title, 
+        completed: t.completed, 
+        completedType: typeof t.completed,
+        completedAt: t.completedAt 
+      })));
+      
+      const completedTasks = tasks.filter(task => task.completed === true);
+      console.log('[PROGRESS] Total completed tasks:', completedTasks.length);
+      
       const completedToday = completedTasks.filter(task => {
-        const completionDate = task.completedAt?.toISOString().split('T')[0];
+        if (!task.completedAt) return false;
+        const completionDate = task.completedAt instanceof Date 
+          ? `${task.completedAt.getFullYear()}-${String(task.completedAt.getMonth() + 1).padStart(2, '0')}-${String(task.completedAt.getDate()).padStart(2, '0')}`
+          : task.completedAt.toString().split('T')[0];
+        
+        console.log('[PROGRESS] Task:', task.title, '| Completed at:', task.completedAt, '| Completion date:', completionDate, '| Matches today?', completionDate === today);
         return completionDate === today;
       }).length;
       
+      console.log('[PROGRESS] Completed today:', completedToday);
+      
       // Count all active tasks (not completed or completed today)
-      const activeTasks = tasks.filter(task => !task.completed || task.completedAt?.toISOString().split('T')[0] === today);
+      const activeTasks = tasks.filter(task => {
+        if (!task.completed) return true;
+        if (!task.completedAt) return false;
+        const completionDate = task.completedAt instanceof Date 
+          ? `${task.completedAt.getFullYear()}-${String(task.completedAt.getMonth() + 1).padStart(2, '0')}-${String(task.completedAt.getDate()).padStart(2, '0')}`
+          : task.completedAt.toString().split('T')[0];
+        return completionDate === today;
+      });
       const totalToday = activeTasks.length;
       
       // Calculate categories
