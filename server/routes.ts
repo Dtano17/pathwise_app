@@ -1411,6 +1411,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
       const activities = await storage.getUserActivities(userId);
+      // Prevent caching to ensure UI updates immediately after changes
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.json(activities);
     } catch (error) {
       console.error('Get activities error:', error);
