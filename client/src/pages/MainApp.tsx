@@ -1303,10 +1303,22 @@ export default function MainApp({
                                   e.stopPropagation();
                                   try {
                                     const newIsPublic = !activity.isPublic;
+                                    
+                                    // Optimistically update the cache before the API call
+                                    queryClient.setQueryData(['/api/activities'], (oldData: any) => {
+                                      if (!oldData) return oldData;
+                                      return oldData.map((act: any) => 
+                                        act.id === activity.id ? { ...act, isPublic: newIsPublic } : act
+                                      );
+                                    });
+                                    
                                     await apiRequest('PATCH', `/api/activities/${activity.id}`, {
                                       body: JSON.stringify({ isPublic: newIsPublic })
                                     });
+                                    
+                                    // Refetch to ensure we have the latest data
                                     await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+                                    
                                     toast({ 
                                       title: newIsPublic ? "Made Public" : "Made Private", 
                                       description: newIsPublic 
@@ -1315,6 +1327,8 @@ export default function MainApp({
                                     });
                                   } catch (error) {
                                     console.error('Privacy toggle error:', error);
+                                    // Revert optimistic update on error
+                                    await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
                                     toast({
                                       title: "Update Failed",
                                       description: "Unable to update privacy settings. Please try again.",
@@ -1334,6 +1348,7 @@ export default function MainApp({
                               <Button 
                                 variant="ghost" 
                                 size="sm"
+                                disabled={!activity.isPublic || !user || (user as any).authenticationMethod === 'demo'}
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   
@@ -1389,7 +1404,13 @@ export default function MainApp({
                                   }
                                 }}
                                 data-testid={`button-share-${activity.id}`}
-                                title={activity.isPublic ? "Share to social media or contacts" : "Make activity public first to share"}
+                                title={
+                                  !user || (user as any).authenticationMethod === 'demo' 
+                                    ? "Sign in to share activities" 
+                                    : activity.isPublic 
+                                      ? "Share to social media or contacts" 
+                                      : "Make activity public first to share"
+                                }
                               >
                                 <Share2 className={`w-4 h-4 ${activity.isPublic ? 'text-blue-600' : 'text-muted-foreground'}`} />
                               </Button>
