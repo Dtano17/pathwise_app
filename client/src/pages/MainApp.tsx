@@ -840,7 +840,7 @@ export default function MainApp({
               size="sm"
               variant="default"
               onClick={() => {
-                setActiveTab('groups');
+                setShowSignInDialog(true);
               }}
               data-testid="button-toast-signin"
             >
@@ -1394,7 +1394,7 @@ export default function MainApp({
                                         <Button 
                                           size="sm"
                                           variant="default"
-                                          onClick={() => setActiveTab('groups')}
+                                          onClick={() => setShowSignInDialog(true)}
                                           data-testid="button-toast-signin-share"
                                         >
                                           Sign In
