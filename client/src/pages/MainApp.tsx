@@ -816,13 +816,36 @@ export default function MainApp({
       });
       // Keep plan visible so user can see the "Your Activity" button
     },
-    onError: (error: any) => {
-      const errorMessage = error?.response?.error || error.message || "Failed to create activity. Please try again.";
-      toast({
-        title: "Activity Creation Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
+    onError: async (error: any) => {
+      // Try to parse the error response from the Error message
+      let errorData;
+      try {
+        // apiRequest throws Error with message like "403: {json}"
+        const errorMessage = error?.message || '';
+        const colonIndex = errorMessage.indexOf(':');
+        if (colonIndex > 0) {
+          const jsonPart = errorMessage.substring(colonIndex + 1).trim();
+          errorData = JSON.parse(jsonPart);
+        }
+      } catch (e) {
+        errorData = null;
+      }
+      
+      // Check if this is a sign-in requirement error
+      if (errorData?.requiresAuth) {
+        toast({
+          title: "Sign In to Continue",
+          description: errorData.message || "Sign in to create unlimited activities and access all features",
+          action: <ToastAction altText="Sign in" onClick={() => setActiveTab('settings')}>Sign In Now</ToastAction>,
+        });
+      } else {
+        const errorMessage = errorData?.message || errorData?.error || error.message || "Failed to create activity. Please try again.";
+        toast({
+          title: "Activity Creation Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     }
   });
 

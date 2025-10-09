@@ -1883,19 +1883,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Create activity from dialogue (AI-generated tasks)
   // This creates BOTH the activity AND all tasks linked to it
-  app.post("/api/activities/from-dialogue", async (req, res) => {
+  app.post("/api/activities/from-dialogue", async (req: any, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
       const { title, description, category, tasks } = req.body;
       
-      // Check if user is authenticated - non-authenticated users limited to 1 activity
+      // Check if user is authenticated - non-authenticated users limited to 1 activity per session
       const isAuthenticated = getUserId(req) !== null;
       if (!isAuthenticated) {
-        const existingActivities = await storage.getUserActivities(userId);
-        if (existingActivities.length >= 1) {
+        // Initialize session counter if it doesn't exist
+        if (!req.session.demoActivityCount) {
+          req.session.demoActivityCount = 0;
+        }
+        
+        // Check session-based limit (1 activity per session for demo users)
+        if (req.session.demoActivityCount >= 1) {
           return res.status(403).json({ 
             error: 'Sign in required',
-            message: 'Free users are limited to 1 activity. Sign in to create unlimited activities and access premium features!',
+            message: 'You\'ve created your free activity! Sign in to create unlimited activities and unlock premium features like sharing, progress tracking, and AI-powered insights.',
             requiresAuth: true
           });
         }
@@ -1922,6 +1927,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           await storage.addTaskToActivity(activity.id, task.id, i);
         }
+      }
+
+      // Increment counter AFTER successful creation (for demo users only)
+      if (!isAuthenticated) {
+        req.session.demoActivityCount += 1;
       }
 
       // Get the complete activity with tasks
