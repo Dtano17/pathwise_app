@@ -2215,46 +2215,46 @@ Assistant: For nutrition, I recommend..."
 
                 {/* Browse Community Plans Section */}
                 <div className="mt-12">
-                  <div className="text-center mb-8">
-                    <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500/10 to-emerald-500/10 px-6 py-2 rounded-full mb-4">
-                      <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                      <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">Community Powered</span>
+                  <div className="text-center mb-8 px-4">
+                    <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500/10 to-emerald-500/10 px-4 sm:px-6 py-2 rounded-full mb-4">
+                      <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 dark:text-purple-400" />
+                      <span className="text-xs sm:text-sm font-semibold text-purple-600 dark:text-purple-400">Community Powered</span>
                     </div>
-                    <h3 className="text-3xl font-bold text-foreground mb-3">
+                    <h3 className="text-2xl sm:text-3xl font-bold text-foreground mb-3 px-2">
                       Discover & Use Community Plans
                     </h3>
-                    <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                    <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-2">
                       Browse plans created by others, get inspired, and use them for your own goals. Join thousands planning together!
                     </p>
                   </div>
 
                   {/* Category Tabs */}
-                  <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-                    <Badge variant="default" className="cursor-pointer whitespace-nowrap">
+                  <div className="flex gap-2 mb-6 overflow-x-auto pb-2 px-4 scrollbar-hide">
+                    <Badge variant="default" className="cursor-pointer whitespace-nowrap shrink-0">
                       🔥 Trending
                     </Badge>
-                    <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate">
+                    <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate shrink-0">
                       ✈️ Travel
                     </Badge>
-                    <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate">
+                    <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate shrink-0">
                       💪 Fitness
                     </Badge>
-                    <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate">
+                    <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate shrink-0">
                       🎯 Productivity
                     </Badge>
-                    <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate">
+                    <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate shrink-0">
                       🎉 Events
                     </Badge>
-                    <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate">
+                    <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate shrink-0">
                       💼 Career
                     </Badge>
-                    <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate">
+                    <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate shrink-0">
                       🏠 Home
                     </Badge>
                   </div>
 
                   {/* Community Plans Grid */}
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 px-4">
                     {/* Plan Card 1 */}
                     <Card className="overflow-hidden hover-elevate group">
                       <div className="h-32 bg-gradient-to-br from-blue-500 to-purple-600 relative">
@@ -2479,17 +2479,17 @@ Assistant: For nutrition, I recommend..."
                   </div>
 
                   {/* Call to Action */}
-                  <div className="mt-8 text-center">
-                    <Card className="inline-block p-6 bg-gradient-to-r from-purple-500/5 to-emerald-500/5 border-dashed">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-full flex items-center justify-center">
+                  <div className="mt-8 px-4">
+                    <Card className="p-4 sm:p-6 bg-gradient-to-r from-purple-500/5 to-emerald-500/5 border-dashed">
+                      <div className="flex flex-col sm:flex-row items-center gap-4">
+                        <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-full flex items-center justify-center">
                           <Share2 className="w-6 h-6 text-white" />
                         </div>
-                        <div className="text-left">
+                        <div className="text-center sm:text-left flex-1">
                           <h4 className="font-semibold mb-1">Share Your Plan with the Community</h4>
                           <p className="text-sm text-muted-foreground">Help others by sharing your successful plans and strategies</p>
                         </div>
-                        <Button className="ml-4" data-testid="button-share-my-plan">
+                        <Button className="w-full sm:w-auto shrink-0" data-testid="button-share-my-plan">
                           Share My Plan
                         </Button>
                       </div>
