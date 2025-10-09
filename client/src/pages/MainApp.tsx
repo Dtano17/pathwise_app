@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { ToastAction } from '@/components/ui/toast';
 import VoiceInput from '@/components/VoiceInput';
 import LiveChatInterface from '@/components/LiveChatInterface';
 import TaskCard from '@/components/TaskCard';
@@ -836,7 +835,18 @@ export default function MainApp({
         toast({
           title: "Sign In to Continue",
           description: errorData.message || "Sign in to create unlimited activities and access all features",
-          action: <ToastAction altText="Sign in" onClick={() => setActiveTab('settings')}>Sign In Now</ToastAction>,
+          action: (
+            <Button 
+              size="sm"
+              variant="default"
+              onClick={() => {
+                setActiveTab('settings');
+              }}
+              data-testid="button-toast-signin"
+            >
+              Sign In Now
+            </Button>
+          ),
         });
       } else {
         const errorMessage = errorData?.message || errorData?.error || error.message || "Failed to create activity. Please try again.";
@@ -1380,7 +1390,16 @@ export default function MainApp({
                                     toast({
                                       title: "Sign In Required",
                                       description: "Please sign in to share your activities with others",
-                                      action: <ToastAction altText="Sign in" onClick={() => setActiveTab('settings')}>Sign In</ToastAction>
+                                      action: (
+                                        <Button 
+                                          size="sm"
+                                          variant="default"
+                                          onClick={() => setActiveTab('settings')}
+                                          data-testid="button-toast-signin-share"
+                                        >
+                                          Sign In
+                                        </Button>
+                                      )
                                     });
                                     return;
                                   }
