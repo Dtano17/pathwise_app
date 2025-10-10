@@ -276,20 +276,36 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
           externalContext: updatedContext
         }, userId);
 
-        // Process their change request
-        const response = await lifestylePlannerAgent.processMessage(
+        // Process their change request with LangGraph
+        const langGraphResponse = await langGraphPlanningAgent.processMessage(
+          parseInt(userId),
           message,
-          session,
           userProfile,
-          'smart',
-          storage
+          session.conversationHistory,
+          storage,
+          'smart'
         );
 
+        // Update conversation history
+        const updatedHistory = [
+          ...session.conversationHistory,
+          { role: 'user', content: message },
+          { role: 'assistant', content: langGraphResponse.message }
+        ];
+
+        await storage.updateLifestylePlannerSession(session.id, {
+          conversationHistory: updatedHistory,
+          slots: {
+            ...session.slots,
+            _generatedPlan: langGraphResponse.finalPlan || session.slots?._generatedPlan
+          }
+        }, userId);
+
         return res.json({
-          message: response.message,
+          message: langGraphResponse.message,
           sessionId: session.id,
-          contextChips: response.contextChips || [],
-          planReady: false,
+          contextChips: [],  // LangGraph doesn't use context chips
+          planReady: langGraphResponse.readyToGenerate || false,
           session
         });
       }
@@ -2478,19 +2494,35 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
           externalContext: updatedContext
         }, userId);
 
-        // Process their change request
-        const response = await lifestylePlannerAgent.processMessage(
+        // Process their change request with LangGraph (same as Smart Plan)
+        const langGraphResponse = await langGraphPlanningAgent.processMessage(
+          parseInt(userId),
           message,
-          session,
           userProfile,
-          'quick',
-          storage
+          session.conversationHistory,
+          storage,
+          'quick'
         );
 
+        // Update conversation history
+        const updatedHistory = [
+          ...session.conversationHistory,
+          { role: 'user', content: message },
+          { role: 'assistant', content: langGraphResponse.message }
+        ];
+
+        await storage.updateLifestylePlannerSession(session.id, {
+          conversationHistory: updatedHistory,
+          slots: {
+            ...session.slots,
+            _generatedPlan: langGraphResponse.finalPlan || session.slots?._generatedPlan
+          }
+        }, userId);
+
         return res.json({
-          message: response.message,
+          message: langGraphResponse.message,
           sessionId: session.id,
-          planReady: false,
+          planReady: langGraphResponse.readyToGenerate || false,
           session
         });
       }
@@ -2605,32 +2637,49 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       });
     }
 
-    // Process with lifestyle planner agent in Quick mode
-    const response = await lifestylePlannerAgent.processMessage(
+    // Process with LangGraph planning agent in Quick mode (same as Smart Plan)
+    const langGraphResponse = await langGraphPlanningAgent.processMessage(
+      parseInt(userId),
       message,
-      session,
       userProfile,
-      'quick', // Quick mode
-      storage
+      session.conversationHistory,
+      storage,
+      'quick' // Quick mode for faster planning
     );
+
+    // Map LangGraph response to ConversationResponse format
+    const response = {
+      message: langGraphResponse.message,
+      readyToGenerate: langGraphResponse.readyToGenerate || false,
+      planReady: langGraphResponse.readyToGenerate || false,
+      updatedSlots: session.slots,
+      updatedConversationHistory: [...session.conversationHistory, { role: 'user', content: message }, { role: 'assistant', content: langGraphResponse.message }],
+      updatedExternalContext: session.externalContext,
+      sessionState: langGraphResponse.phase as 'gathering' | 'processing' | 'confirming' | 'completed',
+      generatedPlan: langGraphResponse.finalPlan,
+      createActivity: false,
+      progress: langGraphResponse.progress,
+      phase: langGraphResponse.phase,
+      domain: langGraphResponse.domain
+    };
 
     // SERVER-SIDE ACTIVITY TYPE DETECTION OVERRIDE (same as Smart Plan)
     const interviewKeywords = ['interview', 'job interview', 'interview prep', 'prepare for.*interview', 'interviewing'];
     const learningKeywords = ['study', 'learn', 'course', 'education', 'prep for exam', 'test prep'];
     const workoutKeywords = ['workout', 'exercise', 'gym', 'fitness', 'training session'];
     const wellnessKeywords = ['meditation', 'yoga', 'mindfulness', 'breathing exercise'];
-    
+
     const messageLower = message.toLowerCase();
     const hasInterviewKeyword = interviewKeywords.some(kw => new RegExp(kw, 'i').test(messageLower));
     const hasLearningKeyword = learningKeywords.some(kw => new RegExp(kw, 'i').test(messageLower));
     const hasWorkoutKeyword = workoutKeywords.some(kw => new RegExp(kw, 'i').test(messageLower));
     const hasWellnessKeyword = wellnessKeywords.some(kw => new RegExp(kw, 'i').test(messageLower));
-    
+
     const goalPhraseMatch = messageLower.match(/(?:the )?goal (?:is|was) to (?:pass|prepare for|get ready for|ace|nail|do well in|succeed in).*?(?:interview|study|learn|workout|meditate)/i);
-    
+
     if (response.updatedSlots) {
       const currentActivityType = response.updatedSlots.activityType?.toLowerCase() || '';
-      
+
       if (hasInterviewKeyword || (goalPhraseMatch && goalPhraseMatch[0].includes('interview'))) {
         if (currentActivityType !== 'interview_prep' && currentActivityType !== 'interview') {
           console.log(`[QUICK PLAN OVERRIDE] Detected interview keywords. Overriding to "interview_prep".`);
