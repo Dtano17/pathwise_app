@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
@@ -280,24 +280,27 @@ export default function SharedActivity() {
   const activeTasks = tasks.filter(t => !t.completed);
   const completedTasksList = tasks.filter(t => t.completed);
 
-  const theme = categoryThemes[activity.category.toLowerCase()] || categoryThemes.other;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section with Themed Backdrop */}
-      <div className={`relative bg-gradient-to-br ${theme.gradient} border-b`}>
-        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,black)]" />
+      {/* Hero Section with Dynamic Themed Background Image */}
+      <div 
+        className="relative border-b" 
+        style={getBackgroundStyle()}
+      >
+        {/* Dark overlay for text readability */}
+        <div className="absolute inset-0 bg-black/40" />
         <div className="container mx-auto px-4 py-8 sm:py-12 relative">
           <div className="max-w-4xl mx-auto">
             {/* JournalMate Branding */}
             <div className="text-center mb-6">
               <div className="flex items-center justify-center gap-2 mb-2">
-                <Sparkles className="w-6 h-6 text-primary" />
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
+                <Sparkles className="w-6 h-6 text-white" />
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-emerald-400 bg-clip-text text-transparent">
                   JournalMate
                 </h1>
               </div>
-              <p className="text-sm text-muted-foreground">Plan and Share Your Activities</p>
+              <p className="text-sm text-white/90">Plan and Share Your Activities</p>
             </div>
 
             <div className="flex items-center justify-between mb-6">
@@ -353,16 +356,16 @@ export default function SharedActivity() {
               className="text-center"
             >
               <div className="mb-4 flex items-center justify-center">
-                <theme.Icon className={`w-16 h-16 ${theme.accentColor}`} />
+                <theme.Icon className="w-16 h-16 text-white" />
               </div>
               
               {/* Activity Summary */}
               <div className="mb-4">
-                <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3 break-words">
+                <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3 break-words drop-shadow-lg">
                   {activity.planSummary || activity.title}
                 </h2>
                 {activity.description && (
-                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto break-words">
+                  <p className="text-lg text-white/90 max-w-2xl mx-auto break-words drop-shadow-md">
                     {activity.description}
                   </p>
                 )}
@@ -371,21 +374,21 @@ export default function SharedActivity() {
               {/* Activity Meta Info */}
               <div className="flex flex-col items-center gap-2 text-sm">
                 {data.sharedBy?.name && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="flex items-center gap-2 text-white/90">
                     <Sparkles className="w-4 h-4" />
                     <span>Shared by {data.sharedBy.name}</span>
                   </div>
                 )}
                 <div className="flex flex-wrap items-center justify-center gap-3">
-                  <Badge variant="outline" className="bg-background/80 backdrop-blur-sm">
+                  <Badge variant="outline" className="bg-white/90 backdrop-blur-sm border-white/50 text-gray-900">
                     <span className="capitalize">{activity.category}</span>
                   </Badge>
-                  <div className="flex items-center gap-1 text-muted-foreground">
+                  <div className="flex items-center gap-1 text-white/90">
                     <CheckSquare className="w-4 h-4" />
                     <span>{completedTasks}/{totalTasks} tasks completed</span>
                   </div>
                   {progressPercent === 100 && (
-                    <Badge className="bg-green-600 text-white">
+                    <Badge className="bg-emerald-500 text-white border-none">
                       Complete!
                     </Badge>
                   )}
