@@ -22,6 +22,7 @@ interface SharedActivityData {
     endDate?: string;
     userId: string;
     planSummary?: string;
+    backdrop?: string;
     createdAt: string;
     updatedAt: string;
   };
@@ -239,6 +240,16 @@ export default function SharedActivity() {
       };
     }
 
+    // Check if there's a custom backdrop
+    if (data.activity.backdrop) {
+      return {
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${data.activity.backdrop}')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      };
+    }
+
     const title = data.activity.title.toLowerCase();
     const category = data.activity.category.toLowerCase();
     
@@ -379,12 +390,17 @@ export default function SharedActivity() {
             {/* JournalMate Branding */}
             <div className="text-center mb-6">
               <div className="flex items-center justify-center gap-2 mb-1">
-                <Sparkles className="w-8 h-8 text-purple-400" />
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 via-violet-400 to-emerald-400 bg-clip-text text-transparent">
+                <Sparkles className="w-7 h-7 text-purple-400" />
+                <h1 className="text-3xl font-bold" style={{
+                  background: 'linear-gradient(to right, rgb(168, 85, 247), rgb(16, 185, 129))',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}>
                   JournalMate
                 </h1>
               </div>
-              <p className="text-base text-white font-medium">Plan and Share Your Activities</p>
+              <p className="text-sm text-white/95 font-normal">Plan and Share Your Activities</p>
             </div>
 
             <div className="flex items-center justify-between mb-6">
@@ -553,7 +569,15 @@ export default function SharedActivity() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: Math.min(index * 0.05, 0.3) }}
                 >
-                  <Card className="p-4 sm:p-5 hover-elevate" data-testid={`task-active-${task.id}`}>
+                  <Card 
+                    className={`p-4 sm:p-5 hover-elevate ${isAuthenticated ? 'cursor-pointer' : ''}`}
+                    data-testid={`task-active-${task.id}`}
+                    onClick={() => {
+                      if (isAuthenticated) {
+                        window.location.href = `/?activity=${activity.id}&tab=tasks`;
+                      }
+                    }}
+                  >
                     <div className="flex items-start gap-3">
                       <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/50 mt-0.5 shrink-0" />
                       <div className="flex-1 min-w-0">

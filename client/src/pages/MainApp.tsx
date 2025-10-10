@@ -114,6 +114,22 @@ export default function MainApp({
   // Activity selection and delete dialog state
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
+
+  // Handle URL query parameters for activity selection from shared links
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const activityParam = params.get('activity');
+    const tabParam = params.get('tab');
+    
+    if (activityParam) {
+      setSelectedActivityId(activityParam);
+      if (tabParam) {
+        setActiveTab(tabParam);
+      }
+      // Clean up URL after setting state
+      window.history.replaceState({}, '', '/');
+    }
+  }, []);
   
   // Task filtering state
   const [selectedCategory, setSelectedCategory] = useState('all');

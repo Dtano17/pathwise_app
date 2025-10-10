@@ -629,6 +629,7 @@ export const activities = pgTable("activities", {
   shareableLink: varchar("shareable_link"),
   socialText: text("social_text"), // Custom text for social media sharing
   tags: jsonb("tags").$type<string[]>().default([]),
+  backdrop: text("backdrop"), // Custom backdrop URL or theme name for shared activity page
   
   // Rating and feedback
   rating: integer("rating"), // 1-5 stars
