@@ -272,11 +272,31 @@ export default function SharedActivity() {
       searchTerm = 'business career professional';
     }
     
-    // Use Unsplash Source for random themed images
-    const unsplashUrl = `https://source.unsplash.com/1600x900/?${encodeURIComponent(searchTerm)}`;
+    // Use Unsplash API for themed images (with random seed for variety)
+    const randomSeed = Math.floor(Math.random() * 1000);
+    const unsplashUrl = `https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1600&h=900&fit=crop&q=80`;
+    
+    // Map search terms to specific high-quality Unsplash images
+    const imageMap: Record<string, string> = {
+      'new york city new year celebration times square': 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1600&h=900&fit=crop&q=80', // Times Square NYE
+      'new york city skyline': 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=1600&h=900&fit=crop&q=80',
+      'paris eiffel tower': 'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=1600&h=900&fit=crop&q=80',
+      'tokyo japan cityscape': 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1600&h=900&fit=crop&q=80',
+      'london big ben': 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=1600&h=900&fit=crop&q=80',
+      'tropical beach paradise': 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1600&h=900&fit=crop&q=80',
+      'mountain landscape hiking': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&h=900&fit=crop&q=80',
+      'fitness workout gym': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1600&h=900&fit=crop&q=80',
+      'travel adventure destination': 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1600&h=900&fit=crop&q=80',
+      'books education study': 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1600&h=900&fit=crop&q=80',
+      'health wellness mindfulness': 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=1600&h=900&fit=crop&q=80',
+      'business career professional': 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&h=900&fit=crop&q=80',
+      'personal': 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&h=900&fit=crop&q=80'
+    };
+    
+    const finalImageUrl = imageMap[searchTerm] || imageMap['personal'];
     
     return {
-      backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${unsplashUrl}')`,
+      backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${finalImageUrl}')`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
       backgroundRepeat: 'no-repeat'
@@ -358,13 +378,13 @@ export default function SharedActivity() {
           <div className="max-w-4xl mx-auto">
             {/* JournalMate Branding */}
             <div className="text-center mb-6">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Sparkles className="w-6 h-6 text-white" />
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-emerald-400 bg-clip-text text-transparent">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <Sparkles className="w-8 h-8 text-purple-400" />
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 via-violet-400 to-emerald-400 bg-clip-text text-transparent">
                   JournalMate
                 </h1>
               </div>
-              <p className="text-sm text-white/90">Plan and Share Your Activities</p>
+              <p className="text-base text-white font-medium">Plan and Share Your Activities</p>
             </div>
 
             <div className="flex items-center justify-between mb-6">
