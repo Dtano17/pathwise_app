@@ -163,10 +163,13 @@ export default function SharedActivity() {
   const requestPermissionMutation = useMutation({
     mutationFn: async () => {
       if (!data?.activity?.id) throw new Error('Activity ID not found');
-      return await apiRequest(`/api/activities/${data.activity.id}/request-permission`, {
+      const response = await fetch(`/api/activities/${data.activity.id}/request-permission`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ permissionType: 'edit' })
       });
+      if (!response.ok) throw new Error('Failed to request permission');
+      return response.json();
     },
     onSuccess: () => {
       setPermissionRequested(true);
@@ -185,9 +188,13 @@ export default function SharedActivity() {
   });
 
   const handleCopyLink = async () => {
+    if (!data?.activity) return;
     const url = window.location.href;
+    const activitySummary = data.activity.planSummary || data.activity.title;
+    const shareText = `Participate in this shared activity: ${activitySummary} and to create yours join JournalMate\n\n${url}`;
+    
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(shareText);
       setCopyingLink(true);
       toast({
         title: 'Link Copied!',
@@ -205,7 +212,8 @@ export default function SharedActivity() {
 
   const handleShareTwitter = () => {
     if (!data?.activity) return;
-    const text = `Check out my ${data.activity.category} plan: ${data.activity.planSummary || data.activity.title}`;
+    const activitySummary = data.activity.planSummary || data.activity.title;
+    const text = `Participate in this shared activity: ${activitySummary} and to create yours join JournalMate`;
     const url = window.location.href;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
   };
@@ -280,13 +288,60 @@ export default function SharedActivity() {
   const activeTasks = tasks.filter(t => !t.completed);
   const completedTasksList = tasks.filter(t => t.completed);
 
+  const theme = categoryThemes[activity.category.toLowerCase()] || categoryThemes.other;
+
+  // Generate themed background image URL based on activity title and category (memoized)
+  const backgroundStyle = useMemo(() => {
+    const title = activity.title.toLowerCase();
+    const category = activity.category.toLowerCase();
+    
+    // Create a search term for Unsplash based on activity
+    let searchTerm = category;
+    
+    // Extract key terms from title for better image matching
+    if (title.includes('new year') && (title.includes('new york') || title.includes('nyc'))) {
+      searchTerm = 'new york city new year celebration times square';
+    } else if (title.includes('new york') || title.includes('nyc')) {
+      searchTerm = 'new york city skyline';
+    } else if (title.includes('paris')) {
+      searchTerm = 'paris eiffel tower';
+    } else if (title.includes('tokyo')) {
+      searchTerm = 'tokyo japan cityscape';
+    } else if (title.includes('london')) {
+      searchTerm = 'london big ben';
+    } else if (title.includes('beach') || title.includes('tropical')) {
+      searchTerm = 'tropical beach paradise';
+    } else if (title.includes('mountain') || title.includes('hiking')) {
+      searchTerm = 'mountain landscape hiking';
+    } else if (category === 'fitness') {
+      searchTerm = 'fitness workout gym';
+    } else if (category === 'travel') {
+      searchTerm = 'travel adventure destination';
+    } else if (category === 'learning') {
+      searchTerm = 'books education study';
+    } else if (category === 'health') {
+      searchTerm = 'health wellness mindfulness';
+    } else if (category === 'career') {
+      searchTerm = 'business career professional';
+    }
+    
+    // Use Unsplash Source for random themed images
+    const unsplashUrl = `https://source.unsplash.com/1600x900/?${encodeURIComponent(searchTerm)}`;
+    
+    return {
+      backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${unsplashUrl}')`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat'
+    };
+  }, [activity.title, activity.category]);
 
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section with Dynamic Themed Background Image */}
       <div 
         className="relative border-b" 
-        style={getBackgroundStyle()}
+        style={backgroundStyle}
       >
         {/* Dark overlay for text readability */}
         <div className="absolute inset-0 bg-black/40" />
@@ -591,7 +646,7 @@ export default function SharedActivity() {
           >
             <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
               <div className="flex flex-col items-center gap-4">
-                {activity.userId !== user?.id && !permissionRequested && (
+                {user && 'id' in user && activity.userId !== user.id && !permissionRequested && (
                   <div className="w-full">
                     <h3 className="text-lg font-bold mb-2">Want to collaborate on this activity?</h3>
                     <p className="text-muted-foreground mb-4">
