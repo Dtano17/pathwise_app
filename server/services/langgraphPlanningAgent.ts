@@ -336,7 +336,7 @@ Should extract: date="today", fixedCommitments="medication appointment", priorit
 
   const extractedSlots = parseFunctionCall<Record<string, any>>(result);
 
-  // Filter out empty/null values
+  // Filter out empty/null values but KEEP <UNKNOWN> markers for gap analysis
   const validSlots: Record<string, any> = {};
   for (const [key, value] of Object.entries(extractedSlots)) {
     if (value && value !== '' && value !== 'null' && value !== 'undefined') {
@@ -344,10 +344,13 @@ Should extract: date="today", fixedCommitments="medication appointment", priorit
     }
   }
 
-  console.log(`[LANGGRAPH] Extracted ${Object.keys(validSlots).length} slots:`, validSlots);
+  console.log(`[LANGGRAPH] Extracted ${Object.keys(validSlots).length} slots:`, JSON.stringify(validSlots));
+
+  // Merge with existing slots to preserve previously extracted information
+  const mergedSlots = { ...state.slots, ...validSlots };
 
   return {
-    slots: validSlots
+    slots: mergedSlots
   };
 }
 
@@ -433,21 +436,27 @@ ${JSON.stringify(state.allQuestions, null, 2)}
 User's extracted information (from ALL messages):
 ${JSON.stringify(state.slots, null, 2)}
 
-Already asked question IDs (don't ask again):
+Already asked question IDs (NEVER ask these again):
 ${JSON.stringify([...state.askedQuestionIds], null, 2)}
 
 Determine:
-1. Which questions are fully answered - A question with ID "X" is answered if slots["X"] exists and is not <UNKNOWN>
-2. Which questions still need answers - Missing slot or slot value is <UNKNOWN>
-3. What's the most important unanswered question to ask next
+1. Which questions are fully answered - Check if slots[question.id] exists with a real value
+2. Which questions still need answers - NOT in slots object OR value is <UNKNOWN>
+3. What's the most important unanswered question to ask next (must NOT be in askedQuestionIds)
 
 CRITICAL MAPPING RULES:
 - Each question has an ID (e.g., "destination", "dates_duration", "budget")
-- A question is ANSWERED if slots[question.id] has a real value (not <UNKNOWN>)
-- Example: Question ID "destination" is answered if slots["destination"] = "Dallas"
-- Example: Question ID "budget" is answered if slots["budget"] has a value
+- A question with ID "X" is ANSWERED if: slots["X"] exists AND has a meaningful value
+- Example: If slots = {"destination": "Bronx New York", "dates_duration": "November 10-17"}
+  Then "destination" and "dates_duration" are ANSWERED
+- Example: If slots = {"destination": "Dallas"} then "budget" is UNANSWERED (not in slots)
 
-Do NOT ask questions that were already answered in previous messages!`
+DUPLICATE PREVENTION:
+- NEVER select a questionId that appears in "Already asked question IDs"
+- If a question was asked before but user said "indefinite" or "not sure", DO NOT ask again
+- Accept partial/vague answers like "indefinite budget" as answered
+
+Do NOT ask questions that were already answered OR already asked!`
           },
           {
             role: 'user',
@@ -640,9 +649,16 @@ Be specific and practical${location ? ` for ${location}` : ''}${dates ? ` during
   if (state.domain === 'travel') {
     const budgetValue = budget ? budget.toLowerCase() : '';
     const isLowBudget = budgetValue.includes('500') || budgetValue.includes('low') || budgetValue.includes('budget') || budgetValue.includes('cheap');
-    
-    enrichmentPrompt += `\n\n**Travel-Specific:**
-- **Weather & Packing**: ${location && dates ? `Typical weather in ${location} during ${dates}, what to pack` : 'Weather considerations and packing tips'}
+
+    enrichmentPrompt += `\n\n**Travel-Specific (MANDATORY):**
+- **Weather Forecast** (REQUIRED): ${location && dates ? `Provide specific weather forecast for ${location} during ${dates}. Include temperature ranges (high/low), precipitation chances, and seasonal conditions. If exact forecast unavailable, provide historical averages and typical patterns for this time of year.` : 'Provide typical weather patterns and seasonal considerations'}
+- **Budget Breakdown** (REQUIRED): ${budget ? `Create detailed budget estimate for ${location} trip:
+  * Transportation: flights/gas, local transit
+  * Accommodation: per night costs × duration
+  * Food: breakfast, lunch, dinner daily estimates
+  * Activities: entrance fees, tours, experiences
+  * Miscellaneous: tips, souvenirs, emergencies
+  Total should align with ${budget} budget. Be SPECIFIC with dollar amounts.` : 'Provide typical cost breakdown for this destination'}
 - **Traffic & Transportation**: ${location ? `Getting around ${location}, peak traffic times, parking costs, public transit options` : 'Transportation options and traffic patterns'}
 - **Accommodation**: ${isLowBudget ? 'Budget-friendly options like Airbnb, hostels, colivingspaces.com for coliving, budget hotels ($50-100/night)' : 'Recommended areas to stay, hotel vs Airbnb considerations'}
 - **Activities**: ${budget ? `Must-see spots that fit ${budget} budget, free experiences` : 'Popular attractions and hidden gems'}
@@ -747,7 +763,15 @@ Create a plan that feels personal, thoughtful, and motivating - like advice from
 - A catchy, inspiring title (max 60 chars)
 - A motivating description that shows you understand my goals (max 150 chars)
 - 3-7 specific, actionable tasks with clear next steps
-- Each task should feel achievable and include realistic time estimates`
+- Each task should feel achievable and include realistic time estimates
+
+${state.domain === 'travel' ? `
+**MANDATORY FOR TRAVEL PLANS:**
+You MUST include these as dedicated tasks in your plan:
+1. **Weather Forecast Task** - Include specific weather predictions for ${state.slots?.destination || 'the destination'} during ${state.slots?.dates_duration || state.slots?.date || 'the travel dates'}. Provide approximate temperatures, conditions, and what to pack accordingly.
+2. **Budget Breakdown Task** - Create a detailed budget estimate breaking down costs for transportation, accommodation, food, activities, and miscellaneous expenses based on the ${state.slots?.budget || 'specified budget'}. Be specific with amounts.
+
+These must be included as separate tasks in addition to other planning tasks.` : ''}`
           }
         ],
         [
@@ -814,7 +838,7 @@ Create a plan that feels personal, thoughtful, and motivating - like advice from
       domain: state.domain,
       slots: state.slots
     },
-    responseMessage: `# ✨ ${planData.title}\n\n${planData.description}\n\n## 🎯 Your Action Plan\n\n${formattedTasks}\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)`,
+    responseMessage: `# ✨ ${planData.title}\n\n${planData.description}\n\n## 🎯 Your Action Plan\n\n${formattedTasks}`,
     phase: 'completed',
     readyToGenerate: true
   };

@@ -303,12 +303,38 @@ export default function MainApp({
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   const [oauthUserId, setOauthUserId] = useState<string | null>(null);
 
-  // Check for OAuth new user redirect
+  // Check for OAuth new user redirect and auth errors
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const isNewUser = urlParams.get('newUser') === 'true';
     const userId = urlParams.get('userId');
+    const authStatus = urlParams.get('auth');
+    const provider = urlParams.get('provider');
+    const reason = urlParams.get('reason');
 
+    // Handle OAuth errors
+    if (authStatus === 'error') {
+      if (provider === 'facebook' && reason === 'app_not_active') {
+        toast({
+          title: "Facebook Sign-In Unavailable",
+          description: "Facebook authentication is currently in development mode. Please use Google or Email to sign in.",
+          variant: "destructive",
+          duration: 8000,
+        });
+      } else {
+        toast({
+          title: "Authentication Failed",
+          description: `Failed to sign in with ${provider || 'social provider'}. Please try another method.`,
+          variant: "destructive",
+          duration: 5000,
+        });
+      }
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+
+    // Handle new user signup
     if (isNewUser && userId) {
       toast({
         title: "Welcome! 🎉",

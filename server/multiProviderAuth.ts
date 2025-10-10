@@ -421,7 +421,7 @@ export async function setupMultiProviderAuth(app: Express) {
   );
 
   app.get('/api/auth/facebook/callback',
-    passport.authenticate('facebook', { failureRedirect: '/?auth=error' }),
+    passport.authenticate('facebook', { failureRedirect: '/?auth=error&provider=facebook&reason=app_not_active' }),
     (req, res) => {
       // Check if this is a new user who needs profile completion
       const user = req.user as OAuthUser;
