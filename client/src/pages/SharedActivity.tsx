@@ -516,7 +516,7 @@ export default function SharedActivity() {
                 >
                   <Linkedin className="w-4 h-4" />
                 </Button>
-                {user && typeof user === 'object' && 'id' in user && activity.userId === (user as any).id && (
+                {user && typeof user === 'object' && 'id' in user && activity.userId === (user as any).id ? (
                   <Button 
                     variant="outline" 
                     size="icon" 
@@ -527,7 +527,7 @@ export default function SharedActivity() {
                   >
                     <Image className="w-4 h-4" />
                   </Button>
-                )}
+                ) : null}
               </div>
             </div>
             
@@ -781,7 +781,7 @@ export default function SharedActivity() {
           >
             <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
               <div className="flex flex-col items-center gap-4">
-                {user && typeof user === 'object' && 'id' in user && activity.userId !== (user as any).id && !permissionRequested && (
+                {user && typeof user === 'object' && 'id' in user && activity.userId !== (user as any).id && !permissionRequested ? (
                   <div className="w-full">
                     <h3 className="text-lg font-bold mb-2">Want to collaborate on this activity?</h3>
                     <p className="text-muted-foreground mb-4">
@@ -797,7 +797,7 @@ export default function SharedActivity() {
                       {requestPermissionMutation.isPending ? 'Requesting...' : 'Request Permission to Edit'}
                     </Button>
                   </div>
-                )}
+                ) : null}
                 
                 {permissionRequested && (
                   <div className="w-full">
