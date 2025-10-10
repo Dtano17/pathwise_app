@@ -1274,20 +1274,20 @@ export default function MainApp({
 
               {activitiesLoading ? (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">Loading tasks...</p>
+                  <p className="text-muted-foreground">Loading activities...</p>
                 </div>
-              ) : tasksError ? (
+              ) : activitiesError ? (
                 <div className="text-center py-8">
-                  <p className="text-destructive">Failed to load tasks. Please try again.</p>
-                  <Button onClick={() => refetchTasks()} variant="outline" className="mt-4">
+                  <p className="text-destructive">Failed to load activities. Please try again.</p>
+                  <Button onClick={() => refetchActivities()} variant="outline" className="mt-4">
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Retry
                   </Button>
                 </div>
-              ) : tasks.length === 0 ? (
+              ) : activities.length === 0 ? (
                 <div className="text-center py-12">
                   <CheckSquare className="mx-auto w-16 h-16 text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-medium text-foreground mb-2">No Tasks Yet</h3>
+                  <h3 className="text-xl font-medium text-foreground mb-2">No Activities Yet</h3>
                   <p className="text-muted-foreground mb-6">
                     Create activities with goals to generate tasks automatically
                   </p>
@@ -1313,10 +1313,6 @@ export default function MainApp({
                           // Navigate to tasks tab and show tasks for this activity
                           setSelectedActivityId(activity.id);
                           setActiveTab('tasks');
-                          toast({
-                            title: `Viewing tasks for: ${activity.title}`,
-                            description: "Switched to tasks view for this activity"
-                          });
                         }}
                         data-testid={`activity-card-${activity.id}`}
                       >
