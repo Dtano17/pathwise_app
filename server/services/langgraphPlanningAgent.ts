@@ -19,6 +19,9 @@ import type { DomainConfig, Question } from './domainRegistry';
 import { domainRegistry } from './domainRegistry';
 import type { IStorage } from '../storage';
 
+// Simple in-memory cache for enrichment data (6 hour TTL)
+const enrichmentCache = new Map<string, { data: any; expiresAt: number }>();
+
 /**
  * Provider-aware function call parser
  * Automatically detects which provider was used and calls the appropriate parser
@@ -588,15 +591,40 @@ async function askQuestion(state: PlanningStateType): Promise<Partial<PlanningSt
 /**
  * Node: Enrich Data
  * Performs contextual research and planning enrichment
+ * OPTIMIZATION: Skip for quick plans or use cached data
  */
 async function enrichData(state: PlanningStateType): Promise<Partial<PlanningStateType>> {
   console.log('[LANGGRAPH] Node: enrich_data');
+
+  // OPTIMIZATION: Skip enrichment for quick plans to improve speed
+  if (state.planMode === 'quick') {
+    console.log('[LANGGRAPH] Skipping enrichment for quick plan mode');
+    return {
+      enrichedData: {
+        contextualAdvice: 'Quick plan - using streamlined approach without detailed enrichment',
+        domain: state.domain,
+        timestamp: new Date().toISOString()
+      },
+      phase: 'synthesis'
+    };
+  }
 
   // Extract key information from slots for context-aware enrichment
   const location = state.slots?.destination || state.slots?.location || null;
   const dates = state.slots?.dates_duration || state.slots?.date || state.slots?.when || null;
   const budget = state.slots?.budget || state.slots?.range || null;
   const duration = state.slots?.duration || null;
+
+  // OPTIMIZATION: Check cache for existing enrichment
+  const cacheKey = `${state.domain}:${location}:${dates}:${budget}`;
+  const cached = enrichmentCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    console.log('[LANGGRAPH] Using cached enrichment data');
+    return {
+      enrichedData: cached.data,
+      phase: 'synthesis'
+    };
+  }
 
   // Build enrichment request based on domain and extracted data
   let enrichmentPrompt = `Based on the planning information provided, give comprehensive contextual advice including:
@@ -664,12 +692,22 @@ Your advice should be:
 
   console.log(`[LANGGRAPH] Enrichment complete (cost: $${result.usage?.totalCost.toFixed(4)})`);
 
+  const enrichedData = {
+    contextualAdvice: result.content,
+    domain: state.domain,
+    timestamp: new Date().toISOString()
+  };
+
+  // OPTIMIZATION: Cache enrichment data for 6 hours
+  const cacheKey = `${state.domain}:${location}:${dates}:${budget}`;
+  enrichmentCache.set(cacheKey, {
+    data: enrichedData,
+    expiresAt: Date.now() + 6 * 60 * 60 * 1000 // 6 hours
+  });
+  console.log('[LANGGRAPH] Cached enrichment data');
+
   return {
-    enrichedData: {
-      contextualAdvice: result.content,
-      domain: state.domain,
-      timestamp: new Date().toISOString()
-    },
+    enrichedData,
     phase: 'synthesis'
   };
 }
@@ -841,10 +879,30 @@ async function createActivity(state: PlanningStateType): Promise<Partial<Plannin
 }
 
 /**
+ * Node: Parallel Domain and Slot Detection
+ * OPTIMIZATION: Run domain detection and slot extraction in parallel
+ */
+async function detectDomainAndSlots(state: PlanningStateType): Promise<Partial<PlanningStateType>> {
+  console.log('[LANGGRAPH] Node: detect_domain_and_slots (parallel execution)');
+
+  // Run domain detection and slot extraction in parallel for speed
+  const [domainResult, slotsResult] = await Promise.all([
+    detectDomain(state),
+    extractSlots(state)
+  ]);
+
+  // Merge results
+  return {
+    ...domainResult,
+    ...slotsResult
+  };
+}
+
+/**
  * Routing Functions
  */
 function routeAfterDomainDetection(state: PlanningStateType): string {
-  // Always extract slots after domain detection
+  // Skip - now using parallel node
   return 'extract_slots';
 }
 
@@ -904,8 +962,7 @@ function routeAfterActivityCreation(state: PlanningStateType): string {
 function buildWorkflow() {
   const workflow = new StateGraph(PlanningState)
     // Add nodes
-    .addNode('detect_domain', detectDomain)
-    .addNode('extract_slots', extractSlots)
+    .addNode('detect_domain_and_slots', detectDomainAndSlots)  // PARALLEL OPTIMIZATION
     .addNode('generate_questions', generateQuestions)
     .addNode('analyze_gaps', analyzeGaps)
     .addNode('ask_question', askQuestion)
@@ -913,12 +970,11 @@ function buildWorkflow() {
     .addNode('synthesize_plan', synthesizePlan)
     .addNode('create_activity', createActivity)
 
-    // Entry point
-    .addEdge('__start__', 'detect_domain')
+    // Entry point - now goes directly to parallel node
+    .addEdge('__start__', 'detect_domain_and_slots')
 
     // Conditional edges
-    .addConditionalEdges('detect_domain', routeAfterDomainDetection)
-    .addConditionalEdges('extract_slots', routeAfterSlotExtraction)
+    .addConditionalEdges('detect_domain_and_slots', routeAfterSlotExtraction)
     .addConditionalEdges('generate_questions', (state: PlanningStateType) => {
       // After generating questions for the first time, show them to user (END)
       // On subsequent turns, the questions are already generated, so we skip this node
@@ -951,6 +1007,7 @@ export class LangGraphPlanningAgent {
 
   /**
    * Process a user message through the state machine
+   * @param progressCallback - Optional callback for streaming progress updates
    */
   async processMessage(
     userId: number,
@@ -958,7 +1015,8 @@ export class LangGraphPlanningAgent {
     userProfile: User,
     conversationHistory: Array<{ role: string; content: string }> = [],
     storage?: IStorage,
-    planMode: 'quick' | 'smart' = 'quick'
+    planMode: 'quick' | 'smart' = 'quick',
+    progressCallback?: (phase: string, message: string) => void
   ): Promise<{
     message: string;
     phase: string;
@@ -971,6 +1029,9 @@ export class LangGraphPlanningAgent {
     console.log(`\n[LANGGRAPH] Processing message for user ${userId}`);
     console.log(`[LANGGRAPH] Message: ${userMessage.substring(0, 100)}...`);
 
+    // Emit progress if callback provided
+    progressCallback?.('starting', 'Initializing planning workflow...');
+
     // Compile workflow with checkpointer
     const app = this.workflow.compile({ checkpointer: this.checkpointer });
 
@@ -981,6 +1042,8 @@ export class LangGraphPlanningAgent {
       }
     };
 
+    progressCallback?.('domain_detection', 'Analyzing your request and extracting details...');
+
     const result = await app.invoke(
       {
         userId,
@@ -988,13 +1051,18 @@ export class LangGraphPlanningAgent {
         userProfile,
         planMode,
         storage,
-        conversationHistory: [{ role: 'user', content: userMessage }]
+        conversationHistory: conversationHistory && conversationHistory.length > 0
+          ? conversationHistory
+          : [{ role: 'user', content: userMessage }]
       },
       config
     );
 
     console.log(`[LANGGRAPH] Phase: ${result.phase}`);
     console.log(`[LANGGRAPH] Progress: ${result.progress.percentage}%`);
+
+    // Emit final progress
+    progressCallback?.(result.phase, `Completed - ${result.progress.percentage}% done`);
 
     return {
       message: result.responseMessage || "I'm processing your request...",

@@ -2722,11 +2722,69 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
   }
 }
 
+  // STREAMING endpoint for real-time progress updates
+  app.post("/api/chat/conversation/stream", async (req, res) => {
+    try {
+      const { message, conversationHistory = [], mode } = req.body;
+
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: 'Message is required and must be a string' });
+      }
+
+      const userId = (req.user as any)?.id || DEMO_USER_ID;
+
+      // Set up SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+
+      const sendEvent = (event: string, data: any) => {
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+
+      try {
+        // Send initial progress
+        sendEvent('progress', { phase: 'starting', message: 'Analyzing your request...' });
+
+        if (mode === 'smart' || mode === 'quick') {
+          const session = await storage.getActiveLifestylePlannerSession(userId);
+          const userProfile = await storage.getUserProfile(userId);
+
+          // Process with streaming progress callback
+          const langGraphResponse = await langGraphPlanningAgent.processMessage(
+            parseInt(userId),
+            message,
+            userProfile,
+            session?.conversationHistory || conversationHistory,
+            storage,
+            mode === 'smart' ? 'smart' : 'quick',
+            (phase, progressMessage) => {
+              // Stream progress to client in real-time
+              sendEvent('progress', { phase, message: progressMessage });
+            }
+          );
+
+          sendEvent('complete', { response: langGraphResponse });
+          res.end();
+        } else {
+          sendEvent('error', { message: 'Invalid mode' });
+          res.end();
+        }
+      } catch (error) {
+        sendEvent('error', { message: error instanceof Error ? error.message : 'Unknown error' });
+        res.end();
+      }
+    } catch (error) {
+      res.status(500).json({ error: 'Streaming failed' });
+    }
+  });
+
   // Real-time chat conversation endpoint with task creation
   app.post("/api/chat/conversation", async (req, res) => {
     try {
       const { message, conversationHistory = [], mode } = req.body;
-      
+
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: 'Message is required and must be a string' });
       }

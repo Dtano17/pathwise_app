@@ -299,6 +299,29 @@ export default function MainApp({
   // Sign-in dialog state
   const [showSignInDialog, setShowSignInDialog] = useState(false);
 
+  // Profile completion for OAuth new users
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false);
+  const [oauthUserId, setOauthUserId] = useState<string | null>(null);
+
+  // Check for OAuth new user redirect
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isNewUser = urlParams.get('newUser') === 'true';
+    const userId = urlParams.get('userId');
+
+    if (isNewUser && userId) {
+      toast({
+        title: "Welcome! 🎉",
+        description: "Your account has been created. Complete your profile to get personalized recommendations!",
+        duration: 5000,
+      });
+      setOauthUserId(userId);
+      setShowProfileCompletion(true);
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [toast]);
+
   // Sign-in gate component for restricted features
   const SignInGate = ({ children, feature }: { children: React.ReactNode; feature: string }) => {
     if (isAuthenticated) {

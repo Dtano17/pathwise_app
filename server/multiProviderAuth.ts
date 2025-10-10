@@ -43,6 +43,7 @@ interface OAuthUser {
   firstName?: string;
   lastName?: string;
   profileImageUrl?: string;
+  isNewUser?: boolean;
 }
 
 // Setup multi-provider OAuth strategies
@@ -64,8 +65,9 @@ export async function setupMultiProviderAuth(app: Express) {
 
         // Check if this Google account is already linked
         let authIdentity = await storage.getAuthIdentity('google', profile.id);
-        
+
         let user;
+        let isNewUser = false;
         if (authIdentity) {
           // User already exists with this Google account
           user = await storage.getUser(authIdentity.userId);
@@ -74,14 +76,14 @@ export async function setupMultiProviderAuth(app: Express) {
           if (email) {
             user = await storage.getUserByEmail(email);
           }
-          
+
           if (!user) {
             // Generate username from email or use Google ID as fallback
             let username = profile.id; // fallback to Google ID
             if (email && typeof email === 'string') {
               username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
             }
-            
+
             // Create new user
             user = await storage.upsertUser({
               username: username,
@@ -91,6 +93,7 @@ export async function setupMultiProviderAuth(app: Express) {
               lastName: lastName || undefined,
               profileImageUrl: profileImageUrl || undefined,
             });
+            isNewUser = true;
           }
 
           // Link Google account to user
@@ -121,6 +124,7 @@ export async function setupMultiProviderAuth(app: Express) {
             firstName: user.firstName || undefined,
             lastName: user.lastName || undefined,
             profileImageUrl: user.profileImageUrl || undefined,
+            isNewUser
           };
 
           return done(null, oauthUser);
@@ -151,8 +155,9 @@ export async function setupMultiProviderAuth(app: Express) {
 
         // Check if this Facebook account is already linked
         let authIdentity = await storage.getAuthIdentity('facebook', profile.id);
-        
+
         let user;
+        let isNewUser = false;
         if (authIdentity) {
           // User already exists with this Facebook account
           user = await storage.getUser(authIdentity.userId);
@@ -161,14 +166,14 @@ export async function setupMultiProviderAuth(app: Express) {
           if (email) {
             user = await storage.getUserByEmail(email);
           }
-          
+
           if (!user) {
             // Generate username from email or use Facebook ID as fallback
             let username = profile.id; // fallback to Facebook ID
             if (email && typeof email === 'string') {
               username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
             }
-            
+
             // Create new user
             user = await storage.upsertUser({
               username: username,
@@ -178,6 +183,7 @@ export async function setupMultiProviderAuth(app: Express) {
               lastName: lastName || undefined,
               profileImageUrl: profileImageUrl || undefined,
             });
+            isNewUser = true;
           }
 
           // Link Facebook account to user
@@ -208,6 +214,7 @@ export async function setupMultiProviderAuth(app: Express) {
             firstName: user.firstName || undefined,
             lastName: user.lastName || undefined,
             profileImageUrl: user.profileImageUrl || undefined,
+            isNewUser
           };
 
           return done(null, oauthUser);
@@ -396,8 +403,15 @@ export async function setupMultiProviderAuth(app: Express) {
   app.get('/api/auth/google/callback',
     passport.authenticate('google', { failureRedirect: '/?auth=error' }),
     (req, res) => {
-      // Successful authentication, redirect to app
-      res.redirect('/?auth=success');
+      // Check if this is a new user who needs profile completion
+      const user = req.user as OAuthUser;
+      if (user?.isNewUser) {
+        // New user - redirect to profile completion
+        res.redirect(`/?auth=success&newUser=true&userId=${user.id}`);
+      } else {
+        // Existing user - redirect to app
+        res.redirect('/?auth=success');
+      }
     }
   );
 
@@ -409,8 +423,15 @@ export async function setupMultiProviderAuth(app: Express) {
   app.get('/api/auth/facebook/callback',
     passport.authenticate('facebook', { failureRedirect: '/?auth=error' }),
     (req, res) => {
-      // Successful authentication, redirect to app
-      res.redirect('/?auth=success');
+      // Check if this is a new user who needs profile completion
+      const user = req.user as OAuthUser;
+      if (user?.isNewUser) {
+        // New user - redirect to profile completion
+        res.redirect(`/?auth=success&newUser=true&userId=${user.id}`);
+      } else {
+        // Existing user - redirect to app
+        res.redirect('/?auth=success');
+      }
     }
   );
 
