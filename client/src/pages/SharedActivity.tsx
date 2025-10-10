@@ -228,6 +228,61 @@ export default function SharedActivity() {
     window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank');
   };
 
+  // Generate themed background image URL (must be before early returns per React Hooks rules)
+  const backgroundStyle = useMemo(() => {
+    if (!data?.activity) {
+      return {
+        backgroundImage: 'linear-gradient(135deg, rgb(88, 28, 135) 0%, rgb(5, 150, 105) 100%)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      };
+    }
+
+    const title = data.activity.title.toLowerCase();
+    const category = data.activity.category.toLowerCase();
+    
+    // Create a search term for Unsplash based on activity
+    let searchTerm = category;
+    
+    // Extract key terms from title for better image matching
+    if (title.includes('new year') && (title.includes('new york') || title.includes('nyc'))) {
+      searchTerm = 'new york city new year celebration times square';
+    } else if (title.includes('new york') || title.includes('nyc')) {
+      searchTerm = 'new york city skyline';
+    } else if (title.includes('paris')) {
+      searchTerm = 'paris eiffel tower';
+    } else if (title.includes('tokyo')) {
+      searchTerm = 'tokyo japan cityscape';
+    } else if (title.includes('london')) {
+      searchTerm = 'london big ben';
+    } else if (title.includes('beach') || title.includes('tropical')) {
+      searchTerm = 'tropical beach paradise';
+    } else if (title.includes('mountain') || title.includes('hiking')) {
+      searchTerm = 'mountain landscape hiking';
+    } else if (category === 'fitness') {
+      searchTerm = 'fitness workout gym';
+    } else if (category === 'travel') {
+      searchTerm = 'travel adventure destination';
+    } else if (category === 'learning') {
+      searchTerm = 'books education study';
+    } else if (category === 'health') {
+      searchTerm = 'health wellness mindfulness';
+    } else if (category === 'career') {
+      searchTerm = 'business career professional';
+    }
+    
+    // Use Unsplash Source for random themed images
+    const unsplashUrl = `https://source.unsplash.com/1600x900/?${encodeURIComponent(searchTerm)}`;
+    
+    return {
+      backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${unsplashUrl}')`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat'
+    };
+  }, [data?.activity?.title, data?.activity?.category]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -289,52 +344,6 @@ export default function SharedActivity() {
   const completedTasksList = tasks.filter(t => t.completed);
 
   const theme = categoryThemes[activity.category.toLowerCase()] || categoryThemes.other;
-
-  // Generate themed background image URL based on activity title and category (memoized)
-  const backgroundStyle = useMemo(() => {
-    const title = activity.title.toLowerCase();
-    const category = activity.category.toLowerCase();
-    
-    // Create a search term for Unsplash based on activity
-    let searchTerm = category;
-    
-    // Extract key terms from title for better image matching
-    if (title.includes('new year') && (title.includes('new york') || title.includes('nyc'))) {
-      searchTerm = 'new york city new year celebration times square';
-    } else if (title.includes('new york') || title.includes('nyc')) {
-      searchTerm = 'new york city skyline';
-    } else if (title.includes('paris')) {
-      searchTerm = 'paris eiffel tower';
-    } else if (title.includes('tokyo')) {
-      searchTerm = 'tokyo japan cityscape';
-    } else if (title.includes('london')) {
-      searchTerm = 'london big ben';
-    } else if (title.includes('beach') || title.includes('tropical')) {
-      searchTerm = 'tropical beach paradise';
-    } else if (title.includes('mountain') || title.includes('hiking')) {
-      searchTerm = 'mountain landscape hiking';
-    } else if (category === 'fitness') {
-      searchTerm = 'fitness workout gym';
-    } else if (category === 'travel') {
-      searchTerm = 'travel adventure destination';
-    } else if (category === 'learning') {
-      searchTerm = 'books education study';
-    } else if (category === 'health') {
-      searchTerm = 'health wellness mindfulness';
-    } else if (category === 'career') {
-      searchTerm = 'business career professional';
-    }
-    
-    // Use Unsplash Source for random themed images
-    const unsplashUrl = `https://source.unsplash.com/1600x900/?${encodeURIComponent(searchTerm)}`;
-    
-    return {
-      backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${unsplashUrl}')`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat'
-    };
-  }, [activity.title, activity.category]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -646,7 +655,7 @@ export default function SharedActivity() {
           >
             <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
               <div className="flex flex-col items-center gap-4">
-                {user && 'id' in user && activity.userId !== user.id && !permissionRequested && (
+                {user && typeof user === 'object' && 'id' in user && activity.userId !== (user as any).id && !permissionRequested && (
                   <div className="w-full">
                     <h3 className="text-lg font-bold mb-2">Want to collaborate on this activity?</h3>
                     <p className="text-muted-foreground mb-4">
