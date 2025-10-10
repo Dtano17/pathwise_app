@@ -715,7 +715,6 @@ Your advice should be:
   };
 
   // OPTIMIZATION: Cache enrichment data for 6 hours
-  const cacheKey = `${state.domain}:${location}:${dates}:${budget}`;
   enrichmentCache.set(cacheKey, {
     data: enrichedData,
     expiresAt: Date.now() + 6 * 60 * 60 * 1000 // 6 hours

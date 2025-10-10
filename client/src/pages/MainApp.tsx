@@ -171,11 +171,6 @@ export default function MainApp({
       
       // Navigate to input tab
       setActiveTab('input');
-      
-      toast({
-        title: "Conversation Loaded",
-        description: "You can now continue refining this plan with additional context.",
-      });
     } catch (error) {
       console.error('Failed to load conversation:', error);
       toast({
@@ -191,10 +186,6 @@ export default function MainApp({
     // Set the selected activity and navigate to tasks tab
     setSelectedActivityId(activity.id);
     setActiveTab('tasks');
-    toast({
-      title: `Viewing: ${activity.title}`,
-      description: "Now showing tasks for this activity",
-    });
   };
 
   const handleDeleteActivity = useMutation({
@@ -215,10 +206,6 @@ export default function MainApp({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-      toast({
-        title: "Activity Deleted",
-        description: "The activity and its tasks have been removed."
-      });
     },
     onError: (error: any) => {
       toast({
@@ -236,10 +223,6 @@ export default function MainApp({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-      toast({
-        title: "Activity Archived",
-        description: "The activity has been archived and hidden from view."
-      });
     },
     onError: (error: any) => {
       toast({
@@ -258,10 +241,6 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
-      toast({
-        title: "Task Archived",
-        description: "The task has been archived and hidden from view."
-      });
     },
     onError: (error: any) => {
       toast({
@@ -486,15 +465,6 @@ export default function MainApp({
       
       // Increment plan version
       setPlanVersion(prev => prev + 1);
-      
-      // Show success toast
-      const isRefinement = conversationHistory.length > 0;
-      toast({
-        title: isRefinement ? "Plan Refined!" : "Plan Created!",
-        description: isRefinement 
-          ? `Updated plan with ${data.tasks?.length || 0} tasks based on your additional context!`
-          : `Generated ${data.tasks?.length || 0} actionable tasks!`,
-      });
 
       // REPLACE the plan completely (regeneration from scratch, not merging)
       // Use ref to get latest activityId (prevents race conditions during refinements)
@@ -597,22 +567,6 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
-      
-      // Check if activity is completed after this task
-      const celebrationMessages = [
-        "🎉 Amazing work! Keep the momentum going!",
-        "💪 You're crushing it! Another step closer to your goal!",
-        "⭐ Fantastic! You're making real progress!",
-        "🚀 Outstanding! You're on fire today!",
-        "✨ Brilliant! Every task completed is a victory!"
-      ];
-      
-      const randomMessage = celebrationMessages[Math.floor(Math.random() * celebrationMessages.length)];
-      
-      toast({
-        title: data.achievement?.title || "Task Completed!",
-        description: data.achievement?.description || data.message || randomMessage,
-      });
     }
   });
 
@@ -1454,11 +1408,6 @@ export default function MainApp({
                                   }
                                   
                                   if (!activity.isPublic) {
-                                    toast({
-                                      title: "Activity is Private",
-                                      description: "Make this activity public first to share it",
-                                      variant: "default"
-                                    });
                                     return;
                                   }
                                   try {
@@ -1474,16 +1423,8 @@ export default function MainApp({
                                         text: shareText,
                                         url: shareUrl
                                       });
-                                      toast({ 
-                                        title: "Shared Successfully!", 
-                                        description: "Activity shared with your contacts!" 
-                                      });
                                     } else {
                                       await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
-                                      toast({ 
-                                        title: "Link Copied!", 
-                                        description: "Activity link copied to clipboard - share it anywhere!" 
-                                      });
                                     }
                                   } catch (error) {
                                     console.error('Share error:', error);
