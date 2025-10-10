@@ -373,35 +373,62 @@ async function generateQuestions(state: PlanningStateType): Promise<Partial<Plan
   const questionKey = planMode === 'quick' ? 'quick_plan' : 'smart_plan';
   const questions = state.domainConfig.questions[questionKey] || state.domainConfig.questions.quick_plan || [];
 
-  console.log(`[LANGGRAPH] Generated ${questions.length} questions for domain: ${state.domain}`);
-
-  // Create initial greeting message with all questions listed
-  const domainName = state.domain?.replace('_', ' ') || 'activity';
-  let initialMessage = `Great! Let's plan your ${domainName}. I have ${questions.length} quick questions:\n\n`;
+  // Filter out questions that are already answered based on pre-filled slots
+  const slots = state.slots || {};
+  const alreadyAnsweredIds = new Set<string>();
   
-  // Show first 3 questions
-  const questionsToShow = questions.slice(0, 3);
-  questionsToShow.forEach((q, i) => {
-    initialMessage += `${i + 1}. ${q.question}\n`;
-  });
-  
-  // Add "...and X more" if there are more questions
-  if (questions.length > 3) {
-    initialMessage += `\n...and ${questions.length - 3} more.\n`;
+  for (const [slotKey, slotValue] of Object.entries(slots)) {
+    // A slot is considered "answered" if it has a meaningful value (not <UNKNOWN>)
+    if (slotValue && slotValue !== '<UNKNOWN>' && slotValue !== '' && slotValue !== 'null') {
+      alreadyAnsweredIds.add(slotKey);
+    }
   }
+
+  // Separate answered and unanswered questions
+  const unansweredQuestions = questions.filter(q => !alreadyAnsweredIds.has(q.id));
+  const answeredCount = questions.length - unansweredQuestions.length;
   
-  // Add progress indicator
-  initialMessage += `\n📊 Progress: 0/${questions.length} (0%)`;
+  console.log(`[LANGGRAPH] Pre-filled slots: ${alreadyAnsweredIds.size}, Answered: ${answeredCount}/${questions.length}`);
+  if (alreadyAnsweredIds.size > 0) {
+    console.log(`[LANGGRAPH] Already answered question IDs:`, [...alreadyAnsweredIds]);
+  }
+
+  // Create initial greeting message with ONLY unanswered questions
+  const domainName = state.domain?.replace('_', ' ') || 'activity';
+  let initialMessage = '';
+  
+  if (unansweredQuestions.length === 0) {
+    // All questions already answered from first message!
+    initialMessage = `Perfect! I have everything I need to plan your ${domainName}.\n\n📊 Progress: ${questions.length}/${questions.length} (100%)`;
+  } else {
+    initialMessage = `Great! Let's plan your ${domainName}. I have ${unansweredQuestions.length} quick question${unansweredQuestions.length === 1 ? '' : 's'}:\n\n`;
+    
+    // Show first 3 UNANSWERED questions
+    const questionsToShow = unansweredQuestions.slice(0, 3);
+    questionsToShow.forEach((q, i) => {
+      initialMessage += `${i + 1}. ${q.question}\n`;
+    });
+    
+    // Add "...and X more" if there are more unanswered questions
+    if (unansweredQuestions.length > 3) {
+      initialMessage += `\n...and ${unansweredQuestions.length - 3} more.\n`;
+    }
+    
+    // Add progress indicator with correct initial progress
+    const progressPercent = Math.round((answeredCount / questions.length) * 100);
+    initialMessage += `\n📊 Progress: ${answeredCount}/${questions.length} (${progressPercent}%)`;
+  }
 
   return {
     allQuestions: questions,
+    askedQuestionIds: alreadyAnsweredIds, // Mark pre-filled questions as "asked" to prevent re-asking
     progress: {
-      answered: 0,
+      answered: answeredCount,
       total: questions.length,
-      percentage: 0
+      percentage: Math.round((answeredCount / questions.length) * 100)
     },
     responseMessage: initialMessage,
-    showInitialQuestions: true
+    readyToGenerate: unansweredQuestions.length === 0 // If all answered, ready to generate!
   };
 }
 
