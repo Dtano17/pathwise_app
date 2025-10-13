@@ -451,18 +451,18 @@ export default function SharedActivity() {
     <div className="min-h-screen bg-background">
       {/* Hero Section with Dynamic Themed Background Image */}
       <div 
-        className="relative border-b" 
+        className="relative border-b min-h-[400px] sm:min-h-[500px] flex items-center" 
         style={backgroundStyle}
       >
         {/* Dark overlay for text readability */}
         <div className="absolute inset-0 bg-black/40" />
-        <div className="container mx-auto px-4 py-8 sm:py-12 relative">
+        <div className="container mx-auto px-4 py-6 sm:py-8 md:py-12 relative w-full">
           <div className="max-w-4xl mx-auto">
             {/* JournalMate Branding */}
-            <div className="text-center mb-6">
+            <div className="text-center mb-4 sm:mb-6">
               <div className="flex items-center justify-center gap-2 mb-1">
-                <Sparkles className="w-7 h-7 text-purple-400" />
-                <h1 className="text-3xl font-bold" style={{
+                <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-purple-400" />
+                <h1 className="text-2xl sm:text-3xl font-bold" style={{
                   background: 'linear-gradient(to right, rgb(168, 85, 247), rgb(16, 185, 129))',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
@@ -471,24 +471,24 @@ export default function SharedActivity() {
                   JournalMate
                 </h1>
               </div>
-              <p className="text-sm text-white/95 font-normal">Plan and Share Your Activities</p>
+              <p className="text-xs sm:text-sm text-white/95 font-normal">Plan and Share Your Activities</p>
             </div>
 
-            <div className="flex items-center justify-between mb-6">
-              <Button variant="outline" size="sm" onClick={() => window.location.href = '/'} data-testid="button-go-home" className="bg-background/80 backdrop-blur-sm">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4 sm:mb-6">
+              <Button variant="outline" size="sm" onClick={() => window.location.href = '/'} data-testid="button-go-home" className="bg-background/80 backdrop-blur-sm w-full sm:w-auto">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Home
               </Button>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-center">
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={handleCopyLink}
                   data-testid="button-copy-link"
-                  className="bg-background/80 backdrop-blur-sm gap-2"
+                  className="bg-background/80 backdrop-blur-sm gap-2 flex-1 sm:flex-initial"
                 >
                   <Link2 className="w-4 h-4" />
-                  {copyingLink ? 'Copied!' : 'Copy Link'}
+                  <span className="sm:inline">{copyingLink ? 'Copied!' : 'Copy'}</span>
                 </Button>
                 <Button 
                   variant="outline" 

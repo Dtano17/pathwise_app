@@ -139,7 +139,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
@@ -249,26 +249,36 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
             </div>
 
             {/* Preview */}
-            {backdrop && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Preview:</p>
-                <div className="relative aspect-video rounded-md overflow-hidden border">
-                  <img 
-                    src={backdrop} 
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3EInvalid Image%3C/text%3E%3C/svg%3E';
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-4">
-                    <h3 className="text-white text-xl font-bold text-center drop-shadow-lg">
-                      {shareTitle}
-                    </h3>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Preview:</p>
+              <div className="relative aspect-video rounded-md overflow-hidden border bg-muted">
+                {backdrop ? (
+                  <>
+                    <img 
+                      key={backdrop}
+                      src={backdrop} 
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3EInvalid Image%3C/text%3E%3C/svg%3E';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-4">
+                      <h3 className="text-white text-xl md:text-2xl font-bold text-center drop-shadow-lg">
+                        {shareTitle}
+                      </h3>
+                    </div>
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center p-4">
+                    <div className="text-center text-muted-foreground">
+                      <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Select or upload a backdrop to preview</p>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
           {/* Action Buttons */}
