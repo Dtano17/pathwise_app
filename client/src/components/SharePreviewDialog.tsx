@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Image, Sparkles } from 'lucide-react';
+import { Image, Sparkles, Upload } from 'lucide-react';
 
 interface Activity {
   id: string;
@@ -51,6 +51,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
   const [shareTitle, setShareTitle] = useState(activity.shareTitle || activity.planSummary || activity.title);
   const [backdrop, setBackdrop] = useState(activity.backdrop || '');
   const [customBackdrop, setCustomBackdrop] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -93,6 +94,47 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
     if (customBackdrop) {
       setBackdrop(customBackdrop);
     }
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid File',
+        description: 'Please upload an image file (JPG, PNG, etc.)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'File Too Large',
+        description: 'Please upload an image smaller than 5MB',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setBackdrop(base64String);
+      setCustomBackdrop('');
+    };
+    reader.onerror = () => {
+      toast({
+        title: 'Upload Failed',
+        description: 'Failed to read the image file',
+        variant: 'destructive',
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -155,6 +197,33 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Image Upload */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Or upload your own image:</p>
+              <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  data-testid="input-image-upload"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="gap-2 flex-1"
+                  data-testid="button-upload-image"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload Image
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Max file size: 5MB (JPG, PNG, GIF, etc.)
+              </p>
             </div>
 
             {/* Custom URL */}
