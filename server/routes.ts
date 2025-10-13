@@ -1604,6 +1604,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           startDate: activity.startDate,
           endDate: activity.endDate,
           planSummary: activity.planSummary,
+          shareTitle: activity.shareTitle,
+          backdrop: activity.backdrop,
           userId: activity.userId,
           status: activity.status,
           createdAt: activity.createdAt,
