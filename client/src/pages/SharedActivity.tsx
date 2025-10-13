@@ -24,6 +24,7 @@ interface SharedActivityData {
     endDate?: string;
     userId: string;
     planSummary?: string;
+    shareTitle?: string;
     backdrop?: string;
     createdAt: string;
     updatedAt: string;
@@ -195,7 +196,7 @@ export default function SharedActivity() {
   const handleCopyLink = async () => {
     if (!data?.activity) return;
     const url = window.location.href;
-    const activitySummary = data.activity.planSummary || data.activity.title;
+    const activitySummary = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
     const shareText = `Participate in this shared activity: ${activitySummary} and to create yours join JournalMate\n\n${url}`;
     
     try {
@@ -217,7 +218,7 @@ export default function SharedActivity() {
 
   const handleShareTwitter = () => {
     if (!data?.activity) return;
-    const activitySummary = data.activity.planSummary || data.activity.title;
+    const activitySummary = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
     const text = `Participate in this shared activity: ${activitySummary} and to create yours join JournalMate`;
     const url = window.location.href;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
@@ -544,7 +545,7 @@ export default function SharedActivity() {
               {/* Activity Summary */}
               <div className="mb-4">
                 <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3 break-words drop-shadow-lg">
-                  {activity.planSummary || activity.title}
+                  {activity.shareTitle || activity.planSummary || activity.title}
                 </h2>
                 {activity.description && (
                   <p className="text-lg text-white/90 max-w-2xl mx-auto break-words drop-shadow-md">

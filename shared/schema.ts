@@ -623,6 +623,9 @@ export const activities = pgTable("activities", {
     notes?: string;
   }>>().default([]),
   
+  // AI-generated content
+  planSummary: text("plan_summary"), // AI-generated summary of the plan
+  
   // Social sharing
   isPublic: boolean("is_public").default(false),
   shareToken: varchar("share_token").unique(), // Unique token for public sharing URLs

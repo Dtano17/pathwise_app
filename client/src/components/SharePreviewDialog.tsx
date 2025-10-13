@@ -11,9 +11,9 @@ import { Image, Sparkles } from 'lucide-react';
 interface Activity {
   id: string;
   title: string;
-  planSummary?: string;
-  shareTitle?: string;
-  backdrop?: string;
+  planSummary?: string | null;
+  shareTitle?: string | null;
+  backdrop?: string | null;
   category: string;
 }
 
@@ -21,7 +21,7 @@ interface SharePreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   activity: Activity;
-  onConfirmShare: () => void;
+  onConfirmShare: (shareData: { shareTitle: string; backdrop: string }) => void;
 }
 
 const backdropPresets = [
@@ -63,14 +63,16 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
   const updateMutation = useMutation({
     mutationFn: async () => {
       const updates = {
-        shareTitle: shareTitle !== (activity.planSummary || activity.title) ? shareTitle : undefined,
-        backdrop: backdrop || undefined
+        shareTitle: shareTitle || null,
+        backdrop: backdrop || null
       };
       return apiRequest('PUT', `/api/activities/${activity.id}`, updates);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
-      onConfirmShare();
+    onSuccess: async () => {
+      // Wait for cache invalidation to complete
+      await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      // Pass the updated values to parent
+      onConfirmShare({ shareTitle, backdrop });
       onOpenChange(false);
     },
     onError: (error: Error) => {

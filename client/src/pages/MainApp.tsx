@@ -2851,7 +2851,7 @@ Assistant: For nutrition, I recommend..."
           open={sharePreviewDialog.open}
           onOpenChange={(open) => setSharePreviewDialog({ open, activity: null })}
           activity={sharePreviewDialog.activity}
-          onConfirmShare={async () => {
+          onConfirmShare={async (shareData) => {
             const activity = sharePreviewDialog.activity;
             if (!activity) return;
             
@@ -2860,11 +2860,12 @@ Assistant: For nutrition, I recommend..."
               const response = await apiRequest('POST', `/api/activities/${activity.id}/share`);
               const data = await response.json();
               const shareUrl = data.shareableLink;
-              const shareText = `Check out my activity: ${activity.shareTitle || activity.planSummary || activity.title}!`;
+              const displayTitle = shareData.shareTitle || activity.planSummary || activity.title;
+              const shareText = `Check out my activity: ${displayTitle}!`;
               
               if (navigator.share) {
                 await navigator.share({
-                  title: activity.shareTitle || activity.planSummary || activity.title,
+                  title: displayTitle,
                   text: shareText,
                   url: shareUrl
                 });
