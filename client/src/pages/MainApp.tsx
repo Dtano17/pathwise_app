@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { SharePreviewDialog } from '@/components/SharePreviewDialog';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import ThemeToggle from '@/components/ThemeToggle';
 import NotificationManager from '@/components/NotificationManager';
@@ -114,6 +115,7 @@ export default function MainApp({
   // Activity selection and delete dialog state
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
+  const [sharePreviewDialog, setSharePreviewDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
 
   // Handle URL query parameters for activity selection from shared links
   useEffect(() => {
@@ -1397,7 +1399,7 @@ export default function MainApp({
                                 variant="ghost" 
                                 size="sm"
                                 disabled={!activity.isPublic || !user || (user as any).authenticationMethod === 'demo'}
-                                onClick={async (e) => {
+                                onClick={(e) => {
                                   e.stopPropagation();
                                   
                                   // Check if user is signed in
@@ -1422,30 +1424,9 @@ export default function MainApp({
                                   if (!activity.isPublic) {
                                     return;
                                   }
-                                  try {
-                                    // Generate proper shareable link via backend
-                                    const response = await apiRequest('POST', `/api/activities/${activity.id}/share`);
-                                    const data = await response.json();
-                                    const shareUrl = data.shareableLink;
-                                    const shareText = `Check out my activity: ${activity.title} - ${progressPercent}% complete!`;
-                                    
-                                    if (navigator.share) {
-                                      await navigator.share({
-                                        title: activity.title,
-                                        text: shareText,
-                                        url: shareUrl
-                                      });
-                                    } else {
-                                      await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
-                                    }
-                                  } catch (error) {
-                                    console.error('Share error:', error);
-                                    toast({
-                                      title: "Share Failed",
-                                      description: "Unable to generate share link. Please try again.",
-                                      variant: "destructive"
-                                    });
-                                  }
+                                  
+                                  // Open share preview dialog
+                                  setSharePreviewDialog({ open: true, activity });
                                 }}
                                 data-testid={`button-share-${activity.id}`}
                                 title={
@@ -2860,6 +2841,48 @@ Assistant: For nutrition, I recommend..."
             description: activityCelebration.description,
             type: 'milestone',
             points: 100
+          }}
+        />
+      )}
+
+      {/* Share Preview Dialog */}
+      {sharePreviewDialog.activity && (
+        <SharePreviewDialog
+          open={sharePreviewDialog.open}
+          onOpenChange={(open) => setSharePreviewDialog({ open, activity: null })}
+          activity={sharePreviewDialog.activity}
+          onConfirmShare={async () => {
+            const activity = sharePreviewDialog.activity;
+            if (!activity) return;
+            
+            try {
+              // Generate proper shareable link via backend
+              const response = await apiRequest('POST', `/api/activities/${activity.id}/share`);
+              const data = await response.json();
+              const shareUrl = data.shareableLink;
+              const shareText = `Check out my activity: ${activity.shareTitle || activity.planSummary || activity.title}!`;
+              
+              if (navigator.share) {
+                await navigator.share({
+                  title: activity.shareTitle || activity.planSummary || activity.title,
+                  text: shareText,
+                  url: shareUrl
+                });
+              } else {
+                await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+                toast({
+                  title: 'Link Copied!',
+                  description: 'Share link has been copied to clipboard',
+                });
+              }
+            } catch (error) {
+              console.error('Share error:', error);
+              toast({
+                title: "Share Failed",
+                description: "Unable to generate share link. Please try again.",
+                variant: "destructive"
+              });
+            }
           }}
         />
       )}
