@@ -77,21 +77,25 @@ export class AIService {
     preferredModel: "openai" | "claude" = "claude",
     userId?: string,
   ): Promise<GoalProcessingResult> {
-    // Fetch user priorities if userId is provided
+    // Fetch user priorities and context if userId is provided
     let userPriorities: any[] = [];
+    let userContext: string | null = null;
+    
     if (userId) {
       try {
         const { storage } = await import("../storage");
         userPriorities = await storage.getUserPriorities(userId);
+        // Get personalized user context (cached if available)
+        userContext = await this.getUserContext(userId);
       } catch (error) {
-        console.error("Failed to fetch user priorities:", error);
+        console.error("Failed to fetch user priorities/context:", error);
       }
     }
 
     if (preferredModel === "claude" && process.env.ANTHROPIC_API_KEY) {
-      return this.processGoalWithClaude(goalText, userPriorities);
+      return this.processGoalWithClaude(goalText, userPriorities, userContext);
     }
-    return this.processGoalWithOpenAI(goalText, userPriorities);
+    return this.processGoalWithOpenAI(goalText, userPriorities, userContext);
   }
 
   async chatConversation(
@@ -456,6 +460,7 @@ Create actionable tasks from these conversations that can help hold the user acc
   private async processGoalWithOpenAI(
     goalText: string,
     userPriorities: any[] = [],
+    userContext: string | null = null,
   ): Promise<GoalProcessingResult> {
     try {
       const prioritiesContext =
@@ -464,9 +469,13 @@ Create actionable tasks from these conversations that can help hold the user acc
 ${userPriorities.map((p) => `- ${p.title}: ${p.description}`).join("\n")}`
           : "";
 
+      const personalizationContext = userContext 
+        ? `\n\nPersonalized Context (use this to make recommendations more relevant):\n${userContext}`
+        : "";
+
       const prompt = `You are an AI productivity assistant. Transform the user's goal into a structured, actionable plan like Claude AI would format it - clear, organized, and visually appealing.
 
-User's goal: "${goalText}"${prioritiesContext}
+User's goal: "${goalText}"${prioritiesContext}${personalizationContext}
 
 Create a well-structured plan with the following JSON format:
 {
@@ -560,6 +569,7 @@ Examples of excellent task formatting:
   private async processGoalWithClaude(
     goalText: string,
     userPriorities: any[] = [],
+    userContext: string | null = null,
   ): Promise<GoalProcessingResult> {
     try {
       const prioritiesContext =
@@ -568,9 +578,13 @@ Examples of excellent task formatting:
 ${userPriorities.map((p) => `- ${p.title}: ${p.description}`).join("\n")}`
           : "";
 
+      const personalizationContext = userContext 
+        ? `\n\nPersonalized Context (use this to make recommendations more relevant):\n${userContext}`
+        : "";
+
       const prompt = `You are an AI productivity assistant. Transform the user's goal or intention into specific, actionable tasks with realistic time estimates.
 
-User's goal: "${goalText}"${prioritiesContext}
+User's goal: "${goalText}"${prioritiesContext}${personalizationContext}
 
 Analyze this goal and respond with JSON in this exact format:
 {
@@ -741,15 +755,19 @@ Examples: "Try a 10-minute morning meditation", "Take a walk after lunch", "Sche
     estimatedTimeframe?: string;
     motivationalNote?: string;
   }> {
-    // Fetch user priorities if userId is provided
+    // Fetch user priorities and context if userId is provided
     let userPriorities: any[] = [];
+    let userContext: string | null = null;
+    
     if (userId) {
       try {
         const { storage } = await import("../storage");
         userPriorities = await storage.getUserPriorities(userId);
+        // Get personalized user context (cached if available)
+        userContext = await this.getUserContext(userId);
       } catch (error) {
         console.error(
-          "Failed to fetch user priorities for LLM paste parsing:",
+          "Failed to fetch user priorities/context for LLM paste parsing:",
           error,
         );
       }
@@ -762,6 +780,10 @@ Examples: "Try a 10-minute morning meditation", "Take a walk after lunch", "Sche
 ${userPriorities.map((p) => `- ${p.title}: ${p.description}`).join("\n")}`
           : "";
 
+      const personalizationContext = userContext 
+        ? `\n\nPersonalized Context (use this to make recommendations more relevant):\n${userContext}`
+        : "";
+
       const isImage =
         contentType === "image" && pastedContent.startsWith("data:image");
 
@@ -769,7 +791,7 @@ ${userPriorities.map((p) => `- ${p.title}: ${p.description}`).join("\n")}`
         ? `You are analyzing an image that was pasted by the user (likely a screenshot of an LLM conversation, a to-do list, a plan, or instructional content).
 The user wants to turn this into an actionable activity with specific tasks in their planning app.
 
-${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ""}The image has been provided. Please analyze it and extract actionable information.${prioritiesContext}
+${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ""}The image has been provided. Please analyze it and extract actionable information.${prioritiesContext}${personalizationContext}
 
 Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
 {
@@ -825,7 +847,7 @@ Guidelines:
 The user wants to turn this into an actionable activity with specific tasks in their planning app.
 
 ${precedingContext ? `Context from what the user said before pasting:\n${precedingContext}\n\n` : ""}Pasted LLM Content:
-${pastedContent}${prioritiesContext}
+${pastedContent}${prioritiesContext}${personalizationContext}
 
 Analyze this content and create a structured activity with tasks. Respond with JSON in this exact format:
 {
