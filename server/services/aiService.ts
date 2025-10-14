@@ -43,6 +43,16 @@ interface ChatProcessingResult {
   summary: string;
 }
 
+// In-memory cache for user context summaries
+interface CachedUserContext {
+  summary: string;
+  generatedAt: Date;
+  expiresAt: Date;
+}
+
+const USER_CONTEXT_CACHE = new Map<string, CachedUserContext>();
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache
+
 export class AIService {
   // Helper function to extract JSON from markdown code blocks or plain text
   private extractJSON(text: string): any {
@@ -1070,6 +1080,72 @@ Guidelines:
     };
   }
 
+  /**
+   * Get user context summary (from cache if available, or generate if needed)
+   */
+  async getUserContext(userId: string, forceRefresh: boolean = false): Promise<string | null> {
+    try {
+      const { storage } = await import("../storage");
+      
+      // Check if personalization is enabled
+      const userPreferences = await storage.getUserPreferences(userId).catch(() => null);
+      if (!userPreferences?.usePersonalization) {
+        return null; // Personalization disabled
+      }
+
+      // Check cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cached = USER_CONTEXT_CACHE.get(userId);
+        if (cached && cached.expiresAt > new Date()) {
+          return cached.summary;
+        }
+      }
+
+      // Check if we have a recent summary in DB (within 7 days)
+      if (!forceRefresh && userPreferences.userContextSummary && userPreferences.contextGeneratedAt) {
+        const generatedAt = new Date(userPreferences.contextGeneratedAt);
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        
+        if (generatedAt > weekAgo) {
+          // Use DB summary and cache it
+          const cached: CachedUserContext = {
+            summary: userPreferences.userContextSummary,
+            generatedAt: generatedAt,
+            expiresAt: new Date(Date.now() + CACHE_TTL_MS),
+          };
+          USER_CONTEXT_CACHE.set(userId, cached);
+          return userPreferences.userContextSummary;
+        }
+      }
+
+      // Generate new summary (this also saves to DB)
+      const summary = await this.generateUserContextSummary(userId);
+      
+      // Cache the new summary
+      const cached: CachedUserContext = {
+        summary,
+        generatedAt: new Date(),
+        expiresAt: new Date(Date.now() + CACHE_TTL_MS),
+      };
+      USER_CONTEXT_CACHE.set(userId, cached);
+      
+      return summary;
+    } catch (error) {
+      console.error("Error getting user context:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Clear cached user context (call when user updates profile/preferences)
+   */
+  invalidateUserContext(userId: string): void {
+    USER_CONTEXT_CACHE.delete(userId);
+  }
+
+  /**
+   * Generate fresh user context summary from profile, priorities, and preferences
+   */
   async generateUserContextSummary(userId: string): Promise<string> {
     try {
       const { storage } = await import("../storage");
