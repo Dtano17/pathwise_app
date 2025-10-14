@@ -849,6 +849,9 @@ export const userPreferences = pgTable("user_preferences", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
   lifestyleGoalSummary: text("lifestyle_goal_summary"), // "Share your intentions" summary
+  usePersonalization: boolean("use_personalization").default(false), // Enable AI personalization using profile data
+  userContextSummary: text("user_context_summary"), // AI-generated summary of user's profile, preferences, and journal for personalized planning
+  contextGeneratedAt: timestamp("context_generated_at"), // When the user context summary was last generated
   preferences: jsonb("preferences").$type<{
     notificationWindows?: { start: string; end: string }[];
     preferredTaskTimes?: string[]; // ['morning', 'afternoon', 'evening']
