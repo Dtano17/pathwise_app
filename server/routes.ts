@@ -3629,6 +3629,40 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
+  // User Context Management (for personalized AI planning)
+  app.get("/api/user/context", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      const forceRefresh = req.query.forceRefresh === 'true';
+      const context = await aiService.getUserContext(userId, forceRefresh);
+      res.json({ context, enabled: context !== null });
+    } catch (error) {
+      console.error('Error fetching user context:', error);
+      res.status(500).json({ error: 'Failed to fetch user context' });
+    }
+  });
+
+  app.post("/api/user/context/generate", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      
+      // Invalidate cache to force fresh generation
+      aiService.invalidateUserContext(userId);
+      
+      // Generate new context summary
+      const context = await aiService.generateUserContextSummary(userId);
+      
+      res.json({ 
+        success: true, 
+        context,
+        message: 'User context summary generated successfully' 
+      });
+    } catch (error) {
+      console.error('Error generating user context:', error);
+      res.status(500).json({ error: 'Failed to generate user context' });
+    }
+  });
+
   // User Consent Management
   app.get("/api/user/consent", async (req, res) => {
     try {
