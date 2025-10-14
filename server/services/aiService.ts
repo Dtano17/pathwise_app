@@ -1069,6 +1069,190 @@ Guidelines:
       estimatedTimeframe: "1-2 hours",
     };
   }
+
+  async generateUserContextSummary(userId: string): Promise<string> {
+    try {
+      const { storage } = await import("../storage");
+      
+      // Fetch all user data
+      const [user, userProfile, userPreferences, priorities] = await Promise.all([
+        storage.getUser(userId),
+        storage.getUserProfile(userId).catch(() => null),
+        storage.getUserPreferences(userId).catch(() => null),
+        storage.getUserPriorities(userId).catch(() => []),
+      ]);
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      // Build comprehensive context from all available data
+      const contextParts: string[] = [];
+
+      // Basic user info
+      if (user.firstName || user.lastName) {
+        contextParts.push(`Name: ${[user.firstName, user.lastName].filter(Boolean).join(' ')}`);
+      }
+
+      // Profile information
+      if (userProfile) {
+        if (userProfile.bio) {
+          contextParts.push(`Bio: ${userProfile.bio}`);
+        }
+        if (userProfile.ethnicity) {
+          contextParts.push(`Cultural Background: ${userProfile.ethnicity}`);
+        }
+      }
+
+      // Lifestyle goal summary
+      if (userPreferences?.lifestyleGoalSummary) {
+        contextParts.push(`Life Intentions: ${userPreferences.lifestyleGoalSummary}`);
+      }
+
+      // Priorities
+      if (priorities.length > 0) {
+        const priorityList = priorities
+          .map(p => `${p.title} (${p.importance}): ${p.description || 'No description'}`)
+          .join('; ');
+        contextParts.push(`Life Priorities: ${priorityList}`);
+      }
+
+      // Preferences and journal data
+      if (userPreferences?.preferences) {
+        const prefs = userPreferences.preferences;
+
+        // Journal data (personal interests, preferences, etc.)
+        if (prefs.journalData) {
+          const journalEntries: string[] = [];
+          Object.entries(prefs.journalData).forEach(([category, entries]) => {
+            if (Array.isArray(entries) && entries.length > 0) {
+              journalEntries.push(`${category}: ${entries.join('; ')}`);
+            }
+          });
+          if (journalEntries.length > 0) {
+            contextParts.push(`Personal Interests & Preferences:\n${journalEntries.join('\n')}`);
+          }
+        }
+
+        // Activity preferences
+        if (prefs.activityTypes && prefs.activityTypes.length > 0) {
+          contextParts.push(`Preferred Activities: ${prefs.activityTypes.join(', ')}`);
+        }
+
+        // Dietary preferences
+        if (prefs.dietaryPreferences && prefs.dietaryPreferences.length > 0) {
+          contextParts.push(`Dietary Preferences: ${prefs.dietaryPreferences.join(', ')}`);
+        }
+
+        // Schedule constraints
+        if (prefs.sleepSchedule) {
+          contextParts.push(`Sleep Schedule: ${prefs.sleepSchedule.bedtime} - ${prefs.sleepSchedule.wakeTime}`);
+        }
+        if (prefs.workSchedule) {
+          contextParts.push(`Work Schedule: ${prefs.workSchedule.startTime} - ${prefs.workSchedule.endTime}, ${prefs.workSchedule.workDays?.join(', ') || 'weekdays'}`);
+        }
+
+        // Communication preferences
+        if (prefs.communicationTone) {
+          contextParts.push(`Communication Style: ${prefs.communicationTone}`);
+        }
+
+        // Focus areas
+        if (prefs.focusAreas && prefs.focusAreas.length > 0) {
+          contextParts.push(`Focus Areas: ${prefs.focusAreas.join(', ')}`);
+        }
+
+        // Constraints
+        if (prefs.constraints && prefs.constraints.length > 0) {
+          contextParts.push(`Constraints: ${prefs.constraints.join(', ')}`);
+        }
+      }
+
+      const fullContext = contextParts.join('\n\n');
+
+      // Use AI to generate a concise, relevant summary
+      const prompt = `You are creating a personalized context summary for an AI planning assistant. This summary will be used to make recommendations more relevant to the user's lifestyle, preferences, and goals.
+
+Based on the following user information, create a concise but comprehensive summary (2-3 paragraphs max) that captures:
+1. The user's identity, cultural background, and personal interests
+2. Their lifestyle preferences, daily routines, and constraints
+3. Their goals, priorities, and focus areas
+4. Key preferences for activities, food, social settings, etc.
+
+This summary should help the AI make personalized recommendations that align with who they are.
+
+User Information:
+${fullContext}
+
+Generate a natural, flowing summary that sounds human and captures the essence of this person. Focus on actionable insights that would help make better recommendations.`;
+
+      let summary: string;
+
+      // Try Claude first (better for nuanced summaries)
+      if (process.env.ANTHROPIC_API_KEY) {
+        try {
+          const response = await anthropic.messages.create({
+            model: DEFAULT_CLAUDE_MODEL,
+            max_tokens: 1024,
+            messages: [
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+          });
+
+          const content = response.content[0];
+          summary = content.type === "text" ? content.text : "";
+        } catch (error) {
+          console.error("Claude context generation failed:", error);
+          // Fallback to OpenAI
+          if (process.env.OPENAI_API_KEY) {
+            const response = await openai.chat.completions.create({
+              model: "gpt-4-turbo-preview",
+              messages: [
+                {
+                  role: "user",
+                  content: prompt,
+                },
+              ],
+              max_tokens: 1024,
+            });
+            summary = response.choices[0].message.content || "";
+          } else {
+            // Last resort: return the raw context
+            summary = fullContext;
+          }
+        }
+      } else if (process.env.OPENAI_API_KEY) {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4-turbo-preview",
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          max_tokens: 1024,
+        });
+        summary = response.choices[0].message.content || "";
+      } else {
+        // No AI available, return structured context
+        summary = fullContext;
+      }
+
+      // Store the summary in the database
+      await storage.upsertUserPreferences(userId, {
+        userContextSummary: summary,
+        contextGeneratedAt: new Date(),
+      });
+
+      return summary;
+    } catch (error) {
+      console.error("Error generating user context summary:", error);
+      throw error;
+    }
+  }
 }
 
 export const aiService = new AIService();
