@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SiGoogle, SiFacebook, SiApple } from "react-icons/si";
@@ -5,6 +6,7 @@ import { Mail } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { EmailAuthDialog } from './EmailAuthDialog';
 
 interface SocialLoginProps {
   title?: string;
@@ -16,6 +18,7 @@ export function SocialLogin({
   description = "Access your goals, tasks, and personalized features"
 }: SocialLoginProps) {
   const { toast } = useToast();
+  const [showEmailAuth, setShowEmailAuth] = useState(false);
   
   const handleSocialLogin = () => {
     // All non-Facebook buttons redirect to Replit authentication
@@ -64,7 +67,7 @@ export function SocialLogin({
         {/* Email Sign In */}
         <Button
           variant="outline"
-          onClick={handleSocialLogin}
+          onClick={() => setShowEmailAuth(true)}
           className="w-full min-h-[44px] h-auto py-2.5 text-sm sm:text-base justify-start"
           data-testid="button-login-email"
         >
@@ -129,6 +132,12 @@ export function SocialLogin({
           .
         </p>
       </CardContent>
+      
+      {/* Email Authentication Dialog */}
+      <EmailAuthDialog 
+        open={showEmailAuth} 
+        onOpenChange={setShowEmailAuth} 
+      />
     </Card>
   );
 }
