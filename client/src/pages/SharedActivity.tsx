@@ -223,8 +223,27 @@ export default function SharedActivity() {
     const activityTitle = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
     const activityDescription = data.activity.description || `Join this ${data.activity.category} plan on JournalMate`;
     
-    // Format: Title\nDescription\nhttps://journalmate.ai/
-    const shareText = `${activityTitle}\n${activityDescription}\nhttps://journalmate.ai/\n\n${url}`;
+    // Calculate progress if tasks exist
+    const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
+    
+    // Get category emoji
+    const categoryEmojis: Record<string, string> = {
+      fitness: '💪',
+      health: '🏥',
+      career: '💼',
+      learning: '📚',
+      finance: '💰',
+      relationships: '❤️',
+      creativity: '🎨',
+      travel: '✈️',
+      home: '🏠',
+      personal: '⭐',
+      other: '📋'
+    };
+    const emoji = categoryEmojis[data.activity.category.toLowerCase()] || '✨';
+    
+    // Beautiful formatted message
+    const shareText = `Check out my activity: ${emoji} ${activityTitle}${progressText}\n${activityDescription}\n\nhttps://journalmate.ai/\n\n${url}`;
     
     try {
       await navigator.clipboard.writeText(shareText);
@@ -248,7 +267,24 @@ export default function SharedActivity() {
     const activityTitle = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
     const activityDescription = data.activity.description || `Join this ${data.activity.category} plan on JournalMate`;
     const url = window.location.href;
-    const text = `${activityTitle}\n${activityDescription}\nhttps://journalmate.ai/\n\n${url}`;
+    
+    const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
+    const categoryEmojis: Record<string, string> = {
+      fitness: '💪',
+      health: '🏥',
+      career: '💼',
+      learning: '📚',
+      finance: '💰',
+      relationships: '❤️',
+      creativity: '🎨',
+      travel: '✈️',
+      home: '🏠',
+      personal: '⭐',
+      other: '📋'
+    };
+    const emoji = categoryEmojis[data.activity.category.toLowerCase()] || '✨';
+    
+    const text = `Check out my activity: ${emoji} ${activityTitle}${progressText}\n${activityDescription}\n\nhttps://journalmate.ai/\n\n${url}`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -257,7 +293,24 @@ export default function SharedActivity() {
     const url = window.location.href;
     const activityTitle = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
     const activityDescription = data.activity.description || `Join this ${data.activity.category} plan on JournalMate`;
-    const quote = `${activityTitle}\n${activityDescription}\nhttps://journalmate.ai/\n\n${url}`;
+    
+    const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
+    const categoryEmojis: Record<string, string> = {
+      fitness: '💪',
+      health: '🏥',
+      career: '💼',
+      learning: '📚',
+      finance: '💰',
+      relationships: '❤️',
+      creativity: '🎨',
+      travel: '✈️',
+      home: '🏠',
+      personal: '⭐',
+      other: '📋'
+    };
+    const emoji = categoryEmojis[data.activity.category.toLowerCase()] || '✨';
+    
+    const quote = `Check out my activity: ${emoji} ${activityTitle}${progressText}\n${activityDescription}\n\nhttps://journalmate.ai/\n\n${url}`;
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(quote)}`, '_blank');
   };
 
@@ -266,8 +319,26 @@ export default function SharedActivity() {
     const url = window.location.href;
     const activityTitle = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
     const activityDescription = data.activity.description || `Join this ${data.activity.category} plan on JournalMate`;
-    const summary = `${activityTitle}\n${activityDescription}\nhttps://journalmate.ai/\n\n${url}`;
-    window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(activityTitle)}&summary=${encodeURIComponent(summary)}`, '_blank');
+    
+    const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
+    const categoryEmojis: Record<string, string> = {
+      fitness: '💪',
+      health: '🏥',
+      career: '💼',
+      learning: '📚',
+      finance: '💰',
+      relationships: '❤️',
+      creativity: '🎨',
+      travel: '✈️',
+      home: '🏠',
+      personal: '⭐',
+      other: '📋'
+    };
+    const emoji = categoryEmojis[data.activity.category.toLowerCase()] || '✨';
+    
+    const titleWithEmoji = `${emoji} ${activityTitle}${progressText}`;
+    const summary = `Check out my activity: ${titleWithEmoji}\n${activityDescription}\n\nhttps://journalmate.ai/\n\n${url}`;
+    window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(titleWithEmoji)}&summary=${encodeURIComponent(summary)}`, '_blank');
   };
 
   // Backdrop presets

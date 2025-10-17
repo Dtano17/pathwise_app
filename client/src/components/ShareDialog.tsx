@@ -23,6 +23,8 @@ interface ShareDialogProps {
   title: string;
   description: string;
   url?: string;
+  category?: string;
+  progressPercent?: number;
 }
 
 export default function ShareDialog({
@@ -30,17 +32,39 @@ export default function ShareDialog({
   onOpenChange,
   title,
   description,
-  url = window.location.href
+  url = window.location.href,
+  category = 'other',
+  progressPercent
 }: ShareDialogProps) {
   const { toast } = useToast();
+
+  // Category emoji mapping
+  const categoryEmojis: Record<string, string> = {
+    fitness: '💪',
+    health: '🏥',
+    career: '💼',
+    learning: '📚',
+    finance: '💰',
+    relationships: '❤️',
+    creativity: '🎨',
+    travel: '✈️',
+    home: '🏠',
+    personal: '⭐',
+    other: '📋'
+  };
+  const emoji = categoryEmojis[category.toLowerCase()] || '✨';
+  const progressText = progressPercent !== undefined ? ` - ${progressPercent}% complete!` : '';
+  
+  // Beautiful formatted share text
+  const formattedTitle = `${emoji} ${title}${progressText}`;
+  const formattedShareText = `Check out my activity: ${formattedTitle}\n${description}\n\nhttps://journalmate.ai/\n\n${url}`;
 
   const shareOptions = [
     {
       name: 'Copy Link',
       icon: Copy,
       action: () => {
-        const shareText = `${title}\n${description}\nhttps://journalmate.ai/\n\n${url}`;
-        navigator.clipboard.writeText(shareText);
+        navigator.clipboard.writeText(formattedShareText);
         toast({ title: 'Link Copied!', description: 'Share link copied to clipboard' });
         onOpenChange(false);
       },
@@ -50,8 +74,8 @@ export default function ShareDialog({
       name: 'Email',
       icon: Mail,
       action: () => {
-        const subject = encodeURIComponent(title);
-        const body = encodeURIComponent(`${title}\n${description}\nhttps://journalmate.ai/\n\n${url}`);
+        const subject = encodeURIComponent(formattedTitle);
+        const body = encodeURIComponent(formattedShareText);
         window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
       },
       testId: 'share-email'
@@ -60,7 +84,7 @@ export default function ShareDialog({
       name: 'Messages',
       icon: MessageSquare,
       action: () => {
-        const text = encodeURIComponent(`${title}\n${description}\nhttps://journalmate.ai/\n\n${url}`);
+        const text = encodeURIComponent(formattedShareText);
         window.open(`sms:?&body=${text}`, '_blank');
       },
       testId: 'share-messages'
@@ -69,7 +93,7 @@ export default function ShareDialog({
       name: 'WhatsApp',
       icon: SiWhatsapp,
       action: () => {
-        const text = encodeURIComponent(`${title}\n${description}\nhttps://journalmate.ai/\n\n${url}`);
+        const text = encodeURIComponent(formattedShareText);
         window.open(`https://wa.me/?text=${text}`, '_blank');
       },
       testId: 'share-whatsapp'
@@ -103,8 +127,7 @@ export default function ShareDialog({
       name: 'Facebook',
       icon: SiFacebook,
       action: () => {
-        const quote = `${title}\n${description}\nhttps://journalmate.ai/\n\n${url}`;
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(quote)}`, '_blank');
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(formattedShareText)}`, '_blank');
       },
       testId: 'share-facebook'
     },
@@ -112,7 +135,7 @@ export default function ShareDialog({
       name: 'Twitter',
       icon: SiX,
       action: () => {
-        const text = encodeURIComponent(`${title}\n${description}\nhttps://journalmate.ai/\n\n${url}`);
+        const text = encodeURIComponent(formattedShareText);
         window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
       },
       testId: 'share-twitter'
