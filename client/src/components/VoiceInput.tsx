@@ -88,9 +88,10 @@ interface VoiceInputProps {
   onSubmit: (data: any) => void;
   isGenerating?: boolean;
   placeholder?: string;
+  onOpenJournalMode?: () => void;
 }
 
-const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "Describe your goals and/or journal your life..." }) => {
+const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "Describe your goals and/or journal your life...", onOpenJournalMode }) => {
   const [text, setText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -898,7 +899,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                 {/* Action buttons row */}
                 <div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
                   {/* Conversational Mode Buttons */}
-                  <div ref={modeButtonsRef} className="flex gap-2">
+                  <div ref={modeButtonsRef} className="flex gap-2 flex-wrap">
                     <Button
                       variant={currentMode === 'quick' ? 'default' : 'outline'}
                       size="default"
@@ -928,6 +929,19 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       <span className="hidden sm:inline text-xs sm:text-sm">Smart Plan</span>
                       <span className="sm:hidden text-xs sm:text-sm">Smart</span>
                     </Button>
+                    {onOpenJournalMode && (
+                      <Button
+                        variant="outline"
+                        size="default"
+                        onClick={onOpenJournalMode}
+                        className="flex-1 sm:flex-none gap-1 sm:gap-2 text-pink-600 border-pink-200 hover:bg-pink-50 dark:text-pink-400 dark:border-pink-800 dark:hover:bg-pink-950"
+                        data-testid="button-journal-mode"
+                      >
+                        <BookOpen className="w-3 h-3" />
+                        <span className="hidden sm:inline text-xs sm:text-sm">Journal Mode</span>
+                        <span className="sm:hidden text-xs sm:text-sm">Journal</span>
+                      </Button>
+                    )}
                   </div>
                   
                   <Button
