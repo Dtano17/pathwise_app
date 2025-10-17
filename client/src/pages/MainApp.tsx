@@ -1354,14 +1354,6 @@ export default function MainApp({
                                   try {
                                     const newIsPublic = !activity.isPublic;
                                     
-                                    // Optimistically update the cache before the API call
-                                    queryClient.setQueryData(['/api/activities'], (oldData: any) => {
-                                      if (!oldData) return oldData;
-                                      return oldData.map((act: any) => 
-                                        act.id === activity.id ? { ...act, isPublic: newIsPublic } : act
-                                      );
-                                    });
-                                    
                                     await apiRequest('PATCH', `/api/activities/${activity.id}`, {
                                       body: JSON.stringify({ isPublic: newIsPublic })
                                     });
@@ -1372,12 +1364,11 @@ export default function MainApp({
                                     toast({ 
                                       title: newIsPublic ? "Made Public" : "Made Private", 
                                       description: newIsPublic 
-                                        ? "Activity can now be shared publicly" 
+                                        ? "Activity can now be shared publicly. Click the share button to continue." 
                                         : "Activity is now private and cannot be shared"
                                     });
                                   } catch (error) {
                                     console.error('Privacy toggle error:', error);
-                                    // Revert optimistic update on error
                                     await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
                                     toast({
                                       title: "Update Failed",
@@ -1418,10 +1409,6 @@ export default function MainApp({
                                         </Button>
                                       )
                                     });
-                                    return;
-                                  }
-                                  
-                                  if (!activity.isPublic) {
                                     return;
                                   }
                                   
