@@ -828,9 +828,9 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
                       onClick={() => {
-                        setPlanningMode('quick');
                         setJournalText('');
                         setJournalMedia([]);
+                        handleModeSelect('quick');
                       }}
                       data-testid="menu-switch-to-quick"
                     >
@@ -839,9 +839,9 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => {
-                        setPlanningMode('chat');
                         setJournalText('');
                         setJournalMedia([]);
+                        handleModeSelect('chat');
                       }}
                       data-testid="menu-switch-to-smart"
                     >
