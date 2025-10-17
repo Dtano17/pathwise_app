@@ -898,46 +898,46 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
 
                 {/* Action buttons row - compact layout with smaller buttons */}
                 <div className="flex gap-1.5 sm:gap-2 flex-wrap items-center">
-                  {/* Conversational Mode Buttons - subtle and compact */}
+                  {/* Conversational Mode Buttons - colored theme highlights */}
                   <div ref={modeButtonsRef} className="flex gap-1 min-w-0">
                     <Button
-                      variant={currentMode === 'quick' ? 'secondary' : 'ghost'}
+                      variant="outline"
                       size="sm"
                       onClick={() => startConversationWithMode('quick')}
-                      className={`gap-1 px-2 toggle-elevate ${
+                      className={`gap-1.5 px-3 py-1.5 ${
                         currentMode === 'quick'
-                          ? 'toggle-elevated'
-                          : ''
+                          ? 'bg-emerald-600/10 border-emerald-600 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-900/20 dark:border-emerald-500'
+                          : 'bg-emerald-600/5 border-emerald-600/40 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-900/10 dark:border-emerald-600/40'
                       }`}
                       data-testid="button-quick-plan"
                     >
-                      <Zap className="w-3 h-3 flex-shrink-0" />
-                      <span className="text-xs">Quick</span>
+                      <Zap className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="text-xs font-medium">Quick Plan</span>
                     </Button>
                     <Button
-                      variant={currentMode === 'smart' ? 'secondary' : 'ghost'}
+                      variant="outline"
                       size="sm"
                       onClick={() => startConversationWithMode('smart')}
-                      className={`gap-1 px-2 toggle-elevate ${
+                      className={`gap-1.5 px-3 py-1.5 ${
                         currentMode === 'smart'
-                          ? 'toggle-elevated'
-                          : ''
+                          ? 'bg-purple-600/10 border-purple-600 text-purple-700 dark:text-purple-400 dark:bg-purple-900/20 dark:border-purple-500'
+                          : 'bg-purple-600/5 border-purple-600/40 text-purple-700 dark:text-purple-400 dark:bg-purple-900/10 dark:border-purple-600/40'
                       }`}
                       data-testid="button-smart-plan"
                     >
-                      <Brain className="w-3 h-3 flex-shrink-0" />
-                      <span className="text-xs">Smart</span>
+                      <Brain className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="text-xs font-medium">Smart Plan</span>
                     </Button>
                     {onOpenJournalMode && (
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         onClick={onOpenJournalMode}
-                        className="gap-1 px-2"
+                        className="gap-1.5 px-3 py-1.5 bg-pink-600/5 border-pink-600/40 text-pink-700 dark:text-pink-400 dark:bg-pink-900/10 dark:border-pink-600/40"
                         data-testid="button-journal-mode"
                       >
-                        <BookOpen className="w-3 h-3 flex-shrink-0" />
-                        <span className="text-xs">Journal</span>
+                        <BookOpen className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="text-xs font-medium">Journal</span>
                       </Button>
                     )}
                   </div>

@@ -6,9 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, ListChecks } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, ListChecks, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ConversationMessage {
@@ -812,19 +813,43 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button
-                  onClick={() => {
-                    setPlanningMode('quick');
-                    setJournalText('');
-                    setJournalMedia([]);
-                  }}
-                  variant="outline"
-                  size="sm"
-                  data-testid="button-switch-to-planning"
-                >
-                  <ListChecks className="h-4 w-4 mr-1" />
-                  Planning
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid="button-switch-to-planning"
+                    >
+                      <ListChecks className="h-4 w-4 mr-1" />
+                      Switch to Planning
+                      <ChevronDown className="h-3 w-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setPlanningMode('quick');
+                        setJournalText('');
+                        setJournalMedia([]);
+                      }}
+                      data-testid="menu-switch-to-quick"
+                    >
+                      <Zap className="h-4 w-4 mr-2 text-emerald-600" />
+                      Switch to Quick Plan
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setPlanningMode('chat');
+                        setJournalText('');
+                        setJournalMedia([]);
+                      }}
+                      data-testid="menu-switch-to-smart"
+                    >
+                      <Brain className="h-4 w-4 mr-2 text-purple-600" />
+                      Switch to Smart Plan
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button
                   onClick={() => {
                     setPlanningMode(null);
