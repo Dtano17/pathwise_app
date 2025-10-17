@@ -25,8 +25,15 @@ The application employs a mobile-first responsive design with a clean, card-base
 
 **Core Features & Implementations:**
 - **AI-Powered Planning**: Features "Smart Plan" (comprehensive information gathering) and "Quick Plan" (rapid task generation) modes, utilizing LangGraph for conversation state and multi-LLM support. Includes conversation-aware classification, confidence decay for domain switching, conversation-wide slot extraction (prevents redundant questions), and automatic fallback between AI providers.
-- **Task Management**: Swipeable task cards with completion/skip actions, real-time progress dashboard with streaks and analytics, task lists with search/filter, and automatic activity/task creation upon plan confirmation.
-- **Personal Journal**: A dedicated journal interface with 9 categories for capturing personal interests, featuring auto-save and backend persistence.
+- **Task Management**: Swipeable task cards with completion/skip actions, YouTube-style task feedback (thumbs up/down with filled icons and counters), real-time progress dashboard with streaks and analytics, task lists with search/filter, and automatic activity/task creation upon plan confirmation.
+- **Personal Journal**: A dedicated journal interface with 9 categories for capturing personal interests, featuring auto-save and backend persistence. **NEW: Journal Mode** - Smart journal capture system that allows users to type minimal text with keywords (like @restaurants, @travel, @music) and upload photos/videos. AI automatically detects category from keywords and natural language, stores media in organized galleries, and enriches entries with structured data.
+- **Journal Mode Architecture**:
+  - Media upload system with multer (supports images: JPG/PNG/GIF, videos: MP4/MOV/AVI, max 10MB)
+  - Keyword-to-category mapping (@restaurants → Restaurants & Food, @travel → Travel & Places, etc.)
+  - AI confidence scoring for automatic categorization
+  - JSONB-based storage with media URLs, timestamps, keywords, and AI metadata
+  - File storage in `attached_assets/journal_media/`
+  - API endpoints: POST `/api/journal/upload` (media), POST `/api/journal/smart-entry` (AI entry creation)
 - **Social Sharing**: Activities can be shared with customizable preview dialog. Users can edit share title, choose from NYC-themed backdrop presets, upload custom images (max 5MB), or enter custom image URLs. Live preview shows exactly how shared activities will appear before sharing. Privacy controls allow toggling between public/private status.
 - **Authentication & User Management**: Dual authentication system (Replit Auth + Supabase for Facebook) with unified session management, functional profile management (Priorities & Settings), and access control for premium features.
 - **UI/UX**: Mobile-first responsive design across all screens, dark/light theme toggle, adaptive layouts, and comprehensive accessibility features.
