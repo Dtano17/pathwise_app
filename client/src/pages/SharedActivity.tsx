@@ -242,8 +242,8 @@ export default function SharedActivity() {
     };
     const emoji = categoryEmojis[data.activity.category.toLowerCase()] || '✨';
     
-    // Beautiful formatted message
-    const shareText = `Check out my activity: ${emoji} ${activityTitle}${progressText}\n${activityDescription}\n\nhttps://journalmate.ai/\n\n${url}`;
+    // Beautiful formatted message with share link
+    const shareText = `Check out my activity: ${emoji} ${activityTitle}${progressText}\n${activityDescription}\n\n${url}`;
     
     try {
       await navigator.clipboard.writeText(shareText);
@@ -284,7 +284,7 @@ export default function SharedActivity() {
     };
     const emoji = categoryEmojis[data.activity.category.toLowerCase()] || '✨';
     
-    const text = `Check out my activity: ${emoji} ${activityTitle}${progressText}\n${activityDescription}\n\nhttps://journalmate.ai/\n\n${url}`;
+    const text = `Check out my activity: ${emoji} ${activityTitle}${progressText}\n${activityDescription}\n\n${url}`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -310,7 +310,7 @@ export default function SharedActivity() {
     };
     const emoji = categoryEmojis[data.activity.category.toLowerCase()] || '✨';
     
-    const quote = `Check out my activity: ${emoji} ${activityTitle}${progressText}\n${activityDescription}\n\nhttps://journalmate.ai/\n\n${url}`;
+    const quote = `Check out my activity: ${emoji} ${activityTitle}${progressText}\n${activityDescription}\n\n${url}`;
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(quote)}`, '_blank');
   };
 
@@ -337,7 +337,7 @@ export default function SharedActivity() {
     const emoji = categoryEmojis[data.activity.category.toLowerCase()] || '✨';
     
     const titleWithEmoji = `${emoji} ${activityTitle}${progressText}`;
-    const summary = `Check out my activity: ${titleWithEmoji}\n${activityDescription}\n\nhttps://journalmate.ai/\n\n${url}`;
+    const summary = `Check out my activity: ${titleWithEmoji}\n${activityDescription}\n\n${url}`;
     window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(titleWithEmoji)}&summary=${encodeURIComponent(summary)}`, '_blank');
   };
 

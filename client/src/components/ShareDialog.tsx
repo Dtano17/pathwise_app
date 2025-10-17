@@ -55,9 +55,9 @@ export default function ShareDialog({
   const emoji = categoryEmojis[category.toLowerCase()] || '✨';
   const progressText = progressPercent !== undefined ? ` - ${progressPercent}% complete!` : '';
   
-  // Beautiful formatted share text
+  // Beautiful formatted share text with actual share link
   const formattedTitle = `${emoji} ${title}${progressText}`;
-  const formattedShareText = `Check out my activity: ${formattedTitle}\n${description}\n\nhttps://journalmate.ai/\n\n${url}`;
+  const formattedShareText = `Check out my activity: ${formattedTitle}\n${description}\n\n${url}`;
 
   const shareOptions = [
     {
