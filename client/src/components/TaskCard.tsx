@@ -1,11 +1,13 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Calendar, X, Pause, Undo, Archive } from 'lucide-react';
+import { CheckCircle, Clock, Calendar, X, Pause, Undo, Archive, ThumbsUp, ThumbsDown } from 'lucide-react';
 import Confetti from 'react-confetti';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 
 interface Task {
   id: string;
@@ -35,6 +37,24 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
   const { toast, dismiss } = useToast();
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentToastIdRef = useRef<string | null>(null);
+
+  // Fetch task feedback
+  const { data: feedbackData } = useQuery<{ userFeedback: { feedbackType: 'like' | 'dislike' } | null; stats: { likes: number; dislikes: number } }>({
+    queryKey: ['/api/tasks', task.id, 'feedback'],
+    staleTime: 30000,
+  });
+
+  // Task feedback mutation
+  const feedbackMutation = useMutation({
+    mutationFn: async (feedbackType: 'like' | 'dislike') => {
+      return await apiRequest('POST', `/api/tasks/${task.id}/feedback`, {
+        body: JSON.stringify({ feedbackType })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks', task.id, 'feedback'] });
+    }
+  });
 
   const triggerHapticFeedback = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
     if ('vibrate' in navigator && navigator.vibrate) {
@@ -258,6 +278,32 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
               {new Date(task.dueDate).toLocaleDateString()}
             </Badge>
           )}
+        </div>
+
+        {/* Feedback Buttons */}
+        <div className="flex items-center justify-center gap-4 mb-4 border-t pt-4">
+          <Button
+            variant={feedbackData?.userFeedback?.feedbackType === 'like' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => feedbackMutation.mutate('like')}
+            disabled={feedbackMutation.isPending}
+            className={feedbackData?.userFeedback?.feedbackType === 'like' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
+            data-testid={`button-like-${task.id}`}
+          >
+            <ThumbsUp className="w-4 h-4 mr-1" />
+            {feedbackData?.stats?.likes || 0}
+          </Button>
+          <Button
+            variant={feedbackData?.userFeedback?.feedbackType === 'dislike' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => feedbackMutation.mutate('dislike')}
+            disabled={feedbackMutation.isPending}
+            className={feedbackData?.userFeedback?.feedbackType === 'dislike' ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
+            data-testid={`button-dislike-${task.id}`}
+          >
+            <ThumbsDown className="w-4 h-4 mr-1" />
+            {feedbackData?.stats?.dislikes || 0}
+          </Button>
         </div>
 
         {/* Action Buttons */}
