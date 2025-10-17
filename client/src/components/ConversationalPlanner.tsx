@@ -6,10 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, ListChecks, ChevronDown } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ConversationMessage {
@@ -687,113 +686,12 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
     }
   };
 
-  // Mode selection screen
+  // Return to main screen if no mode selected
   if (!planningMode) {
-    return (
-      <div className="h-full flex items-center justify-center p-6">
-        <Card className="w-full max-w-2xl border-none shadow-lg bg-white/80 dark:bg-slate-900/80 backdrop-blur">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center mb-4">
-              <Sparkles className="h-8 w-8 text-white" />
-            </div>
-            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              How would you like to plan?
-            </CardTitle>
-            <p className="text-slate-600 dark:text-slate-400 mt-2">
-              Choose your planning style - quick and efficient, or smart and personalized
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              onClick={() => handleModeSelect('quick')}
-              className="w-full h-20 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white border-none shadow-lg hover:shadow-xl transition-all"
-              data-testid="button-quick-plan"
-            >
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                    <Zap className="h-6 w-6" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-semibold text-lg">Quick Plan</div>
-                    <div className="text-sm opacity-90">Fast planning with minimal questions</div>
-                  </div>
-                </div>
-                <ArrowRight className="h-5 w-5 opacity-70" />
-              </div>
-            </Button>
-
-            <Button
-              onClick={() => handleModeSelect('chat')}
-              className="w-full h-20 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white border-none shadow-lg hover:shadow-xl transition-all"
-              data-testid="button-smart-plan"
-            >
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                    <Brain className="h-6 w-6" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-semibold text-lg">Smart Plan</div>
-                    <div className="text-sm opacity-90">Intuitive questions based on your profile</div>
-                  </div>
-                </div>
-                <ArrowRight className="h-5 w-5 opacity-70" />
-              </div>
-            </Button>
-
-            <Button
-              onClick={() => handleModeSelect('direct')}
-              className="w-full h-20 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-none shadow-lg hover:shadow-xl transition-all"
-              data-testid="button-create-action-plan"
-            >
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                    <FileText className="h-6 w-6" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-semibold text-lg">Create Action Plan</div>
-                    <div className="text-sm opacity-90">Paste or type - instant plan generation</div>
-                  </div>
-                </div>
-                <ArrowRight className="h-5 w-5 opacity-70" />
-              </div>
-            </Button>
-
-            <Button
-              onClick={() => handleModeSelect('journal')}
-              className="w-full h-20 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-none shadow-lg hover:shadow-xl transition-all"
-              data-testid="button-journal-mode"
-            >
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                    <BookOpen className="h-6 w-6" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-semibold text-lg">Journal Mode</div>
-                    <div className="text-sm opacity-90">Quick capture with photos & keywords</div>
-                  </div>
-                </div>
-                <ArrowRight className="h-5 w-5 opacity-70" />
-              </div>
-            </Button>
-
-            {onClose && (
-              <Button
-                onClick={onClose}
-                variant="outline"
-                className="w-full mt-6"
-                data-testid="button-close-planner"
-              >
-                Close Planner
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    );
+    if (onClose) {
+      onClose();
+    }
+    return null;
   }
 
   // Journal Mode UI
@@ -812,57 +710,19 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
                   <p className="text-sm text-slate-600 dark:text-slate-400">Quick capture with media & keywords</p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      data-testid="button-switch-to-planning"
-                    >
-                      <ListChecks className="h-4 w-4 mr-1" />
-                      Switch to Planning
-                      <ChevronDown className="h-3 w-3 ml-1" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setJournalText('');
-                        setJournalMedia([]);
-                        handleModeSelect('quick');
-                      }}
-                      data-testid="menu-switch-to-quick"
-                    >
-                      <Zap className="h-4 w-4 mr-2 text-emerald-600" />
-                      Switch to Quick Plan
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setJournalText('');
-                        setJournalMedia([]);
-                        handleModeSelect('chat');
-                      }}
-                      data-testid="menu-switch-to-smart"
-                    >
-                      <Brain className="h-4 w-4 mr-2 text-purple-600" />
-                      Switch to Smart Plan
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                  onClick={() => {
-                    setPlanningMode(null);
-                    setJournalText('');
-                    setJournalMedia([]);
-                  }}
-                  variant="outline"
-                  size="sm"
-                  data-testid="button-exit-journal"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                onClick={() => {
+                  setPlanningMode(null);
+                  setJournalText('');
+                  setJournalMedia([]);
+                }}
+                variant="outline"
+                size="sm"
+                data-testid="button-exit-journal"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
             </div>
           </CardContent>
         </Card>
