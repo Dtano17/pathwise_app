@@ -45,6 +45,8 @@ import {
   type InsertUserProfile,
   type UserPreferences,
   type InsertUserPreferences,
+  type ActivityFeedback,
+  type InsertActivityFeedback,
   users,
   goals,
   tasks,
@@ -64,7 +66,8 @@ import {
   activityPermissionRequests,
   lifestylePlannerSessions,
   userProfiles,
-  userPreferences
+  userPreferences,
+  activityFeedback
 } from "@shared/schema";
 
 const sql = neon(process.env.DATABASE_URL!);
@@ -119,6 +122,12 @@ export interface IStorage {
   getUserPermissionRequests(userId: string): Promise<ActivityPermissionRequest[]>;
   getOwnerPermissionRequests(ownerId: string): Promise<ActivityPermissionRequest[]>;
   updatePermissionRequest(requestId: string, status: string, ownerId: string): Promise<ActivityPermissionRequest | undefined>;
+
+  // Activity Feedback (Like/Unlike)
+  upsertActivityFeedback(activityId: string, userId: string, feedbackType: 'like' | 'dislike'): Promise<ActivityFeedback>;
+  getUserActivityFeedback(activityId: string, userId: string): Promise<ActivityFeedback | undefined>;
+  deleteActivityFeedback(activityId: string, userId: string): Promise<void>;
+  getActivityFeedbackStats(activityId: string): Promise<{ likes: number; dislikes: number }>;
 
   // Journal Entries
   createJournalEntry(entry: InsertJournalEntry & { userId: string }): Promise<JournalEntry>;
@@ -543,6 +552,49 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(activityPermissionRequests.id, requestId), eq(activityPermissionRequests.ownerId, ownerId)))
       .returning();
     return result[0];
+  }
+
+  // Activity Feedback Methods
+  async upsertActivityFeedback(activityId: string, userId: string, feedbackType: 'like' | 'dislike'): Promise<ActivityFeedback> {
+    // Try to update first
+    const existing = await db.select().from(activityFeedback)
+      .where(and(eq(activityFeedback.activityId, activityId), eq(activityFeedback.userId, userId)));
+    
+    if (existing.length > 0) {
+      // Update existing feedback
+      const result = await db.update(activityFeedback)
+        .set({ feedbackType, updatedAt: new Date() })
+        .where(and(eq(activityFeedback.activityId, activityId), eq(activityFeedback.userId, userId)))
+        .returning();
+      return result[0];
+    } else {
+      // Create new feedback
+      const result = await db.insert(activityFeedback)
+        .values({ activityId, userId, feedbackType })
+        .returning();
+      return result[0];
+    }
+  }
+
+  async getUserActivityFeedback(activityId: string, userId: string): Promise<ActivityFeedback | undefined> {
+    const result = await db.select().from(activityFeedback)
+      .where(and(eq(activityFeedback.activityId, activityId), eq(activityFeedback.userId, userId)));
+    return result[0];
+  }
+
+  async deleteActivityFeedback(activityId: string, userId: string): Promise<void> {
+    await db.delete(activityFeedback)
+      .where(and(eq(activityFeedback.activityId, activityId), eq(activityFeedback.userId, userId)));
+  }
+
+  async getActivityFeedbackStats(activityId: string): Promise<{ likes: number; dislikes: number }> {
+    const feedback = await db.select().from(activityFeedback)
+      .where(eq(activityFeedback.activityId, activityId));
+    
+    const likes = feedback.filter(f => f.feedbackType === 'like').length;
+    const dislikes = feedback.filter(f => f.feedbackType === 'dislike').length;
+    
+    return { likes, dislikes };
   }
 
   // Journal Entries
