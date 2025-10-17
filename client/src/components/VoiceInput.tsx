@@ -898,46 +898,46 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
 
                 {/* Action buttons row - compact layout with smaller buttons */}
                 <div className="flex gap-1.5 sm:gap-2 flex-wrap items-center">
-                  {/* Conversational Mode Buttons - compact size */}
-                  <div ref={modeButtonsRef} className="flex gap-1 flex-1 min-w-0">
+                  {/* Conversational Mode Buttons - subtle and compact */}
+                  <div ref={modeButtonsRef} className="flex gap-1 min-w-0">
                     <Button
-                      variant={currentMode === 'quick' ? 'default' : 'outline'}
+                      variant={currentMode === 'quick' ? 'secondary' : 'ghost'}
                       size="sm"
                       onClick={() => startConversationWithMode('quick')}
-                      className={`flex-1 gap-0.5 px-1.5 sm:px-2 min-w-0 ${
+                      className={`gap-1 px-2 toggle-elevate ${
                         currentMode === 'quick'
-                          ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 toggle-elevated'
-                          : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950'
+                          ? 'toggle-elevated'
+                          : ''
                       }`}
                       data-testid="button-quick-plan"
                     >
-                      <Zap className="w-2.5 h-2.5 flex-shrink-0" />
-                      <span className="text-[9px] sm:text-[10px] truncate">Quick</span>
+                      <Zap className="w-3 h-3 flex-shrink-0" />
+                      <span className="text-xs">Quick</span>
                     </Button>
                     <Button
-                      variant={currentMode === 'smart' ? 'default' : 'outline'}
+                      variant={currentMode === 'smart' ? 'secondary' : 'ghost'}
                       size="sm"
                       onClick={() => startConversationWithMode('smart')}
-                      className={`flex-1 gap-0.5 px-1.5 sm:px-2 min-w-0 ${
+                      className={`gap-1 px-2 toggle-elevate ${
                         currentMode === 'smart'
-                          ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700 toggle-elevated'
-                          : 'text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950'
+                          ? 'toggle-elevated'
+                          : ''
                       }`}
                       data-testid="button-smart-plan"
                     >
-                      <Brain className="w-2.5 h-2.5 flex-shrink-0" />
-                      <span className="text-[9px] sm:text-[10px] truncate">Smart</span>
+                      <Brain className="w-3 h-3 flex-shrink-0" />
+                      <span className="text-xs">Smart</span>
                     </Button>
                     {onOpenJournalMode && (
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         onClick={onOpenJournalMode}
-                        className="flex-1 gap-0.5 px-1.5 sm:px-2 min-w-0 text-pink-600 border-pink-200 hover:bg-pink-50 dark:text-pink-400 dark:border-pink-800 dark:hover:bg-pink-950"
+                        className="gap-1 px-2"
                         data-testid="button-journal-mode"
                       >
-                        <BookOpen className="w-2.5 h-2.5 flex-shrink-0" />
-                        <span className="text-[9px] sm:text-[10px] truncate">Journal</span>
+                        <BookOpen className="w-3 h-3 flex-shrink-0" />
+                        <span className="text-xs">Journal</span>
                       </Button>
                     )}
                   </div>
@@ -946,7 +946,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                     onClick={handleSubmit}
                     disabled={!text.trim() || isGenerating}
                     size="sm"
-                    className="gap-1.5 px-3 sm:px-4 flex-shrink-0"
+                    className="gap-1.5 ml-auto flex-shrink-0"
                     data-testid="button-submit"
                   >
                     {isGenerating ? (
@@ -962,7 +962,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       <>
                         <Send className="w-3.5 h-3.5" />
                         <span className="text-xs whitespace-nowrap">
-                          {currentMode ? 'Start' : 'Submit'}
+                          {currentMode ? 'Start' : 'Create Action Plan'}
                         </span>
                       </>
                     )}
