@@ -472,16 +472,27 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
       return response.json();
     },
     onSuccess: (data) => {
+      // Handle both new grouped categories response and old single category response
+      const categoryDisplay = data.categories && data.categories.length > 0
+        ? data.categories.join(', ') 
+        : (data.category || 'your journal');
+      
       toast({
         title: "Journal entry saved!",
-        description: `Added to ${data.category}`,
+        description: data.isGroupedExperience 
+          ? `Added to multiple categories: ${categoryDisplay}`
+          : `Added to ${categoryDisplay}`,
       });
       setJournalText('');
       setJournalMedia([]);
-      setDetectedCategory(data.category);
+      setDetectedCategory(
+        data.categories && data.categories.length > 0 
+          ? data.categories[0] 
+          : data.category
+      );
       setIsUploadingJournal(false);
       
-      // Refresh journal data
+      // Refresh journal data - PersonalJournal uses /api/user-preferences
       queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
     },
     onError: (error) => {
