@@ -1025,16 +1025,52 @@ export class DatabaseStorage implements IStorage {
     const currentJournal = currentPrefs.journalData || {};
     const categoryEntries = currentJournal[category] || [];
     
-    const newEntry = {
-      id: Math.random().toString(36).substr(2, 9),
-      text: entry.text,
-      media: entry.media,
-      timestamp: new Date().toISOString(),
-      aiConfidence: entry.aiConfidence,
-      keywords: entry.keywords,
-    };
+    // Check if there's already an entry from today in this category
+    const today = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD
+    const todayEntryIndex = categoryEntries.findIndex((e: any) => {
+      const entryDate = new Date(e.timestamp).toISOString().split('T')[0];
+      return entryDate === today;
+    });
     
-    categoryEntries.push(newEntry);
+    if (todayEntryIndex !== -1) {
+      // Merge with existing entry from today
+      const existingEntry = categoryEntries[todayEntryIndex];
+      
+      // Combine text with newline
+      const combinedText = existingEntry.text ? `${existingEntry.text}\n${entry.text}` : entry.text;
+      
+      // Merge media arrays
+      const existingMedia = existingEntry.media || [];
+      const newMedia = entry.media || [];
+      const combinedMedia = [...existingMedia, ...newMedia];
+      
+      // Merge keywords (unique)
+      const existingKeywords = existingEntry.keywords || [];
+      const newKeywords = entry.keywords || [];
+      const combinedKeywords = Array.from(new Set([...existingKeywords, ...newKeywords]));
+      
+      // Update the existing entry
+      categoryEntries[todayEntryIndex] = {
+        ...existingEntry,
+        text: combinedText,
+        media: combinedMedia.length > 0 ? combinedMedia : undefined,
+        keywords: combinedKeywords.length > 0 ? combinedKeywords : undefined,
+        aiConfidence: entry.aiConfidence || existingEntry.aiConfidence,
+        timestamp: new Date().toISOString(), // Update timestamp to latest
+      };
+    } else {
+      // Create new entry for today
+      const newEntry = {
+        id: Math.random().toString(36).substr(2, 9),
+        text: entry.text,
+        media: entry.media,
+        timestamp: new Date().toISOString(),
+        aiConfidence: entry.aiConfidence,
+        keywords: entry.keywords,
+      };
+      
+      categoryEntries.push(newEntry);
+    }
     currentJournal[category] = categoryEntries;
     
     return this.upsertUserPreferences(userId, {

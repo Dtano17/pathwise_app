@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ConversationMessage {
@@ -47,7 +47,7 @@ interface PlannerSession {
   };
 }
 
-type PlanningMode = 'quick' | 'chat' | 'direct' | null;
+type PlanningMode = 'quick' | 'chat' | 'direct' | 'journal' | null;
 
 interface ConversationalPlannerProps {
   onClose?: () => void;
@@ -70,6 +70,13 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
   const [createdActivityId, setCreatedActivityId] = useState<string | null>(null);
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Journal Mode State
+  const [journalText, setJournalText] = useState('');
+  const [journalMedia, setJournalMedia] = useState<File[]>([]);
+  const [isUploadingJournal, setIsUploadingJournal] = useState(false);
+  const [detectedCategory, setDetectedCategory] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load session from localStorage on mount
   useEffect(() => {
@@ -687,6 +694,25 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
               </div>
             </Button>
 
+            <Button
+              onClick={() => handleModeSelect('journal')}
+              className="w-full h-20 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-none shadow-lg hover:shadow-xl transition-all"
+              data-testid="button-journal-mode"
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                    <Camera className="h-6 w-6" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold text-lg">Journal Mode</div>
+                    <div className="text-sm opacity-90">Quick capture with photos & keywords</div>
+                  </div>
+                </div>
+                <ArrowRight className="h-5 w-5 opacity-70" />
+              </div>
+            </Button>
+
             {onClose && (
               <Button
                 onClick={onClose}
@@ -697,6 +723,188 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                 Close Planner
               </Button>
             )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Journal Mode submitJournalEntry mutation
+  const submitJournalEntry = useMutation({
+    mutationFn: async () => {
+      setIsUploadingJournal(true);
+      
+      // Upload media first if any
+      let uploadedMedia = [];
+      if (journalMedia.length > 0) {
+        const formData = new FormData();
+        journalMedia.forEach(file => {
+          formData.append('media', file);
+        });
+        
+        const uploadResponse = await apiRequest('POST', '/api/journal/upload', formData);
+        const uploadData = await uploadResponse.json();
+        uploadedMedia = uploadData.media;
+      }
+      
+      // Submit journal entry with AI categorization
+      const response = await apiRequest('POST', '/api/journal/smart-entry', {
+        text: journalText,
+        media: uploadedMedia
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Journal entry saved!",
+        description: `Added to ${data.category}`,
+      });
+      setJournalText('');
+      setJournalMedia([]);
+      setDetectedCategory(data.category);
+      setIsUploadingJournal(false);
+      
+      // Refresh journal data
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+    },
+    onError: (error) => {
+      console.error('Failed to save journal entry:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save journal entry",
+        variant: "destructive"
+      });
+      setIsUploadingJournal(false);
+    }
+  });
+
+  // Journal Mode UI
+  if (planningMode === 'journal') {
+    return (
+      <div className="h-full flex flex-col space-y-4 p-4">
+        <Card className="border-none shadow-lg bg-white/80 dark:bg-slate-900/80 backdrop-blur">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-600 dark:bg-pink-900 dark:text-pink-300 flex items-center justify-center">
+                  <Camera className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Journal Mode</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Quick capture with media & keywords</p>
+                </div>
+              </div>
+              <Button
+                onClick={() => {
+                  setPlanningMode(null);
+                  setJournalText('');
+                  setJournalMedia([]);
+                }}
+                variant="outline"
+                size="sm"
+                data-testid="button-exit-journal"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="flex-1 border-none shadow-lg bg-white/80 dark:bg-slate-900/80 backdrop-blur">
+          <CardHeader>
+            <CardTitle>Quick Capture</CardTitle>
+            <CardDescription>
+              Type your thoughts and use keywords like @restaurants, @travel, @music. AI will automatically categorize!
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <textarea
+                value={journalText}
+                onChange={(e) => setJournalText(e.target.value)}
+                placeholder="What's on your mind? Use @keywords for quick categorization...&#10;Example: @restaurants had amazing ramen today!"
+                className="w-full min-h-32 p-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-pink-500"
+                data-testid="input-journal-text"
+              />
+              
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="text-xs">@restaurants</Badge>
+                <Badge variant="outline" className="text-xs">@travel</Badge>
+                <Badge variant="outline" className="text-xs">@music</Badge>
+                <Badge variant="outline" className="text-xs">@movies</Badge>
+                <Badge variant="outline" className="text-xs">@books</Badge>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) {
+                    setJournalMedia(Array.from(e.target.files));
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full"
+                data-testid="button-upload-media"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Photos/Videos ({journalMedia.length} selected)
+              </Button>
+              
+              {journalMedia.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {journalMedia.map((file, idx) => (
+                    <div key={idx} className="relative">
+                      <Badge variant="secondary" className="pr-6">
+                        {file.type.startsWith('video/') ? '🎥' : '📷'} {file.name.slice(0, 15)}...
+                      </Badge>
+                      <button
+                        onClick={() => setJournalMedia(journalMedia.filter((_, i) => i !== idx))}
+                        className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {detectedCategory && (
+              <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-md">
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  ✓ Last entry saved to: <strong>{detectedCategory}</strong>
+                </p>
+              </div>
+            )}
+
+            <Button
+              onClick={() => submitJournalEntry.mutate()}
+              disabled={!journalText.trim() || isUploadingJournal}
+              className="w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600"
+              data-testid="button-save-journal"
+            >
+              {isUploadingJournal ? (
+                <>
+                  <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Save Entry
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
       </div>

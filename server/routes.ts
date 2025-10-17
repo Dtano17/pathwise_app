@@ -3220,8 +3220,19 @@ You can find these tasks in your task list and start working on them right away!
         return res.status(400).json({ error: 'Text content required' });
       }
 
-      // TODO: Implement AI category detection and keyword parsing
-      // For now, use simple keyword mapping
+      // Base 9 categories for quick keyword mapping (kept for demo/testing)
+      const baseCategories = [
+        'Restaurants & Food',
+        'Movies & TV Shows',
+        'Music & Artists',
+        'Travel & Places',
+        'Books & Reading',
+        'Hobbies & Interests',
+        'Personal Style',
+        'Favorite Things',
+        'Personal Notes'
+      ];
+
       const categoryMapping: { [key: string]: string } = {
         '@restaurants': 'Restaurants & Food',
         '@food': 'Restaurants & Food',
@@ -3248,13 +3259,59 @@ You can find these tasks in your task list and start working on them right away!
       // Detect category from keywords or text
       let detectedCategory = 'Personal Notes'; // default
       let detectedKeywords: string[] = [];
+      let aiConfidence = 0.5;
       
-      // Check for explicit keywords
+      // First, check for explicit keywords (quick mapping to base categories)
+      let foundKeyword = false;
       for (const [keyword, category] of Object.entries(categoryMapping)) {
         if (text.toLowerCase().includes(keyword.toLowerCase())) {
           detectedCategory = category;
           detectedKeywords.push(keyword);
+          aiConfidence = 0.95; // High confidence for explicit keywords
+          foundKeyword = true;
           break;
+        }
+      }
+
+      // If no keyword found, use AI to detect category
+      if (!foundKeyword) {
+        try {
+          const aiResponse = await aiService.chatConversation(
+            [
+              {
+                role: 'system',
+                content: `You are a journal categorizer. Analyze the user's journal entry and suggest the best category. You can use one of these base categories: ${baseCategories.join(', ')}. Or create a NEW category if the content doesn't fit any base category well. 
+                
+Examples of new categories you might create:
+- "Fitness & Workouts" for gym/exercise content
+- "Cooking & Recipes" for food preparation
+- "Photography" for photo-related content
+- "Gaming" for video game content
+- "Pets & Animals" for pet-related content
+- "Career & Work" for professional content
+- "Language Learning" for language study
+- Any other category that fits the content
+
+Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywords": ["detected", "keywords"] }`
+              },
+              {
+                role: 'user',
+                content: text
+              }
+            ],
+            'openai',
+            userId
+          );
+
+          const categoryData = JSON.parse(aiResponse);
+          detectedCategory = categoryData.category;
+          detectedKeywords = categoryData.keywords || [];
+          aiConfidence = categoryData.confidence || 0.7;
+        } catch (aiError) {
+          console.error('AI category detection failed:', aiError);
+          // Fall back to simple text analysis if AI fails
+          detectedCategory = 'Personal Notes';
+          aiConfidence = 0.3;
         }
       }
 
@@ -3263,14 +3320,14 @@ You can find these tasks in your task list and start working on them right away!
         text,
         media,
         keywords: detectedKeywords.length > 0 ? detectedKeywords : keywords,
-        aiConfidence: detectedKeywords.length > 0 ? 0.9 : 0.5
+        aiConfidence
       });
 
       res.json({
         success: true,
         category: detectedCategory,
         keywords: detectedKeywords,
-        aiConfidence: detectedKeywords.length > 0 ? 0.9 : 0.5
+        aiConfidence
       });
     } catch (error) {
       console.error('Smart entry error:', error);
