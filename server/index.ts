@@ -4,6 +4,47 @@ import { setupVite, serveStatic, log } from "./vite";
 import { setupMultiProviderAuth } from "./multiProviderAuth";
 import { initializeLLMProviders } from "./services/llmProviders";
 
+// Validate critical environment variables
+function validateEnvironment() {
+  const warnings: string[] = [];
+  const errors: string[] = [];
+
+  // OAuth providers - warn if not configured
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    warnings.push('⚠️  Google OAuth not configured (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)');
+  }
+  
+  if (!process.env.FACEBOOK_APP_ID || !process.env.FACEBOOK_APP_SECRET) {
+    warnings.push('⚠️  Facebook OAuth not configured (FACEBOOK_APP_ID, FACEBOOK_APP_SECRET)');
+  }
+
+  if (!process.env.REPLIT_DOMAINS || !process.env.REPL_ID) {
+    warnings.push('⚠️  Replit Auth not configured (REPLIT_DOMAINS, REPL_ID)');
+  }
+
+  // Database - critical error if missing
+  if (!process.env.DATABASE_URL) {
+    errors.push('❌ DATABASE_URL is required but not set');
+  }
+
+  // Log warnings
+  if (warnings.length > 0) {
+    console.log('\n🔐 Authentication Configuration:');
+    warnings.forEach(w => console.log(w));
+    console.log('   Some OAuth providers may not work. Configure secrets to enable them.\n');
+  }
+
+  // Throw errors
+  if (errors.length > 0) {
+    console.error('\n❌ Critical Configuration Errors:');
+    errors.forEach(e => console.error(e));
+    throw new Error('Missing required environment variables');
+  }
+}
+
+// Validate environment before starting
+validateEnvironment();
+
 // Initialize LLM providers (OpenAI, Claude, DeepSeek) before starting server
 initializeLLMProviders();
 

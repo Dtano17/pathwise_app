@@ -10,6 +10,7 @@ import MainApp from "@/pages/MainApp";
 import SharedActivity from "@/pages/SharedActivity";
 import AuthCallback from "@/pages/AuthCallback";
 import NotificationService from "@/components/NotificationService";
+import { AuthHandler } from "@/components/AuthHandler";
 import { useAuth } from "@/hooks/useAuth";
 
 function AppContent() {
@@ -34,6 +35,7 @@ function AppContent() {
 
   return (
     <TooltipProvider>
+      <AuthHandler />
       <Switch>
         {/* Auth Callback Page (no sidebar) */}
         <Route path="/auth/callback" component={AuthCallback} />

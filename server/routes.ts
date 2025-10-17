@@ -76,20 +76,34 @@ const upload = multer({
 
 // Helper function to extract authenticated user ID from request
 function getUserId(req: any): string | null {
-  // Check multiple authentication methods for session persistence
-  if (req.isAuthenticated && req.isAuthenticated() && req.user?.id) {
-    // Passport authentication (OAuth and manual login)
-    return req.user.id;
-  } else if (req.session?.userId) {
-    // Direct session-based authentication
+  // Priority 1: Passport authentication (OAuth providers - Google, Facebook)
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    if (req.user?.id) {
+      console.log('[Auth] Passport user authenticated:', req.user.id);
+      return req.user.id;
+    }
+    // Check if user ID is stored directly in session by Passport
+    if (req.session?.passport?.user) {
+      const userId = typeof req.session.passport.user === 'string' 
+        ? req.session.passport.user 
+        : req.session.passport.user.id;
+      console.log('[Auth] Passport session user:', userId);
+      return userId;
+    }
+  }
+  
+  // Priority 2: Direct session-based authentication (email/password)
+  if (req.session?.userId) {
+    console.log('[Auth] Direct session user:', req.session.userId);
     return req.session.userId;
-  } else if (req.session?.passport?.user?.id) {
-    // Passport session serialization
-    return req.session.passport.user.id;
-  } else if (req.user?.claims?.sub) {
-    // Replit auth user
+  }
+  
+  // Priority 3: Replit auth user
+  if (req.user?.claims?.sub) {
+    console.log('[Auth] Replit auth user:', req.user.claims.sub);
     return req.user.claims.sub;
   }
+  
   return null;
 }
 

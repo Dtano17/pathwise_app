@@ -48,6 +48,29 @@ interface OAuthUser {
 
 // Setup multi-provider OAuth strategies
 export async function setupMultiProviderAuth(app: Express) {
+  // Passport session serialization - store only user ID in session
+  passport.serializeUser((user: any, done) => {
+    console.log('[Passport] Serializing user:', user.id);
+    done(null, user.id);
+  });
+
+  // Deserialize user from session - retrieve full user from storage
+  passport.deserializeUser(async (id: string, done) => {
+    try {
+      console.log('[Passport] Deserializing user ID:', id);
+      const user = await storage.getUser(id);
+      if (!user) {
+        console.error('[Passport] User not found:', id);
+        return done(new Error('User not found'), null);
+      }
+      console.log('[Passport] Deserialized user:', user.id);
+      done(null, { id: user.id, email: user.email });
+    } catch (error) {
+      console.error('[Passport] Deserialization error:', error);
+      done(error, null);
+    }
+  });
+
   // Google OAuth Strategy
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     passport.use(new GoogleStrategy({
@@ -401,17 +424,14 @@ export async function setupMultiProviderAuth(app: Express) {
   );
 
   app.get('/api/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: '/?auth=error' }),
+    passport.authenticate('google', { 
+      failureRedirect: '/?auth=error&provider=google',
+      failureMessage: true 
+    }),
     (req, res) => {
-      // Check if this is a new user who needs profile completion
-      const user = req.user as OAuthUser;
-      if (user?.isNewUser) {
-        // New user - redirect to profile completion
-        res.redirect(`/?auth=success&newUser=true&userId=${user.id}`);
-      } else {
-        // Existing user - redirect to app
-        res.redirect('/?auth=success');
-      }
+      console.log('[Google OAuth] Callback successful, user:', req.user);
+      // Successful authentication - redirect to app
+      res.redirect('/?auth=success&provider=google');
     }
   );
 
@@ -421,17 +441,14 @@ export async function setupMultiProviderAuth(app: Express) {
   );
 
   app.get('/api/auth/facebook/callback',
-    passport.authenticate('facebook', { failureRedirect: '/?auth=error&provider=facebook&reason=app_not_active' }),
+    passport.authenticate('facebook', { 
+      failureRedirect: '/?auth=error&provider=facebook',
+      failureMessage: true 
+    }),
     (req, res) => {
-      // Check if this is a new user who needs profile completion
-      const user = req.user as OAuthUser;
-      if (user?.isNewUser) {
-        // New user - redirect to profile completion
-        res.redirect(`/?auth=success&newUser=true&userId=${user.id}`);
-      } else {
-        // Existing user - redirect to app
-        res.redirect('/?auth=success');
-      }
+      console.log('[Facebook OAuth] Callback successful, user:', req.user);
+      // Successful authentication - redirect to app
+      res.redirect('/?auth=success&provider=facebook');
     }
   );
 

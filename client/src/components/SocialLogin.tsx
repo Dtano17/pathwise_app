@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { SiGoogle, SiFacebook, SiApple } from "react-icons/si";
 import { Mail } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
-import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { EmailAuthDialog } from './EmailAuthDialog';
 
@@ -20,37 +19,17 @@ export function SocialLogin({
   const { toast } = useToast();
   const [showEmailAuth, setShowEmailAuth] = useState(false);
   
-  const handleSocialLogin = () => {
-    // All non-Facebook buttons redirect to Replit authentication
-    // Replit will handle the specific provider selection
-    window.location.href = '/api/login';
+  const handleGoogleLogin = () => {
+    window.location.href = '/api/auth/google';
   };
   
-  const handleFacebookLogin = async () => {
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'facebook',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
-      
-      if (error) {
-        console.error('Facebook login error:', error);
-        toast({
-          title: "Login Failed",
-          description: "Failed to sign in with Facebook. Please try again.",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error('Facebook login exception:', error);
-      toast({
-        title: "Login Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
-      });
-    }
+  const handleFacebookLogin = () => {
+    window.location.href = '/api/auth/facebook';
+  };
+
+  const handleReplitLogin = () => {
+    // Replit Auth handles multiple providers (X/Twitter, Apple)
+    window.location.href = '/api/login';
   };
 
   return (
@@ -75,10 +54,10 @@ export function SocialLogin({
           <span className="truncate">Sign in with Email</span>
         </Button>
 
-        {/* Google Sign In */}
+        {/* Google Sign In via Passport.js */}
         <Button
           variant="outline"
-          onClick={handleSocialLogin}
+          onClick={handleGoogleLogin}
           className="w-full min-h-[44px] h-auto py-2.5 text-sm sm:text-base justify-start"
           data-testid="button-login-google"
         >
@@ -86,29 +65,7 @@ export function SocialLogin({
           <span className="truncate">Sign in with Google</span>
         </Button>
 
-        {/* X (Twitter) Sign In */}
-        <Button
-          variant="outline"
-          onClick={handleSocialLogin}
-          className="w-full min-h-[44px] h-auto py-2.5 text-sm sm:text-base justify-start"
-          data-testid="button-login-x"
-        >
-          <FaXTwitter className="w-4 h-4 sm:w-5 sm:h-5 mr-2 shrink-0" />
-          <span className="truncate">Sign in with X</span>
-        </Button>
-
-        {/* Apple Sign In */}
-        <Button
-          variant="outline"
-          onClick={handleSocialLogin}
-          className="w-full min-h-[44px] h-auto py-2.5 text-sm sm:text-base justify-start"
-          data-testid="button-login-apple"
-        >
-          <SiApple className="w-4 h-4 sm:w-5 sm:h-5 mr-2 shrink-0" />
-          <span className="truncate">Sign in with Apple</span>
-        </Button>
-
-        {/* Facebook Sign In (via Supabase) */}
+        {/* Facebook Sign In via Passport.js */}
         <Button
           variant="outline"
           onClick={handleFacebookLogin}
@@ -117,6 +74,28 @@ export function SocialLogin({
         >
           <SiFacebook className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-[#1877F2] shrink-0" />
           <span className="truncate">Sign in with Facebook</span>
+        </Button>
+
+        {/* X (Twitter) Sign In via Replit Auth */}
+        <Button
+          variant="outline"
+          onClick={handleReplitLogin}
+          className="w-full min-h-[44px] h-auto py-2.5 text-sm sm:text-base justify-start"
+          data-testid="button-login-x"
+        >
+          <FaXTwitter className="w-4 h-4 sm:w-5 sm:h-5 mr-2 shrink-0" />
+          <span className="truncate">Sign in with X</span>
+        </Button>
+
+        {/* Apple Sign In via Replit Auth */}
+        <Button
+          variant="outline"
+          onClick={handleReplitLogin}
+          className="w-full min-h-[44px] h-auto py-2.5 text-sm sm:text-base justify-start"
+          data-testid="button-login-apple"
+        >
+          <SiApple className="w-4 h-4 sm:w-5 sm:h-5 mr-2 shrink-0" />
+          <span className="truncate">Sign in with Apple</span>
         </Button>
 
         {/* Terms and Privacy */}
