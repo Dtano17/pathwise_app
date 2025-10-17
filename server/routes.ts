@@ -93,6 +93,21 @@ function getUserId(req: any): string | null {
   return null;
 }
 
+// Helper to get session-based demo user ID for unauthenticated users
+// Each session gets a unique demo ID to prevent state collision
+function getDemoUserId(req: any): string {
+  const authUserId = getUserId(req);
+  if (authUserId) {
+    return authUserId; // Use real user ID if authenticated
+  }
+  
+  // Create or retrieve session-based demo user ID
+  if (!req.session.demoUserId) {
+    req.session.demoUserId = `demo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+  return req.session.demoUserId;
+}
+
 // Helper function for Smart Plan structured conversation
 async function handleSmartPlanConversation(req: any, res: any, message: string, conversationHistory: any[], userId: string) {
   try {
@@ -3315,9 +3330,9 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   // ===== CONVERSATIONAL LIFESTYLE PLANNER API ENDPOINTS =====
 
   // Start a new lifestyle planning session
-  app.post("/api/planner/session", isAuthenticatedGeneric, async (req, res) => {
+  app.post("/api/planner/session", async (req, res) => {
     try {
-      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      const userId = getDemoUserId(req);
       
       // Check if user has an active session
       const activeSession = await storage.getActiveLifestylePlannerSession(userId);
@@ -3351,9 +3366,9 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   });
 
   // Process a message in the conversation
-  app.post("/api/planner/message", isAuthenticatedGeneric, async (req, res) => {
+  app.post("/api/planner/message", async (req, res) => {
     try {
-      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      const userId = getDemoUserId(req);
       const { sessionId, message, mode } = req.body;
 
       if (!sessionId || !message) {
