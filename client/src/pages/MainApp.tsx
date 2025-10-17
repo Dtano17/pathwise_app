@@ -13,6 +13,7 @@ import ClaudePlanOutput from '@/components/ClaudePlanOutput';
 import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import PersonalJournal from '@/components/PersonalJournal';
+import ConversationalPlanner from '@/components/ConversationalPlanner';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
@@ -116,6 +117,7 @@ export default function MainApp({
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
   const [sharePreviewDialog, setSharePreviewDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
+  const [showJournalMode, setShowJournalMode] = useState(false);
 
   // Handle URL query parameters for activity selection from shared links
   useEffect(() => {
@@ -1056,6 +1058,7 @@ export default function MainApp({
               <VoiceInput
                 onSubmit={(text) => processGoalMutation.mutate(text)}
                 isGenerating={processGoalMutation.isPending}
+                onOpenJournalMode={() => setShowJournalMode(true)}
               />
 
               {/* Interactive Options */}
@@ -2795,6 +2798,15 @@ Assistant: For nutrition, I recommend..."
           <div className="flex-1 overflow-y-auto min-h-0">
             <PersonalJournal onClose={() => onShowLifestylePlanner(false)} />
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showJournalMode} onOpenChange={setShowJournalMode}>
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl h-[90vh] flex flex-col p-0" data-testid="modal-journal-mode">
+          <ConversationalPlanner 
+            initialMode="journal"
+            onClose={() => setShowJournalMode(false)}
+          />
         </DialogContent>
       </Dialog>
 

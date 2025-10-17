@@ -51,14 +51,15 @@ type PlanningMode = 'quick' | 'chat' | 'direct' | 'journal' | null;
 
 interface ConversationalPlannerProps {
   onClose?: () => void;
+  initialMode?: PlanningMode;
 }
 
-export default function ConversationalPlanner({ onClose }: ConversationalPlannerProps) {
+export default function ConversationalPlanner({ onClose, initialMode }: ConversationalPlannerProps) {
   const { toast } = useToast();
   const [currentSession, setCurrentSession] = useState<PlannerSession | null>(null);
   const [message, setMessage] = useState('');
   const [contextChips, setContextChips] = useState<ContextChip[]>([]);
-  const [planningMode, setPlanningMode] = useState<PlanningMode>(null);
+  const [planningMode, setPlanningMode] = useState<PlanningMode>(initialMode || null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAgreementPrompt, setShowAgreementPrompt] = useState(false);
   const [pendingPlan, setPendingPlan] = useState<any>(null);
@@ -78,20 +79,25 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
   const [detectedCategory, setDetectedCategory] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load session from localStorage on mount
+  // Load session from localStorage on mount (but respect initialMode if provided)
   useEffect(() => {
     const savedSession = localStorage.getItem('planner_session');
     const savedMode = localStorage.getItem('planner_mode');
     const savedChips = localStorage.getItem('planner_chips');
 
-    if (savedSession && savedMode) {
+    if (savedSession) {
       setCurrentSession(JSON.parse(savedSession));
-      setPlanningMode(savedMode as PlanningMode);
-      if (savedChips) {
-        setContextChips(JSON.parse(savedChips));
-      }
     }
-  }, []);
+    
+    // Only restore saved mode if no initialMode was provided
+    if (savedMode && !initialMode) {
+      setPlanningMode(savedMode as PlanningMode);
+    }
+    
+    if (savedChips) {
+      setContextChips(JSON.parse(savedChips));
+    }
+  }, [initialMode]);
 
   // Save session to localStorage whenever it changes
   useEffect(() => {
