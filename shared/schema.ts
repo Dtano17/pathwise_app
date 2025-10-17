@@ -704,6 +704,19 @@ export const activityFeedback = pgTable("activity_feedback", {
   activityFeedbackIndex: index("activity_feedback_index").on(table.activityId, table.feedbackType),
 }));
 
+// Task feedback for like/unlike tracking on individual tasks
+export const taskFeedback = pgTable("task_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id").references(() => tasks.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  feedbackType: text("feedback_type").notNull(), // 'like' | 'dislike'
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueUserTaskFeedback: uniqueIndex("unique_user_task_feedback").on(table.userId, table.taskId),
+  taskFeedbackIndex: index("task_feedback_index").on(table.taskId, table.feedbackType),
+}));
+
 // Add Zod schemas for new tables
 export const insertAuthIdentitySchema = createInsertSchema(authIdentities).omit({
   id: true,
@@ -747,6 +760,12 @@ export const insertActivityFeedbackSchema = createInsertSchema(activityFeedback)
   updatedAt: true,
 });
 
+export const insertTaskFeedbackSchema = createInsertSchema(taskFeedback).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Add TypeScript types for new tables
 export type AuthIdentity = typeof authIdentities.$inferSelect;
 export type InsertAuthIdentity = z.infer<typeof insertAuthIdentitySchema>;
@@ -765,6 +784,9 @@ export type InsertActivityPermissionRequest = z.infer<typeof insertActivityPermi
 
 export type ActivityFeedback = typeof activityFeedback.$inferSelect;
 export type InsertActivityFeedback = z.infer<typeof insertActivityFeedbackSchema>;
+
+export type TaskFeedback = typeof taskFeedback.$inferSelect;
+export type InsertTaskFeedback = z.infer<typeof insertTaskFeedbackSchema>;
 
 // Additional contact sync validation
 export const syncContactsSchema = z.object({
