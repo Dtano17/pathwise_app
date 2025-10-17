@@ -47,6 +47,8 @@ import {
   type InsertUserPreferences,
   type ActivityFeedback,
   type InsertActivityFeedback,
+  type TaskFeedback,
+  type InsertTaskFeedback,
   users,
   goals,
   tasks,
@@ -67,7 +69,8 @@ import {
   lifestylePlannerSessions,
   userProfiles,
   userPreferences,
-  activityFeedback
+  activityFeedback,
+  taskFeedback
 } from "@shared/schema";
 
 const sql = neon(process.env.DATABASE_URL!);
@@ -128,6 +131,12 @@ export interface IStorage {
   getUserActivityFeedback(activityId: string, userId: string): Promise<ActivityFeedback | undefined>;
   deleteActivityFeedback(activityId: string, userId: string): Promise<void>;
   getActivityFeedbackStats(activityId: string): Promise<{ likes: number; dislikes: number }>;
+
+  // Task Feedback (Like/Unlike)
+  upsertTaskFeedback(taskId: string, userId: string, feedbackType: 'like' | 'dislike'): Promise<TaskFeedback>;
+  getUserTaskFeedback(taskId: string, userId: string): Promise<TaskFeedback | undefined>;
+  deleteTaskFeedback(taskId: string, userId: string): Promise<void>;
+  getTaskFeedbackStats(taskId: string): Promise<{ likes: number; dislikes: number }>;
 
   // Journal Entries
   createJournalEntry(entry: InsertJournalEntry & { userId: string }): Promise<JournalEntry>;
@@ -590,6 +599,49 @@ export class DatabaseStorage implements IStorage {
   async getActivityFeedbackStats(activityId: string): Promise<{ likes: number; dislikes: number }> {
     const feedback = await db.select().from(activityFeedback)
       .where(eq(activityFeedback.activityId, activityId));
+    
+    const likes = feedback.filter(f => f.feedbackType === 'like').length;
+    const dislikes = feedback.filter(f => f.feedbackType === 'dislike').length;
+    
+    return { likes, dislikes };
+  }
+
+  // Task Feedback Methods
+  async upsertTaskFeedback(taskId: string, userId: string, feedbackType: 'like' | 'dislike'): Promise<TaskFeedback> {
+    // Try to update first
+    const existing = await db.select().from(taskFeedback)
+      .where(and(eq(taskFeedback.taskId, taskId), eq(taskFeedback.userId, userId)));
+    
+    if (existing.length > 0) {
+      // Update existing feedback
+      const result = await db.update(taskFeedback)
+        .set({ feedbackType, updatedAt: new Date() })
+        .where(and(eq(taskFeedback.taskId, taskId), eq(taskFeedback.userId, userId)))
+        .returning();
+      return result[0];
+    } else {
+      // Create new feedback
+      const result = await db.insert(taskFeedback)
+        .values({ taskId, userId, feedbackType })
+        .returning();
+      return result[0];
+    }
+  }
+
+  async getUserTaskFeedback(taskId: string, userId: string): Promise<TaskFeedback | undefined> {
+    const result = await db.select().from(taskFeedback)
+      .where(and(eq(taskFeedback.taskId, taskId), eq(taskFeedback.userId, userId)));
+    return result[0];
+  }
+
+  async deleteTaskFeedback(taskId: string, userId: string): Promise<void> {
+    await db.delete(taskFeedback)
+      .where(and(eq(taskFeedback.taskId, taskId), eq(taskFeedback.userId, userId)));
+  }
+
+  async getTaskFeedbackStats(taskId: string): Promise<{ likes: number; dislikes: number }> {
+    const feedback = await db.select().from(taskFeedback)
+      .where(eq(taskFeedback.taskId, taskId));
     
     const likes = feedback.filter(f => f.feedbackType === 'like').length;
     const dislikes = feedback.filter(f => f.feedbackType === 'dislike').length;
