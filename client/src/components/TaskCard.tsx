@@ -47,9 +47,7 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
   // Task feedback mutation
   const feedbackMutation = useMutation({
     mutationFn: async (feedbackType: 'like' | 'dislike') => {
-      return await apiRequest('POST', `/api/tasks/${task.id}/feedback`, {
-        body: JSON.stringify({ feedbackType })
-      });
+      return await apiRequest('POST', `/api/tasks/${task.id}/feedback`, { feedbackType });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks', task.id, 'feedback'] });
@@ -280,25 +278,26 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
           )}
         </div>
 
-        {/* Feedback Buttons */}
+        {/* Feedback Buttons - YouTube Style */}
         <div className="flex items-center justify-center gap-6 mb-4 border-t pt-4">
           <button
             onClick={() => feedbackMutation.mutate('like')}
             disabled={feedbackMutation.isPending}
-            className="flex items-center gap-2 transition-all duration-300 hover:scale-110 group disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 transition-all duration-200 hover:scale-105 group disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid={`button-like-${task.id}`}
           >
             <ThumbsUp 
-              className={`w-5 h-5 transition-all duration-300 ${
+              className={`w-5 h-5 transition-all duration-200 ${
                 feedbackData?.userFeedback?.feedbackType === 'like' 
-                  ? 'fill-[#FF9F7D] stroke-[#FF9F7D] drop-shadow-[0_0_8px_rgba(255,159,125,0.6)]' 
-                  : 'stroke-muted-foreground group-hover:stroke-[#FF9F7D] group-hover:drop-shadow-[0_0_6px_rgba(255,159,125,0.4)]'
+                  ? 'fill-[#d4a574] stroke-[#d4a574]' 
+                  : 'fill-none stroke-muted-foreground group-hover:fill-muted-foreground/20'
               }`}
+              strokeWidth={2}
             />
-            <span className={`text-sm font-medium transition-colors duration-300 ${
+            <span className={`text-sm font-medium transition-colors duration-200 ${
               feedbackData?.userFeedback?.feedbackType === 'like'
-                ? 'text-[#FF9F7D]'
-                : 'text-muted-foreground group-hover:text-[#FF9F7D]'
+                ? 'text-foreground'
+                : 'text-muted-foreground'
             }`}>
               {feedbackData?.stats?.likes || 0}
             </span>
@@ -306,20 +305,21 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
           <button
             onClick={() => feedbackMutation.mutate('dislike')}
             disabled={feedbackMutation.isPending}
-            className="flex items-center gap-2 transition-all duration-300 hover:scale-110 group disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 transition-all duration-200 hover:scale-105 group disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid={`button-dislike-${task.id}`}
           >
             <ThumbsDown 
-              className={`w-5 h-5 transition-all duration-300 ${
+              className={`w-5 h-5 transition-all duration-200 ${
                 feedbackData?.userFeedback?.feedbackType === 'dislike' 
-                  ? 'fill-[#FF8E94] stroke-[#FF8E94] drop-shadow-[0_0_8px_rgba(255,142,148,0.6)]' 
-                  : 'stroke-muted-foreground group-hover:stroke-[#FF8E94] group-hover:drop-shadow-[0_0_6px_rgba(255,142,148,0.4)]'
+                  ? 'fill-[#d4a574] stroke-[#d4a574]' 
+                  : 'fill-none stroke-muted-foreground group-hover:fill-muted-foreground/20'
               }`}
+              strokeWidth={2}
             />
-            <span className={`text-sm font-medium transition-colors duration-300 ${
+            <span className={`text-sm font-medium transition-colors duration-200 ${
               feedbackData?.userFeedback?.feedbackType === 'dislike'
-                ? 'text-[#FF8E94]'
-                : 'text-muted-foreground group-hover:text-[#FF8E94]'
+                ? 'text-foreground'
+                : 'text-muted-foreground'
             }`}>
               {feedbackData?.stats?.dislikes || 0}
             </span>
