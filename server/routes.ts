@@ -39,6 +39,40 @@ import { eq, and, or, isNull } from "drizzle-orm";
 import bcrypt from 'bcrypt';
 import { z } from "zod";
 import crypto from 'crypto';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
+// Configure multer for media uploads
+const uploadDir = path.join(process.cwd(), 'attached_assets', 'journal_media');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const multerStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'journal_' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: multerStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|mp4|mov|avi/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images (JPEG, PNG, GIF) and videos (MP4, MOV, AVI) are allowed'));
+    }
+  }
+});
 
 // Helper function to extract authenticated user ID from request
 function getUserId(req: any): string | null {
@@ -3150,6 +3184,97 @@ You can find these tasks in your task list and start working on them right away!
     } catch (error) {
       console.error('Error saving custom categories:', error);
       res.status(500).json({ error: 'Failed to save custom categories' });
+    }
+  });
+
+  // Upload media for journal entries
+  app.post("/api/journal/upload", upload.array('media', 5), async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: 'No files uploaded' });
+      }
+
+      const mediaUrls = files.map(file => ({
+        url: `/attached_assets/journal_media/${file.filename}`,
+        type: file.mimetype.startsWith('video/') ? 'video' as const : 'image' as const,
+        filename: file.filename
+      }));
+
+      res.json({ success: true, media: mediaUrls });
+    } catch (error) {
+      console.error('Upload error:', error);
+      res.status(500).json({ error: 'Failed to upload media' });
+    }
+  });
+
+  // AI-powered journal entry creation with keyword detection
+  app.post("/api/journal/smart-entry", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { text, media, keywords } = req.body;
+
+      if (!text) {
+        return res.status(400).json({ error: 'Text content required' });
+      }
+
+      // TODO: Implement AI category detection and keyword parsing
+      // For now, use simple keyword mapping
+      const categoryMapping: { [key: string]: string } = {
+        '@restaurants': 'Restaurants & Food',
+        '@food': 'Restaurants & Food',
+        '@dinner': 'Restaurants & Food',
+        '@lunch': 'Restaurants & Food',
+        '@movies': 'Movies & TV Shows',
+        '@shows': 'Movies & TV Shows',
+        '@tv': 'Movies & TV Shows',
+        '@music': 'Music & Artists',
+        '@artists': 'Music & Artists',
+        '@concert': 'Music & Artists',
+        '@travel': 'Travel & Places',
+        '@places': 'Travel & Places',
+        '@vacation': 'Travel & Places',
+        '@books': 'Books & Reading',
+        '@reading': 'Books & Reading',
+        '@hobbies': 'Hobbies & Interests',
+        '@style': 'Personal Style',
+        '@fashion': 'Personal Style',
+        '@things': 'Favorite Things',
+        '@notes': 'Personal Notes'
+      };
+
+      // Detect category from keywords or text
+      let detectedCategory = 'Personal Notes'; // default
+      let detectedKeywords: string[] = [];
+      
+      // Check for explicit keywords
+      for (const [keyword, category] of Object.entries(categoryMapping)) {
+        if (text.toLowerCase().includes(keyword.toLowerCase())) {
+          detectedCategory = category;
+          detectedKeywords.push(keyword);
+          break;
+        }
+      }
+
+      // Add journal entry with media
+      await storage.addPersonalJournalEntry(userId, detectedCategory, {
+        text,
+        media,
+        keywords: detectedKeywords.length > 0 ? detectedKeywords : keywords,
+        aiConfidence: detectedKeywords.length > 0 ? 0.9 : 0.5
+      });
+
+      res.json({
+        success: true,
+        category: detectedCategory,
+        keywords: detectedKeywords,
+        aiConfidence: detectedKeywords.length > 0 ? 0.9 : 0.5
+      });
+    } catch (error) {
+      console.error('Smart entry error:', error);
+      res.status(500).json({ error: 'Failed to create journal entry' });
     }
   });
 
