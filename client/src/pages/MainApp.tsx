@@ -1352,7 +1352,9 @@ export default function MainApp({
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   try {
-                                    const newIsPublic = !activity.isPublic;
+                                    const currentState = activity.isPublic;
+                                    const newIsPublic = !currentState;
+                                    console.log('[PRIVACY TOGGLE DEBUG] Before toggle:', { activityId: activity.id, currentState, newIsPublic });
                                     
                                     const response = await fetch(`/api/activities/${activity.id}`, {
                                       method: 'PATCH',
@@ -1364,8 +1366,15 @@ export default function MainApp({
                                       throw new Error('Failed to update privacy');
                                     }
                                     
+                                    const updatedActivity = await response.json();
+                                    console.log('[PRIVACY TOGGLE DEBUG] Response from server:', { isPublic: updatedActivity.isPublic });
+                                    
                                     // Refetch activities to get the latest data
                                     await queryClient.refetchQueries({ queryKey: ['/api/activities'] });
+                                    
+                                    // Log activities after refetch
+                                    const cachedData = queryClient.getQueryData(['/api/activities']);
+                                    console.log('[PRIVACY TOGGLE DEBUG] After refetch, cached activities:', cachedData);
                                     
                                     toast({ 
                                       title: newIsPublic ? "Made Public" : "Made Private", 

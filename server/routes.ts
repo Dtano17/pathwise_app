@@ -1498,7 +1498,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { activityId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
       const updates = req.body;
+      console.log('[PRIVACY TOGGLE DEBUG] PATCH request received:', { activityId, userId, updates });
+      
       const activity = await storage.updateActivity(activityId, updates, userId);
+      console.log('[PRIVACY TOGGLE DEBUG] Activity after update:', { id: activity?.id, isPublic: activity?.isPublic });
       
       if (!activity) {
         return res.status(404).json({ error: 'Activity not found' });
