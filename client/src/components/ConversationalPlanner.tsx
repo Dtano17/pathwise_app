@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ConversationMessage {
@@ -702,7 +702,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                    <Camera className="h-6 w-6" />
+                    <BookOpen className="h-6 w-6" />
                   </div>
                   <div className="text-left">
                     <div className="font-semibold text-lg">Journal Mode</div>
