@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain } from 'lucide-react';
+import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -62,6 +62,7 @@ export function AppSidebar({
   
   // Collapsible section states
   const [isThemeExpanded, setIsThemeExpanded] = useState(false);
+  const [isJournalExpanded, setIsJournalExpanded] = useState(false);
   const [isQuickActionsExpanded, setIsQuickActionsExpanded] = useState(false);
   const [isFriendsExpanded, setIsFriendsExpanded] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
@@ -137,13 +138,47 @@ export function AppSidebar({
           </SidebarGroup>
         </Collapsible>
 
+        {/* Personal Journal Section */}
+        <Collapsible open={isJournalExpanded} onOpenChange={setIsJournalExpanded}>
+          <SidebarGroup>
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  Personal Journal
+                </div>
+                {isJournalExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                )}
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={onShowLifestylePlanner}
+                      data-testid="button-personal-journal-sidebar"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      <span>Open Journal</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
+
         {/* Quick Actions Section */}
         <Collapsible open={isQuickActionsExpanded} onOpenChange={setIsQuickActionsExpanded}>
           <SidebarGroup>
             <CollapsibleTrigger asChild>
               <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" />
+                  <Zap className="w-4 h-4" />
                   Quick Actions
                 </div>
                 {isQuickActionsExpanded ? (
@@ -156,15 +191,6 @@ export function AppSidebar({
             <CollapsibleContent>
               <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  onClick={onShowLifestylePlanner}
-                  data-testid="button-personal-journal-sidebar"
-                >
-                  <BookOpen className="w-4 h-4" />
-                  <span>Personal Journal</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   onClick={onShowDatePlanner}
