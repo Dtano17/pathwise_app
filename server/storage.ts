@@ -223,6 +223,20 @@ export interface IStorage {
   getUserPreferences(userId: string): Promise<UserPreferences | undefined>;
   upsertUserPreferences(userId: string, preferences: InsertUserPreferences): Promise<UserPreferences>;
   deleteUserPreferences(userId: string): Promise<void>;
+  
+  // Personal Journal with Media
+  addPersonalJournalEntry(userId: string, category: string, entry: {
+    text: string;
+    media?: Array<{ url: string; type: 'image' | 'video'; thumbnail?: string }>;
+    keywords?: string[];
+    aiConfidence?: number;
+  }): Promise<UserPreferences>;
+  getPersonalJournalEntries(userId: string, category?: string): Promise<UserPreferences | undefined>;
+  updatePersonalJournalEntry(userId: string, category: string, entryId: string, updates: Partial<{
+    text: string;
+    media?: Array<{ url: string; type: 'image' | 'video'; thumbnail?: string }>;
+  }>): Promise<UserPreferences>;
+  deletePersonalJournalEntry(userId: string, category: string, entryId: string): Promise<UserPreferences>;
 
   // Lifestyle Planner Sessions
   createLifestylePlannerSession(session: InsertLifestylePlannerSession & { userId: string }): Promise<LifestylePlannerSession>;
@@ -997,6 +1011,87 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUserPreferences(userId: string): Promise<void> {
     await db.delete(userPreferences).where(eq(userPreferences.userId, userId));
+  }
+
+  // Personal Journal with Media operations
+  async addPersonalJournalEntry(userId: string, category: string, entry: {
+    text: string;
+    media?: Array<{ url: string; type: 'image' | 'video'; thumbnail?: string }>;
+    keywords?: string[];
+    aiConfidence?: number;
+  }): Promise<UserPreferences> {
+    const prefs = await this.getUserPreferences(userId);
+    const currentPrefs = prefs?.preferences || {};
+    const currentJournal = currentPrefs.journalData || {};
+    const categoryEntries = currentJournal[category] || [];
+    
+    const newEntry = {
+      id: Math.random().toString(36).substr(2, 9),
+      text: entry.text,
+      media: entry.media,
+      timestamp: new Date().toISOString(),
+      aiConfidence: entry.aiConfidence,
+      keywords: entry.keywords,
+    };
+    
+    categoryEntries.push(newEntry);
+    currentJournal[category] = categoryEntries;
+    
+    return this.upsertUserPreferences(userId, {
+      preferences: {
+        ...currentPrefs,
+        journalData: currentJournal,
+      },
+    });
+  }
+
+  async getPersonalJournalEntries(userId: string, category?: string): Promise<UserPreferences | undefined> {
+    return this.getUserPreferences(userId);
+  }
+
+  async updatePersonalJournalEntry(userId: string, category: string, entryId: string, updates: Partial<{
+    text: string;
+    media?: Array<{ url: string; type: 'image' | 'video'; thumbnail?: string }>;
+  }>): Promise<UserPreferences> {
+    const prefs = await this.getUserPreferences(userId);
+    const currentPrefs = prefs?.preferences || {};
+    const currentJournal = currentPrefs.journalData || {};
+    const categoryEntries = currentJournal[category] || [];
+    
+    const entryIndex = categoryEntries.findIndex((e: any) => e.id === entryId);
+    if (entryIndex === -1) {
+      throw new Error('Journal entry not found');
+    }
+    
+    categoryEntries[entryIndex] = {
+      ...categoryEntries[entryIndex],
+      ...updates,
+    };
+    
+    currentJournal[category] = categoryEntries;
+    
+    return this.upsertUserPreferences(userId, {
+      preferences: {
+        ...currentPrefs,
+        journalData: currentJournal,
+      },
+    });
+  }
+
+  async deletePersonalJournalEntry(userId: string, category: string, entryId: string): Promise<UserPreferences> {
+    const prefs = await this.getUserPreferences(userId);
+    const currentPrefs = prefs?.preferences || {};
+    const currentJournal = currentPrefs.journalData || {};
+    const categoryEntries = currentJournal[category] || [];
+    
+    currentJournal[category] = categoryEntries.filter((e: any) => e.id !== entryId);
+    
+    return this.upsertUserPreferences(userId, {
+      preferences: {
+        ...currentPrefs,
+        journalData: currentJournal,
+      },
+    });
   }
 
   // User Consent operations

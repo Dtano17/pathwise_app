@@ -906,7 +906,20 @@ export const userPreferences = pgTable("user_preferences", {
     constraints?: string[]; // ['limited_mobility', 'time_constraints', 'budget_conscious']
     communicationTone?: 'formal' | 'casual' | 'encouraging' | 'direct';
     focusAreas?: string[]; // ['career', 'health', 'relationships', 'personal_growth', 'finance']
-    journalData?: { [category: string]: string[] }; // Personal journal entries by category
+    journalData?: { 
+      [category: string]: Array<{
+        id: string;
+        text: string;
+        media?: Array<{
+          url: string;
+          type: 'image' | 'video';
+          thumbnail?: string;
+        }>;
+        timestamp: string;
+        aiConfidence?: number; // 0-1, indicates AI's confidence in categorization
+        keywords?: string[]; // Detected keywords like @restaurants
+      }>
+    }; // Personal journal entries by category with media support
     customJournalCategories?: Array<{ id: string; name: string; color: string }>; // User-created journal categories
   }>().default({}),
   createdAt: timestamp("created_at").defaultNow(),
