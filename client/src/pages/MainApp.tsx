@@ -1354,12 +1354,18 @@ export default function MainApp({
                                   try {
                                     const newIsPublic = !activity.isPublic;
                                     
-                                    await apiRequest('PATCH', `/api/activities/${activity.id}`, {
+                                    const response = await fetch(`/api/activities/${activity.id}`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ isPublic: newIsPublic })
                                     });
                                     
-                                    // Refetch to ensure we have the latest data
-                                    await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+                                    if (!response.ok) {
+                                      throw new Error('Failed to update privacy');
+                                    }
+                                    
+                                    // Refetch activities to get the latest data
+                                    await queryClient.refetchQueries({ queryKey: ['/api/activities'] });
                                     
                                     toast({ 
                                       title: newIsPublic ? "Made Public" : "Made Private", 
@@ -1369,7 +1375,7 @@ export default function MainApp({
                                     });
                                   } catch (error) {
                                     console.error('Privacy toggle error:', error);
-                                    await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+                                    await queryClient.refetchQueries({ queryKey: ['/api/activities'] });
                                     toast({
                                       title: "Update Failed",
                                       description: "Unable to update privacy settings. Please try again.",
@@ -1408,6 +1414,15 @@ export default function MainApp({
                                           Sign In
                                         </Button>
                                       )
+                                    });
+                                    return;
+                                  }
+                                  
+                                  if (!activity.isPublic) {
+                                    toast({
+                                      title: "Activity is Private",
+                                      description: "Make the activity public first before sharing.",
+                                      variant: "default"
                                     });
                                     return;
                                   }

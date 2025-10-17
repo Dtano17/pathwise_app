@@ -1492,6 +1492,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Patch activity (partial update)
+  app.patch("/api/activities/:activityId", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const updates = req.body;
+      const activity = await storage.updateActivity(activityId, updates, userId);
+      
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      res.json(activity);
+    } catch (error) {
+      console.error('Patch activity error:', error);
+      res.status(500).json({ error: 'Failed to update activity' });
+    }
+  });
+
   // Delete activity
   app.delete("/api/activities/:activityId", async (req, res) => {
     try {
