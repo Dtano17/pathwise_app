@@ -281,29 +281,49 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
         </div>
 
         {/* Feedback Buttons */}
-        <div className="flex items-center justify-center gap-4 mb-4 border-t pt-4">
-          <Button
-            variant={feedbackData?.userFeedback?.feedbackType === 'like' ? 'default' : 'outline'}
-            size="sm"
+        <div className="flex items-center justify-center gap-6 mb-4 border-t pt-4">
+          <button
             onClick={() => feedbackMutation.mutate('like')}
             disabled={feedbackMutation.isPending}
-            className={feedbackData?.userFeedback?.feedbackType === 'like' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
+            className="flex items-center gap-2 transition-all duration-300 hover:scale-110 group disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid={`button-like-${task.id}`}
           >
-            <ThumbsUp className="w-4 h-4 mr-1" />
-            {feedbackData?.stats?.likes || 0}
-          </Button>
-          <Button
-            variant={feedbackData?.userFeedback?.feedbackType === 'dislike' ? 'default' : 'outline'}
-            size="sm"
+            <ThumbsUp 
+              className={`w-5 h-5 transition-all duration-300 ${
+                feedbackData?.userFeedback?.feedbackType === 'like' 
+                  ? 'fill-[#FF9F7D] stroke-[#FF9F7D] drop-shadow-[0_0_8px_rgba(255,159,125,0.6)]' 
+                  : 'stroke-muted-foreground group-hover:stroke-[#FF9F7D] group-hover:drop-shadow-[0_0_6px_rgba(255,159,125,0.4)]'
+              }`}
+            />
+            <span className={`text-sm font-medium transition-colors duration-300 ${
+              feedbackData?.userFeedback?.feedbackType === 'like'
+                ? 'text-[#FF9F7D]'
+                : 'text-muted-foreground group-hover:text-[#FF9F7D]'
+            }`}>
+              {feedbackData?.stats?.likes || 0}
+            </span>
+          </button>
+          <button
             onClick={() => feedbackMutation.mutate('dislike')}
             disabled={feedbackMutation.isPending}
-            className={feedbackData?.userFeedback?.feedbackType === 'dislike' ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
+            className="flex items-center gap-2 transition-all duration-300 hover:scale-110 group disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid={`button-dislike-${task.id}`}
           >
-            <ThumbsDown className="w-4 h-4 mr-1" />
-            {feedbackData?.stats?.dislikes || 0}
-          </Button>
+            <ThumbsDown 
+              className={`w-5 h-5 transition-all duration-300 ${
+                feedbackData?.userFeedback?.feedbackType === 'dislike' 
+                  ? 'fill-[#FF8E94] stroke-[#FF8E94] drop-shadow-[0_0_8px_rgba(255,142,148,0.6)]' 
+                  : 'stroke-muted-foreground group-hover:stroke-[#FF8E94] group-hover:drop-shadow-[0_0_6px_rgba(255,142,148,0.4)]'
+              }`}
+            />
+            <span className={`text-sm font-medium transition-colors duration-300 ${
+              feedbackData?.userFeedback?.feedbackType === 'dislike'
+                ? 'text-[#FF8E94]'
+                : 'text-muted-foreground group-hover:text-[#FF8E94]'
+            }`}>
+              {feedbackData?.stats?.dislikes || 0}
+            </span>
+          </button>
         </div>
 
         {/* Action Buttons */}
