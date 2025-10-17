@@ -47,7 +47,8 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
   // Task feedback mutation
   const feedbackMutation = useMutation({
     mutationFn: async (feedbackType: 'like' | 'dislike') => {
-      return await apiRequest('POST', `/api/tasks/${task.id}/feedback`, { feedbackType });
+      const response = await apiRequest('POST', `/api/tasks/${task.id}/feedback`, { feedbackType });
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks', task.id, 'feedback'] });
@@ -279,49 +280,42 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
         </div>
 
         {/* Feedback Buttons - YouTube Style */}
-        <div className="flex items-center justify-center gap-6 mb-4 border-t pt-4">
+        <div className="flex items-center justify-center gap-4 mb-4 border-t pt-4">
           <button
             onClick={() => feedbackMutation.mutate('like')}
             disabled={feedbackMutation.isPending}
-            className="flex items-center gap-2 transition-all duration-200 hover:scale-105 group disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-3 py-2 rounded-full transition-all duration-200 hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid={`button-like-${task.id}`}
           >
             <ThumbsUp 
               className={`w-5 h-5 transition-all duration-200 ${
                 feedbackData?.userFeedback?.feedbackType === 'like' 
-                  ? 'fill-[#d4a574] stroke-[#d4a574]' 
-                  : 'fill-none stroke-muted-foreground group-hover:fill-muted-foreground/20'
+                  ? 'fill-foreground stroke-foreground' 
+                  : 'fill-none stroke-foreground'
               }`}
-              strokeWidth={2}
+              strokeWidth={1.5}
             />
-            <span className={`text-sm font-medium transition-colors duration-200 ${
-              feedbackData?.userFeedback?.feedbackType === 'like'
-                ? 'text-foreground'
-                : 'text-muted-foreground'
-            }`}>
-              {feedbackData?.stats?.likes || 0}
+            <span className="text-xs font-medium text-foreground">
+              {feedbackData?.stats?.likes || ''}
             </span>
           </button>
+          <div className="w-px h-6 bg-border" />
           <button
             onClick={() => feedbackMutation.mutate('dislike')}
             disabled={feedbackMutation.isPending}
-            className="flex items-center gap-2 transition-all duration-200 hover:scale-105 group disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-3 py-2 rounded-full transition-all duration-200 hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid={`button-dislike-${task.id}`}
           >
             <ThumbsDown 
               className={`w-5 h-5 transition-all duration-200 ${
                 feedbackData?.userFeedback?.feedbackType === 'dislike' 
-                  ? 'fill-[#d4a574] stroke-[#d4a574]' 
-                  : 'fill-none stroke-muted-foreground group-hover:fill-muted-foreground/20'
+                  ? 'fill-foreground stroke-foreground' 
+                  : 'fill-none stroke-foreground'
               }`}
-              strokeWidth={2}
+              strokeWidth={1.5}
             />
-            <span className={`text-sm font-medium transition-colors duration-200 ${
-              feedbackData?.userFeedback?.feedbackType === 'dislike'
-                ? 'text-foreground'
-                : 'text-muted-foreground'
-            }`}>
-              {feedbackData?.stats?.dislikes || 0}
+            <span className="text-xs font-medium text-foreground">
+              {feedbackData?.stats?.dislikes || ''}
             </span>
           </button>
         </div>
