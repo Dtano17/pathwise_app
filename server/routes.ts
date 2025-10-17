@@ -1402,6 +1402,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Task feedback endpoints
+  app.post("/api/tasks/:taskId/feedback", async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { feedbackType } = req.body;
+
+      if (feedbackType !== 'like' && feedbackType !== 'dislike') {
+        return res.status(400).json({ error: 'Invalid feedback type. Must be "like" or "dislike"' });
+      }
+
+      // Check if removing feedback (same type clicked twice)
+      const existingFeedback = await storage.getUserTaskFeedback(taskId, userId);
+      
+      if (existingFeedback && existingFeedback.feedbackType === feedbackType) {
+        // Remove feedback
+        await storage.deleteTaskFeedback(taskId, userId);
+        const stats = await storage.getTaskFeedbackStats(taskId);
+        return res.json({ feedback: null, stats });
+      }
+
+      // Upsert feedback
+      const feedback = await storage.upsertTaskFeedback(taskId, userId, feedbackType);
+      const stats = await storage.getTaskFeedbackStats(taskId);
+      
+      res.json({ feedback, stats });
+    } catch (error) {
+      console.error('Task feedback error:', error);
+      res.status(500).json({ error: 'Failed to save task feedback' });
+    }
+  });
+
+  app.get("/api/tasks/:taskId/feedback", async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      const userFeedback = await storage.getUserTaskFeedback(taskId, userId);
+      const stats = await storage.getTaskFeedbackStats(taskId);
+      
+      res.json({ 
+        userFeedback: userFeedback || null, 
+        stats 
+      });
+    } catch (error) {
+      console.error('Get task feedback error:', error);
+      res.status(500).json({ error: 'Failed to fetch task feedback' });
+    }
+  });
+
   // Archive task
   app.patch("/api/tasks/:taskId/archive", async (req: any, res) => {
     try {
