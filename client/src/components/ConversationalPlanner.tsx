@@ -446,6 +446,55 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
     }
   });
 
+  // Journal Mode submitJournalEntry mutation
+  const submitJournalEntry = useMutation({
+    mutationFn: async () => {
+      setIsUploadingJournal(true);
+      
+      // Upload media first if any
+      let uploadedMedia = [];
+      if (journalMedia.length > 0) {
+        const formData = new FormData();
+        journalMedia.forEach(file => {
+          formData.append('media', file);
+        });
+        
+        const uploadResponse = await apiRequest('POST', '/api/journal/upload', formData);
+        const uploadData = await uploadResponse.json();
+        uploadedMedia = uploadData.media;
+      }
+      
+      // Submit journal entry with AI categorization
+      const response = await apiRequest('POST', '/api/journal/smart-entry', {
+        text: journalText,
+        media: uploadedMedia
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Journal entry saved!",
+        description: `Added to ${data.category}`,
+      });
+      setJournalText('');
+      setJournalMedia([]);
+      setDetectedCategory(data.category);
+      setIsUploadingJournal(false);
+      
+      // Refresh journal data
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+    },
+    onError: (error) => {
+      console.error('Failed to save journal entry:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save journal entry",
+        variant: "destructive"
+      });
+      setIsUploadingJournal(false);
+    }
+  });
+
   // Handlers for direct plan mode
   const handleDirectPlan = () => {
     if (!message.trim()) return;
@@ -734,55 +783,6 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
       </div>
     );
   }
-
-  // Journal Mode submitJournalEntry mutation
-  const submitJournalEntry = useMutation({
-    mutationFn: async () => {
-      setIsUploadingJournal(true);
-      
-      // Upload media first if any
-      let uploadedMedia = [];
-      if (journalMedia.length > 0) {
-        const formData = new FormData();
-        journalMedia.forEach(file => {
-          formData.append('media', file);
-        });
-        
-        const uploadResponse = await apiRequest('POST', '/api/journal/upload', formData);
-        const uploadData = await uploadResponse.json();
-        uploadedMedia = uploadData.media;
-      }
-      
-      // Submit journal entry with AI categorization
-      const response = await apiRequest('POST', '/api/journal/smart-entry', {
-        text: journalText,
-        media: uploadedMedia
-      });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "Journal entry saved!",
-        description: `Added to ${data.category}`,
-      });
-      setJournalText('');
-      setJournalMedia([]);
-      setDetectedCategory(data.category);
-      setIsUploadingJournal(false);
-      
-      // Refresh journal data
-      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
-    },
-    onError: (error) => {
-      console.error('Failed to save journal entry:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save journal entry",
-        variant: "destructive"
-      });
-      setIsUploadingJournal(false);
-    }
-  });
 
   // Journal Mode UI
   if (planningMode === 'journal') {

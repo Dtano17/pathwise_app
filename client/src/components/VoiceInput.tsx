@@ -896,50 +896,48 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                   </AnimatePresence>
                 </div>
 
-                {/* Action buttons row */}
-                <div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  {/* Conversational Mode Buttons */}
-                  <div ref={modeButtonsRef} className="flex gap-2 flex-wrap">
+                {/* Action buttons row - compact layout with smaller buttons */}
+                <div className="flex gap-1.5 sm:gap-2 flex-wrap items-center">
+                  {/* Conversational Mode Buttons - compact size */}
+                  <div ref={modeButtonsRef} className="flex gap-1.5 flex-1 min-w-0">
                     <Button
                       variant={currentMode === 'quick' ? 'default' : 'outline'}
-                      size="default"
+                      size="sm"
                       onClick={() => startConversationWithMode('quick')}
-                      className={`flex-1 sm:flex-none gap-1 sm:gap-2 ${
+                      className={`flex-1 gap-1 px-2 sm:px-3 min-w-0 ${
                         currentMode === 'quick'
                           ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 toggle-elevated'
                           : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950'
                       }`}
                       data-testid="button-quick-plan"
                     >
-                      <Zap className="w-3 h-3" />
-                      <span className="text-xs sm:text-sm">Quick Plan</span>
+                      <Zap className="w-3 h-3 flex-shrink-0" />
+                      <span className="text-[10px] sm:text-xs truncate">Quick</span>
                     </Button>
                     <Button
                       variant={currentMode === 'smart' ? 'default' : 'outline'}
-                      size="default"
+                      size="sm"
                       onClick={() => startConversationWithMode('smart')}
-                      className={`flex-1 sm:flex-none gap-1 sm:gap-2 ${
+                      className={`flex-1 gap-1 px-2 sm:px-3 min-w-0 ${
                         currentMode === 'smart'
                           ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700 toggle-elevated'
                           : 'text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950'
                       }`}
                       data-testid="button-smart-plan"
                     >
-                      <Brain className="w-3 h-3" />
-                      <span className="hidden sm:inline text-xs sm:text-sm">Smart Plan</span>
-                      <span className="sm:hidden text-xs sm:text-sm">Smart</span>
+                      <Brain className="w-3 h-3 flex-shrink-0" />
+                      <span className="text-[10px] sm:text-xs truncate">Smart</span>
                     </Button>
                     {onOpenJournalMode && (
                       <Button
                         variant="outline"
-                        size="default"
+                        size="sm"
                         onClick={onOpenJournalMode}
-                        className="flex-1 sm:flex-none gap-1 sm:gap-2 text-pink-600 border-pink-200 hover:bg-pink-50 dark:text-pink-400 dark:border-pink-800 dark:hover:bg-pink-950"
+                        className="flex-1 gap-1 px-2 sm:px-3 min-w-0 text-pink-600 border-pink-200 hover:bg-pink-50 dark:text-pink-400 dark:border-pink-800 dark:hover:bg-pink-950"
                         data-testid="button-journal-mode"
                       >
-                        <BookOpen className="w-3 h-3" />
-                        <span className="hidden sm:inline text-xs sm:text-sm">Journal Mode</span>
-                        <span className="sm:hidden text-xs sm:text-sm">Journal</span>
+                        <BookOpen className="w-3 h-3 flex-shrink-0" />
+                        <span className="text-[10px] sm:text-xs truncate">Journal</span>
                       </Button>
                     )}
                   </div>
@@ -947,7 +945,8 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                   <Button
                     onClick={handleSubmit}
                     disabled={!text.trim() || isGenerating}
-                    className="gap-1 sm:gap-2 w-full sm:w-auto"
+                    size="sm"
+                    className="gap-1.5 px-3 sm:px-4 flex-shrink-0"
                     data-testid="button-submit"
                   >
                     {isGenerating ? (
@@ -955,29 +954,16 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                         <motion.div
                           animate={{ rotate: 360 }}
                           transition={{ repeat: Infinity, duration: 1 }}
-                          className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full"
+                          className="w-3.5 h-3.5 border-2 border-primary-foreground border-t-transparent rounded-full"
                         />
-                        <span className="hidden sm:inline">Generating Plan...</span>
-                        <span className="sm:hidden">Generating...</span>
+                        <span className="text-xs">Loading...</span>
                       </>
                     ) : (
                       <>
-                        <Send className="w-4 h-4" />
-                        {currentMode ? (
-                          <>
-                            <span className="hidden sm:inline">
-                              Start {currentMode === 'quick' ? 'Quick Plan' : 'Smart Plan'}
-                            </span>
-                            <span className="sm:hidden">
-                              Start {currentMode === 'quick' ? 'Quick' : 'Smart'}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="hidden sm:inline">Create Action Plan</span>
-                            <span className="sm:hidden">Create Plan</span>
-                          </>
-                        )}
+                        <Send className="w-3.5 h-3.5" />
+                        <span className="text-xs whitespace-nowrap">
+                          {currentMode ? 'Start' : 'Submit'}
+                        </span>
                       </>
                     )}
                   </Button>
