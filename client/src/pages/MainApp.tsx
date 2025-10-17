@@ -1049,7 +1049,7 @@ export default function MainApp({
                   What do you want to achieve?
                 </h2>
                 <p className="text-sm sm:text-base text-muted-foreground">
-                  Share your goals through voice or text - AI will create actionable tasks for you
+                  Describe your goals and/or journal your life - AI will create actionable tasks for you
                 </p>
               </div>
               

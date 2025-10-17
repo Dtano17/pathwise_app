@@ -1095,7 +1095,7 @@ export default function ConversationalPlanner({ onClose }: ConversationalPlanner
                       onChange={(e) => setMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
                       onPaste={handlePaste}
-                      placeholder={planningMode === 'quick' ? "Tell me what you're planning... or paste a ChatGPT conversation/screenshot!" : "Chat about your plans... or paste a ChatGPT conversation/screenshot!"}
+                      placeholder={planningMode === 'quick' ? "Describe your goals and/or journal your life... or paste a ChatGPT conversation/screenshot!" : "Describe your goals and/or journal your life... or paste a ChatGPT conversation/screenshot!"}
                       disabled={sendMessageMutation.isPending || isParsingPaste}
                       className="w-full"
                       data-testid="input-message"
