@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 // Simple markdown formatter for Claude-style responses
@@ -90,7 +90,7 @@ interface VoiceInputProps {
   placeholder?: string;
 }
 
-const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "describe your goals" }) => {
+const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "Describe your goals and/or journal your life..." }) => {
   const [text, setText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
