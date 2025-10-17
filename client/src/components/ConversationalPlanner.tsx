@@ -117,6 +117,7 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentSession?.conversationHistory]);
 
+
   // Calculate plan generation readiness (must be before useEffect that uses it)
   const requiredSlotsFilled = contextChips.filter(chip => chip.category === 'required' && chip.filled).length;
   const totalRequiredSlots = contextChips.filter(chip => chip.category === 'required').length;
@@ -686,13 +687,6 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
     }
   };
 
-  // Return to main screen if no mode selected
-  if (!planningMode) {
-    if (onClose) {
-      onClose();
-    }
-    return null;
-  }
 
   // Journal Mode UI
   if (planningMode === 'journal') {
@@ -712,9 +706,15 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
               </div>
               <Button
                 onClick={() => {
-                  setPlanningMode(null);
+                  // Clear localStorage and close dialog
+                  localStorage.removeItem('planner_session');
+                  localStorage.removeItem('planner_mode');
+                  localStorage.removeItem('planner_chips');
                   setJournalText('');
                   setJournalMedia([]);
+                  if (onClose) {
+                    onClose();
+                  }
                 }}
                 variant="outline"
                 size="sm"
