@@ -1668,10 +1668,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const crypto = await import('crypto');
       const shareToken = crypto.randomBytes(16).toString('hex');
       
+      // Use production domain from REPLIT_DOMAINS (journalmate.ai) or fall back to dev domain
+      let baseUrl = 'http://localhost:5000';
+      if (process.env.REPLIT_DOMAINS) {
+        // REPLIT_DOMAINS contains the production domains (e.g., "journalmate.ai")
+        const domains = process.env.REPLIT_DOMAINS.split(',');
+        baseUrl = `https://${domains[0].trim()}`;
+      } else if (process.env.REPLIT_DEV_DOMAIN) {
+        baseUrl = `https://${process.env.REPLIT_DEV_DOMAIN}`;
+      }
+      
       const activity = await storage.updateActivity(activityId, {
         isPublic: true,
         shareToken,
-        shareableLink: `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:5000'}/share/${shareToken}`
+        shareableLink: `${baseUrl}/share/${shareToken}`
       }, userId);
       
       if (!activity) {

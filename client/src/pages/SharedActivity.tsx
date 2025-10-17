@@ -142,23 +142,47 @@ export default function SharedActivity() {
 
   useEffect(() => {
     if (data?.activity) {
-      const { title, description, category } = data.activity;
-      document.title = `${title || 'Shared Activity'} - JournalMate`;
+      const { title, description, category, backdrop } = data.activity;
+      const pageTitle = title || 'Shared Activity';
+      const pageDescription = description || `Join this ${category} plan on JournalMate`;
+      const currentUrl = window.location.href;
       
-      const metaDescription = document.querySelector('meta[name="description"]');
-      if (metaDescription) {
-        metaDescription.setAttribute('content', description || `Check out this ${category} activity plan on JournalMate`);
-      }
+      // Determine the best image for social sharing
+      const shareImage = backdrop || 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1200&h=630&fit=crop&q=80';
       
-      const ogTitle = document.querySelector('meta[property="og:title"]');
-      if (ogTitle) {
-        ogTitle.setAttribute('content', title || 'Shared Activity');
-      }
+      document.title = `${pageTitle} - JournalMate`;
       
-      const ogDescription = document.querySelector('meta[property="og:description"]');
-      if (ogDescription) {
-        ogDescription.setAttribute('content', description || `Check out this ${category} activity plan on JournalMate`);
-      }
+      // Helper function to set or create meta tags
+      const setMetaTag = (selector: string, attribute: string, content: string) => {
+        let tag = document.querySelector(selector);
+        if (!tag) {
+          tag = document.createElement('meta');
+          if (selector.includes('property')) {
+            tag.setAttribute('property', selector.replace('meta[property="', '').replace('"]', ''));
+          } else {
+            tag.setAttribute('name', selector.replace('meta[name="', '').replace('"]', ''));
+          }
+          document.head.appendChild(tag);
+        }
+        tag.setAttribute('content', content);
+      };
+      
+      // Standard meta tags
+      setMetaTag('meta[name="description"]', 'content', pageDescription);
+      
+      // Open Graph tags for Facebook, LinkedIn, etc.
+      setMetaTag('meta[property="og:title"]', 'content', pageTitle);
+      setMetaTag('meta[property="og:description"]', 'content', pageDescription);
+      setMetaTag('meta[property="og:image"]', 'content', shareImage);
+      setMetaTag('meta[property="og:url"]', 'content', currentUrl);
+      setMetaTag('meta[property="og:type"]', 'content', 'website');
+      setMetaTag('meta[property="og:site_name"]', 'content', 'JournalMate');
+      
+      // Twitter Card tags
+      setMetaTag('meta[name="twitter:card"]', 'content', 'summary_large_image');
+      setMetaTag('meta[name="twitter:title"]', 'content', pageTitle);
+      setMetaTag('meta[name="twitter:description"]', 'content', pageDescription);
+      setMetaTag('meta[name="twitter:image"]', 'content', shareImage);
     }
   }, [data]);
 
@@ -196,8 +220,11 @@ export default function SharedActivity() {
   const handleCopyLink = async () => {
     if (!data?.activity) return;
     const url = window.location.href;
-    const activitySummary = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
-    const shareText = `Participate in this shared activity: ${activitySummary} and to create yours join JournalMate\n\n${url}`;
+    const activityTitle = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
+    const activityDescription = data.activity.description || `Join this ${data.activity.category} plan on JournalMate`;
+    
+    // Format: Title\nDescription\nhttps://journalmate.ai/
+    const shareText = `${activityTitle}\n${activityDescription}\nhttps://journalmate.ai/\n\n${url}`;
     
     try {
       await navigator.clipboard.writeText(shareText);
@@ -218,20 +245,29 @@ export default function SharedActivity() {
 
   const handleShareTwitter = () => {
     if (!data?.activity) return;
-    const activitySummary = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
-    const text = `Participate in this shared activity: ${activitySummary} and to create yours join JournalMate`;
+    const activityTitle = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
+    const activityDescription = data.activity.description || `Join this ${data.activity.category} plan on JournalMate`;
     const url = window.location.href;
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+    const text = `${activityTitle}\n${activityDescription}\nhttps://journalmate.ai/\n\n${url}`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleShareFacebook = () => {
+    if (!data?.activity) return;
     const url = window.location.href;
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+    const activityTitle = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
+    const activityDescription = data.activity.description || `Join this ${data.activity.category} plan on JournalMate`;
+    const quote = `${activityTitle}\n${activityDescription}\nhttps://journalmate.ai/\n\n${url}`;
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(quote)}`, '_blank');
   };
 
   const handleShareLinkedIn = () => {
+    if (!data?.activity) return;
     const url = window.location.href;
-    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank');
+    const activityTitle = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
+    const activityDescription = data.activity.description || `Join this ${data.activity.category} plan on JournalMate`;
+    const summary = `${activityTitle}\n${activityDescription}\nhttps://journalmate.ai/\n\n${url}`;
+    window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(activityTitle)}&summary=${encodeURIComponent(summary)}`, '_blank');
   };
 
   // Backdrop presets

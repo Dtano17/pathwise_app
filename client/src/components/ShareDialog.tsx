@@ -39,7 +39,8 @@ export default function ShareDialog({
       name: 'Copy Link',
       icon: Copy,
       action: () => {
-        navigator.clipboard.writeText(url);
+        const shareText = `${title}\n${description}\nhttps://journalmate.ai/\n\n${url}`;
+        navigator.clipboard.writeText(shareText);
         toast({ title: 'Link Copied!', description: 'Share link copied to clipboard' });
         onOpenChange(false);
       },
@@ -50,7 +51,7 @@ export default function ShareDialog({
       icon: Mail,
       action: () => {
         const subject = encodeURIComponent(title);
-        const body = encodeURIComponent(`${description}\n\n${url}`);
+        const body = encodeURIComponent(`${title}\n${description}\nhttps://journalmate.ai/\n\n${url}`);
         window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
       },
       testId: 'share-email'
@@ -59,7 +60,7 @@ export default function ShareDialog({
       name: 'Messages',
       icon: MessageSquare,
       action: () => {
-        const text = encodeURIComponent(`${title}\n${description}\n${url}`);
+        const text = encodeURIComponent(`${title}\n${description}\nhttps://journalmate.ai/\n\n${url}`);
         window.open(`sms:?&body=${text}`, '_blank');
       },
       testId: 'share-messages'
@@ -68,7 +69,7 @@ export default function ShareDialog({
       name: 'WhatsApp',
       icon: SiWhatsapp,
       action: () => {
-        const text = encodeURIComponent(`${title}\n${description}\n${url}`);
+        const text = encodeURIComponent(`${title}\n${description}\nhttps://journalmate.ai/\n\n${url}`);
         window.open(`https://wa.me/?text=${text}`, '_blank');
       },
       testId: 'share-whatsapp'
@@ -102,7 +103,8 @@ export default function ShareDialog({
       name: 'Facebook',
       icon: SiFacebook,
       action: () => {
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+        const quote = `${title}\n${description}\nhttps://journalmate.ai/\n\n${url}`;
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(quote)}`, '_blank');
       },
       testId: 'share-facebook'
     },
@@ -110,8 +112,8 @@ export default function ShareDialog({
       name: 'Twitter',
       icon: SiX,
       action: () => {
-        const text = encodeURIComponent(title);
-        window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`, '_blank');
+        const text = encodeURIComponent(`${title}\n${description}\nhttps://journalmate.ai/\n\n${url}`);
+        window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
       },
       testId: 'share-twitter'
     },
