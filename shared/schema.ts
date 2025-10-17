@@ -691,6 +691,19 @@ export const activityPermissionRequests = pgTable("activity_permission_requests"
   ownerStatusIndex: index("owner_status_index").on(table.ownerId, table.status),
 }));
 
+// Activity feedback for like/unlike tracking
+export const activityFeedback = pgTable("activity_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  feedbackType: text("feedback_type").notNull(), // 'like' | 'dislike'
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueUserActivityFeedback: uniqueIndex("unique_user_activity_feedback").on(table.userId, table.activityId),
+  activityFeedbackIndex: index("activity_feedback_index").on(table.activityId, table.feedbackType),
+}));
+
 // Add Zod schemas for new tables
 export const insertAuthIdentitySchema = createInsertSchema(authIdentities).omit({
   id: true,
@@ -728,6 +741,12 @@ export const insertActivityPermissionRequestSchema = createInsertSchema(activity
   createdAt: true,
 });
 
+export const insertActivityFeedbackSchema = createInsertSchema(activityFeedback).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Add TypeScript types for new tables
 export type AuthIdentity = typeof authIdentities.$inferSelect;
 export type InsertAuthIdentity = z.infer<typeof insertAuthIdentitySchema>;
@@ -743,6 +762,9 @@ export type InsertContactShare = z.infer<typeof insertContactShareSchema>;
 
 export type ActivityPermissionRequest = typeof activityPermissionRequests.$inferSelect;
 export type InsertActivityPermissionRequest = z.infer<typeof insertActivityPermissionRequestSchema>;
+
+export type ActivityFeedback = typeof activityFeedback.$inferSelect;
+export type InsertActivityFeedback = z.infer<typeof insertActivityFeedbackSchema>;
 
 // Additional contact sync validation
 export const syncContactsSchema = z.object({
