@@ -16,10 +16,20 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-interface JournalEntry {
-  category: string;
-  items: string[];
+interface RichJournalEntry {
+  id: string;
+  text: string;
+  media?: Array<{
+    url: string;
+    type: 'image' | 'video';
+    thumbnail?: string;
+  }>;
+  timestamp: string;
+  aiConfidence?: number;
+  keywords?: string[];
 }
+
+type JournalItem = string | RichJournalEntry;
 
 interface CustomCategory {
   id: string;
@@ -35,7 +45,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const { toast } = useToast();
   const [activeCategory, setActiveCategory] = useState<string>('restaurants');
   const [newItem, setNewItem] = useState('');
-  const [journalData, setJournalData] = useState<Record<string, string[]>>({});
+  const [journalData, setJournalData] = useState<Record<string, JournalItem[]>>({});
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -61,15 +71,15 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     'from-lime-500 to-green-500'
   ];
 
-  // Load user's journal data
+  // Load user's journal data  (now supports rich media entries)
   const { data: userData, isLoading } = useQuery({
-    queryKey: ['/api/user/profile'],
+    queryKey: ['/api/user-preferences'],
     queryFn: async () => {
-      const response = await fetch('/api/user/profile');
-      if (!response.ok) throw new Error('Failed to load profile');
+      const response = await fetch('/api/user-preferences');
+      if (!response.ok) throw new Error('Failed to load preferences');
       const data = await response.json();
       
-      // Load journal data from preferences
+      // Load journal data from preferences (new format with media support)
       if (data?.preferences?.journalData) {
         setJournalData(data.preferences.journalData);
       }
@@ -93,12 +103,12 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
 
   // Save journal entry mutation
   const saveEntryMutation = useMutation({
-    mutationFn: async (data: { category: string; items: string[] }) => {
+    mutationFn: async (data: { category: string; items: JournalItem[] }) => {
       const response = await apiRequest('PUT', '/api/user/journal', data);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
       toast({
         title: "Saved!",
         description: "Your journal entry has been saved.",
@@ -122,7 +132,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
       toast({
         title: "Category Added!",
         description: "Your custom category has been created.",
@@ -340,32 +350,82 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                 </div>
               ) : journalData[activeCategory]?.length > 0 ? (
                 <div className="space-y-2 pr-4">
-                  {journalData[activeCategory].map((item, index) => (
-                    <Card 
-                      key={index} 
-                      className="hover-elevate cursor-default group"
-                      data-testid={`journal-entry-${index}`}
-                    >
-                      <CardContent className="p-3 sm:p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm sm:text-base break-words whitespace-pre-wrap">
-                              {item}
-                            </p>
+                  {journalData[activeCategory].map((item, index) => {
+                    // Support both old string format and new rich entry format
+                    const isRichEntry = typeof item === 'object' && item !== null;
+                    const text = isRichEntry ? item.text : item;
+                    const media = isRichEntry ? item.media : null;
+                    const timestamp = isRichEntry ? item.timestamp : null;
+                    const keywords = isRichEntry ? item.keywords : null;
+                    
+                    return (
+                      <Card 
+                        key={index} 
+                        className="hover-elevate cursor-default group"
+                        data-testid={`journal-entry-${index}`}
+                      >
+                        <CardContent className="p-3 sm:p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1 min-w-0 space-y-2">
+                              {timestamp && (
+                                <div className="text-xs text-muted-foreground">
+                                  {new Date(timestamp).toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric', 
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </div>
+                              )}
+                              <p className="text-sm sm:text-base break-words whitespace-pre-wrap">
+                                {text}
+                              </p>
+                              {media && media.length > 0 && (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                                  {media.map((m, idx) => (
+                                    <div key={idx} className="relative aspect-square rounded-md overflow-hidden bg-muted">
+                                      {m.type === 'video' ? (
+                                        <video 
+                                          src={m.url} 
+                                          className="w-full h-full object-cover"
+                                          controls
+                                        />
+                                      ) : (
+                                        <img 
+                                          src={m.url} 
+                                          alt={`Media ${idx + 1}`}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {keywords && keywords.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {keywords.map((kw, idx) => (
+                                    <Badge key={idx} variant="outline" className="text-xs">
+                                      {kw}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
+                              onClick={() => handleRemoveItem(index)}
+                              data-testid={`button-remove-${index}`}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
-                            onClick={() => handleRemoveItem(index)}
-                            data-testid={`button-remove-${index}`}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-12">
