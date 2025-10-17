@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, ListChecks } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ConversationMessage {
@@ -800,19 +800,33 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
                   <p className="text-sm text-slate-600 dark:text-slate-400">Quick capture with media & keywords</p>
                 </div>
               </div>
-              <Button
-                onClick={() => {
-                  setPlanningMode(null);
-                  setJournalText('');
-                  setJournalMedia([]);
-                }}
-                variant="outline"
-                size="sm"
-                data-testid="button-exit-journal"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    setPlanningMode('quick');
+                    setJournalText('');
+                    setJournalMedia([]);
+                  }}
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-switch-to-planning"
+                >
+                  <ListChecks className="h-4 w-4 mr-1" />
+                  Planning
+                </Button>
+                <Button
+                  onClick={() => {
+                    setPlanningMode(null);
+                    setJournalText('');
+                    setJournalMedia([]);
+                  }}
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-exit-journal"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
