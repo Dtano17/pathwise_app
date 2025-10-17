@@ -3220,61 +3220,35 @@ You can find these tasks in your task list and start working on them right away!
         return res.status(400).json({ error: 'Text content required' });
       }
 
-      // Base 9 categories for quick keyword mapping (kept for demo/testing)
-      const baseCategories = [
-        'Restaurants & Food',
-        'Movies & TV Shows',
-        'Music & Artists',
-        'Travel & Places',
-        'Books & Reading',
-        'Hobbies & Interests',
-        'Personal Style',
-        'Favorite Things',
-        'Personal Notes'
-      ];
-
-      const categoryMapping: { [key: string]: string } = {
-        '@restaurants': 'Restaurants & Food',
-        '@food': 'Restaurants & Food',
-        '@dinner': 'Restaurants & Food',
-        '@lunch': 'Restaurants & Food',
-        '@movies': 'Movies & TV Shows',
-        '@shows': 'Movies & TV Shows',
-        '@tv': 'Movies & TV Shows',
-        '@music': 'Music & Artists',
-        '@artists': 'Music & Artists',
-        '@concert': 'Music & Artists',
-        '@travel': 'Travel & Places',
-        '@places': 'Travel & Places',
-        '@vacation': 'Travel & Places',
-        '@books': 'Books & Reading',
-        '@reading': 'Books & Reading',
-        '@hobbies': 'Hobbies & Interests',
-        '@style': 'Personal Style',
-        '@fashion': 'Personal Style',
-        '@things': 'Favorite Things',
-        '@notes': 'Personal Notes'
-      };
-
-      // Detect category from keywords or text
-      let detectedCategory = 'Personal Notes'; // default
-      let detectedKeywords: string[] = [];
-      let aiConfidence = 0.5;
+      // Import tag detection utilities
+      const { detectCategoriesFromTags } = await import('./config/journalTags.js');
       
-      // First, check for explicit keywords (quick mapping to base categories)
-      let foundKeyword = false;
-      for (const [keyword, category] of Object.entries(categoryMapping)) {
-        if (text.toLowerCase().includes(keyword.toLowerCase())) {
-          detectedCategory = category;
-          detectedKeywords.push(keyword);
-          aiConfidence = 0.95; // High confidence for explicit keywords
-          foundKeyword = true;
-          break;
-        }
-      }
+      // First, try tag-based detection (@vacation, @restaurants, etc.)
+      const tagDetection = detectCategoriesFromTags(text);
+      
+      let detectedCategories: string[] = [];
+      let detectedKeywords: string[] = tagDetection.detectedTags;
+      let aiConfidence = 0.5;
+      let isGroupedExperience = tagDetection.isGroupedExperience;
+      
+      // If tags found, use them with high confidence
+      if (tagDetection.suggestedCategories.length > 0) {
+        detectedCategories = tagDetection.suggestedCategories;
+        aiConfidence = 0.95; // High confidence for explicit @tags
+      } else {
+        // No tags found, use AI to detect category
+        const baseCategories = [
+          'Restaurants & Food',
+          'Movies & TV Shows',
+          'Music & Artists',
+          'Travel & Places',
+          'Books & Reading',
+          'Hobbies & Interests',
+          'Personal Style',
+          'Favorite Things',
+          'Personal Notes'
+        ];
 
-      // If no keyword found, use AI to detect category
-      if (!foundKeyword) {
         try {
           const aiResponse = await aiService.chatConversation(
             [
@@ -3304,30 +3278,33 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           );
 
           const categoryData = JSON.parse(aiResponse);
-          detectedCategory = categoryData.category;
+          detectedCategories = [categoryData.category];
           detectedKeywords = categoryData.keywords || [];
           aiConfidence = categoryData.confidence || 0.7;
         } catch (aiError) {
           console.error('AI category detection failed:', aiError);
           // Fall back to simple text analysis if AI fails
-          detectedCategory = 'Personal Notes';
+          detectedCategories = ['Personal Notes'];
           aiConfidence = 0.3;
         }
       }
 
-      // Add journal entry with media
-      await storage.addPersonalJournalEntry(userId, detectedCategory, {
-        text,
-        media,
-        keywords: detectedKeywords.length > 0 ? detectedKeywords : keywords,
-        aiConfidence
-      });
+      // Add journal entries for each detected category (grouped experiences create multiple entries)
+      for (const category of detectedCategories) {
+        await storage.addPersonalJournalEntry(userId, category, {
+          text,
+          media,
+          keywords: detectedKeywords.length > 0 ? detectedKeywords : keywords,
+          aiConfidence
+        });
+      }
 
       res.json({
         success: true,
-        category: detectedCategory,
+        categories: detectedCategories,
         keywords: detectedKeywords,
-        aiConfidence
+        aiConfidence,
+        isGroupedExperience
       });
     } catch (error) {
       console.error('Smart entry error:', error);
