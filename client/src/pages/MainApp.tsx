@@ -1447,8 +1447,13 @@ export default function MainApp({
                                       ? "Share to social media or contacts" 
                                       : "Make activity public first to share"
                                 }
+                                className="group"
                               >
-                                <Share2 className={`w-4 h-4 ${activity.isPublic ? 'text-blue-600' : 'text-muted-foreground'}`} />
+                                <Share2 className={`w-4 h-4 transition-all duration-300 ${
+                                  activity.isPublic 
+                                    ? 'text-blue-600 group-hover:drop-shadow-[0_0_6px_rgba(37,99,235,0.5)] group-hover:scale-110' 
+                                    : 'text-muted-foreground group-hover:drop-shadow-[0_0_4px_rgba(147,51,234,0.3)] group-hover:scale-105'
+                                }`} />
                               </Button>
                               <Button
                                 variant="ghost"
