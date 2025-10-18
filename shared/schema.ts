@@ -108,6 +108,7 @@ export const tasks = pgTable("tasks", {
   archived: boolean("archived").default(false),
   skipped: boolean("skipped").default(false),
   snoozeUntil: timestamp("snooze_until"),
+  originalTaskId: varchar("original_task_id"), // Track original task when copying shared activities
   createdAt: timestamp("created_at").defaultNow(),
 });
 
