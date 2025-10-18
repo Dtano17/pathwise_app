@@ -76,6 +76,7 @@ export class AIService {
     goalText: string,
     preferredModel: "openai" | "claude" = "claude",
     userId?: string,
+    existingActivity?: { title: string; tasks: Array<{ title: string; description?: string }> }
   ): Promise<GoalProcessingResult> {
     // Fetch user priorities and context if userId is provided
     let userPriorities: any[] = [];
@@ -93,9 +94,9 @@ export class AIService {
     }
 
     if (preferredModel === "claude" && process.env.ANTHROPIC_API_KEY) {
-      return this.processGoalWithClaude(goalText, userPriorities, userContext);
+      return this.processGoalWithClaude(goalText, userPriorities, userContext, existingActivity);
     }
-    return this.processGoalWithOpenAI(goalText, userPriorities, userContext);
+    return this.processGoalWithOpenAI(goalText, userPriorities, userContext, existingActivity);
   }
 
   async chatConversation(
@@ -461,6 +462,7 @@ Create actionable tasks from these conversations that can help hold the user acc
     goalText: string,
     userPriorities: any[] = [],
     userContext: string | null = null,
+    existingActivity?: { title: string; tasks: Array<{ title: string; description?: string }> }
   ): Promise<GoalProcessingResult> {
     try {
       const prioritiesContext =
@@ -473,9 +475,18 @@ ${userPriorities.map((p) => `- ${p.title}: ${p.description}`).join("\n")}`
         ? `\n\nPersonalized Context (use this to make recommendations more relevant):\n${userContext}`
         : "";
 
+      const existingActivityContext = existingActivity
+        ? `\n\nEXISTING ACTIVITY (User wants to refine/modify this activity):
+Title: "${existingActivity.title}"
+Current Tasks:
+${existingActivity.tasks.map((task, idx) => `${idx + 1}. ${task.title}${task.description ? ` - ${task.description}` : ''}`).join('\n')}
+
+IMPORTANT: The user is asking you to MODIFY the above activity. Build upon the existing tasks - add, remove, or update tasks based on the user's request. Keep the activity title unless the user explicitly asks to change it. Your response should be a refined version of this existing plan, not a completely new one.`
+        : "";
+
       const prompt = `You are an AI productivity assistant. Transform the user's goal into a structured, actionable plan like Claude AI would format it - clear, organized, and visually appealing.
 
-User's goal: "${goalText}"${prioritiesContext}${personalizationContext}
+User's ${existingActivity ? 'refinement request' : 'goal'}: "${goalText}"${prioritiesContext}${personalizationContext}${existingActivityContext}
 
 Create a well-structured plan with the following JSON format:
 {
@@ -570,6 +581,7 @@ Examples of excellent task formatting:
     goalText: string,
     userPriorities: any[] = [],
     userContext: string | null = null,
+    existingActivity?: { title: string; tasks: Array<{ title: string; description?: string }> }
   ): Promise<GoalProcessingResult> {
     try {
       const prioritiesContext =
@@ -582,9 +594,18 @@ ${userPriorities.map((p) => `- ${p.title}: ${p.description}`).join("\n")}`
         ? `\n\nPersonalized Context (use this to make recommendations more relevant):\n${userContext}`
         : "";
 
+      const existingActivityContext = existingActivity
+        ? `\n\nEXISTING ACTIVITY (User wants to refine/modify this activity):
+Title: "${existingActivity.title}"
+Current Tasks:
+${existingActivity.tasks.map((task, idx) => `${idx + 1}. ${task.title}${task.description ? ` - ${task.description}` : ''}`).join('\n')}
+
+IMPORTANT: The user is asking you to MODIFY the above activity. Build upon the existing tasks - add, remove, or update tasks based on the user's request. Keep the activity title unless the user explicitly asks to change it. Your response should be a refined version of this existing plan, not a completely new one.`
+        : "";
+
       const prompt = `You are an AI productivity assistant. Transform the user's goal or intention into specific, actionable tasks with realistic time estimates.
 
-User's goal: "${goalText}"${prioritiesContext}${personalizationContext}
+User's ${existingActivity ? 'refinement request' : 'goal'}: "${goalText}"${prioritiesContext}${personalizationContext}${existingActivityContext}
 
 Analyze this goal and respond with JSON in this exact format:
 {
