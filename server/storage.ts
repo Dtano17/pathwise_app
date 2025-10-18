@@ -107,6 +107,7 @@ export interface IStorage {
   getUserActivities(userId: string): Promise<ActivityWithProgress[]>;
   getActivity(activityId: string, userId: string): Promise<Activity | undefined>;
   getActivityByShareToken(shareToken: string): Promise<Activity | undefined>;
+  getExistingCopyByShareToken(userId: string, shareToken: string): Promise<Activity | undefined>;
   updateActivity(activityId: string, updates: Partial<Activity>, userId: string): Promise<Activity | undefined>;
   deleteActivity(activityId: string, userId: string): Promise<void>;
   archiveActivity(activityId: string, userId: string): Promise<Activity | undefined>;
@@ -432,6 +433,18 @@ export class DatabaseStorage implements IStorage {
   async getActivityByShareToken(shareToken: string): Promise<Activity | undefined> {
     const [result] = await db.select().from(activities)
       .where(and(eq(activities.shareToken, shareToken), eq(activities.isPublic, true)));
+    return result;
+  }
+
+  async getExistingCopyByShareToken(userId: string, shareToken: string): Promise<Activity | undefined> {
+    const [result] = await db.select().from(activities)
+      .where(and(
+        eq(activities.userId, userId),
+        eq(activities.copiedFromShareToken, shareToken),
+        eq(activities.isArchived, false)
+      ))
+      .orderBy(desc(activities.createdAt))
+      .limit(1);
     return result;
   }
 

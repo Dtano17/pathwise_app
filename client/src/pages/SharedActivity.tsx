@@ -9,6 +9,16 @@ import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Ed
 import journalMateLogo from '@assets/Export_JournalMate_2_1760772138217.png';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { apiRequest } from '@/lib/queryClient';
 
 interface SharedActivityData {
@@ -110,6 +120,8 @@ export default function SharedActivity() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [permissionRequested, setPermissionRequested] = useState(false);
   const [copyingLink, setCopyingLink] = useState(false);
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const [confirmationData, setConfirmationData] = useState<any>(null);
   
   // Initialize theme from localStorage or default to dark
   const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>(() => {
@@ -209,11 +221,12 @@ export default function SharedActivity() {
   };
 
   const copyActivityMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (forceUpdate: boolean = false) => {
       if (!token) throw new Error('Share token not found');
       const response = await fetch(`/api/activities/copy/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forceUpdate }),
       });
       
       // Parse JSON response
@@ -237,16 +250,30 @@ export default function SharedActivity() {
           window.location.href = `/login?returnTo=${returnTo}&shareToken=${shareToken}`;
           throw new Error('Redirecting to login...');
         }
+        
+        // If confirmation is required, return the result to handle in UI
+        if (result.requiresConfirmation) {
+          return result;
+        }
+        
         throw new Error(result.error || result.message || 'Failed to copy activity');
       }
       
       return result;
     },
     onSuccess: (result) => {
+      // If confirmation is required, show dialog
+      if (result?.requiresConfirmation) {
+        setConfirmationData(result);
+        setShowUpdateDialog(true);
+        return; // Don't show success toast or redirect
+      }
+      
       if (result?.activity?.id) {
+        const message = result.message || `"${result.activity.title}" has been added to your account with ${result.tasks?.length || 0} tasks.`;
         toast({
-          title: 'Activity Copied!',
-          description: `"${result.activity.title}" has been added to your account with ${result.tasks?.length || 0} tasks.`,
+          title: result.isUpdate ? 'Plan Updated!' : 'Plan Copied!',
+          description: message,
         });
         // Redirect to the activity page after a short delay
         setTimeout(() => {
@@ -939,6 +966,31 @@ export default function SharedActivity() {
         )}
       </main>
       </div>
+      
+      {/* Update Confirmation Dialog */}
+      <AlertDialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
+        <AlertDialogContent data-testid="dialog-update-plan">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Plan Already Exists</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmationData?.message || 'You already have this plan. Would you like to update it with the latest version?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-update">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="button-confirm-update"
+              onClick={() => {
+                setShowUpdateDialog(false);
+                copyActivityMutation.mutate(true); // forceUpdate = true
+              }}
+              className="bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700"
+            >
+              Update Plan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

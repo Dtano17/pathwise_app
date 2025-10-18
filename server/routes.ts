@@ -1976,11 +1976,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/activities/copy/:shareToken", async (req, res) => {
     try {
       const { shareToken } = req.params;
+      const { forceUpdate } = req.body; // Client can request an update
       const currentUserId = getUserId(req);
       
       console.log('[COPY ACTIVITY] Copy request received:', {
         shareToken,
         currentUserId,
+        forceUpdate,
         isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
         sessionID: req.sessionID,
         hasSession: !!req.session,
@@ -2023,9 +2025,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'You cannot copy your own activity' });
       }
       
+      // Check if user already has a copy of this activity
+      const existingCopy = await storage.getExistingCopyByShareToken(currentUserId, shareToken);
+      
+      if (existingCopy && !forceUpdate) {
+        console.log('[COPY ACTIVITY] User already has a copy - prompting for update');
+        return res.status(409).json({
+          error: 'You already have this activity',
+          requiresConfirmation: true,
+          existingActivity: existingCopy,
+          message: 'You already have this plan. Would you like to update it with the latest version?'
+        });
+      }
+      
       // Get the tasks for the shared activity
       const originalTasks = await storage.getActivityTasks(sharedActivity.id, sharedActivity.userId);
       console.log('[COPY ACTIVITY] Found tasks:', originalTasks.length);
+      
+      // If updating existing copy, archive the old one and preserve progress
+      let oldTasks: Task[] = [];
+      if (existingCopy && forceUpdate) {
+        console.log('[COPY ACTIVITY] Archiving old copy and preserving progress');
+        oldTasks = await storage.getActivityTasks(existingCopy.id, currentUserId);
+        await storage.updateActivity(existingCopy.id, { isArchived: true }, currentUserId);
+      }
       
       // Create a copy of the activity for the current user
       const copiedActivity = await storage.createActivity({
@@ -2038,24 +2061,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isPublic: false, // Make private by default
         startDate: sharedActivity.startDate,
         endDate: sharedActivity.endDate,
+        copiedFromShareToken: shareToken, // Track where it came from
       });
       console.log('[COPY ACTIVITY] Activity copied successfully:', {
         newActivityId: copiedActivity.id,
         userId: currentUserId
       });
       
-      // Copy all tasks
+      // Copy all tasks and preserve completion status where possible
       const copiedTasks = [];
       let taskOrder = 0;
       for (const task of originalTasks) {
+        // Try to find matching task in old version by title
+        const matchingOldTask = oldTasks.find(t => t.title.trim().toLowerCase() === task.title.trim().toLowerCase());
+        
         const newTask = await storage.createTask({
           userId: currentUserId,
           activityId: copiedActivity.id,
           title: task.title,
           description: task.description,
-          category: task.category || 'general', // Include category from original task
-          priority: task.priority || 'medium', // Include priority from original task
-          completed: false, // Reset completion status
+          category: task.category || 'general',
+          priority: task.priority || 'medium',
+          completed: matchingOldTask?.completed || false, // Preserve completion status
+          completedAt: matchingOldTask?.completedAt || null,
           dueDate: task.dueDate,
         });
         
@@ -2065,9 +2093,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.log('[COPY ACTIVITY] Tasks copied successfully:', copiedTasks.length);
       
+      // Count preserved progress
+      const preservedCompletions = copiedTasks.filter(t => t.completed).length;
+      
       res.json({
         activity: copiedActivity,
         tasks: copiedTasks,
+        isUpdate: !!forceUpdate,
+        preservedProgress: preservedCompletions,
+        message: forceUpdate 
+          ? `Update complete! ${preservedCompletions} completed tasks preserved. Previous version moved to History.`
+          : 'Activity copied successfully!'
       });
     } catch (error) {
       console.error('[COPY ACTIVITY] Error copying activity:', error);
