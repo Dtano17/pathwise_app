@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import MainApp from "@/pages/MainApp";
 import SharedActivity from "@/pages/SharedActivity";
 import AuthCallback from "@/pages/AuthCallback";
+import Login from "@/pages/Login";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
 import { useAuth } from "@/hooks/useAuth";
@@ -39,6 +40,9 @@ function AppContent() {
       <Switch>
         {/* Auth Callback Page (no sidebar) */}
         <Route path="/auth/callback" component={AuthCallback} />
+        
+        {/* Login Page (no sidebar) */}
+        <Route path="/login" component={Login} />
         
         {/* Shared Activity Page (no sidebar) */}
         <Route path="/share/:token" component={SharedActivity} />
