@@ -105,6 +105,7 @@ export interface IStorage {
   // Activities
   createActivity(activity: InsertActivity & { userId: string }): Promise<Activity>;
   getUserActivities(userId: string): Promise<ActivityWithProgress[]>;
+  getUserArchivedActivities(userId: string): Promise<ActivityWithProgress[]>;
   getActivity(activityId: string, userId: string): Promise<Activity | undefined>;
   getActivityByShareToken(shareToken: string): Promise<Activity | undefined>;
   getExistingCopyByShareToken(userId: string, shareToken: string): Promise<Activity | undefined>;
@@ -387,13 +388,52 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserActivities(userId: string): Promise<ActivityWithProgress[]> {
-    // First get all activities (exclude archived)
+    // First get all activities (exclude archived and isArchived)
     const userActivities = await db.select().from(activities)
       .where(and(
         eq(activities.userId, userId),
-        or(eq(activities.archived, false), isNull(activities.archived))
+        or(eq(activities.archived, false), isNull(activities.archived)),
+        or(eq(activities.isArchived, false), isNull(activities.isArchived))
       ))
       .orderBy(desc(activities.createdAt));
+
+    // For each activity, calculate progress from associated tasks
+    const activitiesWithProgress = await Promise.all(
+      userActivities.map(async (activity) => {
+        // Get all tasks associated with this activity
+        const activityTasksResult = await db
+          .select({
+            taskId: activityTasks.taskId,
+            completed: tasks.completed,
+          })
+          .from(activityTasks)
+          .innerJoin(tasks, eq(activityTasks.taskId, tasks.id))
+          .where(eq(activityTasks.activityId, activity.id));
+
+        const totalTasks = activityTasksResult.length;
+        const completedTasks = activityTasksResult.filter(t => t.completed).length;
+        const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+        return {
+          ...activity,
+          totalTasks,
+          completedTasks,
+          progressPercent,
+        };
+      })
+    );
+
+    return activitiesWithProgress;
+  }
+
+  async getUserArchivedActivities(userId: string): Promise<ActivityWithProgress[]> {
+    // Get all archived activities (isArchived = true)
+    const userActivities = await db.select().from(activities)
+      .where(and(
+        eq(activities.userId, userId),
+        eq(activities.isArchived, true)
+      ))
+      .orderBy(desc(activities.updatedAt)); // Show most recently archived first
 
     // For each activity, calculate progress from associated tasks
     const activitiesWithProgress = await Promise.all(

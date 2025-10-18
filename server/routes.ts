@@ -1665,6 +1665,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user archived activities (history)
+  app.get("/api/activities/history", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const archivedActivities = await storage.getUserArchivedActivities(userId);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.json(archivedActivities);
+    } catch (error) {
+      console.error('Get archived activities error:', error);
+      res.status(500).json({ error: 'Failed to fetch archived activities' });
+    }
+  });
+
   // Create new activity
   app.post("/api/activities", async (req, res) => {
     try {
