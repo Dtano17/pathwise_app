@@ -187,7 +187,8 @@ export default function SharedActivity() {
   }, [data]);
 
   const handleSignIn = () => {
-    window.location.href = '/api/login';
+    const returnTo = encodeURIComponent(window.location.pathname);
+    window.location.href = `/login?returnTo=${returnTo}`;
   };
 
   const requestPermissionMutation = useMutation({
@@ -215,7 +216,8 @@ export default function SharedActivity() {
       if (!response.ok) {
         // If authentication is required, redirect to login
         if (result.requiresAuth) {
-          window.location.href = '/api/login';
+          const returnTo = encodeURIComponent(window.location.pathname);
+          window.location.href = `/login?returnTo=${returnTo}`;
           throw new Error('Redirecting to login...');
         }
         throw new Error(result.error || result.message || 'Failed to request permission');
