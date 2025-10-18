@@ -15,12 +15,26 @@ async function testCopyWorkflow() {
   
   console.log('\n=== ACTIVITY COPY WORKFLOW TEST ===\n');
   
+  // Create session cookie jar
+  let cookies = '';
+  
+  // Get initial session by hitting the user endpoint
+  console.log('Setting up session...');
+  const sessionResponse = await fetch(`${baseUrl}/api/user`);
+  const setCookieHeader = sessionResponse.headers.get('set-cookie');
+  if (setCookieHeader) {
+    cookies = setCookieHeader.split(';')[0];
+  }
+  console.log('✓ Session established\n');
+  
   // Step 1: Initial copy
   console.log('Step 1: Copying shared activity for the first time...');
   const copyResponse1 = await fetch(`${baseUrl}/api/activities/copy/${shareToken}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include'
+    headers: { 
+      'Content-Type': 'application/json',
+      'Cookie': cookies
+    }
   });
   const copyData1 = await copyResponse1.json();
   console.log('✓ First copy result:', {
@@ -44,8 +58,10 @@ async function testCopyWorkflow() {
   for (const task of tasksToComplete) {
     const completeResponse = await fetch(`${baseUrl}/api/tasks/${task.id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Cookie': cookies
+      },
       body: JSON.stringify({ completed: true })
     });
     const result = await completeResponse.json();
@@ -56,8 +72,10 @@ async function testCopyWorkflow() {
   console.log('\nStep 3: Attempting to copy again (expecting duplicate detection)...');
   const copyResponse2 = await fetch(`${baseUrl}/api/activities/copy/${shareToken}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include'
+    headers: { 
+      'Content-Type': 'application/json',
+      'Cookie': cookies
+    }
   });
   const copyData2 = await copyResponse2.json();
   console.log('✓ Duplicate detection result:', {
@@ -70,8 +88,10 @@ async function testCopyWorkflow() {
   console.log('\nStep 4: Forcing update with forceUpdate=true...');
   const updateResponse = await fetch(`${baseUrl}/api/activities/copy/${shareToken}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Cookie': cookies
+    },
     body: JSON.stringify({ forceUpdate: true })
   });
   const updateData = await updateResponse.json();
@@ -86,7 +106,7 @@ async function testCopyWorkflow() {
   // Step 5: Verify preservation
   console.log('\nStep 5: Verifying task progress preservation...');
   const verifyResponse = await fetch(`${baseUrl}/api/activities/${updateData.activity.id}`, {
-    credentials: 'include'
+    headers: { 'Cookie': cookies }
   });
   const verifyData = await verifyResponse.json();
   
@@ -107,7 +127,7 @@ async function testCopyWorkflow() {
   // Step 6: Check archived activity
   console.log('\nStep 6: Checking archived activities...');
   const historyResponse = await fetch(`${baseUrl}/api/activities/history`, {
-    credentials: 'include'
+    headers: { 'Cookie': cookies }
   });
   const historyData = await historyResponse.json();
   console.log('✓ Archived activities count:', historyData.length);
