@@ -33,7 +33,7 @@ export default function Login() {
               .then(data => {
                 if (data.activity?.id) {
                   // Success - redirect to the copied activity
-                  window.location.href = `/?activity=${data.activity.id}&tab=tasks`;
+                  window.location.href = `/?activity=${data.activity.id}`;
                 } else if (data.requiresAuth && retries > 0) {
                   // Session not ready yet, retry with exponential backoff
                   console.log(`Session not ready, retrying in ${Math.round(nextDelay)}ms... (${retries} attempts left)`);
