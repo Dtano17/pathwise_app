@@ -5,9 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, Sparkles, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Image, Moon, Sun, type LucideIcon } from 'lucide-react';
+import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, Sparkles, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, type LucideIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -111,8 +109,6 @@ export default function SharedActivity() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [permissionRequested, setPermissionRequested] = useState(false);
   const [copyingLink, setCopyingLink] = useState(false);
-  const [showBackdropEditor, setShowBackdropEditor] = useState(false);
-  const [selectedBackdrop, setSelectedBackdrop] = useState<string>('');
   
   // Initialize theme from localStorage or default to dark
   const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>(() => {
@@ -399,71 +395,7 @@ export default function SharedActivity() {
     window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(titleWithEmoji)}&summary=${encodeURIComponent(summary)}`, '_blank');
   };
 
-  // Backdrop presets
-  const backdropPresets = [
-    {
-      name: 'NYC Times Square',
-      url: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1600&h=900&fit=crop&q=80',
-      category: 'new-year'
-    },
-    {
-      name: 'NYC Skyline',
-      url: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=1600&h=900&fit=crop&q=80',
-      category: 'city'
-    },
-    {
-      name: 'Paris Eiffel Tower',
-      url: 'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=1600&h=900&fit=crop&q=80',
-      category: 'travel'
-    },
-    {
-      name: 'Tokyo Cityscape',
-      url: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1600&h=900&fit=crop&q=80',
-      category: 'travel'
-    },
-    {
-      name: 'Tropical Beach',
-      url: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1600&h=900&fit=crop&q=80',
-      category: 'vacation'
-    },
-    {
-      name: 'Mountain Landscape',
-      url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&h=900&fit=crop&q=80',
-      category: 'adventure'
-    },
-    {
-      name: 'Fitness Gym',
-      url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1600&h=900&fit=crop&q=80',
-      category: 'fitness'
-    },
-    {
-      name: 'Sunset Gradient',
-      url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&h=900&fit=crop&q=80',
-      category: 'nature'
-    }
-  ];
-
-  // Mutation to update activity backdrop
   const queryClient = useQueryClient();
-  const updateBackdropMutation = useMutation({
-    mutationFn: async (backdrop: string) => {
-      if (!data?.activity?.id) throw new Error('Activity ID not found');
-      return apiRequest('PUT', `/api/activities/${data.activity.id}`, { backdrop });
-    },
-    onSuccess: () => {
-      setShowBackdropEditor(false);
-      setSelectedBackdrop('');
-      // Invalidate the shared activity query to refetch with new backdrop
-      queryClient.invalidateQueries({ queryKey: ['/api/share', token] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Update Failed',
-        description: error.message || 'Failed to update backdrop. Please try again.',
-        variant: 'destructive',
-      });
-    },
-  });
 
   // Generate themed background image URL (must be before early returns per React Hooks rules)
   const backgroundStyle = useMemo(() => {
@@ -642,7 +574,7 @@ export default function SharedActivity() {
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4 sm:mb-6">
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => window.location.href = '/'} data-testid="button-go-home" className="bg-background/80 backdrop-blur-sm">
+                <Button variant="outline" size="sm" onClick={() => window.location.href = '/'} data-testid="button-go-home" className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Home
                 </Button>
@@ -651,7 +583,7 @@ export default function SharedActivity() {
                   size="icon" 
                   onClick={togglePreviewTheme}
                   data-testid="button-theme-toggle"
-                  className="bg-background/80 backdrop-blur-sm"
+                  className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800"
                   title={`Switch to ${previewTheme === 'light' ? 'dark' : 'light'} mode preview`}
                 >
                   {previewTheme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
@@ -663,7 +595,7 @@ export default function SharedActivity() {
                   size="sm" 
                   onClick={handleCopyLink}
                   data-testid="button-copy-link"
-                  className="bg-background/80 backdrop-blur-sm gap-2 flex-1 sm:flex-initial"
+                  className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800 gap-2 flex-1 sm:flex-initial"
                 >
                   <Link2 className="w-4 h-4" />
                   <span className="sm:inline">{copyingLink ? 'Copied!' : 'Copy'}</span>
@@ -673,7 +605,7 @@ export default function SharedActivity() {
                   size="icon" 
                   onClick={handleShareTwitter}
                   data-testid="button-share-twitter"
-                  className="bg-background/80 backdrop-blur-sm"
+                  className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800"
                 >
                   <Twitter className="w-4 h-4" />
                 </Button>
@@ -682,7 +614,7 @@ export default function SharedActivity() {
                   size="icon" 
                   onClick={handleShareFacebook}
                   data-testid="button-share-facebook"
-                  className="bg-background/80 backdrop-blur-sm"
+                  className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800"
                 >
                   <Facebook className="w-4 h-4" />
                 </Button>
@@ -691,22 +623,10 @@ export default function SharedActivity() {
                   size="icon" 
                   onClick={handleShareLinkedIn}
                   data-testid="button-share-linkedin"
-                  className="bg-background/80 backdrop-blur-sm"
+                  className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800"
                 >
                   <Linkedin className="w-4 h-4" />
                 </Button>
-                {user && typeof user === 'object' && 'id' in user && activity.userId === (user as any).id ? (
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={() => setShowBackdropEditor(true)}
-                    data-testid="button-edit-backdrop"
-                    className="bg-background/80 backdrop-blur-sm"
-                    title="Edit Backdrop"
-                  >
-                    <Image className="w-4 h-4" />
-                  </Button>
-                ) : null}
               </div>
             </div>
             
@@ -998,9 +918,9 @@ export default function SharedActivity() {
                 )}
                 
                 <div className="pt-4 border-t w-full">
-                  <Button onClick={() => window.location.href = '/'} variant="outline" className="gap-2">
+                  <Button onClick={() => window.location.href = '/'} variant="default" className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white border-none">
                     <Sparkles className="w-4 h-4" />
-                    Create Your Own Activity
+                    Try JournalMate
                   </Button>
                 </div>
               </div>
@@ -1008,106 +928,6 @@ export default function SharedActivity() {
           </motion.div>
         )}
       </main>
-
-        {/* Backdrop Editor Dialog */}
-        <Dialog open={showBackdropEditor} onOpenChange={setShowBackdropEditor}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Activity Backdrop</DialogTitle>
-            <DialogDescription>
-              Choose a preset backdrop or enter a custom image URL
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-6">
-            {/* Preset Backdrops */}
-            <div>
-              <h3 className="text-sm font-semibold mb-3">Preset Backdrops</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {backdropPresets.map((preset) => (
-                  <button
-                    key={preset.url}
-                    onClick={() => setSelectedBackdrop(preset.url)}
-                    className={`relative aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
-                      selectedBackdrop === preset.url ? 'border-primary ring-2 ring-primary' : 'border-transparent'
-                    }`}
-                    data-testid={`backdrop-preset-${preset.category}`}
-                  >
-                    <img 
-                      src={preset.url} 
-                      alt={preset.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/40 flex items-end p-2">
-                      <span className="text-xs text-white font-medium">{preset.name}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Custom URL Input */}
-            <div>
-              <h3 className="text-sm font-semibold mb-2">Custom Image URL</h3>
-              <Input
-                type="url"
-                placeholder="https://example.com/image.jpg"
-                value={selectedBackdrop}
-                onChange={(e) => setSelectedBackdrop(e.target.value)}
-                data-testid="input-custom-backdrop"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Enter a direct image URL for a custom backdrop
-              </p>
-            </div>
-
-            {/* Preview */}
-            {selectedBackdrop && (
-              <div>
-                <h3 className="text-sm font-semibold mb-2">Preview</h3>
-                <div className="relative aspect-video rounded-lg overflow-hidden border">
-                  <img 
-                    src={selectedBackdrop} 
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3EInvalid Image%3C/text%3E%3C/svg%3E';
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <p className="text-white text-lg font-semibold">Activity Title</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowBackdropEditor(false);
-                  setSelectedBackdrop('');
-                }}
-                data-testid="button-cancel-backdrop"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  if (selectedBackdrop) {
-                    updateBackdropMutation.mutate(selectedBackdrop);
-                  }
-                }}
-                disabled={!selectedBackdrop || updateBackdropMutation.isPending}
-                data-testid="button-save-backdrop"
-              >
-                {updateBackdropMutation.isPending ? 'Saving...' : 'Save Backdrop'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-        </Dialog>
       </div>
     </div>
   );
