@@ -495,16 +495,16 @@ export default function SharedActivity() {
       return (
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
           <Card className="max-w-md w-full p-8 text-center">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-8 h-8 text-primary" />
+            <div className="flex items-center justify-center mb-6">
+              <img 
+                src={journalMateLogo} 
+                alt="JournalMate" 
+                className="w-16 h-16"
+              />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Sign In Required</h2>
-            <p className="text-muted-foreground mb-6">
-              This activity is private. Please sign in to view the full details.
-            </p>
-            <Button onClick={handleSignIn} className="gap-2" data-testid="button-sign-in">
-              <Lock className="w-4 h-4" />
-              Sign In to View
+            <h2 className="text-2xl font-bold mb-6">Sign in to own and edit this plan</h2>
+            <Button onClick={handleSignIn} className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white" data-testid="button-sign-in" size="lg">
+              Sign In
             </Button>
           </Card>
         </div>
