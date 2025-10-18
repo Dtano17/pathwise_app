@@ -2087,8 +2087,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const copiedTasks = [];
       let taskOrder = 0;
       for (const task of originalTasks) {
-        // Try to find matching task in old version by title
-        const matchingOldTask = oldTasks.find(t => t.title.trim().toLowerCase() === task.title.trim().toLowerCase());
+        // Try to find matching task in old version using originalTaskId first, then title
+        let matchingOldTask;
+        if (task.originalTaskId || task.id) {
+          // First attempt: match by originalTaskId (if task was previously copied)
+          const searchId = task.originalTaskId || task.id;
+          matchingOldTask = oldTasks.find(t => 
+            t.originalTaskId === searchId || t.id === searchId
+          );
+        }
+        
+        // Fallback: match by title if no ID match found
+        if (!matchingOldTask) {
+          matchingOldTask = oldTasks.find(t => 
+            t.title.trim().toLowerCase() === task.title.trim().toLowerCase()
+          );
+        }
         
         const newTask = await storage.createTask({
           userId: currentUserId,
@@ -2100,6 +2114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           completed: matchingOldTask?.completed || false, // Preserve completion status
           completedAt: matchingOldTask?.completedAt || null,
           dueDate: task.dueDate,
+          originalTaskId: task.originalTaskId || task.id, // Track original source task
         });
         
         // Add task to activity via join table
