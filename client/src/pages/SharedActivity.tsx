@@ -113,7 +113,12 @@ export default function SharedActivity() {
   const [copyingLink, setCopyingLink] = useState(false);
   const [showBackdropEditor, setShowBackdropEditor] = useState(false);
   const [selectedBackdrop, setSelectedBackdrop] = useState<string>('');
-  const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>('light');
+  
+  // Initialize theme from localStorage or default to dark
+  const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>(() => {
+    const savedTheme = localStorage.getItem('theme');
+    return savedTheme === 'light' ? 'light' : 'dark';
+  });
 
   const { data: user } = useQuery({
     queryKey: ['/api/user'],
@@ -122,6 +127,19 @@ export default function SharedActivity() {
   useEffect(() => {
     setIsAuthenticated(!!user);
   }, [user]);
+
+  // Apply initial theme to document on mount
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', previewTheme === 'dark');
+  }, []);
+
+  // Toggle theme and sync with localStorage and document class
+  const togglePreviewTheme = () => {
+    const newTheme = previewTheme === 'light' ? 'dark' : 'light';
+    setPreviewTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+  };
 
   const { data, isLoading, error: queryError } = useQuery<SharedActivityData>({
     queryKey: ['/api/share', token],
@@ -631,7 +649,7 @@ export default function SharedActivity() {
                 <Button 
                   variant="outline" 
                   size="icon" 
-                  onClick={() => setPreviewTheme(previewTheme === 'light' ? 'dark' : 'light')}
+                  onClick={togglePreviewTheme}
                   data-testid="button-theme-toggle"
                   className="bg-background/80 backdrop-blur-sm"
                   title={`Switch to ${previewTheme === 'light' ? 'dark' : 'light'} mode preview`}
