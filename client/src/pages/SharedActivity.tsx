@@ -494,16 +494,16 @@ export default function SharedActivity() {
     if (errorMessage === 'AUTH_REQUIRED' || (data?.requiresAuth && !isAuthenticated)) {
       return (
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
-          <Card className="max-w-md w-full p-8 text-center">
-            <div className="flex items-center justify-center mb-6">
+          <Card className="max-w-md w-full p-6 sm:p-8 text-center">
+            <div className="flex items-center justify-center mb-4 sm:mb-6">
               <img 
                 src={journalMateLogo} 
                 alt="JournalMate" 
-                className="w-16 h-16"
+                className="w-14 h-14 sm:w-16 sm:h-16"
               />
             </div>
-            <h2 className="text-2xl font-bold mb-6">Sign in to own and edit this plan</h2>
-            <Button onClick={handleSignIn} className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white" data-testid="button-sign-in" size="lg">
+            <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Sign in to own and edit this plan</h2>
+            <Button onClick={handleSignIn} className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto" data-testid="button-sign-in" size="lg">
               Sign In
             </Button>
           </Card>
@@ -513,15 +513,15 @@ export default function SharedActivity() {
 
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full p-8 text-center">
-          <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Share2 className="w-8 h-8 text-destructive" />
+        <Card className="max-w-md w-full p-6 sm:p-8 text-center">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Share2 className="w-7 h-7 sm:w-8 sm:h-8 text-destructive" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">Activity Not Found</h2>
-          <p className="text-muted-foreground mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold mb-2">Activity Not Found</h2>
+          <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
             {errorMessage === 'AUTH_REQUIRED' ? 'Please sign in to view this activity.' : errorMessage}
           </p>
-          <Button onClick={() => window.location.href = '/'}>
+          <Button onClick={() => window.location.href = '/'} className="w-full sm:w-auto" size="lg">
             Go to Home
           </Button>
         </Card>
@@ -854,22 +854,22 @@ export default function SharedActivity() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.4 }}
-            className="mt-8"
+            className="mt-6 sm:mt-8"
           >
-            <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-              <div className="flex items-center justify-center gap-2 mb-4">
+            <Card className="p-6 sm:p-8 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+              <div className="flex items-center justify-center gap-2 mb-4 sm:mb-6">
                 <img 
                   src={journalMateLogo} 
                   alt="JournalMate" 
-                  className="w-16 h-16"
+                  className="w-14 h-14 sm:w-16 sm:h-16"
                 />
               </div>
-              <h3 className="text-xl font-bold mb-6">
+              <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">
                 Sign in to own and edit this plan
               </h3>
               <Button 
                 onClick={handleSignIn} 
-                className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white" 
+                className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto" 
                 data-testid="button-sign-in-to-edit"
                 size="lg"
               >
@@ -884,24 +884,24 @@ export default function SharedActivity() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.4 }}
-            className="mt-8"
+            className="mt-6 sm:mt-8"
           >
-            <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-              <div className="flex items-center justify-center gap-2 mb-4">
+            <Card className="p-6 sm:p-8 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+              <div className="flex items-center justify-center gap-2 mb-4 sm:mb-6">
                 <img 
                   src={journalMateLogo} 
                   alt="JournalMate" 
-                  className="w-16 h-16"
+                  className="w-14 h-14 sm:w-16 sm:h-16"
                 />
               </div>
-              <h3 className="text-xl font-bold mb-2">Copy this activity to your account</h3>
-              <p className="text-muted-foreground mb-6">
+              <h3 className="text-lg sm:text-xl font-bold mb-2">Copy this activity to your account</h3>
+              <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
                 This activity will be added to your dashboard and you can edit it however you like
               </p>
               <Button 
                 onClick={() => copyActivityMutation.mutate()}
                 disabled={copyActivityMutation.isPending}
-                className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white"
+                className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto"
                 data-testid="button-copy-activity"
                 size="lg"
               >
@@ -916,21 +916,21 @@ export default function SharedActivity() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.4 }}
-            className="mt-8"
+            className="mt-6 sm:mt-8"
           >
-            <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-              <div className="flex items-center justify-center gap-2 mb-4">
+            <Card className="p-6 sm:p-8 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+              <div className="flex items-center justify-center gap-2 mb-4 sm:mb-6">
                 <img 
                   src={journalMateLogo} 
                   alt="JournalMate" 
-                  className="w-16 h-16"
+                  className="w-14 h-14 sm:w-16 sm:h-16"
                 />
               </div>
-              <h3 className="text-xl font-bold mb-2">This is Your Activity</h3>
-              <p className="text-muted-foreground mb-6">
+              <h3 className="text-lg sm:text-xl font-bold mb-2">This is Your Activity</h3>
+              <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
                 You can edit this activity from your dashboard
               </p>
-              <Button onClick={() => window.location.href = '/'} variant="default" className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white" size="lg">
+              <Button onClick={() => window.location.href = '/'} variant="default" className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto" size="lg">
                 <Home className="w-4 h-4" />
                 Go to Dashboard
               </Button>

@@ -63,15 +63,15 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-emerald-50 to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo and Branding */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="flex items-center justify-center mb-3 sm:mb-4">
             <img 
               src={journalMateLogo} 
               alt="JournalMate" 
-              className="w-20 h-20"
+              className="w-16 h-16 sm:w-20 sm:h-20"
             />
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent mb-2">
             JournalMate
           </h1>
           <p className="text-muted-foreground text-sm">
