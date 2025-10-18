@@ -703,6 +703,17 @@ Examples:
     categories: { name: string; completed: number; total: number }[],
     streakDays: number,
   ): Promise<string[]> {
+    // Check if OpenAI is available before attempting to use it
+    if (!process.env.OPENAI_API_KEY) {
+      console.log("[LIFESTYLE SUGGESTIONS] OpenAI API key not configured, using default suggestions");
+      return [
+        "Take a 5-minute break every hour",
+        "Try a new healthy recipe this week",
+        "Schedule time for a hobby you enjoy",
+        "Connect with a friend or family member",
+      ];
+    }
+
     try {
       const prompt = `Based on this user's productivity data, suggest 3-4 lifestyle activities or habits that would complement their progress:
 
@@ -743,7 +754,7 @@ Examples: "Try a 10-minute morning meditation", "Take a walk after lunch", "Sche
       const result = JSON.parse(response.choices[0].message.content || "{}");
       return result.suggestions || [];
     } catch (error) {
-      console.error("Suggestion generation failed:", error);
+      console.error("[LIFESTYLE SUGGESTIONS] Generation failed, using default suggestions:", error);
       return [
         "Take a 5-minute break every hour",
         "Try a new healthy recipe this week",
