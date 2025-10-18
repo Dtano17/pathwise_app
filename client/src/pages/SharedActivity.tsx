@@ -215,9 +215,10 @@ export default function SharedActivity() {
   }, [data]);
 
   const handleSignIn = () => {
+    // Use full pathname as returnTo - it already contains the share token in the URL
     const returnTo = encodeURIComponent(window.location.pathname);
-    const shareToken = token || '';
-    window.location.href = `/login?returnTo=${returnTo}&shareToken=${shareToken}`;
+    console.log('[SHARED ACTIVITY] Redirecting to login with returnTo:', window.location.pathname);
+    window.location.href = `/login?returnTo=${returnTo}`;
   };
 
   const copyActivityMutation = useMutation({
@@ -246,8 +247,8 @@ export default function SharedActivity() {
         // If authentication is required, redirect to login
         if (result.requiresAuth) {
           const returnTo = encodeURIComponent(window.location.pathname);
-          const shareToken = token || '';
-          window.location.href = `/login?returnTo=${returnTo}&shareToken=${shareToken}`;
+          console.log('[SHARED ACTIVITY] Auth required, redirecting to login');
+          window.location.href = `/login?returnTo=${returnTo}`;
           throw new Error('Redirecting to login...');
         }
         
@@ -295,13 +296,28 @@ export default function SharedActivity() {
 
   // Automatic copy when user signs in
   useEffect(() => {
+    // Check if user just authenticated (auth=success in URL)
+    const urlParams = new URLSearchParams(window.location.search);
+    const justAuthenticated = urlParams.get('auth') === 'success';
+    
+    console.log('[SHARED ACTIVITY] Auto-copy check:', {
+      isAuthenticated,
+      justAuthenticated,
+      hasActivity: !!data?.activity,
+      hasUser: !!user,
+      isOwner: data?.activity?.userId === (user as any)?.id,
+      permissionRequested
+    });
+    
     // Only auto-copy if:
     // 1. User is authenticated (not demo user)
     // 2. Activity data is loaded
     // 3. User is not the owner
     // 4. Haven't already requested permission
+    // 5. Just authenticated (from OAuth callback)
     if (
       isAuthenticated && 
+      justAuthenticated &&
       data?.activity && 
       user && 
       typeof user === 'object' && 
@@ -310,11 +326,14 @@ export default function SharedActivity() {
       !permissionRequested
     ) {
       setPermissionRequested(true);
-      console.log('[SHARED ACTIVITY] Auto-copying activity for newly authenticated user');
-      // Automatically trigger copy
-      copyActivityMutation.mutate();
+      console.log('[SHARED ACTIVITY] ✅ Auto-copying activity for newly authenticated user');
+      console.log('[SHARED ACTIVITY] Activity:', data.activity.title);
+      console.log('[SHARED ACTIVITY] User:', (user as any).username || (user as any).email);
+      
+      // Automatically trigger copy (forceUpdate = false for initial copy)
+      copyActivityMutation.mutate(false);
     }
-  }, [isAuthenticated, data, user, permissionRequested, copyActivityMutation]);
+  }, [isAuthenticated, data, user, permissionRequested]);
 
   const handleCopyLink = async () => {
     if (!data?.activity) return;
