@@ -651,6 +651,10 @@ export const activities = pgTable("activities", {
   completedAt: timestamp("completed_at"),
   archived: boolean("archived").default(false),
   
+  // Activity copy tracking
+  copiedFromShareToken: varchar("copied_from_share_token"), // Track which share link this was copied from
+  isArchived: boolean("is_archived").default(false), // Separate archive flag for history
+  
   // Location and context
   location: text("location"),
   budget: integer("budget"), // Optional budget in cents
