@@ -554,7 +554,11 @@ export default function SharedActivity() {
             {/* JournalMate Branding */}
             <div className="text-center mb-4 sm:mb-6">
               <div className="flex items-center justify-center gap-2 mb-1">
-                <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-purple-400" />
+                <img 
+                  src={journalMateLogo} 
+                  alt="JournalMate" 
+                  className="w-8 h-8 sm:w-10 sm:h-10"
+                />
                 <h1 className="text-2xl sm:text-3xl font-bold" style={{
                   background: 'linear-gradient(to right, rgb(168, 85, 247), rgb(16, 185, 129))',
                   WebkitBackgroundClip: 'text',
@@ -651,7 +655,7 @@ export default function SharedActivity() {
               <div className="flex flex-col items-center gap-2 text-sm">
                 {data.sharedBy?.name && (
                   <div className="flex items-center gap-2 text-white/90">
-                    <Sparkles className="w-4 h-4" />
+                    <Share2 className="w-4 h-4" />
                     <span>Shared by {data.sharedBy.name}</span>
                   </div>
                 )}
