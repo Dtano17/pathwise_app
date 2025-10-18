@@ -5,7 +5,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, Sparkles, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, type LucideIcon } from 'lucide-react';
+import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, type LucideIcon } from 'lucide-react';
+import journalMateLogo from '@assets/Export_JournalMate_2_1760772138217.png';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -853,11 +854,15 @@ export default function SharedActivity() {
           >
             <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
               <div className="flex items-center justify-center gap-2 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-emerald-600 flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">J</span>
-                </div>
+                <img 
+                  src={journalMateLogo} 
+                  alt="JournalMate" 
+                  className="w-16 h-16"
+                />
               </div>
-              <h3 className="text-xl font-bold mb-2">Sign in to edit this activity and make it yours</h3>
+              <h3 className="text-xl font-bold mb-2">
+                Sign in to own and edit this plan{data?.sharedBy?.name ? ` sent by ${data.sharedBy.name}` : ''}
+              </h3>
               <p className="text-muted-foreground mb-6">
                 Create a free JournalMate account and this activity will be automatically copied to your dashboard
               </p>
