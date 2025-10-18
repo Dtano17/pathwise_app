@@ -203,16 +203,16 @@ export default function SharedActivity() {
 
   const handleSignIn = () => {
     const returnTo = encodeURIComponent(window.location.pathname);
-    window.location.href = `/login?returnTo=${returnTo}`;
+    const shareToken = token || '';
+    window.location.href = `/login?returnTo=${returnTo}&shareToken=${shareToken}`;
   };
 
-  const requestPermissionMutation = useMutation({
+  const copyActivityMutation = useMutation({
     mutationFn: async () => {
-      if (!data?.activity?.id) throw new Error('Activity ID not found');
-      const response = await fetch(`/api/activities/${data.activity.id}/request-permission`, {
+      if (!token) throw new Error('Share token not found');
+      const response = await fetch(`/api/activities/copy/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permissionType: 'edit' })
       });
       
       // Parse JSON response
@@ -222,7 +222,7 @@ export default function SharedActivity() {
       } catch (e) {
         // If JSON parsing fails and response is not ok, throw generic error
         if (!response.ok) {
-          throw new Error('Failed to request permission. Please try again.');
+          throw new Error('Failed to copy activity. Please try again.');
         }
         // If response is ok but no JSON, return success
         return { success: true };
@@ -232,39 +232,33 @@ export default function SharedActivity() {
         // If authentication is required, redirect to login
         if (result.requiresAuth) {
           const returnTo = encodeURIComponent(window.location.pathname);
-          window.location.href = `/login?returnTo=${returnTo}`;
+          const shareToken = token || '';
+          window.location.href = `/login?returnTo=${returnTo}&shareToken=${shareToken}`;
           throw new Error('Redirecting to login...');
         }
-        throw new Error(result.error || result.message || 'Failed to request permission');
+        throw new Error(result.error || result.message || 'Failed to copy activity');
       }
       
       return result;
     },
     onSuccess: (result) => {
-      // Check if we got a copied activity back (backend returns 'activity' field)
       if (result?.activity?.id) {
         toast({
-          title: 'Activity Copied Successfully!',
+          title: 'Activity Copied!',
           description: `"${result.activity.title}" has been added to your account with ${result.tasks?.length || 0} tasks.`,
         });
-        // Redirect to the copied activity in the main app after a short delay
+        // Redirect to the activity page after a short delay
         setTimeout(() => {
           window.location.href = `/?activity=${result.activity.id}&tab=tasks`;
         }, 1500);
-      } else {
-        setPermissionRequested(true);
-        toast({
-          title: 'Permission Requested',
-          description: 'The activity owner will be notified of your request.',
-        });
       }
     },
     onError: (error: Error) => {
       // Don't show error toast if we're redirecting to login
       if (!error.message.includes('Redirecting')) {
         toast({
-          title: 'Request Failed',
-          description: error.message || 'Failed to request permission. Please try again.',
+          title: 'Copy Failed',
+          description: error.message || 'Failed to copy activity. Please try again.',
           variant: 'destructive',
         });
       }
@@ -858,32 +852,28 @@ export default function SharedActivity() {
             className="mt-8"
           >
             <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-              <Edit className="w-12 h-12 text-primary mx-auto mb-3" />
-              <h3 className="text-xl font-bold mb-2">Want to Edit This Activity?</h3>
-              <p className="text-muted-foreground mb-4">
-                Sign in or create an account to request permission to edit and collaborate on this activity
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-emerald-600 flex items-center justify-center">
+                  <span className="text-white font-bold text-xl">J</span>
+                </div>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Sign in to edit this activity and make it yours</h3>
+              <p className="text-muted-foreground mb-6">
+                Create a free JournalMate account and this activity will be automatically copied to your dashboard
               </p>
               <Button 
                 onClick={handleSignIn} 
                 className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white" 
-                data-testid="button-request-access"
+                data-testid="button-sign-in-to-edit"
                 size="lg"
               >
-                <Lock className="w-4 h-4" />
-                Sign In to Request Permission
+                Sign In to Edit
               </Button>
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-sm text-muted-foreground mb-2">New to JournalMate?</p>
-                <Button onClick={() => window.location.href = '/'} variant="outline" className="gap-2" data-testid="button-create-own">
-                  <Sparkles className="w-4 h-4" />
-                  Get Started Free
-                </Button>
-              </div>
             </Card>
           </motion.div>
         )}
 
-        {isAuthenticated && (
+        {isAuthenticated && user && typeof user === 'object' && 'id' in user && activity.userId !== (user as any).id && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -891,53 +881,49 @@ export default function SharedActivity() {
             className="mt-8"
           >
             <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-              <div className="flex flex-col items-center gap-4">
-                {user && typeof user === 'object' && 'id' in user && activity.userId !== (user as any).id && !permissionRequested ? (
-                  <div className="w-full">
-                    <Edit className="w-12 h-12 text-primary mx-auto mb-3" />
-                    <h3 className="text-xl font-bold mb-2">Want to Edit This Activity?</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Request permission from the owner to collaborate and contribute to this plan
-                    </p>
-                    <Button 
-                      onClick={() => requestPermissionMutation.mutate()}
-                      disabled={requestPermissionMutation.isPending}
-                      className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white"
-                      data-testid="button-request-permission"
-                      size="lg"
-                    >
-                      <Edit className="w-4 h-4" />
-                      {requestPermissionMutation.isPending ? 'Requesting...' : 'Request Permission to Edit'}
-                    </Button>
-                  </div>
-                ) : null}
-                
-                {permissionRequested && (
-                  <div className="w-full">
-                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <CheckSquare className="w-6 h-6 text-green-600 dark:text-green-400" />
-                    </div>
-                    <h3 className="text-xl font-bold mb-2">Permission Request Sent!</h3>
-                    <p className="text-muted-foreground mb-4">
-                      The activity owner has been notified. You'll receive access once they approve your request.
-                    </p>
-                  </div>
-                )}
-                
-                {user && typeof user === 'object' && 'id' in user && activity.userId === (user as any).id && (
-                  <div className="w-full">
-                    <Sparkles className="w-12 h-12 text-primary mx-auto mb-3" />
-                    <h3 className="text-xl font-bold mb-2">This is Your Activity</h3>
-                    <p className="text-muted-foreground mb-4">
-                      You can edit this activity from your dashboard
-                    </p>
-                    <Button onClick={() => window.location.href = '/'} variant="default" className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white" size="lg">
-                      <Home className="w-4 h-4" />
-                      Go to Dashboard
-                    </Button>
-                  </div>
-                )}
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-emerald-600 flex items-center justify-center">
+                  <span className="text-white font-bold text-xl">J</span>
+                </div>
               </div>
+              <h3 className="text-xl font-bold mb-2">Copy this activity to your account</h3>
+              <p className="text-muted-foreground mb-6">
+                This activity will be added to your dashboard and you can edit it however you like
+              </p>
+              <Button 
+                onClick={() => copyActivityMutation.mutate()}
+                disabled={copyActivityMutation.isPending}
+                className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white"
+                data-testid="button-copy-activity"
+                size="lg"
+              >
+                {copyActivityMutation.isPending ? 'Copying...' : 'Copy to My Account'}
+              </Button>
+            </Card>
+          </motion.div>
+        )}
+        
+        {isAuthenticated && user && typeof user === 'object' && 'id' in user && activity.userId === (user as any).id && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
+            className="mt-8"
+          >
+            <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-emerald-600 flex items-center justify-center">
+                  <span className="text-white font-bold text-xl">J</span>
+                </div>
+              </div>
+              <h3 className="text-xl font-bold mb-2">This is Your Activity</h3>
+              <p className="text-muted-foreground mb-6">
+                You can edit this activity from your dashboard
+              </p>
+              <Button onClick={() => window.location.href = '/'} variant="default" className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white" size="lg">
+                <Home className="w-4 h-4" />
+                Go to Dashboard
+              </Button>
             </Card>
           </motion.div>
         )}

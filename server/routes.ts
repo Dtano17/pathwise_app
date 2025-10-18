@@ -1918,6 +1918,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Copy shared activity to user's account
+  app.post("/api/activities/copy/:shareToken", async (req, res) => {
+    try {
+      const { shareToken } = req.params;
+      const currentUserId = getUserId(req);
+      
+      // Require authentication
+      if (!currentUserId) {
+        return res.status(401).json({ 
+          error: 'Authentication required',
+          requiresAuth: true 
+        });
+      }
+      
+      // Get the activity by share token
+      const sharedActivity = await storage.getActivityByShareToken(shareToken);
+      
+      if (!sharedActivity) {
+        return res.status(404).json({ error: 'Shared activity not found or link has expired' });
+      }
+      
+      // Check if activity is public
+      if (!sharedActivity.isPublic) {
+        return res.status(403).json({ error: 'This activity is not public and cannot be copied' });
+      }
+      
+      // Don't allow copying your own activity
+      if (sharedActivity.userId === currentUserId) {
+        return res.status(400).json({ error: 'You cannot copy your own activity' });
+      }
+      
+      // Get the tasks for the shared activity
+      const originalTasks = await storage.getActivityTasks(sharedActivity.id, sharedActivity.userId);
+      
+      // Create a copy of the activity for the current user
+      const copiedActivity = await storage.createActivity({
+        userId: currentUserId,
+        title: sharedActivity.title,
+        description: sharedActivity.description,
+        category: sharedActivity.category,
+        planSummary: sharedActivity.planSummary,
+        status: 'planning', // Reset status to planning
+        isPublic: false, // Make private by default
+        startDate: sharedActivity.startDate,
+        endDate: sharedActivity.endDate,
+      });
+      
+      // Copy all tasks
+      const copiedTasks = [];
+      for (const task of originalTasks) {
+        const newTask = await storage.createTask({
+          userId: currentUserId,
+          activityId: copiedActivity.id,
+          title: task.title,
+          description: task.description,
+          completed: false, // Reset completion status
+          dueDate: task.dueDate,
+        });
+        copiedTasks.push(newTask);
+      }
+      
+      res.json({
+        activity: copiedActivity,
+        tasks: copiedTasks,
+      });
+    } catch (error) {
+      console.error('Copy activity error:', error);
+      res.status(500).json({ error: 'Failed to copy activity' });
+    }
+  });
+
   // View shared activity by token
   app.get("/api/share/activity/:token", async (req, res) => {
     try {
