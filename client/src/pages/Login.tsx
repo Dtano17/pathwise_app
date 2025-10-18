@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { SocialLogin } from '@/components/SocialLogin';
 import { useAuth } from '@/hooks/useAuth';
+import journalMateLogo from '@assets/Export_JournalMate_2_1760772138217.png';
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -59,11 +60,31 @@ export default function Login() {
   }, [isAuthenticated, setLocation, copyingActivity]);
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <SocialLogin 
-        title="Sign in to IntentAI"
-        description="Access your goals, activities, and personalized features"
-      />
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-emerald-50 to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Logo and Branding */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center mb-4">
+            <img 
+              src={journalMateLogo} 
+              alt="JournalMate" 
+              className="w-20 h-20"
+            />
+          </div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent mb-2">
+            JournalMate
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Your AI-powered life planning companion
+          </p>
+        </div>
+
+        {/* Social Login Component */}
+        <SocialLogin 
+          title="Welcome back"
+          description="Sign in to continue your journey"
+        />
+      </div>
     </div>
   );
 }
