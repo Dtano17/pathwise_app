@@ -30,7 +30,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { SharePreviewDialog } from '@/components/SharePreviewDialog';
-import { EditActivityDialog } from '@/components/EditActivityDialog';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import ThemeToggle from '@/components/ThemeToggle';
 import NotificationManager from '@/components/NotificationManager';
@@ -118,7 +117,7 @@ export default function MainApp({
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
   const [sharePreviewDialog, setSharePreviewDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
-  const [editDialog, setEditDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
+  const [editingActivity, setEditingActivity] = useState<ActivityType | null>(null);
   const [showJournalMode, setShowJournalMode] = useState(false);
 
   // Handle URL query parameters for activity selection from shared links
@@ -459,6 +458,21 @@ export default function MainApp({
   // Process goal mutation
   const processGoalMutation = useMutation({
     mutationFn: async (goalText: string) => {
+      // If in edit mode, call the edit endpoint
+      if (editingActivity) {
+        const response = await apiRequest('POST', '/api/goals/edit', {
+          activityId: editingActivity.id,
+          editInstruction: goalText,
+          conversationHistory: conversationHistory.map((msg, idx) => ({
+            role: 'user' as const,
+            content: msg,
+            timestamp: new Date().toISOString(),
+            type: 'question' as const
+          }))
+        });
+        return response.json();
+      }
+      
       // For refinements, incorporate additional context into the original request
       // Example: "plan my weekend" + "add timeline with timestamps" = "plan my weekend with detailed timeline and timestamps"
       const fullContext = conversationHistory.length > 0
@@ -480,6 +494,21 @@ export default function MainApp({
     onSuccess: async (data: any, variables: string) => {
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      
+      // If in edit mode, show success and clear editing state
+      if (editingActivity) {
+        toast({
+          title: "Activity updated!",
+          description: "Your changes have been applied successfully.",
+        });
+        
+        // Clear editing state and conversation history
+        setEditingActivity(null);
+        setConversationHistory([]);
+        setActiveTab('activities');
+        return;
+      }
       
       // Add the new user input to conversation history
       const updatedHistory = [...conversationHistory, variables];
@@ -1048,12 +1077,43 @@ export default function MainApp({
 
             {/* Goal Input Tab */}
             <TabsContent value="input" className="space-y-6 pb-20">
+              {editingActivity && (
+                <div className="max-w-4xl mx-auto mb-6 px-4">
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Edit className="w-5 h-5 text-primary" />
+                        <h3 className="font-semibold text-lg">Editing: {editingActivity.title}</h3>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingActivity(null)}
+                        data-testid="button-cancel-edit"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Tell me what you'd like to change - modify tasks, update description, adjust priority, or anything else.
+                    </p>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p><strong>Category:</strong> {editingActivity.category}</p>
+                      <p><strong>Priority:</strong> {editingActivity.priority}</p>
+                      {editingActivity.planSummary && <p><strong>Current Plan:</strong> {editingActivity.planSummary}</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="text-center mb-6 px-4">
                 <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-                  What do you want to achieve?
+                  {editingActivity ? 'What would you like to change?' : 'What do you want to achieve?'}
                 </h2>
                 <p className="text-sm sm:text-base text-muted-foreground">
-                  Share your goals through voice or text - AI will create actionable tasks for you
+                  {editingActivity 
+                    ? 'Describe your changes naturally - the AI will understand and update your activity'
+                    : 'Share your goals through voice or text - AI will create actionable tasks for you'}
                 </p>
               </div>
               
@@ -1465,10 +1525,11 @@ export default function MainApp({
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setEditDialog({ open: true, activity });
+                                  setEditingActivity(activity);
+                                  setActiveTab('input');
                                 }}
                                 data-testid={`button-edit-${activity.id}`}
-                                title="Edit activity details"
+                                title="Edit activity with AI"
                               >
                                 <Edit className="w-4 h-4" />
                               </Button>
@@ -2930,12 +2991,6 @@ Assistant: For nutrition, I recommend..."
         />
       )}
 
-      {/* Edit Activity Dialog */}
-      <EditActivityDialog
-        activity={editDialog.activity}
-        open={editDialog.open}
-        onOpenChange={(open) => setEditDialog({ open, activity: null })}
-      />
     </div>
   );
 }

@@ -1206,6 +1206,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI-powered activity editing
+  app.post("/api/goals/edit", async (req, res) => {
+    try {
+      const { activityId, editInstruction } = req.body;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      if (!activityId || !editInstruction) {
+        return res.status(400).json({ error: 'Activity ID and edit instruction are required' });
+      }
+
+      console.log('Editing activity:', activityId, 'with instruction:', editInstruction);
+      
+      // Get current activity and tasks
+      const activity = await storage.getActivity(activityId, userId);
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      const tasks = await storage.getTasksByActivity(activityId);
+      
+      // Build context for AI with clear instruction
+      const activityContext = `I'm editing an existing activity. Here's the current state:
+
+Activity: "${activity.title}"
+Description: ${activity.description || 'None'}
+Category: ${activity.category}
+Priority: ${activity.priority}
+
+Current Tasks:
+${tasks.map((t, idx) => `${idx + 1}. ${t.title} ${t.completed ? '[COMPLETED]' : '[PENDING]'}`).join('\n')}
+
+The user wants to make this change: "${editInstruction}"
+
+Please help me update this activity. If they want to change priority, category, or title, extract those. If they want to modify tasks, provide the updated task list. Preserve task completion status unless explicitly asked to change it.`;
+
+      // Use AI to generate the edits
+      const result = await aiService.processGoalIntoTasks(activityContext, 'claude', userId);
+      
+      // Determine what fields to update based on the instruction
+      const updateData: any = {};
+      
+      // Update title if different and meaningful
+      if (result.planTitle && result.planTitle !== activity.title && result.planTitle.length > 3) {
+        updateData.title = result.planTitle;
+      }
+      
+      // Update description/summary if provided
+      if (result.summary) {
+        updateData.description = result.summary;
+        updateData.planSummary = result.summary;
+      }
+      
+      // Check if instruction mentions priority change (expanded keywords)
+      const lowerInstruction = editInstruction.toLowerCase();
+      if (lowerInstruction.includes('priority') || lowerInstruction.includes('urgent') || 
+          lowerInstruction.includes('important') || lowerInstruction.includes('low') ||
+          lowerInstruction.includes('medium') || lowerInstruction.includes('high') ||
+          lowerInstruction.includes('critical') || lowerInstruction.includes('top')) {
+        if (lowerInstruction.includes('high') || lowerInstruction.includes('urgent') || 
+            lowerInstruction.includes('critical') || lowerInstruction.includes('top') ||
+            lowerInstruction.includes('highest')) {
+          updateData.priority = 'high';
+        } else if (lowerInstruction.includes('medium') || lowerInstruction.includes('moderate')) {
+          updateData.priority = 'medium';
+        } else if (lowerInstruction.includes('low') || lowerInstruction.includes('lowest') ||
+                   lowerInstruction.includes('minor')) {
+          updateData.priority = 'low';
+        }
+      }
+      
+      // Check if instruction mentions category change
+      const categories = ['health', 'productivity', 'career', 'learning', 'personal', 'social', 'other'];
+      for (const cat of categories) {
+        if (lowerInstruction.includes(cat)) {
+          updateData.category = cat;
+          break;
+        }
+      }
+      
+      // Update the activity if we have changes
+      if (Object.keys(updateData).length > 0) {
+        await storage.updateActivity(activityId, updateData, userId);
+      }
+
+      // Handle task updates - preserve completion status
+      if (result.tasks && result.tasks.length > 0 && 
+          (lowerInstruction.includes('task') || lowerInstruction.includes('add') || 
+           lowerInstruction.includes('remove') || lowerInstruction.includes('change'))) {
+        
+        // Only update tasks if instruction explicitly mentions task changes
+        const existingTaskTitles = new Set(tasks.map(t => t.title.toLowerCase()));
+        const newTaskTitles = new Set(result.tasks.map((t: any) => t.title.toLowerCase()));
+        
+        // Add new tasks
+        for (const taskData of result.tasks) {
+          if (!existingTaskTitles.has(taskData.title.toLowerCase())) {
+            await storage.createTask({
+              activityId: activityId,
+              userId: userId,
+              title: taskData.title,
+              description: taskData.description || '',
+              completed: false,
+              aiGenerated: true
+            });
+          }
+        }
+        
+        // Remove tasks not in new list only if explicitly asked
+        if (lowerInstruction.includes('remove') || lowerInstruction.includes('delete') || 
+            lowerInstruction.includes('replace all')) {
+          for (const task of tasks) {
+            if (!newTaskTitles.has(task.title.toLowerCase())) {
+              await storage.deleteTask(task.id, userId);
+            }
+          }
+        }
+      }
+
+      res.json({
+        success: true,
+        message: 'Activity updated successfully'
+      });
+    } catch (error) {
+      console.error('Activity edit error:', error);
+      res.status(500).json({ error: 'Failed to edit activity' });
+    }
+  });
+
   // Save conversation session
   app.post("/api/conversations", async (req, res) => {
     try {
