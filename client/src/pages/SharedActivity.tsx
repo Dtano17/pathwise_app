@@ -864,12 +864,9 @@ export default function SharedActivity() {
                   className="w-16 h-16"
                 />
               </div>
-              <h3 className="text-xl font-bold mb-2">
+              <h3 className="text-xl font-bold mb-6">
                 Sign in to own and edit this plan{data?.sharedBy?.name ? ` sent by ${data.sharedBy.name}` : ''}
               </h3>
-              <p className="text-muted-foreground mb-6">
-                Create a free JournalMate account and this activity will be automatically copied to your dashboard
-              </p>
               <Button 
                 onClick={handleSignIn} 
                 className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white" 
