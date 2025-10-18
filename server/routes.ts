@@ -1162,7 +1162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Tasks are only created when user clicks "Create Activity" button
   app.post("/api/goals/process", async (req, res) => {
     try {
-      const { goalText, sessionId } = req.body;
+      const { goalText, sessionId, activityId } = req.body;
       const userId = getUserId(req) || DEMO_USER_ID;
       
       if (!goalText || typeof goalText !== 'string') {
@@ -1171,8 +1171,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('Processing goal:', goalText);
       
+      // If activityId is provided, load existing activity for context
+      let existingActivity: { title: string; tasks: Array<{ title: string; description?: string }> } | undefined;
+      if (activityId) {
+        try {
+          const activity = await storage.getActivity(activityId, userId);
+          if (activity) {
+            const tasks = await storage.getActivityTasks(activityId, userId);
+            existingActivity = {
+              title: activity.title,
+              tasks: tasks.map(t => ({
+                title: t.title,
+                description: t.description || undefined
+              }))
+            };
+            console.log('Loaded existing activity for refinement:', existingActivity.title);
+          }
+        } catch (error) {
+          console.error('Failed to load existing activity:', error);
+          // Continue without existing activity context
+        }
+      }
+      
       // Use AI to process the goal into tasks - switched to Claude as default
-      const result = await aiService.processGoalIntoTasks(goalText, 'claude', userId);
+      const result = await aiService.processGoalIntoTasks(goalText, 'claude', userId, existingActivity);
       
       // Save or update conversation session for history
       if (sessionId) {
