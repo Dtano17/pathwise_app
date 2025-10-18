@@ -865,7 +865,7 @@ export default function SharedActivity() {
                 />
               </div>
               <h3 className="text-xl font-bold mb-6">
-                Sign in to own and edit this plan{data?.sharedBy?.name ? ` sent by ${data.sharedBy.name}` : ''}
+                Sign in to own and edit this plan{data?.sharedBy?.name && data.sharedBy.name !== 'guest' && data.sharedBy.name !== 'Anonymous' ? ` sent by ${data.sharedBy.name}` : ''}
               </h3>
               <Button 
                 onClick={handleSignIn} 
