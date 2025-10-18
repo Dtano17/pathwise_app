@@ -39,6 +39,7 @@ import { eq, and, or, isNull } from "drizzle-orm";
 import bcrypt from 'bcrypt';
 import { z } from "zod";
 import crypto from 'crypto';
+import { sendWelcomeEmail } from "./emailService";
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -825,6 +826,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check username availability endpoint
+  app.get('/api/auth/username-availability', async (req: any, res) => {
+    try {
+      const username = req.query.username as string;
+      
+      if (!username || username.length < 3) {
+        return res.json({ available: false, reason: 'too_short' });
+      }
+
+      if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+        return res.json({ available: false, reason: 'invalid_format' });
+      }
+
+      // Check if username exists
+      const existingUser = await storage.getUserByUsername(username);
+      
+      if (existingUser) {
+        return res.json({ available: false, reason: 'taken' });
+      }
+
+      res.json({ available: true });
+    } catch (error) {
+      console.error('[USERNAME CHECK] Error:', error);
+      res.status(500).json({ available: false, reason: 'error' });
+    }
+  });
+
   // Manual signup endpoint
   app.post('/api/auth/signup', async (req: any, res) => {
     try {
@@ -845,7 +873,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('[SIGNUP] User already exists:', validatedData.email);
         return res.status(400).json({ 
           success: false, 
-          error: 'User with this email already exists' 
+          error: 'Welcome back! Looks like you already have an account with us. Try logging in instead.' 
         });
       }
 
@@ -868,6 +896,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: user.id,
         username: user.username,
         email: user.email
+      });
+
+      // Send welcome email (don't wait for it)
+      sendWelcomeEmail(user.email, user.firstName || 'there').then(result => {
+        if (result.success) {
+          console.log('[SIGNUP] Welcome email sent to:', user.email);
+        } else {
+          console.error('[SIGNUP] Failed to send welcome email:', result.error);
+        }
+      }).catch(err => {
+        console.error('[SIGNUP] Welcome email error:', err);
       });
 
       // Create session using Passport's login method for compatibility

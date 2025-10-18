@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Mail, Lock, User, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 
 interface EmailAuthDialogProps {
   open: boolean;
@@ -26,6 +26,58 @@ export function EmailAuthDialog({ open, onOpenChange }: EmailAuthDialogProps) {
   const [signupPassword, setSignupPassword] = useState('');
   const [signupFirstName, setSignupFirstName] = useState('');
   const [signupLastName, setSignupLastName] = useState('');
+  
+  // Validation state
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
+  const [passwordValid, setPasswordValid] = useState(false);
+
+  // Debounced username availability check
+  useEffect(() => {
+    if (!signupUsername || signupUsername.length < 3) {
+      setUsernameStatus('idle');
+      return;
+    }
+
+    // Check if username matches required pattern
+    if (!/^[a-zA-Z0-9_-]+$/.test(signupUsername)) {
+      setUsernameStatus('invalid');
+      return;
+    }
+
+    setUsernameStatus('checking');
+    
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/auth/username-availability?username=${encodeURIComponent(signupUsername)}`);
+        const data = await response.json();
+        
+        if (data.available) {
+          setUsernameStatus('available');
+        } else if (data.reason === 'taken') {
+          setUsernameStatus('taken');
+        } else if (data.reason === 'invalid_format') {
+          setUsernameStatus('invalid');
+        } else {
+          setUsernameStatus('idle');
+        }
+      } catch (error) {
+        console.error('Username availability check failed:', error);
+        setUsernameStatus('idle');
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [signupUsername]);
+
+  // Password validation
+  useEffect(() => {
+    const hasMinLength = signupPassword.length >= 8;
+    const hasLetter = /[a-zA-Z]/.test(signupPassword);
+    const hasNumber = /[0-9]/.test(signupPassword);
+    const hasSpecial = /[^a-zA-Z0-9]/.test(signupPassword);
+    
+    setPasswordValid(hasMinLength && hasLetter && hasNumber && hasSpecial);
+  }, [signupPassword]);
 
   // Reset form state when dialog closes
   const handleOpenChange = (newOpen: boolean) => {
@@ -220,11 +272,30 @@ export function EmailAuthDialog({ open, onOpenChange }: EmailAuthDialogProps) {
                     placeholder="username"
                     value={signupUsername}
                     onChange={(e) => setSignupUsername(e.target.value)}
-                    className="pl-9"
+                    className="pl-9 pr-10"
                     required
+                    minLength={3}
+                    maxLength={30}
+                    pattern="[a-zA-Z0-9_-]+"
                     data-testid="input-signup-username"
                   />
+                  {signupUsername.length >= 3 && (
+                    <div className="absolute right-3 top-3">
+                      {usernameStatus === 'checking' && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                      {usernameStatus === 'available' && <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />}
+                      {usernameStatus === 'taken' && <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />}
+                      {usernameStatus === 'invalid' && <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+                    </div>
+                  )}
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {usernameStatus === 'invalid' 
+                    ? 'Only letters, numbers, underscores, and hyphens allowed'
+                    : usernameStatus === 'taken'
+                    ? 'This username is already taken'
+                    : '3-30 characters, letters, numbers, underscores, and hyphens only'
+                  }
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -256,11 +327,19 @@ export function EmailAuthDialog({ open, onOpenChange }: EmailAuthDialogProps) {
                     onChange={(e) => setSignupPassword(e.target.value)}
                     className="pl-9"
                     required
-                    minLength={6}
+                    minLength={8}
                     data-testid="input-signup-password"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">At least 6 characters</p>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>Password must contain:</p>
+                  <ul className="list-disc list-inside space-y-0.5 ml-1">
+                    <li className={signupPassword.length >= 8 ? 'text-green-600 dark:text-green-400' : ''}>At least 8 characters</li>
+                    <li className={/[a-zA-Z]/.test(signupPassword) ? 'text-green-600 dark:text-green-400' : ''}>At least one letter</li>
+                    <li className={/[0-9]/.test(signupPassword) ? 'text-green-600 dark:text-green-400' : ''}>At least one number</li>
+                    <li className={/[^a-zA-Z0-9]/.test(signupPassword) ? 'text-green-600 dark:text-green-400' : ''}>At least one special character (!@#$%^&*)</li>
+                  </ul>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -292,7 +371,7 @@ export function EmailAuthDialog({ open, onOpenChange }: EmailAuthDialogProps) {
               <Button 
                 type="submit" 
                 className="w-full" 
-                disabled={isLoading}
+                disabled={isLoading || !passwordValid || usernameStatus !== 'available'}
                 data-testid="button-submit-signup"
               >
                 {isLoading ? (
