@@ -2140,6 +2140,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create activity from dialogue (AI-generated tasks)
+  // Update existing activity with new plan (replaces all tasks)
+  app.post("/api/activities/:activityId/update-from-dialogue", async (req: any, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { title, description, category, tasks } = req.body;
+      
+      // Verify ownership
+      const existingActivity = await storage.getActivity(activityId, userId);
+      if (!existingActivity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+      
+      // Update activity metadata
+      const updatedActivity = await storage.updateActivity(activityId, {
+        title,
+        description,
+        category
+      }, userId);
+      
+      // ATOMIC TASK REPLACEMENT WITH ROLLBACK:
+      // 1. Create all new tasks first (don't link yet)
+      // 2. Save reference to existing tasks before removal
+      // 3. Remove old tasks and link new ones
+      // 4. If linking fails, rollback by restoring old task links
+      
+      const newTasks: any[] = [];
+      let existingTasks: any[] = [];
+      
+      try {
+        // Step 1: Create all new tasks (without linking)
+        if (tasks && Array.isArray(tasks)) {
+          for (const taskData of tasks) {
+            const task = await storage.createTask({
+              ...taskData,
+              userId,
+              category: taskData.category || category || 'general'
+            });
+            newTasks.push(task);
+          }
+        }
+        
+        // Step 2: Get existing tasks BEFORE removal
+        existingTasks = await storage.getActivityTasks(activityId, userId);
+        
+        // Step 3: Remove old task associations (but keep task records for potential rollback)
+        for (const task of existingTasks) {
+          await storage.removeTaskFromActivity(activityId, task.id);
+        }
+        
+        // Step 4: Link new tasks to the activity (CRITICAL SECTION)
+        // If this fails, we rollback to original tasks
+        for (let i = 0; i < newTasks.length; i++) {
+          await storage.addTaskToActivity(activityId, newTasks[i].id, i);
+        }
+        
+      } catch (linkError) {
+        console.error('Failed during task replacement, rolling back:', linkError);
+        
+        // ROLLBACK: Restore original task links
+        try {
+          // Remove any partially-linked new tasks
+          for (const newTask of newTasks) {
+            await storage.removeTaskFromActivity(activityId, newTask.id).catch(() => {});
+            await storage.deleteTask(newTask.id, userId).catch(() => {});
+          }
+          
+          // Restore original task links (tasks still exist because we haven't deleted them yet)
+          for (let i = 0; i < existingTasks.length; i++) {
+            await storage.addTaskToActivity(activityId, existingTasks[i].id, i);
+          }
+          
+          console.log('Successfully rolled back to original tasks');
+        } catch (rollbackError) {
+          console.error('CRITICAL: Rollback failed:', rollbackError);
+        }
+        
+        throw new Error('Failed to update tasks, changes rolled back');
+      }
+      
+      // Step 5: ONLY delete old tasks AFTER successful linking
+      // At this point, new tasks are safely linked and we can cleanup
+      for (const task of existingTasks) {
+        await storage.deleteTask(task.id, userId).catch(err => {
+          console.error('Failed to delete old task (non-critical):', err);
+          // Non-critical: new tasks are already linked, old tasks just orphaned
+        });
+      }
+      
+      // Get the complete updated activity with new tasks
+      const activityTasks = await storage.getActivityTasks(activityId, userId);
+      res.json({ ...updatedActivity, tasks: activityTasks });
+    } catch (error) {
+      console.error('Update activity from dialogue error:', error);
+      res.status(500).json({ error: 'Failed to update activity' });
+    }
+  });
+
   // This creates BOTH the activity AND all tasks linked to it
   app.post("/api/activities/from-dialogue", async (req: any, res) => {
     try {
@@ -2193,7 +2291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get the complete activity with tasks
-      const activityTasks = await storage.getActivityTasks(activity.id);
+      const activityTasks = await storage.getActivityTasks(activity.id, userId);
       res.json({ ...activity, tasks: activityTasks });
     } catch (error) {
       console.error('Create activity from dialogue error:', error);

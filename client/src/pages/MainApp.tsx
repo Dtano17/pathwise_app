@@ -802,31 +802,72 @@ export default function MainApp({
 
   // Create activity from plan mutation
   const createActivityMutation = useMutation({
-    mutationFn: async (planData: { title: string; description: string; tasks: any[] }) => {
-      const response = await apiRequest('POST', '/api/activities/from-dialogue', {
-        title: planData.title,
-        description: planData.description,
-        category: 'goal',
-        tasks: planData.tasks.map(task => ({
-          title: task.title,
-          description: task.description,
-          priority: task.priority || 'medium',
-          category: task.category || 'general',
-          timeEstimate: task.timeEstimate
-        }))
-      });
-      return response.json();
+    mutationFn: async (planData: { title: string; description: string; tasks: any[]; mode?: 'create' | 'update'; activityId?: string }) => {
+      // Use explicit mode passed from the call site
+      const mode = planData.mode || 'create';
+      const activityId = planData.activityId || activityIdRef.current;
+      
+      if (mode === 'update' && activityId) {
+        // Update existing activity
+        const response = await apiRequest('POST', `/api/activities/${activityId}/update-from-dialogue`, {
+          title: planData.title,
+          description: planData.description,
+          category: 'goal',
+          tasks: planData.tasks.map(task => ({
+            title: task.title,
+            description: task.description,
+            priority: task.priority || 'medium',
+            category: task.category || 'general',
+            timeEstimate: task.timeEstimate
+          }))
+        });
+        return { ...await response.json(), mode: 'update' };
+      } else {
+        // Create new activity
+        const response = await apiRequest('POST', '/api/activities/from-dialogue', {
+          title: planData.title,
+          description: planData.description,
+          category: 'goal',
+          tasks: planData.tasks.map(task => ({
+            title: task.title,
+            description: task.description,
+            priority: task.priority || 'medium',
+            category: task.category || 'general',
+            timeEstimate: task.timeEstimate
+          }))
+        });
+        return { ...await response.json(), mode: 'create' };
+      }
     },
     onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       
-      console.log('✅ Activity created with ID:', data.id);
-      
-      // Update ref first to ensure all future refinements preserve this activityId
-      activityIdRef.current = data.id;
-      console.log('📌 Set activityIdRef.current to:', activityIdRef.current);
+      if (data.mode === 'update') {
+        console.log('✅ Activity updated with ID:', data.id);
+        
+        // Show success message for edit
+        toast({
+          title: "Activity Updated!",
+          description: "Your changes have been saved successfully.",
+        });
+        
+        // Clear edit state
+        setEditingActivity(null);
+        setCurrentPlanOutput(null);
+        setConversationHistory([]);
+        activityIdRef.current = undefined;
+        
+        // Switch to activities tab to show the updated activity
+        setActiveTab('activities');
+      } else {
+        console.log('✅ Activity created with ID:', data.id);
+        
+        // Update ref first to ensure all future refinements preserve this activityId
+        activityIdRef.current = data.id;
+        console.log('📌 Set activityIdRef.current to:', activityIdRef.current);
+      }
       
       // Fetch the newly created tasks to get their IDs
       await queryClient.refetchQueries({ queryKey: ['/api/tasks'] });
@@ -1302,7 +1343,12 @@ export default function MainApp({
                     motivationalNote={currentPlanOutput.motivationalNote}
                     activityId={currentPlanOutput.activityId}
                     onCompleteTask={(taskId) => completeTaskMutation.mutate(taskId)}
-                    onCreateActivity={(planData) => createActivityMutation.mutate(planData)}
+                    onCreateActivity={(planData) => {
+                      if (!createActivityMutation.isPending) {
+                        createActivityMutation.mutate(planData);
+                      }
+                    }}
+                    isCreating={createActivityMutation.isPending}
                     onSetAsTheme={() => {
                       // TODO: Implement theme/quick actions functionality
                       toast({

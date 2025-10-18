@@ -25,10 +25,11 @@ interface ClaudePlanOutputProps {
   estimatedTimeframe?: string;
   motivationalNote?: string;
   onCompleteTask: (taskId: string) => void;
-  onCreateActivity?: (planData: { title: string; description: string; tasks: Task[] }) => void;
+  onCreateActivity?: (planData: { title: string; description: string; tasks: Task[]; mode?: 'create' | 'update'; activityId?: string }) => void;
   onSetAsTheme?: () => void;
   showConfetti?: boolean;
   activityId?: string;
+  isCreating?: boolean;
 }
 
 export default function ClaudePlanOutput({
@@ -41,7 +42,8 @@ export default function ClaudePlanOutput({
   onCreateActivity,
   onSetAsTheme,
   showConfetti = false,
-  activityId
+  activityId,
+  isCreating = false
 }: ClaudePlanOutputProps) {
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [showCelebration, setShowCelebration] = useState(false);
@@ -335,15 +337,17 @@ export default function ClaudePlanOutput({
               onClick={() => onCreateActivity({
                 title: planTitle || 'Generated Plan',
                 description: summary || 'AI-generated activity plan',
-                tasks: tasks
+                tasks: tasks,
+                mode: activityId ? 'update' : 'create',
+                activityId: activityId
               })}
               className="gap-2"
               variant="default"
-              disabled={!!activityId}
+              disabled={isCreating}
               data-testid="button-create-activity-from-plan"
             >
               <Target className="w-4 h-4" />
-              {activityId ? 'Activity Created ✓' : 'Create Activity'}
+              {isCreating ? 'Saving...' : activityId ? 'Save Changes' : 'Create Activity'}
             </Button>
           )}
 
