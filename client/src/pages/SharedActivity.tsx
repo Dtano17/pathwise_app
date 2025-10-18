@@ -930,7 +930,7 @@ export default function SharedActivity() {
                 Request Access to Edit
               </Button>
               <div className="mt-4 pt-4 border-t">
-                <p className="text-sm text-muted-foreground mb-2">Or create your own activity</p>
+                <p className="text-sm text-muted-foreground mb-2">New to JournalMate?</p>
                 <Button onClick={() => window.location.href = '/'} variant="outline" className="gap-2" data-testid="button-create-own">
                   <Sparkles className="w-4 h-4" />
                   Get Started Free
