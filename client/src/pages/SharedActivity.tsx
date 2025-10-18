@@ -891,9 +891,11 @@ export default function SharedActivity() {
           >
             <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
               <div className="flex items-center justify-center gap-2 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-emerald-600 flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">J</span>
-                </div>
+                <img 
+                  src={journalMateLogo} 
+                  alt="JournalMate" 
+                  className="w-16 h-16"
+                />
               </div>
               <h3 className="text-xl font-bold mb-2">Copy this activity to your account</h3>
               <p className="text-muted-foreground mb-6">
@@ -921,9 +923,11 @@ export default function SharedActivity() {
           >
             <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
               <div className="flex items-center justify-center gap-2 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-emerald-600 flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">J</span>
-                </div>
+                <img 
+                  src={journalMateLogo} 
+                  alt="JournalMate" 
+                  className="w-16 h-16"
+                />
               </div>
               <h3 className="text-xl font-bold mb-2">This is Your Activity</h3>
               <p className="text-muted-foreground mb-6">
