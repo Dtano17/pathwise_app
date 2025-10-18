@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, Sparkles, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Image, type LucideIcon } from 'lucide-react';
+import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, Sparkles, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Image, Moon, Sun, type LucideIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -113,6 +113,7 @@ export default function SharedActivity() {
   const [copyingLink, setCopyingLink] = useState(false);
   const [showBackdropEditor, setShowBackdropEditor] = useState(false);
   const [selectedBackdrop, setSelectedBackdrop] = useState<string>('');
+  const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>('light');
 
   const { data: user } = useQuery({
     queryKey: ['/api/user'],
@@ -225,19 +226,34 @@ export default function SharedActivity() {
       
       return result;
     },
-    onSuccess: () => {
-      setPermissionRequested(true);
-      toast({
-        title: 'Permission Requested',
-        description: 'The activity owner will be notified of your request.',
-      });
+    onSuccess: (result) => {
+      // Check if we got a copied activity back (backend returns 'activity' field)
+      if (result?.activity?.id) {
+        toast({
+          title: 'Activity Copied Successfully!',
+          description: `"${result.activity.title}" has been added to your account with ${result.tasks?.length || 0} tasks.`,
+        });
+        // Redirect to the copied activity in the main app after a short delay
+        setTimeout(() => {
+          window.location.href = `/?activity=${result.activity.id}&tab=tasks`;
+        }, 1500);
+      } else {
+        setPermissionRequested(true);
+        toast({
+          title: 'Permission Requested',
+          description: 'The activity owner will be notified of your request.',
+        });
+      }
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Request Failed',
-        description: error.message || 'Failed to request permission. Please try again.',
-        variant: 'destructive',
-      });
+      // Don't show error toast if we're redirecting to login
+      if (!error.message.includes('Redirecting')) {
+        toast({
+          title: 'Request Failed',
+          description: error.message || 'Failed to request permission. Please try again.',
+          variant: 'destructive',
+        });
+      }
     },
   });
 
@@ -579,12 +595,13 @@ export default function SharedActivity() {
   const theme = categoryThemes[activity.category.toLowerCase()] || categoryThemes.other;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Hero Section with Dynamic Themed Background Image */}
-      <div 
-        className="relative border-b min-h-[400px] sm:min-h-[500px] flex items-center" 
-        style={backgroundStyle}
-      >
+    <div className={`min-h-screen ${previewTheme === 'dark' ? 'dark' : ''}`}>
+      <div className="min-h-screen bg-background">
+        {/* Hero Section with Dynamic Themed Background Image */}
+        <div 
+          className="relative border-b min-h-[400px] sm:min-h-[500px] flex items-center" 
+          style={backgroundStyle}
+        >
         {/* Dark overlay for text readability */}
         <div className="absolute inset-0 bg-black/40" />
         <div className="container mx-auto px-4 py-6 sm:py-8 md:py-12 relative w-full">
@@ -606,10 +623,22 @@ export default function SharedActivity() {
             </div>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-              <Button variant="outline" size="sm" onClick={() => window.location.href = '/'} data-testid="button-go-home" className="bg-background/80 backdrop-blur-sm w-full sm:w-auto">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Home
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => window.location.href = '/'} data-testid="button-go-home" className="bg-background/80 backdrop-blur-sm">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Home
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => setPreviewTheme(previewTheme === 'light' ? 'dark' : 'light')}
+                  data-testid="button-theme-toggle"
+                  className="bg-background/80 backdrop-blur-sm"
+                  title={`Switch to ${previewTheme === 'light' ? 'dark' : 'light'} mode preview`}
+                >
+                  {previewTheme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                </Button>
+              </div>
               <div className="flex items-center gap-2 flex-wrap justify-center">
                 <Button 
                   variant="outline" 
@@ -891,15 +920,22 @@ export default function SharedActivity() {
             className="mt-8"
           >
             <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-              <Sparkles className="w-12 h-12 text-primary mx-auto mb-3" />
-              <h3 className="text-lg font-bold mb-2">Want to create your own activity plan?</h3>
+              <Edit className="w-12 h-12 text-primary mx-auto mb-3" />
+              <h3 className="text-lg font-bold mb-2">Want to use this activity plan?</h3>
               <p className="text-muted-foreground mb-4">
-                Sign in to JournalMate and start transforming your goals into reality
+                Sign in to copy this activity to your account with all tasks and start making it your own
               </p>
-              <Button onClick={handleSignIn} className="gap-2" data-testid="button-cta-signin">
-                Get Started Free
-                <ChevronRight className="w-4 h-4" />
+              <Button onClick={handleSignIn} className="gap-2" data-testid="button-request-access">
+                <Lock className="w-4 h-4" />
+                Request Access to Edit
               </Button>
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-sm text-muted-foreground mb-2">Or create your own activity</p>
+                <Button onClick={() => window.location.href = '/'} variant="outline" className="gap-2" data-testid="button-create-own">
+                  <Sparkles className="w-4 h-4" />
+                  Get Started Free
+                </Button>
+              </div>
             </Card>
           </motion.div>
         )}
@@ -955,8 +991,8 @@ export default function SharedActivity() {
         )}
       </main>
 
-      {/* Backdrop Editor Dialog */}
-      <Dialog open={showBackdropEditor} onOpenChange={setShowBackdropEditor}>
+        {/* Backdrop Editor Dialog */}
+        <Dialog open={showBackdropEditor} onOpenChange={setShowBackdropEditor}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Activity Backdrop</DialogTitle>
@@ -1053,7 +1089,8 @@ export default function SharedActivity() {
             </div>
           </div>
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      </div>
     </div>
   );
 }
