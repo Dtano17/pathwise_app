@@ -2046,6 +2046,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Copy all tasks
       const copiedTasks = [];
+      let taskOrder = 0;
       for (const task of originalTasks) {
         const newTask = await storage.createTask({
           userId: currentUserId,
@@ -2057,6 +2058,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           completed: false, // Reset completion status
           dueDate: task.dueDate,
         });
+        
+        // Add task to activity via join table
+        await storage.addTaskToActivity(copiedActivity.id, newTask.id, taskOrder++);
         copiedTasks.push(newTask);
       }
       console.log('[COPY ACTIVITY] Tasks copied successfully:', copiedTasks.length);
