@@ -122,7 +122,7 @@ export default function SharedActivity() {
   });
 
   useEffect(() => {
-    setIsAuthenticated(!!user);
+    setIsAuthenticated(!!user && typeof user === 'object' && 'id' in user);
   }, [user]);
 
   // Apply initial theme to document on mount
