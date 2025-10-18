@@ -166,7 +166,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                   We're here for you! Reach out anytime:
                 </p>
                 <p style="margin: 0; color: #8b5cf6; font-size: 15px; font-weight: 600;">
-                  <a href="mailto:journalmate@gmail.com" style="color: #8b5cf6; text-decoration: none;">journalmate@gmail.com</a>
+                  <a href="mailto:journamate@gmail.com" style="color: #8b5cf6; text-decoration: none;">journamate@gmail.com</a>
                 </p>
               </div>
             </td>
