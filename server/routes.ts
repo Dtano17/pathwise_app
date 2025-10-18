@@ -828,11 +828,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Manual signup endpoint
   app.post('/api/auth/signup', async (req: any, res) => {
     try {
+      console.log('[SIGNUP] Received signup request:', {
+        username: req.body.username,
+        email: req.body.email,
+        hasPassword: !!req.body.password,
+        hasFirstName: !!req.body.firstName,
+        hasLastName: !!req.body.lastName
+      });
+      
       const validatedData = signupUserSchema.parse(req.body);
+      console.log('[SIGNUP] Data validated successfully');
       
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(validatedData.email);
       if (existingUser) {
+        console.log('[SIGNUP] User already exists:', validatedData.email);
         return res.status(400).json({ 
           success: false, 
           error: 'User with this email already exists' 
@@ -842,6 +852,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Hash password
       const saltRounds = 12;
       const hashedPassword = await bcrypt.hash(validatedData.password, saltRounds);
+      console.log('[SIGNUP] Password hashed successfully');
 
       // Create user
       const userData = {
@@ -853,25 +864,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const user = await storage.upsertUser(userData);
+      console.log('[SIGNUP] User created successfully:', {
+        userId: user.id,
+        username: user.username,
+        email: user.email
+      });
 
       // Create session using Passport's login method for compatibility
       req.login(user, (err: any) => {
         if (err) {
-          console.error('Session creation failed:', err);
+          console.error('[SIGNUP] Session creation failed:', err);
           return res.status(500).json({ success: false, error: 'Session creation failed' });
         }
         
-        console.log('Manual signup successful:', {
-          userId: user.id,
-          username: user.username,
-          email: user.email
-        });
+        console.log('[SIGNUP] Session created successfully for user:', user.id);
+        console.log('[SIGNUP] Session ID:', req.sessionID);
+        console.log('[SIGNUP] Is authenticated:', req.isAuthenticated ? req.isAuthenticated() : false);
         
         res.json({ success: true, user: { ...user, password: undefined } });
       });
     } catch (error) {
-      console.error('Manual signup error:', error);
+      console.error('[SIGNUP] Signup error:', error);
       if (error instanceof z.ZodError) {
+        console.error('[SIGNUP] Validation errors:', JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ 
           success: false, 
           error: 'Invalid data',
@@ -1924,8 +1939,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { shareToken } = req.params;
       const currentUserId = getUserId(req);
       
+      console.log('[COPY ACTIVITY] Copy request received:', {
+        shareToken,
+        currentUserId,
+        isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+        sessionID: req.sessionID,
+        hasSession: !!req.session,
+        hasUser: !!req.user
+      });
+      
       // Require authentication
       if (!currentUserId) {
+        console.log('[COPY ACTIVITY] Authentication required - no user ID found');
         return res.status(401).json({ 
           error: 'Authentication required',
           requiresAuth: true 
@@ -1936,21 +1961,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sharedActivity = await storage.getActivityByShareToken(shareToken);
       
       if (!sharedActivity) {
+        console.log('[COPY ACTIVITY] Activity not found for token:', shareToken);
         return res.status(404).json({ error: 'Shared activity not found or link has expired' });
       }
       
+      console.log('[COPY ACTIVITY] Found shared activity:', {
+        activityId: sharedActivity.id,
+        title: sharedActivity.title,
+        ownerId: sharedActivity.userId,
+        isPublic: sharedActivity.isPublic
+      });
+      
       // Check if activity is public
       if (!sharedActivity.isPublic) {
+        console.log('[COPY ACTIVITY] Activity is not public');
         return res.status(403).json({ error: 'This activity is not public and cannot be copied' });
       }
       
       // Don't allow copying your own activity
       if (sharedActivity.userId === currentUserId) {
+        console.log('[COPY ACTIVITY] User trying to copy their own activity');
         return res.status(400).json({ error: 'You cannot copy your own activity' });
       }
       
       // Get the tasks for the shared activity
       const originalTasks = await storage.getActivityTasks(sharedActivity.id, sharedActivity.userId);
+      console.log('[COPY ACTIVITY] Found tasks:', originalTasks.length);
       
       // Create a copy of the activity for the current user
       const copiedActivity = await storage.createActivity({
@@ -1963,6 +1999,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isPublic: false, // Make private by default
         startDate: sharedActivity.startDate,
         endDate: sharedActivity.endDate,
+      });
+      console.log('[COPY ACTIVITY] Activity copied successfully:', {
+        newActivityId: copiedActivity.id,
+        userId: currentUserId
       });
       
       // Copy all tasks
@@ -1978,13 +2018,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         copiedTasks.push(newTask);
       }
+      console.log('[COPY ACTIVITY] Tasks copied successfully:', copiedTasks.length);
       
       res.json({
         activity: copiedActivity,
         tasks: copiedTasks,
       });
     } catch (error) {
-      console.error('Copy activity error:', error);
+      console.error('[COPY ACTIVITY] Error copying activity:', error);
       res.status(500).json({ error: 'Failed to copy activity' });
     }
   });

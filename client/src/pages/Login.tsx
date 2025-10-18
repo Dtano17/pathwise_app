@@ -16,37 +16,58 @@ export default function Login() {
       const shareToken = params.get('shareToken');
       const returnTo = params.get('returnTo');
       
-      // If there's a share token, copy the activity first
+      // If there's a share token, copy the activity first with retry logic
       if (shareToken) {
         setCopyingActivity(true);
         
-        fetch(`/api/activities/copy/${shareToken}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        })
-          .then(res => res.json())
-          .then(data => {
-            if (data.activity?.id) {
-              // Redirect to the copied activity
-              window.location.href = `/?activity=${data.activity.id}&tab=tasks`;
-            } else {
-              // If copy failed, just redirect to returnTo or home
-              if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
-                window.location.href = returnTo;
-              } else {
-                setLocation('/');
-              }
-            }
-          })
-          .catch(error => {
-            console.error('Failed to copy activity:', error);
-            // On error, redirect to returnTo or home
-            if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
-              window.location.href = returnTo;
-            } else {
-              setLocation('/');
-            }
-          });
+        // Add a small delay to allow session to fully establish
+        const attemptCopy = (retries = 3, delay = 500) => {
+          const nextDelay = delay * 1.5; // Calculate next delay before setTimeout
+          
+          setTimeout(() => {
+            fetch(`/api/activities/copy/${shareToken}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+            })
+              .then(res => res.json())
+              .then(data => {
+                if (data.activity?.id) {
+                  // Success - redirect to the copied activity
+                  window.location.href = `/?activity=${data.activity.id}&tab=tasks`;
+                } else if (data.requiresAuth && retries > 0) {
+                  // Session not ready yet, retry with exponential backoff
+                  console.log(`Session not ready, retrying in ${Math.round(nextDelay)}ms... (${retries} attempts left)`);
+                  attemptCopy(retries - 1, nextDelay);
+                } else {
+                  // Copy failed, redirect to returnTo or home
+                  console.error('Failed to copy activity:', data.error || 'Unknown error');
+                  if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+                    window.location.href = returnTo;
+                  } else {
+                    setLocation('/');
+                  }
+                }
+              })
+              .catch(error => {
+                console.error('Failed to copy activity:', error);
+                if (retries > 0) {
+                  // Network error, retry with exponential backoff
+                  console.log(`Network error, retrying in ${Math.round(nextDelay)}ms... (${retries} attempts left)`);
+                  attemptCopy(retries - 1, nextDelay);
+                } else {
+                  // Max retries reached, redirect to returnTo or home
+                  if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+                    window.location.href = returnTo;
+                  } else {
+                    setLocation('/');
+                  }
+                }
+              });
+          }, delay);
+        };
+        
+        // Start the copy attempt with retry logic
+        attemptCopy();
         return;
       }
       

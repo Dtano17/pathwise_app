@@ -216,11 +216,6 @@ export const signupUserSchema = createInsertSchema(users).pick({
   password: true,
   firstName: true,
   lastName: true,
-}).extend({
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
 });
 
 // Profile completion schema - for enhanced personalization after signup
