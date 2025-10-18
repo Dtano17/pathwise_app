@@ -455,24 +455,40 @@ export default function MainApp({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks]); // Only re-run when tasks array changes
 
+  // Load activity data when entering edit mode
+  useEffect(() => {
+    if (editingActivity && !currentPlanOutput) {
+      // Load the activity data into plan output
+      apiRequest('POST', '/api/goals/load-for-edit', {
+        activityId: editingActivity.id
+      })
+        .then(res => res.json())
+        .then(data => {
+          setCurrentPlanOutput({
+            planTitle: data.planTitle,
+            summary: data.summary,
+            tasks: data.tasks,
+            estimatedTimeframe: data.estimatedTimeframe,
+            motivationalNote: data.motivationalNote,
+            activityId: data.activityId
+          });
+          activityIdRef.current = data.activityId;
+        })
+        .catch(error => {
+          console.error('Failed to load activity:', error);
+          toast({
+            title: "Error",
+            description: "Failed to load activity for editing",
+            variant: "destructive"
+          });
+          setEditingActivity(null);
+        });
+    }
+  }, [editingActivity, currentPlanOutput, toast]);
+
   // Process goal mutation
   const processGoalMutation = useMutation({
     mutationFn: async (goalText: string) => {
-      // If in edit mode, call the edit endpoint
-      if (editingActivity) {
-        const response = await apiRequest('POST', '/api/goals/edit', {
-          activityId: editingActivity.id,
-          editInstruction: goalText,
-          conversationHistory: conversationHistory.map((msg, idx) => ({
-            role: 'user' as const,
-            content: msg,
-            timestamp: new Date().toISOString(),
-            type: 'question' as const
-          }))
-        });
-        return response.json();
-      }
-      
       // For refinements, incorporate additional context into the original request
       // Example: "plan my weekend" + "add timeline with timestamps" = "plan my weekend with detailed timeline and timestamps"
       const fullContext = conversationHistory.length > 0
@@ -495,20 +511,6 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
-      
-      // If in edit mode, show success and clear editing state
-      if (editingActivity) {
-        toast({
-          title: "Activity updated!",
-          description: "Your changes have been applied successfully.",
-        });
-        
-        // Clear editing state and conversation history
-        setEditingActivity(null);
-        setConversationHistory([]);
-        setActiveTab('activities');
-        return;
-      }
       
       // Add the new user input to conversation history
       const updatedHistory = [...conversationHistory, variables];
@@ -1088,7 +1090,12 @@ export default function MainApp({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setEditingActivity(null)}
+                        onClick={() => {
+                          setEditingActivity(null);
+                          setCurrentPlanOutput(null);
+                          setConversationHistory([]);
+                          activityIdRef.current = undefined;
+                        }}
                         data-testid="button-cancel-edit"
                       >
                         <X className="w-4 h-4" />
