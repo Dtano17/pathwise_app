@@ -498,6 +498,7 @@ export default function MainApp({
       const response = await apiRequest('POST', '/api/goals/process', { 
         goalText: fullContext,
         sessionId: currentSessionId,
+        activityId: activityIdRef.current, // Pass activityId when in edit mode
         conversationHistory: [...conversationHistory, goalText].map((msg, idx) => ({
           role: 'user' as const,
           content: msg,
