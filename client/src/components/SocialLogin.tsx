@@ -19,17 +19,29 @@ export function SocialLogin({
   const { toast } = useToast();
   const [showEmailAuth, setShowEmailAuth] = useState(false);
   
+  // Get returnTo parameter from URL if present (validate to prevent open redirect)
+  const getReturnToParam = () => {
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get('returnTo');
+    
+    // Validate returnTo is a safe same-origin path
+    if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+      return `?returnTo=${encodeURIComponent(returnTo)}`;
+    }
+    return '';
+  };
+  
   const handleGoogleLogin = () => {
-    window.location.href = '/api/auth/google';
+    window.location.href = `/api/auth/google${getReturnToParam()}`;
   };
   
   const handleFacebookLogin = () => {
-    window.location.href = '/api/auth/facebook';
+    window.location.href = `/api/auth/facebook${getReturnToParam()}`;
   };
 
   const handleReplitLogin = () => {
     // Replit Auth handles multiple providers (X/Twitter, Apple)
-    window.location.href = '/api/login';
+    window.location.href = `/api/login${getReturnToParam()}`;
   };
 
   return (

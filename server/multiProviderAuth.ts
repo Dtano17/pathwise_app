@@ -419,9 +419,14 @@ export async function setupMultiProviderAuth(app: Express) {
 
   // OAuth routes
   // Google routes
-  app.get('/api/auth/google', 
-    passport.authenticate('google', { scope: ['profile', 'email'] })
-  );
+  app.get('/api/auth/google', (req, res, next) => {
+    // Store returnTo in session if provided (validate to prevent open redirect)
+    const returnTo = req.query.returnTo as string;
+    if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+      req.session.returnTo = returnTo;
+    }
+    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+  });
 
   app.get('/api/auth/google/callback',
     passport.authenticate('google', { 
@@ -430,15 +435,25 @@ export async function setupMultiProviderAuth(app: Express) {
     }),
     (req, res) => {
       console.log('[Google OAuth] Callback successful, user:', req.user);
-      // Successful authentication - redirect to app
-      res.redirect('/?auth=success&provider=google');
+      // Get returnTo from session or default to home
+      const returnTo = req.session.returnTo || '/';
+      delete req.session.returnTo; // Clean up
+      
+      // Append auth success parameter
+      const separator = returnTo.includes('?') ? '&' : '?';
+      res.redirect(`${returnTo}${separator}auth=success&provider=google`);
     }
   );
 
   // Facebook routes
-  app.get('/api/auth/facebook',
-    passport.authenticate('facebook', { scope: ['email'] })
-  );
+  app.get('/api/auth/facebook', (req, res, next) => {
+    // Store returnTo in session if provided (validate to prevent open redirect)
+    const returnTo = req.query.returnTo as string;
+    if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+      req.session.returnTo = returnTo;
+    }
+    passport.authenticate('facebook', { scope: ['email'] })(req, res, next);
+  });
 
   app.get('/api/auth/facebook/callback',
     passport.authenticate('facebook', { 
@@ -447,8 +462,13 @@ export async function setupMultiProviderAuth(app: Express) {
     }),
     (req, res) => {
       console.log('[Facebook OAuth] Callback successful, user:', req.user);
-      // Successful authentication - redirect to app
-      res.redirect('/?auth=success&provider=facebook');
+      // Get returnTo from session or default to home
+      const returnTo = req.session.returnTo || '/';
+      delete req.session.returnTo; // Clean up
+      
+      // Append auth success parameter
+      const separator = returnTo.includes('?') ? '&' : '?';
+      res.redirect(`${returnTo}${separator}auth=success&provider=facebook`);
     }
   );
 

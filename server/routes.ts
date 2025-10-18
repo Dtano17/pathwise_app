@@ -1938,7 +1938,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Request edit permission for a shared activity
+  // Request edit permission for a shared activity - copies the activity to user's account
   app.post("/api/activities/:activityId/request-permission", async (req, res) => {
     try {
       const { activityId } = req.params;
@@ -1951,34 +1951,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
           requiresAuth: true
         });
       }
-
-      const { message, permissionType = 'edit' } = req.body;
       
-      // Get the activity to find the owner
-      const [activity] = await db.select().from(activities).where(eq(activities.id, activityId)).limit(1);
-      if (!activity) {
+      // Get the original activity
+      const [originalActivity] = await db.select().from(activities).where(eq(activities.id, activityId)).limit(1);
+      if (!originalActivity) {
         return res.status(404).json({ error: 'Activity not found' });
       }
 
       // Check if user is already the owner
-      if (activity.userId === userId) {
+      if (originalActivity.userId === userId) {
         return res.status(400).json({ error: 'You already own this activity' });
       }
 
-      // Create permission request
-      const request = await storage.createPermissionRequest({
-        activityId,
-        requestedBy: userId,
-        ownerId: activity.userId,
-        permissionType,
-        message,
-        status: 'pending'
-      });
+      // Check if user already has a copy of this activity
+      const existingCopy = await db.select()
+        .from(activities)
+        .where(
+          and(
+            eq(activities.userId, userId),
+            eq(activities.title, `${originalActivity.title} (Copy)`)
+          )
+        )
+        .limit(1);
+      
+      if (existingCopy.length > 0) {
+        return res.json({ 
+          success: true, 
+          message: 'You already have a copy of this activity',
+          activity: existingCopy[0]
+        });
+      }
 
-      res.json({ success: true, request });
+      // Get all tasks associated with the original activity
+      const originalTasks = await db.select()
+        .from(tasks)
+        .where(eq(tasks.activityId, activityId));
+
+      // Create a copy of the activity for the user
+      const [copiedActivity] = await db.insert(activities).values({
+        userId,
+        title: `${originalActivity.title} (Copy)`,
+        description: originalActivity.description,
+        category: originalActivity.category,
+        status: 'active',
+        priority: originalActivity.priority,
+        startDate: originalActivity.startDate,
+        endDate: originalActivity.endDate,
+        planSummary: originalActivity.planSummary,
+        isPublic: false, // Don't automatically share the copy
+        shareToken: null,
+        shareableLink: null
+      }).returning();
+
+      // Copy all tasks associated with the activity
+      const copiedTasks = [];
+      for (const task of originalTasks) {
+        const [newTask] = await db.insert(tasks).values({
+          userId,
+          activityId: copiedActivity.id,
+          title: task.title,
+          description: task.description,
+          category: task.category,
+          priority: task.priority,
+          status: 'pending',
+          completed: false,
+          dueDate: task.dueDate,
+          timeEstimate: task.timeEstimate
+        }).returning();
+        copiedTasks.push(newTask);
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Activity "${originalActivity.title}" has been copied to your account with ${copiedTasks.length} tasks`,
+        activity: copiedActivity,
+        tasks: copiedTasks
+      });
     } catch (error) {
       console.error('Request permission error:', error);
-      res.status(500).json({ error: 'Failed to request permission' });
+      res.status(500).json({ error: 'Failed to copy activity' });
     }
   });
 

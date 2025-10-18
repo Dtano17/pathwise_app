@@ -30,6 +30,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { SharePreviewDialog } from '@/components/SharePreviewDialog';
+import { EditActivityDialog } from '@/components/EditActivityDialog';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import ThemeToggle from '@/components/ThemeToggle';
 import NotificationManager from '@/components/NotificationManager';
@@ -117,6 +118,7 @@ export default function MainApp({
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
   const [sharePreviewDialog, setSharePreviewDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
+  const [editDialog, setEditDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
   const [showJournalMode, setShowJournalMode] = useState(false);
 
   // Handle URL query parameters for activity selection from shared links
@@ -1457,6 +1459,18 @@ export default function MainApp({
                                     ? 'text-blue-600 group-hover:drop-shadow-[0_0_6px_rgba(37,99,235,0.5)] group-hover:scale-110' 
                                     : 'text-muted-foreground group-hover:drop-shadow-[0_0_4px_rgba(147,51,234,0.3)] group-hover:scale-105'
                                 }`} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditDialog({ open: true, activity });
+                                }}
+                                data-testid={`button-edit-${activity.id}`}
+                                title="Edit activity details"
+                              >
+                                <Edit className="w-4 h-4" />
                               </Button>
                               <Button
                                 variant="ghost"
@@ -2915,6 +2929,13 @@ Assistant: For nutrition, I recommend..."
           }}
         />
       )}
+
+      {/* Edit Activity Dialog */}
+      <EditActivityDialog
+        activity={editDialog.activity}
+        open={editDialog.open}
+        onOpenChange={(open) => setEditDialog({ open, activity: null })}
+      />
     </div>
   );
 }

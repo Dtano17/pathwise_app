@@ -12,7 +12,9 @@ export default function Login() {
     if (isAuthenticated) {
       const params = new URLSearchParams(window.location.search);
       const returnTo = params.get('returnTo');
-      if (returnTo) {
+      
+      // Validate returnTo is a safe same-origin path (prevent open redirect)
+      if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
         window.location.href = returnTo;
       } else {
         setLocation('/');
