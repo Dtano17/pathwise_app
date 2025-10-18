@@ -198,8 +198,30 @@ export default function SharedActivity() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ permissionType: 'edit' })
       });
-      if (!response.ok) throw new Error('Failed to request permission');
-      return response.json();
+      
+      // Parse JSON response
+      let result;
+      try {
+        result = await response.json();
+      } catch (e) {
+        // If JSON parsing fails and response is not ok, throw generic error
+        if (!response.ok) {
+          throw new Error('Failed to request permission. Please try again.');
+        }
+        // If response is ok but no JSON, return success
+        return { success: true };
+      }
+      
+      if (!response.ok) {
+        // If authentication is required, redirect to login
+        if (result.requiresAuth) {
+          window.location.href = '/api/login';
+          throw new Error('Redirecting to login...');
+        }
+        throw new Error(result.error || result.message || 'Failed to request permission');
+      }
+      
+      return result;
     },
     onSuccess: () => {
       setPermissionRequested(true);
