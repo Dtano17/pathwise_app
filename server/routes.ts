@@ -2013,6 +2013,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           activityId: copiedActivity.id,
           title: task.title,
           description: task.description,
+          category: task.category || 'general', // Include category from original task
+          priority: task.priority || 'medium', // Include priority from original task
           completed: false, // Reset completion status
           dueDate: task.dueDate,
         });
