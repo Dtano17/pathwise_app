@@ -293,6 +293,29 @@ export default function SharedActivity() {
     },
   });
 
+  // Automatic copy when user signs in
+  useEffect(() => {
+    // Only auto-copy if:
+    // 1. User is authenticated (not demo user)
+    // 2. Activity data is loaded
+    // 3. User is not the owner
+    // 4. Haven't already requested permission
+    if (
+      isAuthenticated && 
+      data?.activity && 
+      user && 
+      typeof user === 'object' && 
+      'id' in user && 
+      data.activity.userId !== (user as any).id &&
+      !permissionRequested
+    ) {
+      setPermissionRequested(true);
+      console.log('[SHARED ACTIVITY] Auto-copying activity for newly authenticated user');
+      // Automatically trigger copy
+      copyActivityMutation.mutate();
+    }
+  }, [isAuthenticated, data, user, permissionRequested, copyActivityMutation]);
+
   const handleCopyLink = async () => {
     if (!data?.activity) return;
     const url = window.location.href;
