@@ -859,13 +859,18 @@ export default function SharedActivity() {
           >
             <Card className="p-6 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
               <Edit className="w-12 h-12 text-primary mx-auto mb-3" />
-              <h3 className="text-lg font-bold mb-2">Want to use this activity plan?</h3>
+              <h3 className="text-xl font-bold mb-2">Want to Edit This Activity?</h3>
               <p className="text-muted-foreground mb-4">
-                Sign in to copy this activity to your account with all tasks and start making it your own
+                Sign in or create an account to request permission to edit and collaborate on this activity
               </p>
-              <Button onClick={handleSignIn} className="gap-2" data-testid="button-request-access">
+              <Button 
+                onClick={handleSignIn} 
+                className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white" 
+                data-testid="button-request-access"
+                size="lg"
+              >
                 <Lock className="w-4 h-4" />
-                Request Access to Edit
+                Sign In to Request Permission
               </Button>
               <div className="mt-4 pt-4 border-t">
                 <p className="text-sm text-muted-foreground mb-2">New to JournalMate?</p>
@@ -889,15 +894,17 @@ export default function SharedActivity() {
               <div className="flex flex-col items-center gap-4">
                 {user && typeof user === 'object' && 'id' in user && activity.userId !== (user as any).id && !permissionRequested ? (
                   <div className="w-full">
-                    <h3 className="text-lg font-bold mb-2">Want to collaborate on this activity?</h3>
+                    <Edit className="w-12 h-12 text-primary mx-auto mb-3" />
+                    <h3 className="text-xl font-bold mb-2">Want to Edit This Activity?</h3>
                     <p className="text-muted-foreground mb-4">
-                      Request permission to edit and contribute to this plan
+                      Request permission from the owner to collaborate and contribute to this plan
                     </p>
                     <Button 
                       onClick={() => requestPermissionMutation.mutate()}
                       disabled={requestPermissionMutation.isPending}
-                      className="gap-2"
+                      className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white"
                       data-testid="button-request-permission"
+                      size="lg"
                     >
                       <Edit className="w-4 h-4" />
                       {requestPermissionMutation.isPending ? 'Requesting...' : 'Request Permission to Edit'}
@@ -910,19 +917,26 @@ export default function SharedActivity() {
                     <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
                       <CheckSquare className="w-6 h-6 text-green-600 dark:text-green-400" />
                     </div>
-                    <h3 className="text-lg font-bold mb-2">Request Sent!</h3>
+                    <h3 className="text-xl font-bold mb-2">Permission Request Sent!</h3>
                     <p className="text-muted-foreground mb-4">
                       The activity owner has been notified. You'll receive access once they approve your request.
                     </p>
                   </div>
                 )}
                 
-                <div className="pt-4 border-t w-full">
-                  <Button onClick={() => window.location.href = '/'} variant="default" className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white border-none">
-                    <Sparkles className="w-4 h-4" />
-                    Try JournalMate
-                  </Button>
-                </div>
+                {user && typeof user === 'object' && 'id' in user && activity.userId === (user as any).id && (
+                  <div className="w-full">
+                    <Sparkles className="w-12 h-12 text-primary mx-auto mb-3" />
+                    <h3 className="text-xl font-bold mb-2">This is Your Activity</h3>
+                    <p className="text-muted-foreground mb-4">
+                      You can edit this activity from your dashboard
+                    </p>
+                    <Button onClick={() => window.location.href = '/'} variant="default" className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white" size="lg">
+                      <Home className="w-4 h-4" />
+                      Go to Dashboard
+                    </Button>
+                  </div>
+                )}
               </div>
             </Card>
           </motion.div>
