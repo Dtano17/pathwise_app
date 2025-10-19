@@ -2211,14 +2211,10 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         hasUser: !!req.user
       });
       
-      // Require authentication
-      if (!currentUserId) {
-        console.log('[COPY ACTIVITY] Authentication required - no user ID found');
-        return res.status(401).json({ 
-          error: 'Authentication required',
-          requiresAuth: true 
-        });
-      }
+      // Allow demo users to copy community plans
+      // If no user ID, use demo-user for community plan discovery
+      const userId = currentUserId || 'demo-user';
+      console.log('[COPY ACTIVITY] Using userId:', userId, currentUserId ? '(authenticated)' : '(demo user)');
       
       // Get the activity by share token
       const sharedActivity = await storage.getActivityByShareToken(shareToken);
@@ -2242,13 +2238,13 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       }
       
       // Don't allow copying your own activity
-      if (sharedActivity.userId === currentUserId) {
+      if (sharedActivity.userId === userId) {
         console.log('[COPY ACTIVITY] User trying to copy their own activity');
         return res.status(400).json({ error: 'You cannot copy your own activity' });
       }
       
       // Check if user already has a copy of this activity
-      const existingCopy = await storage.getExistingCopyByShareToken(currentUserId, shareToken);
+      const existingCopy = await storage.getExistingCopyByShareToken(userId, shareToken);
       
       if (existingCopy && !forceUpdate) {
         console.log('[COPY ACTIVITY] User already has a copy - prompting for update');
@@ -2268,13 +2264,13 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       let oldTasks: Task[] = [];
       if (existingCopy && forceUpdate) {
         console.log('[COPY ACTIVITY] Archiving old copy and preserving progress');
-        oldTasks = await storage.getActivityTasks(existingCopy.id, currentUserId);
-        await storage.updateActivity(existingCopy.id, { isArchived: true }, currentUserId);
+        oldTasks = await storage.getActivityTasks(existingCopy.id, userId);
+        await storage.updateActivity(existingCopy.id, { isArchived: true }, userId);
       }
       
       // Create a copy of the activity for the current user
       const copiedActivity = await storage.createActivity({
-        userId: currentUserId,
+        userId: userId,
         title: sharedActivity.title,
         description: sharedActivity.description,
         category: sharedActivity.category,
@@ -2287,7 +2283,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       });
       console.log('[COPY ACTIVITY] Activity copied successfully:', {
         newActivityId: copiedActivity.id,
-        userId: currentUserId
+        userId: userId
       });
       
       // Copy all tasks and preserve completion status where possible
@@ -2312,7 +2308,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         }
         
         const newTask = await storage.createTask({
-          userId: currentUserId,
+          userId: userId,
           activityId: copiedActivity.id,
           title: task.title,
           description: task.description,
