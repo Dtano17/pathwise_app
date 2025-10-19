@@ -49,6 +49,12 @@ import {
   type InsertActivityFeedback,
   type TaskFeedback,
   type InsertTaskFeedback,
+  type Group,
+  type InsertGroup,
+  type GroupMembership,
+  type InsertGroupMembership,
+  type GroupActivity,
+  type InsertGroupActivity,
   users,
   goals,
   tasks,
@@ -70,7 +76,10 @@ import {
   userProfiles,
   userPreferences,
   activityFeedback,
-  taskFeedback
+  taskFeedback,
+  groups,
+  groupMemberships,
+  groupActivities
 } from "@shared/schema";
 
 const sql = neon(process.env.DATABASE_URL!);
@@ -252,6 +261,12 @@ export interface IStorage {
   getCommunityPlans(category?: string, search?: string, limit?: number): Promise<Activity[]>;
   seedCommunityPlans(): Promise<void>;
   incrementActivityViews(activityId: string): Promise<void>;
+
+  // Groups
+  createGroup(group: InsertGroup & { createdBy: string }): Promise<Group>;
+  getGroup(groupId: string): Promise<Group | undefined>;
+  createGroupMembership(membership: InsertGroupMembership & { userId: string }): Promise<GroupMembership>;
+  createGroupActivity(groupActivity: InsertGroupActivity): Promise<GroupActivity>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1673,6 +1688,27 @@ export class DatabaseStorage implements IStorage {
       console.error('[STORAGE] Error getting contacts with share status:', error);
       return [];
     }
+  }
+
+  // Groups
+  async createGroup(groupData: InsertGroup & { createdBy: string }): Promise<Group> {
+    const [group] = await db.insert(groups).values(groupData).returning();
+    return group;
+  }
+
+  async getGroup(groupId: string): Promise<Group | undefined> {
+    const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
+    return group;
+  }
+
+  async createGroupMembership(membershipData: InsertGroupMembership & { userId: string }): Promise<GroupMembership> {
+    const [membership] = await db.insert(groupMemberships).values(membershipData).returning();
+    return membership;
+  }
+
+  async createGroupActivity(groupActivityData: InsertGroupActivity): Promise<GroupActivity> {
+    const [groupActivity] = await db.insert(groupActivities).values(groupActivityData).returning();
+    return groupActivity;
   }
 }
 

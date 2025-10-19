@@ -26,6 +26,7 @@ import {
   insertActivitySchema,
   insertActivityTaskSchema,
   insertLifestylePlannerSessionSchema,
+  insertGroupSchema,
   tasks as tasksTable,
   type Task,
   type Activity,
@@ -1937,7 +1938,21 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
   app.post("/api/activities/:activityId/share", async (req, res) => {
     try {
       const { activityId} = req.params;
+      const { createGroup, groupName, groupDescription } = req.body;
       const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Validate group creation if requested
+      if (createGroup) {
+        if (!groupName || groupName.trim().length === 0) {
+          return res.status(400).json({ error: 'Group name is required' });
+        }
+        if (groupName.length > 100) {
+          return res.status(400).json({ error: 'Group name cannot exceed 100 characters' });
+        }
+        if (groupDescription && groupDescription.length > 500) {
+          return res.status(400).json({ error: 'Group description cannot exceed 500 characters' });
+        }
+      }
       
       // Generate unique share token
       const crypto = await import('crypto');
@@ -1969,10 +1984,56 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         return res.status(404).json({ error: 'Activity not found' });
       }
 
+      let groupId;
+      if (createGroup && groupName) {
+        // Create the group
+        const group = await storage.createGroup({
+          name: groupName.trim(),
+          description: groupDescription?.trim() || null,
+          isPrivate: false,
+          inviteCode: null,
+          createdBy: userId
+        });
+
+        groupId = group.id;
+
+        // Add creator as admin
+        await storage.createGroupMembership({
+          groupId: group.id,
+          role: 'admin',
+          userId
+        });
+
+        // Get activity tasks to create canonical version
+        const tasks = await storage.getActivityTasks(activityId, userId);
+        
+        // Create group activity with canonical version
+        await storage.createGroupActivity({
+          groupId: group.id,
+          activityId: activity.id,
+          canonicalVersion: {
+            title: activity.title,
+            description: activity.description || undefined,
+            tasks: tasks.map((task, index) => ({
+              id: task.id,
+              title: task.title,
+              description: task.description || undefined,
+              category: task.category,
+              priority: task.priority,
+              order: index
+            }))
+          },
+          isPublic: true,
+          shareToken: shareToken
+        });
+      }
+
       res.json({
         shareToken: activity.shareToken,
         shareableLink: activity.shareableLink,
-        isPublic: activity.isPublic
+        isPublic: activity.isPublic,
+        groupId: groupId || undefined,
+        groupCreated: !!groupId
       });
     } catch (error) {
       console.error('Generate share link error:', error);

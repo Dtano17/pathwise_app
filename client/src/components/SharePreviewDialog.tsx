@@ -8,7 +8,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown } from 'lucide-react';
+import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown, Users } from 'lucide-react';
+import { Card, CardHeader, CardContent, CardDescription } from '@/components/ui/card';
 
 interface Activity {
   id: string;
@@ -74,6 +75,9 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
   });
   const [redactedPreview, setRedactedPreview] = useState<{ title: string; tasks: { title: string }[] } | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
+  const [createGroup, setCreateGroup] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupDescription, setGroupDescription] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -82,19 +86,60 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
     setShareTitle(activity.shareTitle || activity.planSummary || activity.title);
     setBackdrop(activity.backdrop || '');
     setCustomBackdrop('');
+    setCreateGroup(false);
+    setGroupName('');
+    setGroupDescription('');
   }, [activity, open]);
 
   const updateMutation = useMutation({
     mutationFn: async () => {
+      // Validate group creation
+      if (createGroup && (!groupName || groupName.trim().length === 0)) {
+        throw new Error('Group name is required');
+      }
+      if (groupName && groupName.length > 100) {
+        throw new Error('Group name cannot exceed 100 characters');
+      }
+      if (groupDescription && groupDescription.length > 500) {
+        throw new Error('Group description cannot exceed 500 characters');
+      }
+
+      // First update activity with shareTitle and backdrop
       const updates = {
         shareTitle: shareTitle || null,
         backdrop: backdrop || null
       };
-      return apiRequest('PUT', `/api/activities/${activity.id}`, updates);
+      await apiRequest('PUT', `/api/activities/${activity.id}`, updates);
+
+      // Then trigger share with optional group creation
+      const shareData: any = {
+        createGroup,
+      };
+      
+      if (createGroup) {
+        shareData.groupName = groupName.trim();
+        shareData.groupDescription = groupDescription.trim() || null;
+      }
+
+      return apiRequest('POST', `/api/activities/${activity.id}/share`, shareData);
     },
-    onSuccess: async () => {
+    onSuccess: async (response: any) => {
       // Wait for cache invalidation to complete
       await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      
+      // Show success message
+      if (response.groupCreated) {
+        toast({
+          title: 'Success!',
+          description: 'Activity shared and group created successfully!',
+        });
+      } else {
+        toast({
+          title: 'Success!',
+          description: 'Activity shared successfully!',
+        });
+      }
+      
       // Pass the updated values to parent
       onConfirmShare({ shareTitle, backdrop });
       onOpenChange(false);
@@ -507,6 +552,62 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
               )}
             </div>
           )}
+
+          {/* Group Creation Section */}
+          <div className="space-y-3 border-t pt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Checkbox 
+                id="create-group"
+                checked={createGroup}
+                onCheckedChange={(checked) => setCreateGroup(checked as boolean)}
+                data-testid="checkbox-create-group"
+              />
+              <Label htmlFor="create-group" className="flex items-center gap-2 cursor-pointer">
+                <Users className="w-4 h-4" />
+                <span className="font-medium">Create Group - Allow contributors to propose changes (admin approval required)</span>
+              </Label>
+            </div>
+
+            {createGroup && (
+              <Card className="border-dashed">
+                <CardContent className="pt-6 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="group-name">
+                      Group Name <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="group-name"
+                      value={groupName}
+                      onChange={(e) => setGroupName(e.target.value)}
+                      placeholder="Enter a name for your group..."
+                      maxLength={100}
+                      data-testid="input-group-name"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Maximum 100 characters
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="group-description">
+                      Description (optional)
+                    </Label>
+                    <Input
+                      id="group-description"
+                      value={groupDescription}
+                      onChange={(e) => setGroupDescription(e.target.value)}
+                      placeholder="What is this group about?..."
+                      maxLength={500}
+                      data-testid="input-group-description"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Maximum 500 characters
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
           <div className="space-y-3">
             {/* Backdrop Preview */}
