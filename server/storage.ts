@@ -259,7 +259,7 @@ export interface IStorage {
 
   // Community Plans
   getCommunityPlans(category?: string, search?: string, limit?: number): Promise<Activity[]>;
-  seedCommunityPlans(): Promise<void>;
+  seedCommunityPlans(force?: boolean): Promise<void>;
   incrementActivityViews(activityId: string): Promise<void>;
 
   // Groups
@@ -1359,7 +1359,7 @@ export class DatabaseStorage implements IStorage {
     return results.slice(0, limit);
   }
 
-  async seedCommunityPlans(): Promise<void> {
+  async seedCommunityPlans(force: boolean = false): Promise<void> {
     const { demoCommunityPlans } = await import('./seedData/communityPlans');
     
     // Check if we already have seeded data
@@ -1367,9 +1367,15 @@ export class DatabaseStorage implements IStorage {
       .where(eq(activities.featuredInCommunity, true))
       .limit(1);
     
-    if (existingPlans.length > 0) {
+    if (existingPlans.length > 0 && !force) {
       console.log('[SEED] Community plans already seeded, skipping');
       return;
+    }
+
+    // If force, delete existing community plans
+    if (force && existingPlans.length > 0) {
+      console.log('[SEED] Force reseeding - deleting existing community plans...');
+      await db.delete(activities).where(eq(activities.featuredInCommunity, true));
     }
 
     console.log('[SEED] Seeding community plans...');
@@ -1387,10 +1393,14 @@ export class DatabaseStorage implements IStorage {
     }
 
     for (const plan of demoCommunityPlans) {
-      // Create the activity
+      // Generate a unique share token for the activity
+      const shareToken = crypto.randomBytes(16).toString('hex');
+      
+      // Create the activity with shareToken
       const activity = await this.createActivity({
         ...plan.activity,
-        userId: demoUser.id
+        userId: demoUser.id,
+        shareToken
       });
 
       // Create and associate tasks

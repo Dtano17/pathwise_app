@@ -2446,7 +2446,8 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
   // Seed community plans (admin endpoint)
   app.post("/api/admin/seed-community-plans", async (req, res) => {
     try {
-      await storage.seedCommunityPlans();
+      const force = req.body.force === true;
+      await storage.seedCommunityPlans(force);
       res.json({ success: true, message: 'Community plans seeded successfully' });
     } catch (error) {
       console.error('Seed community plans error:', error);
