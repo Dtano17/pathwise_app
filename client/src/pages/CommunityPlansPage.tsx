@@ -9,7 +9,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Eye, Search, Sparkles } from "lucide-react";
+import { Heart, Eye, Search, Sparkles, ArrowLeft, Home } from "lucide-react";
+import { Link } from "wouter";
 import type { Activity } from "@shared/schema";
 
 // Stock image imports
@@ -180,6 +181,22 @@ export default function CommunityPlansPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Navigation Buttons */}
+        <div className="flex gap-2 mb-6">
+          <Link href="/">
+            <Button variant="outline" size="sm" className="gap-2" data-testid="button-back">
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </Button>
+          </Link>
+          <Link href="/">
+            <Button variant="outline" size="sm" className="gap-2" data-testid="button-home">
+              <Home className="w-4 h-4" />
+              Home
+            </Button>
+          </Link>
+        </div>
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
