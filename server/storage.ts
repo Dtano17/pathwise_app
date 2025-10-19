@@ -247,6 +247,11 @@ export interface IStorage {
   getUserLifestylePlannerSessions(userId: string, limit?: number): Promise<LifestylePlannerSession[]>;
   getActiveLifestylePlannerSession(userId: string): Promise<LifestylePlannerSession | undefined>;
   deleteLifestylePlannerSession(sessionId: string, userId: string): Promise<void>;
+
+  // Community Plans
+  getCommunityPlans(category?: string, search?: string, limit?: number): Promise<Activity[]>;
+  seedCommunityPlans(): Promise<void>;
+  incrementActivityViews(activityId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1287,6 +1292,116 @@ export class DatabaseStorage implements IStorage {
   async deleteLifestylePlannerSession(sessionId: string, userId: string): Promise<void> {
     await db.delete(lifestylePlannerSessions)
       .where(and(eq(lifestylePlannerSessions.id, sessionId), eq(lifestylePlannerSessions.userId, userId)));
+  }
+
+  // Community Plans
+  async getCommunityPlans(category?: string, search?: string, limit: number = 50): Promise<Activity[]> {
+    let query = db.select().from(activities)
+      .where(and(
+        eq(activities.isPublic, true),
+        eq(activities.featuredInCommunity, true)
+      ));
+
+    // Apply category filter (map frontend categories to schema categories)
+    if (category && category !== 'trending') {
+      const categoryMap: Record<string, string> = {
+        'travel': 'travel',
+        'fitness': 'health',
+        'events': 'personal',
+        'career': 'work',
+        'home': 'personal'
+      };
+      const dbCategory = categoryMap[category.toLowerCase()];
+      if (dbCategory) {
+        query = db.select().from(activities)
+          .where(and(
+            eq(activities.isPublic, true),
+            eq(activities.featuredInCommunity, true),
+            eq(activities.category, dbCategory)
+          ));
+      }
+    }
+
+    let results = await query;
+
+    // Apply search filter if provided
+    if (search && search.trim()) {
+      const searchLower = search.toLowerCase();
+      results = results.filter(activity => 
+        activity.title?.toLowerCase().includes(searchLower) ||
+        activity.description?.toLowerCase().includes(searchLower) ||
+        activity.tags?.some(tag => tag.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Sort by trendingScore (trending tab) or just by creation date
+    if (!category || category === 'trending') {
+      results.sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0));
+    } else {
+      results.sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0));
+    }
+
+    return results.slice(0, limit);
+  }
+
+  async seedCommunityPlans(): Promise<void> {
+    const { demoCommunityPlans } = await import('./seedData/communityPlans');
+    
+    // Check if we already have seeded data
+    const existingPlans = await db.select().from(activities)
+      .where(eq(activities.featuredInCommunity, true))
+      .limit(1);
+    
+    if (existingPlans.length > 0) {
+      console.log('[SEED] Community plans already seeded, skipping');
+      return;
+    }
+
+    console.log('[SEED] Seeding community plans...');
+    
+    // Create a demo user for community plans
+    let demoUser = await this.getUserByEmail('community@journalmate.demo');
+    if (!demoUser) {
+      demoUser = await this.createUser({
+        username: 'community',
+        email: 'community@journalmate.demo',
+        source: 'manual',
+        firstName: 'Community',
+        lastName: 'Creator'
+      });
+    }
+
+    for (const plan of demoCommunityPlans) {
+      // Create the activity
+      const activity = await this.createActivity({
+        ...plan.activity,
+        userId: demoUser.id
+      });
+
+      // Create and associate tasks
+      for (const taskData of plan.tasks) {
+        const task = await this.createTask({
+          ...taskData,
+          userId: demoUser.id,
+          completed: false,
+          archived: false
+        });
+
+        await this.addTaskToActivity(activity.id, task.id);
+      }
+    }
+
+    console.log('[SEED] Community plans seeded successfully');
+  }
+
+  async incrementActivityViews(activityId: string): Promise<void> {
+    await db.update(activities)
+      .set({
+        viewCount: sql`COALESCE(${activities.viewCount}, 0) + 1`,
+        trendingScore: sql`COALESCE(${activities.viewCount}, 0) + 1 + COALESCE(${activities.likeCount}, 0) * 2`,
+        updatedAt: new Date()
+      })
+      .where(eq(activities.id, activityId));
   }
 
   // NEW METHODS FOR SIDEBAR FEATURES

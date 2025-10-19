@@ -10,6 +10,7 @@ import MainApp from "@/pages/MainApp";
 import SharedActivity from "@/pages/SharedActivity";
 import AuthCallback from "@/pages/AuthCallback";
 import Login from "@/pages/Login";
+import CommunityPlansPage from "@/pages/CommunityPlansPage";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
 import { useAuth } from "@/hooks/useAuth";
@@ -46,6 +47,9 @@ function AppContent() {
         
         {/* Shared Activity Page (no sidebar) */}
         <Route path="/share/:token" component={SharedActivity} />
+        
+        {/* Community Plans Discovery Page (no sidebar, publicly accessible) */}
+        <Route path="/discover" component={CommunityPlansPage} />
         
         {/* Main App with Sidebar */}
         <Route>

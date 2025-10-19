@@ -2367,6 +2367,44 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
     }
   });
 
+  // Get community plans (for discovery page)
+  app.get("/api/community-plans", async (req, res) => {
+    try {
+      const category = req.query.category as string | undefined;
+      const search = req.query.search as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      const plans = await storage.getCommunityPlans(category, search, limit);
+      res.json(plans);
+    } catch (error) {
+      console.error('Get community plans error:', error);
+      res.status(500).json({ error: 'Failed to fetch community plans' });
+    }
+  });
+
+  // Seed community plans (admin endpoint)
+  app.post("/api/admin/seed-community-plans", async (req, res) => {
+    try {
+      await storage.seedCommunityPlans();
+      res.json({ success: true, message: 'Community plans seeded successfully' });
+    } catch (error) {
+      console.error('Seed community plans error:', error);
+      res.status(500).json({ error: 'Failed to seed community plans' });
+    }
+  });
+
+  // Increment activity views
+  app.post("/api/activities/:activityId/increment-views", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      await storage.incrementActivityViews(activityId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Increment views error:', error);
+      res.status(500).json({ error: 'Failed to increment views' });
+    }
+  });
+
   // Request edit permission for a shared activity - copies the activity to user's account
   app.post("/api/activities/:activityId/request-permission", async (req, res) => {
     try {
