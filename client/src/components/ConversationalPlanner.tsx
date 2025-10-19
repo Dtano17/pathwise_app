@@ -142,7 +142,7 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentSession?.conversationHistory]);
 
-  // Fetch journal entries
+  // Fetch journal entries - TanStack Query will handle caching
   const { data: journalEntriesData, refetch: refetchJournalEntries } = useQuery<{ entries: any[] }>({
     queryKey: ['/api/journal/entries'],
     enabled: planningMode === 'journal',
