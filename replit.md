@@ -34,12 +34,20 @@ The application employs a mobile-first responsive design with a clean, card-base
   - JSONB-based storage with media URLs, timestamps, keywords, and AI metadata
   - File storage in `attached_assets/journal_media/`
   - API endpoints: POST `/api/journal/upload` (media), POST `/api/journal/smart-entry` (AI entry creation)
-- **Social Sharing & Activity Management**: Activities can be shared with customizable preview dialog. Users can edit share title, choose from NYC-themed backdrop presets, upload custom images (max 5MB), or enter custom image URLs. Live preview shows exactly how shared activities will appear before sharing. Privacy controls allow toggling between public/private status. 
+- **Social Sharing & Activity Management**: Activities can be shared with customizable preview dialog. Users can edit share title, choose from NYC-themed backdrop presets, upload custom images (max 5MB), or enter custom image URLs. **Privacy Shield** provides customizable AI-powered PII/PHI redaction with three presets: Public Creator (minimal redaction for influencers), Privacy-First (maximum protection), and Custom (granular control). Side-by-side preview shows original vs. protected content. AI automatically redacts names, locations, contact info, dates, and personal context as selected. Live preview shows exactly how shared activities will appear before sharing. 
   - **Automatic Activity Copy Workflow**: When visitors view a shared activity, they see "Sign in to edit this activity and make it yours" with JournalMate branding. Upon login, the OAuth callback redirects back to the share page with `auth=success` parameter, triggering automatic activity copy. The activity is instantly copied to their account with all tasks (using `originalTaskId` for reliable task matching), and they're redirected to `/?activity={id}&tab=tasks` - no manual copy button needed.
   - **Duplicate Detection & Update System**: When copying a shared activity that the user already has, they're prompted with an "Update Plan" dialog. If they choose to update, the old version is automatically archived to History, completed task progress is preserved (matched by title), and a success message confirms the update with preserved completion count.
   - **Activity History/Archive**: Previous versions of updated activities are moved to History (API endpoint: GET `/api/activities/history`). Database tracking includes `copiedFromShareToken` field to identify duplicates and `isArchived` flag for history management.
   - **Task Progress Preservation**: When updating an existing activity, tasks are matched by title and their completion status is preserved, so users don't lose their progress. The system displays how many completed tasks were preserved.
-  - API endpoints: POST `/api/activities/copy/:shareToken` (with `forceUpdate` parameter for updates), GET `/api/activities/history` (archived activities)
+  - **Privacy Shield Architecture**:
+    - Frontend UI in SharePreviewDialog with preset selector (Off, Public Creator, Privacy-First, Custom)
+    - Custom mode provides granular checkboxes for redacting names, locations, contact info, dates, and personal context
+    - Side-by-side preview showing original vs. AI-redacted content
+    - Loading spinner during AI privacy scan
+    - Backend endpoint: POST `/api/activities/:activityId/privacy-scan` with JSON validation and error handling
+    - AI-powered redaction using configurable LLM provider (OpenAI/Claude)
+    - Security: 502 error on malformed AI responses, validated JSON structure
+  - API endpoints: POST `/api/activities/copy/:shareToken` (with `forceUpdate` parameter for updates), GET `/api/activities/history` (archived activities), POST `/api/activities/:activityId/privacy-scan` (AI privacy scanner)
 - **Authentication & User Management**: Dual authentication system (Replit Auth + Supabase for Facebook) with unified session management, functional profile management (Priorities & Settings), and access control for premium features.
 - **UI/UX**: Mobile-first responsive design across all screens, dark/light theme toggle, adaptive layouts, and comprehensive accessibility features.
 - **SEO**: About tab is public and optimized with keywords like "AI planner," "smart goal tracker," and "task manager."
