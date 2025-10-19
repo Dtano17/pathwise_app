@@ -4039,6 +4039,41 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
+  // Get all journal entries for the current user
+  app.get("/api/journal/entries", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const prefs = await storage.getPersonalJournalEntries(userId);
+      
+      if (!prefs || !prefs.preferences?.journalData) {
+        return res.json({ entries: [] });
+      }
+
+      // Flatten all entries from all categories into a single array
+      const journalData = prefs.preferences.journalData;
+      const allEntries: any[] = [];
+      
+      for (const [category, entries] of Object.entries(journalData)) {
+        if (Array.isArray(entries)) {
+          entries.forEach((entry: any) => {
+            allEntries.push({
+              ...entry,
+              category
+            });
+          });
+        }
+      }
+
+      // Sort by timestamp descending (newest first)
+      allEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      res.json({ entries: allEntries });
+    } catch (error) {
+      console.error('Get journal entries error:', error);
+      res.status(500).json({ error: 'Failed to fetch journal entries' });
+    }
+  });
+
   // ===== CONVERSATIONAL LIFESTYLE PLANNER API ENDPOINTS =====
 
   // Start a new lifestyle planning session

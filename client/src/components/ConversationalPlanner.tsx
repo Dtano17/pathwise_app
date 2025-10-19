@@ -77,8 +77,10 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
   const [journalMedia, setJournalMedia] = useState<File[]>([]);
   const [isUploadingJournal, setIsUploadingJournal] = useState(false);
   const [detectedCategory, setDetectedCategory] = useState<string>('');
+  const [isSavingJournal, setIsSavingJournal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const journalTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Autocomplete state
   const [showAutocomplete, setShowAutocomplete] = useState(false);
@@ -139,6 +141,14 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentSession?.conversationHistory]);
+
+  // Fetch journal entries
+  const { data: journalEntriesData, refetch: refetchJournalEntries } = useQuery<{ entries: any[] }>({
+    queryKey: ['/api/journal/entries'],
+    enabled: planningMode === 'journal',
+  });
+
+  const journalEntries = journalEntriesData?.entries || [];
 
 
   // Calculate plan generation readiness (must be before useEffect that uses it)
@@ -518,6 +528,8 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
       
       // Refresh journal data - PersonalJournal uses /api/user-preferences
       queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+      refetchJournalEntries();
     },
     onError: (error) => {
       console.error('Failed to save journal entry:', error);
@@ -710,13 +722,13 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
     }
   };
 
-  // Journal Mode helpers
+  // Journal Mode helpers - with auto-save
   const handleJournalTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
     const cursorPosition = e.target.selectionStart;
     setJournalText(text);
 
-    // Check if @ was just typed
+    // Check if @ was just typed for autocomplete
     const textUpToCursor = text.slice(0, cursorPosition);
     const lastAtIndex = textUpToCursor.lastIndexOf('@');
     
@@ -741,6 +753,41 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
       }
     } else {
       setShowAutocomplete(false);
+    }
+
+    // Auto-save functionality (debounced)
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Only auto-save if there's meaningful text (at least 10 characters)
+    if (text.trim().length >= 10) {
+      setIsSavingJournal(true);
+      autoSaveTimeoutRef.current = setTimeout(async () => {
+        try {
+          // Auto-save journal entry
+          const response = await apiRequest('POST', '/api/journal/smart-entry', {
+            text: text.trim(),
+            media: []
+          });
+          const data = await response.json();
+          
+          if (data.success) {
+            setIsSavingJournal(false);
+            refetchJournalEntries();
+            
+            // Show subtle success indicator without clearing text
+            toast({
+              title: "Auto-saved",
+              description: `Saved to ${data.categories?.[0] || 'your journal'}`,
+              duration: 2000,
+            });
+          }
+        } catch (error) {
+          console.error('Auto-save failed:', error);
+          setIsSavingJournal(false);
+        }
+      }, 2000); // Wait 2 seconds after user stops typing
     }
   };
 
@@ -781,53 +828,64 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
     tag.toLowerCase().includes(autocompleteSearch.toLowerCase())
   );
 
-  // Journal Mode UI
+  // Journal Mode UI - Completely Redesigned
   if (planningMode === 'journal') {
     return (
-      <div className="h-full flex flex-col space-y-4 p-4">
-        <Card className="border-none shadow-lg bg-white/80 dark:bg-slate-900/80 backdrop-blur">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-600 dark:bg-pink-900 dark:text-pink-300 flex items-center justify-center">
-                  <Camera className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">Journal Mode</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">Quick capture with media & keywords</p>
-                </div>
+      <div className="h-full flex flex-col bg-gradient-to-br from-purple-50 via-white to-emerald-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        {/* Header */}
+        <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center shadow-lg">
+                <BookOpen className="h-5 w-5 text-white" />
               </div>
-              <Button
-                onClick={() => {
-                  // Clear localStorage and close dialog
-                  localStorage.removeItem('planner_session');
-                  localStorage.removeItem('planner_mode');
-                  localStorage.removeItem('planner_chips');
-                  setJournalText('');
-                  setJournalMedia([]);
-                  if (onClose) {
-                    onClose();
-                  }
-                }}
-                variant="outline"
-                size="sm"
-                data-testid="button-exit-journal"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
+              <div>
+                <h2 className="font-bold text-lg bg-gradient-to-r from-purple-600 to-emerald-600 dark:from-purple-400 dark:to-emerald-400 bg-clip-text text-transparent">
+                  JournalMate
+                </h2>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Your smart adaptive journal</p>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+            <Button
+              onClick={() => {
+                localStorage.removeItem('planner_session');
+                localStorage.removeItem('planner_mode');
+                localStorage.removeItem('planner_chips');
+                setJournalText('');
+                setJournalMedia([]);
+                if (onClose) {
+                  onClose();
+                }
+              }}
+              variant="ghost"
+              size="sm"
+              data-testid="button-exit-journal"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          </div>
+        </div>
 
-        <Card className="flex-1 border-none shadow-lg bg-white/80 dark:bg-slate-900/80 backdrop-blur">
-          <CardHeader>
-            <CardTitle>Quick Capture</CardTitle>
-            <CardDescription>
-              Type your thoughts and use keywords like @restaurants, @travel, @music. AI will automatically categorize!
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <ScrollArea className="flex-1">
+          <div className="max-w-3xl mx-auto p-4 space-y-4">
+            {/* Entry Form Card */}
+            <Card className="border-none shadow-xl bg-white/95 dark:bg-slate-900/95 backdrop-blur">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Quick Capture</CardTitle>
+                  {isSavingJournal && (
+                    <Badge variant="secondary" className="text-xs animate-pulse">
+                      <RefreshCcw className="h-3 w-3 mr-1 animate-spin" />
+                      Auto-saving...
+                    </Badge>
+                  )}
+                </div>
+                <CardDescription className="text-xs">
+                  Type freely. Use @keywords like @restaurants, @travel, @music for smart categorization
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
             <div className="space-y-2 relative">
               <textarea
                 ref={journalTextareaRef}
@@ -951,26 +1009,128 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
               </div>
             )}
 
-            <Button
-              onClick={() => submitJournalEntry.mutate()}
-              disabled={!journalText.trim() || isUploadingJournal}
-              className="w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600"
-              data-testid="button-save-journal"
-            >
-              {isUploadingJournal ? (
-                <>
-                  <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Save Entry
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
+                <Button
+                  onClick={() => submitJournalEntry.mutate()}
+                  disabled={!journalText.trim() || isUploadingJournal}
+                  className="w-full bg-gradient-to-r from-purple-500 to-emerald-500 hover:from-purple-600 hover:to-emerald-600 text-white shadow-lg"
+                  data-testid="button-save-journal"
+                >
+                  {isUploadingJournal ? (
+                    <>
+                      <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Save Entry
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Journal Entries Feed */}
+            {journalEntries.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-2">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-700 to-transparent" />
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Your Journal ({journalEntries.length})
+                  </span>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-700 to-transparent" />
+                </div>
+
+                {journalEntries.map((entry: any) => (
+                  <Card 
+                    key={entry.id} 
+                    className="border-none shadow-md bg-white/90 dark:bg-slate-900/90 backdrop-blur hover-elevate transition-all"
+                    data-testid={`journal-entry-${entry.id}`}
+                  >
+                    <CardContent className="p-4 space-y-3">
+                      {/* Entry Header */}
+                      <div className="flex items-center justify-between">
+                        <Badge 
+                          variant="secondary" 
+                          className="bg-gradient-to-r from-purple-100 to-emerald-100 dark:from-purple-900/30 dark:to-emerald-900/30 text-purple-700 dark:text-purple-300 border-none"
+                        >
+                          {entry.category}
+                        </Badge>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {new Date(entry.timestamp).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+
+                      {/* Entry Text */}
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                        {entry.text}
+                      </p>
+
+                      {/* Keywords */}
+                      {entry.keywords && entry.keywords.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {entry.keywords.map((keyword: string, idx: number) => (
+                            <Badge 
+                              key={idx} 
+                              variant="outline" 
+                              className="text-xs text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800"
+                            >
+                              {keyword}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Media Gallery */}
+                      {entry.media && entry.media.length > 0 && (
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          {entry.media.map((mediaItem: any, idx: number) => (
+                            <div 
+                              key={idx} 
+                              className="relative aspect-square rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800"
+                            >
+                              {mediaItem.type === 'image' ? (
+                                <img 
+                                  src={mediaItem.url} 
+                                  alt="Journal media"
+                                  className="w-full h-full object-cover hover:scale-105 transition-transform"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <ImageIcon className="h-8 w-8 text-slate-400" />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Empty State */}
+            {journalEntries.length === 0 && (
+              <Card className="border-none shadow-md bg-white/60 dark:bg-slate-900/60 backdrop-blur">
+                <CardContent className="p-8 text-center">
+                  <BookOpen className="h-12 w-12 mx-auto text-slate-300 dark:text-slate-700 mb-3" />
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Your journal is waiting for its first entry.
+                  </p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                    Start typing above to capture your thoughts!
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </ScrollArea>
       </div>
     );
   }
