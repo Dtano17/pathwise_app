@@ -77,6 +77,9 @@ export const users = pgTable("users", {
   currentChallenges: jsonb("current_challenges").$type<string[]>().default([]),
   successFactors: jsonb("success_factors").$type<string[]>().default([]),
   
+  // Onboarding
+  hasCompletedTutorial: boolean("has_completed_tutorial").default(false),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
