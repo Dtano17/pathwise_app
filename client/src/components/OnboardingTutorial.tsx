@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { 
   Sparkles, CheckCircle2, Mic, Target, Share2, Copy, 
-  ChevronRight, ChevronLeft, Zap, Brain, Users, Play
+  ChevronRight, ChevronLeft, Zap, Brain, Users, Play,
+  UserCircle, Shield, MessageSquare, Palette, Plug, BookOpen
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -27,89 +28,85 @@ interface TutorialStep {
 const tutorialSteps: TutorialStep[] = [
   {
     title: "Welcome to JournalMate!",
-    description: "Your AI-powered social planning and adaptive journal. Let's take a quick tour of the main features that will help you plan, execute, and reflect on your goals.",
+    description: "Your AI-powered social planning and adaptive journal. JournalMate only uses what you permit—you control what's shared and how personalized your experience is. Let's set you up for success!",
     icon: Sparkles,
     tips: [
-      "This tutorial takes about 2 minutes to complete",
-      "You can always access it again from the help menu",
-      "Feel free to skip and explore on your own"
+      "This tutorial takes about 3 minutes to complete",
+      "You control your privacy and personalization level",
+      "The app only accesses what you explicitly allow",
+      "You can replay this tutorial anytime from the Tutorial badge"
     ]
   },
   {
-    title: "Specialized Planning Agent",
-    description: "JournalMate uses a LangGraph-based planning agent—not just simple prompt feeding. Our agent is optimized for creating personalized, context-aware plans.",
+    title: "Start with Your Profile & Privacy",
+    description: "Your profile is the foundation. Set your priorities, define what makes you unique, and control what you share publicly. This drives how personalized your plans become.",
+    icon: UserCircle,
+    tips: [
+      "Profile tab: Add priorities like 'family time', 'career growth', 'health'",
+      "Set what defines you—the app uses this to personalize plans",
+      "Control what's public vs. private with the shield icon",
+      "Make it fun! Share what you want others to see about you",
+      "The app automatically factors your priorities into every plan"
+    ]
+  },
+  {
+    title: "Create Action Plan Feature",
+    description: "When you already have details for a plan, use 'Create Action Plan' to instantly generate structured tasks. Then iterate and refine using the chat box below.",
+    icon: MessageSquare,
+    tips: [
+      "Type or paste all your plan details at once",
+      "The AI generates a complete action plan with tasks",
+      "Keep editing via the chat box—just describe your changes",
+      "When you receive a shared plan, edit it the same way",
+      "Every plan respects your profile priorities automatically"
+    ]
+  },
+  {
+    title: "Smart Planning Agent (LangGraph-Based)",
+    description: "Our LangGraph planning agent (not just prompts!) creates priority-aware, context-rich plans. It factors in traffic, your schedule, and priorities to help you succeed without burnout.",
     icon: Brain,
     tips: [
-      "Smart Plan: Deep dive with follow-up questions for personalized routines",
-      "Quick Plan: Rapid action plan generation when you need speed",
-      "The agent learns from your preferences and adapts over time",
-      "Access via Goal Input tab (microphone icon)"
+      "Example: 'Help plan my work week factoring traffic and my priorities'",
+      "It auto-uses your profile to suggest productive setup activities",
+      "Example: 'Plan a girls trip to NYC for Thanksgiving based on my preferences'",
+      "Smart Plan: Deep personalization with follow-up questions",
+      "Quick Plan: Fast plans when you need speed over depth"
     ]
   },
   {
-    title: "Creating Your First Plan",
-    description: "Use voice or text input to describe any goal. The AI planning agent will ask clarifying questions, then generate a complete action plan with tasks, timeframes, and motivational insights.",
-    icon: Mic,
+    title: "Journal Mode: Automatic Capture",
+    description: "Type minimal text with keywords like @restaurants, @travel, @music and upload photos/videos. The AI automatically detects categories, stores media, and enriches your journal.",
+    icon: BookOpen,
     tips: [
-      "Try saying: 'Help me plan a productive morning routine'",
-      "Or type: 'Create a workout plan for beginners'",
-      "Use Quick Plan for instant results or Smart Plan for deeper personalization",
-      "You can refine the plan by chatting with the agent"
+      "Use tags: @restaurants, @travel, @music, @fitness, @movies, etc.",
+      "Upload photos/videos—they're organized in category galleries",
+      "AI auto-categorizes even without tags using natural language",
+      "Your journal builds over time with rich memories",
+      "Access via Personal Journal tab"
     ]
   },
   {
-    title: "Managing Activities & Tasks",
-    description: "Once your plan is generated, it becomes an Activity with trackable tasks. Navigate between tabs to view all your activities, individual tasks, and progress analytics.",
-    icon: Target,
+    title: "Themes & LLM Integration",
+    description: "Set your mood or rhythm with theme customization. Integrate any LLM you prefer via copy/paste or backend integration—full flexibility for your workflow.",
+    icon: Palette,
     tips: [
-      "Activities tab: See all your plans with progress tracking",
-      "All Tasks tab: View and complete tasks across all activities",
-      "Swipe tasks right to complete, left to skip",
-      "Give thumbs up/down feedback to help the AI learn your preferences"
+      "Theme settings: Adjust mood, color schemes, and rhythm",
+      "Dark/Light mode toggle in the header",
+      "Integrate OpenAI, Claude, or any other LLM",
+      "Copy/paste approach or backend API integration",
+      "Customize the AI experience to match your style"
     ]
   },
   {
-    title: "Sharing Your Plans",
-    description: "Make any activity public, customize the preview with beautiful backdrops, and share with friends. They can instantly copy it to their account and make it their own!",
+    title: "Share & Collaborate",
+    description: "Make plans public, customize share previews with NYC-themed backdrops, and share links. Others can instantly copy your plan to their account and adapt it to their needs!",
     icon: Share2,
     tips: [
       "Toggle activity privacy (lock/unlock icon)",
-      "Customize share preview with title and backdrop",
-      "Share link works on mobile and desktop",
-      "Recipients get the full plan with all tasks"
-    ]
-  },
-  {
-    title: "Copying Others' Plans",
-    description: "When someone shares a plan with you, just sign in and it automatically copies to your account. You can then customize it, track your own progress, and share your version.",
-    icon: Copy,
-    tips: [
-      "Click any shared activity link",
-      "Sign in to automatically copy it",
-      "All tasks are preserved with smart matching",
-      "Update detection prevents duplicates"
-    ]
-  },
-  {
-    title: "Groups & Collaboration",
-    description: "Create accountability groups, share activities with team members, and track collective progress. Perfect for workout buddies, study groups, or team goals.",
-    icon: Users,
-    tips: [
-      "Groups tab: Create and manage your groups",
-      "Invite members via email or share link",
-      "See group-wide progress and activity feed",
-      "Feature coming soon: Real-time collaboration"
-    ]
-  },
-  {
-    title: "Ready to Start!",
-    description: "You're all set! Start by creating your first plan, explore the example activities, or try out the quick action buttons on the Goal Input tab.",
-    icon: Play,
-    tips: [
-      "Click 'Complete Tutorial' to get started",
-      "Try the example goals for inspiration",
-      "Explore Personal Journal for life tracking",
-      "Need help? Contact us at journamate@gmail.com"
+      "Customize share title and backdrop in preview dialog",
+      "When friends click your link and sign in, it auto-copies",
+      "Duplicate detection: Update existing plans without losing progress",
+      "Groups tab: Create accountability groups for shared goals"
     ]
   }
 ];

@@ -119,9 +119,19 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
               <p style="margin: 0 0 16px; color: #374151; font-size: 16px; line-height: 1.7;">
                 This isn't just another AI app.
               </p>
-              <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.7; font-weight: 500;">
+              <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.7; font-weight: 500;">
                 It's your <strong>mate in motion</strong>—designed to help you reflect, plan, and grow with every swipe, snapshot, and shared moment.
               </p>
+              
+              <!-- Privacy & Control Box -->
+              <div style="background: linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%); border-left: 4px solid #8b5cf6; border-radius: 12px; padding: 20px; margin-top: 24px;">
+                <p style="margin: 0 0 12px; color: #6b21a8; font-size: 15px; font-weight: 700; line-height: 1.5;">
+                  🔒 You're in Control
+                </p>
+                <p style="margin: 0; color: #5b21b6; font-size: 15px; line-height: 1.6;">
+                  <strong>JournalMate only uses what you permit.</strong> You control what's shared publicly, how personalized your plans become, and what information the app can access. Set your priorities and privacy preferences in your Profile—it's the foundation of your experience.
+                </p>
+              </div>
             </td>
           </tr>
 
