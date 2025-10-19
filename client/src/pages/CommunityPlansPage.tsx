@@ -19,6 +19,21 @@ import elegantWeddingCeremony from "@assets/stock_images/elegant_wedding_cere_9a
 import modernTechWorkspace from "@assets/stock_images/modern_tech_workspac_ef8fa108.jpg";
 import beautifulModernHome from "@assets/stock_images/beautiful_modern_hom_0f24a3e6.jpg";
 import organizedProductivity from "@assets/stock_images/organized_productivi_df70e725.jpg";
+import tokyoJapanTravel from "@assets/stock_images/tokyo_japan_travel_d_8a196170.jpg";
+import baliIndonesiaTropical from "@assets/stock_images/bali_indonesia_tropi_95575be5.jpg";
+import newYorkCityTimes from "@assets/stock_images/new_york_city_times__e09e766b.jpg";
+import parisEiffelTower from "@assets/stock_images/paris_eiffel_tower_f_fce5772c.jpg";
+import icelandNorthernLights from "@assets/stock_images/iceland_northern_lig_9fbbf14d.jpg";
+import runnerJoggingTrail from "@assets/stock_images/runner_jogging_on_tr_9a63ddad.jpg";
+import yogaStudioPeaceful from "@assets/stock_images/yoga_studio_peaceful_84f9a366.jpg";
+import cyclistRidingBike from "@assets/stock_images/cyclist_riding_bike__9ae17ca2.jpg";
+import modernGymWorkout from "@assets/stock_images/modern_gym_workout_w_99dc5406.jpg";
+import modernWorkspaceDesk from "@assets/stock_images/modern_workspace_des_9f6c2608.jpg";
+import businessPresentation from "@assets/stock_images/business_presentatio_aee687af.jpg";
+import professionalNetworking from "@assets/stock_images/professional_network_48ccc448.jpg";
+import personReadingBook from "@assets/stock_images/person_reading_book__bc916131.jpg";
+import birthdayPartyCelebration from "@assets/stock_images/birthday_party_celeb_414d649e.jpg";
+import concertMusicFestival from "@assets/stock_images/concert_music_festiv_18316657.jpg";
 
 const stockImageMap: Record<string, string> = {
   "romantic_paris_citys_dfc7c798.jpg": romanticParisCityscape,
@@ -27,6 +42,21 @@ const stockImageMap: Record<string, string> = {
   "modern_tech_workspac_ef8fa108.jpg": modernTechWorkspace,
   "beautiful_modern_hom_0f24a3e6.jpg": beautifulModernHome,
   "organized_productivi_df70e725.jpg": organizedProductivity,
+  "tokyo_japan_travel_d_8a196170.jpg": tokyoJapanTravel,
+  "bali_indonesia_tropi_95575be5.jpg": baliIndonesiaTropical,
+  "new_york_city_times__e09e766b.jpg": newYorkCityTimes,
+  "paris_eiffel_tower_f_fce5772c.jpg": parisEiffelTower,
+  "iceland_northern_lig_9fbbf14d.jpg": icelandNorthernLights,
+  "runner_jogging_on_tr_9a63ddad.jpg": runnerJoggingTrail,
+  "yoga_studio_peaceful_84f9a366.jpg": yogaStudioPeaceful,
+  "cyclist_riding_bike__9ae17ca2.jpg": cyclistRidingBike,
+  "modern_gym_workout_w_99dc5406.jpg": modernGymWorkout,
+  "modern_workspace_des_9f6c2608.jpg": modernWorkspaceDesk,
+  "business_presentatio_aee687af.jpg": businessPresentation,
+  "professional_network_48ccc448.jpg": professionalNetworking,
+  "person_reading_book__bc916131.jpg": personReadingBook,
+  "birthday_party_celeb_414d649e.jpg": birthdayPartyCelebration,
+  "concert_music_festiv_18316657.jpg": concertMusicFestival,
 };
 
 const categories = [
