@@ -49,6 +49,10 @@ validateEnvironment();
 initializeLLMProviders();
 
 const app = express();
+
+// Disable ETags globally to prevent 304 Not Modified responses
+app.set('etag', false);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
