@@ -774,7 +774,11 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
           
           if (data.success) {
             setIsSavingJournal(false);
-            refetchJournalEntries();
+            
+            // Force cache invalidation and refetch
+            queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+            await refetchJournalEntries();
             
             // Show subtle success indicator without clearing text
             toast({
@@ -846,24 +850,42 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
                 <p className="text-xs text-slate-600 dark:text-slate-400">Your smart adaptive journal</p>
               </div>
             </div>
-            <Button
-              onClick={() => {
-                localStorage.removeItem('planner_session');
-                localStorage.removeItem('planner_mode');
-                localStorage.removeItem('planner_chips');
-                setJournalText('');
-                setJournalMedia([]);
-                if (onClose) {
-                  onClose();
-                }
-              }}
-              variant="ghost"
-              size="sm"
-              data-testid="button-exit-journal"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => {
+                  queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+                  refetchJournalEntries();
+                  toast({
+                    title: "Refreshed",
+                    description: "Journal entries reloaded",
+                    duration: 2000,
+                  });
+                }}
+                variant="ghost"
+                size="sm"
+                data-testid="button-refresh-journal"
+              >
+                <RefreshCcw className="h-4 w-4" />
+              </Button>
+              <Button
+                onClick={() => {
+                  localStorage.removeItem('planner_session');
+                  localStorage.removeItem('planner_mode');
+                  localStorage.removeItem('planner_chips');
+                  setJournalText('');
+                  setJournalMedia([]);
+                  if (onClose) {
+                    onClose();
+                  }
+                }}
+                variant="ghost"
+                size="sm"
+                data-testid="button-exit-journal"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            </div>
           </div>
         </div>
 
