@@ -3974,8 +3974,11 @@ You can find these tasks in your task list and start working on them right away!
         ];
 
         try {
-          const aiResponse = await aiService.chatConversation(
-            [
+          // Call OpenAI directly for category detection with JSON response
+          const { openai } = await import('./services/aiService.js');
+          const response = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
               {
                 role: 'system',
                 content: `You are a journal categorizer. Analyze the user's journal entry and suggest the best category. You can use one of these base categories: ${baseCategories.join(', ')}. Or create a NEW category if the content doesn't fit any base category well. 
@@ -3997,12 +4000,12 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
                 content: text
               }
             ],
-            'openai',
-            userId
-          );
+            response_format: { type: 'json_object' },
+            temperature: 0.3
+          });
 
-          const categoryData = JSON.parse(aiResponse);
-          detectedCategories = [categoryData.category];
+          const categoryData = JSON.parse(response.choices[0]?.message?.content || '{}');
+          detectedCategories = [categoryData.category || 'Personal Notes'];
           detectedKeywords = categoryData.keywords || [];
           aiConfidence = categoryData.confidence || 0.7;
         } catch (aiError) {
