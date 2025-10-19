@@ -157,7 +157,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
               <div class="feature-item" style="margin-bottom: 24px;">
                 <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🚀 Built for Creators, Planners &amp; Professionals</h4>
                 <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  Travel agents, event planners, lifestyle creators—this is your platform. <strong>Plan group trips with real-time collaboration</strong>, customize share previews with custom themes and backgrounds, and control what's shared with gated access. Your followers can <strong>instantly copy and own your plans</strong> with one click, making it theirs to track and customize.
+                  Travel agents, event planners, lifestyle creators—this is your platform. <strong>Plan group trips with real-time collaboration</strong>, customize share previews with custom themes and backgrounds, and use the <strong>Privacy Shield</strong> to control what's shared. Choose Public Creator mode (share full details), Privacy-First mode (max protection), or Custom settings—AI automatically redacts names, locations, contact info, and dates as you choose. Your followers can <strong>instantly copy and own your plans</strong> with one click, making it theirs to track and customize.
                 </p>
               </div>
 

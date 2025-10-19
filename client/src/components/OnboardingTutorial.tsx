@@ -51,14 +51,15 @@ const tutorialSteps: TutorialStep[] = [
   },
   {
     title: "Share & Collaborate—For Creators & Planners",
-    description: "Not just planning—collaborate in real-time! Plan group trips, customize share themes/backgrounds, control what's shared with gated access. Perfect for travel agents, event planners, and lifestyle creators who want followers to instantly copy and own your plans.",
+    description: "Not just planning—collaborate in real-time! Plan group trips, customize share themes/backgrounds, control what's shared with gated access and customizable privacy shield. Perfect for travel agents, event planners, and lifestyle creators who want followers to instantly copy and own your plans.",
     icon: Share2,
     tips: [
       "Plan group trips or adventures with real-time collaboration",
       "Customize share preview: themes, backgrounds, tone—make it yours",
-      "Gated sharing: Control exactly what gets shared publicly",
+      "Privacy Shield: Choose Public Creator (full details), Privacy-First (max protection), or Custom",
+      "AI automatically redacts names, locations, contact info, dates as you choose",
       "Instant copy-and-own: Followers click your link and get their own editable copy",
-      "Travel agents, event planners, creators: Build your following with shareable plans"
+      "Travel agents, event planners, creators: Share openly. Others: Protect your privacy"
     ]
   },
   {
