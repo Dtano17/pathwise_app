@@ -199,23 +199,23 @@ export default function CommunityPlansPage() {
 
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-4xl font-bold" data-testid="text-page-title">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
+            <h1 className="text-2xl sm:text-4xl font-bold" data-testid="text-page-title">
               Discover & Use Community Plans
             </h1>
-            <Badge variant="secondary" className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0" data-testid="badge-community-powered">
+            <Badge variant="secondary" className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 w-fit" data-testid="badge-community-powered">
               <Sparkles className="w-3 h-3 mr-1" />
               Community Powered
             </Badge>
           </div>
-          <p className="text-muted-foreground text-lg" data-testid="text-page-description">
+          <p className="text-muted-foreground text-base sm:text-lg" data-testid="text-page-description">
             Browse curated plans from the community and instantly add them to your collection
           </p>
         </div>
 
         {/* Search Bar */}
         <div className="mb-6">
-          <div className="relative max-w-md">
+          <div className="relative w-full sm:max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search plans..."
@@ -229,17 +229,19 @@ export default function CommunityPlansPage() {
 
         {/* Category Tabs */}
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-8">
-          <TabsList data-testid="tabs-categories">
-            {categories.map((cat) => (
-              <TabsTrigger
-                key={cat.value}
-                value={cat.value}
-                data-testid={`tab-${cat.value}`}
-              >
-                {cat.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList data-testid="tabs-categories" className="w-fit">
+              {categories.map((cat) => (
+                <TabsTrigger
+                  key={cat.value}
+                  value={cat.value}
+                  data-testid={`tab-${cat.value}`}
+                >
+                  {cat.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
         </Tabs>
 
         {/* Plans Grid */}
