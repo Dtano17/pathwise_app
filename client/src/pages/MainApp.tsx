@@ -2209,13 +2209,28 @@ Assistant: For nutrition, I recommend..."
               <SignInGate feature="Group collaboration">
                 <div className="max-w-4xl mx-auto">
                   <div className="text-center mb-8">
-                    <h2 className="text-3xl font-bold text-foreground mb-4 flex items-center justify-center gap-2">
-                      <Users className="w-8 h-8" />
-                      Group Goals & Shared Accountability
-                    </h2>
-                    <p className="text-xl text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                      <h2 className="text-3xl font-bold text-foreground flex items-center gap-2">
+                        <Users className="w-8 h-8" />
+                        Group Goals & Shared Accountability
+                      </h2>
+                      <Badge 
+                        className="bg-gradient-to-r from-purple-600 to-purple-700 text-white border-0 text-xs px-3 py-1" 
+                        data-testid="badge-preview-mode"
+                      >
+                        Preview Mode
+                      </Badge>
+                    </div>
+                    <p className="text-xl text-muted-foreground mb-4">
                       Create groups, share goals, and celebrate progress together!
                     </p>
+                    <Card className="max-w-2xl mx-auto p-4 bg-muted/30 border-dashed">
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-semibold text-foreground">Phase 1:</span> Basic group viewing is now available. 
+                        <span className="font-semibold text-foreground ml-2">Coming in Phase 2:</span> Contributor change proposals, admin approval workflow, 
+                        real-time change tracking ("Sarah updated..."), and personal vs. canonical version management with WebSocket notifications.
+                      </p>
+                    </Card>
                   </div>
 
                 <div className="grid gap-6 md:grid-cols-2">
