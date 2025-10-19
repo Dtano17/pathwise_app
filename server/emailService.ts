@@ -148,30 +148,30 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
               <h3 style="margin: 0 0 28px; color: #8b5cf6; font-size: 22px; font-weight: 700; text-align: center; line-height: 1.3;">✨ What Makes JournalMate Different</h3>
               
               <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🔗 Shared Activities &amp; Group Sync</h4>
+                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🚀 Built for Creators, Planners &amp; Professionals</h4>
                 <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  Craft beautiful plans and routines, then share them with friends, teams, or accountability partners. Everyone can copy, remix, and track their own rhythm.
+                  Travel agents, event planners, lifestyle creators—this is your platform. Plan group trips with real-time collaboration, customize share previews with custom themes and backgrounds, and control what's shared with gated access. Your followers can <strong>instantly copy and own your plans</strong> with one click, making it theirs to track and customize.
                 </p>
               </div>
 
               <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🤖 Advanced LangGraph Planning Agent</h4>
+                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🤖 Smart Planning with Live Updates</h4>
                 <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  This isn't just AI that feeds prompts to a model. JournalMate features a specialized LangGraph-based planning agent optimized for creating personalized plans. Choose <strong>Smart Plan</strong> for in-depth information gathering and tailored routines, or <strong>Quick Plan</strong> for rapid action plan generation. The agent understands context, asks follow-up questions, and refines plans based on your unique preferences.
+                  Our LangGraph planning agent (not just prompt feeding!) creates personalized plans enriched with <strong>live updates</strong>: traffic conditions, weather forecasts, venue busy-ness, reservation alerts. Planning a romantic date? It factors your profile preferences, detects your mood, sets the tone for success, and lets you share with your date beforehand for perfect alignment.
                 </p>
               </div>
 
               <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">📸 Auto-Journaling with Feedback Loops</h4>
+                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">📸 Automatic AI Journaling</h4>
                 <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  Snap a photo, tag a moment, give a thumbs up/down. JournalMate curates your likes, dislikes, and reflections into a living journal—no writing required.
+                  JournalMate <strong>does the journaling for you</strong> using AI. It learns from your task feedback (likes/dislikes), then you just tag images/videos with @keywords and link activities. You choose when to add more details—JournalMate handles the rest, building a rich journal automatically.
                 </p>
               </div>
 
               <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🎯 Customizable Sharing &amp; Collaboration</h4>
+                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🎯 Instant Copy-and-Own for Followers</h4>
                 <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  Share your activities with custom visuals and backgrounds. Friends can instantly copy your plans to their account and customize them—building on your insights while tracking their own progress. Perfect for accountability partners, workout buddies, or team goals.
+                  Share your plans with custom visuals, NYC backdrops, or your own media. When friends or followers click your link and sign in, the plan <strong>instantly copies to their account</strong>—they own it, can edit it, and track their own progress. Perfect for building your following as a creator, planner, or coach.
                 </p>
               </div>
 

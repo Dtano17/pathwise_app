@@ -50,39 +50,51 @@ const tutorialSteps: TutorialStep[] = [
     ]
   },
   {
-    title: "Create Action Plan Feature",
-    description: "When you already have details for a plan, use 'Create Action Plan' to instantly generate structured tasks. Then iterate and refine using the chat box below.",
+    title: "Share & Collaborate—For Creators & Planners",
+    description: "Not just planning—collaborate in real-time! Plan group trips, customize share themes/backgrounds, control what's shared with gated access. Perfect for travel agents, event planners, and lifestyle creators who want followers to instantly copy and own your plans.",
+    icon: Share2,
+    tips: [
+      "Plan group trips or adventures with real-time collaboration",
+      "Customize share preview: themes, backgrounds, tone—make it yours",
+      "Gated sharing: Control exactly what gets shared publicly",
+      "Instant copy-and-own: Followers click your link and get their own editable copy",
+      "Travel agents, event planners, creators: Build your following with shareable plans"
+    ]
+  },
+  {
+    title: "Smart Planning Agent with Live Updates",
+    description: "Our LangGraph agent creates priority-aware plans enriched with live updates. Plan a romantic date? It factors your profile, checks traffic/weather, alerts you about reservations, detects your mood, and lets you share with your date beforehand for alignment.",
+    icon: Brain,
+    tips: [
+      "Example: 'Plan a romantic date'—uses your profile preferences",
+      "Live updates: traffic conditions, weather forecast, venue busy-ness",
+      "Proactive alerts: 'You'll need reservations at this restaurant'",
+      "Mood detection sets the tone for success based on your style",
+      "Share with your date beforehand so you're both on the same page"
+    ]
+  },
+  {
+    title: "Create Action Plan (Same Chatbox Iteration)",
+    description: "Already have plan details? Use 'Create Action Plan' to instantly generate structured tasks. Then keep iterating in THE SAME chatbox—no new interface, just describe your changes and the AI refines it.",
     icon: MessageSquare,
     tips: [
       "Type or paste all your plan details at once",
       "The AI generates a complete action plan with tasks",
-      "Keep editing via the chat box—just describe your changes",
+      "Iterate in THE SAME chatbox—just type what you want to change",
       "When you receive a shared plan, edit it the same way",
       "Every plan respects your profile priorities automatically"
     ]
   },
   {
-    title: "Smart Planning Agent (LangGraph-Based)",
-    description: "Our LangGraph planning agent (not just prompts!) creates priority-aware, context-rich plans. It factors in traffic, your schedule, and priorities to help you succeed without burnout.",
-    icon: Brain,
-    tips: [
-      "Example: 'Help plan my work week factoring traffic and my priorities'",
-      "It auto-uses your profile to suggest productive setup activities",
-      "Example: 'Plan a girls trip to NYC for Thanksgiving based on my preferences'",
-      "Smart Plan: Deep personalization with follow-up questions",
-      "Quick Plan: Fast plans when you need speed over depth"
-    ]
-  },
-  {
-    title: "Journal Mode: Automatic Capture",
-    description: "Type minimal text with keywords like @restaurants, @travel, @music and upload photos/videos. The AI automatically detects categories, stores media, and enriches your journal.",
+    title: "Automatic AI Journaling",
+    description: "JournalMate does the journaling FOR YOU using AI. It learns from your task feedback (likes/dislikes), then you just tag images/videos and link activities. You choose when to add more details—let JournalMate do the rest.",
     icon: BookOpen,
     tips: [
-      "Use tags: @restaurants, @travel, @music, @fitness, @movies, etc.",
-      "Upload photos/videos—they're organized in category galleries",
-      "AI auto-categorizes even without tags using natural language",
-      "Your journal builds over time with rich memories",
-      "Access via Personal Journal tab"
+      "AI automatically journals based on your task feedback (thumbs up/down)",
+      "You just tag images/videos with @restaurants, @travel, @music, etc.",
+      "Link to activities—JournalMate enriches entries with AI",
+      "You choose when to add more details, AI handles the rest",
+      "Your journal builds over time with rich, AI-powered memories"
     ]
   },
   {
@@ -95,18 +107,6 @@ const tutorialSteps: TutorialStep[] = [
       "Integrate OpenAI, Claude, or any other LLM",
       "Copy/paste approach or backend API integration",
       "Customize the AI experience to match your style"
-    ]
-  },
-  {
-    title: "Share & Collaborate",
-    description: "Make plans public, customize share previews with NYC-themed backdrops, and share links. Others can instantly copy your plan to their account and adapt it to their needs!",
-    icon: Share2,
-    tips: [
-      "Toggle activity privacy (lock/unlock icon)",
-      "Customize share title and backdrop in preview dialog",
-      "When friends click your link and sign in, it auto-copies",
-      "Duplicate detection: Update existing plans without losing progress",
-      "Groups tab: Create accountability groups for shared goals"
     ]
   }
 ];
