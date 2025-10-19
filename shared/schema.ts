@@ -740,6 +740,14 @@ export const activities = pgTable("activities", {
   shareTitle: text("share_title"), // Custom title for shared activity page (falls back to planSummary or title)
   backdrop: text("backdrop"), // Custom backdrop URL or theme name for shared activity page
   
+  // Community and popularity metrics
+  viewCount: integer("view_count").default(0), // Total views for discovery
+  likeCount: integer("like_count").default(0), // Total likes/uses
+  trendingScore: integer("trending_score").default(0), // Calculated trending score
+  featuredInCommunity: boolean("featured_in_community").default(false), // Featured plans
+  creatorName: text("creator_name"), // Display name of creator for discovery
+  creatorAvatar: text("creator_avatar"), // Avatar URL for discovery cards
+  
   // Rating and feedback
   rating: integer("rating"), // 1-5 stars
   feedback: text("feedback"),
