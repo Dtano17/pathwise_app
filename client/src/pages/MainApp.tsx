@@ -2217,23 +2217,27 @@ Assistant: For nutrition, I recommend..."
             {/* Groups Tab */}
             <TabsContent value="groups" className="space-y-6 pb-20">
               <SignInGate feature="Group collaboration">
-                <div className="max-w-4xl mx-auto px-4">
-                  {/* Preview Mode Badge */}
-                  <div className="text-center mb-6">
-                    <Badge 
-                      className="bg-gradient-to-r from-purple-600 to-purple-700 text-white border-0 text-xs px-3 py-1 mb-4" 
-                      data-testid="badge-preview-mode"
-                    >
-                      Preview Mode
-                    </Badge>
+                <div className="max-w-4xl mx-auto">
+                  <div className="text-center mb-8">
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                      <h2 className="text-3xl font-bold text-foreground flex items-center gap-2">
+                        <Users className="w-8 h-8" />
+                        Group Goals & Shared Accountability
+                      </h2>
+                      <Badge 
+                        className="bg-gradient-to-r from-purple-600 to-purple-700 text-white border-0 text-xs px-3 py-1" 
+                        data-testid="badge-preview-mode"
+                      >
+                        Preview Mode
+                      </Badge>
+                    </div>
                     <p className="text-xl text-muted-foreground mb-4">
                       Create groups, share goals, and celebrate progress together!
                     </p>
                     <Card className="max-w-2xl mx-auto p-4 bg-muted/30 border-dashed">
                       <p className="text-sm text-muted-foreground">
                         <span className="font-semibold text-foreground">Phase 1:</span> Basic group viewing is now available. 
-                        <span className="font-semibold text-foreground ml-2">Coming in Phase 2:</span> Contributor change proposals, admin approval workflow, 
-                        real-time change tracking ("Sarah updated..."), and personal vs. canonical version management with WebSocket notifications.
+                        <span className="font-semibold text-foreground ml-2">Phase 2:</span> Coming soon!
                       </p>
                     </Card>
                   </div>
@@ -2949,23 +2953,27 @@ Assistant: For nutrition, I recommend..."
               </TabsContent>
 
               <TabsContent value="groups" className="flex-1 overflow-y-auto mt-0 space-y-6">
-                <div className="max-w-4xl mx-auto px-4">
-                  {/* Preview Mode Badge */}
-                  <div className="text-center mb-6">
-                    <Badge 
-                      className="bg-gradient-to-r from-purple-600 to-purple-700 text-white border-0 text-xs px-3 py-1 mb-4" 
-                      data-testid="badge-preview-mode"
-                    >
-                      Preview Mode
-                    </Badge>
+                <div className="max-w-4xl mx-auto">
+                  <div className="text-center mb-8">
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                      <h2 className="text-3xl font-bold text-foreground flex items-center gap-2">
+                        <Users className="w-8 h-8" />
+                        Group Goals & Shared Accountability
+                      </h2>
+                      <Badge 
+                        className="bg-gradient-to-r from-purple-600 to-purple-700 text-white border-0 text-xs px-3 py-1" 
+                        data-testid="badge-preview-mode"
+                      >
+                        Preview Mode
+                      </Badge>
+                    </div>
                     <p className="text-xl text-muted-foreground mb-4">
                       Create groups, share goals, and celebrate progress together!
                     </p>
                     <Card className="max-w-2xl mx-auto p-4 bg-muted/30 border-dashed">
                       <p className="text-sm text-muted-foreground">
                         <span className="font-semibold text-foreground">Phase 1:</span> Basic group viewing is now available. 
-                        <span className="font-semibold text-foreground ml-2">Coming in Phase 2:</span> Contributor change proposals, admin approval workflow, 
-                        real-time change tracking ("Sarah updated..."), and personal vs. canonical version management with WebSocket notifications.
+                        <span className="font-semibold text-foreground ml-2">Phase 2:</span> Coming soon!
                       </p>
                     </Card>
                   </div>
