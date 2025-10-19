@@ -1455,7 +1455,7 @@ export default function MainApp({
                 </p>
               </div>
 
-              <div className="flex justify-center mb-6">
+              <div className="flex flex-wrap justify-center gap-3 mb-6">
                 <Button
                   onClick={() => setActiveTab("input")}
                   className="gap-2"
@@ -1464,6 +1464,16 @@ export default function MainApp({
                   <Plus className="w-4 h-4" />
                   Create New Activity
                 </Button>
+                <Link href="/discover">
+                  <Button
+                    variant="secondary"
+                    className="gap-2"
+                    data-testid="button-discover-plans"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Discover Plans
+                  </Button>
+                </Link>
               </div>
 
               {activitiesLoading ? (
