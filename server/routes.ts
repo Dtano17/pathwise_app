@@ -1188,6 +1188,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mark tutorial as completed
+  app.post('/api/users/:userId/complete-tutorial', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Update user with tutorial completion
+      const updatedUser = await storage.updateUser(userId, { 
+        hasCompletedTutorial: true 
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      console.log(`[TUTORIAL] User ${userId} completed tutorial`);
+
+      res.json({
+        success: true,
+        message: "Tutorial marked as completed"
+      });
+    } catch (error) {
+      console.error("Tutorial completion error:", error);
+      res.status(500).json({ error: "Failed to mark tutorial as completed" });
+    }
+  });
+
   // Temporary user ID for demo - in real app this would come from authentication
   const DEMO_USER_ID = "demo-user";
 

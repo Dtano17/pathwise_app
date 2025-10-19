@@ -35,6 +35,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import NotificationManager from '@/components/NotificationManager';
 import SmartScheduler from '@/components/SmartScheduler';
 import CelebrationModal from '@/components/CelebrationModal';
+import OnboardingTutorial from '@/components/OnboardingTutorial';
 import Confetti from 'react-confetti';
 
 interface ProgressData {
@@ -149,6 +150,9 @@ export default function MainApp({
     title: string;
     description: string;
   } | null>(null);
+
+  // Onboarding tutorial state
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Load and resume a conversation session
   const loadConversationSession = async (sessionId: string) => {
@@ -298,6 +302,22 @@ export default function MainApp({
   
   // Sign-in dialog state
   const [showSignInDialog, setShowSignInDialog] = useState(false);
+
+  // Check if user has completed tutorial (show on first login)
+  useEffect(() => {
+    if (user && typeof user === 'object' && 'id' in user && (user as any).id !== 'demo-user') {
+      const hasCompletedTutorial = (user as any).hasCompletedTutorial;
+      console.log('[TUTORIAL] User tutorial status:', { hasCompletedTutorial, userId: (user as any).id });
+      
+      // Show tutorial if not completed
+      if (!hasCompletedTutorial) {
+        // Small delay to let the app load first
+        setTimeout(() => {
+          setShowTutorial(true);
+        }, 1000);
+      }
+    }
+  }, [user]);
 
   // Profile completion for OAuth new users
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
@@ -801,6 +821,38 @@ export default function MainApp({
     }
   };
 
+  // Complete tutorial mutation
+  const completeTutorialMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || typeof user !== 'object' || !('id' in user) || (user as any).id === 'demo-user') {
+        return; // Skip for demo users
+      }
+      
+      const response = await fetch(`/api/users/${(user as any).id}/complete-tutorial`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to mark tutorial as completed');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      // Refetch user data to update tutorial status
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+      console.log('[TUTORIAL] Tutorial marked as completed');
+    },
+    onError: (error) => {
+      console.error('[TUTORIAL] Failed to mark tutorial as completed:', error);
+    }
+  });
+
+  const handleTutorialComplete = () => {
+    completeTutorialMutation.mutate();
+  };
+
   // Create activity from plan mutation
   const createActivityMutation = useMutation({
     mutationFn: async (planData: { title: string; description: string; tasks: any[]; mode?: 'create' | 'update'; activityId?: string }) => {
@@ -1042,9 +1094,14 @@ export default function MainApp({
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-3">
-              <Badge variant="secondary" className="gap-1">
+              <Badge 
+                variant="secondary" 
+                className="gap-1 cursor-pointer hover-elevate active-elevate-2"
+                onClick={() => setShowTutorial(true)}
+                data-testid="button-tutorial"
+              >
                 <Sparkles className="w-3 h-3" />
-                Live Demo
+                {isAuthenticated && (user as any)?.id !== 'demo-user' ? 'Tutorial' : 'Live Demo'}
               </Badge>
               <ThemeToggle />
             </div>
@@ -3044,6 +3101,13 @@ Assistant: For nutrition, I recommend..."
           }}
         />
       )}
+
+      {/* Onboarding Tutorial */}
+      <OnboardingTutorial
+        open={showTutorial}
+        onOpenChange={setShowTutorial}
+        onComplete={handleTutorialComplete}
+      />
 
     </div>
   );

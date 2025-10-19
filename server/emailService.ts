@@ -145,9 +145,9 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
               </div>
 
               <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🎯 Customizable &amp; Adaptive Planning</h4>
+                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🤖 Advanced LangGraph Planning Agent</h4>
                 <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  Choose Quick Plan for freestyle structure or Smart Plan for deeply personalized routines. JournalMate adapts to your energy, context, and cadence.
+                  This isn't just AI that feeds prompts to a model. JournalMate features a specialized LangGraph-based planning agent optimized for creating personalized plans. Choose <strong>Smart Plan</strong> for in-depth information gathering and tailored routines, or <strong>Quick Plan</strong> for rapid action plan generation. The agent understands context, asks follow-up questions, and refines plans based on your unique preferences.
                 </p>
               </div>
 
@@ -159,9 +159,9 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
               </div>
 
               <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🧠 Behavioral Intelligence Engine</h4>
+                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🎯 Customizable Sharing &amp; Collaboration</h4>
                 <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  Track your rhythm, detect blockers, and pivot with fallback routines. JournalMate doesn't just log your journey—it helps you evolve.
+                  Share your activities with custom visuals and backgrounds. Friends can instantly copy your plans to their account and customize them—building on your insights while tracking their own progress. Perfect for accountability partners, workout buddies, or team goals.
                 </p>
               </div>
 
