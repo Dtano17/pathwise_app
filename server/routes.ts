@@ -3954,8 +3954,13 @@ You can find these tasks in your task list and start working on them right away!
       if (tagDetection.suggestedCategories.length > 0) {
         detectedCategories = tagDetection.suggestedCategories;
         aiConfidence = 0.95; // High confidence for explicit @tags
+      } else if (tagDetection.detectedTags.length > 0) {
+        // Tags detected but not recognized - route to Personal Notes
+        detectedCategories = ['Personal Notes'];
+        aiConfidence = 0.6; // Medium confidence for unrecognized tags
+        console.log(`Unrecognized tags ${tagDetection.detectedTags.join(', ')} routed to Personal Notes`);
       } else {
-        // No tags found, use AI to detect category
+        // No tags found at all, use AI to detect category
         const baseCategories = [
           'Restaurants & Food',
           'Movies & TV Shows',

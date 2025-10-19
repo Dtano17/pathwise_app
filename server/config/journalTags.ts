@@ -96,7 +96,7 @@ export function detectCategoriesFromTags(text: string): {
   
   // Flatten all categories
   const allCategories = tagData.flatMap(t => t.categories);
-  const uniqueCategories = [...new Set(allCategories)];
+  const uniqueCategories = Array.from(new Set(allCategories));
   
   // Check if any tag maps to multiple categories (grouped experience)
   const isGrouped = tagData.some(t => t.isGroupTag);
