@@ -1205,7 +1205,6 @@ export default function MainApp({
                     </p>
                     <div className="text-xs text-muted-foreground space-y-1">
                       <p><strong>Category:</strong> {editingActivity.category}</p>
-                      <p><strong>Priority:</strong> {editingActivity.priority}</p>
                       {editingActivity.planSummary && <p><strong>Current Plan:</strong> {editingActivity.planSummary}</p>}
                     </div>
                   </div>
