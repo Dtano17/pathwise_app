@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { 
   Sparkles, CheckCircle2, Mic, Target, Share2, Copy, 
   ChevronRight, ChevronLeft, Zap, Brain, Users, Play,
-  UserCircle, Shield, MessageSquare, Palette, Plug, BookOpen
+  UserCircle, Shield, MessageSquare, Palette, Plug, BookOpen, Globe
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -60,6 +60,19 @@ const tutorialSteps: TutorialStep[] = [
       "AI automatically redacts names, locations, contact info, dates as you choose",
       "Instant copy-and-own: Followers click your link and get their own editable copy",
       "Travel agents, event planners, creators: Share openly. Others: Protect your privacy"
+    ]
+  },
+  {
+    title: "Discover & Use Community Plans",
+    description: "Get inspired by thousands of plans created by other JournalMate users. Browse trending plans, filter by category, and instantly copy any plan to your account—then customize it to match your rhythm.",
+    icon: Globe,
+    tips: [
+      "Browse trending plans from creators, planners, and fellow users",
+      "Filter by Travel, Fitness, Events, Career, or Home categories",
+      "Click 'Use This Plan' to instantly copy with all tasks",
+      "Customize any copied plan to match your priorities and style",
+      "Perfect for jumpstarting goals or discovering new ideas",
+      "Plans are shared by travel agents, event planners, and lifestyle creators"
     ]
   },
   {
