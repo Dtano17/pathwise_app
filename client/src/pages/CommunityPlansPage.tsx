@@ -148,7 +148,7 @@ export default function CommunityPlansPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
         <div className="mb-8">
@@ -252,17 +252,17 @@ export default function CommunityPlansPage() {
                         </Badge>
                       </div>
 
-                      {/* View Count */}
-                      <div className="absolute bottom-3 left-3 flex items-center gap-1 text-white text-sm">
-                        <Eye className="w-4 h-4" />
-                        <span data-testid={`text-views-${plan.id}`}>{plan.viewCount || 0} views</span>
-                      </div>
-
-                      {/* Title on Image */}
-                      <div className="absolute bottom-3 right-3 left-3">
-                        <h3 className="text-white font-bold text-xl line-clamp-2" data-testid={`text-title-${plan.id}`}>
+                      {/* Title on Image - positioned higher to avoid overlap */}
+                      <div className="absolute bottom-12 right-3 left-3">
+                        <h3 className="text-white font-bold text-xl line-clamp-2 drop-shadow-lg" data-testid={`text-title-${plan.id}`}>
                           {plan.title}
                         </h3>
+                      </div>
+
+                      {/* View Count - below title */}
+                      <div className="absolute bottom-3 left-3 flex items-center gap-1 text-white text-sm drop-shadow-md">
+                        <Eye className="w-4 h-4" />
+                        <span data-testid={`text-views-${plan.id}`}>{plan.viewCount || 0} views</span>
                       </div>
                     </div>
                   ) : (
