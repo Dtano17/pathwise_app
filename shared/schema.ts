@@ -80,6 +80,14 @@ export const users = pgTable("users", {
   // Onboarding
   hasCompletedTutorial: boolean("has_completed_tutorial").default(false),
   
+  // Gamification & Creator Stats
+  creatorPoints: integer("creator_points").default(0),
+  creatorBadges: jsonb("creator_badges").$type<string[]>().default([]),
+  creatorLevel: varchar("creator_level").default("bronze"), // 'bronze' | 'silver' | 'gold' | 'platinum'
+  totalPlansCreated: integer("total_plans_created").default(0),
+  totalLikesReceived: integer("total_likes_received").default(0),
+  totalCopiesReceived: integer("total_copies_received").default(0),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
