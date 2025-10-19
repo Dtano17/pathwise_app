@@ -72,6 +72,8 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
     redactDates: true,
     redactContext: true,
   });
+  const [redactedPreview, setRedactedPreview] = useState<{ title: string; tasks: { title: string }[] } | null>(null);
+  const [scanLoading, setScanLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -157,6 +159,48 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
     };
     reader.readAsDataURL(file);
   };
+
+  // Privacy scan function
+  const runPrivacyScan = async () => {
+    if (privacyPreset === 'off') {
+      setRedactedPreview(null);
+      return;
+    }
+
+    try {
+      setScanLoading(true);
+      const response = await apiRequest('POST', `/api/activities/${activity.id}/privacy-scan`, {
+        privacySettings
+      });
+      
+      if (response.redacted) {
+        setRedactedPreview({
+          title: response.activity.title,
+          tasks: response.tasks.map((t: any) => ({ title: t.title }))
+        });
+      } else {
+        setRedactedPreview(null);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Privacy Scan Failed',
+        description: error.message || 'Failed to scan content for privacy',
+        variant: 'destructive',
+      });
+      setRedactedPreview(null);
+    } finally {
+      setScanLoading(false);
+    }
+  };
+
+  // Run privacy scan when settings change
+  useEffect(() => {
+    if (open && privacyPreset !== 'off') {
+      runPrivacyScan();
+    } else {
+      setRedactedPreview(null);
+    }
+  }, [privacyPreset, privacySettings, open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -268,10 +312,206 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
                 </Button>
               </div>
             </div>
+          </div>
 
-            {/* Preview */}
+          {/* Privacy Shield Section */}
+          <div className="space-y-3 border-t pt-4">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2">
+                {privacyPreset === 'off' ? (
+                  <Shield className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                )}
+                Privacy Shield
+              </Label>
+              <Select 
+                value={privacyPreset} 
+                onValueChange={(value) => {
+                  setPrivacyPreset(value as PrivacyPreset);
+                  if (value === 'private') {
+                    setPrivacySettings({
+                      redactNames: true,
+                      redactLocations: true,
+                      redactContact: true,
+                      redactDates: true,
+                      redactContext: true,
+                    });
+                  } else if (value === 'public') {
+                    setPrivacySettings({
+                      redactNames: false,
+                      redactLocations: false,
+                      redactContact: false,
+                      redactDates: false,
+                      redactContext: false,
+                    });
+                  }
+                  setShowPrivacySettings(value === 'custom');
+                }}
+                data-testid="select-privacy-preset"
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="off">Off</SelectItem>
+                  <SelectItem value="public">🌟 Public Creator</SelectItem>
+                  <SelectItem value="private">🛡️ Privacy-First</SelectItem>
+                  <SelectItem value="custom">⚙️ Custom</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Privacy Info */}
+            {privacyPreset === 'off' && (
+              <p className="text-xs text-muted-foreground">
+                Privacy shield is disabled. All content will be shared as-is.
+              </p>
+            )}
+            {privacyPreset === 'public' && (
+              <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                Public Creator Mode: Minimal redaction. Perfect for influencers and content creators who want to share full details.
+              </p>
+            )}
+            {privacyPreset === 'private' && (
+              <p className="text-xs text-purple-600 dark:text-purple-400">
+                Privacy-First Mode: Maximum protection. All PII/PHI will be automatically redacted before sharing.
+              </p>
+            )}
+
+            {/* Custom Privacy Settings */}
+            {showPrivacySettings && privacyPreset === 'custom' && (
+              <div className="space-y-3 pl-4 border-l-2 border-purple-200 dark:border-purple-800">
+                <p className="text-sm font-medium text-muted-foreground">Select what to redact:</p>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="redact-names"
+                      checked={privacySettings.redactNames}
+                      onCheckedChange={(checked) => 
+                        setPrivacySettings(prev => ({ ...prev, redactNames: checked as boolean }))
+                      }
+                      data-testid="checkbox-redact-names"
+                    />
+                    <Label htmlFor="redact-names" className="text-sm cursor-pointer">
+                      Exact names (replace with "Someone", "Friend")
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="redact-locations"
+                      checked={privacySettings.redactLocations}
+                      onCheckedChange={(checked) => 
+                        setPrivacySettings(prev => ({ ...prev, redactLocations: checked as boolean }))
+                      }
+                      data-testid="checkbox-redact-locations"
+                    />
+                    <Label htmlFor="redact-locations" className="text-sm cursor-pointer">
+                      Exact addresses/locations (use city only or "A location")
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="redact-contact"
+                      checked={privacySettings.redactContact}
+                      onCheckedChange={(checked) => 
+                        setPrivacySettings(prev => ({ ...prev, redactContact: checked as boolean }))
+                      }
+                      data-testid="checkbox-redact-contact"
+                    />
+                    <Label htmlFor="redact-contact" className="text-sm cursor-pointer">
+                      Contact info (phone, email)
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="redact-dates"
+                      checked={privacySettings.redactDates}
+                      onCheckedChange={(checked) => 
+                        setPrivacySettings(prev => ({ ...prev, redactDates: checked as boolean }))
+                      }
+                      data-testid="checkbox-redact-dates"
+                    />
+                    <Label htmlFor="redact-dates" className="text-sm cursor-pointer">
+                      Specific dates/times (generalize to "morning", "evening")
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="redact-context"
+                      checked={privacySettings.redactContext}
+                      onCheckedChange={(checked) => 
+                        setPrivacySettings(prev => ({ ...prev, redactContext: checked as boolean }))
+                      }
+                      data-testid="checkbox-redact-context"
+                    />
+                    <Label htmlFor="redact-context" className="text-sm cursor-pointer">
+                      Personal context (family members, medical info)
+                    </Label>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Privacy Preview - Original vs Redacted */}
+          {privacyPreset !== 'off' && (
+            <div className="space-y-3 border-t pt-4">
+              <p className="text-sm font-medium flex items-center gap-2">
+                {scanLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600" />
+                    Scanning for sensitive information...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    Privacy Preview
+                  </>
+                )}
+              </p>
+              
+              {!scanLoading && redactedPreview && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Original Content */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Original</p>
+                    <div className="rounded-md border p-3 bg-background space-y-2">
+                      <p className="text-sm font-medium">{activity.title}</p>
+                      <div className="space-y-1">
+                        {activity.planSummary && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">{activity.planSummary}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Redacted Content */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Protected Version</p>
+                    <div className="rounded-md border border-emerald-200 dark:border-emerald-800 p-3 bg-emerald-50 dark:bg-emerald-950/20 space-y-2">
+                      <p className="text-sm font-medium">{redactedPreview.title}</p>
+                      {redactedPreview.tasks.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {redactedPreview.tasks.length} task{redactedPreview.tasks.length !== 1 ? 's' : ''} protected
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {/* Backdrop Preview */}
             <div className="space-y-2">
-              <p className="text-sm font-medium">Preview:</p>
+              <p className="text-sm font-medium">Backdrop Preview:</p>
               <div className="relative aspect-video rounded-md overflow-hidden border bg-muted">
                 {backdrop ? (
                   <>

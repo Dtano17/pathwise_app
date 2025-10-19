@@ -1813,10 +1813,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Privacy scan endpoint - AI-powered PII/PHI redaction
+  app.post("/api/activities/:activityId/privacy-scan", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { privacySettings } = req.body;
+
+      // Get activity and its tasks
+      const activity = await storage.getActivityById(activityId, userId);
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      const tasks = await storage.getTasksByActivity(activityId, userId);
+
+      // If privacy shield is off or public mode, return as-is
+      if (!privacySettings || Object.values(privacySettings).every(v => !v)) {
+        return res.json({
+          activity,
+          tasks,
+          redacted: false
+        });
+      }
+
+      // Build AI prompt for redaction
+      const redactionInstructions: string[] = [];
+      if (privacySettings.redactNames) {
+        redactionInstructions.push("Replace exact names with generic terms like 'Someone', 'Friend', 'A person'");
+      }
+      if (privacySettings.redactLocations) {
+        redactionInstructions.push("Replace exact addresses with city only or generic 'A location in [city]', 'A restaurant', 'A venue'");
+      }
+      if (privacySettings.redactContact) {
+        redactionInstructions.push("Remove or replace phone numbers and email addresses with [Contact Info]");
+      }
+      if (privacySettings.redactDates) {
+        redactionInstructions.push("Generalize specific dates/times to 'morning', 'afternoon', 'evening', 'this week', etc.");
+      }
+      if (privacySettings.redactContext) {
+        redactionInstructions.push("Remove or generalize personal context like family member names, medical information, personal relationships");
+      }
+
+      const prompt = `You are a privacy protection assistant. Review the following activity and tasks, and redact sensitive information according to these rules:
+
+${redactionInstructions.map((rule, i) => `${i + 1}. ${rule}`).join('\n')}
+
+Activity Title: ${activity.title}
+Activity Description: ${activity.description || 'None'}
+Plan Summary: ${activity.planSummary || 'None'}
+
+Tasks:
+${tasks.map((task, i) => `${i + 1}. ${task.title}${task.description ? ` - ${task.description}` : ''}`).join('\n')}
+
+Return a JSON object with redacted versions in this exact format:
+{
+  "title": "redacted title",
+  "description": "redacted description or null",
+  "planSummary": "redacted summary or null",
+  "tasks": [
+    {"title": "redacted task title", "description": "redacted task description or null"}
+  ]
+}
+
+IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness of the content.`;
+
+      // Call LLM for redaction
+      const llmProvider = getLLMProvider('openai-mini');
+      const messages = [
+        { role: 'system' as const, content: 'You are a privacy protection assistant that redacts PII/PHI from content while preserving usefulness.' },
+        { role: 'user' as const, content: prompt }
+      ];
+
+      const response = await llmProvider.generateChatCompletion(messages, {
+        temperature: 0.3,
+        max_tokens: 2000
+      });
+
+      // Validate JSON response
+      let redactedData;
+      try {
+        redactedData = JSON.parse(response);
+        
+        // Validate structure
+        if (!redactedData.title || !Array.isArray(redactedData.tasks)) {
+          throw new Error('Invalid response structure from AI');
+        }
+      } catch (parseError) {
+        console.error('Privacy scan JSON parse error:', parseError);
+        return res.status(502).json({ 
+          error: 'AI service returned malformed response',
+          details: parseError instanceof Error ? parseError.message : 'Unknown error'
+        });
+      }
+
+      // Build redacted activity and tasks
+      const redactedActivity = {
+        ...activity,
+        title: redactedData.title,
+        description: redactedData.description,
+        planSummary: redactedData.planSummary
+      };
+
+      const redactedTasks = tasks.map((task, i) => ({
+        ...task,
+        title: redactedData.tasks[i]?.title || task.title,
+        description: redactedData.tasks[i]?.description || task.description
+      }));
+
+      res.json({
+        activity: redactedActivity,
+        tasks: redactedTasks,
+        redacted: true,
+        redactionSummary: redactionInstructions
+      });
+    } catch (error) {
+      console.error('Privacy scan error:', error);
+      res.status(500).json({ error: 'Failed to scan for privacy' });
+    }
+  });
+
   // Generate shareable link for activity
   app.post("/api/activities/:activityId/share", async (req, res) => {
     try {
-      const { activityId } = req.params;
+      const { activityId} = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
       
       // Generate unique share token
