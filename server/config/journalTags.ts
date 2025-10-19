@@ -22,26 +22,35 @@ export const TAG_CATEGORY_MAPPINGS: Record<string, string[]> = {
   
   // Individual category keywords (for single-category detection)
   '@restaurants': ['Restaurants & Food'],
+  '@restaurant': ['Restaurants & Food'],
   '@food': ['Restaurants & Food'],
   '@dining': ['Restaurants & Food'],
   
   '@travel': ['Travel & Places'],
   '@places': ['Travel & Places'],
+  '@place': ['Travel & Places'],
   
   '@activities': ['Activities & Events'],
+  '@activity': ['Activities & Events'],
   '@events': ['Activities & Events'],
+  '@event': ['Activities & Events'],
   
   '@music': ['Music & Concerts'],
   '@concerts': ['Music & Concerts'],
+  '@concert': ['Music & Concerts'],
   
   '@movies': ['Movies & TV Shows'],
+  '@movie': ['Movies & TV Shows'],
   '@shows': ['Movies & TV Shows'],
+  '@show': ['Movies & TV Shows'],
   '@tv': ['Movies & TV Shows'],
   
   '@shopping': ['Shopping & Purchases'],
   '@purchases': ['Shopping & Purchases'],
+  '@purchase': ['Shopping & Purchases'],
   
   '@books': ['Books & Learning'],
+  '@book': ['Books & Learning'],
   '@learning': ['Books & Learning'],
   
   '@fitness': ['Health & Fitness'],
