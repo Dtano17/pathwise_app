@@ -212,6 +212,71 @@ export const sharedTasks = pgTable("shared_tasks", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Group activities - links activities to groups for collaborative tracking
+export const groupActivities = pgTable("group_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").references(() => groups.id, { onDelete: "cascade" }).notNull(),
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "cascade" }).notNull(),
+  canonicalVersion: jsonb("canonical_version").$type<{
+    title: string;
+    description?: string;
+    tasks: Array<{id: string; title: string; description?: string; category: string; priority: string; order: number}>;
+    timeline?: any[];
+  }>().notNull(), // Admin-controlled canonical version
+  isPublic: boolean("is_public").default(false),
+  shareToken: varchar("share_token").unique(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueGroupActivity: uniqueIndex("unique_group_activity").on(table.groupId, table.activityId),
+  groupActivityIndex: index("group_activity_index").on(table.groupId),
+}));
+
+// Activity change proposals from group contributors
+export const activityChangeProposals = pgTable("activity_change_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupActivityId: varchar("group_activity_id").references(() => groupActivities.id, { onDelete: "cascade" }).notNull(),
+  proposedBy: varchar("proposed_by").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  changeType: text("change_type").notNull(), // 'task_add' | 'task_edit' | 'task_delete' | 'activity_edit' | 'timeline_edit'
+  taskId: varchar("task_id"), // Reference to task if change is task-related
+  proposedChanges: jsonb("proposed_changes").$type<{
+    field?: string;
+    oldValue?: any;
+    newValue?: any;
+    taskData?: any; // Full task data for adds/edits
+  }>().notNull(),
+  status: text("status").notNull().default("pending"), // 'pending' | 'approved' | 'rejected'
+  proposalNote: text("proposal_note"), // Optional note from contributor
+  adminResponse: text("admin_response"), // Optional response from admin
+  proposedAt: timestamp("proposed_at").defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  groupActivityProposalIndex: index("group_activity_proposal_index").on(table.groupActivityId, table.status),
+  proposerIndex: index("proposer_index").on(table.proposedBy),
+}));
+
+// Activity change log for tracking all changes in group activities
+export const activityChangeLogs = pgTable("activity_change_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupActivityId: varchar("group_activity_id").references(() => groupActivities.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  changeType: text("change_type").notNull(), // 'task_added' | 'task_edited' | 'task_deleted' | 'activity_updated' | 'timeline_updated'
+  changeDescription: text("change_description").notNull(), // Human-readable description
+  changeData: jsonb("change_data").$type<{
+    taskId?: string;
+    taskTitle?: string;
+    field?: string;
+    oldValue?: any;
+    newValue?: any;
+  }>(),
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => ({
+  groupActivityLogIndex: index("group_activity_log_index").on(table.groupActivityId, table.timestamp),
+  userActivityLogIndex: index("user_activity_log_index").on(table.userId),
+}));
+
 // Zod schemas for validation
 // Signup schema - essential fields only for initial registration with strong validation
 export const signupUserSchema = createInsertSchema(users).pick({
@@ -319,6 +384,27 @@ export const insertSharedTaskSchema = createInsertSchema(sharedTasks).omit({
   createdBy: true, // Set server-side from authenticated user
   createdAt: true,
   completedAt: true,
+});
+
+export const insertGroupActivitySchema = createInsertSchema(groupActivities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertActivityChangeProposalSchema = createInsertSchema(activityChangeProposals).omit({
+  id: true,
+  proposedBy: true, // Set server-side from authenticated user
+  proposedAt: true,
+  reviewedAt: true,
+  reviewedBy: true,
+  createdAt: true,
+});
+
+export const insertActivityChangeLogSchema = createInsertSchema(activityChangeLogs).omit({
+  id: true,
+  userId: true, // Set server-side from authenticated user
+  timestamp: true,
 });
 
 // Notification preferences for users
@@ -429,6 +515,15 @@ export type InsertSharedGoal = z.infer<typeof insertSharedGoalSchema>;
 
 export type SharedTask = typeof sharedTasks.$inferSelect;
 export type InsertSharedTask = z.infer<typeof insertSharedTaskSchema>;
+
+export type GroupActivity = typeof groupActivities.$inferSelect;
+export type InsertGroupActivity = z.infer<typeof insertGroupActivitySchema>;
+
+export type ActivityChangeProposal = typeof activityChangeProposals.$inferSelect;
+export type InsertActivityChangeProposal = z.infer<typeof insertActivityChangeProposalSchema>;
+
+export type ActivityChangeLog = typeof activityChangeLogs.$inferSelect;
+export type InsertActivityChangeLog = z.infer<typeof insertActivityChangeLogSchema>;
 
 export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
 export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
