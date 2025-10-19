@@ -2217,11 +2217,11 @@ Assistant: For nutrition, I recommend..."
             {/* Groups Tab */}
             <TabsContent value="groups" className="space-y-6 pb-20">
               <SignInGate feature="Group collaboration">
-                <div className="max-w-4xl mx-auto">
+                <div className="max-w-4xl mx-auto px-4">
                   <div className="text-center mb-8">
-                    <div className="flex items-center justify-center gap-2 mb-4">
-                      <h2 className="text-3xl font-bold text-foreground flex items-center gap-2">
-                        <Users className="w-8 h-8" />
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-4">
+                      <h2 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+                        <Users className="w-6 h-6 sm:w-8 sm:h-8" />
                         Group Goals & Shared Accountability
                       </h2>
                       <Badge 
@@ -2231,7 +2231,7 @@ Assistant: For nutrition, I recommend..."
                         Preview Mode
                       </Badge>
                     </div>
-                    <p className="text-xl text-muted-foreground mb-4">
+                    <p className="text-base sm:text-xl text-muted-foreground mb-4 px-2">
                       Create groups, share goals, and celebrate progress together!
                     </p>
                     <Card className="max-w-2xl mx-auto p-4 bg-muted/30 border-dashed">
@@ -2953,11 +2953,11 @@ Assistant: For nutrition, I recommend..."
               </TabsContent>
 
               <TabsContent value="groups" className="flex-1 overflow-y-auto mt-0 space-y-6">
-                <div className="max-w-4xl mx-auto">
+                <div className="max-w-4xl mx-auto px-4">
                   <div className="text-center mb-8">
-                    <div className="flex items-center justify-center gap-2 mb-4">
-                      <h2 className="text-3xl font-bold text-foreground flex items-center gap-2">
-                        <Users className="w-8 h-8" />
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-4">
+                      <h2 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+                        <Users className="w-6 h-6 sm:w-8 sm:h-8" />
                         Group Goals & Shared Accountability
                       </h2>
                       <Badge 
@@ -2967,7 +2967,7 @@ Assistant: For nutrition, I recommend..."
                         Preview Mode
                       </Badge>
                     </div>
-                    <p className="text-xl text-muted-foreground mb-4">
+                    <p className="text-base sm:text-xl text-muted-foreground mb-4 px-2">
                       Create groups, share goals, and celebrate progress together!
                     </p>
                     <Card className="max-w-2xl mx-auto p-4 bg-muted/30 border-dashed">
