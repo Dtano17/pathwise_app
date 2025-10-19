@@ -195,6 +195,13 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                   Share your plans with custom visuals, NYC-themed backdrops, or your own media. When friends or followers click your link and sign in, the plan <strong>instantly copies to their account</strong>—they own it, can edit it, and track their own progress. Duplicate detection prevents losing progress when updating existing plans. Perfect for building your following as a creator, planner, or coach.
                 </p>
               </div>
+
+              <div class="feature-item" style="margin-bottom: 24px;">
+                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🌍 Browse & Use Community Plans</h4>
+                <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
+                  Get inspired by <strong>thousands of plans created by others</strong>. Browse trending plans, filter by Travel, Fitness, Events, Career, or Home categories. Found a plan you love? Click <strong>"Use This Plan"</strong> to instantly copy it to your account with all tasks—then customize it to match your rhythm. Perfect for jumpstarting your goals or discovering new ideas from creators, planners, and fellow JournalMate users.
+                </p>
+              </div>
             </td>
           </tr>
 
@@ -205,9 +212,10 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 <h3 style="margin: 0 0 18px; color: #ffffff; font-size: 24px; font-weight: 700; line-height: 1.3;">🚀 Getting Started Is Easy</h3>
                 <div style="text-align: left; margin: 0 auto; max-width: 450px;">
                   <p style="margin: 0 0 14px; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">1️⃣</strong> Tap <strong>New Plan</strong> → Try Quick or Smart</p>
-                  <p style="margin: 0 0 14px; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">2️⃣</strong> Journal with <strong>@keywords</strong>, photos, or voice</p>
-                  <p style="margin: 0 0 14px; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">3️⃣</strong> Swipe to complete, skip, or reflect</p>
-                  <p style="margin: 0; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">4️⃣</strong> Share your rhythm with friends or groups</p>
+                  <p style="margin: 0 0 14px; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">2️⃣</strong> Browse <strong>Community Plans</strong> for instant inspiration</p>
+                  <p style="margin: 0 0 14px; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">3️⃣</strong> Journal with <strong>@keywords</strong>, photos, or voice</p>
+                  <p style="margin: 0 0 14px; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">4️⃣</strong> Swipe to complete, skip, or reflect</p>
+                  <p style="margin: 0; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">5️⃣</strong> Share your rhythm with friends or groups</p>
                 </div>
               </div>
             </td>
