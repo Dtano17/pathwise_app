@@ -243,6 +243,15 @@ export function AppSidebar({
                   <span>Manage Contacts</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  onClick={onShowContacts}
+                  data-testid="button-groups-sidebar"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Groups</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
               </SidebarGroupContent>
             </CollapsibleContent>
