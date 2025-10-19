@@ -3,10 +3,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Image, Sparkles, Upload } from 'lucide-react';
+import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown } from 'lucide-react';
 
 interface Activity {
   id: string;
@@ -47,10 +49,29 @@ const backdropPresets = [
   }
 ];
 
+type PrivacyPreset = 'off' | 'public' | 'private' | 'custom';
+
+interface PrivacySettings {
+  redactNames: boolean;
+  redactLocations: boolean;
+  redactContact: boolean;
+  redactDates: boolean;
+  redactContext: boolean;
+}
+
 export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShare }: SharePreviewDialogProps) {
   const [shareTitle, setShareTitle] = useState(activity.shareTitle || activity.planSummary || activity.title);
   const [backdrop, setBackdrop] = useState(activity.backdrop || '');
   const [customBackdrop, setCustomBackdrop] = useState('');
+  const [privacyPreset, setPrivacyPreset] = useState<PrivacyPreset>('off');
+  const [showPrivacySettings, setShowPrivacySettings] = useState(false);
+  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({
+    redactNames: true,
+    redactLocations: true,
+    redactContact: true,
+    redactDates: true,
+    redactContext: true,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
