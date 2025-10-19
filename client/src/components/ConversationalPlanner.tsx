@@ -78,6 +78,29 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
   const [isUploadingJournal, setIsUploadingJournal] = useState(false);
   const [detectedCategory, setDetectedCategory] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const journalTextareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Autocomplete state
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const [autocompleteSearch, setAutocompleteSearch] = useState('');
+  const [autocompletePosition, setAutocompletePosition] = useState({ top: 0, left: 0 });
+  
+  // Available tags for autocomplete
+  const availableTags = [
+    '@restaurants', '@restaurant', '@food', '@dining',
+    '@travel', '@places', '@place',
+    '@activities', '@activity', '@events', '@event',
+    '@music', '@concerts', '@concert',
+    '@movies', '@movie', '@shows', '@show', '@tv',
+    '@shopping', '@purchases', '@purchase',
+    '@books', '@book', '@learning',
+    '@fitness', '@health', '@workout',
+    '@fashion', '@style', '@outfit',
+    '@vacation', '@trip', '@holiday',
+    '@datenight', '@nightout', '@weekend',
+    '@selfcare', '@wellness',
+    '@creative', '@entertainment'
+  ];
 
   // Load session from localStorage on mount (but respect initialMode if provided)
   useEffect(() => {
@@ -687,6 +710,76 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
     }
   };
 
+  // Journal Mode helpers
+  const handleJournalTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+    setJournalText(text);
+
+    // Check if @ was just typed
+    const textUpToCursor = text.slice(0, cursorPosition);
+    const lastAtIndex = textUpToCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const searchTerm = textUpToCursor.slice(lastAtIndex);
+      // Check if we're still typing a tag (no space after @)
+      if (!searchTerm.includes(' ') && searchTerm.length > 0) {
+        setAutocompleteSearch(searchTerm);
+        setShowAutocomplete(true);
+        
+        // Calculate position for dropdown
+        const textarea = journalTextareaRef.current;
+        if (textarea) {
+          const rect = textarea.getBoundingClientRect();
+          setAutocompletePosition({
+            top: rect.bottom + window.scrollY + 5,
+            left: rect.left + window.scrollX + 10
+          });
+        }
+      } else {
+        setShowAutocomplete(false);
+      }
+    } else {
+      setShowAutocomplete(false);
+    }
+  };
+
+  const insertTagAtCursor = (tag: string) => {
+    const textarea = journalTextareaRef.current;
+    if (!textarea) return;
+
+    const cursorPosition = textarea.selectionStart;
+    const textBefore = journalText.slice(0, cursorPosition);
+    const textAfter = journalText.slice(cursorPosition);
+    
+    // Find the @ symbol before cursor
+    const lastAtIndex = textBefore.lastIndexOf('@');
+    if (lastAtIndex !== -1) {
+      // Replace from @ to cursor with the selected tag
+      const newText = textBefore.slice(0, lastAtIndex) + tag + ' ' + textAfter;
+      setJournalText(newText);
+      
+      // Set cursor after inserted tag
+      setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = lastAtIndex + tag.length + 1;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 0);
+    } else {
+      // Just append if no @ found
+      setJournalText(journalText + tag + ' ');
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(journalText.length + tag.length + 1, journalText.length + tag.length + 1);
+      }, 0);
+    }
+    
+    setShowAutocomplete(false);
+  };
+
+  const filteredTags = availableTags.filter(tag => 
+    tag.toLowerCase().includes(autocompleteSearch.toLowerCase())
+  );
 
   // Journal Mode UI
   if (planningMode === 'journal') {
@@ -735,21 +828,76 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <textarea
+                ref={journalTextareaRef}
                 value={journalText}
-                onChange={(e) => setJournalText(e.target.value)}
+                onChange={handleJournalTextChange}
                 placeholder="What's on your mind? Use @keywords for quick categorization...&#10;Example: @restaurants had amazing ramen today!"
                 className="w-full min-h-32 p-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-pink-500"
                 data-testid="input-journal-text"
               />
               
+              {/* Autocomplete dropdown */}
+              {showAutocomplete && filteredTags.length > 0 && (
+                <div 
+                  className="absolute z-50 mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                  style={{ top: '100%', left: 0 }}
+                >
+                  {filteredTags.map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => insertTagAtCursor(tag)}
+                      className="w-full text-left px-3 py-2 hover:bg-pink-50 dark:hover:bg-pink-900/20 text-sm transition-colors"
+                      data-testid={`autocomplete-${tag}`}
+                    >
+                      <span className="font-medium text-pink-600 dark:text-pink-400">{tag}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              
               <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className="text-xs">@restaurants</Badge>
-                <Badge variant="outline" className="text-xs">@travel</Badge>
-                <Badge variant="outline" className="text-xs">@music</Badge>
-                <Badge variant="outline" className="text-xs">@movies</Badge>
-                <Badge variant="outline" className="text-xs">@books</Badge>
+                <Badge 
+                  variant="outline" 
+                  className="text-xs cursor-pointer hover-elevate active-elevate-2"
+                  onClick={() => insertTagAtCursor('@restaurants')}
+                  data-testid="badge-restaurants"
+                >
+                  @restaurants
+                </Badge>
+                <Badge 
+                  variant="outline" 
+                  className="text-xs cursor-pointer hover-elevate active-elevate-2"
+                  onClick={() => insertTagAtCursor('@travel')}
+                  data-testid="badge-travel"
+                >
+                  @travel
+                </Badge>
+                <Badge 
+                  variant="outline" 
+                  className="text-xs cursor-pointer hover-elevate active-elevate-2"
+                  onClick={() => insertTagAtCursor('@music')}
+                  data-testid="badge-music"
+                >
+                  @music
+                </Badge>
+                <Badge 
+                  variant="outline" 
+                  className="text-xs cursor-pointer hover-elevate active-elevate-2"
+                  onClick={() => insertTagAtCursor('@movies')}
+                  data-testid="badge-movies"
+                >
+                  @movies
+                </Badge>
+                <Badge 
+                  variant="outline" 
+                  className="text-xs cursor-pointer hover-elevate active-elevate-2"
+                  onClick={() => insertTagAtCursor('@books')}
+                  data-testid="badge-books"
+                >
+                  @books
+                </Badge>
               </div>
             </div>
 
