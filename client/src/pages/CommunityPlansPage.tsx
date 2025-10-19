@@ -79,18 +79,27 @@ export default function CommunityPlansPage() {
 
   // Copy plan mutation
   const copyPlanMutation = useMutation({
-    mutationFn: async ({ activityId }: { activityId: string }) => {
-      // Increment views first
-      await apiRequest("POST", `/api/activities/${activityId}/increment-views`);
-
-      // Copy the activity
-      const response = await apiRequest("POST", `/api/activities/${activityId}/request-permission`);
-      return response.json();
+    mutationFn: async ({ activityId, shareToken, title }: { activityId: string; shareToken: string; title: string }) => {
+      // Copy the activity using the share token
+      const response = await apiRequest("POST", `/api/activities/copy/${shareToken}`);
+      const data = await response.json();
+      
+      // Increment views after successful copy (non-critical, so catch errors)
+      try {
+        await apiRequest("POST", `/api/activities/${activityId}/increment-views`);
+      } catch (error) {
+        console.warn('[COPY] Failed to increment views:', error);
+      }
+      
+      return { ...data, originalTitle: title };
     },
     onSuccess: (data: any) => {
+      const activityTitle = data?.activity?.title || data?.originalTitle;
       toast({
         title: "Plan copied!",
-        description: `"${data.activity?.title}" has been added to your plans`,
+        description: activityTitle 
+          ? `"${activityTitle}" has been added to your activities`
+          : data?.message || "The plan has been added to your activities",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
     },
@@ -112,8 +121,16 @@ export default function CommunityPlansPage() {
     }
   }, [isLoading, plans.length, hasSeedAttempted, searchQuery]);
 
-  const handleCopyPlan = (activityId: string) => {
-    copyPlanMutation.mutate({ activityId });
+  const handleCopyPlan = (activityId: string, shareToken: string | null, title: string) => {
+    if (!shareToken) {
+      toast({
+        title: "Cannot copy plan",
+        description: "This plan is not available for copying",
+        variant: "destructive",
+      });
+      return;
+    }
+    copyPlanMutation.mutate({ activityId, shareToken, title });
   };
 
   const getInitials = (name: string) => {
@@ -288,7 +305,7 @@ export default function CommunityPlansPage() {
                   <CardFooter>
                     <Button
                       className="w-full"
-                      onClick={() => handleCopyPlan(plan.id)}
+                      onClick={() => handleCopyPlan(plan.id, plan.shareToken, plan.title || "")}
                       disabled={copyPlanMutation.isPending}
                       data-testid={`button-use-plan-${plan.id}`}
                     >

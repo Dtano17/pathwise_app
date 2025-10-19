@@ -48,6 +48,19 @@ The application employs a mobile-first responsive design with a clean, card-base
     - AI-powered redaction using configurable LLM provider (OpenAI/Claude)
     - Security: 502 error on malformed AI responses, validated JSON structure
   - API endpoints: POST `/api/activities/copy/:shareToken` (with `forceUpdate` parameter for updates), GET `/api/activities/history` (archived activities), POST `/api/activities/:activityId/privacy-scan` (AI privacy scanner)
+- **Community Plans Discovery**: Users can browse and instantly copy plans created by others. Features trending algorithm based on views + likes, category filters (Travel, Fitness, Events, Career, Home), and one-click "Use This Plan" copying. Community metrics tracked include viewCount, likeCount, trendingScore, featuredInCommunity status, and creator attribution. Demo plans automatically seed on first visit with high-quality stock images. Accessible at `/discover` route.
+  - API endpoints: GET `/api/community-plans?category=&search=&limit=` (filtered discovery), POST `/api/admin/seed-community-plans` (demo data), POST `/api/activities/:activityId/increment-views` (view tracking)
+- **Groups & Collaborative Planning**:
+  - **Phase 1 (Current)**: Basic group creation and viewing with "Preview Mode" badge. Users can create groups when sharing activities, view their groups (admin/member badges), and see group activity cards. Groups tab includes placeholder messaging about Phase 2 features.
+  - **Phase 2 (Future - Documented for Development)**:
+    - **Contributor Change Proposals**: Group members can propose changes to group activities without directly editing the canonical version. Proposals are submitted as diffs/change requests with descriptions.
+    - **Admin Approval Queue**: Group admins see a queue of pending change proposals with approve/reject actions. Admins can review proposed changes side-by-side with current version before approving.
+    - **Real-Time Change Log**: Activity feed shows "Sarah updated the hiking time" or "Mike added new restaurant task" with timestamps. WebSocket-based notifications ensure all members see changes instantly.
+    - **Personal vs. Canonical Versions**: Each member maintains a personal copy of the group activity that can be customized independently. The canonical version (controlled by admin) serves as the source of truth and reference point. Members can sync their personal version with latest canonical updates.
+    - **WebSocket Notifications**: Real-time push notifications when changes are proposed, approved, or rejected. Notifications include change summaries and links to affected activities.
+    - **Conflict Resolution**: When personal and canonical versions diverge, system provides merge/override options with visual diff comparisons.
+  - Database schema: `groups` (name, description, createdBy, isPrivate, inviteCode), `groupMemberships` (groupId, userId, role), `groupActivities` (groupId, activityId, canonicalVersion, shareToken)
+  - API endpoints: POST `/api/groups` (create group), POST `/api/groups/:groupId/members` (add member), GET `/api/groups/:groupId/activities` (group activities)
 - **Authentication & User Management**: Dual authentication system (Replit Auth + Supabase for Facebook) with unified session management, functional profile management (Priorities & Settings), and access control for premium features.
 - **UI/UX**: Mobile-first responsive design across all screens, dark/light theme toggle, adaptive layouts, and comprehensive accessibility features.
 - **SEO**: About tab is public and optimized with keywords like "AI planner," "smart goal tracker," and "task manager."
