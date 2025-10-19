@@ -4048,9 +4048,14 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       res.setHeader('Expires', '0');
       
       const userId = getUserId(req) || DEMO_USER_ID;
+      console.log('[JOURNAL] Fetching entries for user:', userId);
+      
       const prefs = await storage.getPersonalJournalEntries(userId);
+      console.log('[JOURNAL] Retrieved preferences:', prefs ? 'exists' : 'null');
+      console.log('[JOURNAL] JournalData exists:', prefs?.preferences?.journalData ? 'yes' : 'no');
       
       if (!prefs || !prefs.preferences?.journalData) {
+        console.log('[JOURNAL] No journal data found, returning empty array');
         return res.json({ entries: [] });
       }
 
@@ -4058,8 +4063,11 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       const journalData = prefs.preferences.journalData;
       const allEntries: any[] = [];
       
+      console.log('[JOURNAL] Processing categories:', Object.keys(journalData));
+      
       for (const [category, entries] of Object.entries(journalData)) {
         if (Array.isArray(entries)) {
+          console.log(`[JOURNAL] Category "${category}" has ${entries.length} entries`);
           entries.forEach((entry: any) => {
             allEntries.push({
               ...entry,
@@ -4072,9 +4080,12 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       // Sort by timestamp descending (newest first)
       allEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
+      console.log('[JOURNAL] Returning', allEntries.length, 'total entries');
+      console.log('[JOURNAL] First entry sample:', allEntries[0] ? JSON.stringify(allEntries[0]).substring(0, 100) : 'none');
+
       res.json({ entries: allEntries });
     } catch (error) {
-      console.error('Get journal entries error:', error);
+      console.error('[JOURNAL] Get journal entries error:', error);
       res.status(500).json({ error: 'Failed to fetch journal entries' });
     }
   });
