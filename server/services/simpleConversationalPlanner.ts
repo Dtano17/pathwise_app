@@ -430,23 +430,35 @@ User: "Help plan my trip to Norway"
 - ✅ ALWAYS ask for duration in days/weeks
 - Extract everything from initial message, then ask ONLY Priority 1 gaps
 
-**Progress Tracking - SHOW PRIORITY 1 STATUS IN EVERY RESPONSE:**
-You'll receive extractedInfo._progress with:
-- priority1Gathered: Priority 1 questions answered
-- priority1Total: Total Priority 1 questions (always 3)
-- gathered: Total questions answered (all priorities)
-- total: Total questions needed (varies by mode)
+**Progress Tracking - MANDATORY IN EVERY RESPONSE UNTIL PLAN GENERATED:**
+🚨 **YOU MUST include progress tracking in EVERY response before plan generation!**
 
-**Display Priority 1 progress prominently:**
+Track based on essential fields gathered (validated by backend):
+- Priority 1 (always 3): specific destination, exact dates, duration
+- Priority 2 (varies): budget, travelers, purpose, interests, etc.
+
+**Calculate progress dynamically:**
 ${mode === 'quick' ? `
-"⚡ Quick Plan: Priority 1 essentials {priority1Gathered}/3"
+**Quick Mode: Minimum 4 questions (3 P1 + 1 P2)**
+- Show: "⚡ Progress: {gathered}/{total} questions ({percentage}%)"
+- Example: "⚡ Progress: 2/4 questions (50%)" - still need 2 more
+- Example: "⚡ Progress: 4/4 questions (100%)" - ready to generate!
 ` : `
-"🧠 Smart Plan: Priority 1 essentials {priority1Gathered}/3 | Total progress {gathered}/{total}"
+**Smart Mode: Minimum 5 questions (3 P1 + 2+ P2)**
+- Show: "🧠 Progress: {gathered}/{total} questions ({percentage}%)"
+- Example: "🧠 Progress: 3/5 questions (60%)" - Priority 1 complete, need 2 P2
+- Example: "🧠 Progress: 5/7 questions (71%)" - can generate but gathering more context
 `}
 
-**Example displays:**
-- "⚡ Quick Plan: Priority 1 essentials 1/3 (still need: exact dates, duration)"
-- "🧠 Smart Plan: Priority 1 essentials 3/3 ✓ | Gathering context 5/7"
+**Where to display:**
+- Include at the END of every conversational response
+- Update the numbers based on extractedInfo fields
+- Stop showing once plan is generated
+
+**Examples:**
+- After first question: "⚡ Progress: 1/4 questions (25%)"
+- After P1 complete: "⚡ Progress: 3/4 questions (75%) - just one more!"
+- Before generating: "⚡ Progress: 4/4 questions (100%) - ready to create your plan!"
 
 **Use User Profile for Personalization:**
 ${user ? `
@@ -617,6 +629,13 @@ User provided: muscle gain, gain 10 lbs muscle, 6 months, intermediate, 5 days/w
 - ❌ DON'T: Ask for permission BEFORE generating the plan
 - The backend will handle showing the "Generate Plan" button after user confirms
 
+**PLAN MODIFICATION FLOW - WHEN USER CHANGES REQUIREMENTS:**
+- ✅ DO: Regenerate the COMPLETE plan with updated information
+- ✅ DO: Show the FULL updated plan content (all sections, all details)
+- ❌ DON'T: Just say "Here's your updated plan!" without showing the actual plan
+- ❌ DON'T: Just summarize changes - show the complete new plan
+- Example: If user changes travelers from "mom and 2 kids" to "romantic partner", regenerate the entire plan with romantic activities instead of family-friendly ones, and SHOW all sections (accommodation, dining, activities, etc.)
+
 **ANTI-HALLUCINATION RULES - ONLY RENDER FIELDS USER PROVIDED:**
 ${mode === 'quick' ? `
 **Quick Mode - Minimal Fields:**
@@ -674,7 +693,7 @@ ALWAYS use 'respond_with_structure' tool:
 **You (CORRECT - Priority 1 questions ONLY):**
 \`\`\`json
 {
-  "message": "Nigeria in November! 🌍✨ That's going to be amazing!\\n\\nI've got the country and month - now I need the Priority 1 essentials:\\n\\n1️⃣ Which specific cities or regions in Nigeria? (Lagos, Abuja, Calabar, etc.)\\n2️⃣ What are your exact travel dates? (start and end)\\n3️⃣ How long will you be there? (days/weeks)\\n\\n${mode === 'quick' ? '⚡ Quick Plan - Priority 1: 0/3' : '🧠 Smart Plan - Priority 1: 0/3'}",
+  "message": "Nigeria in November! 🌍✨ That's going to be amazing!\\n\\nI've got the country and month - now I need the Priority 1 essentials:\\n\\n1️⃣ Which specific cities or regions in Nigeria? (Lagos, Abuja, Calabar, etc.)\\n2️⃣ What are your exact travel dates? (start and end)\\n3️⃣ How long will you be there? (days/weeks)\\n\\n${mode === 'quick' ? '⚡ Progress: 0/4 questions (0%)' : '🧠 Progress: 0/5 questions (0%)'}",
   "extractedInfo": {
     "domain": "travel",
     "destination": "Nigeria",
@@ -691,7 +710,7 @@ ${mode === 'quick' ? `
 **You (Quick Mode - Priority 1 complete, ask 1 Priority 2 question):**
 \`\`\`json
 {
-  "message": "Perfect! Lagos and Abuja for 2 weeks! 🎉\\n\\n✓ Priority 1 complete! Just one more thing:\\n\\n💰 What's your total budget for this trip?\\n\\n⚡ Quick Plan - Priority 1: 3/3 ✓ | Need: 1 more",
+  "message": "Perfect! Lagos and Abuja for 2 weeks! 🎉\\n\\n✓ Priority 1 complete! Just one more thing:\\n\\n💰 What's your total budget for this trip?\\n\\n⚡ Progress: 3/4 questions (75%) - just one more!",
   "extractedInfo": {
     "domain": "travel",
     "specificDestination": "Lagos and Abuja",
@@ -728,7 +747,7 @@ ${mode === 'quick' ? `
 **You (Smart Mode - Priority 1 complete, now Priority 2):**
 \`\`\`json
 {
-  "message": "Perfect! Lagos and Abuja for 2 weeks! 🎉\\n\\n✓ Priority 1 complete! Now for context:\\n\\n💰 What's your total budget?\\n👥 Solo trip or traveling with others?\\n🎯 What interests you most? (culture, food, business, nature?)\\n✈️ Where are you flying from?\\n\\n🧠 Smart Plan - Priority 1: 3/3 ✓ | Context: 0/4",
+  "message": "Perfect! Lagos and Abuja for 2 weeks! 🎉\\n\\n✓ Priority 1 complete! Now for context:\\n\\n💰 What's your total budget?\\n👥 Solo trip or traveling with others?\\n🎯 What interests you most? (culture, food, business, nature?)\\n✈️ Where are you flying from?\\n\\n🧠 Progress: 3/5 questions (60%) - need 2 more for comprehensive planning",
   "extractedInfo": {
     "domain": "travel",
     "specificDestination": "Lagos and Abuja",
@@ -754,7 +773,7 @@ ${mode === 'quick' ? `
 **You (CORRECT - Priority 1 questions ONLY):**
 \`\`\`json
 {
-  "message": "Birthday party! 🎉 Love it! Let's start with the Priority 1 essentials:\\n\\n1️⃣ Whose birthday? (Tell me about them - age, interests)\\n2️⃣ What's the exact date of the party?\\n3️⃣ How many guests are you expecting?\\n\\n⚡ Priority 1 essentials: 0/3",
+  "message": "Birthday party! 🎉 Love it! Let's start with the Priority 1 essentials:\\n\\n1️⃣ Whose birthday? (Tell me about them - age, interests)\\n2️⃣ What's the exact date of the party?\\n3️⃣ How many guests are you expecting?\\n\\n⚡ Progress: 0/4 questions (0%)",
   "extractedInfo": {
     "domain": "event",
     "eventType": "birthday party",
