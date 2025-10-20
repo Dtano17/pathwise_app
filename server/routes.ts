@@ -599,10 +599,20 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           session
         });
       } else if (!smartAwaitingConfirmation) {
-        console.log('[SMART PLAN] First time plan ready - adding confirmation prompt');
-        // First time plan is ready - ask for confirmation
+        console.log('[SMART PLAN] First time plan ready - checking if confirmation prompt already included');
+        // Check if AI already asked for confirmation (case-insensitive, flexible matching)
+        const messageLower = response.message.toLowerCase();
+        const alreadyAskedConfirmation = messageLower.includes("are you comfortable") || 
+                                         messageLower.includes("does this work") ||
+                                         messageLower.includes("is this okay") ||
+                                         messageLower.includes("sound good") ||
+                                         /ready to (proceed|generate|create)/.test(messageLower);
+        
+        // First time plan is ready - ask for confirmation (only if AI didn't already ask)
         return res.json({
-          message: response.message + "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)",
+          message: alreadyAskedConfirmation 
+            ? response.message 
+            : response.message + "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)",
           planReady: false, // Don't show button yet
           sessionId: session.id,
           showCreatePlanButton: false, // Don't show button until confirmed
@@ -3184,9 +3194,19 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
 
       // Check if user is confirming plan creation
       if (plannerResponse.readyToGenerate && plannerResponse.plan) {
-        // Return plan with confirmation prompt
+        // Check if AI already asked for confirmation (case-insensitive, flexible matching)
+        const messageLower = plannerResponse.message.toLowerCase();
+        const alreadyAskedConfirmation = messageLower.includes("are you comfortable") || 
+                                         messageLower.includes("does this work") ||
+                                         messageLower.includes("is this okay") ||
+                                         messageLower.includes("sound good") ||
+                                         /ready to (proceed|generate|create)/.test(messageLower);
+        
+        // Return plan with confirmation prompt (only if AI didn't already ask)
         return res.json({
-          message: `${plannerResponse.message}\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)`,
+          message: alreadyAskedConfirmation 
+            ? plannerResponse.message 
+            : `${plannerResponse.message}\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)`,
           planGenerated: true,
           plan: plannerResponse.plan,
           readyToGenerate: true,
@@ -3720,9 +3740,19 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           session
         });
       } else if (!quickAwaitingConfirmation) {
-        // First time plan is ready - ask for confirmation
+        // Check if AI already asked for confirmation (case-insensitive, flexible matching)
+        const messageLower = response.message.toLowerCase();
+        const alreadyAskedConfirmation = messageLower.includes("are you comfortable") || 
+                                         messageLower.includes("does this work") ||
+                                         messageLower.includes("is this okay") ||
+                                         messageLower.includes("sound good") ||
+                                         /ready to (proceed|generate|create)/.test(messageLower);
+        
+        // First time plan is ready - ask for confirmation (only if AI didn't already ask)
         return res.json({
-          message: response.message + "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)",
+          message: alreadyAskedConfirmation 
+            ? response.message 
+            : response.message + "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)",
           planReady: false, // Don't show button yet
           sessionId: session.id,
           showCreatePlanButton: false, // Don't show button until confirmed
