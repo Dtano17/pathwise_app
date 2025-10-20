@@ -3158,6 +3158,56 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         });
       }
 
+      // 🚨 CRITICAL FIX: Check confirmation BEFORE calling planner to avoid loop
+      // If user is confirming plan, create activity immediately without calling planner again
+      const lowerMsg = message.toLowerCase().trim();
+      const hasAffirmative = /\b(yes|yeah|yep|sure|ok|okay|perfect|great|good)\b/i.test(lowerMsg);
+      const generatedPlan = session.slots?._generatedPlan;
+
+      if (session.externalContext?.awaitingPlanConfirmation && hasAffirmative && generatedPlan) {
+        console.log('✅ [CONFIRMATION DETECTED] Creating activity from confirmed plan');
+        
+        // Create activity
+        const activity = await storage.createActivity({
+          title: generatedPlan.title,
+          description: generatedPlan.description,
+          category: generatedPlan.domain || generatedPlan.category || 'personal',
+          status: 'planning',
+          userId
+        });
+
+        const createdTasks = [];
+        if (generatedPlan.tasks && Array.isArray(generatedPlan.tasks)) {
+          for (let i = 0; i < generatedPlan.tasks.length; i++) {
+            const taskData = generatedPlan.tasks[i];
+            const task = await storage.createTask({
+              title: taskData.taskName || taskData.title,
+              description: taskData.notes || taskData.description || '',
+              category: taskData.category || generatedPlan.domain || 'personal',
+              priority: taskData.priority || 'medium',
+              timeEstimate: `${taskData.duration || 30} min`,
+              userId
+            });
+            await storage.addTaskToActivity(activity.id, task.id, i);
+            createdTasks.push(task);
+          }
+        }
+
+        // Mark session complete
+        await storage.updateLifestylePlannerSession(session.id, {
+          sessionState: 'completed',
+          isComplete: true
+        }, userId);
+
+        return res.json({
+          message: `✨ **Activity "${activity.title}" created!**\n\n📋 I've created ${createdTasks.length} tasks for you. Check your activities to get started!`,
+          activityCreated: true,
+          activity,
+          createdTasks,
+          planComplete: true
+        });
+      }
+
       // Process message with simple planner
       const plannerResponse = await simpleConversationalPlanner.processMessage(
         userId,
@@ -3194,7 +3244,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         }
       }, userId);
 
-      // Check if user is confirming plan creation
+      // Check if planner just generated a new plan
       if (plannerResponse.readyToGenerate && plannerResponse.plan) {
         // Check if AI already asked for confirmation (case-insensitive, flexible matching)
         const messageLower = plannerResponse.message.toLowerCase();
@@ -3217,54 +3267,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         });
       }
 
-      // Check if user is confirming to create activity
-      const lowerMsg = message.toLowerCase().trim();
-      const hasAffirmative = /\b(yes|yeah|yep|sure|ok|okay|perfect|great|good)\b/i.test(lowerMsg);
-      const generatedPlan = session.slots?._generatedPlan;
-
-      if (session.externalContext?.awaitingPlanConfirmation && hasAffirmative && generatedPlan) {
-        // Create activity
-        const activity = await storage.createActivity({
-          title: generatedPlan.title,
-          description: generatedPlan.description,
-          category: plannerResponse.domain || 'personal',
-          status: 'planning',
-          userId
-        });
-
-        const createdTasks = [];
-        if (generatedPlan.tasks && Array.isArray(generatedPlan.tasks)) {
-          for (let i = 0; i < generatedPlan.tasks.length; i++) {
-            const taskData = generatedPlan.tasks[i];
-            const task = await storage.createTask({
-              title: taskData.taskName || taskData.title,
-              description: taskData.notes || taskData.description || '',
-              category: taskData.category || plannerResponse.domain || 'personal',
-              priority: taskData.priority || 'medium',
-              timeEstimate: `${taskData.duration || 30} min`,
-              userId
-            });
-            await storage.addTaskToActivity(activity.id, task.id, i);
-            createdTasks.push(task);
-          }
-        }
-
-        // Mark session complete
-        await storage.updateLifestylePlannerSession(session.id, {
-          sessionState: 'completed',
-          isComplete: true
-        }, userId);
-
-        return res.json({
-          message: `✨ **Activity "${activity.title}" created!**\n\n📋 I've created ${createdTasks.length} tasks for you. Check your activities to get started!`,
-          activityCreated: true,
-          activity,
-          createdTasks,
-          planComplete: true
-        });
-      }
-
-      // Regular response
+      // Regular response (still gathering information)
       return res.json({
         message: plannerResponse.message,
         planGenerated: false,

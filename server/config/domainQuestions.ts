@@ -719,3 +719,26 @@ export function getEssentialFields(domain: string): string[] {
     return [q.field, ...alternates].join('|');
   });
 }
+
+/**
+ * Get required fields for Quick mode (P1 + critical P2 fields)
+ * Quick mode asks: 3 P1 questions + 1 critical P2 question = 4 total
+ */
+export function getQuickModeFields(domain: string): string[] {
+  const questions = DOMAIN_QUESTIONS[domain] || DOMAIN_QUESTIONS.travel;
+  
+  // For travel domain, include departure city (Priority 2) for flight cost estimation
+  if (domain === 'travel') {
+    return questions
+      .filter(q => q.priority === 1 || q.field === 'departureCity')
+      .map(q => q.field);
+  }
+  
+  // For other domains, Quick mode asks 3 P1 + 1 P2 question
+  const priority1Fields = questions.filter(q => q.priority === 1).map(q => q.field);
+  const firstPriority2Field = questions.find(q => q.priority === 2)?.field;
+  
+  return firstPriority2Field 
+    ? [...priority1Fields, firstPriority2Field]
+    : priority1Fields;
+}
