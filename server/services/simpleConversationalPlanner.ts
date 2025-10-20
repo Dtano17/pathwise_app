@@ -614,6 +614,117 @@ User provided: muscle gain, gain 10 lbs muscle, 6 months, intermediate, 5 days/w
 - ✅ Specific locations/exercises/meals (actionable details)
 - ✅ Ask "Are you comfortable with this plan?" after presenting it
 
+**BUDGET BREAKDOWN EXAMPLE - Tulum Trip with $7,000 Budget:**
+User provided: Tulum, Nov 10-17, 1 week, $7000, 2 people
+
+\`\`\`
+## 🇲🇽 Tulum Beach Escape: 1 Week for Two
+
+🏁 **Destination**: Tulum, Mexico  
+📅 **Dates**: November 10-17, 2025  
+⏱️ **Duration**: 1 week (7 nights)  
+💰 **Budget**: $7,000 USD  
+👥 **Travelers**: 2 people  
+
+### 💰 Budget Breakdown
+
+**Total Budget**: $7,000
+
+✅ **Flights**: $450/person × 2 people = **$900**
+   - Round-trip from major US cities to Cancun
+   - November is shoulder season, excellent pricing
+   - Transfer to Tulum: $60
+
+✅ **Accommodation**: $200/night × 7 nights = **$1,400**
+   - **Option 1**: Boutique beachfront hotel in Hotel Zone ($180-220/night)
+   - **Option 2**: Eco-luxury cabana at Papaya Playa Project ($200/night)
+   - **Option 3**: All-inclusive resort at Dreams Tulum ($250/night, includes meals)
+
+✅ **Food & Dining**: $120/day × 7 days = **$840**
+   - Breakfast: $15-20/person at local cafes
+   - Lunch: $25-30/person (beachside tacos, ceviche)
+   - Dinner: $40-50/person (upscale restaurants)
+   - Drinks & snacks: $20/day
+
+✅ **Activities & Experiences**: **$1,200**
+   - Cenote tour (3 cenotes): $150 for 2 people
+   - Tulum Ruins guided tour: $100 for 2 people
+   - Snorkeling at Akumal (sea turtles): $120 for 2 people
+   - Coba ruins + bike rental: $80 for 2 people
+   - Mayan cooking class: $180 for 2 people
+   - Beach club day passes: $200 for 2 people
+   - Spa day/couples massage: $370 for 2 people
+
+✅ **Transportation**: **$450**
+   - Rental car (7 days): $350 (freedom to explore)
+   - Gas: $60
+   - Parking: $40
+
+✅ **Contingency Buffer**: **$2,150**
+   - Emergency fund: $500
+   - Shopping & souvenirs: $400
+   - Extra activities/upgrades: $650
+   - Tips & gratuities: $300
+   - Unexpected expenses: $300
+
+**Grand Total**: $900 + $1,400 + $840 + $1,200 + $450 + $2,150 = **$6,940** ✅
+
+💡 **You're $60 under budget!** Consider upgrading to:
+- Better hotel room with ocean view (+$30/night)
+- Private cenote tour instead of group (+$50)
+
+### 🏨 Specific Hotel Options (November Rates)
+
+**Budget-Friendly** ($120-150/night):
+✅ Hotel Bardo - Boutique, downtown location
+✅ Mezzanine Hotel - Small, beachfront, great value
+
+**Mid-Range** ($200-250/night):
+✅ Nomade Tulum - Bohemian luxury, beach yoga
+✅ Sanara Tulum - Wellness-focused, beautiful pool
+
+**Splurge** ($350-450/night):
+✅ Azulik - Adults-only, eco-treehouse villas
+✅ Be Tulum - Modern luxury, incredible design
+
+### ✈️ Flight Price Ranges (November)
+
+✅ **From NYC**: $380-520 round-trip (JetBlue, United)
+✅ **From LA**: $420-580 round-trip (Delta, American)
+✅ **From Chicago**: $450-600 round-trip (United, Southwest)
+✅ **From Miami**: $280-380 round-trip (Spirit, Frontier)
+
+💡 **Pro Tip**: Book flights 6-8 weeks in advance for best prices!
+
+### 🌤️ Weather Forecast
+Expect perfect beach weather! 75-82°F (24-28°C), sunny days, low humidity
+✅ Pack: Swimwear, light clothing, sunscreen, sandals, reef-safe sunscreen
+
+### 🍽️ Must-Try Restaurants
+✅ Hartwood - Farm-to-table, reservations essential ($50-70/person)
+✅ Kitchen Table - Jungle setting, creative Mexican ($40-60/person)
+✅ Taqueria Honorio - Best street tacos in town ($3-5/taco)
+✅ Raw Love - Vegan cafe, incredible smoothie bowls ($12-18)
+
+### 💡 Pro Tips
+✅ Rent a car - public transport is limited, taxis add up quickly
+✅ Visit cenotes early morning to avoid crowds
+✅ Downtown Tulum is cheaper than beach zone for dining
+✅ Bring cash - many places don't accept cards
+✅ Learn basic Spanish phrases - locals appreciate it!
+
+**Are you comfortable with this plan?**
+\`\`\`
+
+**If Over Budget - Show Optimization:**
+If the planned activities exceed $7,000, provide alternatives:
+- "⚠️ Current plan totals $7,450 (over by $450)"
+- "**Budget Optimization Options:**"
+- "  1. Choose mid-range hotel instead of luxury: Saves $350"
+- "  2. Skip spa day, do beach yoga instead: Saves $370"
+- "  3. Cook 2-3 breakfasts at accommodation: Saves $100"
+- "**Optimized Total**: $6,980 ✅"
+
 **Content Quality:**
 - Clear title and description at top
 - Actionable tasks with time estimates  
@@ -985,6 +1096,13 @@ export class SimpleConversationalPlanner {
         priority1Total: validationResult.priority1Total,
         emoji: progressEmoji
       };
+
+      // 7. Inject progress tracking into message (only if still gathering questions)
+      if (!response.readyToGenerate && response.extractedInfo._progress) {
+        const progress = response.extractedInfo._progress;
+        const progressString = `\n\n${progress.emoji} Progress: ${progress.gathered}/${progress.total} (${progress.percentage}%)`;
+        response.message = response.message + progressString;
+      }
 
       console.log(`[SIMPLE_PLANNER] Response generated - readyToGenerate: ${response.readyToGenerate}, domain: ${response.domain || response.extractedInfo.domain}`);
       return response;
