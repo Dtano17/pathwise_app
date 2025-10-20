@@ -6,6 +6,7 @@ import { setupMultiProviderAuth, isAuthenticatedGeneric } from "./multiProviderA
 import { aiService } from "./services/aiService";
 import { lifestylePlannerAgent } from "./services/lifestylePlannerAgent";
 import { langGraphPlanningAgent } from "./services/langgraphPlanningAgent";
+import { simpleConversationalPlanner } from "./services/simpleConversationalPlanner";
 import { contactSyncService } from "./contactSync";
 import { 
   insertGoalSchema,
@@ -3105,6 +3106,156 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
     }
   });
 
+  // NEW: Simple Plan Conversation Handler (replaces complex LangGraph)
+  async function handleSimplePlanConversation(req: any, res: any, message: string, conversationHistory: any[], userId: string, mode: 'quick' | 'smart') {
+    try {
+      console.log(`[SIMPLE PLAN] Processing ${mode} mode message for user ${userId}`);
+
+      // Get or create session
+      let session = await storage.getActiveLifestylePlannerSession(userId);
+
+      const isNewConversation = !conversationHistory || conversationHistory.length === 0;
+
+      if (isNewConversation) {
+        // New conversation - create fresh session
+        if (session) {
+          await storage.updateLifestylePlannerSession(session.id, {
+            isComplete: true,
+            sessionState: 'completed'
+          }, userId);
+        }
+
+        session = await storage.createLifestylePlannerSession({
+          userId,
+          sessionState: 'gathering',
+          slots: {},
+          conversationHistory: [],
+          externalContext: { currentMode: mode }
+        });
+
+        console.log(`[SIMPLE PLAN] Created new session: ${session.id}`);
+      } else if (!session) {
+        // Session lost - recreate
+        session = await storage.createLifestylePlannerSession({
+          userId,
+          sessionState: 'gathering',
+          slots: {},
+          conversationHistory: conversationHistory,
+          externalContext: { currentMode: mode }
+        });
+      }
+
+      // Process message with simple planner
+      const plannerResponse = await simpleConversationalPlanner.processMessage(
+        userId,
+        message,
+        session.conversationHistory || conversationHistory,
+        storage,
+        mode
+      );
+
+      // Update conversation history
+      const updatedHistory = [
+        ...(session.conversationHistory || []),
+        { role: 'user', content: message, timestamp: new Date().toISOString() },
+        { role: 'assistant', content: plannerResponse.message, timestamp: new Date().toISOString() }
+      ];
+
+      // Update session
+      await storage.updateLifestylePlannerSession(session.id, {
+        conversationHistory: updatedHistory,
+        slots: {
+          ...session.slots,
+          ...plannerResponse.extractedInfo,
+          _generatedPlan: plannerResponse.plan || session.slots?._generatedPlan
+        },
+        sessionState: plannerResponse.readyToGenerate ? 'confirming' : 'gathering',
+        externalContext: {
+          ...session.externalContext,
+          currentMode: mode,
+          awaitingPlanConfirmation: plannerResponse.readyToGenerate
+        }
+      }, userId);
+
+      // Check if user is confirming plan creation
+      if (plannerResponse.readyToGenerate && plannerResponse.plan) {
+        // Return plan with confirmation prompt
+        return res.json({
+          message: `${plannerResponse.message}\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)`,
+          planGenerated: true,
+          plan: plannerResponse.plan,
+          readyToGenerate: true,
+          sessionId: session.id,
+          conversationHistory: updatedHistory
+        });
+      }
+
+      // Check if user is confirming to create activity
+      const lowerMsg = message.toLowerCase().trim();
+      const hasAffirmative = /\b(yes|yeah|yep|sure|ok|okay|perfect|great|good)\b/i.test(lowerMsg);
+      const generatedPlan = session.slots?._generatedPlan;
+
+      if (session.externalContext?.awaitingPlanConfirmation && hasAffirmative && generatedPlan) {
+        // Create activity
+        const activity = await storage.createActivity({
+          title: generatedPlan.title,
+          description: generatedPlan.description,
+          category: plannerResponse.domain || 'personal',
+          status: 'planning',
+          userId
+        });
+
+        const createdTasks = [];
+        if (generatedPlan.tasks && Array.isArray(generatedPlan.tasks)) {
+          for (let i = 0; i < generatedPlan.tasks.length; i++) {
+            const taskData = generatedPlan.tasks[i];
+            const task = await storage.createTask({
+              title: taskData.taskName || taskData.title,
+              description: taskData.notes || taskData.description || '',
+              category: taskData.category || plannerResponse.domain || 'personal',
+              priority: taskData.priority || 'medium',
+              timeEstimate: `${taskData.duration || 30} min`,
+              userId
+            });
+            await storage.addTaskToActivity(activity.id, task.id, i);
+            createdTasks.push(task);
+          }
+        }
+
+        // Mark session complete
+        await storage.updateLifestylePlannerSession(session.id, {
+          sessionState: 'completed',
+          isComplete: true
+        }, userId);
+
+        return res.json({
+          message: `✨ **Activity "${activity.title}" created!**\n\n📋 I've created ${createdTasks.length} tasks for you. Check your activities to get started!`,
+          activityCreated: true,
+          activity,
+          createdTasks,
+          planComplete: true
+        });
+      }
+
+      // Regular response
+      return res.json({
+        message: plannerResponse.message,
+        planGenerated: false,
+        sessionId: session.id,
+        conversationHistory: updatedHistory,
+        domain: plannerResponse.domain,
+        questionCount: plannerResponse.questionCount
+      });
+
+    } catch (error) {
+      console.error('[SIMPLE PLAN] Error:', error);
+      return res.status(500).json({
+        error: 'Failed to process planning conversation',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
   // Helper function for Quick Plan structured conversation
 async function handleQuickPlanConversation(req: any, res: any, message: string, conversationHistory: any[], userId: string) {
   try {
@@ -3668,14 +3819,14 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       // Get user ID (demo for now, will use real auth later)
       const userId = (req.user as any)?.id || DEMO_USER_ID;
 
-      // Handle Smart Plan mode with structured conversation
+      // Handle Smart Plan mode with simple planner
       if (mode === 'smart') {
-        return await handleSmartPlanConversation(req, res, message, conversationHistory, userId);
+        return await handleSimplePlanConversation(req, res, message, conversationHistory, userId, 'smart');
       }
 
-      // Handle Quick Plan mode with structured conversation
+      // Handle Quick Plan mode with simple planner
       if (mode === 'quick') {
-        return await handleQuickPlanConversation(req, res, message, conversationHistory, userId);
+        return await handleSimplePlanConversation(req, res, message, conversationHistory, userId, 'quick');
       }
 
       // Create a conversation with the AI

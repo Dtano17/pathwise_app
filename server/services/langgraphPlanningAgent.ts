@@ -1,3 +1,15 @@
+/*
+ * ============================================================================
+ * OLD LANGGRAPH IMPLEMENTATION - COMMENTED OUT FOR MIGRATION
+ * ============================================================================
+ *
+ * This file has been replaced by simpleConversationalPlanner.ts
+ * Kept here for reference and potential rollback.
+ *
+ * To re-enable: Uncomment this entire file and update routes.ts imports
+ * ============================================================================
+ */
+
 /**
  * LangGraph-based Planning Agent (Phase 2)
  *
