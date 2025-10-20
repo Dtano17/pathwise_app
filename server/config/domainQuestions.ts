@@ -65,6 +65,13 @@ export const DOMAIN_QUESTIONS: Record<string, DomainQuestion[]> = {
       examples: 'e.g., solo, traveling with partner, family of 4'
     },
     {
+      field: 'departureCity',
+      alternateFields: ['flyingFrom', 'origin', 'homeCity'],
+      question: 'Where are you flying from? (departure city)',
+      priority: 2,
+      examples: 'e.g., New York City, Los Angeles, Chicago'
+    },
+    {
       field: 'purpose',
       alternateFields: ['tripPurpose', 'reason'],
       question: 'Is this trip for business or leisure? (or both)',

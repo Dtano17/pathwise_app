@@ -272,10 +272,12 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
     
     if (awaitingConfirmation) {
       // User is responding to "Are you comfortable with this plan?"
-      const affirmativePattern = /^(yes|yeah|yep|sure|ok|okay|looks good|perfect|great|sounds good|i'm comfortable|that works|let's do it)/i;
-      const negativePattern = /^(no|nope|not really|not quite|i want to|i'd like to|can we|could we|change|add|modify)/i;
+      // FIXED: Remove ^ anchor to match anywhere in message, handle punctuation
+      const msgClean = message.trim().toLowerCase().replace(/[!?.,:;]+/g, '');
+      const affirmativePattern = /\b(yes|yeah|yep|sure|ok|okay|looks good|perfect|great|sounds good|i'?m comfortable|that works|let'?s do it)\b/i;
+      const negativePattern = /\b(no|nope|not really|not quite|i want to|i'?d like to|can we|could we|change|add|modify)\b/i;
       
-      if (affirmativePattern.test(message.trim())) {
+      if (affirmativePattern.test(msgClean)) {
         // User confirmed - AUTOMATICALLY create the activity and tasks
         const generatedPlan = session.slots?._generatedPlan;
         
