@@ -3109,7 +3109,8 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
   // NEW: Simple Plan Conversation Handler (replaces complex LangGraph)
   async function handleSimplePlanConversation(req: any, res: any, message: string, conversationHistory: any[], userId: string, mode: 'quick' | 'smart') {
     try {
-      console.log(`[SIMPLE PLAN] Processing ${mode} mode message for user ${userId}`);
+      console.log(`✨ [SIMPLE PLANNER - ${mode.toUpperCase()} MODE] Processing message for user ${userId}`);
+      console.log(`📝 [SIMPLE PLANNER] Message: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}}"`);
 
       // Get or create session
       let session = await storage.getActiveLifestylePlannerSession(userId);
@@ -3153,6 +3154,10 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         storage,
         mode
       );
+
+      // Log what was extracted
+      console.log(`🎯 [SIMPLE PLANNER] Extracted info:`, plannerResponse.extractedInfo);
+      console.log(`✅ [SIMPLE PLANNER] Ready to generate: ${plannerResponse.readyToGenerate}`);
 
       // Update conversation history
       const updatedHistory = [
@@ -4299,6 +4304,19 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
+      }
+
+      // ⚡ REDIRECT Quick Plan and Smart Plan to Simple Planner (no LangGraph!)
+      if (mode === 'quick' || mode === 'smart') {
+        console.log(`🔄 [REDIRECTING] ${mode.toUpperCase()} mode -> Simple Planner (bypassing LangGraph)`);
+        return await handleSimplePlanConversation(
+          req,
+          res,
+          message,
+          session.conversationHistory || [],
+          userId,
+          mode
+        );
       }
 
       // HARDEN CONFIRMATION DETECTION for task generation
