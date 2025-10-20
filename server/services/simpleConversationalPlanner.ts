@@ -23,7 +23,60 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import type { IStorage } from '../storage';
 import type { User, UserProfile, UserPreferences, JournalEntry } from '@shared/schema';
-import { DOMAIN_QUESTIONS, getQuestionsForDomain, getEssentialFields } from '../config/domainQuestions';
+import { DOMAIN_QUESTIONS, getQuestionsForDomain, getEssentialFields, getQuickModeFields } from '../config/domainQuestions';
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Format progress status for user-facing messages
+ * Quick mode: Uses getQuickModeFields (4 fields for travel, 4 for others)
+ * Smart mode: Uses getQuestionsForDomain with maxPriority 2 (minimum 5 fields)
+ */
+function formatProgressStatus(extractedInfo: any, domain: string, mode: 'quick' | 'smart'): string {
+  const requiredFields = mode === 'quick' 
+    ? getQuickModeFields(domain)
+    : getQuestionsForDomain(domain, 2).map(q => q.field);
+  
+  let gathered = 0;
+  for (const field of requiredFields) {
+    const question = getQuestionsForDomain(domain, 3).find(q => q.field === field);
+    const alternates = question ? [field, ...(question.alternateFields || [])] : [field];
+    
+    const hasValue = alternates.some(alt => {
+      const value = extractedInfo[alt];
+      return value !== undefined && value !== null && value !== '' && value !== '<UNKNOWN>';
+    });
+    
+    if (hasValue) {
+      gathered++;
+    }
+  }
+  
+  const total = requiredFields.length;
+  const percentage = Math.round((gathered / total) * 100);
+  const emoji = mode === 'quick' ? '⚡' : '🧠';
+  
+  return `${emoji} Progress: ${gathered}/${total} (${percentage}%)`;
+}
+
+/**
+ * Validate that budget breakdown includes calculation expressions
+ * Adds a note to plan description if budget breakdown is missing calculations
+ */
+function validateBudgetBreakdown(plan: GeneratedPlan): void {
+  if (plan.budget?.breakdown && plan.budget.breakdown.length > 0) {
+    const hasCalculations = plan.budget.breakdown.some(item => 
+      item.notes?.includes('×') || item.notes?.includes('x') || item.notes?.includes('*')
+    );
+    
+    if (!hasCalculations) {
+      const note = '\n\n💡 Note: Budget breakdown should include calculation details (e.g., "$450 × 2 nights = $900") for transparency.';
+      plan.description = plan.description + note;
+    }
+  }
+}
 
 // ============================================================================
 // TYPES
@@ -135,6 +188,19 @@ class OpenAIProvider implements LLMProvider {
       }
 
       const result = JSON.parse(toolCall.function.arguments) as PlanningResponse;
+      
+      // Inject progress tracking if not ready to generate
+      if (!result.readyToGenerate && result.extractedInfo) {
+        const domain = result.extractedInfo.domain || result.domain || 'travel';
+        const progressStatus = formatProgressStatus(result.extractedInfo, domain, mode);
+        result.message += '\n\n' + progressStatus;
+      }
+      
+      // Validate budget breakdown if plan was generated
+      if (result.plan) {
+        validateBudgetBreakdown(result.plan);
+      }
+      
       return result;
     } catch (error) {
       console.error('[SIMPLE_PLANNER] OpenAI error:', error);
@@ -203,6 +269,19 @@ class AnthropicProvider implements LLMProvider {
       }
 
       const result = toolUse.input as PlanningResponse;
+      
+      // Inject progress tracking if not ready to generate
+      if (!result.readyToGenerate && result.extractedInfo) {
+        const domain = result.extractedInfo.domain || result.domain || 'travel';
+        const progressStatus = formatProgressStatus(result.extractedInfo, domain, mode);
+        result.message += '\n\n' + progressStatus;
+      }
+      
+      // Validate budget breakdown if plan was generated
+      if (result.plan) {
+        validateBudgetBreakdown(result.plan);
+      }
+      
       return result;
     } catch (error) {
       console.error('[SIMPLE_PLANNER] Anthropic error:', error);
@@ -1143,7 +1222,7 @@ export class SimpleConversationalPlanner {
 
   /**
    * Validate essential fields for each domain with priority-based tracking
-   * Quick mode: Only validates Priority 1 (critical) questions
+   * Quick mode: Uses getQuickModeFields (4 fields including departureCity for travel)
    * Smart mode: Validates Priority 1 + 2 (critical + important) questions
    */
   private validateEssentialFields(
@@ -1159,8 +1238,16 @@ export class SimpleConversationalPlanner {
     const domain = extractedInfo.domain || 'travel';
     
     // Get questions based on mode
-    const maxPriority = mode === 'quick' ? 1 : 2; // Quick = P1 only, Smart = P1+P2
-    const questions = getQuestionsForDomain(domain, maxPriority);
+    let questions;
+    if (mode === 'quick') {
+      // Quick mode: Use getQuickModeFields (3 P1 + 1 critical P2)
+      const quickFields = getQuickModeFields(domain);
+      const allQuestions = getQuestionsForDomain(domain, 3);
+      questions = allQuestions.filter(q => quickFields.includes(q.field));
+    } else {
+      // Smart mode: P1 + P2
+      questions = getQuestionsForDomain(domain, 2);
+    }
     
     const missing: string[] = [];
     let gathered = 0;
