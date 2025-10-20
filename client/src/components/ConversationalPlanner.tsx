@@ -190,35 +190,68 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
     }
   });
 
-  // Send message
+  // Send message - using simple conversational planner
   const sendMessageMutation = useMutation({
-    mutationFn: async (messageData: { sessionId: string; message: string; mode?: string }) => {
-      const response = await apiRequest('POST', '/api/planner/message', messageData);
+    mutationFn: async (messageData: { message: string; mode: 'quick' | 'smart' }) => {
+      const response = await apiRequest('POST', '/api/chat/conversation', {
+        message: messageData.message,
+        conversationHistory: currentSession?.conversationHistory || [],
+        mode: messageData.mode
+      });
       return response.json();
     },
     onSuccess: (data) => {
-      setCurrentSession(data.session);
-      setContextChips(data.contextChips || []);
+      // Simple planner returns: { message, extractedInfo, readyToGenerate, plan?, domain? }
+      // Update conversation history
+      const newMessage: ConversationMessage = {
+        role: 'user',
+        content: message,
+        timestamp: new Date().toISOString()
+      };
+      const assistantMessage: ConversationMessage = {
+        role: 'assistant',
+        content: data.message,
+        timestamp: new Date().toISOString()
+      };
+      
+      const updatedHistory = [
+        ...(currentSession?.conversationHistory || []),
+        newMessage,
+        assistantMessage
+      ];
+      
+      // Update session state
+      setCurrentSession({
+        ...currentSession,
+        id: currentSession?.id || 'temp-' + Date.now(),
+        conversationHistory: updatedHistory,
+        slots: { ...currentSession?.slots, ...data.extractedInfo },
+        sessionState: data.readyToGenerate ? 'confirming' : 'gathering',
+        isComplete: false
+      } as PlannerSession);
+      
       setMessage('');
       
-      // Handle plan creation with real task IDs
-      if (data.createdTasks && data.activityCreated && data.planComplete) {
-        console.log('Plan created with real tasks:', data.createdTasks);
-        // Invalidate queries to refresh tasks and activities with real data
+      // If plan is ready, show it for confirmation
+      if (data.readyToGenerate && data.plan) {
+        setPendingPlan(data.plan);
+        setShowPlanConfirmation(true);
+      }
+      
+      // Handle completed plan creation
+      if (data.activityCreated && data.createdTasks) {
         queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
         queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
         queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
-        
-        // Store the real task data for use in completion
-        setPendingPlan({
-          activity: data.activity,
-          tasks: data.createdTasks,
-          planComplete: true
-        });
       }
     },
     onError: (error) => {
       console.error('Failed to send message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to process message. Please try again.",
+        variant: "destructive"
+      });
     }
   });
 
@@ -277,16 +310,24 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
 
   const handleModeSelect = (mode: PlanningMode) => {
     setPlanningMode(mode);
-    startSessionMutation.mutate();
+    // Simple planner doesn't need upfront session creation
+    // Session will be created on first message
+    setCurrentSession({
+      id: 'temp-' + Date.now(),
+      sessionState: 'gathering',
+      conversationHistory: [],
+      slots: {},
+      isComplete: false
+    } as PlannerSession);
   };
 
   const handleSendMessage = () => {
-    if (!message.trim() || !currentSession) return;
+    if (!message.trim()) return;
+    if (!planningMode || (planningMode !== 'quick' && planningMode !== 'smart')) return;
     
     sendMessageMutation.mutate({
-      sessionId: currentSession.id,
       message: message.trim(),
-      mode: planningMode || undefined
+      mode: planningMode
     });
   };
 
