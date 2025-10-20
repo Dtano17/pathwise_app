@@ -24,7 +24,15 @@ The application employs a mobile-first responsive design with a clean, card-base
 - **Animations**: React Confetti, React Spring, Framer Motion for celebratory effects.
 
 **Core Features & Implementations:**
-- **AI-Powered Planning**: Features "Smart Plan" (comprehensive information gathering) and "Quick Plan" (rapid task generation) modes, utilizing LangGraph for conversation state and multi-LLM support. Includes conversation-aware classification, confidence decay for domain switching, conversation-wide slot extraction (prevents redundant questions), and automatic fallback between AI providers.
+- **AI-Powered Planning**: Features "Smart Plan" (comprehensive with web search) and "Quick Plan" (streamlined) modes with intelligent conversational planning. **Recent Improvements (Oct 2025):**
+  - ✅ **LangGraph-free architecture**: Quick/Smart modes now use lightweight conversational planner (simpleConversationalPlanner.ts) for better performance and maintainability
+  - ✅ **Dynamic essential-field validation**: Backend validates 5 required fields per domain (travel, events, wellness, learning, social, entertainment, work, shopping, dining) before allowing plan generation
+  - ✅ **Real-time progress tracking**: UI displays "Progress: 3/5 (60%)" showing exactly how many essentials gathered, calculated dynamically per domain
+  - ✅ **Zero hallucination enforcement**: Strict prompt rules + backend validation prevent AI from inventing dates, budgets, or other data not explicitly stated by user
+  - ✅ **Smart context-aware completion**: AI intelligently determines when it has enough info (no rigid question minimums), asking follow-ups only for missing essentials
+  - ✅ **Friendly, emoji-rich tone**: Warm conversational style with natural emoji usage (🌍, ✨, 🎯, 💰) - more enthusiastic in Smart mode, concise in Quick mode
+  - ✅ **Web search in Smart mode**: Anthropic provider with web_search tool for real-time weather forecasts, prices, availability, and current events
+  - Multi-LLM support with automatic fallback between OpenAI/Claude providers
 - **Task Management**: Swipeable task cards with completion/skip actions, YouTube-style task feedback (thumbs up/down with filled icons and counters), real-time progress dashboard with streaks and analytics, task lists with search/filter, and automatic activity/task creation upon plan confirmation.
 - **Personal Journal**: A dedicated journal interface with 9 categories for capturing personal interests, featuring auto-save and backend persistence. **NEW: Journal Mode** - Smart journal capture system that allows users to type minimal text with keywords (like @restaurants, @travel, @music) and upload photos/videos. AI automatically detects category from keywords and natural language, stores media in organized galleries, and enriches entries with structured data.
 - **Journal Mode Architecture**:

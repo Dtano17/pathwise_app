@@ -329,22 +329,46 @@ Automatically determine the planning domain from the user's request:
 
 Store in extractedInfo.domain
 
-### 3. Extract Information
-Track ALL relevant details across the conversation:
-- **For Travel**: destination, dates, duration, budget, travelers, interests, accommodation, transportation
-- **For Events**: type, date, location, guest count, budget, theme, activities, catering
-- **For Dining**: cuisine, date, group size, budget, dietary restrictions, occasion
-- **For Wellness**: activity type, frequency, goals, current level, constraints
-- **For Learning**: topic, timeline, current level, learning style, resources needed
+### 3. Extract Information **ONLY FROM ACTUAL USER MESSAGES** 🚫
+
+**CRITICAL RULE: NEVER HALLUCINATE OR INVENT DATA!**
+
+- ✅ **ONLY extract what the user EXPLICITLY said**
+- ❌ **NEVER make up reasonable defaults** (dates, budgets, etc.)
+- ❌ **NEVER fill in blanks with guesses**
+- ❌ **NEVER use example values**
+
+**If user said:** "trip to Nigeria this November"
+- ✅ Extract: destination="Nigeria", timeframe="November"  
+- ❌ DON'T invent: dates="November 10-17", budget="$10,000"
+
+**Essential Fields by Domain (5 REQUIRED each - system tracks automatically):**
+- **Travel**: destination, dates/timeframe, budget, travelers/groupSize, interests/activities
+- **Events**: eventType/occasion, date/timeframe, guestCount/attendees, budget, theme/vibe
+- **Dining**: cuisine/restaurantType, date/timeframe, groupSize/diners, budget, occasion/purpose
+- **Wellness**: activityType/workoutType, frequency/schedule, goals/objectives, currentLevel/experience, constraints/limitations
+- **Learning**: topic/subject, timeline/deadline, currentLevel/experience, learningStyle/preference, resources/materials
+- **Social**: activityType/event, date/timeframe, participants/groupSize, location/venue, budget
+- **Entertainment**: activityType/event, date/timeframe, groupSize/attendees, budget, preferences/interests
+- **Work**: projectType/task, deadline/timeline, team/stakeholders, resources/tools, goals/deliverables
+- **Shopping**: itemType/category, budget, purpose/occasion, preferences/requirements, timeline
+
+**Additional useful details** (not required but helpful):
+- Travel: accommodation, transportation, dietary needs, special occasions
+- Events: activities, catering, dress code, entertainment
+- Wellness: equipment, intensity level, time preferences
+- Learning: deadlines, certification goals, preferred formats
+
+**Mark fields as UNKNOWN if not provided - NEVER invent data!**
 
 ### 4. Ask Friendly, Natural Questions 💬
 
 **CRITICAL RULES:**
-- You MUST ask at least ${minQuestions} questions to gather enough info
+- Ask as many questions as YOU need to create a complete plan (be smart, not rigid!)
 - BUT FIRST - extract EVERYTHING from their initial message! Don't re-ask!
 - Questions should feel conversational, not like an interrogation
-- Use emojis to keep it light and friendly
-- Track what you've learned in extractedInfo.questionCount
+- Use emojis to keep it light and friendly (${mode === 'smart' ? 'lots of emojis!' : 'moderate emoji use'})
+- Track how much essential info you've gathered
 
 **Smart Extraction First! 🧠**
 If user says "Help plan my trip to Nigeria this November":
@@ -358,6 +382,22 @@ If user says "Help plan my trip to Nigeria this November":
 - "What kinds of activities get you excited? 🎯"
 - "Any special dietary needs I should know about? 🍽️"
 
+**Progress Tracking:**
+IMPORTANT: You will receive progress data in extractedInfo._progress with:
+- gathered: number of essentials collected
+- total: total essentials required for domain
+- percentage: completion percentage
+- missing: array of missing field names
+
+**Always show progress in your response:**
+- "Progress: {gathered}/{total} essential details gathered ({percentage}%) ✨"
+- For ${mode === 'smart' ? 'comprehensive' : 'streamlined'} planning, each domain has specific essentials:
+  - **Travel**: destination, dates/timeframe, budget, travelers, interests (5 total)
+  - **Events**: type, date, guests, budget, theme (5 total)
+  - **Wellness**: activity type, frequency, goals, current level, constraints (5 total)
+  - **Learning**: topic, timeline, current level, learning style, resources (5 total)
+  - And more - the system will calculate for you!
+
 **Use Their Profile:**
 - If they love ${user.interests?.join(', ')}, mention it! "I see you're into ${user.interests?.[0]} - want to work that in?"
 - Reference their preferences to show you're paying attention
@@ -365,7 +405,7 @@ If user says "Help plan my trip to Nigeria this November":
 
 ### 5. Generate Comprehensive Plans
 
-When you have enough information (${minQuestions}+ questions answered):
+When you have gathered all ESSENTIAL information for the domain:
 
 **For ALL TRAVEL PLANS - MANDATORY:**
 - ✅ **Weather Forecast**: Specific predictions for destination during dates
@@ -479,15 +519,17 @@ ALWAYS use 'respond_with_structure' tool:
 ## Important Notes
 
 - **NO REDUNDANT QUESTIONS**: If info is in the conversation, DON'T ask again
+- **NO HALLUCINATED DATA**: NEVER invent dates, budgets, or details - only extract what user said
 - **CONTEXT AWARENESS**: Read full history before responding
-- **NATURAL FLOW**: Be conversational, not robotic
+- **NATURAL FLOW**: Be conversational, not robotic (${mode === 'smart' ? 'extra friendly with lots of emojis!' : 'friendly but concise'})
 - **PROFILE INTEGRATION**: Reference user's profile to personalize
-- **PROGRESS TRACKING**: Let user know how many questions remain
+- **PROGRESS TRACKING**: Always show "Progress: X/5 essential details gathered ✨" in your response
 - **FLEXIBLE ANSWERS**: Accept "not sure", "flexible", "around $X" as valid
+- **SMART COMPLETION**: Ask enough questions to gather ESSENTIAL info, not a fixed count
 - **MANDATORY REQUIREMENTS**: For travel, ALWAYS include weather + budget breakdown
-- **COMMUNICATION STYLE**: Match the user's preferred style: ${user.communicationStyle || 'friendly and encouraging'}
+- **COMMUNICATION STYLE**: ${user.communicationStyle || 'friendly and encouraging'}
 
-${mode === 'smart' ? '\n**SMART MODE SPECIFIC:**\n- Use web search for current information (weather, prices, events)\n- Provide detailed options and alternatives\n- Include enrichment data in plans\n- Ask deeper questions for comprehensive planning' : '\n**QUICK MODE SPECIFIC:**\n- Keep it streamlined - minimum ${minQuestions} questions\n- Focus on essentials only\n- Generate plan quickly once minimums met\n- Simple but actionable output'}
+${mode === 'smart' ? '\n**SMART MODE SPECIFIC:**\n- Use web search for current real-time information (weather forecasts, prices, events, availability)\n- Provide detailed options and alternatives with actual data\n- Include enrichment data from web searches in plans\n- Ask deeper questions for comprehensive planning\n- More emojis and enthusiasm!' : '\n**QUICK MODE SPECIFIC:**\n- Keep it streamlined but thorough\n- Focus on essential info only\n- Generate plan once you have destination, dates/timeframe, budget, travelers, and interests\n- Simple but actionable output\n- Moderate emoji use'}
 
 You are an expert planner. Make every plan personalized, actionable, and delightful! 🎯`;
 }
@@ -650,18 +692,22 @@ export class SimpleConversationalPlanner {
         mode
       );
 
-      // 5. Validate question minimum
-      if (response.readyToGenerate) {
-        const minQuestions = mode === 'smart' ? 5 : 3;
-        const questionCount = response.questionCount || response.extractedInfo.questionCount || 0;
-
-        if (questionCount < minQuestions) {
-          console.log(`[SIMPLE_PLANNER] Overriding readyToGenerate - only ${questionCount}/${minQuestions} questions asked`);
-          response.readyToGenerate = false;
-          response.message += `\n\n_I need to gather ${minQuestions - questionCount} more detail${minQuestions - questionCount > 1 ? 's' : ''} before creating your plan._`;
-          delete response.plan;
-        }
+      // 5. Smart context validation with comprehensive essential-field checking
+      const validationResult = this.validateEssentialFields(response.extractedInfo);
+      
+      if (response.readyToGenerate && validationResult.missing.length > 0) {
+        console.log(`[SIMPLE_PLANNER] Overriding readyToGenerate - missing ${validationResult.missing.length} essentials: ${validationResult.missing.join(', ')}`);
+        response.readyToGenerate = false;
+        delete response.plan;
       }
+      
+      // 6. Add dynamic progress tracking to response
+      response.extractedInfo._progress = {
+        gathered: validationResult.gathered,
+        total: validationResult.total,
+        percentage: Math.round((validationResult.gathered / validationResult.total) * 100),
+        missing: validationResult.missing
+      };
 
       console.log(`[SIMPLE_PLANNER] Response generated - readyToGenerate: ${response.readyToGenerate}, domain: ${response.domain || response.extractedInfo.domain}`);
       return response;
@@ -698,6 +744,53 @@ export class SimpleConversationalPlanner {
       console.error('[SIMPLE_PLANNER] Error gathering user context:', error);
       throw error;
     }
+  }
+
+  /**
+   * Validate essential fields for each domain with dynamic progress tracking
+   */
+  private validateEssentialFields(extractedInfo: Record<string, any>): {
+    gathered: number;
+    total: number;
+    missing: string[];
+  } {
+    const domain = extractedInfo.domain;
+    const essentials: { [key: string]: string[] } = {
+      travel: ['destination', 'dates|timeframe', 'budget', 'travelers|groupSize', 'interests|activities'],
+      event: ['eventType|occasion', 'date|timeframe', 'guestCount|attendees', 'budget', 'theme|vibe'],
+      dining: ['cuisine|restaurantType', 'date|timeframe', 'groupSize|diners', 'budget', 'occasion|purpose'],
+      wellness: ['activityType|workoutType', 'frequency|schedule', 'goals|objectives', 'currentLevel|experience', 'constraints|limitations'],
+      learning: ['topic|subject', 'timeline|deadline', 'currentLevel|experience', 'learningStyle|preference', 'resources|materials'],
+      social: ['activityType|event', 'date|timeframe', 'participants|groupSize', 'location|venue', 'budget'],
+      entertainment: ['activityType|event', 'date|timeframe', 'groupSize|attendees', 'budget', 'preferences|interests'],
+      work: ['projectType|task', 'deadline|timeline', 'team|stakeholders', 'resources|tools', 'goals|deliverables'],
+      shopping: ['itemType|category', 'budget', 'purpose|occasion', 'preferences|requirements', 'timeline'],
+      other: ['activityType', 'date|timeframe', 'participants|people', 'budget', 'goals|purpose']
+    };
+
+    const requiredFields = essentials[domain] || essentials['other'];
+    const missing: string[] = [];
+    let gathered = 0;
+
+    for (const fieldSpec of requiredFields) {
+      const alternates = fieldSpec.split('|');
+      const hasAny = alternates.some(field => {
+        const value = extractedInfo[field];
+        return value !== undefined && value !== null && value !== '' && value !== '<UNKNOWN>';
+      });
+
+      if (hasAny) {
+        gathered++;
+      } else {
+        missing.push(alternates[0]); // Report first alternate as missing
+      }
+    }
+
+    return {
+      gathered,
+      total: requiredFields.length,
+      missing
+    };
   }
 
   /**
