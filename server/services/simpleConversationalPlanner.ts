@@ -23,6 +23,7 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import type { IStorage } from '../storage';
 import type { User, UserProfile, UserPreferences, JournalEntry } from '@shared/schema';
+import { DOMAIN_QUESTIONS, getQuestionsForDomain, getEssentialFields } from '../config/domainQuestions';
 
 // ============================================================================
 // TYPES
@@ -361,69 +362,128 @@ Store in extractedInfo.domain
 
 **Mark fields as UNKNOWN if not provided - NEVER invent data!**
 
-### 4. Ask Friendly, Natural Questions 💬
+### 4. Ask Priority-Based Questions 🎯
+
+**${mode === 'quick' ? 'QUICK MODE STRATEGY ⚡' : 'SMART MODE STRATEGY 🧠'}:**
+${mode === 'quick' ? `
+- Ask only **Priority 1 (Critical)** questions - the 3 most essential details
+- Get straight to plan generation once you have these 3 essentials
+- Keep it fast and efficient - minimal questions, maximum value
+- Example for Travel: Where SPECIFICALLY in {country}? Exact dates? Duration?
+` : `
+- Ask **Priority 1 (Critical)** questions FIRST - the 3 most essential
+- Then ask **Priority 2 (Important)** questions - context and quality details
+- Optionally ask **Priority 3 (Helpful)** questions for comprehensive planning
+- Gather 7-10 total details for a well-researched, thorough plan
+- Use web search for real-time data (weather, prices, availability)
+`}
 
 **CRITICAL RULES:**
-- Ask as many questions as YOU need to create a complete plan (be smart, not rigid!)
 - BUT FIRST - extract EVERYTHING from their initial message! Don't re-ask!
 - Questions should feel conversational, not like an interrogation
 - Use emojis to keep it light and friendly (${mode === 'smart' ? 'lots of emojis!' : 'moderate emoji use'})
-- Track how much essential info you've gathered
+- **BE SPECIFIC**: If they say "Spain", ask "Which cities in Spain?" (Priority 1!)
+- If they say broad country, ask for specific cities/regions IMMEDIATELY
+- If they say vague purpose, ask "Business or leisure?" (Priority 2)
+
+**Question Priorities for Travel Domain:**
+- 🔴 **Priority 1 (Critical)**: Specific destination (cities/regions), exact dates, duration
+- 🟡 **Priority 2 (Important)**: Budget, travel party, purpose (business/leisure)
+- 🟢 **Priority 3 (Helpful)**: Special needs, accommodation type, pace preference
 
 **Smart Extraction First! 🧠**
-If user says "Help plan my trip to Nigeria this November":
-- ✅ Extract: destination = "Nigeria", timeframe = "November"
-- ❌ DON'T ask: "Where are you going?" or "When is your trip?"
-- ✅ DO ask: "Ooh, Nigeria sounds amazing! 🌍 What's your budget looking like?"
+User: "Help plan my trip to Spain this November"
+- ✅ Extract: destination = "Spain", timeframe = "November"
+- ✅ IMMEDIATELY ask: "Which cities in Spain are you thinking? Barcelona, Madrid, Seville?" (Priority 1!)
+- ❌ DON'T accept just "Spain" - get SPECIFIC!
 
 **Question Style:**
-- "What's your budget looking like for this adventure? 💰"
-- "Will it be just you, or traveling with friends/family? 👥"
-- "What kinds of activities get you excited? 🎯"
-- "Any special dietary needs I should know about? 🍽️"
+- Priority 1: "Which specific cities or regions in {country}?" 🏙️
+- Priority 1: "What are your exact travel dates?" 📅
+- Priority 2: "Is this trip for business or leisure (or both)?" 💼
+- Priority 2: "What's your total budget?" 💰
+- Priority 3: "Any special requirements? Traveling with pets?" 🐾
 
-**Progress Tracking:**
-IMPORTANT: You will receive progress data in extractedInfo._progress with:
-- gathered: number of essentials collected
-- total: total essentials required for domain
-- percentage: completion percentage
-- missing: array of missing field names
+**Progress Tracking - SHOW IN EVERY RESPONSE:**
+You'll receive extractedInfo._progress with:
+- mode: "${mode}" 
+- gathered: number collected
+- total: number needed (${mode === 'quick' ? '~3 for Quick' : '~7-10 for Smart'})
+- percentage: completion %
+- emoji: "${mode === 'quick' ? '⚡' : '🧠'}"
 
-**Always show progress in your response:**
-- "Progress: {gathered}/{total} essential details gathered ({percentage}%) ✨"
-- For ${mode === 'smart' ? 'comprehensive' : 'streamlined'} planning, each domain has specific essentials:
-  - **Travel**: destination, dates/timeframe, budget, travelers, interests (5 total)
-  - **Events**: type, date, guests, budget, theme (5 total)
-  - **Wellness**: activity type, frequency, goals, current level, constraints (5 total)
-  - **Learning**: topic, timeline, current level, learning style, resources (5 total)
-  - And more - the system will calculate for you!
+**Display like this:**
+"${mode === 'quick' ? 'Quick Plan ⚡' : 'Smart Plan 🧠'}: {gathered}/{total} essentials gathered ({percentage}%)"
 
 **Use Their Profile:**
-- If they love ${user.interests?.join(', ')}, mention it! "I see you're into ${user.interests?.[0]} - want to work that in?"
-- Reference their preferences to show you're paying attention
-- Keep the vibe warm and personalized
+- Reference their interests: "I see you love ${user.interests?.[0]} - want to include that?"
+- Keep it warm and personalized!
 
-### 5. Generate Comprehensive Plans
+### 5. Generate Comprehensive Plans with Rich Emoji Formatting 🎨
 
 When you have gathered all ESSENTIAL information for the domain:
 
+**FORMATTING RULES - USE RICH EMOJIS:**
+Format your final plan message like Claude Code with visual indicators:
+
+**For Travel Plans:**
+- 🏁 **Destination**: {specific cities/regions}
+- 📅 **Dates**: {exact dates}
+- ⏱️ **Duration**: {length of trip}
+- 💰 **Budget**: {total amount with breakdown}
+- 👥 **Travelers**: {who's going}
+- 🎯 **Purpose**: {business/leisure/both}
+
+**Section Headers:**
+- 🏨 **Accommodation** (not "Accommodation:")
+- 🌤️ **Weather Forecast** (not "Weather:")
+- 🍽️ **Dining Recommendations** (not "Dining:")
+- 🎨 **Cultural Experiences** (not "Cultural:")
+- ✈️ **Transportation** (not "Transportation:")
+- 🎒 **Packing Tips** (not "Packing:")
+- 💡 **Pro Tips** (not "Tips:")
+
+**Use ✅ for tasks and checklist items**, not • or -
+
+**Example Format:**
+\`\`\`
+🏁 **Destination**: Barcelona & Madrid, Spain  
+📅 **Dates**: November 10-24, 2025  
+⏱️ **Duration**: 2 weeks  
+💰 **Budget**: $5,000 USD  
+👥 **Travelers**: You, mom, and pet  
+🎯 **Purpose**: Business with leisure time  
+
+### 🏨 Accommodation
+✅ Barcelona: Pet-friendly Airbnb in Eixample ($100/night)
+✅ Madrid: Business hotel near Retiro Park ($120/night)
+
+### 🌤️ Weather Forecast
+Expect mild autumn weather, 55-65°F (13-18°C)
+✅ Pack: Layers, light jacket, comfortable shoes
+
+### 🍽️ Dining Must-Tries
+✅ El Nacional (Barcelona) - Tapas heaven
+✅ Botín (Madrid) - World's oldest restaurant
+\`\`\`
+
 **For ALL TRAVEL PLANS - MANDATORY:**
-- ✅ **Weather Forecast**: Specific predictions for destination during dates
-- ✅ **Budget Breakdown**: Itemized costs (transport, accommodation, food, activities, misc)
+- ✅ **Weather Forecast**: Specific predictions with temps
+- ✅ **Budget Breakdown**: Itemized costs (transport, accommodation, food, activities)
+- ✅ **Specific Locations**: City names, neighborhoods, not just country
 
 **For ALL EVENTS:**
-- Timeline with specific activities
-- Guest considerations
-- Logistics and coordination tasks
-- Backup plans if applicable
+- Use 🎉 for event type header
+- ✅ Timeline items with specific times
+- ✅ Guest considerations and headcount
+- ✅ Logistics and coordination tasks
 
-**Structure:**
-- Clear title and description
-- Actionable tasks with time estimates
-- Timeline if time-sensitive
+**Content Quality:**
+- Clear title and description at top
+- Actionable tasks with time estimates  
 - Budget breakdown if money involved
 - Practical tips based on user's profile
-- Weather considerations if outdoor/travel
+- Weather if outdoor/travel
 - Everything needed for successful execution
 
 ## Response Format
@@ -692,8 +752,8 @@ export class SimpleConversationalPlanner {
         mode
       );
 
-      // 5. Smart context validation with comprehensive essential-field checking
-      const validationResult = this.validateEssentialFields(response.extractedInfo);
+      // 5. Priority-based validation (Quick = P1 only, Smart = P1+P2)
+      const validationResult = this.validateEssentialFields(response.extractedInfo, mode);
       
       if (response.readyToGenerate && validationResult.missing.length > 0) {
         console.log(`[SIMPLE_PLANNER] Overriding readyToGenerate - missing ${validationResult.missing.length} essentials: ${validationResult.missing.join(', ')}`);
@@ -702,11 +762,16 @@ export class SimpleConversationalPlanner {
       }
       
       // 6. Add dynamic progress tracking to response
+      const progressEmoji = mode === 'quick' ? '⚡' : '🧠';
       response.extractedInfo._progress = {
+        mode,
         gathered: validationResult.gathered,
         total: validationResult.total,
         percentage: Math.round((validationResult.gathered / validationResult.total) * 100),
-        missing: validationResult.missing
+        missing: validationResult.missing,
+        priority1Gathered: validationResult.priority1Gathered,
+        priority1Total: validationResult.priority1Total,
+        emoji: progressEmoji
       };
 
       console.log(`[SIMPLE_PLANNER] Response generated - readyToGenerate: ${response.readyToGenerate}, domain: ${response.domain || response.extractedInfo.domain}`);
@@ -747,49 +812,58 @@ export class SimpleConversationalPlanner {
   }
 
   /**
-   * Validate essential fields for each domain with dynamic progress tracking
+   * Validate essential fields for each domain with priority-based tracking
+   * Quick mode: Only validates Priority 1 (critical) questions
+   * Smart mode: Validates Priority 1 + 2 (critical + important) questions
    */
-  private validateEssentialFields(extractedInfo: Record<string, any>): {
+  private validateEssentialFields(
+    extractedInfo: Record<string, any>,
+    mode: 'quick' | 'smart' = 'smart'
+  ): {
     gathered: number;
     total: number;
     missing: string[];
+    priority1Gathered: number;
+    priority1Total: number;
   } {
-    const domain = extractedInfo.domain;
-    const essentials: { [key: string]: string[] } = {
-      travel: ['destination', 'dates|timeframe', 'budget', 'travelers|groupSize', 'interests|activities'],
-      event: ['eventType|occasion', 'date|timeframe', 'guestCount|attendees', 'budget', 'theme|vibe'],
-      dining: ['cuisine|restaurantType', 'date|timeframe', 'groupSize|diners', 'budget', 'occasion|purpose'],
-      wellness: ['activityType|workoutType', 'frequency|schedule', 'goals|objectives', 'currentLevel|experience', 'constraints|limitations'],
-      learning: ['topic|subject', 'timeline|deadline', 'currentLevel|experience', 'learningStyle|preference', 'resources|materials'],
-      social: ['activityType|event', 'date|timeframe', 'participants|groupSize', 'location|venue', 'budget'],
-      entertainment: ['activityType|event', 'date|timeframe', 'groupSize|attendees', 'budget', 'preferences|interests'],
-      work: ['projectType|task', 'deadline|timeline', 'team|stakeholders', 'resources|tools', 'goals|deliverables'],
-      shopping: ['itemType|category', 'budget', 'purpose|occasion', 'preferences|requirements', 'timeline'],
-      other: ['activityType', 'date|timeframe', 'participants|people', 'budget', 'goals|purpose']
-    };
-
-    const requiredFields = essentials[domain] || essentials['other'];
+    const domain = extractedInfo.domain || 'travel';
+    
+    // Get questions based on mode
+    const maxPriority = mode === 'quick' ? 1 : 2; // Quick = P1 only, Smart = P1+P2
+    const questions = getQuestionsForDomain(domain, maxPriority);
+    
     const missing: string[] = [];
     let gathered = 0;
+    let priority1Gathered = 0;
+    let priority1Total = 0;
 
-    for (const fieldSpec of requiredFields) {
-      const alternates = fieldSpec.split('|');
+    for (const question of questions) {
+      const alternates = [question.field, ...(question.alternateFields || [])];
       const hasAny = alternates.some(field => {
         const value = extractedInfo[field];
         return value !== undefined && value !== null && value !== '' && value !== '<UNKNOWN>';
       });
 
+      if (question.priority === 1) {
+        priority1Total++;
+        if (hasAny) {
+          priority1Gathered++;
+        }
+      }
+
       if (hasAny) {
         gathered++;
       } else {
-        missing.push(alternates[0]); // Report first alternate as missing
+        missing.push(question.field);
       }
     }
 
     return {
       gathered,
-      total: requiredFields.length,
-      missing
+      total: questions.length,
+      missing,
+      priority1Gathered,
+      priority1Total
     };
   }
 
