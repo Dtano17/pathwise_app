@@ -189,12 +189,8 @@ class OpenAIProvider implements LLMProvider {
 
       const result = JSON.parse(toolCall.function.arguments) as PlanningResponse;
       
-      // Inject progress tracking if not ready to generate
-      if (!result.readyToGenerate && result.extractedInfo) {
-        const domain = result.extractedInfo.domain || result.domain || 'travel';
-        const progressStatus = formatProgressStatus(result.extractedInfo, domain, mode);
-        result.message += '\n\n' + progressStatus;
-      }
+      // DO NOT inject progress here - it's handled in processMessage method
+      // to avoid triple duplication (LLM prompt + provider + processMessage)
       
       // Validate budget breakdown if plan was generated
       if (result.plan) {
@@ -270,12 +266,8 @@ class AnthropicProvider implements LLMProvider {
 
       const result = toolUse.input as PlanningResponse;
       
-      // Inject progress tracking if not ready to generate
-      if (!result.readyToGenerate && result.extractedInfo) {
-        const domain = result.extractedInfo.domain || result.domain || 'travel';
-        const progressStatus = formatProgressStatus(result.extractedInfo, domain, mode);
-        result.message += '\n\n' + progressStatus;
-      }
+      // DO NOT inject progress here - it's handled in processMessage method
+      // to avoid triple duplication (LLM prompt + provider + processMessage)
       
       // Validate budget breakdown if plan was generated
       if (result.plan) {
