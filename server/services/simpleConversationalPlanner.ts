@@ -1168,11 +1168,22 @@ export class SimpleConversationalPlanner {
         emoji: progressEmoji
       };
 
-      // 7. Inject progress tracking into message (only if still gathering questions)
+      // 7. Inject progress tracking ONLY if:
+      //    - Not ready to generate plan yet (still gathering info)
+      //    - LLM didn't already include progress in its message
+      //    This prevents duplication while ensuring progress always appears
       if (!response.readyToGenerate && response.extractedInfo._progress) {
         const progress = response.extractedInfo._progress;
-        const progressString = `\n\n${progress.emoji} Progress: ${progress.gathered}/${progress.total} (${progress.percentage}%)`;
-        response.message = response.message + progressString;
+        
+        // Check if LLM already included progress (robust regex for both modes)
+        const progressPattern = /(⚡|🧠)\s*Progress:\s*\d+\/\d+.*\(\d+%\)/i;
+        const hasProgress = progressPattern.test(response.message);
+        
+        if (!hasProgress) {
+          const progressString = `\n\n${progress.emoji} Progress: ${progress.gathered}/${progress.total} (${progress.percentage}%)`;
+          response.message = response.message + progressString;
+          console.log(`[SIMPLE_PLANNER] Added fallback progress tracking (LLM omitted it)`);
+        }
       }
 
       console.log(`[SIMPLE_PLANNER] Response generated - readyToGenerate: ${response.readyToGenerate}, domain: ${response.domain || response.extractedInfo.domain}`);
