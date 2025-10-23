@@ -3164,6 +3164,16 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       const hasAffirmative = /\b(yes|yeah|yep|sure|ok|okay|perfect|great|good)\b/i.test(lowerMsg);
       const generatedPlan = session.slots?._generatedPlan;
 
+      // DEBUG: Log confirmation check values
+      console.log('🔍 [CONFIRMATION CHECK]', {
+        awaitingPlanConfirmation: session.externalContext?.awaitingPlanConfirmation,
+        hasAffirmative,
+        hasGeneratedPlan: !!generatedPlan,
+        userMessage: lowerMsg,
+        sessionState: session.sessionState,
+        externalContext: session.externalContext
+      });
+
       if (session.externalContext?.awaitingPlanConfirmation && hasAffirmative && generatedPlan) {
         console.log('✅ [CONFIRMATION DETECTED] Creating activity from confirmed plan');
 
@@ -3255,6 +3265,15 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
           awaitingPlanConfirmation: plannerResponse.readyToGenerate
         }
       }, userId);
+
+      // DEBUG: Log session update
+      console.log('💾 [SESSION UPDATED]', {
+        sessionId: session.id,
+        readyToGenerate: plannerResponse.readyToGenerate,
+        awaitingPlanConfirmation: plannerResponse.readyToGenerate,
+        hasPlan: !!plannerResponse.plan,
+        sessionState: plannerResponse.readyToGenerate ? 'confirming' : 'gathering'
+      });
 
       // Check if planner just generated a new plan
       if (plannerResponse.readyToGenerate && plannerResponse.plan) {

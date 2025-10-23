@@ -24,42 +24,30 @@ import Anthropic from '@anthropic-ai/sdk';
 import { tavily } from '@tavily/core';
 import type { IStorage } from '../storage';
 import type { User, UserProfile, UserPreferences, JournalEntry } from '@shared/schema';
-import { DOMAIN_QUESTIONS, getQuestionsForDomain, getEssentialFields, getQuickModeFields } from '../config/domainQuestions';
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
 /**
- * Format progress status for user-facing messages
- * Quick mode: Uses getQuickModeFields (4 fields for travel, 4 for others)
- * Smart mode: Uses getQuestionsForDomain with maxPriority 2 (minimum 5 fields)
+ * Calculate progress dynamically based on LLM's question tracking
+ * Quick mode: 3 minimum questions
+ * Smart mode: 5 minimum questions
+ * Progress = questionCount / minimum (capped at 100%)
  */
-function formatProgressStatus(extractedInfo: any, domain: string, mode: 'quick' | 'smart'): string {
-  const requiredFields = mode === 'quick' 
-    ? getQuickModeFields(domain)
-    : getQuestionsForDomain(domain, 2).map(q => q.field);
-  
-  let gathered = 0;
-  for (const field of requiredFields) {
-    const question = getQuestionsForDomain(domain, 3).find(q => q.field === field);
-    const alternates = question ? [field, ...(question.alternateFields || [])] : [field];
-    
-    const hasValue = alternates.some(alt => {
-      const value = extractedInfo[alt];
-      return value !== undefined && value !== null && value !== '' && value !== '<UNKNOWN>';
-    });
-    
-    if (hasValue) {
-      gathered++;
-    }
-  }
-  
-  const total = requiredFields.length;
-  const percentage = Math.round((gathered / total) * 100);
+function calculateDynamicProgress(questionCount: number, mode: 'quick' | 'smart') {
+  const minimum = mode === 'quick' ? 3 : 5;
+  const gathered = Math.min(questionCount, minimum); // Cap at minimum
+  const percentage = Math.round((gathered / minimum) * 100);
   const emoji = mode === 'quick' ? '⚡' : '🧠';
-  
-  return `${emoji} Progress: ${gathered}/${total} (${percentage}%)`;
+
+  return {
+    gathered,
+    total: minimum,
+    percentage,
+    emoji,
+    mode
+  };
 }
 
 /**
@@ -514,14 +502,56 @@ For each domain, **YOU decide** what questions matter most based on your experti
 
 **${mode === 'quick' ? 'Quick Mode' : 'Smart Mode'}: Ask minimum ${minQuestions} questions before generating plan**
 
-**Common patterns** (use your judgment, not rigid rules):
-- **Travel** often needs: specific cities/regions, exact dates, duration, budget, group size, interests
-- **Events** often needs: type, date, guest count, budget, venue preference, theme
-- **Dining** often needs: cuisine type, date, group size, budget, dietary restrictions, location
-- **Wellness** often needs: activity type, goals, current level, frequency, time available
-- **Learning** often needs: topic, current level, timeline, learning style, time commitment
+**Question Tracking (CRITICAL):**
+- You MUST track `questionCount` in `extractedInfo` - count the number of distinct questions you've asked
+- **Quick Mode:** Ask minimum 3 PRIORITY questions before generating plan
+- **Smart Mode:** Ask minimum 5 PRIORITY questions before generating plan
+- Set `readyToGenerate: true` ONLY when you've asked minimum questions AND have essential info
 
-Notice budget appears in most domains? **That's intentional - it's critical!**
+**Priority Question Framework (domain-agnostic):**
+
+For ANY domain, identify the MOST CRITICAL information needed. Use your expertise to prioritize!
+
+**Travel Planning Intuition:**
+When someone wants to plan a trip, you NEED to know:
+- 🎯 **Where from?** (Departure city - affects flights, cost, travel time)
+- 🎯 **Where to?** (Destination - obvious but critical)
+- 🎯 **When?** (Dates - affects weather, prices, availability)
+- 🎯 **How long?** (Duration - affects itinerary depth)
+- 🎯 **Budget?** (If activity costs money - shapes everything)
+- 📍 **Group size?** (Solo vs family - affects accommodation, activities, budget)
+
+These are CRITICAL because you CAN'T make flights/hotel/activity recommendations without them.
+
+**Event Planning Intuition:**
+- 🎯 Event type (birthday, wedding, conference - totally different!)
+- 🎯 Date (availability of venues/vendors)
+- 🎯 Guest count (determines venue size, catering)
+- 🎯 Budget (shapes venue options, food quality, entertainment)
+- 📍 Location preference
+- 📍 Theme/style
+
+**Dining Planning Intuition:**
+- 🎯 Cuisine type
+- 🎯 Date/time
+- 🎯 Group size
+- 🎯 Budget (fine dining vs casual)
+- 📍 Dietary restrictions
+- 📍 Location preference
+
+**Wellness/Fitness Planning Intuition:**
+- 🎯 Activity type (yoga, running, gym, sports)
+- 🎯 Current fitness level
+- 🎯 Goals (lose weight, build muscle, flexibility, general health)
+- 🎯 Time available (daily, weekly schedule)
+- 📍 Location/equipment available
+- 📍 Preferences (solo, group classes, outdoor)
+
+**The Pattern:**
+- **Critical (🎯):** Information you MUST have to create ANY actionable plan
+- **Important (📍):** Information that significantly improves plan quality
+
+**Ask critical questions FIRST** - they disambiguate the most. Then ask important questions to enrich.
 
 **Question Selection:**
 - Ask the most disambiguating questions first (what clarifies the plan most?)
@@ -710,7 +740,7 @@ const PLANNING_TOOL = {
         },
         readyToGenerate: {
           type: 'boolean',
-          description: 'True if you have asked the minimum required questions AND have all essential information to create a complete plan'
+          description: 'True ONLY if: (1) You have asked the minimum questions (questionCount >= 3 for quick, >= 5 for smart) AND (2) You have enough essential information to create a complete, actionable plan. Check your questionCount field before setting this to true!'
         },
         plan: {
           type: 'object',
@@ -881,16 +911,21 @@ export class SimpleConversationalPlanner {
       //    This prevents duplication while ensuring progress always appears
       if (!response.readyToGenerate && response.extractedInfo._progress) {
         const progress = response.extractedInfo._progress;
-        
+
         // Check if LLM already included progress (robust regex for both modes)
         const progressPattern = /(⚡|🧠)\s*Progress:\s*\d+\/\d+.*\(\d+%\)/i;
         const hasProgress = progressPattern.test(response.message);
-        
+
         if (!hasProgress) {
           const progressString = `\n\n${progress.emoji} Progress: ${progress.gathered}/${progress.total} (${progress.percentage}%)`;
           response.message = response.message + progressString;
           console.log(`[SIMPLE_PLANNER] Added fallback progress tracking (LLM omitted it)`);
         }
+      }
+
+      // 8. Hide progress when plan is generated
+      if (response.readyToGenerate) {
+        delete response.extractedInfo._progress;
       }
 
       console.log(`[SIMPLE_PLANNER] Response generated - readyToGenerate: ${response.readyToGenerate}, domain: ${response.domain || response.extractedInfo.domain}`);
@@ -931,9 +966,10 @@ export class SimpleConversationalPlanner {
   }
 
   /**
-   * Validate essential fields for each domain with priority-based tracking
-   * Quick mode: Uses getQuickModeFields (4 fields including departureCity for travel)
-   * Smart mode: Validates Priority 1 + 2 (critical + important) questions
+   * Validate essential fields dynamically based on LLM's question tracking
+   * No hardcoded domain logic - relies on LLM's questionCount
+   * Quick mode: 3 minimum questions
+   * Smart mode: 5 minimum questions
    */
   private validateEssentialFields(
     extractedInfo: Record<string, any>,
@@ -945,52 +981,27 @@ export class SimpleConversationalPlanner {
     priority1Gathered: number;
     priority1Total: number;
   } {
-    const domain = extractedInfo.domain || 'travel';
-    
-    // Get questions based on mode
-    let questions;
-    if (mode === 'quick') {
-      // Quick mode: Use getQuickModeFields (3 P1 + 1 critical P2)
-      const quickFields = getQuickModeFields(domain);
-      const allQuestions = getQuestionsForDomain(domain, 3);
-      questions = allQuestions.filter(q => quickFields.includes(q.field));
-    } else {
-      // Smart mode: P1 + P2
-      questions = getQuestionsForDomain(domain, 2);
-    }
-    
+    const minimum = mode === 'quick' ? 3 : 5;
+    const questionCount = extractedInfo.questionCount || 0;
+
+    // Dynamic validation: LLM tracks questions, we just validate minimum met
+    const gathered = Math.min(questionCount, minimum);
     const missing: string[] = [];
-    let gathered = 0;
-    let priority1Gathered = 0;
-    let priority1Total = 0;
 
-    for (const question of questions) {
-      const alternates = [question.field, ...(question.alternateFields || [])];
-      const hasAny = alternates.some(field => {
-        const value = extractedInfo[field];
-        return value !== undefined && value !== null && value !== '' && value !== '<UNKNOWN>';
-      });
-
-      if (question.priority === 1) {
-        priority1Total++;
-        if (hasAny) {
-          priority1Gathered++;
-        }
-      }
-
-      if (hasAny) {
-        gathered++;
-      } else {
-        missing.push(question.field);
+    // If questionCount < minimum, mark as missing questions
+    if (questionCount < minimum) {
+      const remaining = minimum - questionCount;
+      for (let i = 0; i < remaining; i++) {
+        missing.push(`question_${questionCount + i + 1}`);
       }
     }
 
     return {
       gathered,
-      total: questions.length,
+      total: minimum,
       missing,
-      priority1Gathered,
-      priority1Total
+      priority1Gathered: gathered,
+      priority1Total: minimum
     };
   }
 
