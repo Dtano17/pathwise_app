@@ -883,27 +883,22 @@ export class SimpleConversationalPlanner {
         mode
       );
 
-      // 5. Priority-based validation (Quick = P1 only, Smart = P1+P2)
-      const validationResult = this.validateEssentialFields(response.extractedInfo, mode);
-      
-      if (response.readyToGenerate && validationResult.missing.length > 0) {
-        console.log(`[SIMPLE_PLANNER] Overriding readyToGenerate - missing ${validationResult.missing.length} essentials: ${validationResult.missing.join(', ')}`);
+      // 5. Validate minimum question count (domain-agnostic)
+      const minimum = mode === 'quick' ? 3 : 5;
+      const questionCount = response.extractedInfo.questionCount || 0;
+
+      // Only override if LLM didn't ask enough questions
+      if (response.readyToGenerate && questionCount < minimum) {
+        console.log(`[SIMPLE_PLANNER] Overriding readyToGenerate - only ${questionCount}/${minimum} questions asked (minimum not met)`);
         response.readyToGenerate = false;
         delete response.plan;
+      } else if (response.readyToGenerate) {
+        console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked, generating plan`);
       }
       
-      // 6. Add dynamic progress tracking to response
-      const progressEmoji = mode === 'quick' ? '⚡' : '🧠';
-      response.extractedInfo._progress = {
-        mode,
-        gathered: validationResult.gathered,
-        total: validationResult.total,
-        percentage: Math.round((validationResult.gathered / validationResult.total) * 100),
-        missing: validationResult.missing,
-        priority1Gathered: validationResult.priority1Gathered,
-        priority1Total: validationResult.priority1Total,
-        emoji: progressEmoji
-      };
+      // 6. Add dynamic progress tracking to response using questionCount
+      const progress = calculateDynamicProgress(questionCount, mode);
+      response.extractedInfo._progress = progress;
 
       // 7. Inject progress tracking ONLY if:
       //    - Not ready to generate plan yet (still gathering info)
