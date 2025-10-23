@@ -503,10 +503,10 @@ For each domain, **YOU decide** what questions matter most based on your experti
 **${mode === 'quick' ? 'Quick Mode' : 'Smart Mode'}: Ask minimum ${minQuestions} questions before generating plan**
 
 **Question Tracking (CRITICAL):**
-- You MUST track `questionCount` in `extractedInfo` - count the number of distinct questions you've asked
+- You MUST track 'questionCount' in 'extractedInfo' - count the number of distinct questions you've asked
 - **Quick Mode:** Ask minimum 3 PRIORITY questions before generating plan
 - **Smart Mode:** Ask minimum 5 PRIORITY questions before generating plan
-- Set `readyToGenerate: true` ONLY when you've asked minimum questions AND have essential info
+- Set 'readyToGenerate: true' ONLY when you've asked minimum questions AND have essential info
 
 **Priority Question Framework (domain-agnostic):**
 
