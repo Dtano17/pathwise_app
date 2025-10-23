@@ -115,6 +115,8 @@ export const tasks = pgTable("tasks", {
   completedAt: timestamp("completed_at"),
   dueDate: timestamp("due_date"),
   timeEstimate: text("time_estimate"), // "15 min" | "30 min" | "1 hour" | "2 hours"
+  cost: integer("cost"), // Optional cost associated with this task (in cents)
+  costNotes: text("cost_notes"), // Details about the cost (e.g., "Round-trip flight LAX-NYC")
   context: text("context"), // Why this task matters and tips for success
   archived: boolean("archived").default(false),
   skipped: boolean("skipped").default(false),
@@ -773,6 +775,12 @@ export const activities = pgTable("activities", {
   // Location and context
   location: text("location"),
   budget: integer("budget"), // Optional budget in cents
+  budgetBreakdown: jsonb("budget_breakdown").$type<Array<{
+    category: string;
+    amount: number;
+    notes?: string;
+  }>>().default([]), // Detailed budget breakdown from AI planner
+  budgetBuffer: integer("budget_buffer"), // Recommended buffer for unexpected costs (in cents)
   participants: jsonb("participants").$type<Array<{
     name: string;
     email?: string;
