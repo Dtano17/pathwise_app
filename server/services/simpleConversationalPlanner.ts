@@ -966,9 +966,27 @@ export class SimpleConversationalPlanner {
         mode
       );
 
-      // 5. Validate minimum question count (domain-agnostic)
+      // 5. Calculate cumulative question count for current planning session
+      // The LLM only tracks questionCount for the current turn,
+      // but conversationHistory already scopes to the current session (cleared on new plan)
       const minimum = mode === 'quick' ? 3 : 5;
-      const questionCount = response.extractedInfo.questionCount || 0;
+      
+      // Count questions in all previous assistant messages + current
+      let totalQuestions = 0;
+      for (const msg of conversationHistory) {
+        if (msg.role === 'assistant') {
+          // Count question marks as proxy for questions
+          const questionMarks = (msg.content.match(/\?/g) || []).length;
+          totalQuestions += questionMarks;
+        }
+      }
+      
+      // Add current turn's questions  
+      totalQuestions += (response.extractedInfo.questionCount || 0);
+      
+      // Override with cumulative count
+      response.extractedInfo.questionCount = totalQuestions;
+      const questionCount = totalQuestions;
 
       // Only override if LLM didn't ask enough questions
       if (response.readyToGenerate && questionCount < minimum) {
@@ -979,7 +997,7 @@ export class SimpleConversationalPlanner {
         console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked, generating plan`);
       }
       
-      // 6. Add dynamic progress tracking to response using questionCount
+      // 6. Add dynamic progress tracking to response using cumulative questionCount
       const progress = calculateDynamicProgress(questionCount, mode);
       response.extractedInfo._progress = progress;
 
@@ -1064,9 +1082,26 @@ export class SimpleConversationalPlanner {
         );
       }
 
-      // Apply same post-processing as non-streaming version
+      // Apply same cumulative question counting as non-streaming version
+      // conversationHistory already scopes to current session (cleared on new plan)
       const minimum = mode === 'quick' ? 3 : 5;
-      const questionCount = response.extractedInfo.questionCount || 0;
+      
+      // Count questions in all previous assistant messages + current
+      let totalQuestions = 0;
+      for (const msg of conversationHistory) {
+        if (msg.role === 'assistant') {
+          // Count question marks as proxy for questions
+          const questionMarks = (msg.content.match(/\?/g) || []).length;
+          totalQuestions += questionMarks;
+        }
+      }
+      
+      // Add current turn's questions
+      totalQuestions += (response.extractedInfo.questionCount || 0);
+      
+      // Override with cumulative count
+      response.extractedInfo.questionCount = totalQuestions;
+      const questionCount = totalQuestions;
 
       if (response.readyToGenerate && questionCount < minimum) {
         console.log(`[SIMPLE_PLANNER] Overriding readyToGenerate - only ${questionCount}/${minimum} questions asked`);
