@@ -138,6 +138,15 @@ interface LLMProvider {
     context: PlanningContext,
     mode: 'quick' | 'smart'
   ): Promise<PlanningResponse>;
+  
+  generateStream?(
+    messages: ConversationMessage[],
+    systemPrompt: string,
+    tools: any[],
+    context: PlanningContext,
+    mode: 'quick' | 'smart',
+    onToken: (token: string) => void
+  ): Promise<PlanningResponse>;
 }
 
 class OpenAIProvider implements LLMProvider {
@@ -293,6 +302,80 @@ class OpenAIProvider implements LLMProvider {
       return result;
     } catch (error) {
       console.error('[SIMPLE_PLANNER] OpenAI error:', error);
+      throw error;
+    }
+  }
+
+  async generateStream(
+    messages: ConversationMessage[],
+    systemPrompt: string,
+    tools: any[],
+    context: PlanningContext,
+    mode: 'quick' | 'smart',
+    onToken: (token: string) => void
+  ): Promise<PlanningResponse> {
+    try {
+      // For streaming, we'll make a regular call but stream the message text
+      // Tool calls (structured data) come at the end
+      const enhancedTools = [...tools];
+      
+      const stream = await this.client.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages.map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content
+          }))
+        ],
+        tools: enhancedTools,
+        tool_choice: { type: 'function', function: { name: 'respond_with_structure' } },
+        temperature: 0.7,
+        stream: true,
+      });
+
+      let fullContent = '';
+      let fullToolCalls: any[] = [];
+      
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta;
+        
+        if (delta?.content) {
+          onToken(delta.content);
+          fullContent += delta.content;
+        }
+        
+        if (delta?.tool_calls) {
+          delta.tool_calls.forEach((tc: any, index: number) => {
+            if (!fullToolCalls[index]) {
+              fullToolCalls[index] = {
+                id: tc.id || '',
+                type: 'function',
+                function: { name: tc.function?.name || '', arguments: '' }
+              };
+            }
+            if (tc.function?.arguments) {
+              fullToolCalls[index].function.arguments += tc.function.arguments;
+            }
+          });
+        }
+      }
+
+      // Parse the structured response from tool calls
+      const toolCall = fullToolCalls[0];
+      if (!toolCall || !toolCall.function.arguments) {
+        throw new Error('No structured response from OpenAI stream');
+      }
+
+      const result = JSON.parse(toolCall.function.arguments) as PlanningResponse;
+
+      if (result.plan) {
+        validateBudgetBreakdown(result.plan);
+      }
+
+      return result;
+    } catch (error) {
+      console.error('[SIMPLE_PLANNER] OpenAI streaming error:', error);
       throw error;
     }
   }
@@ -928,6 +1011,93 @@ export class SimpleConversationalPlanner {
 
     } catch (error) {
       console.error('[SIMPLE_PLANNER] Error processing message:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Process a conversation turn with streaming
+   */
+  async processMessageStream(
+    userId: string,
+    userMessage: string,
+    conversationHistory: ConversationMessage[],
+    storage: IStorage,
+    mode: 'quick' | 'smart' = 'quick',
+    onToken: (token: string) => void
+  ): Promise<PlanningResponse> {
+    console.log(`[SIMPLE_PLANNER] Processing message with streaming for user ${userId} in ${mode} mode`);
+
+    try {
+      // 1. Gather user context
+      const context = await this.gatherUserContext(userId, storage);
+
+      // 2. Build conversation history
+      const messages = [
+        ...conversationHistory,
+        { role: 'user' as const, content: userMessage }
+      ];
+
+      // 3. Build system prompt
+      const systemPrompt = buildSystemPrompt(context, mode);
+
+      // 4. Call LLM with streaming if available
+      let response: PlanningResponse;
+      
+      if (this.llmProvider.generateStream) {
+        response = await this.llmProvider.generateStream(
+          messages,
+          systemPrompt,
+          [PLANNING_TOOL],
+          context,
+          mode,
+          onToken
+        );
+      } else {
+        // Fallback to non-streaming
+        response = await this.llmProvider.generate(
+          messages,
+          systemPrompt,
+          [PLANNING_TOOL],
+          context,
+          mode
+        );
+      }
+
+      // Apply same post-processing as non-streaming version
+      const minimum = mode === 'quick' ? 3 : 5;
+      const questionCount = response.extractedInfo.questionCount || 0;
+
+      if (response.readyToGenerate && questionCount < minimum) {
+        console.log(`[SIMPLE_PLANNER] Overriding readyToGenerate - only ${questionCount}/${minimum} questions asked`);
+        response.readyToGenerate = false;
+        delete response.plan;
+      } else if (response.readyToGenerate) {
+        console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked`);
+      }
+      
+      const progress = calculateDynamicProgress(questionCount, mode);
+      response.extractedInfo._progress = progress;
+
+      if (!response.readyToGenerate && response.extractedInfo._progress) {
+        const progress = response.extractedInfo._progress;
+        const progressPattern = /(⚡|🧠)\s*Progress:\s*\d+\/\d+.*\(\d+%\)/i;
+        const hasProgress = progressPattern.test(response.message);
+
+        if (!hasProgress) {
+          const progressString = `\n\n${progress.emoji} Progress: ${progress.gathered}/${progress.total} (${progress.percentage}%)`;
+          response.message = response.message + progressString;
+          console.log(`[SIMPLE_PLANNER] Added fallback progress tracking`);
+        }
+      }
+
+      if (response.readyToGenerate) {
+        delete response.extractedInfo._progress;
+      }
+
+      return response;
+    } catch (error) {
+      console.error('[SIMPLE_PLANNER] Error processing streaming message:', error);
       throw error;
     }
   }

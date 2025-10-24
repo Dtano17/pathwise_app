@@ -3846,24 +3846,28 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         sendEvent('progress', { phase: 'starting', message: 'Analyzing your request...' });
 
         if (mode === 'smart' || mode === 'quick') {
-          const session = await storage.getActiveLifestylePlannerSession(userId);
-          const userProfile = await storage.getUserProfile(userId);
-
-          // Process with streaming progress callback
-          const langGraphResponse = await langGraphPlanningAgent.processMessage(
-            parseInt(userId),
+          // Stream tokens as they arrive
+          const response = await simplePlanner.processMessageStream(
+            userId,
             message,
-            userProfile,
-            session?.conversationHistory || conversationHistory,
+            conversationHistory,
             storage,
             mode === 'smart' ? 'smart' : 'quick',
-            (phase, progressMessage) => {
-              // Stream progress to client in real-time
-              sendEvent('progress', { phase, message: progressMessage });
+            (token) => {
+              // Stream each token to client
+              sendEvent('token', { token });
             }
           );
 
-          sendEvent('complete', { response: langGraphResponse });
+          // Send final complete message with structured data
+          sendEvent('complete', {
+            message: response.message,
+            extractedInfo: response.extractedInfo,
+            readyToGenerate: response.readyToGenerate,
+            plan: response.plan,
+            domain: response.domain,
+            contextChips: response.contextChips
+          });
           res.end();
         } else {
           sendEvent('error', { message: 'Invalid mode' });
