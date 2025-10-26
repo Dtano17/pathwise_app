@@ -104,38 +104,15 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
     '@creative', '@entertainment'
   ];
 
-  // Load session from localStorage on mount (but respect initialMode if provided)
+  // Clear any stale localStorage on mount to ensure fresh sessions
   useEffect(() => {
-    const savedSession = localStorage.getItem('planner_session');
-    const savedMode = localStorage.getItem('planner_mode');
-    const savedChips = localStorage.getItem('planner_chips');
+    localStorage.removeItem('planner_session');
+    localStorage.removeItem('planner_mode');
+    localStorage.removeItem('planner_chips');
+  }, []);
 
-    if (savedSession) {
-      setCurrentSession(JSON.parse(savedSession));
-    }
-    
-    // Only restore saved mode if no initialMode was provided
-    if (savedMode && !initialMode) {
-      setPlanningMode(savedMode as PlanningMode);
-    }
-    
-    if (savedChips) {
-      setContextChips(JSON.parse(savedChips));
-    }
-  }, [initialMode]);
-
-  // Save session to localStorage whenever it changes
-  useEffect(() => {
-    if (currentSession) {
-      localStorage.setItem('planner_session', JSON.stringify(currentSession));
-    }
-    if (planningMode) {
-      localStorage.setItem('planner_mode', planningMode);
-    }
-    if (contextChips.length > 0) {
-      localStorage.setItem('planner_chips', JSON.stringify(contextChips));
-    }
-  }, [currentSession, planningMode, contextChips]);
+  // Note: localStorage save/restore disabled to prevent stale conversation issues
+  // Sessions are now ephemeral per page load for better UX
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
