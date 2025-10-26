@@ -1138,27 +1138,10 @@ export class SimpleConversationalPlanner {
         mode
       );
 
-      // 5. Calculate cumulative question count for current planning session
-      // The LLM only tracks questionCount for the current turn,
-      // but conversationHistory already scopes to the current session (cleared on new plan)
+      // 5. Use AI's reported questionCount directly
+      // AI is instructed to track cumulative questions across all batches in extractedInfo
       const minimum = mode === 'quick' ? 5 : 10;
-      
-      // Count questions in all previous assistant messages + current
-      let totalQuestions = 0;
-      for (const msg of conversationHistory) {
-        if (msg.role === 'assistant') {
-          // Count question marks as proxy for questions
-          const questionMarks = (msg.content.match(/\?/g) || []).length;
-          totalQuestions += questionMarks;
-        }
-      }
-      
-      // Add current turn's questions  
-      totalQuestions += (response.extractedInfo.questionCount || 0);
-      
-      // Override with cumulative count
-      response.extractedInfo.questionCount = totalQuestions;
-      const questionCount = totalQuestions;
+      const questionCount = response.extractedInfo.questionCount || 0;
 
       // Check if user requested early generation
       const latestUserMessage = messages[messages.length - 1]?.content || '';
@@ -1270,26 +1253,10 @@ export class SimpleConversationalPlanner {
         );
       }
 
-      // Apply same cumulative question counting as non-streaming version
-      // conversationHistory already scopes to current session (cleared on new plan)
+      // Use AI's reported questionCount directly (same as non-streaming version)
+      // AI is instructed to track cumulative questions across all batches in extractedInfo
       const minimum = mode === 'quick' ? 5 : 10;
-
-      // Count questions in all previous assistant messages + current
-      let totalQuestions = 0;
-      for (const msg of conversationHistory) {
-        if (msg.role === 'assistant') {
-          // Count question marks as proxy for questions
-          const questionMarks = (msg.content.match(/\?/g) || []).length;
-          totalQuestions += questionMarks;
-        }
-      }
-
-      // Add current turn's questions
-      totalQuestions += (response.extractedInfo.questionCount || 0);
-
-      // Override with cumulative count
-      response.extractedInfo.questionCount = totalQuestions;
-      const questionCount = totalQuestions;
+      const questionCount = response.extractedInfo.questionCount || 0;
 
       // Check if user requested early generation
       const latestUserMessage = messages[messages.length - 1]?.content || '';
