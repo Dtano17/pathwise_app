@@ -235,7 +235,7 @@ class OpenAIProvider implements LLMProvider {
         ],
         tools: enhancedTools,
         tool_choice: mode === 'smart'
-          ? { type: 'auto' }  // Allow web_search in smart mode
+          ? 'auto'  // Allow web_search in smart mode
           : { type: 'function', function: { name: 'respond_with_structure' } },
         temperature: 0.7,
       });
@@ -728,10 +728,12 @@ If user request is ambiguous (e.g., "help me plan something fun"), ask clarifyin
 *"That sounds exciting! What type of activity are you thinking about? (Travel, event, dining, fitness, or something else?)"*
 
 **Adapt Freely - These Are Templates, Not Rules:**
-- If user volunteers information upfront, don't re-ask it
+- **CRITICAL: If user already provided info in their initial request, SKIP that question entirely**
+  - Example: User says "trip to Bronx November 10th" → Skip destination/dates questions, jump to budget/group size
+  - Parse their initial message carefully and extract all mentioned details before asking first question
 - Adjust question wording to sound natural and conversational
 - Reference user profile when relevant: ${user.interests && user.interests.length > 0 ? `"I see you love ${user.interests[0]}, would you like to incorporate that?"` : ''}
-- If domain isn't listed above, use your expertise to determine top 10 questions
+- If domain isn't listed above, use your expertise to determine top questions
 - Be conversational: "Ooh, that sounds amazing! 🌍" not "Acknowledged."
 
 ${mode === 'smart' ? `
@@ -740,12 +742,14 @@ ${mode === 'smart' ? `
 - Use web_search tool for real-time data: weather, prices, events, availability
 - Provide detailed options and alternatives in final plan
 - Include enrichment data and research findings
+- More verbose explanations and recommendations
 ` : `
 **Quick Mode Specifics:**
-- Keep it streamlined - top ${minQuestions} questions across 2 batches
-- Focus on critical and important questions only (skip enrichment unless user volunteers)
+- Keep it streamlined - top ${minQuestions} critical questions across 2 batches
+- Focus on essential questions only (Q1-Q5 from priority list)
+- Still include enrichment in final plan (weather, budget breakdown) - just present concisely
 - Generate plan quickly once minimums met
-- Simple but actionable output
+- Actionable output with key real-time data, but less verbose than Smart mode
 `}
 
 ### 4. No Hallucinations - CRITICAL
@@ -776,18 +780,26 @@ ${preferences?.preferences?.dietaryPreferences ? `- Respect dietary needs: ${pre
 - Match communication style: ${user.communicationStyle || 'friendly and encouraging'}
 - Reference recent journal if relevant
 
-### 7. Real-Time Data ${mode === 'smart' ? '(Use web_search!)' : '(Smart mode only)'}
+### 7. Real-Time Data & Enrichment
 
 ${mode === 'smart' ? `
-Use the web_search tool to provide current information:
-- Weather forecasts for destinations/dates
-- Flight and hotel prices
-- Event schedules and availability
-- Restaurant reviews and prices
-- Activity costs
+**Smart Mode - Use web_search tool actively:**
+- Search for weather forecasts for destinations/dates
+- Look up flight and hotel price ranges
+- Check event schedules and availability
+- Find restaurant reviews and current prices
+- Research activity costs and availability
+- Provide multiple alternatives and detailed comparisons
 
 Search naturally: "weather forecast for Lagos November 10-17 2024"
-` : ''}
+` : `
+**Quick Mode - Include enrichment in final plan:**
+- When generating the plan, include weather info if relevant (travel/outdoor activities)
+- Provide budget breakdown if user mentioned budget
+- Add brief tips based on best practices
+- Keep enrichment concise but present - don't skip it entirely
+- Note: You don't have web_search tool, but backend will enrich the plan after generation
+`}
 
 ### 8. Strict Guardrails
 
