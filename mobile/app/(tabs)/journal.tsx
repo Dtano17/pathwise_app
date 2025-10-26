@@ -36,11 +36,18 @@ export default function JournalScreen() {
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [detectedKeywords, setDetectedKeywords] = useState<string[]>([]);
 
   useEffect(() => {
     loadEntries();
     requestPermissions();
   }, []);
+
+  // Detect keywords as user types
+  useEffect(() => {
+    const keywords = (content.match(/@[\w]+/g) || []).map(k => k.toLowerCase());
+    setDetectedKeywords(keywords);
+  }, [content]);
 
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -78,27 +85,37 @@ export default function JournalScreen() {
 
     setLoading(true);
     try {
-      const formData = new FormData();
-      formData.append('content', content);
-      if (selectedCategory) {
-        formData.append('category', selectedCategory);
+      // Upload images first if any
+      let uploadedMedia = [];
+      if (images.length > 0) {
+        const formData = new FormData();
+        images.forEach((uri, index) => {
+          formData.append('media', {
+            uri,
+            name: `image-${index}.jpg`,
+            type: 'image/jpeg',
+          } as any);
+        });
+
+        const uploadResponse = await apiClient.uploadMedia(formData);
+        uploadedMedia = uploadResponse.data.media || [];
       }
 
-      images.forEach((uri, index) => {
-        formData.append('media', {
-          uri,
-          name: `image-${index}.jpg`,
-          type: 'image/jpeg',
-        } as any);
+      // Detect @keywords in content
+      const keywords = (content.match(/@[\w]+/g) || []).map(k => k.toLowerCase());
+
+      // Create journal entry with smart categorization
+      await apiClient.createJournalEntry({
+        text: content,
+        media: uploadedMedia,
+        keywords,
       });
 
-      await apiClient.createJournalEntry(formData);
-      
       setContent('');
       setImages([]);
       setSelectedCategory(null);
       loadEntries();
-      
+
       Alert.alert('Success', 'Journal entry saved!');
     } catch (error) {
       Alert.alert('Error', 'Failed to save journal entry');
@@ -146,6 +163,22 @@ export default function JournalScreen() {
           multiline
           numberOfLines={6}
         />
+
+        {detectedKeywords.length > 0 && (
+          <View style={[styles.keywordHint, { backgroundColor: '#F3E8FF', borderColor: '#9333EA' }]}>
+            <Text style={styles.keywordHintTitle}>✨ Detected Keywords:</Text>
+            <View style={styles.keywordTags}>
+              {detectedKeywords.map((keyword, index) => (
+                <View key={index} style={[styles.keywordTag, { backgroundColor: '#9333EA' }]}>
+                  <Text style={styles.keywordTagText}>{keyword}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.keywordHintText}>
+              Your entry will be automatically categorized!
+            </Text>
+          </View>
+        )}
 
         {images.length > 0 && (
           <View style={styles.imagesContainer}>
@@ -330,5 +363,38 @@ const styles = StyleSheet.create({
   },
   entryDate: {
     fontSize: 12,
+  },
+  keywordHint: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  keywordHintTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#7C3AED',
+    marginBottom: 8,
+  },
+  keywordTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+  },
+  keywordTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  keywordTagText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  keywordHintText: {
+    fontSize: 11,
+    color: '#7C3AED',
+    fontStyle: 'italic',
   },
 });

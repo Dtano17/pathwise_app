@@ -46,7 +46,7 @@ export const apiClient = {
     api.post('/api/chat/message', { sessionId, message }),
 
   // Journal
-  getJournal: () => api.get('/api/journal'),
+  getJournal: () => api.get('/api/user/preferences'),
   createJournalEntry: (data: any) => api.post('/api/journal/smart-entry', data),
   uploadMedia: (formData: FormData) =>
     api.post('/api/journal/upload', formData, {
