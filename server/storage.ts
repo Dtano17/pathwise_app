@@ -241,6 +241,9 @@ export interface IStorage {
     media?: Array<{ url: string; type: 'image' | 'video'; thumbnail?: string }>;
     keywords?: string[];
     aiConfidence?: number;
+    activityId?: string;
+    linkedActivityTitle?: string;
+    mood?: 'great' | 'good' | 'okay' | 'poor';
   }): Promise<UserPreferences>;
   getPersonalJournalEntries(userId: string, category?: string): Promise<UserPreferences | undefined>;
   updatePersonalJournalEntry(userId: string, category: string, entryId: string, updates: Partial<{
@@ -1092,6 +1095,9 @@ export class DatabaseStorage implements IStorage {
     media?: Array<{ url: string; type: 'image' | 'video'; thumbnail?: string }>;
     keywords?: string[];
     aiConfidence?: number;
+    activityId?: string;
+    linkedActivityTitle?: string;
+    mood?: 'great' | 'good' | 'okay' | 'poor';
   }): Promise<UserPreferences> {
     const prefs = await this.getUserPreferences(userId);
     const currentPrefs = prefs?.preferences || {};
@@ -1129,6 +1135,9 @@ export class DatabaseStorage implements IStorage {
         media: combinedMedia.length > 0 ? combinedMedia : undefined,
         keywords: combinedKeywords.length > 0 ? combinedKeywords : undefined,
         aiConfidence: entry.aiConfidence || existingEntry.aiConfidence,
+        activityId: entry.activityId || existingEntry.activityId,
+        linkedActivityTitle: entry.linkedActivityTitle || existingEntry.linkedActivityTitle,
+        mood: entry.mood || existingEntry.mood,
         timestamp: new Date().toISOString(), // Update timestamp to latest
       };
     } else {
@@ -1140,6 +1149,9 @@ export class DatabaseStorage implements IStorage {
         timestamp: new Date().toISOString(),
         aiConfidence: entry.aiConfidence,
         keywords: entry.keywords,
+        activityId: entry.activityId,
+        linkedActivityTitle: entry.linkedActivityTitle,
+        mood: entry.mood,
       };
       
       categoryEntries.push(newEntry);
