@@ -103,7 +103,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
           
           <!-- Header -->
           <tr>
-            <td class="header-padding" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #7c3aed 100%); padding: 50px 40px; text-align: center;">
+            <td class="header-padding" style="background-color: #8b5cf6; background-image: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #7c3aed 100%); padding: 50px 40px; text-align: center;">
               <h1 style="margin: 0 0 12px; color: #ffffff; font-size: 36px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2;">Welcome to JournalMate</h1>
               <p style="margin: 0; color: #e9d5ff; font-size: 18px; font-weight: 500; line-height: 1.4;">Your personal planning companion that adapts to your rhythm</p>
             </td>
@@ -126,8 +126,56 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 Our rhythm-aware planning engine learns your patterns, adapts in real-time, and turns every goal into an actionable journey.
               </p>
               
+              <!-- The Complete Cycle: Visual Flow Diagram -->
+              <div style="margin: 30px 0;">
+                <h3 style="margin: 0 0 20px; color: #8b5cf6; font-size: 20px; font-weight: 700; text-align: center; line-height: 1.3;">✨ The Complete Cycle</h3>
+                <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+                  <tr>
+                    <!-- Step 1: Plan -->
+                    <td align="center" style="padding: 0 4px 12px;">
+                      <div style="background-color: #8b5cf6; background-image: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: #ffffff; padding: 16px 12px; border-radius: 12px; text-align: center; min-height: 100px;">
+                        <div style="font-size: 28px; margin-bottom: 8px;">🎯</div>
+                        <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px;">PLAN</div>
+                        <div style="font-size: 13px; line-height: 1.4;">AI creates personalized tasks</div>
+                      </div>
+                    </td>
+                    <td align="center" width="30" style="color: #8b5cf6; font-size: 24px; font-weight: 700; padding-bottom: 12px;">→</td>
+                    <!-- Step 2: Execute -->
+                    <td align="center" style="padding: 0 4px 12px;">
+                      <div style="background-color: #10b981; background-image: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; padding: 16px 12px; border-radius: 12px; text-align: center; min-height: 100px;">
+                        <div style="font-size: 28px; margin-bottom: 8px;">✅</div>
+                        <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px;">EXECUTE</div>
+                        <div style="font-size: 13px; line-height: 1.4;">Swipe & complete activities</div>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <!-- Step 3: Reflect -->
+                    <td align="center" style="padding: 0 4px 12px;">
+                      <div style="background-color: #3b82f6; background-image: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: #ffffff; padding: 16px 12px; border-radius: 12px; text-align: center; min-height: 100px;">
+                        <div style="font-size: 28px; margin-bottom: 8px;">📸</div>
+                        <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px;">REFLECT</div>
+                        <div style="font-size: 13px; line-height: 1.4;">Tag photos, give feedback</div>
+                      </div>
+                    </td>
+                    <td align="center" width="30" style="color: #8b5cf6; font-size: 24px; font-weight: 700; padding-bottom: 12px;">→</td>
+                    <!-- Step 4: Auto-Journal -->
+                    <td align="center" style="padding: 0 4px 12px;">
+                      <div style="background-color: #ec4899; background-image: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: #ffffff; padding: 16px 12px; border-radius: 12px; text-align: center; min-height: 100px;">
+                        <div style="font-size: 28px; margin-bottom: 8px;">📓</div>
+                        <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px;">AUTO-JOURNAL</div>
+                        <div style="font-size: 13px; line-height: 1.4;">Built automatically for you</div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+                <p style="text-align: center; margin: 16px 0 0; color: #8b5cf6; font-size: 14px; font-weight: 600; line-height: 1.5;">
+                  🔄 Complete the cycle = JournalMate journals FOR YOU (no manual writing!)
+                </p>
+              </div>
+              
               <!-- Privacy & Control Box -->
-              <div style="background: linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%); border-left: 4px solid #8b5cf6; border-radius: 12px; padding: 20px; margin-top: 24px;">
+              <div style="background-color: #f3e8ff; background-image: linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%); border-left: 4px solid #8b5cf6; border-radius: 12px; padding: 20px; margin-top: 24px;">
                 <p style="margin: 0 0 12px; color: #6b21a8; font-size: 15px; font-weight: 700; line-height: 1.5;">
                   🔒 You're in Control
                 </p>
@@ -141,7 +189,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
           <!-- Divider -->
           <tr>
             <td style="padding: 0 40px;">
-              <div style="height: 2px; background: linear-gradient(90deg, transparent, #e5e7eb, transparent);"></div>
+              <div style="height: 2px; background-color: #e5e7eb; background-image: linear-gradient(90deg, transparent, #e5e7eb, transparent);"></div>
             </td>
           </tr>
 
@@ -178,10 +226,22 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 </p>
               </div>
 
-              <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">📸 Automatic AI Journaling</h4>
-                <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  JournalMate <strong>does the journaling for you</strong> using AI. It learns from your task feedback (likes/dislikes), then you just tag images/videos with @keywords (like @restaurants, @travel, @music) and link activities. You choose when to add more details—JournalMate handles the rest, building a rich journal automatically with AI-powered memories.
+              <div class="feature-item" style="margin-bottom: 24px; background-color: #fef3c7; background-image: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b; border-radius: 12px; padding: 20px;">
+                <h4 style="margin: 0 0 12px; color: #92400e; font-size: 18px; font-weight: 700; line-height: 1.4;">🔄 AUTO-JOURNAL: The Magic Happens Automatically</h4>
+                <p style="margin: 0 0 12px; color: #78350f; font-size: 16px; font-weight: 600; line-height: 1.6;">
+                  <strong>Here's the secret: As long as you PLAN, EXECUTE, and REFLECT with JournalMate, the app journals FOR YOU.</strong>
+                </p>
+                <p style="margin: 0 0 12px; color: #78350f; font-size: 15px; line-height: 1.6;">
+                  No manual diary writing. No blank pages. Just complete the full cycle:
+                </p>
+                <ul style="margin: 0 0 12px; padding-left: 20px; color: #78350f; font-size: 15px; line-height: 1.7;">
+                  <li style="margin-bottom: 8px;"><strong>PLAN:</strong> AI creates your personalized tasks</li>
+                  <li style="margin-bottom: 8px;"><strong>EXECUTE:</strong> Swipe to complete activities, mark progress</li>
+                  <li style="margin-bottom: 8px;"><strong>REFLECT:</strong> Tag photos with @keywords (@restaurants, @travel), give thumbs up/down feedback</li>
+                  <li><strong>AUTO-JOURNAL:</strong> JournalMate builds your journal automatically from your completions, photos, and feedback</li>
+                </ul>
+                <p style="margin: 0; color: #92400e; font-size: 15px; font-weight: 600; line-height: 1.6; font-style: italic;">
+                  The journal writes itself as you live your life. That's the complete loop. 🔄
                 </p>
               </div>
               
@@ -211,7 +271,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
           <!-- Getting Started CTA -->
           <tr>
             <td class="cta-padding" style="padding: 20px 40px 45px;">
-              <div class="cta-box" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); padding: 35px 30px; border-radius: 16px; text-align: center; box-shadow: 0 6px 20px rgba(139, 92, 246, 0.25);">
+              <div class="cta-box" style="background-color: #8b5cf6; background-image: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); padding: 35px 30px; border-radius: 16px; text-align: center; box-shadow: 0 6px 20px rgba(139, 92, 246, 0.25);">
                 <h3 style="margin: 0 0 18px; color: #ffffff; font-size: 24px; font-weight: 700; line-height: 1.3;">🚀 Getting Started Is Easy</h3>
                 <div style="text-align: left; margin: 0 auto; max-width: 450px;">
                   <p style="margin: 0 0 14px; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">1️⃣</strong> Tap <strong>New Plan</strong> → Try Quick or Smart</p>

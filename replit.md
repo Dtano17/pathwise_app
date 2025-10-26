@@ -87,3 +87,14 @@ The application employs a mobile-first responsive design with a clean, card-base
 - **DeepSeek**: For additional AI model support.
 - **PostgreSQL (Neon)**: Cloud-hosted relational database.
 - **Passport.js**: Authentication middleware for Node.js.
+- **Resend**: Email delivery service for transactional emails (welcome emails, notifications).
+
+## Email Communications
+- **Welcome Email System**: Production-ready automated welcome email sent to new users after signup
+  - Template file: `server/emailService.ts`
+  - Visual flow diagram: 2x2 table grid showing PLAN → EXECUTE → REFLECT → AUTO-JOURNAL cycle
+  - Email client compatibility: All gradient backgrounds use `background-color` fallback + `background-image` for Outlook/legacy client support
+  - Key messaging: Planning-first approach, AUTO-JOURNAL feature (journals FOR YOU automatically), rhythm-aware AI
+  - Color scheme: Purple gradient hero (#8b5cf6), colored flow boxes (purple, green, blue, pink), golden AUTO-JOURNAL callout
+  - Test endpoint: POST `/api/admin/test-welcome-email` (development-only, blocked in production via NODE_ENV check)
+  - Last updated: Oct 26, 2025 - Added visual flow diagram, emphasized AUTO-JOURNAL feature, fixed all gradient fallbacks for email client compatibility

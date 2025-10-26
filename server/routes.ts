@@ -2539,6 +2539,33 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
     }
   });
 
+  // Test welcome email endpoint (temporary - for development only)
+  app.post("/api/admin/test-welcome-email", async (req, res) => {
+    // Only allow in development mode
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ error: 'This endpoint is only available in development mode' });
+    }
+    
+    try {
+      const { email, firstName } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+      
+      console.log('[TEST EMAIL] Sending test welcome email to:', email);
+      const result = await sendWelcomeEmail(email, firstName || 'there');
+      
+      if (result.success) {
+        res.json({ success: true, message: 'Test welcome email sent successfully', emailId: result.emailId });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to send email', details: result.error });
+      }
+    } catch (error) {
+      console.error('Test welcome email error:', error);
+      res.status(500).json({ error: 'Failed to send test email' });
+    }
+  });
+
   // Increment activity views
   app.post("/api/activities/:activityId/increment-views", async (req, res) => {
     try {
