@@ -14,6 +14,7 @@ import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import PersonalJournal from '@/components/PersonalJournal';
 import ConversationalPlanner from '@/components/ConversationalPlanner';
+import QuickCaptureButton from '@/components/QuickCaptureButton';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
@@ -3756,6 +3757,9 @@ Assistant: For nutrition, I recommend..."
         onOpenChange={setShowTutorial}
         onComplete={handleTutorialComplete}
       />
+
+      {/* Quick Capture Floating Button */}
+      <QuickCaptureButton onClick={() => setShowJournalMode(true)} />
 
     </div>
   );
