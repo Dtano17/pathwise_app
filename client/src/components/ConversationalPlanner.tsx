@@ -8,8 +8,10 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useKeywordDetection, getCategoryColor } from '@/hooks/useKeywordDetection';
+import TemplateSelector from './TemplateSelector';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -52,9 +54,11 @@ type PlanningMode = 'quick' | 'smart' | 'chat' | 'direct' | 'journal' | null;
 interface ConversationalPlannerProps {
   onClose?: () => void;
   initialMode?: PlanningMode;
+  activityId?: string;
+  activityTitle?: string;
 }
 
-export default function ConversationalPlanner({ onClose, initialMode }: ConversationalPlannerProps) {
+export default function ConversationalPlanner({ onClose, initialMode, activityId, activityTitle }: ConversationalPlannerProps) {
   const { toast } = useToast();
   const [currentSession, setCurrentSession] = useState<PlannerSession | null>(null);
   const [message, setMessage] = useState('');
@@ -86,6 +90,17 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [autocompleteSearch, setAutocompleteSearch] = useState('');
   const [autocompletePosition, setAutocompletePosition] = useState({ top: 0, left: 0 });
+
+  // Template selector state
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+
+  // Onboarding and help state
+  const [showKeywordHelp, setShowKeywordHelp] = useState(false);
+  const [showOnboardingTooltip, setShowOnboardingTooltip] = useState(() => {
+    if (planningMode !== 'journal') return false;
+    const dismissed = localStorage.getItem('journalmate_onboarding_dismissed');
+    return !dismissed;
+  });
   
   // Available tags for autocomplete
   const availableTags = [
@@ -535,7 +550,9 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
       // Submit journal entry with AI categorization
       const response = await apiRequest('POST', '/api/journal/smart-entry', {
         text: journalText,
-        media: uploadedMedia
+        media: uploadedMedia,
+        activityId: activityId,
+        linkedActivityTitle: activityTitle
       });
       return response.json();
     },
@@ -868,6 +885,9 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
 
   // Journal Mode UI - Completely Redesigned
   if (planningMode === 'journal') {
+    // Real-time keyword detection
+    const keywordDetection = useKeywordDetection(journalText);
+
     return (
       <div className="h-full flex flex-col bg-gradient-to-br from-purple-50 via-white to-emerald-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         {/* Header */}
@@ -885,6 +905,25 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setShowKeywordHelp(true)}
+                variant="ghost"
+                size="sm"
+                title="Learn about @keywords"
+                data-testid="button-keyword-help"
+              >
+                <Lightbulb className="h-4 w-4" />
+              </Button>
+              <Button
+                onClick={() => setShowTemplateSelector(true)}
+                variant="ghost"
+                size="sm"
+                className="hidden sm:flex"
+                data-testid="button-use-template"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Templates
+              </Button>
               <Button
                 onClick={() => {
                   queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
@@ -929,7 +968,15 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
             <Card className="border-none shadow-xl bg-white/95 dark:bg-slate-900/95 backdrop-blur">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Quick Capture</CardTitle>
+                  <div className="flex flex-col gap-2">
+                    <CardTitle className="text-base">Quick Capture</CardTitle>
+                    {activityTitle && (
+                      <Badge variant="outline" className="w-fit text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
+                        <BookOpen className="h-3 w-3 mr-1" />
+                        Journaling about: {activityTitle}
+                      </Badge>
+                    )}
+                  </div>
                   {isSavingJournal && (
                     <Badge variant="secondary" className="text-xs animate-pulse">
                       <RefreshCcw className="h-3 w-3 mr-1 animate-spin" />
@@ -938,7 +985,9 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
                   )}
                 </div>
                 <CardDescription className="text-xs">
-                  Type freely. Use @keywords like @restaurants, @travel, @music for smart categorization
+                  {activityTitle
+                    ? "Capture your thoughts and experiences about this activity"
+                    : "Type freely. Use @keywords like @restaurants, @travel, @music for smart categorization"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -1013,6 +1062,35 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
                   @books
                 </Badge>
               </div>
+
+              {/* Real-time category detection display */}
+              {keywordDetection.suggestedCategories.length > 0 && (
+                <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-start gap-2">
+                    <Tag className="h-4 w-4 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-purple-900 dark:text-purple-100 mb-1.5">
+                        {keywordDetection.isGroupedExperience ? '✨ Grouped Experience Detected' : '📝 Will save to:'}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {keywordDetection.suggestedCategories.map((category) => (
+                          <Badge
+                            key={category}
+                            className={`text-xs bg-gradient-to-r ${getCategoryColor(category)} text-white border-0 shadow-sm`}
+                          >
+                            {category}
+                          </Badge>
+                        ))}
+                      </div>
+                      {keywordDetection.isGroupedExperience && (
+                        <p className="text-[10px] text-purple-600 dark:text-purple-400 mt-1.5">
+                          Your entry will be saved to multiple categories for a complete memory
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -1187,6 +1265,103 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
             )}
           </div>
         </ScrollArea>
+
+        {/* Template Selector */}
+        <TemplateSelector
+          open={showTemplateSelector}
+          onOpenChange={setShowTemplateSelector}
+          onComplete={() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+            refetchJournalEntries();
+          }}
+        />
+
+        {/* Keyword Help Modal */}
+        <Dialog open={showKeywordHelp} onOpenChange={setShowKeywordHelp}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Tag className="h-5 w-5 text-primary" />
+                Using @Keywords for Smart Categorization
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Type @keywords in your journal entries to automatically categorize them. JournalMate will detect these keywords and save your entry to the right category!
+              </p>
+
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm">Single Category Keywords:</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><code className="bg-muted px-2 py-1 rounded">@restaurants</code> → Restaurants & Food</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@travel</code> → Travel & Places</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@movies</code> → Movies & TV Shows</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@music</code> → Music & Concerts</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@books</code> → Books & Learning</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@fitness</code> → Health & Fitness</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@fashion</code> → Fashion & Style</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@shopping</code> → Shopping & Purchases</div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm">Grouped Experience Keywords:</h4>
+                <p className="text-xs text-muted-foreground">
+                  These keywords save to multiple related categories:
+                </p>
+                <div className="space-y-2 text-sm">
+                  <div><code className="bg-primary/10 px-2 py-1 rounded">@vacation</code> → Travel, Restaurants, Activities</div>
+                  <div><code className="bg-primary/10 px-2 py-1 rounded">@datenight</code> → Restaurants, Activities, Fashion</div>
+                  <div><code className="bg-primary/10 px-2 py-1 rounded">@weekend</code> → Activities, Restaurants, Travel</div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-blue-600" />
+                  Pro Tip
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  Start typing <code className="bg-muted px-1.5 py-0.5 rounded">@</code> and we'll show you suggestions! You can use multiple keywords in one entry.
+                </p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* First-Time Onboarding Tooltip */}
+        {showOnboardingTooltip && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 animate-in fade-in">
+            <Card className="max-w-md shadow-2xl animate-in zoom-in">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  Welcome to JournalMate!
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm">
+                  Start journaling by typing freely in the text box. Use <code className="bg-muted px-1.5 py-0.5 rounded">@keywords</code> like <code className="bg-muted px-1.5 py-0.5 rounded">@restaurants</code> or <code className="bg-muted px-1.5 py-0.5 rounded">@travel</code> to automatically categorize your entries!
+                </p>
+
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Lightbulb className="h-4 w-4" />
+                  <span>Click the lightbulb icon anytime to see all available keywords</span>
+                </div>
+
+                <Button
+                  onClick={() => {
+                    setShowOnboardingTooltip(false);
+                    localStorage.setItem('journalmate_onboarding_dismissed', 'true');
+                  }}
+                  className="w-full"
+                >
+                  Got it!
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     );
   }

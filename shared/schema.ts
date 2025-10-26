@@ -1039,7 +1039,7 @@ export const userPreferences = pgTable("user_preferences", {
     constraints?: string[]; // ['limited_mobility', 'time_constraints', 'budget_conscious']
     communicationTone?: 'formal' | 'casual' | 'encouraging' | 'direct';
     focusAreas?: string[]; // ['career', 'health', 'relationships', 'personal_growth', 'finance']
-    journalData?: { 
+    journalData?: {
       [category: string]: Array<{
         id: string;
         text: string;
@@ -1051,6 +1051,9 @@ export const userPreferences = pgTable("user_preferences", {
         timestamp: string;
         aiConfidence?: number; // 0-1, indicates AI's confidence in categorization
         keywords?: string[]; // Detected keywords like @restaurants
+        activityId?: string; // Link to activity this journal entry reflects on
+        linkedActivityTitle?: string; // Activity title for display (denormalized for performance)
+        mood?: 'great' | 'good' | 'okay' | 'poor'; // Mood associated with this entry
       }>
     }; // Personal journal entries by category with media support
     customJournalCategories?: Array<{ id: string; name: string; color: string }>; // User-created journal categories

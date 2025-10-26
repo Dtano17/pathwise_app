@@ -14,6 +14,8 @@ import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import PersonalJournal from '@/components/PersonalJournal';
 import ConversationalPlanner from '@/components/ConversationalPlanner';
+import QuickCaptureButton from '@/components/QuickCaptureButton';
+import PostActivityPrompt from '@/components/PostActivityPrompt';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
@@ -120,6 +122,12 @@ export default function MainApp({
   const [sharePreviewDialog, setSharePreviewDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
   const [editingActivity, setEditingActivity] = useState<ActivityType | null>(null);
   const [showJournalMode, setShowJournalMode] = useState(false);
+  const [journalActivityContext, setJournalActivityContext] = useState<{ activityId: string; title: string } | null>(null);
+  const [postActivityPrompt, setPostActivityPrompt] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
+  const [promptedActivities, setPromptedActivities] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('journalmate_prompted_activities');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
 
   // Handle URL query parameters for activity selection from shared links
   useEffect(() => {
@@ -1069,10 +1077,15 @@ export default function MainApp({
             description: `Congratulations! You've completed "${activity.title}"! All tasks are done! 🚀`
           });
 
-          // Auto-hide confetti after 5 seconds
+          // Auto-hide confetti after 5 seconds, then show journal prompt
           setTimeout(() => {
             setShowActivityConfetti(false);
             setActivityCelebration(null);
+
+            // Show journal prompt if not already prompted for this activity
+            if (!promptedActivities.has(activity.id)) {
+              setPostActivityPrompt({ open: true, activity });
+            }
           }, 5000);
 
           // Show toast notification
@@ -1083,7 +1096,37 @@ export default function MainApp({
         }
       });
     }
-  }, [activities, completedActivities, toast]);
+  }, [activities, completedActivities, toast, promptedActivities]);
+
+  // Post-Activity Prompt handlers
+  const handleQuickNote = (activityId: string, title: string) => {
+    setJournalActivityContext({ activityId, title });
+    setShowJournalMode(true);
+
+    // Mark as prompted
+    const updated = new Set(promptedActivities);
+    updated.add(activityId);
+    setPromptedActivities(updated);
+    localStorage.setItem('journalmate_prompted_activities', JSON.stringify([...updated]));
+  };
+
+  const handleSkipJournalPrompt = () => {
+    if (postActivityPrompt.activity) {
+      // Mark as prompted so we don't show again
+      const updated = new Set(promptedActivities);
+      updated.add(postActivityPrompt.activity.id);
+      setPromptedActivities(updated);
+      localStorage.setItem('journalmate_prompted_activities', JSON.stringify([...updated]));
+    }
+  };
+
+  const handleRemindLater = () => {
+    // Don't mark as prompted, so it can show again later
+    toast({
+      title: "We'll remind you later",
+      description: "Journal prompt will appear next time you open the app"
+    });
+  };
 
   // Tab options for mobile dropdown
   const tabOptions = [
@@ -1678,6 +1721,29 @@ export default function MainApp({
                                     : 'text-muted-foreground group-hover:drop-shadow-[0_0_4px_rgba(147,51,234,0.3)] group-hover:scale-105'
                                 }`} />
                               </Button>
+                              {progressPercent > 0 && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setJournalActivityContext({
+                                      activityId: activity.id,
+                                      title: activity.title
+                                    });
+                                    setShowJournalMode(true);
+                                  }}
+                                  data-testid={`button-journal-${activity.id}`}
+                                  title="Journal about this activity"
+                                  className={`transition-all duration-300 ${
+                                    progressPercent === 100
+                                      ? 'text-purple-600 animate-pulse hover:scale-110'
+                                      : 'hover:text-purple-600'
+                                  }`}
+                                >
+                                  <BookOpen className="w-4 h-4" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -3635,14 +3701,40 @@ Assistant: For nutrition, I recommend..."
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showJournalMode} onOpenChange={setShowJournalMode}>
+      <Dialog open={showJournalMode} onOpenChange={(open) => {
+        setShowJournalMode(open);
+        if (!open) {
+          setJournalActivityContext(null);
+        }
+      }}>
         <DialogContent className="max-w-[95vw] sm:max-w-4xl h-[90vh] flex flex-col p-0" data-testid="modal-journal-mode">
-          <ConversationalPlanner 
+          <ConversationalPlanner
             initialMode="journal"
-            onClose={() => setShowJournalMode(false)}
+            onClose={() => {
+              setShowJournalMode(false);
+              setJournalActivityContext(null);
+            }}
+            activityId={journalActivityContext?.activityId}
+            activityTitle={journalActivityContext?.title}
           />
         </DialogContent>
       </Dialog>
+
+      {/* Post-Activity Journal Prompt */}
+      {postActivityPrompt.activity && (
+        <PostActivityPrompt
+          activity={{
+            id: postActivityPrompt.activity.id,
+            title: postActivityPrompt.activity.title,
+            category: postActivityPrompt.activity.category || 'General'
+          }}
+          onQuickNote={handleQuickNote}
+          onSkip={handleSkipJournalPrompt}
+          onRemindLater={handleRemindLater}
+          open={postActivityPrompt.open}
+          onOpenChange={(open) => setPostActivityPrompt({ ...postActivityPrompt, open })}
+        />
+      )}
 
       <Dialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>
         <DialogContent className="max-w-md p-0" data-testid="modal-signin">
@@ -3756,6 +3848,9 @@ Assistant: For nutrition, I recommend..."
         onOpenChange={setShowTutorial}
         onComplete={handleTutorialComplete}
       />
+
+      {/* Quick Capture Floating Button */}
+      <QuickCaptureButton onClick={() => setShowJournalMode(true)} />
 
     </div>
   );

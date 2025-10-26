@@ -4,7 +4,9 @@
       "Bash(mkdir:*)",
       "Bash(npx tsc:*)",
       "Bash(node:*)",
-      "Bash(git credential-manager:*)"
+      "Bash(git credential-manager:*)",
+      "Bash(git pull:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

@@ -4317,7 +4317,7 @@ You can find these tasks in your task list and start working on them right away!
   app.post("/api/journal/smart-entry", async (req: any, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
-      const { text, media, keywords } = req.body;
+      const { text, media, keywords, activityId, linkedActivityTitle, mood } = req.body;
 
       if (!text) {
         return res.status(400).json({ error: 'Text content required' });
@@ -4406,7 +4406,10 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           text,
           media,
           keywords: detectedKeywords.length > 0 ? detectedKeywords : keywords,
-          aiConfidence
+          aiConfidence,
+          activityId,
+          linkedActivityTitle,
+          mood
         });
       }
 
