@@ -1194,9 +1194,66 @@ export class SimpleConversationalPlanner {
 
       // Normal validation: enforce minimum unless user override
       if (response.readyToGenerate && questionCount < minimum && !createPlanTrigger) {
-        console.log(`[SIMPLE_PLANNER] Overriding readyToGenerate - only ${questionCount}/${minimum} questions asked (minimum not met)`);
+        console.log(`[SIMPLE_PLANNER] ⚠️ AI tried to generate plan early - only ${questionCount}/${minimum} questions asked (minimum not met)`);
         response.readyToGenerate = false;
         delete response.plan;
+        
+        // CRITICAL FIX: Strip any premature plan content from message
+        // AI sometimes includes plan markdown even when instructed not to
+        // Detect plan sections by looking for common plan headers
+        const planHeaders = [
+          /###?\s*(Workout|Exercise|Fitness|Training)\s*Routine/i,
+          /###?\s*(Weekly|Daily)\s*Schedule/i,
+          /###?\s*Timeline/i,
+          /###?\s*(Budget|Cost)\s*Breakdown?/i,
+          /###?\s*Additional\s*Recommendations?/i,
+          /###?\s*Tips/i,
+          /###?\s*Weather/i,
+          /\*\*Weekly Schedule\*\*/i,
+          /\*\*Monday[,:]/i,
+          /\*\*Budget\*\*:/i
+        ];
+        
+        const hasPlanContent = planHeaders.some(pattern => pattern.test(response.message));
+        
+        if (hasPlanContent) {
+          console.log(`[SIMPLE_PLANNER] 🚫 Detected premature plan content in message - stripping it out`);
+          
+          // Find where the plan content starts (usually after a paragraph break before first header)
+          let cleanMessage = response.message;
+          
+          // Try to find the first plan header
+          let firstHeaderIndex = -1;
+          for (const pattern of planHeaders) {
+            const match = cleanMessage.match(pattern);
+            if (match && match.index !== undefined) {
+              if (firstHeaderIndex === -1 || match.index < firstHeaderIndex) {
+                firstHeaderIndex = match.index;
+              }
+            }
+          }
+          
+          if (firstHeaderIndex >= 0) {
+            // Extract everything before the plan starts (or empty string if plan starts at index 0)
+            cleanMessage = cleanMessage.substring(0, firstHeaderIndex).trim();
+            
+            // If the entire message was plan content (started with a header), replace with appropriate batch prompt
+            if (cleanMessage.length === 0) {
+              const nextBatch = mode === 'smart' 
+                ? (questionCount < 6 ? '4-6' : '7-10')
+                : '4-5';
+              
+              cleanMessage = `Let me ask you a few more questions to create the best plan:\n\n(You can say 'create plan' anytime if you'd like me to work with what we have!)`;
+              console.log(`[SIMPLE_PLANNER] ✅ Entire message was plan content - replaced with question prompt`);
+            } else {
+              // There was some question content before the plan - keep it and add continuation
+              cleanMessage += `\n\nThese details will help us build a comprehensive plan for your goal.\n\n(You can say 'create plan' anytime if you'd like me to work with what we have!)`;
+              console.log(`[SIMPLE_PLANNER] ✅ Stripped plan content, kept questions`);
+            }
+            
+            response.message = cleanMessage;
+          }
+        }
       } else if (response.readyToGenerate) {
         const trigger = createPlanTrigger ? ' (user-triggered)' : '';
         console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked${trigger}, generating plan`);
@@ -1309,9 +1366,66 @@ export class SimpleConversationalPlanner {
 
       // Normal validation: enforce minimum unless user override
       if (response.readyToGenerate && questionCount < minimum && !createPlanTrigger) {
-        console.log(`[SIMPLE_PLANNER] Overriding readyToGenerate - only ${questionCount}/${minimum} questions asked (minimum not met)`);
+        console.log(`[SIMPLE_PLANNER] ⚠️ AI tried to generate plan early - only ${questionCount}/${minimum} questions asked (minimum not met)`);
         response.readyToGenerate = false;
         delete response.plan;
+        
+        // CRITICAL FIX: Strip any premature plan content from message
+        // AI sometimes includes plan markdown even when instructed not to
+        // Detect plan sections by looking for common plan headers
+        const planHeaders = [
+          /###?\s*(Workout|Exercise|Fitness|Training)\s*Routine/i,
+          /###?\s*(Weekly|Daily)\s*Schedule/i,
+          /###?\s*Timeline/i,
+          /###?\s*(Budget|Cost)\s*Breakdown?/i,
+          /###?\s*Additional\s*Recommendations?/i,
+          /###?\s*Tips/i,
+          /###?\s*Weather/i,
+          /\*\*Weekly Schedule\*\*/i,
+          /\*\*Monday[,:]/i,
+          /\*\*Budget\*\*:/i
+        ];
+        
+        const hasPlanContent = planHeaders.some(pattern => pattern.test(response.message));
+        
+        if (hasPlanContent) {
+          console.log(`[SIMPLE_PLANNER] 🚫 Detected premature plan content in message - stripping it out`);
+          
+          // Find where the plan content starts (usually after a paragraph break before first header)
+          let cleanMessage = response.message;
+          
+          // Try to find the first plan header
+          let firstHeaderIndex = -1;
+          for (const pattern of planHeaders) {
+            const match = cleanMessage.match(pattern);
+            if (match && match.index !== undefined) {
+              if (firstHeaderIndex === -1 || match.index < firstHeaderIndex) {
+                firstHeaderIndex = match.index;
+              }
+            }
+          }
+          
+          if (firstHeaderIndex >= 0) {
+            // Extract everything before the plan starts (or empty string if plan starts at index 0)
+            cleanMessage = cleanMessage.substring(0, firstHeaderIndex).trim();
+            
+            // If the entire message was plan content (started with a header), replace with appropriate batch prompt
+            if (cleanMessage.length === 0) {
+              const nextBatch = mode === 'smart' 
+                ? (questionCount < 6 ? '4-6' : '7-10')
+                : '4-5';
+              
+              cleanMessage = `Let me ask you a few more questions to create the best plan:\n\n(You can say 'create plan' anytime if you'd like me to work with what we have!)`;
+              console.log(`[SIMPLE_PLANNER] ✅ Entire message was plan content - replaced with question prompt`);
+            } else {
+              // There was some question content before the plan - keep it and add continuation
+              cleanMessage += `\n\nThese details will help us build a comprehensive plan for your goal.\n\n(You can say 'create plan' anytime if you'd like me to work with what we have!)`;
+              console.log(`[SIMPLE_PLANNER] ✅ Stripped plan content, kept questions`);
+            }
+            
+            response.message = cleanMessage;
+          }
+        }
       } else if (response.readyToGenerate) {
         const trigger = createPlanTrigger ? ' (user-triggered)' : '';
         console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked${trigger}, generating plan`);
