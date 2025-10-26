@@ -12,14 +12,11 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiClient } from '../services/api';
-import { Colors } from '../constants/colors';
+import { router } from 'expo-router';
+import { apiClient } from '../src/services/api';
+import { Colors } from '../src/constants/colors';
 
-interface AuthScreenProps {
-  onLogin: () => void;
-}
-
-export default function AuthScreen({ onLogin }: AuthScreenProps) {
+export default function AuthScreen() {
   const colorScheme = useColorScheme();
   const colors = colorScheme === 'dark' ? Colors.dark : Colors.light;
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -42,7 +39,7 @@ export default function AuthScreen({ onLogin }: AuthScreenProps) {
 
       if (response.data.token) {
         await AsyncStorage.setItem('authToken', response.data.token);
-        onLogin();
+        router.replace('/(tabs)');
       }
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.error || 'Authentication failed');
@@ -52,8 +49,7 @@ export default function AuthScreen({ onLogin }: AuthScreenProps) {
   };
 
   const useAsGuest = async () => {
-    // For demo mode, just proceed without auth
-    onLogin();
+    router.replace('/(tabs)');
   };
 
   return (
@@ -62,7 +58,6 @@ export default function AuthScreen({ onLogin }: AuthScreenProps) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
-        {/* Logo/Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>📓</Text>
           <Text style={[styles.title, { color: colors.text }]}>JournalMate</Text>
@@ -71,7 +66,6 @@ export default function AuthScreen({ onLogin }: AuthScreenProps) {
           </Text>
         </View>
 
-        {/* Form */}
         <View style={styles.form}>
           {mode === 'signup' && (
             <TextInput
