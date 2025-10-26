@@ -7,6 +7,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "journalmate",
+    "experiments": {
+      "typedRoutes": false
+    },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
