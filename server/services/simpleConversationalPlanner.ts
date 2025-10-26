@@ -30,24 +30,52 @@ import type { User, UserProfile, UserPreferences, JournalEntry } from '@shared/s
 // ============================================================================
 
 /**
- * Calculate progress dynamically based on LLM's question tracking
- * Quick mode: 3 minimum questions
- * Smart mode: 5 minimum questions
- * Progress = questionCount / minimum (capped at 100%)
+ * Calculate progress based on batches, not individual questions
+ * Quick mode: 5 minimum questions in 2 batches (3+2)
+ * Smart mode: 10 minimum questions in 3 batches (3+3+4)
+ * Progress = batchesCompleted / totalBatches
  */
 function calculateDynamicProgress(questionCount: number, mode: 'quick' | 'smart') {
-  const minimum = mode === 'quick' ? 3 : 5;
-  const gathered = Math.min(questionCount, minimum); // Cap at minimum
-  const percentage = Math.round((gathered / minimum) * 100);
   const emoji = mode === 'quick' ? '⚡' : '🧠';
 
-  return {
-    gathered,
-    total: minimum,
-    percentage,
-    emoji,
-    mode
-  };
+  if (mode === 'quick') {
+    // Quick: 2 batches total (5 questions: 3+2)
+    const totalBatches = 2;
+    let batchesCompleted = 0;
+
+    if (questionCount >= 3) batchesCompleted = 1;
+    if (questionCount >= 5) batchesCompleted = 2;
+
+    const percentage = Math.round((batchesCompleted / totalBatches) * 100);
+
+    return {
+      gathered: batchesCompleted,
+      total: totalBatches,
+      percentage,
+      emoji,
+      mode,
+      questionCount
+    };
+  } else {
+    // Smart: 3 batches total (10 questions: 3+3+4)
+    const totalBatches = 3;
+    let batchesCompleted = 0;
+
+    if (questionCount >= 3) batchesCompleted = 1;
+    if (questionCount >= 6) batchesCompleted = 2;
+    if (questionCount >= 10) batchesCompleted = 3;
+
+    const percentage = Math.round((batchesCompleted / totalBatches) * 100);
+
+    return {
+      gathered: batchesCompleted,
+      total: totalBatches,
+      percentage,
+      emoji,
+      mode,
+      questionCount
+    };
+  }
 }
 
 /**
@@ -469,7 +497,7 @@ function buildSystemPrompt(context: PlanningContext, mode: 'quick' | 'smart'): s
     ? 'comprehensive planning with detailed research, real-time data, and enrichment'
     : 'quick planning focusing on essential information for fast execution';
 
-  const minQuestions = mode === 'smart' ? 5 : 3;
+  const minQuestions = mode === 'smart' ? 10 : 5;
 
   // Build user context section
   const userContext = `
@@ -581,77 +609,141 @@ You can plan ANYTHING intelligently without templates:
 
 For each domain, **YOU decide** what questions matter most based on your expertise.
 
-### 3. Intelligent Question Strategy
+### 3. Domain Question Discovery & Intelligent Batching
 
-**${mode === 'quick' ? 'Quick Mode' : 'Smart Mode'}: Ask minimum ${minQuestions} questions before generating plan**
+**When user requests a plan, internally think:**
+*"What are the 10 most important questions for planning THIS specific activity, ordered by priority?"*
+
+**Question Prioritization Framework:**
+- **Critical (Q1-3):** Cannot create meaningful plan without these
+- **Important (Q4-7):** Significantly improve plan quality
+- **Enrichment (Q8-10):** Add personalization and detail
+
+**Batch Questions Intelligently:**
+- Don't ask all 10 at once - batch them naturally
+- **Quick Mode:** Ask top 5 questions in 2 batches (typically 3, then 2)
+- **Smart Mode:** Ask all 10 questions in 3 batches (typically 3, then 3, then 4)
+- Group related questions together in each batch
+- Wait for user response between batches
 
 **Question Tracking (CRITICAL):**
-- You MUST track 'questionCount' in 'extractedInfo' - count the number of distinct questions you've asked
-- **Quick Mode:** Ask minimum 3 PRIORITY questions before generating plan
-- **Smart Mode:** Ask minimum 5 PRIORITY questions before generating plan
+- You MUST track 'questionCount' in 'extractedInfo' - count cumulative questions asked across all batches
+- **Quick Mode:** Ask minimum ${minQuestions} questions total before generating plan
+- **Smart Mode:** Ask minimum ${minQuestions} questions total before generating plan
 - Set 'readyToGenerate: true' ONLY when you've asked minimum questions AND have essential info
 
-**Priority Question Framework (domain-agnostic):**
+**User Control - "Create Plan" Trigger:**
+User can say these anytime to skip remaining questions:
+- "create plan" / "generate plan" / "make plan" / "make the plan"
+- "that's enough" / "let's do it" / "good to go"
+- "ready to generate" / "proceed" / "i'm ready"
 
-For ANY domain, identify the MOST CRITICAL information needed. Use your expertise to prioritize!
+When user triggers early generation:
+1. Stop asking questions immediately
+2. Generate plan with available information
+3. For missing CRITICAL info, include: "⚠️ **To refine this plan:** Tell me [missing details]"
+4. Provide generic but useful information (e.g., flight price ranges, destination guides)
+5. End with strong refinement call-to-action
 
-**Travel Planning Intuition:**
-When someone wants to plan a trip, you NEED to know:
-- 🎯 **Where from?** (Departure city - affects flights, cost, travel time)
-- 🎯 **Where to?** (Destination - obvious but critical)
-- 🎯 **When?** (Dates - affects weather, prices, availability)
-- 🎯 **How long?** (Duration - affects itinerary depth)
-- 🎯 **Budget?** (If activity costs money - shapes everything)
-- 📍 **Group size?** (Solo vs family - affects accommodation, activities, budget)
+---
 
-These are CRITICAL because you CAN'T make flights/hotel/activity recommendations without them.
+**🌴 TRAVEL (Trip Planning):**
 
-**Event Planning Intuition:**
-- 🎯 Event type (birthday, wedding, conference - totally different!)
-- 🎯 Date (availability of venues/vendors)
-- 🎯 Guest count (determines venue size, catering)
-- 🎯 Budget (shapes venue options, food quality, entertainment)
-- 📍 Location preference
-- 📍 Theme/style
+*Top 10 by Priority:*
+1. 🎯 **Where from?** (Departure city/airport - CRITICAL for flights, timing, costs)
+2. 🎯 **Which specific city/region at destination?** (e.g., Jamaica: Montego Bay vs Kingston vs Negril - affects hotels, transport, activities)
+3. 🎯 **Solo, couple, or group? How many people?** (Affects accommodation type, budget, activity selection)
+4. 📍 **Business or leisure?** (Changes entire itinerary focus)
+5. 📍 **Total budget for the entire trip?** (Shapes all recommendations - flights, hotels, dining, activities)
+6. 📍 **Dates or timeframe?** (Start & end dates - affects pricing, weather, event availability)
+7. 📍 **What interests you most?** (Beaches, culture, adventure, nightlife, food, relaxation)
+8. ✨ **Dietary restrictions or preferences?** (For restaurant recommendations)
+9. ✨ **Accommodation preference?** (Resort, Airbnb, boutique hotel, hostel)
+10. ✨ **Physical limitations or accessibility needs?** (Some activities are strenuous/inaccessible)
 
-**Dining Planning Intuition:**
-- 🎯 Cuisine type
-- 🎯 Date/time
-- 🎯 Group size
-- 🎯 Budget (fine dining vs casual)
-- 📍 Dietary restrictions
-- 📍 Location preference
+**Quick Mode (5 questions):** Ask Q1-3 first, then Q4-5, allow "create plan" anytime
+**Smart Mode (10 questions):** Ask Q1-3 first, then Q4-6, then Q7-10
 
-**Wellness/Fitness Planning Intuition:**
-- 🎯 Activity type (yoga, running, gym, sports)
-- 🎯 Current fitness level
-- 🎯 Goals (lose weight, build muscle, flexibility, general health)
-- 🎯 Time available (daily, weekly schedule)
-- 📍 Location/equipment available
-- 📍 Preferences (solo, group classes, outdoor)
+---
 
-**The Pattern:**
-- **Critical (🎯):** Information you MUST have to create ANY actionable plan
-- **Important (📍):** Information that significantly improves plan quality
+**💪 WELLNESS/FITNESS (Health, Exercise, Spa):**
 
-**Ask critical questions FIRST** - they disambiguate the most. Then ask important questions to enrich.
+*Top 10 by Priority:*
+1. 🎯 **What type of activity?** (Gym, yoga, running, sports, spa day, wellness retreat)
+2. 🎯 **Current fitness level?** (Beginner, intermediate, advanced - shapes recommendations)
+3. 🎯 **Primary goal?** (Lose weight, build muscle, flexibility, stress relief, general health)
+4. 📍 **Time available?** (Daily schedule, how many hours per week)
+5. 📍 **Location/equipment available?** (Home, gym, outdoor, specific equipment owned)
+6. 📍 **Preferences?** (Solo, group classes, trainer, outdoor vs indoor)
+7. ✨ **Budget?** (Free/low-cost vs premium gym/classes)
+8. ✨ **Health conditions or injuries?** (Affects exercise selection)
+9. ✨ **Past experience?** (What have you tried before? What worked/didn't work?)
+10. ✨ **Accountability needs?** (Need tracking apps, workout buddy, coach?)
 
-**Question Selection:**
-- Ask the most disambiguating questions first (what clarifies the plan most?)
-- Adapt to context - if user says "trip to Tokyo Nov 10-17 with $3000", don't re-ask those!
-- Reference user's profile: ${user.interests?.length > 0 ? `"I see you love ${user.interests[0]}, would you like to incorporate that?"` : '"Based on your interests..."'}
-- Be conversational, not robotic: "Ooh, that sounds amazing! 🌍" not "Acknowledged."
+**Quick Mode (5 questions):** Ask Q1-3 first, then Q4-5
+**Smart Mode (10 questions):** Ask Q1-3 first, then Q4-6, then Q7-10
+
+---
+
+**🎉 EVENT PLANNING (Parties, Weddings, Conferences):**
+
+*Top 10 by Priority:*
+1. 🎯 **Event type?** (Birthday, wedding, conference, baby shower - completely different needs!)
+2. 🎯 **Date or timeframe?** (Affects venue/vendor availability)
+3. 🎯 **Guest count?** (Determines venue size, catering quantity, seating)
+4. 📍 **Total budget?** (Shapes venue options, food quality, entertainment)
+5. 📍 **Location preference?** (City, neighborhood, indoor/outdoor)
+6. 📍 **Event style/theme?** (Formal, casual, themed, traditional)
+7. ✨ **Key must-haves?** (Live band, photo booth, specific food, decorations)
+8. ✨ **Dietary restrictions among guests?** (Vegan, allergies, religious requirements)
+9. ✨ **Venue preferences?** (Hotel, restaurant, outdoor garden, home)
+10. ✨ **Timeline flexibility?** (Can shift date if better venue available?)
+
+**Quick Mode (5 questions):** Ask Q1-3 first, then Q4-5
+**Smart Mode (10 questions):** Ask Q1-3 first, then Q4-6, then Q7-10
+
+---
+
+**🍽️ DINING (Restaurant Visits, Food Tours, Meal Planning):**
+
+*Top 10 by Priority:*
+1. 🎯 **Cuisine type?** (Italian, Mexican, Asian fusion, etc.)
+2. 🎯 **Date and time?** (Availability, reservation needs)
+3. 🎯 **Group size?** (Solo, date, family, large group)
+4. 📍 **Budget per person?** (Fine dining, mid-range, casual, budget-friendly)
+5. 📍 **Location preference?** (Neighborhood, near specific landmark)
+6. 📍 **Dietary restrictions?** (Vegetarian, vegan, allergies, religious)
+7. ✨ **Occasion?** (Birthday, anniversary, business dinner, casual - affects ambiance)
+8. ✨ **Ambiance preference?** (Romantic, lively, quiet, family-friendly)
+9. ✨ **Specific dishes or must-tries?** (Seafood, pasta, specific restaurant known for X)
+10. ✨ **Parking/transport needs?** (Driving, public transit, walkable)
+
+**Quick Mode (5 questions):** Ask Q1-3 first, then Q4-5
+**Smart Mode (10 questions):** Ask Q1-3 first, then Q4-6, then Q7-10
+
+---
+
+**Domain Clarification:**
+If user request is ambiguous (e.g., "help me plan something fun"), ask clarifying question FIRST:
+*"That sounds exciting! What type of activity are you thinking about? (Travel, event, dining, fitness, or something else?)"*
+
+**Adapt Freely - These Are Templates, Not Rules:**
+- If user volunteers information upfront, don't re-ask it
+- Adjust question wording to sound natural and conversational
+- Reference user profile when relevant: ${user.interests && user.interests.length > 0 ? `"I see you love ${user.interests[0]}, would you like to incorporate that?"` : ''}
+- If domain isn't listed above, use your expertise to determine top 10 questions
+- Be conversational: "Ooh, that sounds amazing! 🌍" not "Acknowledged."
 
 ${mode === 'smart' ? `
 **Smart Mode Specifics:**
-- Ask ${minQuestions}+ questions for comprehensive context
+- Ask all ${minQuestions} questions across 3 batches for comprehensive context
 - Use web_search tool for real-time data: weather, prices, events, availability
-- Provide detailed options and alternatives
-- Include enrichment data in final plan
+- Provide detailed options and alternatives in final plan
+- Include enrichment data and research findings
 ` : `
 **Quick Mode Specifics:**
-- Keep it streamlined - minimum ${minQuestions} questions
-- Focus on essentials only
+- Keep it streamlined - top ${minQuestions} questions across 2 batches
+- Focus on critical and important questions only (skip enrichment unless user volunteers)
 - Generate plan quickly once minimums met
 - Simple but actionable output
 `}
@@ -679,7 +771,7 @@ ${recentJournal && recentJournal.length > 0 ? `- Consider journal context: User'
 ### 6. Personalization
 
 Use the user's profile naturally:
-${user.interests?.length > 0 ? `- "I see you're into ${user.interests.join(' and ')}, so I've included..."` : ''}
+${user.interests && user.interests.length > 0 ? `- "I see you're into ${user.interests.join(' and ')}, so I've included..."` : ''}
 ${preferences?.preferences?.dietaryPreferences ? `- Respect dietary needs: ${preferences.preferences.dietaryPreferences.join(', ')}` : ''}
 - Match communication style: ${user.communicationStyle || 'friendly and encouraging'}
 - Reference recent journal if relevant
@@ -793,37 +885,58 @@ Be budget-conscious, realistic, personalized, and helpful!
 // TOOL DEFINITION
 // ============================================================================
 
-const PLANNING_TOOL = {
-  type: 'function' as const,
-  function: {
-    name: 'respond_with_structure',
-    description: 'Respond to user with structured planning data',
-    parameters: {
-      type: 'object',
-      properties: {
-        message: {
-          type: 'string',
-          description: 'Your natural conversational response to the user'
-        },
-        extractedInfo: {
-          type: 'object',
-          description: 'All information extracted from the entire conversation history',
-          properties: {
-            domain: {
-              type: 'string',
-              enum: ['travel', 'event', 'dining', 'wellness', 'learning', 'social', 'entertainment', 'work', 'shopping', 'other'],
-              description: 'The detected planning domain'
-            },
-            questionCount: {
-              type: 'number',
-              description: 'Number of distinct questions you have asked so far'
-            }
+function getPlanningTool(mode: 'quick' | 'smart') {
+  return {
+    type: 'function' as const,
+    function: {
+      name: 'respond_with_structure',
+      description: 'Respond to user with structured planning data',
+      parameters: {
+        type: 'object',
+        properties: {
+          message: {
+            type: 'string',
+            description: 'Your natural conversational response to the user'
           },
-          additionalProperties: true
-        },
-        readyToGenerate: {
-          type: 'boolean',
-          description: 'True ONLY if: (1) You have asked the minimum questions (questionCount >= 3 for quick, >= 5 for smart) AND (2) You have enough essential information to create a complete, actionable plan. Check your questionCount field before setting this to true!'
+          extractedInfo: {
+            type: 'object',
+            description: 'All information extracted from the entire conversation history',
+            properties: {
+              domain: {
+                type: 'string',
+                enum: ['travel', 'event', 'dining', 'wellness', 'learning', 'social', 'entertainment', 'work', 'shopping', 'other'],
+                description: 'The detected planning domain'
+              },
+              questionCount: {
+                type: 'number',
+                description: 'Number of distinct questions you have asked so far'
+              }
+            },
+            additionalProperties: true
+          },
+          readyToGenerate: {
+            type: 'boolean',
+            description: mode === 'smart'
+            ? `True ONLY if:
+    (1) You have asked the minimum questions (questionCount >= 10 for smart mode) AND have enough essential information, OR
+    (2) User said "create plan" / "generate plan" / "that's enough" (user override - generate with available info)
+
+    When user overrides with partial info, your plan MUST include:
+    - ⚠️ Section listing missing critical details
+    - Generic but useful information (flight estimates, destination guide, cost ranges)
+    - Strong refinement call-to-action: "Want specifics? Tell me [missing info]!"
+
+    Check questionCount: Need 10 for smart mode (unless user override)`
+            : `True ONLY if:
+    (1) You have asked the minimum questions (questionCount >= 5 for quick mode) AND have enough essential information, OR
+    (2) User said "create plan" / "generate plan" / "that's enough" (user override - generate with available info)
+
+    When user overrides with partial info, your plan MUST include:
+    - ⚠️ Section listing missing critical details
+    - Generic but useful information (flight estimates, destination guide, cost ranges)
+    - Strong refinement call-to-action: "Want specifics? Tell me [missing info]!"
+
+    Check questionCount: Need 5 for quick mode (unless user override)`
         },
         plan: {
           type: 'object',
@@ -917,7 +1030,8 @@ const PLANNING_TOOL = {
       required: ['message', 'extractedInfo', 'readyToGenerate']
     }
   }
-};
+  };
+}
 
 // ============================================================================
 // MAIN PLANNER CLASS
@@ -961,7 +1075,7 @@ export class SimpleConversationalPlanner {
       const response = await this.llmProvider.generate(
         messages,
         systemPrompt,
-        [PLANNING_TOOL],
+        [getPlanningTool(mode)],
         context,
         mode
       );
@@ -969,7 +1083,7 @@ export class SimpleConversationalPlanner {
       // 5. Calculate cumulative question count for current planning session
       // The LLM only tracks questionCount for the current turn,
       // but conversationHistory already scopes to the current session (cleared on new plan)
-      const minimum = mode === 'quick' ? 3 : 5;
+      const minimum = mode === 'quick' ? 5 : 10;
       
       // Count questions in all previous assistant messages + current
       let totalQuestions = 0;
@@ -988,13 +1102,29 @@ export class SimpleConversationalPlanner {
       response.extractedInfo.questionCount = totalQuestions;
       const questionCount = totalQuestions;
 
-      // Only override if LLM didn't ask enough questions
-      if (response.readyToGenerate && questionCount < minimum) {
+      // Check if user requested early generation
+      const latestUserMessage = messages[messages.length - 1]?.content || '';
+      const createPlanTrigger = /\b(create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready)\b/i.test(latestUserMessage.toLowerCase());
+
+      // User override: allow generation even if < minimum questions
+      if (createPlanTrigger && !response.readyToGenerate) {
+        console.log(`[SIMPLE_PLANNER] 🎯 User triggered "create plan" - generating with ${questionCount} questions`);
+        response.readyToGenerate = true;
+
+        // Add acknowledgment if early
+        if (questionCount < minimum) {
+          response.message += `\n\n✅ Got it! Creating your plan with the information provided...`;
+        }
+      }
+
+      // Normal validation: enforce minimum unless user override
+      if (response.readyToGenerate && questionCount < minimum && !createPlanTrigger) {
         console.log(`[SIMPLE_PLANNER] Overriding readyToGenerate - only ${questionCount}/${minimum} questions asked (minimum not met)`);
         response.readyToGenerate = false;
         delete response.plan;
       } else if (response.readyToGenerate) {
-        console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked, generating plan`);
+        const trigger = createPlanTrigger ? ' (user-triggered)' : '';
+        console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked${trigger}, generating plan`);
       }
       
       // 6. Add dynamic progress tracking to response using cumulative questionCount
@@ -1066,7 +1196,7 @@ export class SimpleConversationalPlanner {
         response = await this.llmProvider.generateStream(
           messages,
           systemPrompt,
-          [PLANNING_TOOL],
+          [getPlanningTool(mode)],
           context,
           mode,
           onToken
@@ -1076,7 +1206,7 @@ export class SimpleConversationalPlanner {
         response = await this.llmProvider.generate(
           messages,
           systemPrompt,
-          [PLANNING_TOOL],
+          [getPlanningTool(mode)],
           context,
           mode
         );
@@ -1084,8 +1214,8 @@ export class SimpleConversationalPlanner {
 
       // Apply same cumulative question counting as non-streaming version
       // conversationHistory already scopes to current session (cleared on new plan)
-      const minimum = mode === 'quick' ? 3 : 5;
-      
+      const minimum = mode === 'quick' ? 5 : 10;
+
       // Count questions in all previous assistant messages + current
       let totalQuestions = 0;
       for (const msg of conversationHistory) {
@@ -1095,20 +1225,37 @@ export class SimpleConversationalPlanner {
           totalQuestions += questionMarks;
         }
       }
-      
+
       // Add current turn's questions
       totalQuestions += (response.extractedInfo.questionCount || 0);
-      
+
       // Override with cumulative count
       response.extractedInfo.questionCount = totalQuestions;
       const questionCount = totalQuestions;
 
-      if (response.readyToGenerate && questionCount < minimum) {
-        console.log(`[SIMPLE_PLANNER] Overriding readyToGenerate - only ${questionCount}/${minimum} questions asked`);
+      // Check if user requested early generation
+      const latestUserMessage = messages[messages.length - 1]?.content || '';
+      const createPlanTrigger = /\b(create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready)\b/i.test(latestUserMessage.toLowerCase());
+
+      // User override: allow generation even if < minimum questions
+      if (createPlanTrigger && !response.readyToGenerate) {
+        console.log(`[SIMPLE_PLANNER] 🎯 User triggered "create plan" - generating with ${questionCount} questions`);
+        response.readyToGenerate = true;
+
+        // Add acknowledgment if early
+        if (questionCount < minimum) {
+          response.message += `\n\n✅ Got it! Creating your plan with the information provided...`;
+        }
+      }
+
+      // Normal validation: enforce minimum unless user override
+      if (response.readyToGenerate && questionCount < minimum && !createPlanTrigger) {
+        console.log(`[SIMPLE_PLANNER] Overriding readyToGenerate - only ${questionCount}/${minimum} questions asked (minimum not met)`);
         response.readyToGenerate = false;
         delete response.plan;
       } else if (response.readyToGenerate) {
-        console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked`);
+        const trigger = createPlanTrigger ? ' (user-triggered)' : '';
+        console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked${trigger}, generating plan`);
       }
       
       const progress = calculateDynamicProgress(questionCount, mode);
@@ -1181,7 +1328,7 @@ export class SimpleConversationalPlanner {
     priority1Gathered: number;
     priority1Total: number;
   } {
-    const minimum = mode === 'quick' ? 3 : 5;
+    const minimum = mode === 'quick' ? 5 : 10;
     const questionCount = extractedInfo.questionCount || 0;
 
     // Dynamic validation: LLM tracks questions, we just validate minimum met
