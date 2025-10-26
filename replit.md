@@ -27,11 +27,15 @@ The application employs a mobile-first responsive design with a clean, card-base
 - **AI-Powered Planning**: Features "Smart Plan" (comprehensive with web search) and "Quick Plan" (streamlined) modes with intelligent conversational planning. **Recent Improvements (Oct 2025):**
   - ✅ **LangGraph-free architecture**: Quick/Smart modes now use lightweight conversational planner (simpleConversationalPlanner.ts) for better performance and maintainability
   - ✅ **Dynamic essential-field validation**: Backend validates 5 required fields per domain (travel, events, wellness, learning, social, entertainment, work, shopping, dining) before allowing plan generation
-  - ✅ **Real-time progress tracking**: UI displays "Progress: 3/5 (60%)" showing exactly how many essentials gathered, calculated dynamically per domain
+  - ✅ **Backend-enforced progress tracking**: Progress calculated from conversation turns, not AI reports (Smart: 3→6→10 questions = 33%→67%→100%, Quick: 3→5 = 60%→100%)
   - ✅ **Zero hallucination enforcement**: Strict prompt rules + backend validation prevent AI from inventing dates, budgets, or other data not explicitly stated by user
   - ✅ **Smart context-aware completion**: AI intelligently determines when it has enough info (no rigid question minimums), asking follow-ups only for missing essentials
-  - ✅ **Friendly, emoji-rich tone**: Warm conversational style with natural emoji usage (🌍, ✨, 🎯, 💰) - more enthusiastic in Smart mode, concise in Quick mode
-  - ✅ **Web search in Smart mode**: Anthropic provider with web_search tool for real-time weather forecasts, prices, availability, and current events
+  - ✅ **Context-aware emoji themes**: Dynamic emojis based on destination/domain (Jamaica 🌴🏖️☀️, Spain 🇪🇸🥘🏛️, Japan 🇯🇵🍣⛩️, Wellness 💪🧘‍♀️)
+  - ✅ **Mandatory real-time enrichment (Smart mode)**: Required web searches with minimums - 5+ specific resorts with pricing, 8+ restaurants with details, current flight prices, 7-day weather forecasts, 5+ activities with costs
+  - ✅ **Parallel web search optimization**: AI runs multiple searches simultaneously (flights + weather + restaurants) for faster responses
+  - ✅ **Enhanced task generation**: Plans include 6-10 detailed actionable tasks with step-by-step descriptions, time estimates (minutes), and priorities matching regular planner quality
+  - ✅ **Claude-style formatting**: Rich markdown structure with proper emoji hierarchy, visual sections (Flights ✈️, Accommodation 🏨, Restaurants 🍽️, Weather ☀️, Budget 💰, Tips 💡)
+  - ✅ **Updated travel questions**: Priority list now includes trip duration, return date, passport validity, travel insurance for comprehensive planning
   - ✅ **Session management fixes (Oct 26, 2025)**: Fresh sessions always created for new conversations, completed sessions cannot be continued, validation prevents edge cases where frontend has history but backend session was completed
   - ✅ **Premature plan generation prevention (Oct 26, 2025)**: Backend strips plan content when AI generates before minimum question count reached (5 for Quick, 10 for Smart), ensuring proper batched question flow
   - Multi-LLM support with automatic fallback between OpenAI/Claude providers
