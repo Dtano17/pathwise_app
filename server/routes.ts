@@ -231,18 +231,23 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
       console.log('[SMART PLAN] CONTINUING conversation with', conversationHistory.length, 'messages');
       session = await storage.getActiveLifestylePlannerSession(userId);
       
+      // VALIDATION: Prevent continuing completed sessions
+      if (session && session.isComplete) {
+        console.warn('[SMART PLAN] Cannot continue completed session:', session.id);
+        return res.status(400).json({
+          error: 'This conversation has already been completed. Please start a new session.',
+          sessionCompleted: true
+        });
+      }
+      
       if (!session) {
-        // Session was lost somehow - create new one
-        session = await storage.createLifestylePlannerSession({
-          userId,
-          sessionState: 'intake',
-          slots: {},
-          conversationHistory: [],
-          externalContext: {
-            currentMode: 'smart',
-            questionCount: { smart: 0, quick: 0 },
-            isFirstInteraction: true
-          }
+        // CRITICAL FIX: If frontend has conversation history but backend has no active session,
+        // it means the session was completed. Don't silently create a new one - tell frontend to reset.
+        console.warn('[SMART PLAN] Frontend has history but backend has no active session - session was likely completed');
+        return res.status(400).json({
+          error: 'This conversation session is no longer available. Please start a new chat.',
+          sessionCompleted: true,
+          requiresReset: true
         });
       }
       
@@ -3428,17 +3433,23 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
       console.log('[QUICK PLAN] CONTINUING conversation with', conversationHistory.length, 'messages');
       session = await storage.getActiveLifestylePlannerSession(userId);
       
+      // VALIDATION: Prevent continuing completed sessions
+      if (session && session.isComplete) {
+        console.warn('[QUICK PLAN] Cannot continue completed session:', session.id);
+        return res.status(400).json({
+          error: 'This conversation has already been completed. Please start a new session.',
+          sessionCompleted: true
+        });
+      }
+      
       if (!session) {
-        // Session was lost somehow - create new one
-        session = await storage.createLifestylePlannerSession({
-          userId,
-          sessionState: 'intake',
-          slots: {},
-          conversationHistory: [],
-          externalContext: {
-            currentMode: 'quick',
-            questionCount: { smart: 0, quick: 0 }
-          }
+        // CRITICAL FIX: If frontend has conversation history but backend has no active session,
+        // it means the session was completed. Don't silently create a new one - tell frontend to reset.
+        console.warn('[QUICK PLAN] Frontend has history but backend has no active session - session was likely completed');
+        return res.status(400).json({
+          error: 'This conversation session is no longer available. Please start a new chat.',
+          sessionCompleted: true,
+          requiresReset: true
         });
       }
       
@@ -4393,17 +4404,18 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     try {
       const userId = getDemoUserId(req);
       
-      // Check if user has an active session
+      // FIXED: Always complete old sessions and create fresh one
+      // Mark ALL existing sessions as completed before creating new one
       const activeSession = await storage.getActiveLifestylePlannerSession(userId);
       if (activeSession) {
-        return res.json({ 
-          session: activeSession,
-          message: "Welcome back! Let's continue planning.",
-          isNewSession: false
-        });
+        console.log('[SESSION] Completing old session:', activeSession.id);
+        await storage.updateLifestylePlannerSession(activeSession.id, {
+          isComplete: true,
+          sessionState: 'completed'
+        }, userId);
       }
 
-      // Create new session
+      // Create fresh new session
       const session = await storage.createLifestylePlannerSession({
         userId,
         sessionState: 'intake',
@@ -4412,6 +4424,8 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         conversationHistory: [],
         isComplete: false
       });
+
+      console.log('[SESSION] Created fresh session:', session.id);
 
       res.json({ 
         session,
