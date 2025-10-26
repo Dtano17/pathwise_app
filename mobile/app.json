@@ -62,7 +62,8 @@
         {
           "photosPermission": "Allow JournalMate to access your photos for journal entries"
         }
-      ]
+      ],
+      "expo-router"
     ],
     "extra": {
       "eas": {
