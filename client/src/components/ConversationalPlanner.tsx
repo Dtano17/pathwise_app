@@ -8,8 +8,9 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useKeywordDetection, getCategoryColor } from '@/hooks/useKeywordDetection';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -868,6 +869,9 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
 
   // Journal Mode UI - Completely Redesigned
   if (planningMode === 'journal') {
+    // Real-time keyword detection
+    const keywordDetection = useKeywordDetection(journalText);
+
     return (
       <div className="h-full flex flex-col bg-gradient-to-br from-purple-50 via-white to-emerald-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         {/* Header */}
@@ -1013,6 +1017,35 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
                   @books
                 </Badge>
               </div>
+
+              {/* Real-time category detection display */}
+              {keywordDetection.suggestedCategories.length > 0 && (
+                <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-start gap-2">
+                    <Tag className="h-4 w-4 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-purple-900 dark:text-purple-100 mb-1.5">
+                        {keywordDetection.isGroupedExperience ? '✨ Grouped Experience Detected' : '📝 Will save to:'}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {keywordDetection.suggestedCategories.map((category) => (
+                          <Badge
+                            key={category}
+                            className={`text-xs bg-gradient-to-r ${getCategoryColor(category)} text-white border-0 shadow-sm`}
+                          >
+                            {category}
+                          </Badge>
+                        ))}
+                      </div>
+                      {keywordDetection.isGroupedExperience && (
+                        <p className="text-[10px] text-purple-600 dark:text-purple-400 mt-1.5">
+                          Your entry will be saved to multiple categories for a complete memory
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
