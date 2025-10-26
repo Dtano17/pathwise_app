@@ -724,11 +724,9 @@ ${mode === 'quick' ? `
 - Ask ONLY the top 3 critical questions, nothing more
 - STOP after 3 questions - do NOT ask Q4 or Q5 yet
 - End with: "(You can say 'create plan' anytime if you'd like me to work with what we have!)"
-- Set questionCount = 3 in extractedInfo
 
 **BATCH 2 (Second Response - After User Answers):**
 - Ask the remaining 2 questions (Q4-Q5)
-- Set questionCount = 5 in extractedInfo
 - Set readyToGenerate = true if you have enough info
 ` : `
 **Smart Mode - 3 Batches (10 questions total):**
@@ -736,18 +734,15 @@ ${mode === 'quick' ? `
 **BATCH 1 (First Response):**
 - Ask EXACTLY 3 questions from Q1-Q3
 - STOP after 3 questions
-- Set questionCount = 3
 - End with: "(You can say 'create plan' anytime if you'd like me to work with what we have!)"
 
 **BATCH 2 (Second Response - After User Answers):**
 - Ask EXACTLY 3 more questions (Q4-Q6)
 - STOP after these 3
-- Set questionCount = 6
 - End with: "(Remember, you can say 'create plan' anytime!)"
 
 **BATCH 3 (Third Response - After User Answers):**
 - Ask final 4 questions (Q7-Q10)
-- Set questionCount = 10
 - Set readyToGenerate = true if you have enough info
 - End with: "(Or say 'create plan' if you're ready now!)"
 `}
@@ -755,7 +750,6 @@ ${mode === 'quick' ? `
 **ENFORCEMENT RULES:**
 - Never ask more than the specified number of questions per batch
 - Never skip to the next batch without waiting for user response
-- Always track cumulative questionCount across all batches in extractedInfo
 
 ${mode === 'quick' ? `
 **Example - Quick Mode Batch 1 (User says "Help plan my trip to Jamaica"):**
@@ -773,7 +767,6 @@ Notice:
 - Friendly conversational tone
 - NO Q4 or Q5 yet - those come in Batch 2
 - Ends with user override option
-- extractedInfo.questionCount = 3
 ` : ''}
 
 **User Control - "Create Plan" Trigger:**
@@ -990,7 +983,6 @@ ALWAYS use the respond_with_structure tool:
   "message": "Your friendly, conversational response to the user",
   "extractedInfo": {
     "domain": "detected domain (travel, event, dining, etc.)",
-    "questionCount": number,  // Track distinct questions you've asked
     // All information gathered:
     "budget": "if provided",
     "destination": "...",
@@ -1049,8 +1041,7 @@ ALWAYS use the respond_with_structure tool:
       "recommendations": ["..."]
     },
     "tips": ["...", "..."]
-  },
-  "questionCount": number
+  }
 }
 \`\`\`
 
@@ -1098,10 +1089,6 @@ function getPlanningTool(mode: 'quick' | 'smart') {
                 type: 'string',
                 enum: ['travel', 'event', 'dining', 'wellness', 'learning', 'social', 'entertainment', 'work', 'shopping', 'other'],
                 description: 'The detected planning domain'
-              },
-              questionCount: {
-                type: 'number',
-                description: 'CUMULATIVE number of distinct questions you have asked so far. This number MUST NEVER DECREASE. Always count ALL questions asked across ALL messages. Example: if you asked 3 questions in message 1, then 3 more in message 2, questionCount = 6 (not 3!).'
               }
             },
             additionalProperties: true
@@ -1110,25 +1097,21 @@ function getPlanningTool(mode: 'quick' | 'smart') {
             type: 'boolean',
             description: mode === 'smart'
             ? `True ONLY if:
-    (1) You have asked the minimum questions (questionCount >= 10 for smart mode) AND have enough essential information, OR
+    (1) You have gathered enough essential information through conversation, OR
     (2) User said "create plan" / "generate plan" / "that's enough" (user override - generate with available info)
 
     When user overrides with partial info, your plan MUST include:
     - ⚠️ Section listing missing critical details
     - Generic but useful information (flight estimates, destination guide, cost ranges)
-    - Strong refinement call-to-action: "Want specifics? Tell me [missing info]!"
-
-    Check questionCount: Need 10 for smart mode (unless user override)`
+    - Strong refinement call-to-action: "Want specifics? Tell me [missing info]!"`
             : `True ONLY if:
-    (1) You have asked the minimum questions (questionCount >= 5 for quick mode) AND have enough essential information, OR
+    (1) You have gathered enough essential information through conversation, OR
     (2) User said "create plan" / "generate plan" / "that's enough" (user override - generate with available info)
 
     When user overrides with partial info, your plan MUST include:
     - ⚠️ Section listing missing critical details
     - Generic but useful information (flight estimates, destination guide, cost ranges)
-    - Strong refinement call-to-action: "Want specifics? Tell me [missing info]!"
-
-    Check questionCount: Need 5 for quick mode (unless user override)`
+    - Strong refinement call-to-action: "Want specifics? Tell me [missing info]!"`
         },
         plan: {
           type: 'object',
@@ -1383,32 +1366,8 @@ export class SimpleConversationalPlanner {
         console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked${trigger}, generating plan`);
       }
       
-      // 6. Add batch-based progress tracking to response
-      const progress = calculateBatchProgress(conversationHistory, mode);
-      response.extractedInfo._progress = progress;
-
-      // 7. Inject progress tracking ONLY if:
-      //    - Not ready to generate plan yet (still gathering info)
-      //    - LLM didn't already include progress in its message
-      //    This prevents duplication while ensuring progress always appears
-      if (!response.readyToGenerate && response.extractedInfo._progress) {
-        const progress = response.extractedInfo._progress;
-
-        // Check if LLM already included progress (robust regex for both modes)
-        const progressPattern = /(⚡|🧠)\s*Progress:\s*\d+\/\d+.*\(\d+%\)/i;
-        const hasProgress = progressPattern.test(response.message);
-
-        if (!hasProgress) {
-          const progressString = `\n\n${progress.emoji} Progress: ${progress.gathered}/${progress.total} (${progress.percentage}%)`;
-          response.message = response.message + progressString;
-          console.log(`[SIMPLE_PLANNER] Added fallback progress tracking (LLM omitted it)`);
-        }
-      }
-
-      // 8. Hide progress when plan is generated
-      if (response.readyToGenerate) {
-        delete response.extractedInfo._progress;
-      }
+      // Progress tracking disabled per user request
+      // Users found it confusing and it was causing localStorage persistence issues
 
       console.log(`[SIMPLE_PLANNER] Response generated - readyToGenerate: ${response.readyToGenerate}, domain: ${response.domain || response.extractedInfo.domain}`);
       return response;
@@ -1555,24 +1514,8 @@ export class SimpleConversationalPlanner {
         console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked${trigger}, generating plan`);
       }
       
-      const progress = calculateBatchProgress(conversationHistory, mode);
-      response.extractedInfo._progress = progress;
-
-      if (!response.readyToGenerate && response.extractedInfo._progress) {
-        const progress = response.extractedInfo._progress;
-        const progressPattern = /(⚡|🧠)\s*Progress:\s*\d+\/\d+.*\(\d+%\)/i;
-        const hasProgress = progressPattern.test(response.message);
-
-        if (!hasProgress) {
-          const progressString = `\n\n${progress.emoji} Progress: ${progress.gathered}/${progress.total} (${progress.percentage}%)`;
-          response.message = response.message + progressString;
-          console.log(`[SIMPLE_PLANNER] Added fallback batch progress tracking`);
-        }
-      }
-
-      if (response.readyToGenerate) {
-        delete response.extractedInfo._progress;
-      }
+      // Progress tracking disabled per user request
+      // Users found it confusing and it was causing localStorage persistence issues
 
       return response;
     } catch (error) {
