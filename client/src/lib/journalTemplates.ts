@@ -181,5 +181,5 @@ export function getTemplatesForCategory(category: string): JournalTemplate[] {
 
 // Get all unique categories
 export function getTemplateCategories(): string[] {
-  return [...new Set(templates.map(t => t.category))];
+  return Array.from(new Set(templates.map(t => t.category)));
 }

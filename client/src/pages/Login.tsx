@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { SocialLogin } from '@/components/SocialLogin';
 import { useAuth } from '@/hooks/useAuth';
-import journalMateLogo from '@assets/Export_JournalMate_2_1760772138217.png';
+// Using public logo path instead of missing asset
+const journalMateLogo = '/journalmate-logo-final.png';
 
 export default function Login() {
   const [, setLocation] = useLocation();
