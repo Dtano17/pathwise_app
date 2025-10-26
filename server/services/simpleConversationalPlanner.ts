@@ -1026,10 +1026,10 @@ ${preferences?.preferences?.dietaryPreferences ? `- Respect dietary needs: ${pre
 
 Here's what your plan will include:
 
-✈️ **Flight Options** - Multiple airlines from NYC to Barcelona with current pricing
+✈️ **Flight Options** - Multiple airlines from NYC to Barcelona with current pricing (including routing explanations if indirect)
 🏨 **5+ Hotel Recommendations** - Ranging from boutique to luxury, all within your budget
 🍽️ **8+ Restaurant Picks** - Authentic Spanish tapas, seafood, and local favorites
-🚇 **Transportation Guide** - Metro passes, taxi apps (Uber/G7), airport transfers, walking tips
+🚇 **Transportation Guide** - Metro passes, taxi apps (Uber/G7), airport transfers, walking tips, and why certain routes are recommended
 🌤️ **7-Day Weather Forecast** - Daily temps and what to pack
 🎉 **Activity Recommendations** - Park Güell, Sagrada Familia, beach time, nightlife spots
 💰 **Budget Breakdown** - Complete cost estimate with calculations showing how it adds up
@@ -1097,6 +1097,15 @@ You MUST use web_search to include these specifics:
   - Walkable neighborhoods and areas to avoid
   - Transportation cards/passes to buy (Navigo in Paris, Oyster in London, MetroCard in NYC)
   - Tips for navigating like a local
+  
+- ✈️ **EXPLAIN Indirect Flight Routing** - When flights require connecting through a different city than the final destination, ALWAYS explain why this routing is necessary:
+  - Why no direct flights exist (small/regional airport, limited international service, seasonal routes only)
+  - Alternative airports if they exist and why they're not recommended (limited flights, more expensive, inconvenient)
+  - Ground transfer details to normalize the routing ("This 1.5hr drive is standard - all international visitors do this!")
+  - **Example for Tulum:** "You'll fly Austin → Cancun International Airport (CUN), then drive 1.5hrs south to Tulum. Why Cancun? Tulum International Airport (TQO) opened in 2023 but has very limited flights and nothing direct from Austin - Cancun is still your best bet! Ground transfer options: private shuttle ($120-180 roundtrip), shared shuttle ($50-80/person), or rental car ($30-50/day for freedom to explore)."
+  - **Example for Santorini:** "Fly to Athens (ATH), then take a connecting flight or ferry to Santorini. Santorini's airport (JTR) has limited international service - most travelers connect through Athens."
+  - **Example for Amalfi Coast:** "Fly to Naples (NAP), then drive 1.5hrs along the stunning coastal road to Positano. There's no airport in Amalfi - this scenic drive is part of the experience!"
+  - Make routing feel like a normal, smart choice - not a confusing detour
 
 **Search in Parallel:**
 - Run multiple searches simultaneously for speed
@@ -1116,6 +1125,7 @@ When generating the plan, use web_search for key details (lighter than Smart mod
 - 🏨 **Top 2-3 hotels** - Search "[destination] best hotels" for quick recommendations with pricing
 - ☀️ **Weather forecast** - Search "weather forecast [destination] [dates]" for packing advice
 - 🚇 **Transportation basics** - Search "[destination] getting around" for Metro/taxi/airport transfer essentials
+- ✈️ **EXPLAIN Indirect Routing** - If flights require connecting through different city, briefly explain why (e.g., "Tulum → via Cancun because TQO airport has no direct Austin flights")
 - Keep searches focused - 2-3 parallel searches max (vs Smart mode's 5+ detailed searches)
 
 **For Dining Plans (Quick Mode):**
