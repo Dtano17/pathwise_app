@@ -105,7 +105,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
           <tr>
             <td class="header-padding" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #7c3aed 100%); padding: 50px 40px; text-align: center;">
               <h1 style="margin: 0 0 12px; color: #ffffff; font-size: 36px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2;">Welcome to JournalMate</h1>
-              <p style="margin: 0; color: #e9d5ff; font-size: 18px; font-weight: 500; line-height: 1.4;">your social planning &amp; adaptive journal</p>
+              <p style="margin: 0; color: #e9d5ff; font-size: 18px; font-weight: 500; line-height: 1.4;">Your personal planning companion that adapts to your rhythm</p>
             </td>
           </tr>
 
@@ -113,14 +113,17 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
           <tr>
             <td class="content-padding" style="padding: 45px 40px 30px;">
               <h2 style="margin: 0 0 20px; color: #111827; font-size: 26px; font-weight: 600; line-height: 1.3;">Hey ${firstName}! 👋</h2>
-              <p style="margin: 0 0 16px; color: #374151; font-size: 16px; line-height: 1.7;">
-                We're thrilled to welcome you into <strong>JournalMate</strong>—where planning becomes personal, journaling becomes adaptive, and your rhythm becomes the blueprint.
+              <p style="margin: 0 0 16px; color: #8b5cf6; font-size: 18px; font-weight: 700; line-height: 1.7;">
+                Plan together. Reflect together. Grow together.
               </p>
               <p style="margin: 0 0 16px; color: #374151; font-size: 16px; line-height: 1.7;">
-                This isn't just another AI app.
+                Welcome to <strong>JournalMate</strong>—where <strong>adaptive planning</strong>, <strong>emotional intelligence</strong>, and <strong>rhythm-aware journaling</strong> transform your dreams into reality.
+              </p>
+              <p style="margin: 0 0 16px; color: #374151; font-size: 16px; line-height: 1.7;">
+                Unlike traditional journals that start with blank pages, JournalMate helps you <strong>PLAN first, then REFLECT</strong>.
               </p>
               <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.7; font-weight: 500;">
-                It's your <strong>mate in motion</strong>—designed to help you reflect, plan, and grow with every swipe, snapshot, and shared moment.
+                Our rhythm-aware planning engine learns your patterns, adapts in real-time, and turns every goal into an actionable journey.
               </p>
               
               <!-- Privacy & Control Box -->
@@ -265,7 +268,7 @@ export async function sendWelcomeEmail(email: string, firstName: string = 'there
     const { data, error } = await client.emails.send({
       from: fromEmail,
       to: [email],
-      subject: `Welcome to JournalMate, ${firstName}! 🎉 Your AI Planning Journey Starts Now`,
+      subject: `Welcome to JournalMate, ${firstName}! 🎯 Plan Your Next Adventure with Adaptive AI`,
       html: getWelcomeEmailHTML(firstName),
     });
 

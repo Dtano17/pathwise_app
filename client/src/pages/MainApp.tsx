@@ -19,7 +19,7 @@ import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
 import ProgressReport from './ProgressReport';
 import { SocialLogin } from '@/components/SocialLogin';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit } from 'lucide-react';
 import { Link } from 'wouter';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
@@ -2749,102 +2749,193 @@ Assistant: For nutrition, I recommend..."
                 <div className="text-center mb-12">
                   <div className="inline-flex items-center justify-center w-32 h-32 mb-6">
                     <img src="/journalmate-logo-transparent.png" alt="AI Planner - Smart Goal Tracker and AI Journal for Life Planning" className="w-32 h-32 object-contain" />
+                  </div>
+                  <h2 className="text-4xl sm:text-5xl font-bold text-foreground mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
+                    Plan Together. Reflect Together. Grow Together.
+                  </h2>
+                  <p className="text-xl sm:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed mb-4">
+                    Watch your dreams become your reality with JournalMate's rhythm-aware planning engine
+                  </p>
+                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                    Unlike traditional journals, JournalMate combines <span className="font-semibold text-foreground">adaptive planning</span>, <span className="font-semibold text-foreground">emotional intelligence</span>, and <span className="font-semibold text-foreground">rhythm-aware journaling</span> to help you PLAN first, then REFLECT.
+                  </p>
+                  
+                  {/* Visual Hierarchy Flow */}
+                  <div className="mt-8 max-w-3xl mx-auto">
+                    <div className="flex items-center justify-center gap-2 sm:gap-4 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <div className="px-4 py-2 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg font-semibold text-sm sm:text-base">
+                          Smart Planning
+                        </div>
+                        <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="px-4 py-2 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-lg font-semibold text-sm sm:text-base">
+                          Activity Execution
+                        </div>
+                        <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="px-4 py-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg font-semibold text-sm sm:text-base">
+                          Reflection
+                        </div>
+                        <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+                      </div>
+                      <div className="px-4 py-2 bg-gradient-to-br from-pink-500 to-pink-600 text-white rounded-lg font-semibold text-sm sm:text-base">
+                        Social Sharing
+                      </div>
+                    </div>
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-4">
+                      Your complete planning-to-reflection journey, powered by AI that learns your rhythm
+                    </p>
+                  </div>
                 </div>
-                <h2 className="text-4xl font-bold text-foreground mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
-                  AI-Powered Life Planner & Smart Goal Tracker
-                </h2>
-                <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                  Transform your goals into action with our intelligent AI planner. Track tasks, manage daily activities, and achieve your objectives with personalized AI-powered planning and goal tracking.
-                </p>
-              </div>
+
+                {/* CTA Button */}
+                <div className="text-center mb-8">
+                  <Button 
+                    size="lg" 
+                    className="bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white text-lg px-8 py-6 h-auto"
+                    onClick={() => setActiveTab('input')}
+                    data-testid="button-plan-adventure"
+                  >
+                    <Sparkles className="w-5 h-5 mr-2" />
+                    Plan Your Next Adventure
+                  </Button>
+                  <p className="text-sm text-muted-foreground mt-3">
+                    Start with Quick Plan (5 questions) or Smart Plan (comprehensive with real-time web research)
+                  </p>
+                </div>
 
                 {/* Core Features */}
                 <div className="grid gap-6 md:grid-cols-3 mb-12">
                   <p className="col-span-full text-center text-xs text-muted-foreground mb-2">
                     💡 Click on any feature to learn more
                   </p>
+                  
+                  {/* PRIMARY: Smart Planning */}
                   <div 
-                    className="text-center p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200"
-                    onClick={() => setExpandedFeature(expandedFeature === 'voice' ? null : 'voice')}
-                    data-testid="feature-voice-planning"
+                    className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 rounded-xl border-2 border-purple-300 dark:border-purple-600 hover-elevate cursor-pointer transition-all duration-200 relative"
+                    onClick={() => setExpandedFeature(expandedFeature === 'planning' ? null : 'planning')}
+                    data-testid="feature-adaptive-planning"
                   >
-                    <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <Mic className="w-7 h-7 text-white" />
+                    <Badge className="absolute top-2 right-2 bg-purple-600 text-white text-xs">PRIMARY</Badge>
+                    <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <Sparkles className="w-7 h-7 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">Voice & AI Planning</h3>
-                    <p className="text-sm text-muted-foreground">AI goal planner with voice input - speak your objectives and get instant personalized action plans</p>
+                    <h3 className="text-lg font-semibold mb-2">Adaptive Planning Engine</h3>
+                    <p className="text-sm text-muted-foreground">AI that learns your rhythm and adapts plans in real-time with emotional intelligence</p>
                     
-                    {expandedFeature === 'voice' && (
-                      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700 text-left">
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Intelligent AI planner that understands natural language. Speak or type your goals like "I want to work out, take vitamins, prep for my Dallas trip" and get a personalized step-by-step action plan with task breakdowns.
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
-                          <Copy className="w-3 h-3" />
-                          <span>Import from ChatGPT, Claude, and other AI assistants</span>
+                    {expandedFeature === 'planning' && (
+                      <div className="mt-4 p-4 bg-white/60 dark:bg-gray-900/40 rounded-lg border border-purple-200 dark:border-purple-700 text-left">
+                        <div className="space-y-3 text-sm">
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 bg-purple-600 rounded-full mt-2 shrink-0"></div>
+                            <div>
+                              <p className="font-medium text-foreground">Quick Plan Mode</p>
+                              <p className="text-muted-foreground">5 essential questions in 2 batches with targeted web research for flight prices, hotels, and weather</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 bg-purple-600 rounded-full mt-2 shrink-0"></div>
+                            <div>
+                              <p className="font-medium text-foreground">Smart Plan Mode</p>
+                              <p className="text-muted-foreground">10 comprehensive questions in 3 batches with mandatory real-time enrichment: resort pricing, restaurant details, flight comparisons, 7-day forecasts</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 bg-purple-600 rounded-full mt-2 shrink-0"></div>
+                            <div>
+                              <p className="font-medium text-foreground">Context-Aware Intelligence</p>
+                              <p className="text-muted-foreground">Dynamic emojis based on destination, intelligent routing explanations (e.g., "Fly to Cancun instead of Tulum - TQO has limited service"), and budget-conscious recommendations</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 pt-2">
+                            <Copy className="w-3 h-3" />
+                            <span>Import from ChatGPT, Claude, and other AI assistants</span>
+                          </div>
                         </div>
                       </div>
                     )}
                   </div>
 
+                  {/* SECONDARY: Activity Execution */}
                   <div 
-                    className="text-center p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200"
-                    onClick={() => setExpandedFeature(expandedFeature === 'swipe' ? null : 'swipe')}
-                    data-testid="feature-swipe-complete"
+                    className="text-center p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200 relative"
+                    onClick={() => setExpandedFeature(expandedFeature === 'execution' ? null : 'execution')}
+                    data-testid="feature-activity-execution"
                   >
+                    <Badge className="absolute top-2 right-2 bg-emerald-600 text-white text-xs">SECONDARY</Badge>
                     <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <CheckSquare className="w-7 h-7 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">Smart Task Manager</h3>
-                    <p className="text-sm text-muted-foreground">Interactive task tracker with swipeable cards, instant progress updates, and celebration animations</p>
+                    <h3 className="text-lg font-semibold mb-2">Activity Execution & Progress Tracking</h3>
+                    <p className="text-sm text-muted-foreground">Execute your plans with swipeable task cards, real-time analytics, and celebratory milestones</p>
                     
-                    {expandedFeature === 'swipe' && (
+                    {expandedFeature === 'execution' && (
                       <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700 text-left">
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Modern task management system with swipeable cards. Swipe right to complete tasks, swipe left to skip. Every action is tracked with visual progress indicators and celebration effects.
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Customizable reminder frequency—hourly, daily, or weekly task notifications. Stay productive without feeling overwhelmed.
-                        </p>
+                        <div className="space-y-3 text-sm">
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 bg-emerald-600 rounded-full mt-2 shrink-0"></div>
+                            <div>
+                              <p className="font-medium text-foreground">Swipeable Task Interface</p>
+                              <p className="text-muted-foreground">Swipe right to complete, left to skip. Every completion triggers celebration animations with confetti effects</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 bg-emerald-600 rounded-full mt-2 shrink-0"></div>
+                            <div>
+                              <p className="font-medium text-foreground">Real-Time Progress Dashboard</p>
+                              <p className="text-muted-foreground">Track completion rates, streaks, productivity patterns with visual analytics that adapt to your workflow</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 bg-emerald-600 rounded-full mt-2 shrink-0"></div>
+                            <div>
+                              <p className="font-medium text-foreground">YouTube-Style Feedback</p>
+                              <p className="text-muted-foreground">Thumbs up/down on tasks to help AI learn what works for you and refine future plans</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
 
+                  {/* TERTIARY: Reflection & Journaling */}
                   <div 
-                    className="text-center p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200"
-                    onClick={() => setExpandedFeature(expandedFeature === 'collaborate' ? null : 'collaborate')}
-                    data-testid="feature-share-collaborate"
+                    className="text-center p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200 relative"
+                    onClick={() => setExpandedFeature(expandedFeature === 'reflection' ? null : 'reflection')}
+                    data-testid="feature-rhythm-journaling"
                   >
-                    <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <Users className="w-7 h-7 text-white" />
+                    <Badge className="absolute top-2 right-2 bg-blue-600 text-white text-xs">CLOSE THE LOOP</Badge>
+                    <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <BookOpen className="w-7 h-7 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">Collaborative Goal Planning</h3>
-                    <p className="text-sm text-muted-foreground">Share goals, track group progress, and achieve objectives together with team collaboration tools</p>
+                    <h3 className="text-lg font-semibold mb-2">Rhythm-Aware Journaling</h3>
+                    <p className="text-sm text-muted-foreground">Close the loop with intelligent reflection that learns your patterns and enriches future planning</p>
                     
-                    {expandedFeature === 'collaborate' && (
-                      <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700 text-left">
+                    {expandedFeature === 'reflection' && (
+                      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700 text-left">
                         <div className="space-y-3 text-sm">
                           <div className="flex items-start gap-3">
-                            <div className="w-2 h-2 bg-purple-600 rounded-full mt-2 shrink-0"></div>
+                            <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 shrink-0"></div>
                             <div>
-                              <p className="font-medium text-foreground">Shared Goal Creation</p>
-                              <p className="text-muted-foreground">Invite members to contribute tasks to group objectives like "Girls Trip to Miami" or "Family Fitness Challenge"</p>
+                              <p className="font-medium text-foreground">Smart Capture Mode</p>
+                              <p className="text-muted-foreground">Type minimal text with keywords (@restaurants, @travel, @music) + upload photos/videos. AI auto-detects category and enriches entries</p>
                             </div>
                           </div>
-                          
                           <div className="flex items-start gap-3">
-                            <div className="w-2 h-2 bg-purple-600 rounded-full mt-2 shrink-0"></div>
+                            <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 shrink-0"></div>
                             <div>
-                              <p className="font-medium text-foreground">Real-Time Activity Feed</p>
-                              <p className="text-muted-foreground">See when group members complete tasks with instant strikethrough effects and celebratory notifications</p>
+                              <p className="font-medium text-foreground">9 Life Categories</p>
+                              <p className="text-muted-foreground">Restaurants, Travel, Music, Movies, Books, Products, Workouts, Personal Achievements, Daily Reflections with AI-organized galleries</p>
                             </div>
                           </div>
-                          
                           <div className="flex items-start gap-3">
-                            <div className="w-2 h-2 bg-purple-600 rounded-full mt-2 shrink-0"></div>
+                            <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 shrink-0"></div>
                             <div>
-                              <p className="font-medium text-foreground">Shared Reflection Journaling</p>
-                              <p className="text-muted-foreground">Group members can share daily reflections, mood tracking, and achievements with rich context about their journey</p>
+                              <p className="font-medium text-foreground">Feeds Future Planning</p>
+                              <p className="text-muted-foreground">AI learns from your reflections to personalize future plan recommendations and task suggestions</p>
                             </div>
                           </div>
                         </div>
@@ -2853,21 +2944,21 @@ Assistant: For nutrition, I recommend..."
                   </div>
                 </div>
 
-                {/* Contact Sharing Highlight */}
+                {/* Social Sharing - Complete the Cycle */}
                 <div 
-                  className="bg-gradient-to-br from-purple-50 via-emerald-50 to-blue-50 dark:from-purple-900/20 dark:via-emerald-900/20 dark:to-blue-900/20 p-8 rounded-2xl border border-purple-200/50 dark:border-purple-700/50 shadow-lg mb-12 cursor-pointer hover-elevate transition-all duration-200"
+                  className="bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 dark:from-pink-900/20 dark:via-purple-900/20 dark:to-blue-900/20 p-8 rounded-2xl border-2 border-pink-200/50 dark:border-pink-700/50 shadow-lg mb-12 cursor-pointer hover-elevate transition-all duration-200"
                   onClick={() => setExpandedFeature(expandedFeature === 'sharing' ? null : 'sharing')}
-                  data-testid="feature-contact-sharing"
+                  data-testid="feature-social-sharing"
                 >
                   <div className="flex items-center justify-center gap-4 mb-6">
-                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-xl flex items-center justify-center">
-                      <BookOpen className="w-6 h-6 text-white" />
+                    <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-500 rounded-xl flex items-center justify-center">
+                      <Share2 className="w-6 h-6 text-white" />
                     </div>
                     <div className="text-center">
-                      <h3 className="text-xl font-bold text-foreground bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
-                        Share Your Journey
+                      <h3 className="text-xl font-bold text-foreground bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+                        Social Sharing - Complete the Cycle
                       </h3>
-                      <p className="text-sm text-muted-foreground">Connect your planning with friends and family</p>
+                      <p className="text-sm text-muted-foreground">Share your success, inspire others, discover community plans</p>
                     </div>
                   </div>
                   
