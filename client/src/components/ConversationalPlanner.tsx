@@ -47,7 +47,7 @@ interface PlannerSession {
   };
 }
 
-type PlanningMode = 'quick' | 'chat' | 'direct' | 'journal' | null;
+type PlanningMode = 'quick' | 'smart' | 'chat' | 'direct' | 'journal' | null;
 
 interface ConversationalPlannerProps {
   onClose?: () => void;
@@ -220,6 +220,10 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
         queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
         queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
         queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+        
+        // ✅ CRITICAL FIX: Clear session after activity creation to prevent old history from persisting
+        setCurrentSession(null);
+        setPlanningMode(null); // Reset mode so user must select again for fresh start
       }
     },
     onError: (error) => {
@@ -261,7 +265,9 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
       return response.json();
     },
     onSuccess: (data) => {
-      setCurrentSession(data.session);
+      // ✅ CRITICAL FIX: Clear session after plan completion to prevent old history from persisting
+      setCurrentSession(null);
+      setPlanningMode(null); // Reset mode so user must select again for fresh start
       setIsGenerating(false);
       setShowAgreementPrompt(false);
       setShowPlanConfirmation(false);
