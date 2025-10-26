@@ -30,50 +30,45 @@ import type { User, UserProfile, UserPreferences, JournalEntry } from '@shared/s
 // ============================================================================
 
 /**
- * Calculate progress based on batches, not individual questions
- * Quick mode: 5 minimum questions in 2 batches (3+2)
- * Smart mode: 10 minimum questions in 3 batches (3+3+4)
- * Progress = batchesCompleted / totalBatches
+ * Calculate progress based on conversation turn count (batch number)
+ * Quick mode: 2 batches total → Shows 1/2, 2/2
+ * Smart mode: 3 batches total → Shows 1/3, 2/3, 3/3
+ * Progress = current batch / total batches
  */
-function calculateDynamicProgress(questionCount: number, mode: 'quick' | 'smart') {
+function calculateBatchProgress(conversationHistory: ConversationMessage[], mode: 'quick' | 'smart') {
   const emoji = mode === 'quick' ? '⚡' : '🧠';
 
+  // Count how many times the assistant has responded (= which batch we're in)
+  const assistantMessageCount = conversationHistory.filter(msg => msg.role === 'assistant').length;
+  
+  // After 1st assistant response = batch 1, after 2nd = batch 2, etc.
+  const currentBatch = assistantMessageCount + 1; // +1 because we're about to send the next response
+
   if (mode === 'quick') {
-    // Quick: 2 batches total (5 questions: 3+2)
+    // Quick: 2 batches total
     const totalBatches = 2;
-    let batchesCompleted = 0;
-
-    if (questionCount >= 3) batchesCompleted = 1;
-    if (questionCount >= 5) batchesCompleted = 2;
-
-    const percentage = Math.round((batchesCompleted / totalBatches) * 100);
+    const batchNumber = Math.min(currentBatch, totalBatches);
+    const percentage = Math.round((batchNumber / totalBatches) * 100);
 
     return {
-      gathered: batchesCompleted,
+      gathered: batchNumber,
       total: totalBatches,
       percentage,
       emoji,
-      mode,
-      questionCount
+      mode
     };
   } else {
-    // Smart: 3 batches total (10 questions: 3+3+4)
+    // Smart: 3 batches total
     const totalBatches = 3;
-    let batchesCompleted = 0;
-
-    if (questionCount >= 3) batchesCompleted = 1;
-    if (questionCount >= 6) batchesCompleted = 2;
-    if (questionCount >= 10) batchesCompleted = 3;
-
-    const percentage = Math.round((batchesCompleted / totalBatches) * 100);
+    const batchNumber = Math.min(currentBatch, totalBatches);
+    const percentage = Math.round((batchNumber / totalBatches) * 100);
 
     return {
-      gathered: batchesCompleted,
+      gathered: batchNumber,
       total: totalBatches,
       percentage,
       emoji,
-      mode,
-      questionCount
+      mode
     };
   }
 }
@@ -1388,8 +1383,8 @@ export class SimpleConversationalPlanner {
         console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked${trigger}, generating plan`);
       }
       
-      // 6. Add dynamic progress tracking to response using cumulative questionCount
-      const progress = calculateDynamicProgress(questionCount, mode);
+      // 6. Add batch-based progress tracking to response
+      const progress = calculateBatchProgress(conversationHistory, mode);
       response.extractedInfo._progress = progress;
 
       // 7. Inject progress tracking ONLY if:
@@ -1560,7 +1555,7 @@ export class SimpleConversationalPlanner {
         console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked${trigger}, generating plan`);
       }
       
-      const progress = calculateDynamicProgress(questionCount, mode);
+      const progress = calculateBatchProgress(conversationHistory, mode);
       response.extractedInfo._progress = progress;
 
       if (!response.readyToGenerate && response.extractedInfo._progress) {
@@ -1571,7 +1566,7 @@ export class SimpleConversationalPlanner {
         if (!hasProgress) {
           const progressString = `\n\n${progress.emoji} Progress: ${progress.gathered}/${progress.total} (${progress.percentage}%)`;
           response.message = response.message + progressString;
-          console.log(`[SIMPLE_PLANNER] Added fallback progress tracking`);
+          console.log(`[SIMPLE_PLANNER] Added fallback batch progress tracking`);
         }
       }
 
