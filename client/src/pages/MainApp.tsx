@@ -121,6 +121,7 @@ export default function MainApp({
   const [sharePreviewDialog, setSharePreviewDialog] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
   const [editingActivity, setEditingActivity] = useState<ActivityType | null>(null);
   const [showJournalMode, setShowJournalMode] = useState(false);
+  const [journalActivityContext, setJournalActivityContext] = useState<{ activityId: string; title: string } | null>(null);
 
   // Handle URL query parameters for activity selection from shared links
   useEffect(() => {
@@ -1679,6 +1680,29 @@ export default function MainApp({
                                     : 'text-muted-foreground group-hover:drop-shadow-[0_0_4px_rgba(147,51,234,0.3)] group-hover:scale-105'
                                 }`} />
                               </Button>
+                              {progressPercent > 0 && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setJournalActivityContext({
+                                      activityId: activity.id,
+                                      title: activity.title
+                                    });
+                                    setShowJournalMode(true);
+                                  }}
+                                  data-testid={`button-journal-${activity.id}`}
+                                  title="Journal about this activity"
+                                  className={`transition-all duration-300 ${
+                                    progressPercent === 100
+                                      ? 'text-purple-600 animate-pulse hover:scale-110'
+                                      : 'hover:text-purple-600'
+                                  }`}
+                                >
+                                  <BookOpen className="w-4 h-4" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -3636,11 +3660,21 @@ Assistant: For nutrition, I recommend..."
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showJournalMode} onOpenChange={setShowJournalMode}>
+      <Dialog open={showJournalMode} onOpenChange={(open) => {
+        setShowJournalMode(open);
+        if (!open) {
+          setJournalActivityContext(null);
+        }
+      }}>
         <DialogContent className="max-w-[95vw] sm:max-w-4xl h-[90vh] flex flex-col p-0" data-testid="modal-journal-mode">
-          <ConversationalPlanner 
+          <ConversationalPlanner
             initialMode="journal"
-            onClose={() => setShowJournalMode(false)}
+            onClose={() => {
+              setShowJournalMode(false);
+              setJournalActivityContext(null);
+            }}
+            activityId={journalActivityContext?.activityId}
+            activityTitle={journalActivityContext?.title}
           />
         </DialogContent>
       </Dialog>

@@ -53,9 +53,11 @@ type PlanningMode = 'quick' | 'smart' | 'chat' | 'direct' | 'journal' | null;
 interface ConversationalPlannerProps {
   onClose?: () => void;
   initialMode?: PlanningMode;
+  activityId?: string;
+  activityTitle?: string;
 }
 
-export default function ConversationalPlanner({ onClose, initialMode }: ConversationalPlannerProps) {
+export default function ConversationalPlanner({ onClose, initialMode, activityId, activityTitle }: ConversationalPlannerProps) {
   const { toast } = useToast();
   const [currentSession, setCurrentSession] = useState<PlannerSession | null>(null);
   const [message, setMessage] = useState('');
@@ -536,7 +538,9 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
       // Submit journal entry with AI categorization
       const response = await apiRequest('POST', '/api/journal/smart-entry', {
         text: journalText,
-        media: uploadedMedia
+        media: uploadedMedia,
+        activityId: activityId,
+        linkedActivityTitle: activityTitle
       });
       return response.json();
     },
@@ -933,7 +937,15 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
             <Card className="border-none shadow-xl bg-white/95 dark:bg-slate-900/95 backdrop-blur">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Quick Capture</CardTitle>
+                  <div className="flex flex-col gap-2">
+                    <CardTitle className="text-base">Quick Capture</CardTitle>
+                    {activityTitle && (
+                      <Badge variant="outline" className="w-fit text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
+                        <BookOpen className="h-3 w-3 mr-1" />
+                        Journaling about: {activityTitle}
+                      </Badge>
+                    )}
+                  </div>
                   {isSavingJournal && (
                     <Badge variant="secondary" className="text-xs animate-pulse">
                       <RefreshCcw className="h-3 w-3 mr-1 animate-spin" />
@@ -942,7 +954,9 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
                   )}
                 </div>
                 <CardDescription className="text-xs">
-                  Type freely. Use @keywords like @restaurants, @travel, @music for smart categorization
+                  {activityTitle
+                    ? "Capture your thoughts and experiences about this activity"
+                    : "Type freely. Use @keywords like @restaurants, @travel, @music for smart categorization"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
