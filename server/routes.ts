@@ -46,6 +46,70 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
+// Helper function to format plan preview for Smart mode
+function formatPlanPreview(plan: any): string {
+  if (!plan) return '';
+  
+  let preview = `\n\n## 📋 ${plan.title || 'Your Plan'}\n\n`;
+  
+  if (plan.description) {
+    preview += `${plan.description}\n\n`;
+  }
+  
+  if (plan.tasks && plan.tasks.length > 0) {
+    preview += `**Tasks (${plan.tasks.length}):**\n\n`;
+    plan.tasks.forEach((task: any, index: number) => {
+      preview += `${index + 1}. **${task.taskName || task.title}**`;
+      if (task.duration) {
+        preview += ` (${task.duration} min)`;
+      }
+      if (task.notes) {
+        preview += `\n   ${task.notes}`;
+      }
+      preview += '\n';
+    });
+    preview += '\n';
+  }
+  
+  if (plan.budget && plan.budget.total) {
+    preview += `**💰 Budget Breakdown (Total: $${plan.budget.total}):**\n\n`;
+    if (plan.budget.breakdown && plan.budget.breakdown.length > 0) {
+      plan.budget.breakdown.forEach((item: any) => {
+        preview += `• **${item.category}:** $${item.amount}`;
+        if (item.notes) {
+          preview += ` - ${item.notes}`;
+        }
+        preview += '\n';
+      });
+    }
+    if (plan.budget.buffer) {
+      preview += `• **Buffer:** $${plan.budget.buffer} (for unexpected costs)\n`;
+    }
+    preview += '\n';
+  }
+  
+  if (plan.weather) {
+    preview += `**🌤️ Weather:**\n${plan.weather.forecast}\n\n`;
+    if (plan.weather.recommendations && plan.weather.recommendations.length > 0) {
+      preview += `**Recommendations:**\n`;
+      plan.weather.recommendations.forEach((rec: string) => {
+        preview += `• ${rec}\n`;
+      });
+      preview += '\n';
+    }
+  }
+  
+  if (plan.tips && plan.tips.length > 0) {
+    preview += `**💡 Tips:**\n`;
+    plan.tips.forEach((tip: string) => {
+      preview += `• ${tip}\n`;
+    });
+    preview += '\n';
+  }
+  
+  return preview;
+}
+
 // Configure multer for media uploads
 const uploadDir = path.join(process.cwd(), 'attached_assets', 'journal_media');
 if (!fs.existsSync(uploadDir)) {
@@ -610,11 +674,17 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
                                          messageLower.includes("sound good") ||
                                          /ready to (proceed|generate|create)/.test(messageLower);
         
-        // First time plan is ready - ask for confirmation (only if AI didn't already ask)
+        // Get the plan from response (could be in plan, generatedPlan, or extractedInfo.plan)
+        const planData = response.plan || response.generatedPlan || response.extractedInfo?.plan;
+        const planPreview = formatPlanPreview(planData);
+        
+        // First time plan is ready - show plan preview and ask for confirmation
+        const confirmationMessage = alreadyAskedConfirmation 
+          ? response.message 
+          : response.message + "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)";
+        
         return res.json({
-          message: alreadyAskedConfirmation 
-            ? response.message 
-            : response.message + "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)",
+          message: planPreview + confirmationMessage,
           planReady: false, // Don't show button yet
           sessionId: session.id,
           showCreatePlanButton: false, // Don't show button until confirmed

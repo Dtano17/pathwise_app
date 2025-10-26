@@ -673,16 +673,19 @@ ${mode === 'quick' ? `
 - Ask EXACTLY 3 questions from Q1-Q3
 - STOP after 3 questions
 - Set questionCount = 3
+- End with: "(You can say 'create plan' anytime if you'd like me to work with what we have!)"
 
 **BATCH 2 (Second Response - After User Answers):**
 - Ask EXACTLY 3 more questions (Q4-Q6)
 - STOP after these 3
 - Set questionCount = 6
+- End with: "(Remember, you can say 'create plan' anytime!)"
 
 **BATCH 3 (Third Response - After User Answers):**
 - Ask final 4 questions (Q7-Q10)
 - Set questionCount = 10
 - Set readyToGenerate = true if you have enough info
+- End with: "(Or say 'create plan' if you're ready now!)"
 `}
 
 **ENFORCEMENT RULES:**
@@ -753,9 +756,9 @@ When user triggers early generation:
 5. 📍 **Location/equipment available?** (Home, gym, outdoor, specific equipment owned)
 6. 📍 **Preferences?** (Solo, group classes, trainer, outdoor vs indoor)
 7. ✨ **Budget?** (Free/low-cost vs premium gym/classes)
-8. ✨ **Health conditions or injuries?** (Affects exercise selection)
-9. ✨ **Past experience?** (What have you tried before? What worked/didn't work?)
-10. ✨ **Accountability needs?** (Need tracking apps, workout buddy, coach?)
+8. ✨ **Diet & nutrition needs?** (Current eating habits, dietary restrictions, nutrition goals - essential for weight loss/muscle building plans)
+9. ✨ **Health conditions or injuries?** (Affects exercise selection)
+10. ✨ **Past experience & accountability?** (What have you tried before? What worked/didn't work? Need tracking apps, workout buddy, coach?)
 
 **Quick Mode (5 questions):** Ask Q1-3 first, then Q4-5
 **Smart Mode (10 questions):** Ask Q1-3 first, then Q4-6, then Q7-10
@@ -998,7 +1001,7 @@ function getPlanningTool(mode: 'quick' | 'smart') {
               },
               questionCount: {
                 type: 'number',
-                description: 'Number of distinct questions you have asked so far'
+                description: 'CUMULATIVE number of distinct questions you have asked so far. This number MUST NEVER DECREASE. Always count ALL questions asked across ALL messages. Example: if you asked 3 questions in message 1, then 3 more in message 2, questionCount = 6 (not 3!).'
               }
             },
             additionalProperties: true
