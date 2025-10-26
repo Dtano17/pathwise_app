@@ -15,6 +15,7 @@ import LocationDatePlanner from '@/components/LocationDatePlanner';
 import PersonalJournal from '@/components/PersonalJournal';
 import ConversationalPlanner from '@/components/ConversationalPlanner';
 import QuickCaptureButton from '@/components/QuickCaptureButton';
+import PostActivityPrompt from '@/components/PostActivityPrompt';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
@@ -122,6 +123,11 @@ export default function MainApp({
   const [editingActivity, setEditingActivity] = useState<ActivityType | null>(null);
   const [showJournalMode, setShowJournalMode] = useState(false);
   const [journalActivityContext, setJournalActivityContext] = useState<{ activityId: string; title: string } | null>(null);
+  const [postActivityPrompt, setPostActivityPrompt] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
+  const [promptedActivities, setPromptedActivities] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('journalmate_prompted_activities');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
 
   // Handle URL query parameters for activity selection from shared links
   useEffect(() => {
@@ -1071,10 +1077,15 @@ export default function MainApp({
             description: `Congratulations! You've completed "${activity.title}"! All tasks are done! 🚀`
           });
 
-          // Auto-hide confetti after 5 seconds
+          // Auto-hide confetti after 5 seconds, then show journal prompt
           setTimeout(() => {
             setShowActivityConfetti(false);
             setActivityCelebration(null);
+
+            // Show journal prompt if not already prompted for this activity
+            if (!promptedActivities.has(activity.id)) {
+              setPostActivityPrompt({ open: true, activity });
+            }
           }, 5000);
 
           // Show toast notification
@@ -1085,7 +1096,37 @@ export default function MainApp({
         }
       });
     }
-  }, [activities, completedActivities, toast]);
+  }, [activities, completedActivities, toast, promptedActivities]);
+
+  // Post-Activity Prompt handlers
+  const handleQuickNote = (activityId: string, title: string) => {
+    setJournalActivityContext({ activityId, title });
+    setShowJournalMode(true);
+
+    // Mark as prompted
+    const updated = new Set(promptedActivities);
+    updated.add(activityId);
+    setPromptedActivities(updated);
+    localStorage.setItem('journalmate_prompted_activities', JSON.stringify([...updated]));
+  };
+
+  const handleSkipJournalPrompt = () => {
+    if (postActivityPrompt.activity) {
+      // Mark as prompted so we don't show again
+      const updated = new Set(promptedActivities);
+      updated.add(postActivityPrompt.activity.id);
+      setPromptedActivities(updated);
+      localStorage.setItem('journalmate_prompted_activities', JSON.stringify([...updated]));
+    }
+  };
+
+  const handleRemindLater = () => {
+    // Don't mark as prompted, so it can show again later
+    toast({
+      title: "We'll remind you later",
+      description: "Journal prompt will appear next time you open the app"
+    });
+  };
 
   // Tab options for mobile dropdown
   const tabOptions = [
@@ -3678,6 +3719,22 @@ Assistant: For nutrition, I recommend..."
           />
         </DialogContent>
       </Dialog>
+
+      {/* Post-Activity Journal Prompt */}
+      {postActivityPrompt.activity && (
+        <PostActivityPrompt
+          activity={{
+            id: postActivityPrompt.activity.id,
+            title: postActivityPrompt.activity.title,
+            category: postActivityPrompt.activity.category || 'General'
+          }}
+          onQuickNote={handleQuickNote}
+          onSkip={handleSkipJournalPrompt}
+          onRemindLater={handleRemindLater}
+          open={postActivityPrompt.open}
+          onOpenChange={(open) => setPostActivityPrompt({ ...postActivityPrompt, open })}
+        />
+      )}
 
       <Dialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>
         <DialogContent className="max-w-md p-0" data-testid="modal-signin">
