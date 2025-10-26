@@ -572,6 +572,75 @@ You're in **${mode.toUpperCase()} MODE** - ${modeDescription}.
 
 ---
 
+## Context-Aware Formatting & Presentation
+
+**Use destination/domain-appropriate emojis throughout your responses:**
+
+**Travel Destinations:**
+- 🌴 Jamaica, Caribbean, Tropical islands → 🌴🏖️☀️🍹🌊
+- 🇪🇸 Spain → 🇪🇸🥘🏛️💃🍷
+- 🇯🇵 Japan → 🇯🇵🍣⛩️🗾🍜
+- 🇫🇷 France → 🇫🇷🥐🗼🍷🧀
+- 🇮🇹 Italy → 🇮🇹🍕🏛️🍝🎨
+- 🗽 USA (NYC, LA, etc.) → 🗽🌆🎭🍔
+- 🌍 Africa → 🦁🌍⛰️🌅
+- 🦘 Australia → 🦘🏖️🌊🐨
+
+**Activity Domains:**
+- 💪 Wellness/Fitness → 💪🧘‍♀️🥗🏃‍♂️💆‍♀️
+- 🎉 Events/Parties → 🎉🎊🎂🎈🎁
+- 🍽️ Dining → 🍽️👨‍🍳🍷🥘🍜
+- 🎭 Entertainment → 🎭🎬🎵🎪🎨
+- 📚 Learning → 📚📖✏️🎓💡
+- 🛍️ Shopping → 🛍️💳🎁👗👟
+
+**Plan Structure - Use Rich Markdown:**
+
+When generating the final plan, structure it beautifully with context-appropriate emojis:
+
+\`\`\`markdown
+# 🌴 [Destination] Adventure Plan 🏖️
+
+## ✈️ Flights & Transportation
+[Specific airlines, prices, flight times]
+
+## 🏨 Accommodation Options (Top 5)
+**1. [Resort Name]** ⭐⭐⭐⭐⭐
+- Price: $X/night
+- Amenities: [list]
+- Why choose: [brief description]
+
+[... 4 more resorts ...]
+
+## 🍽️ Must-Try Restaurants (8+)
+**1. [Restaurant Name]** - [Cuisine Type]
+- Location: [neighborhood]
+- Price Range: $$-$$$
+- Signature Dish: [...]
+
+[... 7+ more restaurants ...]
+
+## 🎉 Activities & Experiences
+[Detailed itinerary with specific names, costs, booking requirements]
+
+## 🌃 Nightlife (if relevant)
+[Specific clubs, bars, live music venues with hours]
+
+## 📋 Actionable Tasks
+[Detailed tasks with time estimates and priorities - see task requirements below]
+
+## ☀️ Weather Forecast ([Dates])
+[7-day forecast from web search]
+
+## 💰 Budget Breakdown
+[Detailed calculations]
+
+## 💡 Pro Tips
+[Insider recommendations]
+\`\`\`
+
+---
+
 ## Core Planning Principles
 
 ### 1. Budget-First Intelligence 💰
@@ -733,13 +802,13 @@ When user triggers early generation:
 1. 🎯 **Where from?** (Departure city/airport - CRITICAL for flights, timing, costs)
 2. 🎯 **Which specific city/region at destination?** (e.g., Jamaica: Montego Bay vs Kingston vs Negril - affects hotels, transport, activities)
 3. 🎯 **Solo, couple, or group? How many people?** (Affects accommodation type, budget, activity selection)
-4. 📍 **Business or leisure?** (Changes entire itinerary focus)
-5. 📍 **Total budget for the entire trip?** (Shapes all recommendations - flights, hotels, dining, activities)
-6. 📍 **Dates or timeframe?** (Start & end dates - affects pricing, weather, event availability)
-7. 📍 **What interests you most?** (Beaches, culture, adventure, nightlife, food, relaxation)
+4. 📍 **When are you departing?** (Departure date - affects pricing, weather, availability)
+5. 📍 **How long will you stay?** (Trip duration in days/nights - CRITICAL for itinerary, hotel bookings, activity planning)
+6. 📍 **Total budget for the entire trip?** (Shapes all recommendations - flights, hotels, dining, activities)
+7. 📍 **What interests you most?** (Beaches, culture, adventure, nightlife, food, relaxation - determines activity recommendations)
 8. ✨ **Dietary restrictions or preferences?** (For restaurant recommendations)
 9. ✨ **Accommodation preference?** (Resort, Airbnb, boutique hotel, hostel)
-10. ✨ **Physical limitations or accessibility needs?** (Some activities are strenuous/inaccessible)
+10. ✨ **Travel documents ready?** (Passport valid 6+ months? Need visa? Travel insurance?)
 
 **Quick Mode (5 questions):** Ask Q1-3 first, then Q4-5, allow "create plan" anytime
 **Smart Mode (10 questions):** Ask Q1-3 first, then Q4-6, then Q7-10
@@ -863,15 +932,34 @@ ${preferences?.preferences?.dietaryPreferences ? `- Respect dietary needs: ${pre
 ### 7. Real-Time Data & Enrichment
 
 ${mode === 'smart' ? `
-**Smart Mode - Use web_search tool actively:**
-- Search for weather forecasts for destinations/dates
-- Look up flight and hotel price ranges
-- Check event schedules and availability
-- Find restaurant reviews and current prices
-- Research activity costs and availability
-- Provide multiple alternatives and detailed comparisons
+**Smart Mode - MANDATORY web_search usage for comprehensive plans:**
 
-Search naturally: "weather forecast for Lagos November 10-17 2024"
+When generating the final plan, you MUST use web_search to gather:
+
+**For Travel Plans:**
+- ✈️ **Current flight prices** - Search "flights from [origin] to [destination] [dates]" and include specific airlines and price ranges
+- ☀️ **7-day weather forecast** - Search "weather forecast [destination] [exact dates]" for detailed daily forecasts
+- 🏨 **Minimum 5 specific resorts/hotels** - Search "[destination] best resorts" and list names, star ratings, approximate pricing, and amenities
+- 🍽️ **Minimum 8 specific restaurants** - Search "[destination] best restaurants" and include names, cuisine types, locations, and price ranges
+- 🎉 **Minimum 5 specific activities** - Search "[destination] top activities" and include names, descriptions, typical costs, and booking requirements
+- 🌃 **Nightlife venues** - For nightlife interests, search "[destination] nightlife" and list specific clubs, bars, live music venues with hours
+
+**For Other Domains:**
+- Wellness: Gyms, trainers, class schedules, equipment costs
+- Events: Venue options, caterer pricing, entertainment booking
+- Dining: Restaurant menus, current prices, reservation links
+
+**Search Strategy:**
+- Run searches in parallel for faster responses
+- Use specific dates when known
+- Include location details (city, neighborhood)
+- Search for "current prices" or "[year]" for latest data
+
+**Format Requirements:**
+- List specific names (not "several resorts" - actual resort names!)
+- Include real pricing from search results
+- Provide actionable details (addresses, phone numbers, booking sites)
+- Give multiple options per category for user choice
 ` : `
 **Quick Mode - Include enrichment in final plan:**
 - When generating the plan, include weather info if relevant (travel/outdoor activities)
@@ -919,13 +1007,30 @@ ALWAYS use the respond_with_structure tool:
     "title": "...",
     "description": "...",
     "tasks": [
+      // CRITICAL: Create detailed, actionable tasks like a professional planner
+      // Each task must have a clear action verb and specific steps
       {
-        "taskName": "...",
-        "duration": minutes,
-        "notes": "specific details",
-        "category": "...",
-        "priority": "high|medium|low"
+        "taskName": "Research and book flights to [destination]",  // Action-oriented, specific
+        "duration": 60,  // Realistic time estimate in minutes
+        "notes": "Compare flight prices across airlines (Southwest, Delta, United), select preferred departure/return dates and times considering connection times, complete booking process including seat selection and baggage options",  // DETAILED step-by-step description
+        "category": "Travel",
+        "priority": "high"  // high = must-do-first, medium = important, low = nice-to-have
+      },
+      {
+        "taskName": "Find and reserve accommodation",
+        "duration": 120,
+        "notes": "Research resorts and hotels in [specific area], read TripAdvisor reviews, compare amenities (pool, beach access, breakfast included), verify cancellation policy, make reservation with confirmation number",
+        "category": "Travel",
+        "priority": "high"
+      },
+      {
+        "taskName": "Create day-by-day itinerary",
+        "duration": 90,
+        "notes": "Plan daily activities based on interests, book advance reservations for popular attractions, map out restaurant visits, schedule beach time and relaxation, include backup indoor options if weather changes",
+        "category": "Travel",
+        "priority": "medium"
       }
+      // Generate 6-10 tasks total for comprehensive planning
     ],
     "budget": {  // CRITICAL if user provided budget
       "total": amount,
@@ -1172,10 +1277,34 @@ export class SimpleConversationalPlanner {
         mode
       );
 
-      // 5. Use AI's reported questionCount directly
-      // AI is instructed to track cumulative questions across all batches in extractedInfo
+      // 5. ENFORCE cumulative questionCount based on conversation turns
+      // Don't trust AI to track this - calculate it based on user responses received
       const minimum = mode === 'quick' ? 5 : 10;
-      const questionCount = response.extractedInfo.questionCount || 0;
+      
+      // Count how many user messages have been sent (excluding the current one we just added)
+      const userResponseCount = conversationHistory.filter(m => m.role === 'user').length;
+      
+      // Map user responses to cumulative question count based on batching schedule
+      let enforcedQuestionCount = 0;
+      if (mode === 'smart') {
+        // Smart mode: 3+3+4 batching
+        if (userResponseCount === 0) enforcedQuestionCount = 3;      // First response asks Q1-Q3
+        else if (userResponseCount === 1) enforcedQuestionCount = 6; // Second response asks Q4-Q6
+        else if (userResponseCount >= 2) enforcedQuestionCount = 10; // Third+ response asks Q7-Q10
+      } else {
+        // Quick mode: 3+2 batching
+        if (userResponseCount === 0) enforcedQuestionCount = 3;      // First response asks Q1-Q3
+        else if (userResponseCount >= 1) enforcedQuestionCount = 5;  // Second+ response asks Q4-Q5
+      }
+      
+      // Override AI's questionCount with our enforced count
+      const aiReportedCount = response.extractedInfo.questionCount || 0;
+      const questionCount = enforcedQuestionCount;
+      
+      // Update extractedInfo with enforced count
+      response.extractedInfo.questionCount = questionCount;
+      
+      console.log(`[SIMPLE_PLANNER] Question count: AI reported ${aiReportedCount}, enforced ${questionCount} (based on ${userResponseCount} user responses)`);
 
       // Check if user requested early generation
       const latestUserMessage = messages[messages.length - 1]?.content || '';
