@@ -169,17 +169,17 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
 
   // Send message - using simple conversational planner
   const sendMessageMutation = useMutation({
-    mutationFn: async (messageData: { message: string; mode: 'quick' | 'smart' }) => {
+    mutationFn: async (messageData: { message: string; mode: 'quick' | 'smart'; conversationHistory: any[] }) => {
       const response = await apiRequest('POST', '/api/chat/conversation', {
         message: messageData.message,
-        conversationHistory: currentSession?.conversationHistory || [],
+        conversationHistory: messageData.conversationHistory,
         mode: messageData.mode
       });
       return response.json();
     },
-    onSuccess: (data) => {
-      // Simple planner returns: { message, extractedInfo, readyToGenerate, plan?, domain? }
-      // Update conversation history
+    onSuccess: (data, variables) => {
+      // ✅ CRITICAL FIX: Use backend session directly for correct ID and completion status
+      // Build conversation history from what we sent + new messages
       const newMessage: ConversationMessage = {
         role: 'user',
         content: message,
@@ -191,21 +191,18 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
         timestamp: new Date().toISOString()
       };
       
+      // Build history from what we sent, not from old session state
       const updatedHistory = [
-        ...(currentSession?.conversationHistory || []),
+        ...variables.conversationHistory,
         newMessage,
         assistantMessage
       ];
       
-      // Update session state
+      // Use backend session (correct ID, isComplete, etc.) with client-side conversation history
       setCurrentSession({
-        ...currentSession,
-        id: currentSession?.id || 'temp-' + Date.now(),
-        conversationHistory: updatedHistory,
-        slots: { ...currentSession?.slots, ...data.extractedInfo },
-        sessionState: data.readyToGenerate ? 'confirming' : 'gathering',
-        isComplete: false
-      } as PlannerSession);
+        ...data.session,
+        conversationHistory: updatedHistory
+      });
       
       setMessage('');
       
@@ -220,10 +217,6 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
         queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
         queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
         queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
-        
-        // ✅ CRITICAL FIX: Clear session after activity creation to prevent old history from persisting
-        setCurrentSession(null);
-        setPlanningMode(null); // Reset mode so user must select again for fresh start
       }
     },
     onError: (error) => {
@@ -265,9 +258,9 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
       return response.json();
     },
     onSuccess: (data) => {
-      // ✅ CRITICAL FIX: Clear session after plan completion to prevent old history from persisting
-      setCurrentSession(null);
-      setPlanningMode(null); // Reset mode so user must select again for fresh start
+      // Store the generated plan data but mark session as complete
+      setCurrentSession(data.session);
+      setGeneratedPlan(data.plan);
       setIsGenerating(false);
       setShowAgreementPrompt(false);
       setShowPlanConfirmation(false);
@@ -292,7 +285,8 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
   });
 
   const handleModeSelect = (mode: PlanningMode) => {
-    // Clear any old localStorage data to ensure fresh start
+    // ✅ CRITICAL FIX: Always clear session when selecting mode to ensure fresh start
+    // This prevents old conversation history from persisting across mode selections
     localStorage.removeItem('planner_session');
     localStorage.removeItem('planner_mode');
     localStorage.removeItem('planner_chips');
@@ -301,11 +295,11 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
     setContextChips([]); // Clear any old context chips
     
     // Simple planner doesn't need upfront session creation
-    // Session will be created on first message
+    // Session will be created on first message with empty conversationHistory
     setCurrentSession({
       id: 'temp-' + Date.now(),
       sessionState: 'gathering',
-      conversationHistory: [],
+      conversationHistory: [], // Always start with empty history for fresh conversations
       slots: {},
       isComplete: false
     } as PlannerSession);
@@ -315,9 +309,18 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
     if (!message.trim()) return;
     if (!planningMode || (planningMode !== 'quick' && planningMode !== 'smart')) return;
     
+    // ✅ CRITICAL FIX: Compute conversation history BEFORE clearing session
+    // If session is complete, send empty history to trigger fresh session creation on backend
+    const conversationHistory = currentSession?.isComplete ? [] : (currentSession?.conversationHistory || []);
+    
+    if (currentSession?.isComplete) {
+      console.log('[PLANNER] Detected completed session, sending empty history for fresh start');
+    }
+    
     sendMessageMutation.mutate({
       message: message.trim(),
-      mode: planningMode
+      mode: planningMode,
+      conversationHistory
     });
   };
 
