@@ -3250,20 +3250,63 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       });
 
       if (session.externalContext?.awaitingPlanConfirmation && hasAffirmative && generatedPlan) {
-        console.log('✅ [CONFIRMATION DETECTED] Creating activity from confirmed plan');
+        console.log('✅ [CONFIRMATION DETECTED] Creating/updating activity from confirmed plan');
 
-        // Create activity with budget details
-        const activity = await storage.createActivity({
-          title: generatedPlan.title,
-          description: generatedPlan.description,
-          category: generatedPlan.domain || generatedPlan.category || 'personal',
-          status: 'planning',
-          budget: generatedPlan.budget?.total ? Math.round(generatedPlan.budget.total * 100) : undefined, // Convert to cents
-          budgetBreakdown: generatedPlan.budget?.breakdown || [],
-          budgetBuffer: generatedPlan.budget?.buffer ? Math.round(generatedPlan.budget.buffer * 100) : undefined, // Convert to cents
-          userId
-        });
+        // Check if we're updating an existing activity (tracked in session)
+        const existingActivityId = session.externalContext?.activityId;
+        let activity;
+        let isUpdate = false;
 
+        if (existingActivityId) {
+          // UPDATE existing activity
+          console.log(`♻️ [ACTIVITY UPDATE] Updating existing activity: ${existingActivityId}`);
+          activity = await storage.updateActivity(existingActivityId, {
+            title: generatedPlan.title,
+            description: generatedPlan.description,
+            category: generatedPlan.domain || generatedPlan.category || 'personal',
+            status: 'planning',
+            budget: generatedPlan.budget?.total ? Math.round(generatedPlan.budget.total * 100) : undefined,
+            budgetBreakdown: generatedPlan.budget?.breakdown || [],
+            budgetBuffer: generatedPlan.budget?.buffer ? Math.round(generatedPlan.budget.buffer * 100) : undefined
+          }, userId);
+          
+          if (!activity) {
+            // Activity was deleted or doesn't exist - create new one instead
+            console.log(`⚠️ [ACTIVITY UPDATE] Activity ${existingActivityId} not found, creating new one`);
+            activity = await storage.createActivity({
+              title: generatedPlan.title,
+              description: generatedPlan.description,
+              category: generatedPlan.domain || generatedPlan.category || 'personal',
+              status: 'planning',
+              budget: generatedPlan.budget?.total ? Math.round(generatedPlan.budget.total * 100) : undefined,
+              budgetBreakdown: generatedPlan.budget?.breakdown || [],
+              budgetBuffer: generatedPlan.budget?.buffer ? Math.round(generatedPlan.budget.buffer * 100) : undefined,
+              userId
+            });
+          } else {
+            isUpdate = true;
+            // Delete old tasks before creating new ones
+            const oldTasks = await storage.getActivityTasks(existingActivityId);
+            for (const oldTask of oldTasks) {
+              await storage.deleteTask(oldTask.id, userId);
+            }
+          }
+        } else {
+          // CREATE new activity
+          console.log('✨ [ACTIVITY CREATE] Creating new activity');
+          activity = await storage.createActivity({
+            title: generatedPlan.title,
+            description: generatedPlan.description,
+            category: generatedPlan.domain || generatedPlan.category || 'personal',
+            status: 'planning',
+            budget: generatedPlan.budget?.total ? Math.round(generatedPlan.budget.total * 100) : undefined,
+            budgetBreakdown: generatedPlan.budget?.breakdown || [],
+            budgetBuffer: generatedPlan.budget?.buffer ? Math.round(generatedPlan.budget.buffer * 100) : undefined,
+            userId
+          });
+        }
+
+        // Create new tasks
         const createdTasks = [];
         if (generatedPlan.tasks && Array.isArray(generatedPlan.tasks)) {
           for (let i = 0; i < generatedPlan.tasks.length; i++) {
@@ -3281,7 +3324,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
               category: taskData.category || generatedPlan.domain || 'personal',
               priority: taskData.priority || 'medium',
               timeEstimate: `${taskData.duration || 30} min`,
-              cost: budgetItem?.amount ? Math.round(budgetItem.amount * 100) : undefined, // Convert to cents
+              cost: budgetItem?.amount ? Math.round(budgetItem.amount * 100) : undefined,
               costNotes: budgetItem?.notes,
               userId
             });
@@ -3290,15 +3333,22 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
           }
         }
 
-        // Mark session complete
+        // Store activityId in session for future updates
         await storage.updateLifestylePlannerSession(session.id, {
           sessionState: 'completed',
-          isComplete: true
+          isComplete: true,
+          externalContext: {
+            ...session.externalContext,
+            activityId: activity.id  // Track for future updates
+          }
         }, userId);
 
         return res.json({
-          message: `✨ **Activity "${activity.title}" created!**\n\n📋 I've created ${createdTasks.length} tasks for you. Check your activities to get started!`,
-          activityCreated: true,
+          message: isUpdate 
+            ? `♻️ **Activity "${activity.title}" updated!**\n\n📋 I've updated the plan with ${createdTasks.length} new tasks!`
+            : `✨ **Activity "${activity.title}" created!**\n\n📋 I've created ${createdTasks.length} tasks for you. Check your activities to get started!`,
+          activityCreated: !isUpdate,
+          activityUpdated: isUpdate,
           activity,
           createdTasks,
           planComplete: true

@@ -197,14 +197,18 @@ class OpenAIProvider implements LLMProvider {
     mode: 'quick' | 'smart'
   ): Promise<PlanningResponse> {
     try {
-      // Add web_search tool for smart mode if Tavily is available
+      // Add web_search tool for BOTH Quick and Smart modes if Tavily is available
+      // Quick mode: 2-3 searches (flights, hotels, weather)
+      // Smart mode: 5+ searches (flights, 5 hotels, 8 restaurants, weather, activities, etc.)
       const enhancedTools = [...tools];
-      if (mode === 'smart' && this.tavilyClient) {
+      if (this.tavilyClient) {
         enhancedTools.push({
           type: 'function',
           function: {
             name: 'web_search',
-            description: 'Search the web for current information about destinations, events, weather, prices, etc.',
+            description: mode === 'quick'
+              ? 'Search the web for KEY information (2-3 searches max): current flight prices, top hotels with pricing, weather forecast'
+              : 'Search the web for DETAILED information about destinations, events, weather, prices, hotels, restaurants, activities, nightlife, etc.',
             parameters: {
               type: 'object',
               properties: {
@@ -229,18 +233,16 @@ class OpenAIProvider implements LLMProvider {
           }))
         ],
         tools: enhancedTools,
-        tool_choice: mode === 'smart'
-          ? 'auto'  // Allow web_search in smart mode
-          : { type: 'function', function: { name: 'respond_with_structure' } },
+        tool_choice: 'auto',  // Allow web_search in BOTH Quick and Smart modes
         temperature: 0.7,
       });
 
       const message = response.choices[0].message;
 
-      // In smart mode with 'auto' tool_choice, OpenAI might not call any tool
+      // With 'auto' tool_choice, OpenAI might not call any tool
       // If no tool was called, force a respond_with_structure call
-      if (!message.tool_calls && mode === 'smart') {
-        console.log('[SIMPLE_PLANNER] Smart mode - no tool called, forcing structured response');
+      if (!message.tool_calls) {
+        console.log(`[SIMPLE_PLANNER] ${mode} mode - no tool called, forcing structured response`);
         const forcedResponse = await this.client.chat.completions.create({
           model: 'gpt-4o',
           messages: [
@@ -612,26 +614,56 @@ When generating the final plan, structure it beautifully with context-appropriat
 - Location: [neighborhood]
 - Price Range: $$-$$$
 - Signature Dish: [...]
+- Reservation timing: Book 2-3 weeks ahead
+- Dress code: Business casual
 
 [... 7+ more restaurants ...]
 
+## 🚇 Getting Around [Destination] (MANDATORY for travel)
+**Metro/Subway:**
+- Line 1: [major stops], Line 6: [tourist areas]
+- Single ticket: €2.10, Week pass (Navigo): €30 (unlimited)
+- Buy at: Airport, any Metro station
+
+**Taxi Apps:**
+- Uber: $12-20 typical ride
+- [Local app]: G7 Taxi (Paris), Cabify (Spain)
+
+**Airport Transfer:**
+- RER train: $12/person, 45 min to city center
+- Shuttle: $35/person via Welcome Pickups
+- Taxi: $60 flat rate
+
+**Walking Neighborhoods:**
+- [District names] - safe, walkable, lots to see
+- Avoid: [areas to skip]
+
 ## 🎉 Activities & Experiences
-[Detailed itinerary with specific names, costs, booking requirements]
+[Detailed itinerary with specific names, costs, booking requirements, dress codes, Metro lines to get there]
 
 ## 🌃 Nightlife (if relevant)
-[Specific clubs, bars, live music venues with hours]
+[Specific clubs, bars, live music venues with hours, Uber costs, dress codes]
 
-## 📋 Actionable Tasks
-[Detailed tasks with time estimates and priorities - see task requirements below]
+## 📋 Actionable Tasks (8-12 tasks)
+[HIGHLY detailed tasks with budget tracking, transportation, dress codes, booking timing - see task requirements below]
 
 ## ☀️ Weather Forecast ([Dates])
-[7-day forecast from web search]
+[7-day forecast from web search with packing recommendations]
 
 ## 💰 Budget Breakdown
-[Detailed calculations]
+**Total Budget:** $10,000
+
+- Flights: $540/person × 2 = $1,080
+- Hotels: $320/night × 14 nights = $4,480
+- Dining: $2,500
+- Activities: $1,000
+- Transportation: $500
+
+**Grand Total: $1,080 + $4,480 + $2,500 + $1,000 + $500 = $9,560 spent**
+**Buffer Remaining: $1,440 (14% safety margin) ✓**
 
 ## 💡 Pro Tips
-[Insider recommendations]
+[Insider recommendations including Metro tips, avoiding tourist traps, best times to visit attractions]
 \`\`\`
 
 ---
@@ -729,8 +761,10 @@ ${mode === 'quick' ? `
 **BATCH 2 (Second Response - After User Answers):**
 - Ask 2 MORE unanswered questions from your priority list
 - Skip any questions user already answered
-- After user answers, show PLAN PREVIEW (see Section 7) and wait for confirmation
-- Only set readyToGenerate = true AFTER user confirms they're ready
+- **CRITICAL: After user answers these 2 questions (total 5 asked), show PLAN PREVIEW immediately (see Section 7)**
+- Do NOT say "Let's get started" or "I'll create your plan now" - instead show the preview
+- Wait for user confirmation before setting readyToGenerate = true
+- Only set readyToGenerate = true AFTER user confirms (says "yes", "generate", "ready", etc.)
 ` : `
 **Smart Mode - 3 Batches (10 questions total):**
 
@@ -750,9 +784,10 @@ ${mode === 'quick' ? `
 **BATCH 3 (Third Response - After User Answers):**
 - Ask 4 MORE unanswered questions from your priority list (or fewer if user already answered many)
 - Skip any questions user already answered
-- After user answers, show PLAN PREVIEW (see Section 7) and wait for confirmation
-- Only set readyToGenerate = true AFTER user confirms they're ready
-- End preview with: "Ready for me to generate your complete plan?"
+- **CRITICAL: After user answers these 4 questions (total 10 asked), show PLAN PREVIEW immediately (see Section 7)**
+- Do NOT say "Let's get started" or "I'll create your plan now" - instead show the preview
+- Wait for user confirmation before setting readyToGenerate = true
+- Only set readyToGenerate = true AFTER user confirms (says "yes", "generate", "ready", etc.)
 `}
 
 **ENFORCEMENT RULES:**
@@ -978,9 +1013,13 @@ ${preferences?.preferences?.dietaryPreferences ? `- Respect dietary needs: ${pre
 
 ### 7. Plan Preview - MANDATORY Before Generation 🎯
 
-**After gathering all questions, BEFORE generating the full plan:**
+**CRITICAL: After final question batch, AUTOMATICALLY show preview - DON'T say "Let's get started"**
 
-Show an exciting preview of what will be included and ask for confirmation:
+**Instead of:**
+❌ "Let's get started on creating your perfect honeymoon plan for Paris! 🇫🇷✨"
+
+**Do this:**
+✅ Show an exciting preview of what will be included and ask for final input:
 
 **Travel Example:**
 "Perfect! I have everything I need to create an amazing Barcelona trip for you! 🇪🇸✨
@@ -990,17 +1029,20 @@ Here's what your plan will include:
 ✈️ **Flight Options** - Multiple airlines from NYC to Barcelona with current pricing
 🏨 **5+ Hotel Recommendations** - Ranging from boutique to luxury, all within your budget
 🍽️ **8+ Restaurant Picks** - Authentic Spanish tapas, seafood, and local favorites
+🚇 **Transportation Guide** - Metro passes, taxi apps (Uber/G7), airport transfers, walking tips
 🌤️ **7-Day Weather Forecast** - Daily temps and what to pack
 🎉 **Activity Recommendations** - Park Güell, Sagrada Familia, beach time, nightlife spots
-💰 **Budget Breakdown** - Complete cost estimate for flights, hotels, dining, activities
+💰 **Budget Breakdown** - Complete cost estimate with calculations showing how it adds up
+📋 **8-12 Detailed Tasks** - Step-by-step action items with budgets, transportation, dress codes, and timing
 
-**Ready for me to generate your complete plan?** (Or let me know if you'd like to add anything!)"
+**Anything you'd like to add that wasn't covered in these questions?** (Or say 'generate' and I'll create your complete plan!)"
 
 **Why this matters:**
 - Builds excitement and anticipation
 - Shows user exactly what they're getting
 - Allows last-minute additions or changes
 - Makes the value clear before final generation
+- Gives user chance to add details not covered by structured questions
 
 **Then wait for user confirmation before setting readyToGenerate = true**
 
@@ -1048,6 +1090,13 @@ You MUST use web_search to include these specifics:
 - 🍽️ **Minimum 8 specific restaurants** - Search "[destination] best restaurants [cuisine]" with names, locations, price ranges: "Tickets Bar (tapas, Gothic Quarter, €€€)"
 - 🎉 **Minimum 5 specific activities** - Search "[destination] top activities [interests]" with costs: "Park Güell tour (€10, 2 hours, book online)"
 - 🌃 **Nightlife venues** (if interests include nightlife) - Search "[destination] nightlife" with specific clubs, bars: "Opium Barcelona (beach club, €20 entry)"
+- 🚇 **MANDATORY Transportation/Navigation Guide** - Search "[destination] public transportation guide" and "[destination] getting around" to include:
+  - Metro/subway system with line numbers, ticket costs, and day/week pass pricing
+  - Taxi apps (Uber, Lyft, local apps like G7 in Paris, Cabify in Spain)
+  - Airport transfer options with costs (train, bus, shuttle, taxi estimates)
+  - Walkable neighborhoods and areas to avoid
+  - Transportation cards/passes to buy (Navigo in Paris, Oyster in London, MetroCard in NYC)
+  - Tips for navigating like a local
 
 **Search in Parallel:**
 - Run multiple searches simultaneously for speed
@@ -1058,11 +1107,26 @@ You MUST use web_search to include these specifics:
 - 🏨 **Hotels**: Hotel Arts Barcelona (⭐⭐⭐⭐⭐, $320/nt, beachfront, spa)
 - 🍽️ **Dining**: Can Culleretes (oldest restaurant, Catalan, €€, Gothic Quarter)
 ` : `
-**Quick Mode - Include enrichment in final plan:**
-- When generating the plan, include weather info if relevant (travel/outdoor activities)
-- Provide budget breakdown if user mentioned budget
-- Add brief tips based on best practices
-- Keep enrichment concise but present - don't skip it entirely
+**Quick Mode - Include REAL DATA enrichment in final plan:**
+
+When generating the plan, use web_search for key details (lighter than Smart mode):
+
+**For Travel Plans (Quick Mode):**
+- ✈️ **Current flight prices** - Search "flights from [origin] to [destination] [dates]" for price ranges
+- 🏨 **Top 2-3 hotels** - Search "[destination] best hotels" for quick recommendations with pricing
+- ☀️ **Weather forecast** - Search "weather forecast [destination] [dates]" for packing advice
+- 🚇 **Transportation basics** - Search "[destination] getting around" for Metro/taxi/airport transfer essentials
+- Keep searches focused - 2-3 parallel searches max (vs Smart mode's 5+ detailed searches)
+
+**For Dining Plans (Quick Mode):**
+- 🍽️ **Top 2-3 restaurants** - Search "[location] best restaurants [cuisine]" for recommendations
+- 💰 **Cost estimates** - Include typical price ranges
+- 🚗 **Transportation** - Note driving/parking or public transit options
+
+**For All Domains:**
+- Provide budget breakdown if user mentioned budget (with calculations)
+- Add brief tips based on search results
+- Keep enrichment concise but ALWAYS include real data - don't skip searches entirely
 `}
 
 ### 9. Strict Guardrails
@@ -1102,47 +1166,136 @@ ALWAYS use the respond_with_structure tool:
     "title": "...",
     "description": "...",
     "tasks": [
-      // CRITICAL: Create detailed, actionable tasks like a professional planner
-      // Each task must have a clear action verb and specific steps
+      // CRITICAL: Create 8-12 detailed, actionable tasks like a professional personal assistant
+      // Each task must be HIGHLY SPECIFIC with budget, transportation, dress code, and logistics
+      
+      // TRAVEL PLAN EXAMPLE (8-12 tasks):
       {
-        "taskName": "Research and book flights to [destination]",  // Action-oriented, specific
-        "duration": 60,  // Realistic time estimate in minutes
-        "notes": "Compare flight prices across airlines (Southwest, Delta, United), select preferred departure/return dates and times considering connection times, complete booking process including seat selection and baggage options",  // DETAILED step-by-step description
-        "category": "Travel",
-        "priority": "high"  // high = must-do-first, medium = important, low = nice-to-have
-      },
-      {
-        "taskName": "Find and reserve accommodation",
-        "duration": 120,
-        "notes": "Research resorts and hotels in [specific area], read TripAdvisor reviews, compare amenities (pool, beach access, breakfast included), verify cancellation policy, make reservation with confirmation number",
+        "taskName": "Book round-trip flights Austin → Paris (Nov 10-24)",
+        "duration": 45,
+        "notes": "Cost: $540/person × 2 = $1,080 (11% of $10k budget, $8,920 remaining). Airlines: Delta, United, Air France. Book via Google Flights or airline direct. Select seats together, add 1 checked bag each ($70). Total flights + bags = $1,150.",
         "category": "Travel",
         "priority": "high"
       },
       {
-        "taskName": "Create day-by-day itinerary",
-        "duration": 90,
-        "notes": "Plan daily activities based on interests, book advance reservations for popular attractions, map out restaurant visits, schedule beach time and relaxation, include backup indoor options if weather changes",
+        "taskName": "Reserve Hôtel Château Voltaire (14 nights)",
+        "duration": 30,
+        "notes": "Cost: $320/night × 14 nights = $4,480 (45% of budget, $4,440 remaining). Book via Booking.com or hotel direct. Request honeymoon package, high floor, quiet room. Confirm free cancellation until Nov 1. Located near Louvre.",
+        "category": "Travel",
+        "priority": "high"
+      },
+      {
+        "taskName": "Book airport shuttle CDG → hotel",
+        "duration": 15,
+        "notes": "Cost: $35/person via Welcome Pickups. Book online 48hrs before arrival. Driver meets you at arrivals with name sign. Alternative: RER B train to Châtelet ($12/person, 45 min) or taxi ($60 flat rate).",
+        "category": "Travel",
+        "priority": "high"
+      },
+      {
+        "taskName": "Pack for 50°F November weather + umbrella",
+        "duration": 60,
+        "notes": "What to pack: Light layers (sweaters, long sleeves), rain jacket, umbrella (forecast shows occasional rain), comfortable walking shoes (you'll walk 5+ miles/day), 1-2 dressy outfits for fine dining. Paris Metro has stairs - pack light!",
         "category": "Travel",
         "priority": "medium"
+      },
+      {
+        "taskName": "Purchase Navigo week pass for Metro/bus",
+        "duration": 10,
+        "notes": "Cost: €30/person at CDG airport or any Metro station. Covers unlimited Metro/bus/RER in central Paris for 7 days. Saves money vs single tickets (€2.10 each). Keep pass in wallet - you'll use it 10+ times/day. Metro Line 1 to Eiffel Tower, Line 4 to Notre-Dame.",
+        "category": "Travel",
+        "priority": "medium"
+      },
+      {
+        "taskName": "Make reservation at Le George (romantic dinner)",
+        "duration": 20,
+        "notes": "Cost: €150/person estimate = $320 total. Reserve 2-3 weeks ahead via OpenTable or call direct - this restaurant books fast for honeymoons. Request window table, mention it's your honeymoon. Dress code: business casual (slacks + button-up for him, dress for her). Located 10 min walk from hotel. Book for 8pm (French dinner time).",
+        "category": "Dining",
+        "priority": "high"
+      },
+      {
+        "taskName": "Book Eiffel Tower summit tickets (Nov 12, 3pm)",
+        "duration": 25,
+        "notes": "Cost: €47/person × 2 = $100. Book NOW at ticket-eiffel-tower.com - sells out weeks ahead. Choose summit access (not just 2nd floor). Plan to arrive 30min early. What to wear: Layers (it's windy up top!), comfortable shoes (stairs + lines). Metro Line 6 to Bir-Hakeim (15 min from hotel). Budget 3hrs total.",
+        "category": "Activities",
+        "priority": "high"
+      },
+      {
+        "taskName": "Reserve Seine River dinner cruise (Nov 14, 7pm)",
+        "duration": 20,
+        "notes": "Cost: $148/person × 2 = $296. Book via Bateaux Parisiens (4-course gourmet meal + wine). Dress code: smart casual / cocktail attire. Departs from Port de la Bourdonnais (near Eiffel Tower). Duration: 2.5 hours. Perfect for anniversary celebration! Uber from hotel = $15.",
+        "category": "Activities",
+        "priority": "high"
+      },
+      {
+        "taskName": "Download Uber & Citymapper apps + add payment",
+        "duration": 10,
+        "notes": "Uber for late nights or rain ($12-20 typical ride). Citymapper for Metro directions (shows real-time arrivals, fastest routes). G7 Taxi app is alternative to Uber (French taxis, sometimes faster). Add credit card to all before landing.",
+        "category": "Travel",
+        "priority": "medium"
+      },
+      {
+        "taskName": "Book Louvre Museum timed entry (Nov 16, 9am)",
+        "duration": 15,
+        "notes": "Cost: €22/person online. Book at louvre.fr to skip 2-hour ticket line. Arrive at 9am opening for smallest crowds. Plan 4-5 hours inside. What to wear: Comfortable walking shoes (miles of hallways!), layers (some rooms warm, others cool). Metro Line 1 to Palais Royal. Café inside for lunch.",
+        "category": "Activities",
+        "priority": "medium"
+      },
+      {
+        "taskName": "Join Montmartre walking tour (Nov 18, 10am)",
+        "duration": 15,
+        "notes": "Cost: $62/person via GetYourGuide. 3-hour guided tour of artist district, Sacré-Cœur, hidden streets. Wear comfortable walking shoes (steep hills!), bring water. Meet at Abbesses Metro stop (Line 12, 25 min from hotel). Lunch in Montmartre after tour.",
+        "category": "Activities",
+        "priority": "low"
+      },
+      {
+        "taskName": "Create daily itinerary with backup indoor plans",
+        "duration": 45,
+        "notes": "Map out 14 days with museum days (rainy backup), outdoor sightseeing (sunny days), restaurant reservations, Metro routes between stops. Download Google Maps offline for Paris. Budget €100/day for meals not pre-booked + coffee/snacks. November weather = 50% chance rain any day.",
+        "category": "Planning",
+        "priority": "medium"
       }
-      // Generate 6-10 tasks total for comprehensive planning
+      
+      // DINING PLAN EXAMPLE (8-10 tasks):
+      // Include: Make reservation (how far ahead, dress code, cost estimate, how busy it gets, Uber cost from home)
+      // Pack/prepare appropriate outfit based on dress code
+      // Confirm dietary restrictions with restaurant if needed
+      // Plan transportation (Uber vs drive, parking costs, Metro line)
+      
+      // Generate 8-12 tasks total with THIS LEVEL OF DETAIL for ALL domains
     ],
     "budget": {  // CRITICAL if user provided budget
       "total": amount,
       "breakdown": [
         {
           "category": "Flights",
-          "amount": 350,
-          "notes": "Round-trip LAX-NYC, Nov 10"
+          "amount": 1080,
+          "notes": "$540/person × 2 people = $1,080"  // SHOW THE CALCULATION
         },
         {
           "category": "Hotels",
-          "amount": 700,
-          "notes": "7 nights @$100/night in Brooklyn"
+          "amount": 4480,
+          "notes": "$320/night × 14 nights = $4,480"  // SHOW THE CALCULATION
+        },
+        {
+          "category": "Dining & Restaurants",
+          "amount": 2500,
+          "notes": "Fine dining ($320) + casual meals ($100/day × 14 = $1,400) + cafés/snacks ($780) = $2,500"
+        },
+        {
+          "category": "Activities & Tours",
+          "amount": 1000,
+          "notes": "Eiffel Tower ($100) + Seine cruise ($296) + Louvre ($44) + tours ($560) = $1,000"
+        },
+        {
+          "category": "Transportation",
+          "amount": 500,
+          "notes": "Airport shuttle ($70) + Navigo passes ($65) + Uber rides ($365) = $500"
         }
-        // etc.
+        // THEN ADD SUMMARY:
+        // In plan description or tips section, include:
+        // "💰 Budget Summary: $1,080 (flights) + $4,480 (hotel) + $2,500 (dining) + $1,000 (activities) + $500 (transport) = $9,560 total spent | $1,440 buffer remaining from $10,000 budget ✓"
       ],
-      "buffer": 50
+      "buffer": 1440  // Remaining amount from total budget
     },
     "weather": {  // if relevant (travel, outdoor activities)
       "forecast": "...",
