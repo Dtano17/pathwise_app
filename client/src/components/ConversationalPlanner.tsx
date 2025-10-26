@@ -93,6 +93,14 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
 
   // Template selector state
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+
+  // Onboarding and help state
+  const [showKeywordHelp, setShowKeywordHelp] = useState(false);
+  const [showOnboardingTooltip, setShowOnboardingTooltip] = useState(() => {
+    if (planningMode !== 'journal') return false;
+    const dismissed = localStorage.getItem('journalmate_onboarding_dismissed');
+    return !dismissed;
+  });
   
   // Available tags for autocomplete
   const availableTags = [
@@ -898,6 +906,15 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
             </div>
             <div className="flex items-center gap-2">
               <Button
+                onClick={() => setShowKeywordHelp(true)}
+                variant="ghost"
+                size="sm"
+                title="Learn about @keywords"
+                data-testid="button-keyword-help"
+              >
+                <Lightbulb className="h-4 w-4" />
+              </Button>
+              <Button
                 onClick={() => setShowTemplateSelector(true)}
                 variant="ghost"
                 size="sm"
@@ -1258,6 +1275,93 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
             refetchJournalEntries();
           }}
         />
+
+        {/* Keyword Help Modal */}
+        <Dialog open={showKeywordHelp} onOpenChange={setShowKeywordHelp}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Tag className="h-5 w-5 text-primary" />
+                Using @Keywords for Smart Categorization
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Type @keywords in your journal entries to automatically categorize them. JournalMate will detect these keywords and save your entry to the right category!
+              </p>
+
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm">Single Category Keywords:</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><code className="bg-muted px-2 py-1 rounded">@restaurants</code> → Restaurants & Food</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@travel</code> → Travel & Places</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@movies</code> → Movies & TV Shows</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@music</code> → Music & Concerts</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@books</code> → Books & Learning</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@fitness</code> → Health & Fitness</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@fashion</code> → Fashion & Style</div>
+                  <div><code className="bg-muted px-2 py-1 rounded">@shopping</code> → Shopping & Purchases</div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm">Grouped Experience Keywords:</h4>
+                <p className="text-xs text-muted-foreground">
+                  These keywords save to multiple related categories:
+                </p>
+                <div className="space-y-2 text-sm">
+                  <div><code className="bg-primary/10 px-2 py-1 rounded">@vacation</code> → Travel, Restaurants, Activities</div>
+                  <div><code className="bg-primary/10 px-2 py-1 rounded">@datenight</code> → Restaurants, Activities, Fashion</div>
+                  <div><code className="bg-primary/10 px-2 py-1 rounded">@weekend</code> → Activities, Restaurants, Travel</div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-blue-600" />
+                  Pro Tip
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  Start typing <code className="bg-muted px-1.5 py-0.5 rounded">@</code> and we'll show you suggestions! You can use multiple keywords in one entry.
+                </p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* First-Time Onboarding Tooltip */}
+        {showOnboardingTooltip && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 animate-in fade-in">
+            <Card className="max-w-md shadow-2xl animate-in zoom-in">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  Welcome to JournalMate!
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm">
+                  Start journaling by typing freely in the text box. Use <code className="bg-muted px-1.5 py-0.5 rounded">@keywords</code> like <code className="bg-muted px-1.5 py-0.5 rounded">@restaurants</code> or <code className="bg-muted px-1.5 py-0.5 rounded">@travel</code> to automatically categorize your entries!
+                </p>
+
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Lightbulb className="h-4 w-4" />
+                  <span>Click the lightbulb icon anytime to see all available keywords</span>
+                </div>
+
+                <Button
+                  onClick={() => {
+                    setShowOnboardingTooltip(false);
+                    localStorage.setItem('journalmate_onboarding_dismissed', 'true');
+                  }}
+                  className="w-full"
+                >
+                  Got it!
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     );
   }
