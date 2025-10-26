@@ -11,6 +11,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useKeywordDetection, getCategoryColor } from '@/hooks/useKeywordDetection';
+import TemplateSelector from './TemplateSelector';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -89,6 +90,9 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [autocompleteSearch, setAutocompleteSearch] = useState('');
   const [autocompletePosition, setAutocompletePosition] = useState({ top: 0, left: 0 });
+
+  // Template selector state
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   
   // Available tags for autocomplete
   const availableTags = [
@@ -894,6 +898,16 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
             </div>
             <div className="flex items-center gap-2">
               <Button
+                onClick={() => setShowTemplateSelector(true)}
+                variant="ghost"
+                size="sm"
+                className="hidden sm:flex"
+                data-testid="button-use-template"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Templates
+              </Button>
+              <Button
                 onClick={() => {
                   queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
                   refetchJournalEntries();
@@ -1234,6 +1248,16 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
             )}
           </div>
         </ScrollArea>
+
+        {/* Template Selector */}
+        <TemplateSelector
+          open={showTemplateSelector}
+          onOpenChange={setShowTemplateSelector}
+          onComplete={() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+            refetchJournalEntries();
+          }}
+        />
       </div>
     );
   }
