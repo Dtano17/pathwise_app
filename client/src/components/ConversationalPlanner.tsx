@@ -309,7 +309,14 @@ export default function ConversationalPlanner({ onClose, initialMode }: Conversa
   });
 
   const handleModeSelect = (mode: PlanningMode) => {
+    // Clear any old localStorage data to ensure fresh start
+    localStorage.removeItem('planner_session');
+    localStorage.removeItem('planner_mode');
+    localStorage.removeItem('planner_chips');
+    
     setPlanningMode(mode);
+    setContextChips([]); // Clear any old context chips
+    
     // Simple planner doesn't need upfront session creation
     // Session will be created on first message
     setCurrentSession({
