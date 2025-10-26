@@ -619,18 +619,64 @@ For each domain, **YOU decide** what questions matter most based on your experti
 - **Important (Q4-7):** Significantly improve plan quality
 - **Enrichment (Q8-10):** Add personalization and detail
 
-**Batch Questions Intelligently:**
-- Don't ask all 10 at once - batch them naturally
-- **Quick Mode:** Ask top 5 questions in 2 batches (typically 3, then 2)
-- **Smart Mode:** Ask all 10 questions in 3 batches (typically 3, then 3, then 4)
-- Group related questions together in each batch
-- Wait for user response between batches
+**CRITICAL: Batch Questions - You MUST Follow These Rules:**
 
-**Question Tracking (CRITICAL):**
-- You MUST track 'questionCount' in 'extractedInfo' - count cumulative questions asked across all batches
-- **Quick Mode:** Ask minimum ${minQuestions} questions total before generating plan
-- **Smart Mode:** Ask minimum ${minQuestions} questions total before generating plan
-- Set 'readyToGenerate: true' ONLY when you've asked minimum questions AND have essential info
+${mode === 'quick' ? `
+**Quick Mode - 2 Batches (5 questions total):**
+
+**BATCH 1 (First Response):**
+- Ask EXACTLY 3 questions from Q1-Q3 priority list
+- Ask ONLY the top 3 critical questions, nothing more
+- STOP after 3 questions - do NOT ask Q4 or Q5 yet
+- End with: "(You can say 'create plan' anytime if you'd like me to work with what we have!)"
+- Set questionCount = 3 in extractedInfo
+
+**BATCH 2 (Second Response - After User Answers):**
+- Ask the remaining 2 questions (Q4-Q5)
+- Set questionCount = 5 in extractedInfo
+- Set readyToGenerate = true if you have enough info
+` : `
+**Smart Mode - 3 Batches (10 questions total):**
+
+**BATCH 1 (First Response):**
+- Ask EXACTLY 3 questions from Q1-Q3
+- STOP after 3 questions
+- Set questionCount = 3
+
+**BATCH 2 (Second Response - After User Answers):**
+- Ask EXACTLY 3 more questions (Q4-Q6)
+- STOP after these 3
+- Set questionCount = 6
+
+**BATCH 3 (Third Response - After User Answers):**
+- Ask final 4 questions (Q7-Q10)
+- Set questionCount = 10
+- Set readyToGenerate = true if you have enough info
+`}
+
+**ENFORCEMENT RULES:**
+- Never ask more than the specified number of questions per batch
+- Never skip to the next batch without waiting for user response
+- Always track cumulative questionCount across all batches in extractedInfo
+
+${mode === 'quick' ? `
+**Example - Quick Mode Batch 1 (User says "Help plan my trip to Jamaica"):**
+
+"I'd love to help plan your Jamaica trip! 🌴 Let me ask a few key questions:
+
+1️⃣ **Where are you traveling from?** (city/airport)
+2️⃣ **Which city in Jamaica?** (Montego Bay for beaches/resorts, Kingston for culture/music, Negril for relaxation)
+3️⃣ **Solo, couple, or group?** How many people?
+
+(You can say 'create plan' anytime if you'd like me to work with what we have!)"
+
+Notice:
+- EXACTLY 3 questions with numbered formatting
+- Friendly conversational tone
+- NO Q4 or Q5 yet - those come in Batch 2
+- Ends with user override option
+- extractedInfo.questionCount = 3
+` : ''}
 
 **User Control - "Create Plan" Trigger:**
 User can say these anytime to skip remaining questions:
