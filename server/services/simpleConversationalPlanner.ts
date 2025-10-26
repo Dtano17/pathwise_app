@@ -242,6 +242,37 @@ class OpenAIProvider implements LLMProvider {
 
       const message = response.choices[0].message;
 
+      // In smart mode with 'auto' tool_choice, OpenAI might not call any tool
+      // If no tool was called, force a respond_with_structure call
+      if (!message.tool_calls && mode === 'smart') {
+        console.log('[SIMPLE_PLANNER] Smart mode - no tool called, forcing structured response');
+        const forcedResponse = await this.client.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages.map(m => ({
+              role: m.role as 'user' | 'assistant',
+              content: m.content
+            })),
+            message  // Include the text response
+          ],
+          tools: enhancedTools,
+          tool_choice: { type: 'function', function: { name: 'respond_with_structure' } },
+          temperature: 0.7,
+        });
+
+        const toolCall = forcedResponse.choices[0].message.tool_calls?.[0];
+        if (!toolCall || !toolCall.function.arguments) {
+          throw new Error('No structured response from OpenAI after retry');
+        }
+
+        const result = JSON.parse(toolCall.function.arguments) as PlanningResponse;
+        if (result.plan) {
+          validateBudgetBreakdown(result.plan);
+        }
+        return result;
+      }
+
       // Handle web search tool calls (function calling loop)
       if (message.tool_calls && message.tool_calls.some(tc => tc.function.name === 'web_search')) {
         console.log('[SIMPLE_PLANNER] OpenAI called web_search - executing searches');
