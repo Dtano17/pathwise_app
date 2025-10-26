@@ -1,4 +1,3 @@
-
 #!/bin/bash
 echo "🚀 Starting JournalMate Mobile with Expo Go"
 echo ""
@@ -10,4 +9,5 @@ echo ""
 echo "⏳ Starting Expo development server..."
 echo ""
 
+cd "$(dirname "$0")"
 npm start

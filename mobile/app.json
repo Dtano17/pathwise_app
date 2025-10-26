@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "JournalMate",
@@ -10,22 +9,29 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#6C5CE7"
+      "backgroundColor": "#8b5cf6"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.journalmate.app"
+      "bundleIdentifier": "com.journalmate.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "JournalMate needs access to your camera to capture journal photos",
+        "NSPhotoLibraryUsageDescription": "JournalMate needs access to your photo library to add images to journal entries"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#6C5CE7"
+        "backgroundColor": "#8b5cf6"
       },
       "package": "com.journalmate.app",
       "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.VIBRATE"
       ]
@@ -38,9 +44,26 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#6C5CE7"
+          "color": "#8b5cf6"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow JournalMate to access your camera for journal photos"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow JournalMate to access your photos for journal entries"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id-here"
+      }
+    }
   }
 }

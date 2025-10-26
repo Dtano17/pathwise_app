@@ -1,121 +1,200 @@
+# JournalMate Mobile - React Native App
 
-# JournalMate Mobile App
+A native mobile app for JournalMate built with React Native and Expo.
 
-This is a React Native wrapper for the JournalMate web app using Expo.
+## 🚀 Quick Start
 
-## Quick Start with Expo Go
+### 1. Install Dependencies
 
-### Step 1: Install Dependencies
 ```bash
 cd mobile
 npm install
 ```
 
-### Step 2: Update Your Replit URL
-Open `App.tsx` and update line 28 with your actual Replit development URL:
-```typescript
-const WEB_URL = 'https://your-repl-url.replit.dev';
-```
+### 2. Start Expo Development Server
 
-You can find this URL in your Replit webview window.
-
-### Step 3: Start the Expo Server
 ```bash
 npm start
 ```
 
-This will:
-- Start the Expo development server
-- Show a QR code in your terminal
-- Open Expo DevTools in your browser
-
-### Step 4: Test on Your Phone
-
-#### iOS:
-1. Install **Expo Go** from the App Store
-2. Open Expo Go app
-3. Tap "Scan QR Code"
-4. Point your camera at the QR code in the terminal
-5. Wait for the app to load
-
-#### Android:
-1. Install **Expo Go** from Google Play
-2. Open Expo Go app
-3. Tap "Scan QR Code" 
-4. Point your camera at the QR code in the terminal
-5. Wait for the app to load
-
-### Step 5: Enable Notifications (Optional)
-When the app loads, it will request notification permissions. Allow them to test push notifications.
-
-## Features
-
-✅ **WebView Wrapper** - Loads your existing JournalMate web app
-✅ **Native Notifications** - Push notifications from your app
-✅ **Native Alerts** - System-level notifications
-✅ **Works with Web App** - Your web app continues working independently
-✅ **Hot Reload** - Changes to your web app reflect when you refresh
-
-## How It Works
-
-The mobile app is a WebView wrapper that:
-- Loads your Replit-hosted web application
-- Adds native mobile capabilities (notifications, etc.)
-- Enables you to test on real devices via Expo Go
-- Shares the same backend and database as your web app
-
-## Troubleshooting
-
-### QR Code Not Scanning
-- Make sure your phone and computer are on the same WiFi network
-- Try typing the URL manually in Expo Go (shown in terminal)
-
-### App Not Loading
-- Check that your Replit web app is running (green "Run" button)
-- Verify the WEB_URL in App.tsx matches your Replit URL
-- Try opening the URL in your phone's browser first to test
-
-### White Screen
-- Wait 10-15 seconds - initial load can be slow
-- Pull down to refresh in Expo Go
-- Check the Expo console for errors
-
-### Can't Test Notifications
-- Notifications only work on physical devices (not simulator)
-- Make sure you allowed notification permissions
-- Check that Expo Go has notification permissions in phone settings
-
-## Adding Native Features
-
-The wrapper injects these capabilities into your web app:
-
-```javascript
-// In your web app JavaScript, you can call:
-window.sendNativeNotification('Task Due!', 'Your workout is in 30 minutes', { url: '/tasks' });
-
-// Trigger haptic feedback
-window.triggerHaptic('medium'); // 'light', 'medium', 'heavy'
-
-// Check if running in native app
-if (window.isNativeApp) {
-  console.log('Running on:', window.nativePlatform); // 'ios' or 'android'
-}
+Or use the convenience script:
+```bash
+./start-expo.sh
 ```
 
-## Next Steps
+### 3. Open in Expo Go
 
-### For Production Deployment:
-1. Install EAS CLI: `npm install -g eas-cli`
-2. Build for iOS: `eas build --platform ios`
-3. Build for Android: `eas build --platform android`
-4. Submit to stores: `eas submit`
+1. Download **Expo Go** on your phone:
+   - iOS: [App Store](https://apps.apple.com/app/expo-go/id982107779)
+   - Android: [Play Store](https://play.google.com/store/apps/details?id=host.exp.exponent)
 
-### To Update Your App:
-Your web app updates automatically in the mobile wrapper - just refresh in Expo Go!
+2. Scan the QR code shown in your terminal
 
-## Tips
+3. The app will load on your phone!
 
-- Keep your Replit app running while testing
-- Use the Expo Go shake gesture to access debug menu
-- Check Replit logs for backend errors
-- Test notifications on a real device, not simulator
+## 📱 Features
+
+### ✅ Implemented
+- **Home Screen** - View and manage tasks and activities
+- **Swipeable Task Cards** - Swipe right to complete, left to skip (with haptic feedback)
+- **Planning Chat** - Quick Plan and Smart Plan modes with AI assistance
+- **Journal** - Create entries with photos, categories, and @keywords
+- **Profile** - View progress stats, manage settings
+- **Authentication** - Login/signup with guest mode
+- **Dark Mode** - Automatic light/dark theme switching
+- **Native Animations** - Smooth gesture handling with React Native Reanimated
+
+### 🎨 UI Components
+- Bottom tab navigation (Home, Plan, Journal, Profile)
+- Swipeable task cards with haptic feedback
+- Category badges and progress indicators
+- Responsive layouts for all screen sizes
+
+### 🔌 Backend Integration
+- Connects to your Express backend via REST API
+- Shared authentication with web app
+- Real-time data sync
+
+## 🛠️ Development
+
+### Project Structure
+
+```
+mobile/
+├── src/
+│   ├── components/       # Reusable React Native components
+│   │   └── TaskCard.tsx  # Swipeable task card with gestures
+│   ├── screens/          # Main app screens
+│   │   ├── HomeScreen.tsx      # Tasks & Activities
+│   │   ├── PlanningScreen.tsx  # AI planning chat
+│   │   ├── JournalScreen.tsx   # Journal entries
+│   │   ├── ProfileScreen.tsx   # User profile
+│   │   └── AuthScreen.tsx      # Login/Signup
+│   ├── navigation/       # Navigation setup
+│   │   └── TabNavigator.tsx
+│   ├── services/         # API client and services
+│   │   └── api.ts        # Backend API calls
+│   ├── types/            # TypeScript type definitions
+│   ├── constants/        # App constants (colors, etc.)
+│   └── utils/            # Utility functions
+├── assets/               # Images, icons, fonts
+├── App.tsx               # Main app entry point
+├── app.json              # Expo configuration
+└── package.json          # Dependencies
+```
+
+### Key Dependencies
+
+- **expo** - React Native framework
+- **@react-navigation** - Native navigation
+- **react-native-gesture-handler** - Touch gestures
+- **react-native-reanimated** - Smooth animations
+- **expo-haptics** - Vibration feedback
+- **expo-camera** - Camera access for journal
+- **expo-image-picker** - Photo library access
+- **axios** - API requests
+- **@react-native-async-storage/async-storage** - Local storage
+
+### Configuration
+
+Update the API URL in `src/services/api.ts`:
+
+```typescript
+const API_URL = 'https://your-replit-url.replit.dev';
+```
+
+## 📦 Building for App Stores
+
+### Setup EAS (Expo Application Services)
+
+```bash
+npm install -g eas-cli
+eas login
+eas build:configure
+```
+
+### Build iOS App
+
+```bash
+eas build --platform ios
+```
+
+### Build Android App
+
+```bash
+eas build --platform android
+```
+
+### Submit to App Stores
+
+```bash
+# iOS (requires Apple Developer account)
+eas submit --platform ios
+
+# Android (requires Google Play Developer account)
+eas submit --platform android
+```
+
+## 🔄 Sync with Web App
+
+The mobile app shares the same backend as the web app:
+
+- Same database
+- Same user accounts
+- Same API endpoints
+- Users can switch seamlessly between web and mobile
+
+## 🐛 Debugging
+
+### View Logs
+
+```bash
+npx expo start --dev-client
+```
+
+### Clear Cache
+
+```bash
+npx expo start -c
+```
+
+### Common Issues
+
+**Metro bundler fails to start:**
+```bash
+rm -rf node_modules
+npm install
+npx expo start -c
+```
+
+**Can't connect to backend:**
+- Make sure your Replit web server is running
+- Update API_URL in `src/services/api.ts`
+- Check your phone is on the same network (or use ngrok for tunneling)
+
+## 📚 Learn More
+
+- [Expo Documentation](https://docs.expo.dev/)
+- [React Native Documentation](https://reactnative.dev/)
+- [React Navigation](https://reactnavigation.org/)
+- [EAS Build Documentation](https://docs.expo.dev/build/introduction/)
+
+## 🎯 Next Steps
+
+1. ✅ Install dependencies
+2. ✅ Start Expo development server
+3. ✅ Test on your phone with Expo Go
+4. 🔲 Customize branding and colors
+5. 🔲 Add more features from web app
+6. 🔲 Build and submit to app stores
+
+## 💡 Tips
+
+- Use Expo Go for rapid development and testing
+- Shake your phone to open the developer menu
+- Enable Fast Refresh for instant updates
+- Use React DevTools for debugging
+
+---
+
+**Built with ❤️ using React Native and Expo**
