@@ -303,18 +303,35 @@ export default function MainApp({
   // Sign-in dialog state
   const [showSignInDialog, setShowSignInDialog] = useState(false);
 
-  // Check if user has completed tutorial (show on first login)
+  // Check if user has completed tutorial (show on first login/visit)
   useEffect(() => {
-    if (user && typeof user === 'object' && 'id' in user && (user as any).id !== 'demo-user') {
-      const hasCompletedTutorial = (user as any).hasCompletedTutorial;
-      console.log('[TUTORIAL] User tutorial status:', { hasCompletedTutorial, userId: (user as any).id });
+    if (user && typeof user === 'object' && 'id' in user) {
+      const userId = (user as any).id;
+      const isDemo = userId === 'demo-user';
       
-      // Show tutorial if not completed
-      if (!hasCompletedTutorial) {
-        // Small delay to let the app load first
-        setTimeout(() => {
-          setShowTutorial(true);
-        }, 1000);
+      if (isDemo) {
+        // For demo users, use localStorage to track tutorial completion
+        const demoTutorialCompleted = localStorage.getItem('demo-tutorial-completed');
+        console.log('[TUTORIAL] Demo user tutorial status:', { demoTutorialCompleted });
+        
+        if (!demoTutorialCompleted) {
+          // Show tutorial immediately for demo users on first visit
+          setTimeout(() => {
+            setShowTutorial(true);
+          }, 500);
+        }
+      } else {
+        // For authenticated users, use database value
+        const hasCompletedTutorial = (user as any).hasCompletedTutorial;
+        console.log('[TUTORIAL] User tutorial status:', { hasCompletedTutorial, userId });
+        
+        // Show tutorial if not completed
+        if (!hasCompletedTutorial) {
+          // Small delay to let the app load first
+          setTimeout(() => {
+            setShowTutorial(true);
+          }, 1000);
+        }
       }
     }
   }, [user]);
@@ -824,10 +841,20 @@ export default function MainApp({
   // Complete tutorial mutation
   const completeTutorialMutation = useMutation({
     mutationFn: async () => {
-      if (!user || typeof user !== 'object' || !('id' in user) || (user as any).id === 'demo-user') {
-        return; // Skip for demo users
+      if (!user || typeof user !== 'object' || !('id' in user)) {
+        return;
       }
       
+      const isDemo = (user as any).id === 'demo-user';
+      
+      if (isDemo) {
+        // For demo users, save to localStorage
+        localStorage.setItem('demo-tutorial-completed', 'true');
+        console.log('[TUTORIAL] Demo user tutorial marked as completed (localStorage)');
+        return { success: true, isDemo: true };
+      }
+      
+      // For authenticated users, save to database
       const response = await fetch(`/api/users/${(user as any).id}/complete-tutorial`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
@@ -839,9 +866,11 @@ export default function MainApp({
       
       return response.json();
     },
-    onSuccess: () => {
-      // Refetch user data to update tutorial status
-      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+    onSuccess: (data) => {
+      if (data && !(data as any).isDemo) {
+        // Only refetch for authenticated users
+        queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+      }
       console.log('[TUTORIAL] Tutorial marked as completed');
     },
     onError: (error) => {
@@ -1094,15 +1123,24 @@ export default function MainApp({
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-3">
-              <Badge 
-                variant="secondary" 
-                className="gap-1 cursor-pointer hover-elevate active-elevate-2"
-                onClick={() => setShowTutorial(true)}
-                data-testid="button-tutorial"
-              >
-                <Sparkles className="w-3 h-3" />
-                {isAuthenticated && (user as any)?.id !== 'demo-user' ? 'Tutorial' : 'Live Demo'}
-              </Badge>
+              {/* Tutorial/Demo Badge - Pulse for demo users who haven't seen it */}
+              <div className="relative">
+                {(user as any)?.id === 'demo-user' && !localStorage.getItem('demo-tutorial-completed') && (
+                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-purple-500"></span>
+                  </span>
+                )}
+                <Badge 
+                  variant="secondary" 
+                  className="gap-1 cursor-pointer hover-elevate active-elevate-2"
+                  onClick={() => setShowTutorial(true)}
+                  data-testid="button-tutorial"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  {isAuthenticated && (user as any)?.id !== 'demo-user' ? 'Tutorial' : 'Live Demo'}
+                </Badge>
+              </div>
               <ThemeToggle />
             </div>
           </div>
