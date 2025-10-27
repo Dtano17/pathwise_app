@@ -197,17 +197,25 @@ class OpenAIProvider implements LLMProvider {
     mode: 'quick' | 'smart'
   ): Promise<PlanningResponse> {
     try {
-      // Add web_search tool for BOTH Quick and Smart modes if Tavily is available
-      // Quick mode: 2-3 searches (flights, hotels, weather)
-      // Smart mode: 5+ searches (flights, 5 hotels, 8 restaurants, weather, activities, etc.)
+      // Count assistant messages to determine which turn we're on
+      // Turn 1: 0 assistant messages, Turn 2: 1 assistant message, Turn 3: 2+ assistant messages
+      const assistantMessageCount = messages.filter(m => m.role === 'assistant').length;
+      const currentTurn = assistantMessageCount + 1;
+      
+      // Add web_search tool ONLY on Turn 3+ (when showing preview)
+      // Turn 1-2: Question gathering (NO searches, instant responses)
+      // Turn 3+: Plan preview (WITH searches for enrichment)
       const enhancedTools = [...tools];
-      if (this.tavilyClient) {
+      const isPreviewTurn = mode === 'quick' ? currentTurn >= 3 : currentTurn >= 4;
+      
+      if (this.tavilyClient && isPreviewTurn) {
+        console.log(`[SIMPLE_PLANNER] Turn ${currentTurn}: web_search enabled for preview enrichment`);
         enhancedTools.push({
           type: 'function',
           function: {
             name: 'web_search',
             description: mode === 'quick'
-              ? 'Search for CRITICAL SAFETY ALERTS FIRST (hurricanes, travel advisories, natural disasters), then key travel info: current flight prices, top hotels with pricing, weather forecast. For travel destinations, ALWAYS check safety alerts BEFORE other searches.'
+              ? 'Search the web for key travel information: current flight prices, top hotels with pricing, weather forecast, safety alerts. Use this when showing the plan preview.'
               : 'Search the web for DETAILED information about destinations, events, weather, prices, hotels, restaurants, activities, nightlife, etc.',
             parameters: {
               type: 'object',
@@ -221,6 +229,8 @@ class OpenAIProvider implements LLMProvider {
             }
           }
         });
+      } else {
+        console.log(`[SIMPLE_PLANNER] Turn ${currentTurn}: web_search disabled (question gathering)`);
       }
 
       const response = await this.client.chat.completions.create({
@@ -371,10 +381,41 @@ class OpenAIProvider implements LLMProvider {
     onToken: (token: string) => void
   ): Promise<PlanningResponse> {
     try {
-      // For streaming, we'll make a regular call but stream the message text
-      // Tool calls (structured data) come at the end
-      const enhancedTools = [...tools];
+      // Count assistant messages to determine which turn we're on (same as generate())
+      const assistantMessageCount = messages.filter(m => m.role === 'assistant').length;
+      const currentTurn = assistantMessageCount + 1;
       
+      // Add web_search tool ONLY on Turn 3+ (when showing preview)
+      const enhancedTools = [...tools];
+      const isPreviewTurn = mode === 'quick' ? currentTurn >= 3 : currentTurn >= 4;
+      
+      if (this.tavilyClient && isPreviewTurn) {
+        console.log(`[SIMPLE_PLANNER_STREAM] Turn ${currentTurn}: web_search enabled`);
+        enhancedTools.push({
+          type: 'function',
+          function: {
+            name: 'web_search',
+            description: mode === 'quick'
+              ? 'Search the web for key travel information: current flight prices, top hotels with pricing, weather forecast, safety alerts.'
+              : 'Search the web for DETAILED information about destinations, events, weather, prices, hotels, restaurants, activities, nightlife, etc.',
+            parameters: {
+              type: 'object',
+              properties: {
+                query: {
+                  type: 'string',
+                  description: 'The search query'
+                }
+              },
+              required: ['query']
+            }
+          }
+        });
+      } else {
+        console.log(`[SIMPLE_PLANNER_STREAM] Turn ${currentTurn}: web_search disabled`);
+      }
+      
+      // Use tool_choice: 'auto' to allow natural language tokens to stream
+      // The model will emit text first, then call respond_with_structure at the end
       const stream = await this.client.chat.completions.create({
         model: 'gpt-4o',
         messages: [
@@ -385,7 +426,7 @@ class OpenAIProvider implements LLMProvider {
           }))
         ],
         tools: enhancedTools,
-        tool_choice: { type: 'function', function: { name: 'respond_with_structure' } },
+        tool_choice: 'auto',  // Allow free-form tokens AND tool calls
         temperature: 0.7,
         stream: true,
       });
@@ -396,11 +437,13 @@ class OpenAIProvider implements LLMProvider {
       for await (const chunk of stream) {
         const delta = chunk.choices[0]?.delta;
         
+        // Stream natural language tokens word-by-word
         if (delta?.content) {
           onToken(delta.content);
           fullContent += delta.content;
         }
         
+        // Collect tool calls (structured response comes at the end)
         if (delta?.tool_calls) {
           delta.tool_calls.forEach((tc: any, index: number) => {
             if (!fullToolCalls[index]) {
@@ -417,13 +460,43 @@ class OpenAIProvider implements LLMProvider {
         }
       }
 
+      // If no tool was called, force a second call to get structured response
+      if (fullToolCalls.length === 0) {
+        console.log('[SIMPLE_PLANNER_STREAM] No tool called, forcing structured response');
+        const forcedResponse = await this.client.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages.map(m => ({
+              role: m.role as 'user' | 'assistant',
+              content: m.content
+            })),
+            { role: 'assistant', content: fullContent }  // Include the streamed text
+          ],
+          tools: enhancedTools,
+          tool_choice: { type: 'function', function: { name: 'respond_with_structure' } },
+          temperature: 0.7,
+        });
+
+        const toolCall = forcedResponse.choices[0].message.tool_calls?.[0];
+        if (!toolCall || !toolCall.function.arguments) {
+          throw new Error('No structured response from OpenAI after retry');
+        }
+        
+        const result = JSON.parse(toolCall.function.arguments) as PlanningResponse;
+        if (result.plan) {
+          validateBudgetBreakdown(result.plan);
+        }
+        return result;
+      }
+
       // Parse the structured response from tool calls
-      const toolCall = fullToolCalls[0];
-      if (!toolCall || !toolCall.function.arguments) {
+      const structuredTool = fullToolCalls.find(tc => tc.function.name === 'respond_with_structure');
+      if (!structuredTool || !structuredTool.function.arguments) {
         throw new Error('No structured response from OpenAI stream');
       }
 
-      const result = JSON.parse(toolCall.function.arguments) as PlanningResponse;
+      const result = JSON.parse(structuredTool.function.arguments) as PlanningResponse;
 
       if (result.plan) {
         validateBudgetBreakdown(result.plan);
@@ -554,49 +627,6 @@ ${userContext}
 Help ${user.firstName || 'the user'} plan ANY activity by asking smart questions and creating actionable, realistic plans.
 
 You're in **${mode.toUpperCase()} MODE** - ${modeDescription}.
-
-${mode === 'quick' ? `
----
-
-## 🚨 CRITICAL: Automatic Safety Checks (Quick Mode ONLY)
-
-**MANDATORY ENFORCEMENT FOR ALL TRAVEL PLANNING:**
-
-When user mentions ANY travel destination (city, country, region), you MUST:
-
-1. **SILENTLY execute safety searches FIRST** - before any other web_search calls
-   - Search: "[destination] hurricane alert [current month] [year]"
-   - Search: "[destination] travel advisory [year]"
-   - Search: "[destination] weather emergency [current month]"
-
-2. **NEVER announce these searches**
-   - ❌ BAD: "Let me check the weather conditions..."
-   - ❌ BAD: "I'll look up safety information..."
-   - ✅ GOOD: Silently execute searches, then present results
-
-3. **IF critical alerts found (hurricanes, natural disasters, travel warnings)**
-   - Surface alert PROMINENTLY at TOP of your response
-   - Use this exact format:
-     
-     "🚨 **CRITICAL ALERT**: There's a [specific threat] warning for [destination] during your travel dates!
-     
-     I strongly recommend:
-     • Postponing your trip until conditions improve, OR
-     • Choosing an alternative destination
-     
-     Would you like me to suggest safer alternatives with similar vibes?
-     
-     ---
-     
-     [Only continue with normal planning if user explicitly insists]"
-
-4. **IF NO critical alerts found**
-   - Say nothing about safety checks
-   - Continue normally with enrichment (flights, hotels, etc.)
-   - Don't mention that you checked for safety
-
-**This is NON-NEGOTIABLE for Quick Mode travel planning.**
-` : ''}
 
 ---
 
@@ -1195,32 +1225,22 @@ You MUST use web_search to include these specifics:
 - 🏨 **Hotels**: Hotel Arts Barcelona (⭐⭐⭐⭐⭐, $320/nt, beachfront, spa)
 - 🍽️ **Dining**: Can Culleretes (oldest restaurant, Catalan, €€, Gothic Quarter)
 ` : `
-**Quick Mode - CRITICAL SAFETY CHECKS + Real Data Enrichment:**
+**Quick Mode - Real Data Enrichment (Turn 3 Preview ONLY):**
 
-**🚨 AUTOMATIC SAFETY CHECKS (SILENT - No "Let me check..." messages):**
+**⚠️ IMPORTANT: Use web_search ONLY when showing the plan preview (Turn 3), NOT during question gathering (Turns 1-2)**
 
-When user mentions ANY travel destination, IMMEDIATELY search for critical alerts FIRST:
+**When showing the plan preview on Turn 3, enrich with real-time data:**
 
-**MANDATORY Priority #1 Search - Safety/Weather Alerts:**
-- 🌪️ Search "[destination] hurricane alert [current month] [year]" - Check for hurricanes, typhoons, cyclones
-- ⚠️ Search "[destination] travel advisory [year]" - Check for safety warnings, natural disasters
-- 🌋 Search "[destination] weather emergency [current month]" - Check for extreme weather events
-
-**IF critical alerts found → Surface prominently at TOP of your response:**
-{
-  "message": "🚨 **CRITICAL ALERT**: There's a [hurricane/typhoon/disaster] warning for [destination] during your travel dates!\\n\\nI strongly recommend:\\n• Postponing your trip until conditions improve, OR\\n• Choosing an alternative destination\\n\\nWould you like me to suggest safer alternatives with similar vibes?\\n\\n---\\n\\n[Continue with normal planning ONLY if user insists]",
-  ...
-}
-
-**IF NO critical alerts found → Continue normally with quick data enrichment:**
-
-**For Travel Plans (Quick Mode - After Safety Check):**
+**For Travel Plans (Quick Mode - Turn 3 Preview):**
+- 🌪️ **Safety/Weather Alerts** - Search "[destination] hurricane alert [current month] [year]", "[destination] travel advisory [year]", "[destination] weather emergency [current month]"
+  - **IF critical alerts found** → Surface prominently at TOP: "🚨 **CRITICAL ALERT**: [details]... I strongly recommend postponing or choosing an alternative destination."
+  - **IF NO alerts** → Continue with enrichment
 - ✈️ **Current flight prices** - Search "flights from [origin] to [destination] [dates]" for price ranges
 - 🏨 **Top 2-3 hotels** - Search "[destination] best hotels" for quick recommendations with pricing
 - ☀️ **Weather forecast** - Search "weather forecast [destination] [dates]" for packing advice
 - 🚇 **Transportation basics** - Search "[destination] getting around" for Metro/taxi/airport transfer essentials
 - ✈️ **EXPLAIN Indirect Routing** - If flights require connecting through different city, briefly explain why (e.g., "Tulum → via Cancun because TQO airport has no direct Austin flights")
-- Keep searches focused - 3-4 parallel searches (1 safety + 2-3 enrichment)
+- Keep searches focused - 3-5 parallel searches
 
 **For Dining Plans (Quick Mode):**
 - 🍽️ **Top 2-3 restaurants** - Search "[location] best restaurants [cuisine]" for recommendations
