@@ -52,6 +52,11 @@ export const apiClient = {
     api.post('/api/journal/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+  getUserPreferences: () => api.get('/api/user-preferences'),
+  updateJournal: (category: string, items: any[]) =>
+    api.put('/api/user/journal', { category, items }),
+  updateCustomCategories: (categories: any[]) =>
+    api.put('/api/user/journal/custom-categories', { customJournalCategories: categories }),
 
   // Progress
   getProgress: () => api.get('/api/progress'),

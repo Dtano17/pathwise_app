@@ -6,237 +6,463 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Image,
   Alert,
   useColorScheme,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { apiClient } from '../../src/services/api';
-import { JournalEntry } from '../../src/types';
 import { Colors } from '../../src/constants/colors';
 
+interface RichJournalEntry {
+  id?: string;
+  text: string;
+  media?: Array<{
+    url: string;
+    type: 'image' | 'video';
+    thumbnail?: string;
+  }>;
+  timestamp?: string;
+  aiConfidence?: number;
+  keywords?: string[];
+}
+
+type JournalItem = string | RichJournalEntry;
+
+interface CustomCategory {
+  id: string;
+  name: string;
+  color: string;
+}
+
 const CATEGORIES = [
-  { id: 'travel', label: '✈️ Travel & Places', keyword: '@travel' },
-  { id: 'food', label: '🍽️ Restaurants & Food', keyword: '@restaurants' },
-  { id: 'entertainment', label: '🎬 Entertainment', keyword: '@entertainment' },
-  { id: 'wellness', label: '💪 Health & Wellness', keyword: '@wellness' },
-  { id: 'learning', label: '📚 Learning & Growth', keyword: '@learning' },
-  { id: 'social', label: '👥 Social & Relationships', keyword: '@social' },
-  { id: 'work', label: '💼 Work & Career', keyword: '@work' },
-  { id: 'hobbies', label: '🎨 Hobbies & Interests', keyword: '@hobbies' },
-  { id: 'general', label: '📝 General', keyword: '@general' },
+  { id: 'restaurants', label: '🍽️ Restaurants & Food', color: '#EF4444' },
+  { id: 'movies', label: '🎬 Movies & TV Shows', color: '#A855F7' },
+  { id: 'music', label: '🎵 Music & Artists', color: '#3B82F6' },
+  { id: 'books', label: '📚 Books & Reading', color: '#10B981' },
+  { id: 'hobbies', label: '✨ Hobbies & Interests', color: '#F59E0B' },
+  { id: 'travel', label: '✈️ Travel & Places', color: '#6366F1' },
+  { id: 'style', label: '👗 Personal Style', color: '#EC4899' },
+  { id: 'favorites', label: '⭐ Favorite Things', color: '#F59E0B' },
+  { id: 'notes', label: '📝 Personal Notes', color: '#64748B' }
 ];
+
+const COLOR_OPTIONS = [
+  '#14B8A6',
+  '#8B5CF6',
+  '#EC4899',
+  '#EF4444',
+  '#84CC16'
+];
+
+// Helper function to get text from journal item
+const getItemText = (item: JournalItem): string => {
+  if (typeof item === 'string') {
+    return item;
+  }
+  return item.text || '';
+};
 
 export default function JournalScreen() {
   const colorScheme = useColorScheme();
   const colors = colorScheme === 'dark' ? Colors.dark : Colors.light;
-  const [content, setContent] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [images, setImages] = useState<string[]>([]);
+  
+  const [activeCategory, setActiveCategory] = useState<string>('restaurants');
+  const [newItem, setNewItem] = useState('');
+  const [journalData, setJournalData] = useState<Record<string, JournalItem[]>>({});
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [loading, setLoading] = useState(false);
-  const [entries, setEntries] = useState<JournalEntry[]>([]);
-  const [detectedKeywords, setDetectedKeywords] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
 
   useEffect(() => {
-    loadEntries();
-    requestPermissions();
+    loadJournalData();
   }, []);
 
-  // Detect keywords as user types
-  useEffect(() => {
-    const keywords = (content.match(/@[\w]+/g) || []).map(k => k.toLowerCase());
-    setDetectedKeywords(keywords);
-  }, [content]);
-
-  const requestPermissions = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow access to your photos to add images to journal entries.');
-    }
-  };
-
-  const loadEntries = async () => {
-    try {
-      const response = await apiClient.getJournal();
-      setEntries(response.data);
-    } catch (error) {
-      console.error('Failed to load journal:', error);
-    }
-  };
-
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setImages(prev => [...prev, result.assets[0].uri]);
-    }
-  };
-
-  const saveEntry = async () => {
-    if (!content.trim() && images.length === 0) {
-      Alert.alert('Empty entry', 'Please add some content or images');
-      return;
-    }
-
+  const loadJournalData = async () => {
     setLoading(true);
     try {
-      // Upload images first if any
-      let uploadedMedia = [];
-      if (images.length > 0) {
-        const formData = new FormData();
-        images.forEach((uri, index) => {
-          formData.append('media', {
-            uri,
-            name: `image-${index}.jpg`,
-            type: 'image/jpeg',
-          } as any);
-        });
-
-        const uploadResponse = await apiClient.uploadMedia(formData);
-        uploadedMedia = uploadResponse.data.media || [];
+      const response = await apiClient.getUserPreferences();
+      const data = response.data;
+      
+      // Load journal data from preferences
+      if (data?.preferences?.journalData) {
+        setJournalData(data.preferences.journalData);
       }
-
-      // Detect @keywords in content
-      const keywords = (content.match(/@[\w]+/g) || []).map(k => k.toLowerCase());
-
-      // Create journal entry with smart categorization
-      await apiClient.createJournalEntry({
-        text: content,
-        media: uploadedMedia,
-        keywords,
-      });
-
-      setContent('');
-      setImages([]);
-      setSelectedCategory(null);
-      loadEntries();
-
-      Alert.alert('Success', 'Journal entry saved!');
+      
+      // Load custom categories from preferences
+      if (data?.preferences?.customJournalCategories) {
+        setCustomCategories(data.preferences.customJournalCategories);
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to save journal entry');
+      console.error('Failed to load journal:', error);
+      Alert.alert('Error', 'Failed to load journal data. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Merge default and custom categories
+  const allCategories = [
+    ...CATEGORIES,
+    ...customCategories.map(c => ({
+      id: c.id,
+      label: `📁 ${c.name}`,
+      color: c.color,
+      isCustom: true
+    }))
+  ];
+
+  const currentCategory = allCategories.find(c => c.id === activeCategory);
+  const currentItems = journalData[activeCategory] || [];
+
+  const saveToBackend = async (category: string, items: JournalItem[]) => {
+    setSaving(true);
+    try {
+      await apiClient.updateJournal(category, items);
+    } catch (error) {
+      console.error('Save error:', error);
+      Alert.alert('Error', 'Failed to save journal entry. Please try again.');
+      throw error;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddItem = async () => {
+    if (!newItem.trim()) return;
+    
+    const updatedItems = [...currentItems, newItem.trim()];
+    setJournalData(prev => ({ ...prev, [activeCategory]: updatedItems }));
+    setNewItem('');
+    
+    // Auto-save to backend
+    try {
+      await saveToBackend(activeCategory, updatedItems);
+    } catch (error) {
+      // Revert on error
+      setJournalData(prev => ({ ...prev, [activeCategory]: currentItems }));
+    }
+  };
+
+  const handleRemoveItem = async (index: number) => {
+    Alert.alert(
+      'Delete Entry',
+      'Are you sure you want to delete this entry?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const updatedItems = currentItems.filter((_, i) => i !== index);
+            const previousItems = [...currentItems];
+            
+            // Optimistic update
+            setJournalData(prev => ({ ...prev, [activeCategory]: updatedItems }));
+            
+            // Auto-save to backend
+            try {
+              await saveToBackend(activeCategory, updatedItems);
+            } catch (error) {
+              // Revert on error
+              setJournalData(prev => ({ ...prev, [activeCategory]: previousItems }));
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleAddCustomCategory = async () => {
+    if (!newCategoryName.trim()) {
+      Alert.alert('Name Required', 'Please enter a category name.');
+      return;
+    }
+
+    const categoryId = `custom-${newCategoryName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+    const newCategory: CustomCategory = {
+      id: categoryId,
+      name: newCategoryName.trim(),
+      color: selectedColor
+    };
+
+    const updatedCategories = [...customCategories, newCategory];
+    setCustomCategories(updatedCategories);
+    
+    // Initialize empty array for the new category
+    setJournalData(prev => ({ ...prev, [categoryId]: [] }));
+    
+    // Save custom categories to backend
+    setSaving(true);
+    try {
+      await apiClient.updateCustomCategories(updatedCategories);
+      
+      setNewCategoryName('');
+      setSelectedColor(COLOR_OPTIONS[0]);
+      setShowAddCategoryDialog(false);
+      setActiveCategory(categoryId);
+      Alert.alert('Success', 'Custom category created!');
+    } catch (error) {
+      console.error('Failed to save category:', error);
+      // Revert on error
+      setCustomCategories(customCategories);
+      setJournalData(prev => {
+        const newData = { ...prev };
+        delete newData[categoryId];
+        return newData;
+      });
+      Alert.alert('Error', 'Failed to create category. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.content}>
-        <Text style={[styles.title, { color: colors.text }]}>Journal Entry</Text>
-        
-        <Text style={[styles.label, { color: colors.textSecondary }]}>Category</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
-          {CATEGORIES.map((cat) => (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header */}
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>My Journal</Text>
+        <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+          Capture what makes you unique
+        </Text>
+      </View>
+
+      {/* Category Tabs */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false} 
+        style={styles.categoriesScroll}
+        contentContainerStyle={styles.categoriesContent}
+      >
+        {allCategories.map((cat) => {
+          const isActive = activeCategory === cat.id;
+          const itemCount = journalData[cat.id]?.length || 0;
+          
+          return (
             <TouchableOpacity
               key={cat.id}
               style={[
-                styles.categoryChip,
+                styles.categoryTab,
                 {
-                  backgroundColor: selectedCategory === cat.id ? colors.primary : colors.card,
-                  borderColor: colors.border,
+                  backgroundColor: isActive ? cat.color : colors.card,
+                  borderColor: isActive ? cat.color : colors.border,
                 },
               ]}
-              onPress={() => setSelectedCategory(cat.id)}
+              onPress={() => setActiveCategory(cat.id)}
             >
               <Text style={[
-                styles.categoryText,
-                { color: selectedCategory === cat.id ? '#fff' : colors.text },
+                styles.categoryLabel,
+                { color: isActive ? '#fff' : colors.text },
               ]}>
                 {cat.label}
               </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        <Text style={[styles.label, { color: colors.textSecondary }]}>What's on your mind?</Text>
-        <TextInput
-          style={[styles.textArea, { color: colors.text, backgroundColor: colors.card, borderColor: colors.border }]}
-          value={content}
-          onChangeText={setContent}
-          placeholder="Share your thoughts, experiences, or use @keywords..."
-          placeholderTextColor={colors.textSecondary}
-          multiline
-          numberOfLines={6}
-        />
-
-        {detectedKeywords.length > 0 && (
-          <View style={[styles.keywordHint, { backgroundColor: '#F3E8FF', borderColor: '#9333EA' }]}>
-            <Text style={styles.keywordHintTitle}>✨ Detected Keywords:</Text>
-            <View style={styles.keywordTags}>
-              {detectedKeywords.map((keyword, index) => (
-                <View key={index} style={[styles.keywordTag, { backgroundColor: '#9333EA' }]}>
-                  <Text style={styles.keywordTagText}>{keyword}</Text>
+              {itemCount > 0 && (
+                <View style={[
+                  styles.countBadge,
+                  { backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : colors.primary }
+                ]}>
+                  <Text style={[
+                    styles.countText,
+                    { color: '#fff' }
+                  ]}>
+                    {itemCount}
+                  </Text>
                 </View>
-              ))}
+              )}
+            </TouchableOpacity>
+          );
+        })}
+        
+        <TouchableOpacity
+          style={[styles.addCategoryButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => setShowAddCategoryDialog(true)}
+        >
+          <Text style={styles.addCategoryText}>+ Add Category</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* Current Category Header */}
+      {currentCategory && (
+        <View style={[styles.categoryHeader, { backgroundColor: currentCategory.color }]}>
+          <View style={styles.categoryHeaderContent}>
+            <Text style={styles.categoryHeaderTitle}>{currentCategory.label}</Text>
+            <Text style={styles.categoryHeaderSubtitle}>
+              {activeCategory === 'restaurants' && 'Your favorite restaurants, cuisines, and food preferences'}
+              {activeCategory === 'movies' && 'Movies, shows, genres, and actors you love'}
+              {activeCategory === 'music' && 'Artists, bands, genres, and playlists that move you'}
+              {activeCategory === 'books' && 'Books, authors, and genres you enjoy reading'}
+              {activeCategory === 'hobbies' && 'Activities and interests that bring you joy'}
+              {activeCategory === 'travel' && "Places you've been or dream of visiting"}
+              {activeCategory === 'style' && 'Your fashion preferences, favorite brands, and style notes'}
+              {activeCategory === 'favorites' && 'Your all-time favorite things across all categories'}
+              {activeCategory === 'notes' && 'Personal thoughts, memories, and things about yourself'}
+              {!CATEGORIES.find(c => c.id === activeCategory) && 'Your custom journal category'}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Add New Entry */}
+      <View style={[styles.inputSection, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+        <View style={styles.inputContainer}>
+          {activeCategory === 'notes' ? (
+            <TextInput
+              style={[styles.textArea, { color: colors.text, backgroundColor: colors.background, borderColor: colors.border }]}
+              value={newItem}
+              onChangeText={setNewItem}
+              placeholder="Write your thoughts here..."
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              numberOfLines={4}
+            />
+          ) : (
+            <TextInput
+              style={[styles.input, { color: colors.text, backgroundColor: colors.background, borderColor: colors.border }]}
+              value={newItem}
+              onChangeText={setNewItem}
+              placeholder={`Add to ${currentCategory?.label || 'this category'}...`}
+              placeholderTextColor={colors.textSecondary}
+              onSubmitEditing={handleAddItem}
+              returnKeyType="done"
+            />
+          )}
+        </View>
+        
+        <TouchableOpacity
+          style={[
+            styles.addButton,
+            { 
+              backgroundColor: currentCategory?.color || colors.primary,
+              opacity: (!newItem.trim() || saving) ? 0.5 : 1 
+            }
+          ]}
+          onPress={handleAddItem}
+          disabled={!newItem.trim() || saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.addButtonText}>Add</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Items List */}
+      <ScrollView style={styles.itemsList} contentContainerStyle={styles.itemsContent}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading journal...</Text>
+          </View>
+        ) : currentItems.length > 0 ? (
+          currentItems.map((item, index) => (
+            <View key={index} style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.itemText, { color: colors.text }]}>
+                {getItemText(item)}
+              </Text>
+              <TouchableOpacity
+                style={[styles.removeButton, { backgroundColor: colors.error + '20' }]}
+                onPress={() => handleRemoveItem(index)}
+              >
+                <Text style={[styles.removeButtonText, { color: colors.error }]}>Delete</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.keywordHintText}>
-              Your entry will be automatically categorized!
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <View style={[styles.emptyIcon, { backgroundColor: currentCategory?.color + '20' }]}>
+              <Text style={styles.emptyIconText}>{currentCategory?.label.split(' ')[0]}</Text>
+            </View>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>No entries yet</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+              Start capturing your thoughts and preferences.{'\n'}This helps personalize your experience!
             </Text>
           </View>
         )}
+      </ScrollView>
 
-        {images.length > 0 && (
-          <View style={styles.imagesContainer}>
-            {images.map((uri, index) => (
-              <View key={index} style={styles.imageWrapper}>
-                <Image source={{ uri }} style={styles.image} />
+      {/* Add Custom Category Modal */}
+      <Modal
+        visible={showAddCategoryDialog}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAddCategoryDialog(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Add Custom Category</Text>
+            
+            <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Category Name</Text>
+            <TextInput
+              style={[styles.modalInput, { color: colors.text, backgroundColor: colors.background, borderColor: colors.border }]}
+              value={newCategoryName}
+              onChangeText={setNewCategoryName}
+              placeholder="e.g., Recipes, Goals, Quotes"
+              placeholderTextColor={colors.textSecondary}
+            />
+            
+            <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Color</Text>
+            <View style={styles.colorOptions}>
+              {COLOR_OPTIONS.map((color) => (
                 <TouchableOpacity
-                  style={[styles.removeImage, { backgroundColor: colors.error }]}
-                  onPress={() => setImages(prev => prev.filter((_, i) => i !== index))}
+                  key={color}
+                  style={[
+                    styles.colorOption,
+                    { backgroundColor: color },
+                    selectedColor === color && styles.colorOptionSelected
+                  ]}
+                  onPress={() => setSelectedColor(color)}
                 >
-                  <Text style={styles.removeImageText}>×</Text>
+                  {selectedColor === color && (
+                    <Text style={styles.colorCheckmark}>✓</Text>
+                  )}
                 </TouchableOpacity>
-              </View>
-            ))}
+              ))}
+            </View>
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                onPress={() => {
+                  setShowAddCategoryDialog(false);
+                  setNewCategoryName('');
+                  setSelectedColor(COLOR_OPTIONS[0]);
+                }}
+              >
+                <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.modalButtonPrimary,
+                  { backgroundColor: colors.primary, opacity: (!newCategoryName.trim() || saving) ? 0.5 : 1 }
+                ]}
+                onPress={handleAddCustomCategory}
+                disabled={!newCategoryName.trim() || saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.modalButtonTextPrimary}>Create</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        )}
-
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.secondaryButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={pickImage}
-          >
-            <Text style={[styles.secondaryButtonText, { color: colors.text }]}>📷 Add Photo</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-            onPress={saveEntry}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.primaryButtonText}>Save Entry</Text>
-            )}
-          </TouchableOpacity>
         </View>
+      </Modal>
 
-        {entries.length > 0 && (
-          <View style={styles.recentSection}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Entries</Text>
-            {entries.slice(0, 5).map((entry) => (
-              <View key={entry.id} style={[styles.entryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={[styles.entryCategory, { color: colors.primary }]}>
-                  {CATEGORIES.find(c => c.id === entry.category)?.label || entry.category}
-                </Text>
-                <Text style={[styles.entryContent, { color: colors.text }]} numberOfLines={3}>
-                  {entry.content}
-                </Text>
-                <Text style={[styles.entryDate, { color: colors.textSecondary }]}>
-                  {new Date(entry.createdAt).toLocaleDateString()}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-    </ScrollView>
+      {/* Save Indicator */}
+      {saving && (
+        <View style={[styles.saveIndicator, { backgroundColor: colors.card }]}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[styles.saveIndicatorText, { color: colors.textSecondary }]}>Saving...</Text>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -244,33 +470,90 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  header: {
     padding: 16,
+    borderBottomWidth: 1,
   },
-  title: {
+  headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-    marginBottom: 20,
   },
-  label: {
+  headerSubtitle: {
     fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 16,
+    marginTop: 4,
   },
   categoriesScroll: {
-    marginBottom: 16,
+    maxHeight: 60,
   },
-  categoryChip: {
+  categoriesContent: {
+    padding: 12,
+    gap: 8,
+  },
+  categoryTab: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
     marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  categoryText: {
+  categoryLabel: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  countBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  countText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  addCategoryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  addCategoryText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+  },
+  categoryHeader: {
+    padding: 16,
+  },
+  categoryHeaderContent: {
+    gap: 4,
+  },
+  categoryHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  categoryHeaderSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  inputSection: {
+    padding: 12,
+    borderTopWidth: 1,
+    gap: 8,
+  },
+  inputContainer: {
+    flex: 1,
+  },
+  input: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    fontSize: 15,
   },
   textArea: {
     borderRadius: 12,
@@ -278,123 +561,182 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 15,
     textAlignVertical: 'top',
-    minHeight: 120,
+    minHeight: 100,
   },
-  imagesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 16,
-  },
-  imageWrapper: {
-    position: 'relative',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  image: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-  },
-  removeImage: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    width: 24,
-    height: 24,
+  addButton: {
     borderRadius: 12,
-    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
   },
-  removeImageText: {
+  addButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '600',
   },
-  actions: {
+  itemsList: {
+    flex: 1,
+  },
+  itemsContent: {
+    padding: 12,
+    gap: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+  },
+  itemCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  itemText: {
+    fontSize: 14,
+    flex: 1,
+    lineHeight: 20,
+  },
+  removeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  removeButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyIconText: {
+    fontSize: 24,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 20,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  modalInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    fontSize: 15,
+  },
+  colorOptions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  colorOption: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  colorOptionSelected: {
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  colorCheckmark: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  modalActions: {
     flexDirection: 'row',
     gap: 12,
     marginTop: 24,
   },
-  secondaryButton: {
+  modalButton: {
     flex: 1,
     borderRadius: 12,
     borderWidth: 1,
     paddingVertical: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
   },
-  secondaryButtonText: {
+  modalButtonPrimary: {
+    borderWidth: 0,
+  },
+  modalButtonText: {
     fontSize: 15,
     fontWeight: '600',
   },
-  primaryButton: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
+  modalButtonTextPrimary: {
     color: '#fff',
     fontSize: 15,
     fontWeight: '600',
   },
-  recentSection: {
-    marginTop: 32,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  entryCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 12,
-  },
-  entryCategory: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  entryContent: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  entryDate: {
-    fontSize: 12,
-  },
-  keywordHint: {
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  keywordHintTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#7C3AED',
-    marginBottom: 8,
-  },
-  keywordTags: {
+  saveIndicator: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 8,
-  },
-  keywordTag: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
     borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  keywordTagText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  keywordHintText: {
-    fontSize: 11,
-    color: '#7C3AED',
-    fontStyle: 'italic',
+  saveIndicatorText: {
+    fontSize: 14,
   },
 });
