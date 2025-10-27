@@ -579,7 +579,7 @@ class AnthropicProvider implements LLMProvider {
 // SYSTEM PROMPT BUILDER
 // ============================================================================
 
-function buildSystemPrompt(context: PlanningContext, mode: 'quick' | 'smart'): string {
+function buildSystemPrompt(context: PlanningContext, mode: 'quick' | 'smart', isPreviewTurn: boolean = false): string {
   const { user, profile, preferences, recentJournal } = context;
 
   const modeDescription = mode === 'smart'
@@ -1091,6 +1091,87 @@ ${mode === 'smart' ? `
 - Generate plan quickly once minimums met
 - Actionable output with key real-time data, but less verbose than Smart mode
 `}
+
+${isPreviewTurn ? `
+### REAL-TIME SAFETY & ENRICHMENT (PREVIEW TURN ONLY) 🌐
+
+**YOU NOW HAVE ACCESS TO THE web_search TOOL - USE IT STRATEGICALLY!**
+
+${mode === 'quick' ? `
+**Quick Mode Enrichment (2-4 targeted searches):**
+For TRAVEL plans specifically, run these safety-critical searches:
+1. **Safety Search**: "[destination] travel advisory [month/season]" OR "[destination] hurricane season [month]" OR "[destination] weather alerts [dates]"
+   - Example: "Jamaica travel advisory October" or "Jamaica hurricane forecast October 27"
+2. **Flight Pricing**: "[origin] to [destination] flights [month]"
+3. **Hotel Options**: "[destination] hotels pricing"
+4. **Weather Forecast**: "[destination] weather forecast [dates]"
+
+For NON-TRAVEL plans (dining, fitness, events), skip web searches unless specifically needed.
+` : `
+**Smart Mode Enrichment (5+ comprehensive searches):**
+Run thorough searches for detailed planning:
+1. **Safety & Advisories**: "[destination] travel advisory", "[destination] weather alerts [dates]"
+2. **Transportation**: "[origin] to [destination] flights", "[destination] transportation guide"
+3. **Accommodations**: "[destination] top hotels", "[destination] best Airbnbs"
+4. **Dining**: "[destination] best restaurants [cuisine]", "[destination] local food scene"
+5. **Activities**: "[destination] things to do", "[destination] nightlife", "[destination] hidden gems"
+6. **Weather**: "[destination] weather forecast [dates]"
+7. **Budget Intel**: "[destination] cost of living", "[destination] typical prices"
+`}
+
+**⚠️ CRITICAL SAFETY PROTOCOL for Travel Plans:**
+
+**ALWAYS check for safety hazards FIRST before generating plan preview:**
+- Hurricanes, tropical storms, typhoons
+- Travel advisories (State Dept warnings, embassy notices)
+- Political unrest or protests
+- Natural disasters (earthquakes, floods, wildfires)
+- Disease outbreaks or health warnings
+- Extreme weather events
+
+**If SAFETY HAZARD detected:**
+1. **PROMINENTLY display warning at TOP of plan preview**
+2. **Use urgent formatting**: "⚠️ **URGENT TRAVEL ALERT** ⚠️"
+3. **Include specific details**: Hurricane name, category, landfall date, affected areas
+4. **Provide actionable guidance**: 
+   - "Hurricane Melissa (Category 4) is forecast to make landfall in Jamaica on October 27th"
+   - "⚠️ STRONG RECOMMENDATION: Postpone travel or consider alternate dates"
+   - "Safe travel window: October 30+ (post-storm clearance)"
+5. **Still show plan but frame as conditional**: "If you proceed with current dates, here's the plan..."
+
+**Example Safety Warning in Preview:**
+
+\`\`\`
+⚠️ **URGENT WEATHER ALERT - JAMAICA** ⚠️
+
+**Hurricane Melissa (Category 4)** is tracking toward Jamaica with expected landfall on **October 27th** - your planned departure date.
+
+**Official Warnings:**
+- National Hurricane Center: Major hurricane with life-threatening storm surge
+- US State Department: Level 4 Travel Advisory (Do Not Travel) for Oct 26-28
+- Montego Bay Airport: Likely closure Oct 26-28
+
+**STRONG RECOMMENDATION:**
+🚨 **Postpone your trip** or move dates to **October 30+** for post-storm safety
+
+**Alternative Options:**
+1. Reschedule to November 3-6 (clear weather forecast)
+2. Consider alternate Caribbean destination (Aruba: no storm activity)
+3. Travel insurance: Check coverage for hurricane-related cancellations
+
+**If you choose to proceed with Oct 27 dates, I can provide a plan, but please prioritize your safety first.**
+
+---
+
+## Your Montego Bay Plan (CONDITIONAL on date change)
+[Rest of plan follows...]
+\`\`\`
+
+**If NO safety hazards found:**
+- Proceed with normal plan generation
+- Include standard weather forecast
+- Mention safety status briefly: "✅ No active travel advisories for [destination]"
+` : ''}
 
 ### 4. No Hallucinations - CRITICAL
 
@@ -1628,10 +1709,15 @@ export class SimpleConversationalPlanner {
         { role: 'user' as const, content: userMessage }
       ];
 
-      // 3. Build system prompt
-      const systemPrompt = buildSystemPrompt(context, mode);
+      // 3. Determine if this is the preview turn (when web_search should be enabled)
+      const assistantMessageCount = conversationHistory.filter(m => m.role === 'assistant').length;
+      const currentTurn = assistantMessageCount + 1;
+      const isPreviewTurn = mode === 'quick' ? currentTurn >= 3 : currentTurn >= 4;
 
-      // 4. Call LLM with full context
+      // 4. Build system prompt with conditional safety enrichment
+      const systemPrompt = buildSystemPrompt(context, mode, isPreviewTurn);
+
+      // 5. Call LLM with full context
       const response = await this.llmProvider.generate(
         messages,
         systemPrompt,
@@ -1786,10 +1872,15 @@ export class SimpleConversationalPlanner {
         { role: 'user' as const, content: userMessage }
       ];
 
-      // 3. Build system prompt
-      const systemPrompt = buildSystemPrompt(context, mode);
+      // 3. Determine if this is the preview turn (when web_search should be enabled)
+      const assistantMessageCount = conversationHistory.filter(m => m.role === 'assistant').length;
+      const currentTurn = assistantMessageCount + 1;
+      const isPreviewTurn = mode === 'quick' ? currentTurn >= 3 : currentTurn >= 4;
 
-      // 4. Call LLM with streaming if available
+      // 4. Build system prompt with conditional safety enrichment
+      const systemPrompt = buildSystemPrompt(context, mode, isPreviewTurn);
+
+      // 5. Call LLM with streaming if available
       let response: PlanningResponse;
       
       if (this.llmProvider.generateStream) {
