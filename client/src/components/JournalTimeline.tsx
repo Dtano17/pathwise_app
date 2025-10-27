@@ -74,7 +74,7 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
 
   // Get unique categories for filter
   const categories = useMemo(() => {
-    return [...new Set(allEntries.map(e => e.category))];
+    return Array.from(new Set(allEntries.map(e => e.category)));
   }, [allEntries]);
 
   // Filter entries
