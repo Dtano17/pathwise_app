@@ -1,6 +1,23 @@
-import 'dotenv/config';
+// Read from .env file manually since dotenv isn't available
+const fs = require('fs');
+const path = require('path');
 
-export default {
+let apiUrl = 'https://4f9903c2-0076-4cd7-a19b-2fb36f4173fe-00-3cq0d74q496xs.kirk.replit.dev';
+
+try {
+  const envPath = path.join(__dirname, '.env');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    const match = envContent.match(/EXPO_PUBLIC_API_URL=(.+)/);
+    if (match && match[1]) {
+      apiUrl = match[1].trim();
+    }
+  }
+} catch (error) {
+  console.log('Note: Could not read .env file, using default URL');
+}
+
+module.exports = {
   expo: {
     name: "JournalMate",
     slug: "journalmate",
@@ -71,7 +88,7 @@ export default {
       eas: {
         projectId: "your-project-id-here"
       },
-      apiUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000'
+      apiUrl: apiUrl
     }
   }
 };
