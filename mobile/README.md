@@ -105,35 +105,38 @@ const API_URL = 'https://your-replit-url.replit.dev';
 
 ## 📦 Building for App Stores
 
-### Setup EAS (Expo Application Services)
+### 🚀 Quick Deploy (Fastest Path to Production)
+
+**Want to get to the App Stores FAST?** Use our streamlined deployment:
 
 ```bash
+# Run the interactive deploy script
+./deploy.sh
+```
+
+Or follow the **complete guide**:
+- 📘 **[QUICK_DEPLOY.md](./QUICK_DEPLOY.md)** - 3-day deployment plan
+- 📋 **[APP_STORE_CHECKLIST.md](./APP_STORE_CHECKLIST.md)** - Submission checklist
+- 📖 **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** - Detailed walkthrough
+
+### Manual Build Commands
+
+```bash
+# Setup EAS (first time only)
 npm install -g eas-cli
 eas login
 eas build:configure
-```
 
-### Build iOS App
+# Build for production
+eas build --platform ios --profile production
+eas build --platform android --profile production
 
-```bash
-eas build --platform ios
-```
-
-### Build Android App
-
-```bash
-eas build --platform android
-```
-
-### Submit to App Stores
-
-```bash
-# iOS (requires Apple Developer account)
+# Submit to stores
 eas submit --platform ios
-
-# Android (requires Google Play Developer account)
 eas submit --platform android
 ```
+
+**Timeline:** 3-10 days from start to live apps in stores!
 
 ## 🔄 Sync with Web App
 

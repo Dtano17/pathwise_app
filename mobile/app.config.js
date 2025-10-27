@@ -87,9 +87,15 @@ module.exports = {
     ],
     extra: {
       eas: {
-        projectId: "your-project-id-here"
+        projectId: "journalmate-production"
       },
       apiUrl: apiUrl
+    },
+    updates: {
+      url: "https://u.expo.dev/journalmate-production"
+    },
+    runtimeVersion: {
+      policy: "appVersion"
     }
   }
 };
