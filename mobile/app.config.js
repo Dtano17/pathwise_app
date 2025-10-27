@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 
+// Default to current Replit URL - update .env file when URL changes
 let apiUrl = 'https://4f9903c2-0076-4cd7-a19b-2fb36f4173fe-00-3cq0d74q496xs.kirk.replit.dev';
 
 try {
