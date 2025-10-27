@@ -98,5 +98,14 @@ task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
 
+[[workflows.workflow]]
+name = "Start Mobile App"
+author = 13346961
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd mobile && npx expo start --tunnel --clear"
+
 [agent]
 integrations = ["javascript_websocket:1.0.0", "javascript_openai:1.0.0", "outlook:1.0.0", "javascript_anthropic:1.0.0", "javascript_log_in_with_replit:1.0.0", "spotify:1.0.0", "resend:1.0.0"]
