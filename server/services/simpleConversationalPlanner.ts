@@ -207,7 +207,7 @@ class OpenAIProvider implements LLMProvider {
           function: {
             name: 'web_search',
             description: mode === 'quick'
-              ? 'Search the web for KEY information (2-3 searches max): current flight prices, top hotels with pricing, weather forecast'
+              ? 'Search for CRITICAL SAFETY ALERTS FIRST (hurricanes, travel advisories, natural disasters), then key travel info: current flight prices, top hotels with pricing, weather forecast. For travel destinations, ALWAYS check safety alerts BEFORE other searches.'
               : 'Search the web for DETAILED information about destinations, events, weather, prices, hotels, restaurants, activities, nightlife, etc.',
             parameters: {
               type: 'object',
@@ -461,23 +461,11 @@ class AnthropicProvider implements LLMProvider {
         input_schema: tool.function.parameters
       }));
 
-      // Add web_search tool for smart mode
-      if (mode === 'smart') {
-        anthropicTools.push({
-          name: 'web_search',
-          description: 'Search the web for current information about destinations, events, weather, prices, etc.',
-          input_schema: {
-            type: 'object',
-            properties: {
-              query: {
-                type: 'string',
-                description: 'The search query'
-              }
-            },
-            required: ['query']
-          }
-        });
-      }
+      // Add web_search tool for BOTH quick and smart modes
+      // Note: Anthropic doesn't support web_search tool natively yet
+      // This is a placeholder for when they add it
+      // For now, Quick mode with Claude will not have real-time safety checks
+      // (Only OpenAI provider has Tavily integration)
 
       const response = await this.client.messages.create({
         model: 'claude-3-5-sonnet-20241022',
@@ -1116,17 +1104,32 @@ You MUST use web_search to include these specifics:
 - 🏨 **Hotels**: Hotel Arts Barcelona (⭐⭐⭐⭐⭐, $320/nt, beachfront, spa)
 - 🍽️ **Dining**: Can Culleretes (oldest restaurant, Catalan, €€, Gothic Quarter)
 ` : `
-**Quick Mode - Include REAL DATA enrichment in final plan:**
+**Quick Mode - CRITICAL SAFETY CHECKS + Real Data Enrichment:**
 
-When generating the plan, use web_search for key details (lighter than Smart mode):
+**🚨 AUTOMATIC SAFETY CHECKS (SILENT - No "Let me check..." messages):**
 
-**For Travel Plans (Quick Mode):**
+When user mentions ANY travel destination, IMMEDIATELY search for critical alerts FIRST:
+
+**MANDATORY Priority #1 Search - Safety/Weather Alerts:**
+- 🌪️ Search "[destination] hurricane alert [current month] [year]" - Check for hurricanes, typhoons, cyclones
+- ⚠️ Search "[destination] travel advisory [year]" - Check for safety warnings, natural disasters
+- 🌋 Search "[destination] weather emergency [current month]" - Check for extreme weather events
+
+**IF critical alerts found → Surface prominently at TOP of your response:**
+{
+  "message": "🚨 **CRITICAL ALERT**: There's a [hurricane/typhoon/disaster] warning for [destination] during your travel dates!\\n\\nI strongly recommend:\\n• Postponing your trip until conditions improve, OR\\n• Choosing an alternative destination\\n\\nWould you like me to suggest safer alternatives with similar vibes?\\n\\n---\\n\\n[Continue with normal planning ONLY if user insists]",
+  ...
+}
+
+**IF NO critical alerts found → Continue normally with quick data enrichment:**
+
+**For Travel Plans (Quick Mode - After Safety Check):**
 - ✈️ **Current flight prices** - Search "flights from [origin] to [destination] [dates]" for price ranges
 - 🏨 **Top 2-3 hotels** - Search "[destination] best hotels" for quick recommendations with pricing
 - ☀️ **Weather forecast** - Search "weather forecast [destination] [dates]" for packing advice
 - 🚇 **Transportation basics** - Search "[destination] getting around" for Metro/taxi/airport transfer essentials
 - ✈️ **EXPLAIN Indirect Routing** - If flights require connecting through different city, briefly explain why (e.g., "Tulum → via Cancun because TQO airport has no direct Austin flights")
-- Keep searches focused - 2-3 parallel searches max (vs Smart mode's 5+ detailed searches)
+- Keep searches focused - 3-4 parallel searches (1 safety + 2-3 enrichment)
 
 **For Dining Plans (Quick Mode):**
 - 🍽️ **Top 2-3 restaurants** - Search "[location] best restaurants [cuisine]" for recommendations
