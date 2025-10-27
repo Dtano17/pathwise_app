@@ -1,8 +1,18 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-// Update this with your Replit URL
-const API_URL = 'https://2b38394c-a6cf-4e62-beaa-a0a84cbdfc59-00-2sqz7qoqe2kh7.sisko.replit.dev';
+// Read API URL from Expo config with multiple fallback paths
+const API_URL = 
+  Constants.expoConfig?.extra?.apiUrl || 
+  Constants.manifest2?.extra?.expoClient?.extra?.apiUrl ||
+  Constants.manifest?.extra?.apiUrl ||
+  'https://your-replit-url-here.replit.dev';
+
+// Log the API URL in development for debugging
+if (__DEV__) {
+  console.log('[API] Using backend URL:', API_URL);
+}
 
 const api = axios.create({
   baseURL: API_URL,
