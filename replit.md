@@ -25,7 +25,10 @@ The application employs a mobile-first responsive design featuring a clean, card
 - **Mobile Application**: React Native/Expo app for iOS and Android, located in the `mobile/` folder.
 
 **Core Features:**
-- **AI-Powered Planning**: "Smart Plan" (comprehensive with web search) and "Quick Plan" (streamlined) modes with intelligent conversational planning. Features dynamic validation, progress tracking, zero hallucination enforcement, context-aware completion, real-time web enrichment (both modes), and enhanced task generation. **Quick Plan now includes automatic safety checks** - when travel destinations are mentioned, the system silently searches for hurricanes, travel advisories, and weather emergencies FIRST, surfacing critical alerts prominently before other enrichment data.
+- **AI-Powered Planning**: 
+  - **Quick Plan (5-question flow)**: Streamlined planning in 3 turns - Batch 1 asks 3 questions (origin, destination, duration), Batch 2 asks 2 more (budget, occasion), then shows preview with real-time data. Features automatic safety checks for travel (hurricanes, advisories), strict override detection to prevent accidental skips, and user can override at any point by saying "create plan".
+  - **Smart Plan (10-question flow)**: Comprehensive planning with detailed research, real-time data enrichment, and 3-batch question flow.
+  - Both modes feature dynamic validation, progress tracking, zero hallucination enforcement, context-aware completion, enhanced task generation, and domain-agnostic question prioritization (not hardcoded).
 - **Task Management**: Swipeable task cards, YouTube-style feedback, real-time progress dashboard with streaks and analytics, search/filter, and automatic activity/task creation upon plan confirmation.
 - **Personal Journal**: Interface with 9 categories, auto-save, and backend persistence. Includes a "Journal Mode" for smart capture of text and media (photos/videos), with AI-driven categorization and enrichment.
 - **Social Sharing & Activity Management**: Customizable share previews, NYC-themed backdrops, custom images, and an AI-powered "Privacy Shield" for PII/PHI redaction. Includes automatic activity copying for visitors, duplicate detection with an update system, and activity history/archiving.
