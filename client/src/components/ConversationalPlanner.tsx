@@ -182,66 +182,149 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     }
   });
 
-  // Send message - using simple conversational planner
-  const sendMessageMutation = useMutation({
-    mutationFn: async (messageData: { message: string; mode: 'quick' | 'smart'; conversationHistory: any[] }) => {
-      const response = await apiRequest('POST', '/api/chat/conversation', {
-        message: messageData.message,
-        conversationHistory: messageData.conversationHistory,
-        mode: messageData.mode
+  const [streamingMessageContent, setStreamingMessageContent] = useState("");
+
+  // Send message with streaming - using simple conversational planner
+  const handleStreamingMessage = async (messageData: { message: string; mode: 'quick' | 'smart'; conversationHistory: any[] }) => {
+    setIsGenerating(true);
+    setStreamingMessageContent("");
+    
+    // Add user message to conversation immediately
+    const newMessage: ConversationMessage = {
+      role: 'user',
+      content: messageData.message,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Add placeholder for streaming assistant response
+    const streamingPlaceholder: ConversationMessage = {
+      role: 'assistant',
+      content: '',
+      timestamp: new Date().toISOString()
+    };
+    
+    const updatedHistory = [
+      ...messageData.conversationHistory,
+      newMessage,
+      streamingPlaceholder
+    ];
+    
+    setCurrentSession(prev => ({
+      ...prev!,
+      conversationHistory: updatedHistory
+    }));
+
+    try {
+      const response = await fetch('/api/chat/conversation/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: messageData.message,
+          conversationHistory: messageData.conversationHistory,
+          mode: messageData.mode
+        })
       });
-      return response.json();
-    },
-    onSuccess: (data, variables) => {
-      // ✅ CRITICAL FIX: Use backend session directly for correct ID and completion status
-      // Build conversation history from what we sent + new messages
-      const newMessage: ConversationMessage = {
-        role: 'user',
-        content: message,
-        timestamp: new Date().toISOString()
-      };
-      const assistantMessage: ConversationMessage = {
-        role: 'assistant',
-        content: data.message,
-        timestamp: new Date().toISOString()
-      };
-      
-      // Build history from what we sent, not from old session state
-      const updatedHistory = [
-        ...variables.conversationHistory,
-        newMessage,
-        assistantMessage
-      ];
-      
-      // Use backend session (correct ID, isComplete, etc.) with client-side conversation history
-      setCurrentSession({
-        ...data.session,
-        conversationHistory: updatedHistory
-      });
-      
-      setMessage('');
-      
-      // If plan is ready, show it for confirmation
-      if (data.readyToGenerate && data.plan) {
-        setPendingPlan(data.plan);
-        setShowPlanConfirmation(true);
+
+      if (!response.body) {
+        throw new Error('No response body');
       }
-      
-      // Handle completed plan creation
-      if (data.activityCreated && data.createdTasks) {
-        queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedMessage = '';
+      let finalData: any = null;
+      const streamingIndex = updatedHistory.length - 1;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n\n');
+
+        for (const line of lines) {
+          if (line.startsWith('event: token')) {
+            const dataMatch = line.match(/data: (.+)/);
+            if (dataMatch) {
+              const tokenData = JSON.parse(dataMatch[1]);
+              accumulatedMessage += tokenData.token;
+              setStreamingMessageContent(accumulatedMessage);
+              
+              // Update streaming message in real-time
+              setCurrentSession(prev => {
+                if (!prev) return prev;
+                const updated = [...prev.conversationHistory];
+                updated[streamingIndex] = {
+                  ...updated[streamingIndex],
+                  content: accumulatedMessage
+                };
+                return {
+                  ...prev,
+                  conversationHistory: updated
+                };
+              });
+            }
+          } else if (line.startsWith('event: complete')) {
+            const dataMatch = line.match(/data: (.+)/);
+            if (dataMatch) {
+              finalData = JSON.parse(dataMatch[1]);
+            }
+          }
+        }
       }
-    },
-    onError: (error) => {
-      console.error('Failed to send message:', error);
+
+      // Update with final complete data
+      if (finalData) {
+        const assistantMessage: ConversationMessage = {
+          role: 'assistant',
+          content: finalData.message || accumulatedMessage,
+          timestamp: new Date().toISOString()
+        };
+        
+        const finalHistory = [
+          ...messageData.conversationHistory,
+          newMessage,
+          assistantMessage
+        ];
+        
+        setCurrentSession(prev => ({
+          ...finalData.session,
+          conversationHistory: finalHistory
+        }));
+        
+        setMessage('');
+        
+        // If plan is ready, show it for confirmation
+        if (finalData.readyToGenerate && finalData.plan) {
+          setPendingPlan(finalData.plan);
+          setShowPlanConfirmation(true);
+        }
+        
+        // Handle completed plan creation
+        if (finalData.activityCreated && finalData.createdTasks) {
+          queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+        }
+      }
+
+    } catch (error) {
+      console.error('Streaming error:', error);
       toast({
         title: "Error",
         description: "Failed to process message. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsGenerating(false);
+      setStreamingMessageContent("");
     }
+  };
+
+  const sendMessageMutation = useMutation({
+    mutationFn: handleStreamingMessage
   });
 
   // Get plan preview before generation

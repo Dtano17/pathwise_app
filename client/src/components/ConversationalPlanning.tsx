@@ -84,59 +84,127 @@ export function ConversationalPlanning({
     }
   }, []);
 
-  const chatMutation = useMutation({
-    mutationFn: async (message: string) => {
+  const [streamingMessage, setStreamingMessage] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+
+  const handleStreamingChat = async (message: string) => {
+    if (setIsGenerating) setIsGenerating(true);
+    setIsStreaming(true);
+    setStreamingMessage("");
+    
+    // Add user message immediately
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content: message,
+      timestamp: new Date()
+    };
+    setChatHistory(prev => [...prev, userMessage]);
+    
+    // Add placeholder for streaming assistant message
+    const streamingIndex = chatHistory.length + 1;
+    setChatHistory(prev => [...prev, {
+      role: 'assistant',
+      content: '',
+      timestamp: new Date()
+    }]);
+
+    try {
       const conversationHistory = chatHistory
         .filter(msg => msg.role !== 'assistant' || !msg.content.includes("Would you like me to help you create a structured action plan"))
         .map(msg => ({ role: msg.role, content: msg.content }));
-      
-      const response = await apiRequest('POST', '/api/chat/conversation', {
-        message,
-        conversationHistory
+
+      const response = await fetch('/api/chat/conversation/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message,
+          conversationHistory,
+          mode: 'quick' // Using quick mode for this component
+        })
       });
-      return response.json();
-    },
-    onMutate: () => {
-      if (setIsGenerating) setIsGenerating(true);
-      
-      // Add user message immediately
-      const userMessage: ChatMessage = {
-        role: 'user',
-        content: currentMessage,
-        timestamp: new Date()
-      };
-      setChatHistory(prev => [...prev, userMessage]);
-      setCurrentMessage("");
-    },
-    onSuccess: (data) => {
-      if (setIsGenerating) setIsGenerating(false);
-      
-      // Add AI response
-      const aiMessage: ChatMessage = {
-        role: 'assistant',
-        content: data.message,
-        timestamp: new Date(),
-        actionPlan: data.actionPlan,
-        extractedGoals: data.extractedGoals,
-        tasks: data.tasks
-      };
-      
-      setChatHistory(prev => [...prev, aiMessage]);
-      
-      // If the AI detected goals and suggests action plan, show the option
-      if (data.extractedGoals || data.message.includes("action plan")) {
-        // Auto-scroll to show the suggestion
-        setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+
+      if (!response.body) {
+        throw new Error('No response body');
       }
-    },
-    onError: (error: any) => {
-      if (setIsGenerating) setIsGenerating(false);
-      
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedMessage = '';
+      let finalData: any = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n\n');
+
+        for (const line of lines) {
+          if (line.startsWith('event: token')) {
+            const dataLine = lines[lines.indexOf(line) + 1];
+            if (dataLine?.startsWith('data: ')) {
+              const tokenData = JSON.parse(dataLine.substring(6));
+              accumulatedMessage += tokenData.token;
+              
+              // Update streaming message in real-time
+              setChatHistory(prev => {
+                const updated = [...prev];
+                updated[streamingIndex] = {
+                  ...updated[streamingIndex],
+                  content: accumulatedMessage
+                };
+                return updated;
+              });
+            }
+          } else if (line.startsWith('event: complete')) {
+            const dataLine = lines[lines.indexOf(line) + 1];
+            if (dataLine?.startsWith('data: ')) {
+              finalData = JSON.parse(dataLine.substring(6));
+            }
+          }
+        }
+      }
+
+      // Update final message with complete data
+      if (finalData) {
+        setChatHistory(prev => {
+          const updated = [...prev];
+          updated[streamingIndex] = {
+            role: 'assistant',
+            content: finalData.message || accumulatedMessage,
+            timestamp: new Date(),
+            actionPlan: finalData.actionPlan,
+            extractedGoals: finalData.extractedGoals,
+            tasks: finalData.tasks
+          };
+          return updated;
+        });
+
+        if (finalData.extractedGoals || finalData.message?.includes("action plan")) {
+          setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        }
+      }
+
+    } catch (error) {
+      console.error('Streaming error:', error);
       toast({
         title: "Chat Error",
         description: "Failed to get AI response. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      if (setIsGenerating) setIsGenerating(false);
+      setIsStreaming(false);
+      setStreamingMessage("");
+    }
+  };
+
+  const chatMutation = useMutation({
+    mutationFn: handleStreamingChat,
+    onMutate: () => {
+      setCurrentMessage("");
     }
   });
 
