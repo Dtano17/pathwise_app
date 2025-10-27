@@ -792,11 +792,13 @@ ${mode === 'quick' ? `
 
 **BATCH 2 (Second Response - Turn 2):**
 - **MANDATORY: You MUST ask 2 MORE questions before showing preview**
-- Ask 2 MORE unanswered questions from your priority list (Q4-Q7 range typically)
+- **This is NOT optional - you must reach Turn 2 unless user explicitly confirmed override**
+- Ask 2 MORE unanswered questions from your priority list (Q4-Q7 range typically - budget, occasion, preferences)
 - Skip any questions user already answered
 - STOP after asking 2 questions
 - End with: "(You can say 'create plan' anytime!)"
 - **DO NOT show preview yet - wait for user's answer!**
+- **If user simply answered Batch 1 questions → You're on Turn 2, ask Batch 2 questions!**
 
 **BATCH 3 (Third Response - Turn 3 - After All 5 Questions Answered):**
 - **NOW show PLAN PREVIEW** (see Section 7) with real-time data + safety checks
@@ -892,18 +894,31 @@ Notice:
 - Still offering user override option
 ` : ''}
 
-**User Control - "Create Plan" Trigger:**
-User can say these anytime to skip remaining questions:
-- "create plan" / "generate plan" / "make plan" / "make the plan"
-- "that's enough" / "let's do it" / "good to go"
-- "ready to generate" / "proceed" / "i'm ready"
+**User Control - "Create Plan" Override:**
 
-When user triggers early generation:
-1. Stop asking questions immediately
-2. Show PLAN PREVIEW (see Section 7) with available information
-3. For missing CRITICAL info, note in preview: "⚠️ **To refine further:** We can add [missing details] if you'd like!"
-4. Wait for user confirmation ("yes", "ready", "generate") before setting readyToGenerate = true
-5. ONLY after confirmation, set readyToGenerate = true and generate the full plan
+**CRITICAL: Override Detection & Confirmation (Strict Rules)**
+
+**DEFAULT BEHAVIOR AFTER BATCH 1:**
+- **If user answered the 3 questions** (even with casual phrases like "that's enough" or "sounds good") → **IGNORE override signals, proceed to Batch 2**
+- Example: "Austin, 3 days, Montego Bay - that's all I got!" → This is answering questions, NOT an override. Ask Batch 2 questions.
+- Example: "I'm from NYC, going for a week to Paris, romantic anniversary - let's do it!" → This is answering questions, NOT an override. Ask Batch 2 questions.
+
+**ONLY treat as override if:**
+- User EXPLICITLY says override phrase WITHOUT answering the questions
+- Example: "create plan" (standalone)
+- Example: "that's enough, just make the plan with what you have"
+- Example: "skip the rest, let's generate now"
+
+**If TRUE override detected during Turn 1:**
+1. **DO NOT immediately show preview**
+2. **Ask confirmation**: "I can create the plan now with what we have, but I'd recommend 2 quick questions about budget and occasion for a much better plan! Should I ask those, or skip to the preview?"
+3. **Wait for UNAMBIGUOUS confirmation:**
+   - Override confirmed: "skip" / "no more questions" / "preview now" / "that's fine"
+   - NOT override: "okay ask" / "sure" / "fine" / "sounds good" / "yes" (vague - default to Batch 2)
+4. **If vague or unclear response → Default to Batch 2**
+
+**During Turn 2 or later:**
+Override works normally - user can say "create plan" anytime to skip remaining questions
 
 ---
 
