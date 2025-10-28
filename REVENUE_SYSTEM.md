@@ -21,11 +21,11 @@ Successfully implemented a freemium subscription revenue model using Stripe, des
 - **7-day free trial** (no credit card required)
 - **Annual plan: $58.99/year** (save 30%)
 
-### Family Tier - $14.99/month
+### Family & Friends Tier - $14.99/month
 - Everything in Pro
-- Up to 5 family members
+- Up to 5 family members & friends
 - Shared plans and activities
-- Family progress tracking
+- Group progress tracking
 - Collaborative planning features
 - **7-day free trial** (no credit card required)
 - **Annual plan: $125.99/year** (save 30%)
@@ -75,7 +75,7 @@ Conversion-optimized modal with:
 - Side-by-side pricing comparison
 - Clear feature differentiation
 - Monthly/annual toggle with savings highlight
-- "Best Value" badge on Family plan
+- "Best Value" badge on Family & Friends plan
 - Test IDs for analytics tracking
 
 Trigger contexts:
@@ -102,8 +102,8 @@ Trigger contexts:
 
 ### Subscription Management
 Users can manage subscriptions via Stripe Customer Portal:
-- Upgrade from Pro to Family
-- Downgrade from Family to Pro
+- Upgrade from Pro to Family & Friends
+- Downgrade from Family & Friends to Pro
 - Update payment methods
 - Cancel subscription (keeps access until period end)
 - View billing history
@@ -209,14 +209,14 @@ All core features remain fully functional:
 ### Conservative Estimates
 - 1,000 monthly active users
 - 5% conversion rate (50 paid users)
-- 70% choose Pro ($6.99), 30% choose Family ($14.99)
+- 70% choose Pro ($6.99), 30% choose Family & Friends ($14.99)
 - Monthly recurring revenue: **~$469**
 - Annual recurring revenue: **~$5,628**
 
 ### Growth Scenario
 - 10,000 monthly active users
 - 8% conversion rate (800 paid users)
-- 60% choose Pro, 40% choose Family
+- 60% choose Pro, 40% choose Family & Friends
 - Monthly recurring revenue: **~$8,144**
 - Annual recurring revenue: **~$97,728**
 
