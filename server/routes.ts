@@ -290,6 +290,18 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
       const generatedPlan = session.slots?._generatedPlan;
       
       if (generatedPlan) {
+        // Check plan usage limits
+        const usageCheck = await checkAndIncrementPlanUsage(userId);
+        if (!usageCheck.allowed) {
+          return res.json({
+            message: `⚠️ **Plan Limit Reached**\n\nYou've used all ${usageCheck.planLimit} AI plans for this month on the free tier.\n\n**Upgrade to Pro ($6.99/month) for:**\n✅ **Unlimited AI plans**\n✅ Advanced favorites organization\n✅ Journal insights & analytics\n✅ Export all your data\n\nWould you like to upgrade now?`,
+            planLimitReached: true,
+            planCount: usageCheck.planCount,
+            planLimit: usageCheck.planLimit,
+            session
+          });
+        }
+
         // Create activity from the structured plan
         const activity = await storage.createActivity({
           title: generatedPlan.title || 'Smart Plan Activity',
@@ -352,6 +364,18 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
         const generatedPlan = session.slots?._generatedPlan;
         
         if (generatedPlan) {
+          // Check plan usage limits
+          const usageCheck = await checkAndIncrementPlanUsage(userId);
+          if (!usageCheck.allowed) {
+            return res.json({
+              message: `⚠️ **Plan Limit Reached**\n\nYou've used all ${usageCheck.planLimit} AI plans for this month on the free tier.\n\n**Upgrade to Pro ($6.99/month) for:**\n✅ **Unlimited AI plans**\n✅ Advanced favorites organization\n✅ Journal insights & analytics\n✅ Export all your data\n\nWould you like to upgrade now?`,
+              planLimitReached: true,
+              planCount: usageCheck.planCount,
+              planLimit: usageCheck.planLimit,
+              session
+            });
+          }
+
           // Create activity from the structured plan
           const activity = await storage.createActivity({
             title: generatedPlan.title || 'Smart Plan Activity',
@@ -785,6 +809,40 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
 const stripe = process.env.STRIPE_SECRET_KEY 
   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-11-20.acacia' })
   : null;
+
+// Helper function to check and increment plan usage
+async function checkAndIncrementPlanUsage(userId: string): Promise<{ allowed: boolean; planCount: number; planLimit: number | null }> {
+  const user = await storage.getUserById(userId);
+  
+  if (!user) {
+    return { allowed: false, planCount: 0, planLimit: null };
+  }
+
+  // Check if plan count needs to be reset (monthly)
+  const now = new Date();
+  if (user.planCountResetDate && new Date(user.planCountResetDate) < now) {
+    await storage.updateUserField(userId, 'planCount', 0);
+    const nextReset = new Date(now);
+    nextReset.setMonth(nextReset.getMonth() + 1);
+    await storage.updateUserField(userId, 'planCountResetDate', nextReset);
+    user.planCount = 0;
+  }
+
+  const tier = user.subscriptionTier || 'free';
+  const planCount = user.planCount || 0;
+  
+  // Free tier: 5 plans per month, Pro/Family: unlimited
+  const planLimit = tier === 'free' ? 5 : null;
+  
+  if (planLimit && planCount >= planLimit) {
+    return { allowed: false, planCount, planLimit };
+  }
+
+  // Increment plan count
+  await storage.updateUserField(userId, 'planCount', planCount + 1);
+  
+  return { allowed: true, planCount: planCount + 1, planLimit };
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware - Replit Auth integration
