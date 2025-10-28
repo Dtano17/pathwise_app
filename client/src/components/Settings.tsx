@@ -18,7 +18,9 @@ import {
   Zap,
   Sun,
   Moon,
-  Globe
+  Globe,
+  CreditCard,
+  Crown
 } from 'lucide-react';
 
 interface UserPreferences {
@@ -60,6 +62,12 @@ export default function Settings() {
   const { data: suggestions = [], isLoading: suggestionsLoading } = useQuery<SchedulingSuggestion[]>({
     queryKey: ['/api/scheduling/suggestions', user?.id, selectedDate],
     enabled: isAuthenticated && !!user?.id,
+  });
+
+  // Get subscription status
+  const { data: subscriptionStatus } = useQuery({
+    queryKey: ['/api/subscription/status'],
+    enabled: isAuthenticated,
   });
 
   // Update preferences mutation
@@ -108,6 +116,24 @@ export default function Settings() {
       setBrowserNotificationsEnabled(Notification.permission === 'granted');
     }
   }, []);
+
+  // Open Stripe Customer Portal
+  const handleManageSubscription = async () => {
+    try {
+      const response = await apiRequest('POST', '/api/subscription/portal');
+      const data = await response.json();
+      
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to open billing portal",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Request browser notification permission
   const handleBrowserNotificationToggle = async (enabled: boolean) => {
@@ -167,6 +193,70 @@ export default function Settings() {
         <SettingsIcon className="w-5 h-5 sm:w-6 sm:h-6" />
         <h1 className="text-xl sm:text-2xl font-bold">Settings</h1>
       </div>
+
+      {/* Subscription Management */}
+      <Card data-testid="card-subscription">
+        <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
+          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+            <Crown className="w-4 h-4 sm:w-5 sm:h-5" />
+            Subscription
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1">
+              <CreditCard className="w-4 h-4 text-muted-foreground mt-0.5 sm:mt-0 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <Label className="text-sm sm:text-base font-medium">
+                  Current Plan: <span className="capitalize text-purple-600 dark:text-purple-400">
+                    {subscriptionStatus?.tier || 'Free'}
+                  </span>
+                </Label>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  {subscriptionStatus?.tier === 'free' 
+                    ? `${subscriptionStatus?.planCount || 0} of ${subscriptionStatus?.planLimit || 5} AI plans used this month`
+                    : subscriptionStatus?.tier === 'pro'
+                    ? 'Unlimited AI plans, smart favorites, insights & export'
+                    : 'All Pro features + up to 5 users, collaborative planning'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {subscriptionStatus?.tier !== 'free' && subscriptionStatus?.status && (
+            <>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm">Status</Label>
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {subscriptionStatus.status}
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+
+          <Separator />
+
+          <Button
+            onClick={handleManageSubscription}
+            variant="outline"
+            className="w-full"
+            data-testid="button-manage-subscription"
+          >
+            <CreditCard className="w-4 h-4 mr-2" />
+            {subscriptionStatus?.tier === 'free' ? 'Upgrade Plan' : 'Manage Subscription'}
+          </Button>
+          
+          {subscriptionStatus?.tier === 'free' && (
+            <p className="text-xs text-center text-muted-foreground">
+              Unlock unlimited AI plans, smart favorites, and more
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Notifications Settings */}
       <Card data-testid="card-notifications-settings">

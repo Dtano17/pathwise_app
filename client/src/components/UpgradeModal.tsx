@@ -134,14 +134,14 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
             </div>
           </div>
 
-          {/* Family Plan */}
+          {/* Family & Friends Plan */}
           <div className="border rounded-lg p-6 space-y-4 hover-elevate transition-all relative" data-testid="card-family-plan">
             <div className="absolute -top-3 right-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1 rounded-full text-xs font-medium">
               Best Value
             </div>
             
             <div>
-              <h3 className="font-bold text-xl">Family</h3>
+              <h3 className="font-bold text-xl">Family & Friends</h3>
               <p className="text-sm text-muted-foreground">For up to 5 users</p>
             </div>
             
@@ -156,7 +156,7 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
             </div>
 
             <ul className="space-y-2">
-              {['Everything in Pro', 'Up to 5 family members', 'Shared plans & activities', 'Family progress tracking', 'Collaborative planning', '7-day free trial'].map((feature) => (
+              {['Everything in Pro', 'Up to 5 family & friends', 'Shared plans & activities', 'Group progress tracking', 'Collaborative planning', '7-day free trial'].map((feature) => (
                 <li key={feature} className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
                   <span className="text-sm">{feature}</span>
