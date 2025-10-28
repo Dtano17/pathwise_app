@@ -45,6 +45,7 @@ import { sendWelcomeEmail } from "./emailService";
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import Stripe from 'stripe';
 
 // Helper function to format plan preview for Smart mode
 function formatPlanPreview(plan: any): string {
@@ -780,12 +781,206 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
   }
 }
 
+// Initialize Stripe
+const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-11-20.acacia' })
+  : null;
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware - Replit Auth integration
   await setupAuth(app);
 
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
+
+  // ========== STRIPE SUBSCRIPTION ROUTES ==========
+  
+  // Create checkout session for subscription
+  app.post('/api/subscription/checkout', isAuthenticatedGeneric, async (req: any, res) => {
+    if (!stripe) {
+      return res.status(500).json({ error: 'Stripe not configured' });
+    }
+
+    try {
+      const { priceId, tier } = req.body;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const user = await storage.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Create or retrieve Stripe customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email || undefined,
+          name: user.username,
+          metadata: { userId }
+        });
+        customerId = customer.id;
+        await storage.updateUserField(userId, 'stripeCustomerId', customerId);
+      }
+
+      // Create checkout session
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: `${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'http://localhost:5000'}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'http://localhost:5000'}/subscription/canceled`,
+        metadata: { userId, tier },
+        subscription_data: {
+          trial_period_days: 7,
+          metadata: { userId, tier }
+        }
+      });
+
+      res.json({ sessionId: session.id, url: session.url });
+    } catch (error: any) {
+      console.error('Checkout session error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create Customer Portal session
+  app.post('/api/subscription/portal', isAuthenticatedGeneric, async (req: any, res) => {
+    if (!stripe) {
+      return res.status(500).json({ error: 'Stripe not configured' });
+    }
+
+    try {
+      const userId = req.user?.id;
+      const user = await storage.getUserById(userId);
+      
+      if (!user?.stripeCustomerId) {
+        return res.status(400).json({ error: 'No subscription found' });
+      }
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: `${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'http://localhost:5000'}/settings`
+      });
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error('Portal session error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get subscription status
+  app.get('/api/subscription/status', isAuthenticatedGeneric, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const user = await storage.getUserById(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      res.json({
+        tier: user.subscriptionTier || 'free',
+        status: user.subscriptionStatus || 'active',
+        planCount: user.planCount || 0,
+        planLimit: user.subscriptionTier === 'free' ? 5 : null,
+        trialEndsAt: user.trialEndsAt,
+        subscriptionEndsAt: user.subscriptionEndsAt
+      });
+    } catch (error: any) {
+      console.error('Status check error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Stripe webhooks
+  app.post('/api/webhook/stripe', async (req, res) => {
+    if (!stripe) {
+      return res.status(500).send('Stripe not configured');
+    }
+
+    const sig = req.headers['stripe-signature'];
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig as string,
+        process.env.STRIPE_WEBHOOK_SECRET || ''
+      );
+    } catch (err: any) {
+      console.error('Webhook signature verification failed:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object as any;
+          const userId = session.metadata?.userId;
+          const tier = session.metadata?.tier;
+          
+          if (userId && tier) {
+            await storage.updateUserField(userId, 'subscriptionTier', tier);
+            await storage.updateUserField(userId, 'subscriptionStatus', 'trialing');
+            await storage.updateUserField(userId, 'stripeSubscriptionId', session.subscription);
+            
+            // Set trial end date (7 days from now)
+            const trialEnd = new Date();
+            trialEnd.setDate(trialEnd.getDate() + 7);
+            await storage.updateUserField(userId, 'trialEndsAt', trialEnd);
+            
+            // Reset plan count
+            await storage.updateUserField(userId, 'planCount', 0);
+            const resetDate = new Date();
+            resetDate.setMonth(resetDate.getMonth() + 1);
+            await storage.updateUserField(userId, 'planCountResetDate', resetDate);
+          }
+          break;
+        }
+
+        case 'customer.subscription.updated':
+        case 'customer.subscription.created': {
+          const subscription = event.data.object as any;
+          const userId = subscription.metadata?.userId;
+          
+          if (userId) {
+            await storage.updateUserField(userId, 'subscriptionStatus', subscription.status);
+            
+            if (subscription.status === 'active') {
+              await storage.updateUserField(userId, 'trialEndsAt', null);
+            }
+          }
+          break;
+        }
+
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object as any;
+          const userId = subscription.metadata?.userId;
+          
+          if (userId) {
+            await storage.updateUserField(userId, 'subscriptionTier', 'free');
+            await storage.updateUserField(userId, 'subscriptionStatus', 'canceled');
+            await storage.updateUserField(userId, 'subscriptionEndsAt', new Date());
+            await storage.updateUserField(userId, 'planCount', 0);
+          }
+          break;
+        }
+      }
+
+      res.json({ received: true });
+    } catch (error: any) {
+      console.error('Webhook processing error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ========== END STRIPE ROUTES ==========
 
   // Facebook verification endpoint for popup-based login
   app.post('/api/auth/facebook/verify', async (req: any, res) => {
