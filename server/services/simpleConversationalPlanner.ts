@@ -991,6 +991,12 @@ ${recentJournal && recentJournal.length > 0 ? `- Journal context: Recent mood ${
 
 Your \`message\` field MUST contain the complete, detailed plan with ALL search results incorporated.
 
+**🎯 DOMAIN TEMPLATE ENFORCEMENT:**
+1. Detect the plan domain (Travel, Wellness/Fitness, Event, Dining, General)
+2. Use ONLY the matching template below
+3. DO NOT include sections from other templates (e.g., NO flights/hotels in fitness plans, NO workout routines in travel plans)
+4. Follow the structure shown for that domain exactly
+
 **Choose template based on domain:**
 
 ---
