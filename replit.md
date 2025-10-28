@@ -12,6 +12,22 @@ IntentAI is an AI-powered journaling application designed to transform user inte
 - Clean, modern interface design
 - Real AI integration (Claude/OpenAI)
 
+### Data Persistence & Demo User Behavior
+**Demo User (Unauthenticated Users):**
+- Demo user data is stored in the PostgreSQL database with a persistent `DEMO_USER_ID = "demo-user"`
+- **Most features** (activities, tasks, journal entries, feedback) persist indefinitely across browser sessions and page refreshes
+- **Planner sessions only** use session-scoped IDs (getDemoUserId) to prevent state collision between different browser tabs/windows
+- **Expected Behavior**: Demo activity/task/journal data persists indefinitely until manually cleared via database cleanup
+- **Production Note**: Demo user data can be periodically cleaned up via scheduled jobs if needed
+- **Limitation**: All unauthenticated users share the same demo data, which may cause confusion in multi-user scenarios
+
+**Authenticated Users:**
+- All user data persists permanently in the PostgreSQL database
+- Each user has a unique ID from their authentication provider (Google, Facebook, X/Twitter, Apple, Email)
+- Data includes: journal entries, activities, tasks, custom categories, feedback, preferences, and planner sessions
+- Data syncs across all devices when logged in
+- Each user's data is completely isolated from other users
+
 ### System Architecture
 The application employs a mobile-first responsive design featuring a clean, card-based UI with a purple and emerald color scheme and the Inter font family, providing immediate, celebration-focused feedback.
 

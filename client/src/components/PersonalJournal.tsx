@@ -114,10 +114,25 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
         description: "Your journal entry has been saved.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('Journal save error:', error);
+      
+      // Provide specific error messages
+      let errorMessage = "Could not save your entry. Please try again.";
+      
+      if (!navigator.onLine) {
+        errorMessage = "You appear to be offline. Please check your internet connection.";
+      } else if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+        errorMessage = "Network error. Please check your connection and try again.";
+      } else if (error?.status === 401 || error?.status === 403) {
+        errorMessage = "Authentication error. Please log in again.";
+      } else if (error?.status === 500) {
+        errorMessage = "Server error. Please try again in a moment.";
+      }
+      
       toast({
         title: "Save Failed",
-        description: "Could not save your entry. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -138,10 +153,25 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
         description: "Your custom category has been created.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('Category save error:', error);
+      
+      // Provide specific error messages
+      let errorMessage = "Could not create category. Please try again.";
+      
+      if (!navigator.onLine) {
+        errorMessage = "You appear to be offline. Please check your internet connection.";
+      } else if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+        errorMessage = "Network error. Please check your connection and try again.";
+      } else if (error?.status === 401 || error?.status === 403) {
+        errorMessage = "Authentication error. Please log in again.";
+      } else if (error?.status === 500) {
+        errorMessage = "Server error. Please try again in a moment.";
+      }
+      
       toast({
-        title: "Failed",
-        description: "Could not create category. Please try again.",
+        title: "Failed to Create Category",
+        description: errorMessage,
         variant: "destructive"
       });
     }

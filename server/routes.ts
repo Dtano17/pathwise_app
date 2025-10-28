@@ -1744,6 +1744,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Activity feedback endpoints
+  app.post("/api/activities/:activityId/feedback", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { feedbackType } = req.body;
+
+      if (feedbackType !== 'like' && feedbackType !== 'dislike') {
+        return res.status(400).json({ error: 'Invalid feedback type. Must be "like" or "dislike"' });
+      }
+
+      // Check if removing feedback (same type clicked twice)
+      const existingFeedback = await storage.getUserActivityFeedback(activityId, userId);
+      
+      if (existingFeedback && existingFeedback.feedbackType === feedbackType) {
+        // Remove feedback
+        await storage.deleteActivityFeedback(activityId, userId);
+        const stats = await storage.getActivityFeedbackStats(activityId);
+        return res.json({ feedback: null, stats });
+      }
+
+      // Upsert feedback
+      const feedback = await storage.upsertActivityFeedback(activityId, userId, feedbackType);
+      const stats = await storage.getActivityFeedbackStats(activityId);
+      
+      res.json({ feedback, stats });
+    } catch (error) {
+      console.error('Activity feedback error:', error);
+      res.status(500).json({ error: 'Failed to save activity feedback' });
+    }
+  });
+
+  app.get("/api/activities/:activityId/feedback", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      const userFeedback = await storage.getUserActivityFeedback(activityId, userId);
+      const stats = await storage.getActivityFeedbackStats(activityId);
+      
+      res.json({ 
+        userFeedback: userFeedback || null, 
+        stats 
+      });
+    } catch (error) {
+      console.error('Get activity feedback error:', error);
+      res.status(500).json({ error: 'Failed to fetch activity feedback' });
+    }
+  });
+
   // Archive task
   app.patch("/api/tasks/:taskId/archive", async (req: any, res) => {
     try {
@@ -1769,11 +1819,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
       const activities = await storage.getUserActivities(userId);
+      
+      // Add user's like status to each activity
+      const activitiesWithFeedback = await Promise.all(
+        activities.map(async (activity) => {
+          const userFeedback = await storage.getUserActivityFeedback(activity.id, userId);
+          return {
+            ...activity,
+            userLiked: userFeedback?.feedbackType === 'like'
+          };
+        })
+      );
+      
       // Prevent caching to ensure UI updates immediately after changes
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
-      res.json(activities);
+      res.json(activitiesWithFeedback);
     } catch (error) {
       console.error('Get activities error:', error);
       res.status(500).json({ error: 'Failed to fetch activities' });

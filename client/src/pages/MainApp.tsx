@@ -1721,6 +1721,51 @@ export default function MainApp({
                                     : 'text-muted-foreground group-hover:drop-shadow-[0_0_4px_rgba(147,51,234,0.3)] group-hover:scale-105'
                                 }`} />
                               </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    // Toggle like status
+                                    const response = await fetch(`/api/activities/${activity.id}/feedback`, {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ feedbackType: 'like' })
+                                    });
+                                    
+                                    if (!response.ok) {
+                                      throw new Error('Failed to save feedback');
+                                    }
+                                    
+                                    const result = await response.json();
+                                    
+                                    // Refetch activities to update feedback state
+                                    await queryClient.refetchQueries({ queryKey: ['/api/activities'] });
+                                    
+                                    toast({
+                                      title: result.feedback ? "Liked!" : "Like removed",
+                                      description: result.feedback ? "Activity added to your favorites" : "Activity removed from favorites"
+                                    });
+                                  } catch (error) {
+                                    console.error('Like toggle error:', error);
+                                    toast({
+                                      title: "Failed to save",
+                                      description: "Unable to save your feedback. Please try again.",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                                data-testid={`button-like-${activity.id}`}
+                                title={(activity as any).userLiked ? "Unlike this activity" : "Like this activity"}
+                                className="group"
+                              >
+                                <Heart className={`w-4 h-4 transition-all duration-300 ${
+                                  (activity as any).userLiked 
+                                    ? 'text-red-600 fill-red-600 group-hover:scale-110' 
+                                    : 'text-muted-foreground group-hover:text-red-600 group-hover:scale-105'
+                                }`} />
+                              </Button>
                               {progressPercent > 0 && (
                                 <Button
                                   variant="ghost"
