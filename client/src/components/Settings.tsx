@@ -117,8 +117,28 @@ export default function Settings() {
     }
   }, []);
 
-  // Open Stripe Customer Portal
+  // Tier display label mapping
+  const getTierLabel = (tier: string | undefined) => {
+    if (!tier || tier === 'free') return 'Free';
+    if (tier === 'pro') return 'Pro';
+    if (tier === 'family') return 'Family & Friends';
+    return tier;
+  };
+
+  // Open Stripe Customer Portal (for paid users) or Upgrade Modal (for free users)
   const handleManageSubscription = async () => {
+    // Free users should see upgrade modal, not portal
+    if (subscriptionStatus?.tier === 'free') {
+      // TODO: Open upgrade modal here
+      // For now, redirect to checkout
+      toast({
+        title: "Upgrade Available",
+        description: "Please use the upgrade modal to select your plan",
+      });
+      return;
+    }
+
+    // Paid users: open Stripe Customer Portal
     try {
       const response = await apiRequest('POST', '/api/subscription/portal');
       const data = await response.json();
@@ -208,8 +228,8 @@ export default function Settings() {
               <CreditCard className="w-4 h-4 text-muted-foreground mt-0.5 sm:mt-0 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <Label className="text-sm sm:text-base font-medium">
-                  Current Plan: <span className="capitalize text-purple-600 dark:text-purple-400">
-                    {subscriptionStatus?.tier || 'Free'}
+                  Current Plan: <span className="text-purple-600 dark:text-purple-400">
+                    {getTierLabel(subscriptionStatus?.tier)}
                   </span>
                 </Label>
                 <p className="text-xs sm:text-sm text-muted-foreground">
