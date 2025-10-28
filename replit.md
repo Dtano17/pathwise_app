@@ -57,9 +57,26 @@ The application employs a mobile-first responsive design featuring a clean, card
 ### External Dependencies
 - **Replit Auth**: For Google, X/Twitter, Apple, and Email authentication.
 - **Supabase**: Specifically for Facebook OAuth.
-- **OpenAI API**: For AI model integration (e.g., GPT-4o-mini).
-- **Anthropic API**: For AI model integration (e.g., Claude Sonnet-4).
-- **DeepSeek**: For additional AI model support.
+- **OpenAI API**: For AI model integration (e.g., GPT-4o-mini, GPT-4o). **Required** for planning features.
+- **Tavily API**: For real-time web search and data enrichment. **Required** for travel safety, weather, and real-time data.
+- **Anthropic API**: For AI model integration (e.g., Claude Sonnet-4, Claude Haiku). Optional.
+- **DeepSeek**: For additional AI model support. Optional.
 - **PostgreSQL (Neon)**: Cloud-hosted relational database.
 - **Passport.js**: Authentication middleware.
 - **Resend**: Email delivery service for transactional emails.
+
+### Production Deployment
+**Important**: API keys configured in development are **separate from production secrets**.
+
+To deploy to production:
+1. **Configure Production Secrets** (see `PRODUCTION_DEPLOYMENT.md` for detailed guide):
+   - `OPENAI_API_KEY` - Required for AI planning
+   - `TAVILY_API_KEY` - Required for real-time data enrichment
+   - `ANTHROPIC_API_KEY` - Optional for Claude models
+   - `DEEPSEEK_API_KEY` - Optional for DeepSeek models
+   
+2. **Database**: Automatically configured by Replit (Neon PostgreSQL)
+
+3. **Deploy**: Click "Deploy" button in Replit workspace
+
+See **PRODUCTION_DEPLOYMENT.md** for complete deployment instructions, troubleshooting, and production secrets configuration.
