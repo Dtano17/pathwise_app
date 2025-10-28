@@ -14,6 +14,7 @@ import CommunityPlansPage from "@/pages/CommunityPlansPage";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
 import { useAuth } from "@/hooks/useAuth";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 function AppContent() {
   // Get authenticated user
@@ -28,6 +29,10 @@ function AppContent() {
   const [showLifestylePlanner, setShowLifestylePlanner] = useState(false);
   const [showRecentGoals, setShowRecentGoals] = useState(false);
   const [showProgressReport, setShowProgressReport] = useState(false);
+  
+  // Upgrade modal state
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeTrigger, setUpgradeTrigger] = useState<'planLimit' | 'favorites' | 'export' | 'insights'>('planLimit');
 
   // Custom sidebar width for better content display
   const style = {
@@ -65,6 +70,10 @@ function AppContent() {
                 onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
                 onShowRecentGoals={() => setShowRecentGoals(true)}
                 onShowProgressReport={() => setShowProgressReport(true)}
+                onOpenUpgradeModal={(trigger) => {
+                  setUpgradeTrigger(trigger);
+                  setShowUpgradeModal(true);
+                }}
               />
               <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
                 <MainApp
@@ -92,6 +101,13 @@ function AppContent() {
       </Switch>
       {user?.id && <NotificationService userId={user.id} />}
       <Toaster />
+      
+      {/* Global Upgrade Modal */}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        trigger={upgradeTrigger}
+      />
     </TooltipProvider>
   );
 }

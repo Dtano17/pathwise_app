@@ -43,7 +43,18 @@ interface SchedulingSuggestion {
   reasoning: string;
 }
 
-export default function Settings() {
+interface SubscriptionStatus {
+  tier: string;
+  status: string;
+  planCount?: number;
+  planLimit?: number;
+}
+
+interface SettingsProps {
+  onOpenUpgradeModal?: (trigger: 'planLimit' | 'favorites' | 'export' | 'insights') => void;
+}
+
+export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -65,7 +76,7 @@ export default function Settings() {
   });
 
   // Get subscription status
-  const { data: subscriptionStatus } = useQuery({
+  const { data: subscriptionStatus } = useQuery<SubscriptionStatus>({
     queryKey: ['/api/subscription/status'],
     enabled: isAuthenticated,
   });
@@ -127,14 +138,16 @@ export default function Settings() {
 
   // Open Stripe Customer Portal (for paid users) or Upgrade Modal (for free users)
   const handleManageSubscription = async () => {
-    // Free users should see upgrade modal, not portal
-    if (subscriptionStatus?.tier === 'free') {
-      // TODO: Open upgrade modal here
-      // For now, redirect to checkout
-      toast({
-        title: "Upgrade Available",
-        description: "Please use the upgrade modal to select your plan",
-      });
+    // Guard against undefined during loading - treat as free user by default
+    if (!subscriptionStatus || subscriptionStatus.tier === 'free') {
+      if (onOpenUpgradeModal) {
+        onOpenUpgradeModal('planLimit');
+      } else {
+        toast({
+          title: "Upgrade Available",
+          description: "Unlock unlimited AI plans and premium features",
+        });
+      }
       return;
     }
 

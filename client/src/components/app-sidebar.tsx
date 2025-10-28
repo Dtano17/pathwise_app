@@ -41,6 +41,7 @@ interface AppSidebarProps {
   onShowLifestylePlanner?: () => void;
   onShowRecentGoals?: () => void;
   onShowProgressReport?: () => void;
+  onOpenUpgradeModal?: (trigger: 'planLimit' | 'favorites' | 'export' | 'insights') => void;
 }
 
 export function AppSidebar({
@@ -52,7 +53,8 @@ export function AppSidebar({
   onShowChatHistory,
   onShowLifestylePlanner,
   onShowRecentGoals,
-  onShowProgressReport
+  onShowProgressReport,
+  onOpenUpgradeModal
 }: AppSidebarProps) {
   const { user, isAuthenticated, isLoading, login, logout, isLoggingOut } = useAuth();
   const selectedThemeData = selectedTheme ? themes.find(t => t.id === selectedTheme) : null;
@@ -485,6 +487,7 @@ export function AppSidebar({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         defaultTab={modalTab}
+        onOpenUpgradeModal={onOpenUpgradeModal}
       />
     </Sidebar>
   );

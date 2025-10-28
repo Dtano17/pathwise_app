@@ -9,12 +9,14 @@ interface ProfileSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultTab?: 'profile' | 'settings' | 'priorities';
+  onOpenUpgradeModal?: (trigger: 'planLimit' | 'favorites' | 'export' | 'insights') => void;
 }
 
 export default function ProfileSettingsModal({ 
   isOpen, 
   onClose, 
-  defaultTab = 'profile' 
+  defaultTab = 'profile',
+  onOpenUpgradeModal
 }: ProfileSettingsModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -53,7 +55,7 @@ export default function ProfileSettingsModal({
           
           <TabsContent value="settings" className="mt-6">
             <div className="max-h-[80vh] overflow-y-auto">
-              <Settings />
+              <Settings onOpenUpgradeModal={onOpenUpgradeModal} />
             </div>
           </TabsContent>
         </Tabs>
