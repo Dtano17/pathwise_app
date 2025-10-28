@@ -45,6 +45,11 @@ The application employs a mobile-first responsive design featuring a clean, card
   - **Quick Plan (5-question flow)**: Streamlined planning in 3 turns - Batch 1 asks 3 questions (origin, destination, duration), Batch 2 asks 2 more (budget, occasion), then shows preview with real-time data. Features automatic safety checks for travel (hurricanes, advisories), strict override detection to prevent accidental skips, and user can override at any point by saying "create plan".
   - **Smart Plan (10-question flow)**: Comprehensive planning with detailed research, real-time data enrichment, and 3-batch question flow.
   - Both modes feature dynamic validation, progress tracking, zero hallucination enforcement, context-aware completion, enhanced task generation, and domain-agnostic question prioritization (not hardcoded).
+- **Freemium Revenue Model**: Stripe-powered subscription system with three tiers:
+  - **Free**: 5 AI plans/month + unlimited real-time data enrichment (weather, safety, events)
+  - **Pro** ($6.99/mo): Unlimited AI plans, smart favorites, journal insights, export, 7-day trial
+  - **Family** ($14.99/mo): Everything in Pro + up to 5 users, collaborative planning, 7-day trial
+  - Annual plans available with 30% discount. Plan usage tracking with automatic monthly reset.
 - **Task Management**: Swipeable task cards, YouTube-style feedback, real-time progress dashboard with streaks and analytics, search/filter, and automatic activity/task creation upon plan confirmation.
 - **Personal Journal**: Interface with 9 categories, auto-save, and backend persistence. Includes a "Journal Mode" for smart capture of text and media (photos/videos), with AI-driven categorization and enrichment.
 - **Social Sharing & Activity Management**: Customizable share previews, NYC-themed backdrops, custom images, and an AI-powered "Privacy Shield" for PII/PHI redaction. Includes automatic activity copying for visitors, duplicate detection with an update system, and activity history/archiving.
@@ -57,6 +62,7 @@ The application employs a mobile-first responsive design featuring a clean, card
 ### External Dependencies
 - **Replit Auth**: For Google, X/Twitter, Apple, and Email authentication.
 - **Supabase**: Specifically for Facebook OAuth.
+- **Stripe**: Payment processing and subscription management. **Required** for Pro/Family tiers.
 - **OpenAI API**: For AI model integration (e.g., GPT-4o-mini, GPT-4o). **Required** for planning features.
 - **Tavily API**: For real-time web search and data enrichment. **Required** for travel safety, weather, and real-time data.
 - **Anthropic API**: For AI model integration (e.g., Claude Sonnet-4, Claude Haiku). Optional.
@@ -72,11 +78,18 @@ To deploy to production:
 1. **Configure Production Secrets** (see `PRODUCTION_DEPLOYMENT.md` for detailed guide):
    - `OPENAI_API_KEY` - Required for AI planning
    - `TAVILY_API_KEY` - Required for real-time data enrichment
+   - `STRIPE_SECRET_KEY` - Required for subscription billing
+   - `VITE_STRIPE_PUBLIC_KEY` - Required for checkout flow
    - `ANTHROPIC_API_KEY` - Optional for Claude models
    - `DEEPSEEK_API_KEY` - Optional for DeepSeek models
    
-2. **Database**: Automatically configured by Replit (Neon PostgreSQL)
+2. **Configure Stripe Products** (see `REVENUE_SYSTEM.md`):
+   - Create Pro and Family plans in Stripe Dashboard
+   - Set up webhook endpoint for subscription events
+   - Configure price IDs in production environment
+   
+3. **Database**: Automatically configured by Replit (Neon PostgreSQL)
 
-3. **Deploy**: Click "Deploy" button in Replit workspace
+4. **Deploy**: Click "Deploy" button in Replit workspace
 
-See **PRODUCTION_DEPLOYMENT.md** for complete deployment instructions, troubleshooting, and production secrets configuration.
+See **PRODUCTION_DEPLOYMENT.md** for deployment instructions and **REVENUE_SYSTEM.md** for monetization setup.
