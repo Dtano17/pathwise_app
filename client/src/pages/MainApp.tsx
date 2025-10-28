@@ -38,6 +38,7 @@ import NotificationManager from '@/components/NotificationManager';
 import SmartScheduler from '@/components/SmartScheduler';
 import CelebrationModal from '@/components/CelebrationModal';
 import OnboardingTutorial from '@/components/OnboardingTutorial';
+import { UpgradeModal } from '@/components/UpgradeModal';
 import Confetti from 'react-confetti';
 
 interface ProgressData {
@@ -161,6 +162,12 @@ export default function MainApp({
 
   // Onboarding tutorial state
   const [showTutorial, setShowTutorial] = useState(false);
+
+  // Upgrade modal state
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeTrigger, setUpgradeTrigger] = useState<'planLimit' | 'favorites' | 'export' | 'insights'>('planLimit');
+  const [planCount, setPlanCount] = useState(0);
+  const [planLimit, setPlanLimit] = useState(5);
 
   // Load and resume a conversation session
   const loadConversationSession = async (sessionId: string) => {
@@ -3892,6 +3899,15 @@ Assistant: For nutrition, I recommend..."
         open={showTutorial}
         onOpenChange={setShowTutorial}
         onComplete={handleTutorialComplete}
+      />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        trigger={upgradeTrigger}
+        planCount={planCount}
+        planLimit={planLimit}
       />
 
       {/* Quick Capture Floating Button */}
