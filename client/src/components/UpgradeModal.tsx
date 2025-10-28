@@ -60,10 +60,49 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
     setLoading(true);
     try {
       const response = await apiRequest('POST', '/api/subscription/checkout', { priceId, tier });
+      
+      // Check if response is OK before parsing
+      if (!response.ok) {
+        let errorMessage = "Failed to start checkout";
+        
+        // Try to parse error message if response has JSON content
+        const contentType = response.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } catch {
+            // Failed to parse JSON, use default message
+          }
+        }
+        
+        // Check if this is an annual plan error
+        const isAnnualPlanError = errorMessage.includes('price_pro_annual') || 
+                                  errorMessage.includes('price_family_annual');
+        
+        toast({
+          title: isAnnualPlanError ? "Annual Plans Coming Soon" : "Error",
+          description: isAnnualPlanError 
+            ? "Annual subscriptions are being configured. Please use the monthly plan for now."
+            : errorMessage,
+          variant: isAnnualPlanError ? "default" : "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+      
       const data = await response.json();
       
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        // No redirect URL received
+        toast({
+          title: "Error",
+          description: "Failed to create checkout session. Please try again.",
+          variant: "destructive"
+        });
+        setLoading(false);
       }
     } catch (error: any) {
       toast({
@@ -120,7 +159,7 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
                 disabled={loading}
                 data-testid="button-subscribe-pro-monthly"
               >
-                Start Free Trial
+                Subscribe Monthly
               </Button>
               <Button
                 variant="outline"
@@ -129,7 +168,7 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
                 disabled={loading}
                 data-testid="button-subscribe-pro-annual"
               >
-                Annual Plan (Save 30%)
+                Subscribe Annually - Save 30%
               </Button>
             </div>
           </div>
@@ -171,7 +210,7 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
                 disabled={loading}
                 data-testid="button-subscribe-family-monthly"
               >
-                Start Free Trial
+                Subscribe Monthly
               </Button>
               <Button
                 variant="outline"
@@ -180,14 +219,14 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
                 disabled={loading}
                 data-testid="button-subscribe-family-annual"
               >
-                Annual Plan (Save 30%)
+                Subscribe Annually - Save 30%
               </Button>
             </div>
           </div>
         </div>
 
         <p className="text-xs text-center text-muted-foreground mt-4">
-          No credit card required for 7-day free trial. Cancel anytime.
+          7-day free trial included with both plans. Cancel anytime.
         </p>
       </DialogContent>
     </Dialog>
