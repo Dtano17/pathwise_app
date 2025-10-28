@@ -88,6 +88,16 @@ export const users = pgTable("users", {
   totalLikesReceived: integer("total_likes_received").default(0),
   totalCopiesReceived: integer("total_copies_received").default(0),
   
+  // Subscription & Billing
+  subscriptionTier: varchar("subscription_tier").default("free"), // 'free' | 'pro' | 'family'
+  subscriptionStatus: varchar("subscription_status").default("active"), // 'active' | 'canceled' | 'past_due' | 'trialing'
+  stripeCustomerId: varchar("stripe_customer_id").unique(),
+  stripeSubscriptionId: varchar("stripe_subscription_id"),
+  planCount: integer("plan_count").default(0), // Monthly AI plan count
+  planCountResetDate: timestamp("plan_count_reset_date"), // When to reset planCount
+  trialEndsAt: timestamp("trial_ends_at"), // 7-day trial end date
+  subscriptionEndsAt: timestamp("subscription_ends_at"), // For canceled subscriptions
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
