@@ -16,6 +16,12 @@ import PersonalJournal from '@/components/PersonalJournal';
 import ConversationalPlanner from '@/components/ConversationalPlanner';
 import QuickCaptureButton from '@/components/QuickCaptureButton';
 import PostActivityPrompt from '@/components/PostActivityPrompt';
+import EndOfDayReview from '@/components/EndOfDayReview';
+import CreateGroupDialog from '@/components/CreateGroupDialog';
+import JoinGroupDialog from '@/components/JoinGroupDialog';
+import GroupCard from '@/components/GroupCard';
+import GroupDetailsModal from '@/components/GroupDetailsModal';
+import ShareActivityToGroupDialog from '@/components/ShareActivityToGroupDialog';
 import Contacts from './Contacts';
 import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
@@ -69,6 +75,8 @@ interface MainAppProps {
   onShowRecentGoals: (show: boolean) => void;
   showProgressReport: boolean;
   onShowProgressReport: (show: boolean) => void;
+  showEndOfDayReview: boolean;
+  onShowEndOfDayReview: (show: boolean) => void;
 }
 
 export default function MainApp({
@@ -87,7 +95,9 @@ export default function MainApp({
   showRecentGoals,
   onShowRecentGoals,
   showProgressReport,
-  onShowProgressReport
+  onShowProgressReport,
+  showEndOfDayReview,
+  onShowEndOfDayReview
 }: MainAppProps) {
   const [activeTab, setActiveTab] = useState("input"); // Start with Goal Input as the landing page
   const { toast } = useToast();
@@ -168,6 +178,12 @@ export default function MainApp({
   const [upgradeTrigger, setUpgradeTrigger] = useState<'planLimit' | 'favorites' | 'export' | 'insights'>('planLimit');
   const [planCount, setPlanCount] = useState(0);
   const [planLimit, setPlanLimit] = useState(5);
+
+  // Groups state
+  const [showCreateGroupDialog, setShowCreateGroupDialog] = useState(false);
+  const [showJoinGroupDialog, setShowJoinGroupDialog] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [shareActivityDialog, setShareActivityDialog] = useState<{ open: boolean; activityId: string; activityTitle: string }>({ open: false, activityId: '', activityTitle: '' });
 
   // Load and resume a conversation session
   const loadConversationSession = async (sessionId: string) => {
@@ -458,6 +474,12 @@ export default function MainApp({
   // Fetch chat imports
   const { data: chatImports = [], isLoading: chatImportsLoading, refetch: refetchChatImports } = useQuery<ChatImport[]>({
     queryKey: ['/api/chat/imports'],
+    staleTime: 30000, // 30 seconds
+  });
+
+  // Fetch user's groups
+  const { data: groups = [], isLoading: groupsLoading, refetch: refetchGroups } = useQuery<Array<{ id: string; name: string; description: string | null; isPrivate: boolean; inviteCode: string; createdBy: string; createdAt: string; memberCount: number; role: string }>>({
+    queryKey: ['/api/groups'],
     staleTime: 30000, // 30 seconds
   });
 
@@ -1107,8 +1129,13 @@ export default function MainApp({
 
   // Post-Activity Prompt handlers
   const handleQuickNote = (activityId: string, title: string) => {
+    // Set activity context FIRST before opening journal
     setJournalActivityContext({ activityId, title });
-    setShowJournalMode(true);
+
+    // Small delay to ensure state updates before opening dialog
+    setTimeout(() => {
+      setShowJournalMode(true);
+    }, 10);
 
     // Mark as prompted
     const updated = new Set(promptedActivities);
@@ -2374,27 +2401,13 @@ Assistant: For nutrition, I recommend..."
               <SignInGate feature="Group collaboration">
                 <div className="max-w-4xl mx-auto px-4">
                   <div className="text-center mb-8">
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-4">
-                      <h2 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-                        <Users className="w-6 h-6 sm:w-8 sm:h-8" />
-                        Group Goals & Shared Accountability
-                      </h2>
-                      <Badge 
-                        className="bg-gradient-to-r from-purple-600 to-purple-700 text-white border-0 text-xs px-3 py-1" 
-                        data-testid="badge-preview-mode"
-                      >
-                        Preview Mode
-                      </Badge>
-                    </div>
-                    <p className="text-base sm:text-xl text-muted-foreground mb-4 px-2">
-                      Create groups, share goals, and celebrate progress together!
+                    <h2 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center justify-center gap-2 mb-4">
+                      <Users className="w-6 h-6 sm:w-8 sm:h-8" />
+                      Groups & Collaborative Planning
+                    </h2>
+                    <p className="text-base sm:text-xl text-muted-foreground px-2">
+                      Create groups, share activities, and plan together!
                     </p>
-                    <Card className="max-w-2xl mx-auto p-4 bg-muted/30 border-dashed">
-                      <p className="text-sm text-muted-foreground">
-                        <span className="font-semibold text-foreground">Phase 1:</span> Basic group viewing is now available. 
-                        <span className="font-semibold text-foreground ml-2">Phase 2:</span> Coming soon!
-                      </p>
-                    </Card>
                   </div>
 
                   {/* Create and Join Group Cards */}
@@ -2405,10 +2418,11 @@ Assistant: For nutrition, I recommend..."
                         <Users className="w-12 h-12 text-primary mx-auto mb-4" />
                         <h3 className="text-xl font-semibold mb-2">Create New Group</h3>
                         <p className="text-muted-foreground mb-4">
-                          Start a new group for shared goals and accountability
+                          Start a new group for shared activities and collaborative planning
                         </p>
-                        <Button 
-                          className="w-full" 
+                        <Button
+                          className="w-full"
+                          onClick={() => setShowCreateGroupDialog(true)}
                           data-testid="button-create-group"
                         >
                           <Plus className="w-4 h-4 mr-2" />
@@ -2425,19 +2439,14 @@ Assistant: For nutrition, I recommend..."
                         <p className="text-muted-foreground mb-4">
                           Enter an invite code to join an existing group
                         </p>
-                        <div className="space-y-2">
-                          <Input 
-                            placeholder="Enter invite code"
-                            data-testid="input-invite-code"
-                          />
-                          <Button 
-                            className="w-full" 
-                            variant="outline"
-                            data-testid="button-join-group"
-                          >
-                            Join Group
-                          </Button>
-                        </div>
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => setShowJoinGroupDialog(true)}
+                          data-testid="button-join-group"
+                        >
+                          Join Group
+                        </Button>
                       </div>
                     </Card>
                   </div>
@@ -2445,133 +2454,41 @@ Assistant: For nutrition, I recommend..."
                   {/* My Groups Section */}
                   <div>
                     <h3 className="text-2xl font-semibold mb-4">My Groups</h3>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
-                      {/* Example Group Cards */}
-                      <Card className="p-4 hover-elevate">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold">Girls Trip to Miami</h4>
-                          <Badge variant="outline">5 members</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Planning the perfect weekend getaway with the squad
-                        </p>
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span>Progress</span>
-                            <span>8/14 tasks completed</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div className="bg-primary h-2 rounded-full" style={{width: '57%'}}></div>
-                          </div>
-                        </div>
-                        <Button variant="outline" className="w-full mt-3" size="sm">
-                          View Group
-                        </Button>
-                      </Card>
-
-                      <Card className="p-4 hover-elevate">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold">Family Trip to New Jersey</h4>
-                          <Badge variant="outline">4 members</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Planning our November family vacation together
-                        </p>
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span>Progress</span>
-                            <span>7/12 tasks completed</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div className="bg-primary h-2 rounded-full" style={{width: '58%'}}></div>
-                          </div>
-                        </div>
-                        <Button variant="outline" className="w-full mt-3" size="sm">
-                          View Group
-                        </Button>
-                      </Card>
-
-                      <Card className="p-4 hover-elevate">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold">Eat Healthier & Workout</h4>
-                          <Badge variant="outline">3 members</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          AI-curated daily health plan with accountability partners
-                        </p>
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span>Progress</span>
-                            <span>18/25 tasks completed</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div className="bg-primary h-2 rounded-full" style={{width: '72%'}}></div>
-                          </div>
-                        </div>
-                        <Button variant="outline" className="w-full mt-3" size="sm">
-                          View Group
-                        </Button>
-                      </Card>
-                    </div>
-                  </div>
-
-                  {/* Recent Group Activity */}
-                  <div>
-                    <h3 className="text-2xl font-semibold mb-4">Recent Group Activity</h3>
-                    <Card className="p-4 mb-8">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                          <CheckSquare className="w-5 h-5 text-green-600" />
-                          <div className="flex-1">
-                            <p className="text-sm">
-                              <strong>Emma</strong> completed <span className="line-through decoration-2 decoration-green-600">"30-minute morning workout"</span>
-                            </p>
-                            <p className="text-xs text-muted-foreground">Eat Healthier & Workout • 1 hour ago</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                          <CheckSquare className="w-5 h-5 text-green-600" />
-                          <div className="flex-1">
-                            <p className="text-sm">
-                              <strong>You</strong> completed <span className="line-through decoration-2 decoration-green-600">"Prep healthy lunch for tomorrow"</span>
-                            </p>
-                            <p className="text-xs text-muted-foreground">Eat Healthier & Workout • 2 hours ago</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                          <Target className="w-5 h-5 text-blue-600" />
-                          <div className="flex-1">
-                            <p className="text-sm">
-                              <strong>Jessica</strong> added new task "Book spa day at resort"
-                            </p>
-                            <p className="text-xs text-muted-foreground">Girls Trip to Miami • 3 hours ago</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                          <CheckSquare className="w-5 h-5 text-green-600" />
-                          <div className="flex-1">
-                            <p className="text-sm">
-                              <strong>Sarah</strong> completed <span className="line-through decoration-2 decoration-green-600">"Book hotel reservations"</span>
-                            </p>
-                            <p className="text-xs text-muted-foreground">Family Trip to New Jersey • 4 hours ago</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                          <Target className="w-5 h-5 text-blue-600" />
-                          <div className="flex-1">
-                            <p className="text-sm">
-                              <strong>Mike</strong> added new task "Research hiking trails"
-                            </p>
-                            <p className="text-xs text-muted-foreground">Family Trip to New Jersey • 5 hours ago</p>
-                          </div>
-                        </div>
+                    {groupsLoading ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Loading groups...
                       </div>
-                    </Card>
+                    ) : groups.length === 0 ? (
+                      <Card className="p-8 text-center mb-8">
+                        <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                        <h4 className="text-lg font-semibold mb-2">No groups yet</h4>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Create a new group or join an existing one to start planning together
+                        </p>
+                        <div className="flex gap-2 justify-center">
+                          <Button onClick={() => setShowCreateGroupDialog(true)}>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Create Group
+                          </Button>
+                          <Button variant="outline" onClick={() => setShowJoinGroupDialog(true)}>
+                            Join Group
+                          </Button>
+                        </div>
+                      </Card>
+                    ) : (
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+                        {groups.map((group) => (
+                          <GroupCard
+                            key={group.id}
+                            group={group}
+                            onClick={() => setSelectedGroupId(group.id)}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
+
+                  {/* Recent Group Activity - Coming in Phase 4 (WebSocket Real-Time Updates) */}
 
                   {/* Browse Community Plans Section */}
                   <div>
@@ -3912,6 +3829,65 @@ Assistant: For nutrition, I recommend..."
 
       {/* Quick Capture Floating Button */}
       <QuickCaptureButton onClick={() => setShowJournalMode(true)} />
+
+      {/* End of Day Review */}
+      <EndOfDayReview
+        open={showEndOfDayReview}
+        onOpenChange={setShowEndOfDayReview}
+        onComplete={() => {
+          toast({
+            title: "Great work today! 🎉",
+            description: "Your daily review has been saved to your journal.",
+            duration: 5000
+          });
+        }}
+      />
+
+      {/* Create Group Dialog */}
+      <CreateGroupDialog
+        open={showCreateGroupDialog}
+        onOpenChange={setShowCreateGroupDialog}
+        onGroupCreated={() => {
+          refetchGroups();
+          setShowCreateGroupDialog(false);
+        }}
+      />
+
+      {/* Join Group Dialog */}
+      <JoinGroupDialog
+        open={showJoinGroupDialog}
+        onOpenChange={setShowJoinGroupDialog}
+        onGroupJoined={() => {
+          refetchGroups();
+          setShowJoinGroupDialog(false);
+        }}
+      />
+
+      {/* Group Details Modal */}
+      <GroupDetailsModal
+        groupId={selectedGroupId}
+        open={!!selectedGroupId}
+        onOpenChange={(open) => {
+          if (!open) setSelectedGroupId(null);
+        }}
+        onGroupUpdated={() => {
+          refetchGroups();
+        }}
+      />
+
+      {/* Share Activity to Group Dialog */}
+      <ShareActivityToGroupDialog
+        activityId={shareActivityDialog.activityId}
+        activityTitle={shareActivityDialog.activityTitle}
+        open={shareActivityDialog.open}
+        onOpenChange={(open) => {
+          if (!open) setShareActivityDialog({ open: false, activityId: '', activityTitle: '' });
+        }}
+        onActivityShared={() => {
+          refetchActivities();
+          refetchGroups();
+        }}
+      />
 
     </div>
   );

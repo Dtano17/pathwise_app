@@ -31,7 +31,8 @@ function AppContent() {
   const [showLifestylePlanner, setShowLifestylePlanner] = useState(false);
   const [showRecentGoals, setShowRecentGoals] = useState(false);
   const [showProgressReport, setShowProgressReport] = useState(false);
-  
+  const [showEndOfDayReview, setShowEndOfDayReview] = useState(false);
+
   // Upgrade modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeTrigger, setUpgradeTrigger] = useState<'planLimit' | 'favorites' | 'export' | 'insights'>('planLimit');
@@ -78,6 +79,7 @@ function AppContent() {
                 onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
                 onShowRecentGoals={() => setShowRecentGoals(true)}
                 onShowProgressReport={() => setShowProgressReport(true)}
+                onShowEndOfDayReview={() => setShowEndOfDayReview(true)}
                 onOpenUpgradeModal={(trigger) => {
                   setUpgradeTrigger(trigger);
                   setShowUpgradeModal(true);
@@ -101,6 +103,8 @@ function AppContent() {
                   onShowRecentGoals={setShowRecentGoals}
                   showProgressReport={showProgressReport}
                   onShowProgressReport={setShowProgressReport}
+                  showEndOfDayReview={showEndOfDayReview}
+                  onShowEndOfDayReview={setShowEndOfDayReview}
                 />
               </div>
             </div>

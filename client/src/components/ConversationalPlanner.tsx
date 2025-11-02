@@ -8,10 +8,12 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useKeywordDetection, getCategoryColor } from '@/hooks/useKeywordDetection';
 import TemplateSelector from './TemplateSelector';
+import JournalTimeline from './JournalTimeline';
+import JournalOnboarding from './JournalOnboarding';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -94,8 +96,16 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   // Template selector state
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
 
+  // Journal timeline state
+  const [showJournalTimeline, setShowJournalTimeline] = useState(false);
+
   // Onboarding and help state
   const [showKeywordHelp, setShowKeywordHelp] = useState(false);
+  const [showJournalOnboarding, setShowJournalOnboarding] = useState(() => {
+    if (planningMode !== 'journal') return false;
+    const completed = localStorage.getItem('journalmate_journal_onboarding_completed');
+    return !completed;
+  });
   const [showOnboardingTooltip, setShowOnboardingTooltip] = useState(() => {
     if (planningMode !== 'journal') return false;
     const dismissed = localStorage.getItem('journalmate_onboarding_dismissed');
@@ -125,6 +135,22 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     localStorage.removeItem('planner_mode');
     localStorage.removeItem('planner_chips');
   }, []);
+
+  // Pre-fill journal when activity context is provided
+  useEffect(() => {
+    if (planningMode === 'journal' && activityId && activityTitle && !journalText) {
+      const prefilledText = `✅ Completed: ${activityTitle}\n\n💭 How did it go? Share your thoughts and reflections...`;
+      setJournalText(prefilledText);
+
+      // Auto-focus the textarea and move cursor to the end
+      setTimeout(() => {
+        if (journalTextareaRef.current) {
+          journalTextareaRef.current.focus();
+          journalTextareaRef.current.setSelectionRange(prefilledText.length, prefilledText.length);
+        }
+      }, 100);
+    }
+  }, [planningMode, activityId, activityTitle, journalText]);
 
   // Note: localStorage save/restore disabled to prevent stale conversation issues
   // Sessions are now ephemeral per page load for better UX
@@ -902,7 +928,9 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           // Auto-save journal entry
           const response = await apiRequest('POST', '/api/journal/smart-entry', {
             text: text.trim(),
-            media: []
+            media: [],
+            activityId: activityId,
+            linkedActivityTitle: activityTitle
           });
           const data = await response.json();
           
@@ -1006,6 +1034,16 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
               >
                 <FileText className="h-4 w-4 mr-2" />
                 Templates
+              </Button>
+              <Button
+                onClick={() => setShowJournalTimeline(true)}
+                variant="ghost"
+                size="sm"
+                className="hidden sm:flex"
+                data-testid="button-view-timeline"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Timeline
               </Button>
               <Button
                 onClick={() => {
@@ -1359,6 +1397,13 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           }}
         />
 
+        {/* Journal Timeline */}
+        <Dialog open={showJournalTimeline} onOpenChange={setShowJournalTimeline}>
+          <DialogContent className="max-w-4xl h-[90vh] p-0">
+            <JournalTimeline onClose={() => setShowJournalTimeline(false)} />
+          </DialogContent>
+        </Dialog>
+
         {/* Keyword Help Modal */}
         <Dialog open={showKeywordHelp} onOpenChange={setShowKeywordHelp}>
           <DialogContent className="max-w-2xl">
@@ -1445,6 +1490,19 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
             </Card>
           </div>
         )}
+
+        {/* Journal Onboarding Tour */}
+        <JournalOnboarding
+          open={showJournalOnboarding}
+          onOpenChange={setShowJournalOnboarding}
+          onComplete={() => {
+            toast({
+              title: "You're all set!",
+              description: "Start capturing your life's moments.",
+              duration: 3000,
+            });
+          }}
+        />
       </div>
     );
   }

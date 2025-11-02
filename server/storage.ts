@@ -1745,6 +1745,332 @@ export class DatabaseStorage implements IStorage {
     const [groupActivity] = await db.insert(groupActivities).values(groupActivityData).returning();
     return groupActivity;
   }
+
+  // Get all groups a user is a member of
+  async getUserGroups(userId: string): Promise<Array<Group & { memberCount: number; role: string }>> {
+    const userGroups = await db
+      .select({
+        id: groups.id,
+        name: groups.name,
+        description: groups.description,
+        createdBy: groups.createdBy,
+        isPrivate: groups.isPrivate,
+        inviteCode: groups.inviteCode,
+        createdAt: groups.createdAt,
+        updatedAt: groups.updatedAt,
+        role: groupMemberships.role,
+      })
+      .from(groups)
+      .innerJoin(groupMemberships, eq(groups.id, groupMemberships.groupId))
+      .where(eq(groupMemberships.userId, userId));
+
+    // Get member counts for each group
+    const groupsWithCounts = await Promise.all(
+      userGroups.map(async (group) => {
+        const [{ count }] = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(groupMemberships)
+          .where(eq(groupMemberships.groupId, group.id));
+
+        return {
+          ...group,
+          memberCount: Number(count),
+        };
+      })
+    );
+
+    return groupsWithCounts;
+  }
+
+  // Get group details with members
+  async getGroupById(groupId: string, userId: string): Promise<any> {
+    // Check if user is a member
+    const [membership] = await db
+      .select()
+      .from(groupMemberships)
+      .where(and(
+        eq(groupMemberships.groupId, groupId),
+        eq(groupMemberships.userId, userId)
+      ));
+
+    if (!membership) {
+      return null; // User not authorized
+    }
+
+    // Get group details
+    const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
+
+    if (!group) {
+      return null;
+    }
+
+    // Get all members
+    const members = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        profileImageUrl: users.profileImageUrl,
+        role: groupMemberships.role,
+        joinedAt: groupMemberships.joinedAt,
+      })
+      .from(groupMemberships)
+      .innerJoin(users, eq(groupMemberships.userId, users.id))
+      .where(eq(groupMemberships.groupId, groupId));
+
+    return {
+      ...group,
+      members,
+      currentUserRole: membership.role,
+    };
+  }
+
+  // Join group by invite code
+  async joinGroupByInviteCode(inviteCode: string, userId: string): Promise<any> {
+    // Find group by invite code
+    const [group] = await db
+      .select()
+      .from(groups)
+      .where(eq(groups.inviteCode, inviteCode));
+
+    if (!group) {
+      return null;
+    }
+
+    // Check if already a member
+    const [existingMembership] = await db
+      .select()
+      .from(groupMemberships)
+      .where(and(
+        eq(groupMemberships.groupId, group.id),
+        eq(groupMemberships.userId, userId)
+      ));
+
+    if (existingMembership) {
+      throw new Error('User is already a member of this group');
+    }
+
+    // Add user as member
+    const [membership] = await db
+      .insert(groupMemberships)
+      .values({
+        groupId: group.id,
+        userId: userId,
+        role: 'member',
+      })
+      .returning();
+
+    return { group, membership };
+  }
+
+  // Get group membership
+  async getGroupMembership(groupId: string, userId: string): Promise<GroupMembership | undefined> {
+    const [membership] = await db
+      .select()
+      .from(groupMemberships)
+      .where(and(
+        eq(groupMemberships.groupId, groupId),
+        eq(groupMemberships.userId, userId)
+      ));
+
+    return membership;
+  }
+
+  // Add member to group
+  async addGroupMember(groupId: string, userId: string, role: string): Promise<GroupMembership> {
+    // Check if already a member
+    const existing = await this.getGroupMembership(groupId, userId);
+    if (existing) {
+      throw new Error('User is already a member of this group');
+    }
+
+    const [membership] = await db
+      .insert(groupMemberships)
+      .values({
+        groupId,
+        userId,
+        role,
+      })
+      .returning();
+
+    return membership;
+  }
+
+  // Remove member from group
+  async removeGroupMember(groupId: string, userId: string): Promise<void> {
+    await db
+      .delete(groupMemberships)
+      .where(and(
+        eq(groupMemberships.groupId, groupId),
+        eq(groupMemberships.userId, userId)
+      ));
+  }
+
+  // Update group
+  async updateGroup(groupId: string, updates: Partial<Group>): Promise<Group> {
+    const [updatedGroup] = await db
+      .update(groups)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(groups.id, groupId))
+      .returning();
+
+    return updatedGroup;
+  }
+
+  // Delete group
+  async deleteGroup(groupId: string): Promise<void> {
+    await db.delete(groups).where(eq(groups.id, groupId));
+  }
+
+  // Share activity to group
+  async shareActivityToGroup(activityId: string, groupId: string, userId: string): Promise<GroupActivity> {
+    // Check if already shared
+    const [existing] = await db
+      .select()
+      .from(groupActivities)
+      .where(and(
+        eq(groupActivities.groupId, groupId),
+        eq(groupActivities.activityId, activityId)
+      ));
+
+    if (existing) {
+      throw new Error('Activity is already shared to this group');
+    }
+
+    // Get activity details for canonical version
+    const [activity] = await db
+      .select()
+      .from(activities)
+      .where(eq(activities.id, activityId));
+
+    if (!activity) {
+      throw new Error('Activity not found');
+    }
+
+    // Get activity tasks
+    const activityTasks = await db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.activityId, activityId));
+
+    // Create canonical version
+    const canonicalVersion = {
+      title: activity.title,
+      description: activity.description,
+      tasks: activityTasks.map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        category: task.category,
+        priority: task.priority || 'medium',
+        order: task.order,
+      })),
+    };
+
+    // Create group activity
+    const [groupActivity] = await db
+      .insert(groupActivities)
+      .values({
+        groupId,
+        activityId,
+        canonicalVersion,
+        isPublic: false,
+      })
+      .returning();
+
+    return groupActivity;
+  }
+
+  // Get group activities
+  async getGroupActivities(groupId: string): Promise<any[]> {
+    const groupActivitiesData = await db
+      .select({
+        id: groupActivities.id,
+        groupId: groupActivities.groupId,
+        activityId: groupActivities.activityId,
+        canonicalVersion: groupActivities.canonicalVersion,
+        isPublic: groupActivities.isPublic,
+        createdAt: groupActivities.createdAt,
+        activityTitle: activities.title,
+        activityDescription: activities.description,
+        activityCategory: activities.category,
+        totalTasks: activities.totalTasks,
+        completedTasks: activities.completedTasks,
+      })
+      .from(groupActivities)
+      .innerJoin(activities, eq(groupActivities.activityId, activities.id))
+      .where(eq(groupActivities.groupId, groupId));
+
+    return groupActivitiesData;
+  }
+
+  // Remove activity from group
+  async removeActivityFromGroup(groupActivityId: string): Promise<void> {
+    await db.delete(groupActivities).where(eq(groupActivities.id, groupActivityId));
+  }
+
+  // === Contact Shares / Invites ===
+
+  // Create a contact share record for phone/email invite
+  async createContactShare(data: {
+    groupId: string;
+    invitedBy: string;
+    contactType: 'phone' | 'email';
+    contactValue: string;
+    inviteMessage?: string;
+  }): Promise<any> {
+    const [contactShare] = await db
+      .insert(contactShares)
+      .values({
+        groupId: data.groupId,
+        invitedBy: data.invitedBy,
+        contactType: data.contactType,
+        contactValue: data.contactValue,
+        inviteMessage: data.inviteMessage || null,
+        status: 'pending',
+      })
+      .returning();
+
+    return contactShare;
+  }
+
+  // Get all invites sent for a group
+  async getGroupInvites(groupId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(contactShares)
+      .where(eq(contactShares.groupId, groupId))
+      .orderBy(contactShares.createdAt);
+  }
+
+  // Mark contact share as accepted when user joins
+  async acceptContactShare(contactShareId: string, userId: string): Promise<void> {
+    await db
+      .update(contactShares)
+      .set({
+        status: 'accepted',
+        acceptedBy: userId,
+        acceptedAt: new Date(),
+      })
+      .where(eq(contactShares.id, contactShareId));
+  }
+
+  // Find pending invite by contact value
+  async findPendingInvite(contactValue: string): Promise<any | null> {
+    const [invite] = await db
+      .select()
+      .from(contactShares)
+      .where(and(
+        eq(contactShares.contactValue, contactValue),
+        eq(contactShares.status, 'pending')
+      ))
+      .limit(1);
+
+    return invite || null;
+  }
 }
 
 export const storage = new DatabaseStorage();

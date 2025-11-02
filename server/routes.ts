@@ -1992,17 +1992,482 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { taskId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
-      
+
       const userFeedback = await storage.getUserTaskFeedback(taskId, userId);
       const stats = await storage.getTaskFeedbackStats(taskId);
-      
-      res.json({ 
-        userFeedback: userFeedback || null, 
-        stats 
+
+      res.json({
+        userFeedback: userFeedback || null,
+        stats
       });
     } catch (error) {
       console.error('Get task feedback error:', error);
       res.status(500).json({ error: 'Failed to fetch task feedback' });
+    }
+  });
+
+  // End-of-Day Review: Get today's completed tasks
+  app.get("/api/tasks/completed-today", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Get all tasks for the user
+      const allTasks = await storage.getUserTasks(userId);
+
+      // Filter tasks completed today
+      const today = new Date().toISOString().split('T')[0];
+      const completedToday = allTasks.filter(task => {
+        if (!task.completed || !task.completedAt) return false;
+        const completedDate = new Date(task.completedAt).toISOString().split('T')[0];
+        return completedDate === today;
+      });
+
+      res.json({ tasks: completedToday });
+    } catch (error) {
+      console.error('Get completed tasks error:', error);
+      res.status(500).json({ error: 'Failed to fetch completed tasks' });
+    }
+  });
+
+  // End-of-Day Review: Save task reactions
+  app.post("/api/tasks/reactions", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { date, reactions } = req.body;
+
+      if (!date || !Array.isArray(reactions)) {
+        return res.status(400).json({ error: 'Date and reactions array required' });
+      }
+
+      // Store reactions in user preferences for analytics
+      let prefs = await storage.getUserPreferences(userId);
+      const currentPrefs = prefs?.preferences || {};
+      const taskReactions = currentPrefs.taskReactions || {};
+
+      // Store reactions by date
+      taskReactions[date] = reactions;
+
+      await storage.upsertUserPreferences(userId, {
+        preferences: {
+          ...currentPrefs,
+          taskReactions
+        }
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Save reactions error:', error);
+      res.status(500).json({ error: 'Failed to save reactions' });
+    }
+  });
+
+  // ===== GROUPS & COLLABORATIVE PLANNING API =====
+
+  // Helper function to generate invite codes
+  function generateInviteCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const parts = [3, 3, 3].map(len =>
+      Array.from({length: len}, () =>
+        chars[Math.floor(Math.random() * chars.length)]
+      ).join('')
+    );
+    return parts.join('-');
+  }
+
+  // Create a new group
+  app.post("/api/groups", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { name, description, isPrivate } = req.body;
+
+      if (!name || name.trim().length === 0) {
+        return res.status(400).json({ error: 'Group name is required' });
+      }
+
+      // Generate unique invite code
+      const inviteCode = generateInviteCode();
+
+      const group = await storage.createGroup({
+        name: name.trim(),
+        description: description?.trim() || null,
+        isPrivate: isPrivate !== false, // Default to private
+        inviteCode,
+        createdBy: userId
+      });
+
+      res.json({
+        group,
+        message: `Group "${name}" created successfully!`
+      });
+    } catch (error) {
+      console.error('Create group error:', error);
+      res.status(500).json({ error: 'Failed to create group' });
+    }
+  });
+
+  // Get user's groups
+  app.get("/api/groups", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const groups = await storage.getUserGroups(userId);
+      res.json({ groups });
+    } catch (error) {
+      console.error('Get groups error:', error);
+      res.status(500).json({ error: 'Failed to fetch groups' });
+    }
+  });
+
+  // Get group details with members
+  app.get("/api/groups/:groupId", async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      const group = await storage.getGroupById(groupId, userId);
+
+      if (!group) {
+        return res.status(404).json({ error: 'Group not found or access denied' });
+      }
+
+      res.json({ group });
+    } catch (error) {
+      console.error('Get group details error:', error);
+      res.status(500).json({ error: 'Failed to fetch group details' });
+    }
+  });
+
+  // Join group via invite code
+  app.post("/api/groups/join", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { inviteCode } = req.body;
+
+      if (!inviteCode || inviteCode.trim().length === 0) {
+        return res.status(400).json({ error: 'Invite code is required' });
+      }
+
+      const result = await storage.joinGroupByInviteCode(inviteCode.trim().toUpperCase(), userId);
+
+      if (!result) {
+        return res.status(404).json({ error: 'Invalid invite code or group not found' });
+      }
+
+      res.json({
+        group: result.group,
+        membership: result.membership,
+        message: `Successfully joined "${result.group.name}"!`
+      });
+    } catch (error: any) {
+      if (error.message?.includes('already a member')) {
+        return res.status(400).json({ error: 'You are already a member of this group' });
+      }
+      console.error('Join group error:', error);
+      res.status(500).json({ error: 'Failed to join group' });
+    }
+  });
+
+  // Add member to group (by admin)
+  app.post("/api/groups/:groupId/members", async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { memberId, role } = req.body;
+
+      if (!memberId) {
+        return res.status(400).json({ error: 'Member ID is required' });
+      }
+
+      // Check if requester is admin
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership || membership.role !== 'admin') {
+        return res.status(403).json({ error: 'Only admins can add members' });
+      }
+
+      const newMembership = await storage.addGroupMember(groupId, memberId, role || 'member');
+
+      res.json({
+        membership: newMembership,
+        message: 'Member added successfully'
+      });
+    } catch (error: any) {
+      if (error.message?.includes('already a member')) {
+        return res.status(400).json({ error: 'User is already a member of this group' });
+      }
+      console.error('Add member error:', error);
+      res.status(500).json({ error: 'Failed to add member' });
+    }
+  });
+
+  // Remove member from group
+  app.delete("/api/groups/:groupId/members/:memberId", async (req, res) => {
+    try {
+      const { groupId, memberId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Check if requester is admin or removing themselves
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const canRemove = membership.role === 'admin' || userId === memberId;
+      if (!canRemove) {
+        return res.status(403).json({ error: 'Only admins can remove other members' });
+      }
+
+      await storage.removeGroupMember(groupId, memberId);
+
+      res.json({ message: 'Member removed successfully' });
+    } catch (error) {
+      console.error('Remove member error:', error);
+      res.status(500).json({ error: 'Failed to remove member' });
+    }
+  });
+
+  // Update group details
+  app.put("/api/groups/:groupId", async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { name, description, isPrivate } = req.body;
+
+      // Check if requester is admin
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership || membership.role !== 'admin') {
+        return res.status(403).json({ error: 'Only admins can update group details' });
+      }
+
+      const updates: any = {};
+      if (name !== undefined) updates.name = name.trim();
+      if (description !== undefined) updates.description = description?.trim() || null;
+      if (isPrivate !== undefined) updates.isPrivate = isPrivate;
+
+      const updatedGroup = await storage.updateGroup(groupId, updates);
+
+      res.json({
+        group: updatedGroup,
+        message: 'Group updated successfully'
+      });
+    } catch (error) {
+      console.error('Update group error:', error);
+      res.status(500).json({ error: 'Failed to update group' });
+    }
+  });
+
+  // Delete group (admin only)
+  app.delete("/api/groups/:groupId", async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Check if requester is admin
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership || membership.role !== 'admin') {
+        return res.status(403).json({ error: 'Only admins can delete groups' });
+      }
+
+      await storage.deleteGroup(groupId);
+
+      res.json({ message: 'Group deleted successfully' });
+    } catch (error) {
+      console.error('Delete group error:', error);
+      res.status(500).json({ error: 'Failed to delete group' });
+    }
+  });
+
+  // Share activity to group
+  app.post("/api/groups/:groupId/activities", async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { activityId } = req.body;
+
+      if (!activityId) {
+        return res.status(400).json({ error: 'Activity ID is required' });
+      }
+
+      // Check if user is member of group
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership) {
+        return res.status(403).json({ error: 'You must be a member to share activities' });
+      }
+
+      const groupActivity = await storage.shareActivityToGroup(activityId, groupId, userId);
+
+      res.json({
+        groupActivity,
+        message: 'Activity shared to group successfully'
+      });
+    } catch (error: any) {
+      if (error.message?.includes('already shared')) {
+        return res.status(400).json({ error: 'Activity is already shared to this group' });
+      }
+      console.error('Share activity error:', error);
+      res.status(500).json({ error: 'Failed to share activity' });
+    }
+  });
+
+  // Get group activities
+  app.get("/api/groups/:groupId/activities", async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Check if user is member
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const activities = await storage.getGroupActivities(groupId);
+
+      res.json({ activities });
+    } catch (error) {
+      console.error('Get group activities error:', error);
+      res.status(500).json({ error: 'Failed to fetch group activities' });
+    }
+  });
+
+  // Remove activity from group
+  app.delete("/api/groups/:groupId/activities/:groupActivityId", async (req, res) => {
+    try {
+      const { groupId, groupActivityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Check if user is admin
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership || membership.role !== 'admin') {
+        return res.status(403).json({ error: 'Only admins can remove activities' });
+      }
+
+      await storage.removeActivityFromGroup(groupActivityId);
+
+      res.json({ message: 'Activity removed from group' });
+    } catch (error) {
+      console.error('Remove activity error:', error);
+      res.status(500).json({ error: 'Failed to remove activity' });
+    }
+  });
+
+  // === Phone/Email Invite Endpoints ===
+
+  // Send invites via phone/email
+  app.post("/api/groups/:groupId/invite", async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { contacts, message } = req.body;
+
+      // Verify user is admin of the group
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership || membership.role !== 'admin') {
+        return res.status(403).json({ error: 'Only group admins can send invites' });
+      }
+
+      // Get group details
+      const group = await storage.getGroupById(groupId, userId);
+      if (!group) {
+        return res.status(404).json({ error: 'Group not found' });
+      }
+
+      // Get user info for personalized messages
+      const user = await storage.getUser(userId);
+      const inviterName = user?.username || 'A friend';
+
+      const { InviteService } = await import('./services/inviteService');
+      const results = [];
+
+      for (const contact of contacts) {
+        const { type, value } = contact;
+
+        // Create contact share record
+        const contactShare = await storage.createContactShare({
+          groupId,
+          invitedBy: userId,
+          contactType: type,
+          contactValue: value,
+          inviteMessage: message
+        });
+
+        if (type === 'phone') {
+          // Send SMS
+          const formattedPhone = InviteService.formatPhoneNumber(value);
+          const smsMessage = InviteService.generateSMSMessage(inviterName, group.name, group.inviteCode);
+          const result = await InviteService.sendSMS({
+            to: formattedPhone,
+            message: smsMessage
+          });
+
+          results.push({
+            contact: value,
+            type: 'phone',
+            success: result.success,
+            error: result.error
+          });
+        } else if (type === 'email') {
+          // Send Email
+          if (!InviteService.isValidEmail(value)) {
+            results.push({
+              contact: value,
+              type: 'email',
+              success: false,
+              error: 'Invalid email format'
+            });
+            continue;
+          }
+
+          const emailHTML = InviteService.generateEmailHTML(inviterName, group.name, group.inviteCode, message);
+          const emailText = InviteService.generateEmailText(inviterName, group.name, group.inviteCode, message);
+
+          const result = await InviteService.sendEmail({
+            to: value,
+            subject: `You're invited to join "${group.name}" on JournalMate`,
+            html: emailHTML,
+            text: emailText
+          });
+
+          results.push({
+            contact: value,
+            type: 'email',
+            success: result.success,
+            error: result.error
+          });
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      const failureCount = results.filter(r => !r.success).length;
+
+      res.json({
+        message: `Sent ${successCount} invites successfully${failureCount > 0 ? `, ${failureCount} failed` : ''}`,
+        results,
+        successCount,
+        failureCount
+      });
+    } catch (error) {
+      console.error('Send invites error:', error);
+      res.status(500).json({ error: 'Failed to send invites' });
+    }
+  });
+
+  // Get all invites sent for a group
+  app.get("/api/groups/:groupId/invites", async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Verify user is a member of the group
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership) {
+        return res.status(403).json({ error: 'Not authorized to view group invites' });
+      }
+
+      const invites = await storage.getGroupInvites(groupId);
+
+      res.json({ invites });
+    } catch (error) {
+      console.error('Get invites error:', error);
+      res.status(500).json({ error: 'Failed to get invites' });
     }
   });
 
@@ -4798,6 +5263,379 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     } catch (error) {
       console.error('[JOURNAL] Get journal entries error:', error);
       res.status(500).json({ error: 'Failed to fetch journal entries' });
+    }
+  });
+
+  // ===== EXPORT ENDPOINTS (PRO FEATURE) =====
+
+  // CSV Export
+  app.post("/api/export/csv", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { dataTypes, startDate, endDate } = req.body;
+
+      // Check if user has Pro subscription
+      const user = await storage.getUserById(userId);
+      const isPro = user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'family';
+
+      if (!isPro) {
+        return res.status(403).json({ error: 'This feature requires a Pro or Family subscription' });
+      }
+
+      if (!Array.isArray(dataTypes) || dataTypes.length === 0) {
+        return res.status(400).json({ error: 'dataTypes array required' });
+      }
+
+      const csvRows: string[] = [];
+
+      // Export Journal Entries
+      if (dataTypes.includes('journal')) {
+        const prefs = await storage.getPersonalJournalEntries(userId);
+        if (prefs?.preferences?.journalData) {
+          csvRows.push('Type,Category,Text,Keywords,Timestamp,Activity ID,Activity Title,Mood');
+
+          const journalData = prefs.preferences.journalData;
+          for (const [category, entries] of Object.entries(journalData)) {
+            if (Array.isArray(entries)) {
+              entries.forEach((entry: any) => {
+                const timestamp = entry.timestamp || '';
+                const text = (entry.text || '').replace(/"/g, '""');
+                const keywords = Array.isArray(entry.keywords) ? entry.keywords.join('; ') : '';
+                const activityId = entry.activityId || '';
+                const activityTitle = entry.linkedActivityTitle || '';
+                const mood = entry.mood || '';
+
+                // Filter by date range if specified
+                if (startDate || endDate) {
+                  const entryDate = new Date(timestamp);
+                  if (startDate && entryDate < new Date(startDate)) return;
+                  if (endDate && entryDate > new Date(endDate)) return;
+                }
+
+                csvRows.push(`"Journal","${category}","${text}","${keywords}","${timestamp}","${activityId}","${activityTitle}","${mood}"`);
+              });
+            }
+          }
+        }
+      }
+
+      // Export Activities
+      if (dataTypes.includes('activities')) {
+        const activities = await storage.getUserActivities(userId);
+
+        if (csvRows.length === 0) {
+          csvRows.push('Type,Title,Description,Category,Created At,Completed,Total Tasks,Completed Tasks');
+        }
+
+        activities.forEach((activity: any) => {
+          const createdAt = activity.createdAt || '';
+
+          // Filter by date range
+          if (startDate || endDate) {
+            const activityDate = new Date(createdAt);
+            if (startDate && activityDate < new Date(startDate)) return;
+            if (endDate && activityDate > new Date(endDate)) return;
+          }
+
+          const title = (activity.title || '').replace(/"/g, '""');
+          const description = (activity.description || '').replace(/"/g, '""');
+          const category = activity.category || '';
+          const completed = activity.completed ? 'Yes' : 'No';
+          const totalTasks = activity.totalTasks || 0;
+          const completedTasks = activity.completedTasks || 0;
+
+          csvRows.push(`"Activity","${title}","${description}","${category}","${createdAt}","${completed}","${totalTasks}","${completedTasks}"`);
+        });
+      }
+
+      // Export Tasks
+      if (dataTypes.includes('tasks')) {
+        const tasks = await storage.getUserTasks(userId);
+
+        if (csvRows.length === 0) {
+          csvRows.push('Type,Title,Description,Activity,Created At,Completed,Completed At,Priority');
+        }
+
+        tasks.forEach((task: any) => {
+          const createdAt = task.createdAt || '';
+
+          // Filter by date range
+          if (startDate || endDate) {
+            const taskDate = task.completedAt ? new Date(task.completedAt) : new Date(createdAt);
+            if (startDate && taskDate < new Date(startDate)) return;
+            if (endDate && taskDate > new Date(endDate)) return;
+          }
+
+          const title = (task.title || '').replace(/"/g, '""');
+          const description = (task.description || '').replace(/"/g, '""');
+          const activityTitle = task.activityTitle || '';
+          const completed = task.completed ? 'Yes' : 'No';
+          const completedAt = task.completedAt || '';
+          const priority = task.priority || '';
+
+          csvRows.push(`"Task","${title}","${description}","${activityTitle}","${createdAt}","${completed}","${completedAt}","${priority}"`);
+        });
+      }
+
+      // Generate CSV string
+      const csv = csvRows.join('\n');
+
+      // Send CSV file
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="journalmate-export.csv"');
+      res.send(csv);
+
+    } catch (error) {
+      console.error('CSV export error:', error);
+      res.status(500).json({ error: 'Failed to export data' });
+    }
+  });
+
+  // Excel Export (simplified - uses CSV format for now, can be enhanced with xlsx library later)
+  app.post("/api/export/excel", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { dataTypes, startDate, endDate } = req.body;
+
+      // Check if user has Pro subscription
+      const user = await storage.getUserById(userId);
+      const isPro = user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'family';
+
+      if (!isPro) {
+        return res.status(403).json({ error: 'This feature requires a Pro or Family subscription' });
+      }
+
+      // For now, Excel export uses the same CSV logic
+      // TODO: Implement proper XLSX export with xlsx library
+      if (!Array.isArray(dataTypes) || dataTypes.length === 0) {
+        return res.status(400).json({ error: 'dataTypes array required' });
+      }
+
+      const csvRows: string[] = [];
+
+      // Export Journal Entries
+      if (dataTypes.includes('journal')) {
+        const prefs = await storage.getPersonalJournalEntries(userId);
+        if (prefs?.preferences?.journalData) {
+          csvRows.push('Type,Category,Text,Keywords,Timestamp,Activity ID,Activity Title,Mood');
+
+          const journalData = prefs.preferences.journalData;
+          for (const [category, entries] of Object.entries(journalData)) {
+            if (Array.isArray(entries)) {
+              entries.forEach((entry: any) => {
+                const timestamp = entry.timestamp || '';
+                const text = (entry.text || '').replace(/"/g, '""');
+                const keywords = Array.isArray(entry.keywords) ? entry.keywords.join('; ') : '';
+                const activityId = entry.activityId || '';
+                const activityTitle = entry.linkedActivityTitle || '';
+                const mood = entry.mood || '';
+
+                if (startDate || endDate) {
+                  const entryDate = new Date(timestamp);
+                  if (startDate && entryDate < new Date(startDate)) return;
+                  if (endDate && entryDate > new Date(endDate)) return;
+                }
+
+                csvRows.push(`"Journal","${category}","${text}","${keywords}","${timestamp}","${activityId}","${activityTitle}","${mood}"`);
+              });
+            }
+          }
+        }
+      }
+
+      // Export Activities
+      if (dataTypes.includes('activities')) {
+        const activities = await storage.getUserActivities(userId);
+
+        if (csvRows.length === 0) {
+          csvRows.push('Type,Title,Description,Category,Created At,Completed,Total Tasks,Completed Tasks');
+        }
+
+        activities.forEach((activity: any) => {
+          const createdAt = activity.createdAt || '';
+
+          if (startDate || endDate) {
+            const activityDate = new Date(createdAt);
+            if (startDate && activityDate < new Date(startDate)) return;
+            if (endDate && activityDate > new Date(endDate)) return;
+          }
+
+          const title = (activity.title || '').replace(/"/g, '""');
+          const description = (activity.description || '').replace(/"/g, '""');
+          const category = activity.category || '';
+          const completed = activity.completed ? 'Yes' : 'No';
+          const totalTasks = activity.totalTasks || 0;
+          const completedTasks = activity.completedTasks || 0;
+
+          csvRows.push(`"Activity","${title}","${description}","${category}","${createdAt}","${completed}","${totalTasks}","${completedTasks}"`);
+        });
+      }
+
+      // Export Tasks
+      if (dataTypes.includes('tasks')) {
+        const tasks = await storage.getUserTasks(userId);
+
+        if (csvRows.length === 0) {
+          csvRows.push('Type,Title,Description,Activity,Created At,Completed,Completed At,Priority');
+        }
+
+        tasks.forEach((task: any) => {
+          const createdAt = task.createdAt || '';
+
+          if (startDate || endDate) {
+            const taskDate = task.completedAt ? new Date(task.completedAt) : new Date(createdAt);
+            if (startDate && taskDate < new Date(startDate)) return;
+            if (endDate && taskDate > new Date(endDate)) return;
+          }
+
+          const title = (task.title || '').replace(/"/g, '""');
+          const description = (task.description || '').replace(/"/g, '""');
+          const activityTitle = task.activityTitle || '';
+          const completed = task.completed ? 'Yes' : 'No';
+          const completedAt = task.completedAt || '';
+          const priority = task.priority || '';
+
+          csvRows.push(`"Task","${title}","${description}","${activityTitle}","${createdAt}","${completed}","${completedAt}","${priority}"`);
+        });
+      }
+
+      // Generate CSV (will be read as Excel by most programs)
+      const csv = csvRows.join('\n');
+
+      // Send as CSV file with xlsx extension
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="journalmate-export.xlsx"');
+      res.send(csv);
+
+    } catch (error) {
+      console.error('Excel export error:', error);
+      res.status(500).json({ error: 'Failed to export data' });
+    }
+  });
+
+  // ===== INSIGHTS ANALYTICS ENDPOINT (PRO FEATURE) =====
+
+  app.get("/api/insights", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Check if user has Pro subscription
+      const user = await storage.getUserById(userId);
+      const isPro = user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'family';
+
+      if (!isPro) {
+        return res.status(403).json({ error: 'This feature requires a Pro or Family subscription' });
+      }
+
+      // Fetch user's data
+      const tasks = await storage.getUserTasks(userId);
+      const activities = await storage.getUserActivities(userId);
+      const prefs = await storage.getUserPreferences(userId);
+
+      // Get task reactions data
+      const taskReactions = prefs?.preferences?.taskReactions || {};
+      const allReactions: any[] = [];
+      Object.values(taskReactions).forEach((dayReactions: any) => {
+        if (Array.isArray(dayReactions)) {
+          allReactions.push(...dayReactions);
+        }
+      });
+
+      // Calculate completion rate
+      const completedTasks = tasks.filter(t => t.completed).length;
+      const completionRate = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
+
+      // Analyze mood trend from journal entries
+      const journalData = prefs?.preferences?.journalData || {};
+      let totalEntries = 0;
+      let positiveEntries = 0;
+      let negativeEntries = 0;
+
+      Object.values(journalData).forEach((entries: any) => {
+        if (Array.isArray(entries)) {
+          entries.forEach((entry: any) => {
+            totalEntries++;
+            if (entry.mood === 'great' || entry.mood === 'good') positiveEntries++;
+            if (entry.mood === 'poor') negativeEntries++;
+          });
+        }
+      });
+
+      const moodTrend = positiveEntries > negativeEntries ? 'improving' :
+                        positiveEntries === negativeEntries ? 'stable' : 'declining';
+
+      // Find most loved categories (from reactions)
+      const categoryLoves: { [key: string]: number } = {};
+      allReactions.forEach((reaction: any) => {
+        if (reaction.type === 'superlike') {
+          const task = tasks.find(t => t.id === reaction.taskId);
+          if (task && task.activityTitle) {
+            categoryLoves[task.activityTitle] = (categoryLoves[task.activityTitle] || 0) + 1;
+          }
+        }
+      });
+
+      const mostLovedCategories = Object.entries(categoryLoves)
+        .map(([category, count]) => ({ category, count }))
+        .sort((a, b) => b.count - a.count);
+
+      // Calculate weekly streak
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(weekStart.getDate() - 7);
+
+      const recentTasks = tasks.filter(t => {
+        if (!t.completedAt) return false;
+        const completedDate = new Date(t.completedAt);
+        return completedDate >= weekStart;
+      });
+
+      const daysActive = new Set(recentTasks.map(t => new Date(t.completedAt!).toDateString())).size;
+
+      // Productivity pattern analysis
+      const tasksByHour: { [hour: number]: number } = {};
+      tasks.forEach(task => {
+        if (task.completedAt) {
+          const hour = new Date(task.completedAt).getHours();
+          tasksByHour[hour] = (tasksByHour[hour] || 0) + 1;
+        }
+      });
+
+      const mostProductiveHour = Object.entries(tasksByHour)
+        .sort((a, b) => b[1] - a[1])[0];
+
+      const productivityPattern = mostProductiveHour
+        ? `You're most productive around ${mostProductiveHour[0]}:00 (${mostProductiveHour[1]} tasks completed).`
+        : "Complete more tasks to discover your productivity pattern!";
+
+      // Generate AI summary (simplified for now - can be enhanced with actual AI later)
+      const aiSummary = `This week you completed ${recentTasks.length} tasks across ${activities.length} activities. Your completion rate is ${completionRate}%, which is ${completionRate >= 70 ? 'excellent' : completionRate >= 50 ? 'good' : 'developing'}. ${
+        mostLovedCategories[0]
+          ? `You showed the most enthusiasm for "${mostLovedCategories[0].category}" with ${mostLovedCategories[0].count} superliked tasks.`
+          : ''
+      } ${
+        moodTrend === 'improving'
+          ? 'Your mood has been trending positively - keep up the great work!'
+          : moodTrend === 'declining'
+          ? 'Take some time for self-care and activities that bring you joy.'
+          : 'Your mood has been steady. Consider trying new experiences for variety.'
+      }`;
+
+      res.json({
+        moodTrend,
+        completionRate,
+        mostLovedCategories,
+        productivityPattern,
+        weeklyStreak: daysActive,
+        aiSummary,
+        totalEntries,
+        totalActivities: activities.length,
+        totalTasksCompleted: completedTasks
+      });
+
+    } catch (error) {
+      console.error('Insights error:', error);
+      res.status(500).json({ error: 'Failed to generate insights' });
     }
   });
 

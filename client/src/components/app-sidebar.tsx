@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap } from 'lucide-react';
+import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap, Moon, LineChart } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -41,6 +41,8 @@ interface AppSidebarProps {
   onShowLifestylePlanner?: () => void;
   onShowRecentGoals?: () => void;
   onShowProgressReport?: () => void;
+  onShowEndOfDayReview?: () => void;
+  onShowInsightsDashboard?: () => void;
   onOpenUpgradeModal?: (trigger: 'planLimit' | 'favorites' | 'export' | 'insights') => void;
 }
 
@@ -54,6 +56,7 @@ export function AppSidebar({
   onShowLifestylePlanner,
   onShowRecentGoals,
   onShowProgressReport,
+  onShowEndOfDayReview,
   onOpenUpgradeModal
 }: AppSidebarProps) {
   const { user, isAuthenticated, isLoading, login, logout, isLoggingOut } = useAuth();
@@ -295,6 +298,13 @@ export function AppSidebar({
                 <SidebarMenuButton data-testid="button-completed-tasks" onClick={onShowProgressReport}>
                   <BarChart3 className="w-4 h-4" />
                   <span>Progress Report</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton data-testid="button-end-of-day-review" onClick={onShowEndOfDayReview}>
+                  <Moon className="w-4 h-4" />
+                  <span>End of Day Review</span>
+                  <Badge variant="secondary" className="ml-auto text-xs">New</Badge>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

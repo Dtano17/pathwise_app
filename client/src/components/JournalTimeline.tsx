@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Search, Filter, RefreshCw, Image as ImageIcon, Smile, MapPin, Tag } from 'lucide-react';
+import { Calendar, Search, Filter, RefreshCw, Image as ImageIcon, Smile, MapPin, Tag, Download } from 'lucide-react';
 import { getCategoryColor } from '@/hooks/useKeywordDetection';
+import ExportDialog from './ExportDialog';
 
 interface JournalEntry {
   id: string;
@@ -48,6 +49,7 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [moodFilter, setMoodFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   // Fetch journal data
   const { data: prefs, isLoading, refetch } = useQuery<{ journalData?: JournalData }>({
@@ -155,14 +157,24 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
       <div className="p-4 sm:p-6 space-y-4 border-b bg-gradient-to-r from-purple-50 to-emerald-50 dark:from-purple-950/20 dark:to-emerald-950/20">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold">Journal Timeline</h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowExportDialog(true)}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
 
         {/* Search */}
@@ -352,6 +364,16 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
           )}
         </div>
       </ScrollArea>
+
+      {/* Export Dialog */}
+      <ExportDialog
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        onUpgradeRequired={() => {
+          // Trigger upgrade modal (will be handled by parent component)
+          console.log('Upgrade required for export feature');
+        }}
+      />
     </div>
   );
 }
