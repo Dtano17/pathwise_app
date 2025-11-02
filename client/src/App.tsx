@@ -11,6 +11,8 @@ import SharedActivity from "@/pages/SharedActivity";
 import AuthCallback from "@/pages/AuthCallback";
 import Login from "@/pages/Login";
 import CommunityPlansPage from "@/pages/CommunityPlansPage";
+import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
+import SubscriptionCanceled from "@/pages/SubscriptionCanceled";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
 import { useAuth } from "@/hooks/useAuth";
@@ -55,6 +57,12 @@ function AppContent() {
         
         {/* Community Plans Discovery Page (no sidebar, publicly accessible) */}
         <Route path="/discover" component={CommunityPlansPage} />
+        
+        {/* Subscription Success Page (no sidebar) */}
+        <Route path="/subscription/success" component={SubscriptionSuccess} />
+        
+        {/* Subscription Canceled Page (no sidebar) */}
+        <Route path="/subscription/canceled" component={SubscriptionCanceled} />
         
         {/* Main App with Sidebar */}
         <Route>
