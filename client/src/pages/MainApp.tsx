@@ -478,10 +478,11 @@ export default function MainApp({
   });
 
   // Fetch user's groups
-  const { data: groups = [], isLoading: groupsLoading, refetch: refetchGroups } = useQuery<Array<{ id: string; name: string; description: string | null; isPrivate: boolean; inviteCode: string; createdBy: string; createdAt: string; memberCount: number; role: string }>>({
+  const { data: groupsData, isLoading: groupsLoading, refetch: refetchGroups } = useQuery<{ groups: Array<{ id: string; name: string; description: string | null; isPrivate: boolean; inviteCode: string; createdBy: string; createdAt: string; memberCount: number; role: string }> }>({
     queryKey: ['/api/groups'],
     staleTime: 30000, // 30 seconds
   });
+  const groups = groupsData?.groups || [];
 
   // Fetch activity-specific tasks when an activity is selected
   const { data: activityTasks, isLoading: activityTasksLoading, error: activityTasksError } = useQuery<Task[]>({
@@ -3833,7 +3834,7 @@ Assistant: For nutrition, I recommend..."
       {/* End of Day Review */}
       <EndOfDayReview
         open={showEndOfDayReview}
-        onOpenChange={setShowEndOfDayReview}
+        onOpenChange={onShowEndOfDayReview}
         onComplete={() => {
           toast({
             title: "Great work today! 🎉",
