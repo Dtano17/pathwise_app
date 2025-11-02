@@ -2061,6 +2061,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== SUBSCRIPTION TIER ENFORCEMENT =====
+  
+  // Helper function to check if user has required subscription tier
+  async function checkSubscriptionTier(userId: string, requiredTier: 'pro' | 'family'): Promise<{ allowed: boolean; tier: string; message?: string }> {
+    const user = await storage.getUserById(userId);
+    
+    // Treat missing users (including demo user) as free tier
+    const tier = user?.subscriptionTier || 'free';
+    
+    // Check tier hierarchy: free < pro < family
+    if (requiredTier === 'family') {
+      if (tier === 'family') {
+        return { allowed: true, tier };
+      }
+      return { 
+        allowed: false, 
+        tier,
+        message: 'This feature requires a Family & Friends subscription ($14.99/month). Upgrade to collaborate with up to 5 users!'
+      };
+    }
+    
+    if (requiredTier === 'pro') {
+      if (tier === 'pro' || tier === 'family') {
+        return { allowed: true, tier };
+      }
+      return { 
+        allowed: false, 
+        tier,
+        message: 'This feature requires a Pro subscription ($6.99/month). Upgrade for unlimited AI plans, insights, and more!'
+      };
+    }
+    
+    return { allowed: true, tier };
+  }
+
   // ===== GROUPS & COLLABORATIVE PLANNING API =====
 
   // Helper function to generate invite codes
@@ -2074,10 +2109,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return parts.join('-');
   }
 
-  // Create a new group
+  // Create a new group (Family tier required)
   app.post("/api/groups", async (req, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Check subscription tier
+      const tierCheck = await checkSubscriptionTier(userId, 'family');
+      if (!tierCheck.allowed) {
+        return res.status(403).json({ 
+          error: 'Subscription required',
+          message: tierCheck.message,
+          requiredTier: 'family',
+          currentTier: tierCheck.tier
+        });
+      }
+
       const { name, description, isPrivate } = req.body;
 
       if (!name || name.trim().length === 0) {
@@ -5268,18 +5315,21 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
 
   // ===== EXPORT ENDPOINTS (PRO FEATURE) =====
 
-  // CSV Export
+  // CSV Export (Pro tier required)
   app.post("/api/export/csv", async (req, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
       const { dataTypes, startDate, endDate } = req.body;
 
-      // Check if user has Pro subscription
-      const user = await storage.getUserById(userId);
-      const isPro = user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'family';
-
-      if (!isPro) {
-        return res.status(403).json({ error: 'This feature requires a Pro or Family subscription' });
+      // Check subscription tier (Pro required)
+      const tierCheck = await checkSubscriptionTier(userId, 'pro');
+      if (!tierCheck.allowed) {
+        return res.status(403).json({ 
+          error: 'Subscription required',
+          message: tierCheck.message,
+          requiredTier: 'pro',
+          currentTier: tierCheck.tier
+        });
       }
 
       if (!Array.isArray(dataTypes) || dataTypes.length === 0) {
@@ -5391,18 +5441,21 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
-  // Excel Export (simplified - uses CSV format for now, can be enhanced with xlsx library later)
+  // Excel Export (Pro tier required) - simplified using CSV format
   app.post("/api/export/excel", async (req, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
       const { dataTypes, startDate, endDate } = req.body;
 
-      // Check if user has Pro subscription
-      const user = await storage.getUserById(userId);
-      const isPro = user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'family';
-
-      if (!isPro) {
-        return res.status(403).json({ error: 'This feature requires a Pro or Family subscription' });
+      // Check subscription tier (Pro required)
+      const tierCheck = await checkSubscriptionTier(userId, 'pro');
+      if (!tierCheck.allowed) {
+        return res.status(403).json({ 
+          error: 'Subscription required',
+          message: tierCheck.message,
+          requiredTier: 'pro',
+          currentTier: tierCheck.tier
+        });
       }
 
       // For now, Excel export uses the same CSV logic
@@ -5519,12 +5572,15 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
 
-      // Check if user has Pro subscription
-      const user = await storage.getUserById(userId);
-      const isPro = user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'family';
-
-      if (!isPro) {
-        return res.status(403).json({ error: 'This feature requires a Pro or Family subscription' });
+      // Check subscription tier (Pro required)
+      const tierCheck = await checkSubscriptionTier(userId, 'pro');
+      if (!tierCheck.allowed) {
+        return res.status(403).json({ 
+          error: 'Subscription required',
+          message: tierCheck.message,
+          requiredTier: 'pro',
+          currentTier: tierCheck.tier
+        });
       }
 
       // Fetch user's data
@@ -5636,6 +5692,140 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     } catch (error) {
       console.error('Insights error:', error);
       res.status(500).json({ error: 'Failed to generate insights' });
+    }
+  });
+
+  // ===== SMART FAVORITES API (PRO FEATURE) =====
+  
+  // Get user's favorite activities with advanced filtering
+  app.get("/api/favorites", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { category, search, sortBy } = req.query;
+
+      // Check subscription tier (Pro required)
+      const tierCheck = await checkSubscriptionTier(userId, 'pro');
+      if (!tierCheck.allowed) {
+        return res.status(403).json({ 
+          error: 'Subscription required',
+          message: tierCheck.message,
+          requiredTier: 'pro',
+          currentTier: tierCheck.tier
+        });
+      }
+
+      // Get user preferences to find favorited activities
+      const prefs = await storage.getUserPreferences(userId);
+      const favorites = prefs?.preferences?.favorites || [];
+
+      if (favorites.length === 0) {
+        return res.json({ favorites: [] });
+      }
+
+      // Fetch all favorited activities
+      const activities = await Promise.all(
+        favorites.map(async (activityId: string) => {
+          try {
+            const activity = await storage.getActivity(activityId, userId);
+            return activity;
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      let filteredActivities = activities.filter(Boolean);
+
+      // Apply filters
+      if (category && category !== 'all') {
+        filteredActivities = filteredActivities.filter(a => a.category === category);
+      }
+
+      if (search) {
+        const searchLower = (search as string).toLowerCase();
+        filteredActivities = filteredActivities.filter(a =>
+          a.title?.toLowerCase().includes(searchLower) ||
+          a.description?.toLowerCase().includes(searchLower)
+        );
+      }
+
+      // Apply sorting
+      if (sortBy === 'recent') {
+        filteredActivities.sort((a, b) => 
+          new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+        );
+      } else if (sortBy === 'alpha') {
+        filteredActivities.sort((a, b) => a.title!.localeCompare(b.title!));
+      }
+
+      res.json({ favorites: filteredActivities });
+    } catch (error) {
+      console.error('Get favorites error:', error);
+      res.status(500).json({ error: 'Failed to fetch favorites' });
+    }
+  });
+
+  // Add activity to favorites
+  app.post("/api/favorites/:activityId", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { activityId } = req.params;
+
+      // Check subscription tier (Pro required)
+      const tierCheck = await checkSubscriptionTier(userId, 'pro');
+      if (!tierCheck.allowed) {
+        return res.status(403).json({ 
+          error: 'Subscription required',
+          message: tierCheck.message,
+          requiredTier: 'pro',
+          currentTier: tierCheck.tier
+        });
+      }
+
+      // Get current favorites
+      const prefs = await storage.getUserPreferences(userId);
+      const currentPrefs = prefs?.preferences || {};
+      const favorites = currentPrefs.favorites || [];
+
+      if (!favorites.includes(activityId)) {
+        favorites.push(activityId);
+        await storage.upsertUserPreferences(userId, {
+          preferences: {
+            ...currentPrefs,
+            favorites
+          }
+        });
+      }
+
+      res.json({ success: true, favorites });
+    } catch (error) {
+      console.error('Add favorite error:', error);
+      res.status(500).json({ error: 'Failed to add favorite' });
+    }
+  });
+
+  // Remove activity from favorites
+  app.delete("/api/favorites/:activityId", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { activityId } = req.params;
+
+      // Get current favorites
+      const prefs = await storage.getUserPreferences(userId);
+      const currentPrefs = prefs?.preferences || {};
+      const favorites = (currentPrefs.favorites || []).filter((id: string) => id !== activityId);
+
+      await storage.upsertUserPreferences(userId, {
+        preferences: {
+          ...currentPrefs,
+          favorites
+        }
+      });
+
+      res.json({ success: true, favorites });
+    } catch (error) {
+      console.error('Remove favorite error:', error);
+      res.status(500).json({ error: 'Failed to remove favorite' });
     }
   });
 

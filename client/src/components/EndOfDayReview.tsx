@@ -238,7 +238,7 @@ Keep crushing it! 🚀
   };
 
   const currentTask = tasks[currentIndex];
-  const progress = tasks.length > 0 ? ((currentIndex + reactions.length) / tasks.length) * 100 : 0;
+  const progress = tasks.length > 0 ? (reactions.length / tasks.length) * 100 : 0;
 
   if (showCelebration) {
     return (
@@ -411,14 +411,7 @@ Keep crushing it! 🚀
                   </div>
                 </motion.div>
 
-                <motion.div
-                  className="absolute top-4 left-1/2 -translate-x-1/2 opacity-0"
-                  style={{ opacity: useTransform(x, [0, 0], y => y < -50 ? 1 : 0) }}
-                >
-                  <div className="bg-red-500 text-white p-4 rounded-full">
-                    <Heart className="w-6 h-6" />
-                  </div>
-                </motion.div>
+                {/* Superlike indicator would need separate y motion value */}
               </div>
 
               {/* Action Buttons */}
