@@ -37,7 +37,7 @@ export default function SubscriptionSuccess() {
   const sessionId = searchParams.get('session_id');
 
   // Fetch updated user data to confirm subscription
-  const { data: user, isLoading } = useQuery({
+  const { data: user, isLoading } = useQuery<any>({
     queryKey: ['/api/user'],
     refetchInterval: false,
   });
