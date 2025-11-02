@@ -885,13 +885,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create checkout session
+      // Use REPLIT_DOMAINS for the correct domain in Replit environment
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+        : 'http://localhost:5000';
+      
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         mode: 'subscription',
         payment_method_types: ['card'],
         line_items: [{ price: priceId, quantity: 1 }],
-        success_url: `${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'http://localhost:5000'}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'http://localhost:5000'}/subscription/canceled`,
+        success_url: `${baseUrl}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/subscription/canceled`,
         metadata: { userId, tier },
         subscription_data: {
           trial_period_days: 7,
@@ -920,9 +925,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'No subscription found' });
       }
 
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+        : 'http://localhost:5000';
+      
       const session = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
-        return_url: `${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'http://localhost:5000'}/settings`
+        return_url: `${baseUrl}/settings`
       });
 
       res.json({ url: session.url });
