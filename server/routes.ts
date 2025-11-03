@@ -2065,10 +2065,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Helper function to check if user has required subscription tier
   async function checkSubscriptionTier(userId: string, requiredTier: 'pro' | 'family'): Promise<{ allowed: boolean; tier: string; message?: string }> {
+    // Check if demo premium mode is enabled (for development/testing)
+    const enableDemoPremium = process.env.ENABLE_DEMO_PREMIUM === 'true';
+    
     const user = await storage.getUserById(userId);
     
     // Treat missing users (including demo user) as free tier
     const tier = user?.subscriptionTier || 'free';
+    
+    // If demo premium mode is enabled, treat demo users as having family tier
+    if (enableDemoPremium && (userId === DEMO_USER_ID || !user)) {
+      console.log('[DEMO PREMIUM] Bypassing tier check for demo user - granting access');
+      return { allowed: true, tier: 'family' };
+    }
     
     // Check tier hierarchy: free < pro < family
     if (requiredTier === 'family') {

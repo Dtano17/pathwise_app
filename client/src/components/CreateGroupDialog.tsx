@@ -37,13 +37,37 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
     try {
       setIsCreating(true);
 
-      const response = await apiRequest('POST', '/api/groups', {
-        name: groupName.trim(),
-        description: description.trim() || undefined,
-        isPrivate
+      const response = await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: groupName.trim(),
+          description: description.trim() || undefined,
+          isPrivate
+        })
       });
 
       const data = await response.json();
+
+      // Check if response is an error
+      if (!response.ok) {
+        // Handle subscription tier errors
+        if (response.status === 403 && data.message) {
+          toast({
+            title: "Subscription Required",
+            description: data.message,
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Failed to create group",
+            description: data.error || "Please try again.",
+            variant: "destructive"
+          });
+        }
+        return;
+      }
 
       setCreatedGroup({
         name: data.group.name,
@@ -59,7 +83,7 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
         onGroupCreated();
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Create group error:', error);
       toast({
         title: "Failed to create group",
