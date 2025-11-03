@@ -121,14 +121,32 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         shareData.groupDescription = groupDescription.trim() || null;
       }
 
-      return apiRequest('POST', `/api/activities/${activity.id}/share`, shareData);
+      // Use fetch to properly handle error responses
+      const response = await fetch(`/api/activities/${activity.id}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(shareData)
+      });
+
+      const data = await response.json();
+
+      // Check for subscription tier error
+      if (!response.ok) {
+        if (response.status === 403 && data.message) {
+          throw new Error(data.message);
+        }
+        throw new Error(data.error || 'Failed to share activity');
+      }
+
+      return data;
     },
-    onSuccess: async (response: any) => {
+    onSuccess: async (data: any) => {
       // Wait for cache invalidation to complete
       await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       
       // Show success message
-      if (response.groupCreated) {
+      if (data.groupCreated) {
         toast({
           title: 'Success!',
           description: 'Activity shared and group created successfully!',

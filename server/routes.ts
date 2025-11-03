@@ -2874,8 +2874,19 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       const { createGroup, groupName, groupDescription } = req.body;
       const userId = getUserId(req) || DEMO_USER_ID;
       
-      // Validate group creation if requested
+      // Check subscription tier if creating group
       if (createGroup) {
+        const tierCheck = await checkSubscriptionTier(userId, 'family');
+        if (!tierCheck.allowed) {
+          return res.status(403).json({ 
+            error: 'Subscription required',
+            message: tierCheck.message,
+            requiredTier: 'family',
+            currentTier: tierCheck.tier
+          });
+        }
+        
+        // Validate group creation fields
         if (!groupName || groupName.trim().length === 0) {
           return res.status(400).json({ error: 'Group name is required' });
         }
