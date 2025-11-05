@@ -1983,23 +1983,24 @@ export class DatabaseStorage implements IStorage {
 
   // Get group activities
   async getGroupActivities(groupId: string): Promise<any[]> {
-    const groupActivitiesData = await db
-      .select({
-        id: groupActivities.id,
-        groupId: groupActivities.groupId,
-        activityId: groupActivities.activityId,
-        canonicalVersion: groupActivities.canonicalVersion,
-        isPublic: groupActivities.isPublic,
-        createdAt: groupActivities.createdAt,
-        activityTitle: activities.title,
-        activityDescription: activities.description,
-        activityCategory: activities.category,
-        totalTasks: activities.totalTasks,
-        completedTasks: activities.completedTasks,
-      })
-      .from(groupActivities)
-      .innerJoin(activities, eq(groupActivities.activityId, activities.id))
-      .where(eq(groupActivities.groupId, groupId));
+    // Use raw SQL to avoid Drizzle ORM circular reference bug
+    const groupActivitiesData = await sqlClient`
+      SELECT 
+        ga.id,
+        ga.group_id as "groupId",
+        ga.activity_id as "activityId",
+        ga.canonical_version as "canonicalVersion",
+        ga.is_public as "isPublic",
+        ga.created_at as "createdAt",
+        a.title as "activityTitle",
+        a.description as "activityDescription",
+        a.category as "activityCategory",
+        a.status as "status"
+      FROM group_activities ga
+      INNER JOIN activities a ON ga.activity_id = a.id
+      WHERE ga.group_id = ${groupId}
+      ORDER BY ga.created_at DESC
+    `;
 
     return groupActivitiesData;
   }

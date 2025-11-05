@@ -255,7 +255,7 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
             <div className="flex items-center gap-4 pt-2 text-sm text-muted-foreground">
               <div className="flex items-center gap-1.5">
                 <Users className="w-4 h-4" />
-                <span>{groupDetails.members.length} members</span>
+                <span>{groupDetails.members?.length || 0} members</span>
               </div>
               <div className="flex items-center gap-1.5">
                 {groupDetails.isPrivate ? (
@@ -272,7 +272,7 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
               </div>
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-4 h-4" />
-                <span>Created {format(new Date(groupDetails.createdAt), 'MMM d, yyyy')}</span>
+                <span>Created {groupDetails.createdAt ? format(new Date(groupDetails.createdAt), 'MMM d, yyyy') : 'Recently'}</span>
               </div>
             </div>
           </DialogHeader>
@@ -297,7 +297,7 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
                 </Button>
               )}
 
-              {groupDetails.members.map((member) => (
+              {groupDetails.members?.map((member) => (
                 <div
                   key={member.id}
                   className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
@@ -317,7 +317,7 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
                         )}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Joined {format(new Date(member.joinedAt), 'MMM d, yyyy')}
+                        Joined {member.joinedAt ? format(new Date(member.joinedAt), 'MMM d, yyyy') : 'Unknown'}
                       </p>
                     </div>
                   </div>
@@ -354,7 +354,7 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
                       <p className="text-sm text-muted-foreground mt-1">{activity.description}</p>
                     )}
                     <p className="text-xs text-muted-foreground mt-2">
-                      Shared {format(new Date(activity.sharedAt), 'MMM d, yyyy')}
+                      Shared {activity.sharedAt ? format(new Date(activity.sharedAt), 'MMM d, yyyy') : 'Recently'}
                     </p>
                   </div>
                 ))
