@@ -105,9 +105,10 @@ export default function CommunityPlansPage() {
   const { toast } = useToast();
 
   // Fetch user's groups
-  const { data: groups = [] } = useQuery<Array<{ id: string; name: string }>>({
+  const { data: groupsData } = useQuery<{ groups: Array<{ id: string; name: string }> }>({
     queryKey: ["/api/groups"],
   });
+  const groups = groupsData?.groups || [];
 
   // Fetch community plans
   const { data: plans = [], isLoading, refetch } = useQuery<Activity[]>({
