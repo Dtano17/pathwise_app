@@ -1803,8 +1803,10 @@ export class DatabaseStorage implements IStorage {
     const members = await sqlClient`
       SELECT 
         u.id,
-        u.name,
+        u.username,
         u.email,
+        u.first_name as "firstName",
+        u.last_name as "lastName",
         u.profile_image_url as "profileImageUrl",
         gm.role,
         gm.joined_at as "joinedAt"
