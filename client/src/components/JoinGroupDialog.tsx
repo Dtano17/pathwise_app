@@ -47,8 +47,10 @@ export default function JoinGroupDialog({ open, onOpenChange, onGroupJoined }: J
       return;
     }
 
-    // Validate format (should have dashes)
-    if (inviteCode.replace(/-/g, '').length !== 9) {
+    // Remove dashes for API call
+    const cleanCode = inviteCode.replace(/-/g, '');
+
+    if (cleanCode.length !== 9) {
       toast({
         title: "Invalid invite code",
         description: "Invite codes must be 9 characters (ABC-123-XYZ format).",
@@ -60,9 +62,8 @@ export default function JoinGroupDialog({ open, onOpenChange, onGroupJoined }: J
     try {
       setIsJoining(true);
 
-      // Send with dashes (database stores with dashes)
       const response = await apiRequest('POST', '/api/groups/join', {
-        inviteCode: inviteCode
+        inviteCode: cleanCode
       });
 
       const data = await response.json();
@@ -83,24 +84,13 @@ export default function JoinGroupDialog({ open, onOpenChange, onGroupJoined }: J
     } catch (error: any) {
       console.error('Join group error:', error);
 
-      // Try to extract error message from response
-      let errorMessage = '';
-      try {
-        if (error.response) {
-          const errorData = await error.response.json();
-          errorMessage = errorData.error || errorData.message || '';
-        }
-      } catch {
-        errorMessage = error.message || '';
-      }
-
-      if (errorMessage.toLowerCase().includes('already a member')) {
+      if (error.message?.includes('already a member')) {
         toast({
           title: "Already a member",
           description: "You're already part of this group.",
           variant: "destructive"
         });
-      } else if (errorMessage.toLowerCase().includes('invalid invite code') || errorMessage.toLowerCase().includes('not found')) {
+      } else if (error.message?.includes('Invalid invite code')) {
         toast({
           title: "Invalid invite code",
           description: "This invite code doesn't exist or has expired.",
@@ -109,7 +99,7 @@ export default function JoinGroupDialog({ open, onOpenChange, onGroupJoined }: J
       } else {
         toast({
           title: "Failed to join group",
-          description: errorMessage || "Please check the invite code and try again.",
+          description: "Please check the invite code and try again.",
           variant: "destructive"
         });
       }
@@ -173,7 +163,7 @@ export default function JoinGroupDialog({ open, onOpenChange, onGroupJoined }: J
               <Button variant="outline" onClick={handleClose} disabled={isJoining}>
                 Cancel
               </Button>
-              <Button onClick={handleJoin} disabled={isJoining || !inviteCode || inviteCode.replace(/-/g, '').length !== 9}>
+              <Button onClick={handleJoin} disabled={isJoining || inviteCode.replace(/-/g, '').length !== 9}>
                 {isJoining ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
