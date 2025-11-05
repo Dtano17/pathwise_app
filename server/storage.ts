@@ -1771,44 +1771,52 @@ export class DatabaseStorage implements IStorage {
 
   // Get group details with members
   async getGroupById(groupId: string, userId: string): Promise<any> {
+    // Use raw SQL to avoid Drizzle ORM circular reference bug
     // Check if user is a member
-    const [membership] = await db
-      .select()
-      .from(groupMemberships)
-      .where(and(
-        eq(groupMemberships.groupId, groupId),
-        eq(groupMemberships.userId, userId)
-      ));
+    const membershipResult = await sqlClient`
+      SELECT role FROM group_memberships 
+      WHERE group_id = ${groupId} AND user_id = ${userId}
+    `;
 
-    if (!membership) {
+    if (membershipResult.length === 0) {
       return null; // User not authorized
     }
 
     // Get group details
-    const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
+    const groupResult = await sqlClient`
+      SELECT 
+        id, name, description,
+        created_by as "createdBy",
+        is_private as "isPrivate",
+        invite_code as "inviteCode",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM groups 
+      WHERE id = ${groupId}
+    `;
 
-    if (!group) {
+    if (groupResult.length === 0) {
       return null;
     }
 
     // Get all members
-    const members = await db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        profileImageUrl: users.profileImageUrl,
-        role: groupMemberships.role,
-        joinedAt: groupMemberships.joinedAt,
-      })
-      .from(groupMemberships)
-      .innerJoin(users, eq(groupMemberships.userId, users.id))
-      .where(eq(groupMemberships.groupId, groupId));
+    const members = await sqlClient`
+      SELECT 
+        u.id,
+        u.name,
+        u.email,
+        u.profile_image_url as "profileImageUrl",
+        gm.role,
+        gm.joined_at as "joinedAt"
+      FROM group_memberships gm
+      INNER JOIN users u ON gm.user_id = u.id
+      WHERE gm.group_id = ${groupId}
+    `;
 
     return {
-      ...group,
+      ...groupResult[0],
       members,
-      currentUserRole: membership.role,
+      currentUserRole: membershipResult[0].role,
     };
   }
 

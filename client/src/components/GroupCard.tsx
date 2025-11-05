@@ -45,35 +45,33 @@ export default function GroupCard({ group, onClick }: GroupCardProps) {
         </div>
       </CardHeader>
 
-      <CardContent>
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-4 text-muted-foreground">
-            {/* Member Count */}
-            <div className="flex items-center gap-1.5">
-              <Users className="w-4 h-4" />
-              <span>{group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}</span>
-            </div>
-
-            {/* Privacy Badge */}
-            <div className="flex items-center gap-1.5">
-              {group.isPrivate ? (
-                <>
-                  <Lock className="w-4 h-4" />
-                  <span>Private</span>
-                </>
-              ) : (
-                <>
-                  <Globe className="w-4 h-4" />
-                  <span>Public</span>
-                </>
-              )}
-            </div>
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          {/* Member Count */}
+          <div className="flex items-center gap-1.5">
+            <Users className="w-4 h-4" />
+            <span>{group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}</span>
           </div>
 
-          {/* Created Date */}
-          <span className="text-xs text-muted-foreground">
-            Created {format(new Date(group.createdAt), 'MMM d, yyyy')}
-          </span>
+          {/* Privacy Badge */}
+          <div className="flex items-center gap-1.5">
+            {group.isPrivate ? (
+              <>
+                <Lock className="w-4 h-4" />
+                <span>Private</span>
+              </>
+            ) : (
+              <>
+                <Globe className="w-4 h-4" />
+                <span>Public</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Created Date */}
+        <div className="text-xs text-muted-foreground">
+          Created {format(new Date(group.createdAt), 'MMM d, yyyy')}
         </div>
       </CardContent>
     </Card>
