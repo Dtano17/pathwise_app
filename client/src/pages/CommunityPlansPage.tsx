@@ -86,22 +86,6 @@ const getCategoryColor = (category: string | null) => {
   return cat?.color || "bg-gray-500";
 };
 
-// Get bold background color for card based on category
-const getCardBackgroundGradient = (category: string | null) => {
-  const categoryColorMap: Record<string, string> = {
-    'travel': 'bg-gradient-to-br from-indigo-600 to-indigo-800',
-    'health': 'bg-gradient-to-br from-emerald-600 to-emerald-800',
-    'personal': 'bg-gradient-to-br from-rose-600 to-rose-800',
-    'work': 'bg-gradient-to-br from-violet-600 to-violet-800',
-    // Additional variations for display
-    'fitness': 'bg-gradient-to-br from-emerald-600 to-emerald-800',
-    'career': 'bg-gradient-to-br from-violet-600 to-violet-800',
-    'home': 'bg-gradient-to-br from-amber-600 to-amber-800',
-    'learning': 'bg-gradient-to-br from-pink-600 to-pink-800',
-  };
-  return categoryColorMap[category || ''] || 'bg-gradient-to-br from-purple-600 to-purple-800';
-};
-
 export default function CommunityPlansPage() {
   const [selectedCategory, setSelectedCategory] = useState("trending");
   const [searchQuery, setSearchQuery] = useState("");
@@ -382,69 +366,89 @@ export default function CommunityPlansPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {plans.map((plan) => {
-              const cardBg = getCardBackgroundGradient(plan.category);
+              const stockImage = getStockImage(plan.backdrop);
               
               return (
                 <Card
                   key={plan.id}
-                  className="overflow-hidden hover-elevate transition-all border-0"
+                  className="overflow-hidden hover-elevate transition-all"
                   data-testid={`card-plan-${plan.id}`}
                 >
-                  {/* Bold Colored Header */}
-                  <div className={`relative p-6 ${cardBg} min-h-[200px] flex flex-col justify-between`}>
+                  {/* Hero Image */}
+                  <div className="relative h-48 bg-gradient-to-br from-primary/20 to-primary/5">
+                    {stockImage ? (
+                      <img
+                        src={stockImage}
+                        alt={plan.title || ""}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Sparkles className="w-12 h-12 text-primary/30" />
+                      </div>
+                    )}
+                    
+                    {/* Dark gradient overlay for text readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                    
                     {/* Like Count Badge */}
                     <div className="absolute top-3 right-3">
                       <Badge
                         variant="secondary"
-                        className="bg-white/20 backdrop-blur-sm text-white border-white/30 gap-1 font-semibold"
+                        className="bg-white/90 dark:bg-black/80 backdrop-blur-sm gap-1 font-semibold"
                         data-testid={`badge-likes-${plan.id}`}
                       >
-                        <Heart className="w-3 h-3 fill-white" />
+                        <Heart className="w-3 h-3 fill-red-500 text-red-500" />
                         {plan.likeCount && plan.likeCount >= 1000 ? `${(plan.likeCount / 1000).toFixed(1)}k` : plan.likeCount || 0}
                       </Badge>
                     </div>
 
-                    {/* Title */}
-                    <div className="flex-1 flex items-center">
-                      <h3 className="text-white font-bold text-2xl line-clamp-3" data-testid={`text-title-${plan.id}`}>
-                        {plan.title}
-                      </h3>
+                    {/* Category Badge */}
+                    <div className="absolute top-3 left-3">
+                      {plan.category && (
+                        <Badge 
+                          className={`${getCategoryColor(plan.category)} text-white border-0 capitalize`}
+                          data-testid={`badge-category-${plan.id}`}
+                        >
+                          {plan.category}
+                        </Badge>
+                      )}
                     </div>
 
-                    {/* Bottom Row: Creator and View Count */}
-                    <div className="flex items-center justify-between mt-4">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="w-8 h-8 ring-2 ring-white/30" data-testid={`avatar-${plan.id}`}>
-                          {plan.creatorAvatar && <AvatarImage src={plan.creatorAvatar} />}
-                          <AvatarFallback className="text-xs bg-white/20 text-white">
-                            {getInitials(plan.creatorName || "Unknown")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm text-white/90 font-medium" data-testid={`text-creator-${plan.id}`}>
-                          by {plan.creatorName || "Anonymous"}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-white/90">
-                        <Eye className="w-4 h-4" />
-                      </div>
+                    {/* Title at bottom with gradient overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4">
+                      <h3 className="text-white font-bold text-xl line-clamp-2" data-testid={`text-title-${plan.id}`}>
+                        {plan.title}
+                      </h3>
                     </div>
                   </div>
 
                   <CardContent className="pt-4 pb-4">
                     {/* Description */}
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3" data-testid={`text-description-${plan.id}`}>
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-4" data-testid={`text-description-${plan.id}`}>
                       {plan.description || plan.planSummary}
                     </p>
 
-                    {/* Category Badge */}
-                    {plan.category && (
-                      <Badge 
-                        className="capitalize bg-muted text-muted-foreground border-0"
-                        data-testid={`badge-category-${plan.id}`}
-                      >
-                        {plan.category}
-                      </Badge>
-                    )}
+                    {/* Creator and View Count */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="w-7 h-7" data-testid={`avatar-${plan.id}`}>
+                          {plan.creatorAvatar && <AvatarImage src={plan.creatorAvatar} />}
+                          <AvatarFallback className="text-xs">
+                            {getInitials(plan.creatorName || "Unknown")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs text-muted-foreground" data-testid={`text-creator-${plan.id}`}>
+                          {plan.creatorName || "Anonymous"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Eye className="w-3.5 h-3.5" />
+                        <span className="text-xs">
+                          {plan.viewCount && plan.viewCount >= 1000 ? `${(plan.viewCount / 1000).toFixed(1)}k` : plan.viewCount || 0}
+                        </span>
+                      </div>
+                    </div>
                   </CardContent>
 
                   <CardFooter className="pt-0">
