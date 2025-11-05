@@ -1748,25 +1748,41 @@ export class DatabaseStorage implements IStorage {
 
   // Get all groups a user is a member of
   async getUserGroups(userId: string): Promise<Array<Group & { memberCount: number; role: string }>> {
-    const userGroups = await db
+    // First get all memberships for this user
+    const memberships = await db
       .select({
-        id: groups.id,
-        name: groups.name,
-        description: groups.description,
-        createdBy: groups.createdBy,
-        isPrivate: groups.isPrivate,
-        inviteCode: groups.inviteCode,
-        createdAt: groups.createdAt,
-        updatedAt: groups.updatedAt,
+        groupId: groupMemberships.groupId,
         role: groupMemberships.role,
       })
-      .from(groups)
-      .innerJoin(groupMemberships, eq(groups.id, groupMemberships.groupId))
+      .from(groupMemberships)
       .where(eq(groupMemberships.userId, userId));
 
-    // Get member counts for each group
+    if (memberships.length === 0) {
+      return [];
+    }
+
+    // Then get the group details for each membership
     const groupsWithCounts = await Promise.all(
-      userGroups.map(async (group) => {
+      memberships.map(async (membership) => {
+        const [group] = await db
+          .select({
+            id: groups.id,
+            name: groups.name,
+            description: groups.description,
+            createdBy: groups.createdBy,
+            isPrivate: groups.isPrivate,
+            inviteCode: groups.inviteCode,
+            createdAt: groups.createdAt,
+            updatedAt: groups.updatedAt,
+          })
+          .from(groups)
+          .where(eq(groups.id, membership.groupId));
+
+        if (!group) {
+          return null;
+        }
+
+        // Get member count
         const [{ count }] = await db
           .select({ count: sql<number>`count(*)` })
           .from(groupMemberships)
@@ -1774,12 +1790,13 @@ export class DatabaseStorage implements IStorage {
 
         return {
           ...group,
+          role: membership.role,
           memberCount: Number(count),
         };
       })
     );
 
-    return groupsWithCounts;
+    return groupsWithCounts.filter(Boolean) as Array<Group & { memberCount: number; role: string }>;
   }
 
   // Get group details with members
