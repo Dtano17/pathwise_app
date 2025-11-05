@@ -41,6 +41,10 @@ import concertMusicFestival from "@assets/stock_images/concert_music_festiv_1831
 import personCodingLaptop from "@assets/stock_images/person_coding_on_lap_ba381062.jpg";
 import homeRenovationKitchen from "@assets/stock_images/home_renovation_kitc_0ceb0522.jpg";
 import spanishLanguageLearning from "@assets/stock_images/spanish_language_lea_2d2edb39.jpg";
+import modernKitchenRenovation from "@assets/stock_images/modern_kitchen_renov_a5563863.jpg";
+import professionalDeveloper from "@assets/stock_images/professional_develop_960cd8cf.jpg";
+import spanishLanguageLearning2 from "@assets/stock_images/spanish_language_lea_269b1aa7.jpg";
+import personMeditating from "@assets/stock_images/person_meditating_pe_43f13693.jpg";
 
 const stockImageMap: Record<string, string> = {
   "romantic_paris_citys_dfc7c798.jpg": romanticParisCityscape,
@@ -67,6 +71,10 @@ const stockImageMap: Record<string, string> = {
   "person_coding_on_lap_ba381062.jpg": personCodingLaptop,
   "home_renovation_kitc_0ceb0522.jpg": homeRenovationKitchen,
   "spanish_language_lea_2d2edb39.jpg": spanishLanguageLearning,
+  "modern_kitchen_renov_a5563863.jpg": modernKitchenRenovation,
+  "professional_develop_960cd8cf.jpg": professionalDeveloper,
+  "spanish_language_lea_269b1aa7.jpg": spanishLanguageLearning2,
+  "person_meditating_pe_43f13693.jpg": personMeditating,
 };
 
 const categories = [
