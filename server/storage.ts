@@ -1347,9 +1347,11 @@ export class DatabaseStorage implements IStorage {
       const categoryMap: Record<string, string> = {
         'travel': 'travel',
         'fitness': 'health',
+        'productivity': 'work',
         'events': 'personal',
         'career': 'work',
-        'home': 'personal'
+        'home': 'personal',
+        'learning': 'personal'
       };
       const dbCategory = categoryMap[category.toLowerCase()];
       if (dbCategory) {
@@ -2008,6 +2010,37 @@ export class DatabaseStorage implements IStorage {
   // Remove activity from group
   async removeActivityFromGroup(groupActivityId: string): Promise<void> {
     await db.delete(groupActivities).where(eq(groupActivities.id, groupActivityId));
+  }
+
+  // Get activity change logs for a group
+  async getGroupActivityChangeLogs(groupId: string): Promise<any[]> {
+    // Use raw SQL to get activity change logs with user info
+    const logs = await sqlClient`
+      SELECT 
+        acl.id,
+        acl.user_id as "userId",
+        acl.change_type as "changeType",
+        acl.change_description as "description",
+        acl.timestamp,
+        u.username,
+        u.first_name as "firstName",
+        u.last_name as "lastName"
+      FROM activity_change_logs acl
+      INNER JOIN group_activities ga ON acl.group_activity_id = ga.id
+      LEFT JOIN users u ON acl.user_id = u.id
+      WHERE ga.group_id = ${groupId}
+      ORDER BY acl.timestamp DESC
+      LIMIT 50
+    `;
+
+    return logs.map((log: any) => ({
+      id: log.id,
+      userId: log.userId,
+      username: log.username || `${log.firstName || ''} ${log.lastName || ''}`.trim() || 'Someone',
+      activityType: log.changeType === 'task_added' ? 'added' : log.changeType === 'task_edited' ? 'edited' : 'completed',
+      description: log.description,
+      timestamp: log.timestamp,
+    }));
   }
 
   // === Contact Shares / Invites ===

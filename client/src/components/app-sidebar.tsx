@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap, Moon, LineChart } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
+import { Link } from 'wouter';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SocialLogin } from '@/components/SocialLogin';
 import ProfileSettingsModal from '@/components/ProfileSettingsModal';
@@ -249,12 +250,11 @@ export function AppSidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton 
-                  onClick={onShowContacts}
-                  data-testid="button-groups-sidebar"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>Groups</span>
+                <SidebarMenuButton asChild data-testid="button-groups-sidebar">
+                  <Link href="/groups">
+                    <Users className="w-4 h-4" />
+                    <span>Groups</span>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

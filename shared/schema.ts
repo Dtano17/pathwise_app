@@ -188,6 +188,7 @@ export const groups = pgTable("groups", {
   createdBy: varchar("created_by").references(() => users.id),
   isPrivate: boolean("is_private").default(false),
   inviteCode: varchar("invite_code").unique(), // Optional invite code for joining
+  trackingEnabled: boolean("tracking_enabled").default(true), // Enable activity tracking
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

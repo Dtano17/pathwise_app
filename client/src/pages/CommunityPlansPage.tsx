@@ -6,10 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Eye, Search, Sparkles, ArrowLeft, Home } from "lucide-react";
+import { Heart, Eye, Search, Sparkles, ArrowLeft, Home, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen } from "lucide-react";
 import { Link } from "wouter";
 import type { Activity } from "@shared/schema";
 
@@ -61,19 +64,36 @@ const stockImageMap: Record<string, string> = {
 };
 
 const categories = [
-  { value: "trending", label: "Trending" },
-  { value: "travel", label: "Travel" },
-  { value: "fitness", label: "Fitness" },
-  { value: "events", label: "Events" },
-  { value: "career", label: "Career" },
-  { value: "home", label: "Home" },
+  { value: "trending", label: "Trending", Icon: TrendingUp },
+  { value: "travel", label: "Travel", Icon: Plane, color: "bg-blue-500" },
+  { value: "fitness", label: "Fitness", Icon: Dumbbell, color: "bg-green-500" },
+  { value: "productivity", label: "Productivity", Icon: ListTodo, color: "bg-purple-500" },
+  { value: "events", label: "Events", Icon: PartyPopper, color: "bg-orange-500" },
+  { value: "career", label: "Career", Icon: Briefcase, color: "bg-indigo-500" },
+  { value: "home", label: "Home", Icon: HomeIcon, color: "bg-amber-500" },
+  { value: "learning", label: "Learning", Icon: BookOpen, color: "bg-pink-500" },
 ];
+
+const getCategoryColor = (category: string | null) => {
+  if (!category) return "bg-gray-500";
+  const cat = categories.find(c => c.value === category.toLowerCase());
+  return cat?.color || "bg-gray-500";
+};
 
 export default function CommunityPlansPage() {
   const [selectedCategory, setSelectedCategory] = useState("trending");
   const [searchQuery, setSearchQuery] = useState("");
   const [hasSeedAttempted, setHasSeedAttempted] = useState(false);
+  const [adoptDialogOpen, setAdoptDialogOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<{ id: string; shareToken: string | null; title: string } | null>(null);
+  const [adoptTarget, setAdoptTarget] = useState<"personal" | "group">("personal");
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const { toast } = useToast();
+
+  // Fetch user's groups
+  const { data: groups = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ["/api/groups"],
+  });
 
   // Fetch community plans
   const { data: plans = [], isLoading, refetch } = useQuery<Activity[]>({
@@ -108,7 +128,7 @@ export default function CommunityPlansPage() {
     },
   });
 
-  // Copy plan mutation
+  // Copy plan to personal mutation
   const copyPlanMutation = useMutation({
     mutationFn: async ({ activityId, shareToken, title }: { activityId: string; shareToken: string; title: string }) => {
       // Copy the activity using the share token
@@ -127,16 +147,62 @@ export default function CommunityPlansPage() {
     onSuccess: (data: any) => {
       const activityTitle = data?.activity?.title || data?.originalTitle;
       toast({
-        title: "Plan copied!",
+        title: "Plan adopted!",
         description: activityTitle 
-          ? `"${activityTitle}" has been added to your activities`
+          ? `"${activityTitle}" has been added to your personal activities`
           : data?.message || "The plan has been added to your activities",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      setAdoptDialogOpen(false);
     },
     onError: (error: any) => {
       toast({
-        title: "Failed to copy plan",
+        title: "Failed to adopt plan",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Share plan to group mutation
+  const sharePlanToGroupMutation = useMutation({
+    mutationFn: async ({ activityId, shareToken, groupId }: { activityId: string; shareToken: string; groupId: string }) => {
+      // First copy the activity to user's personal activities
+      const copyResponse = await apiRequest("POST", `/api/activities/copy/${shareToken}`);
+      const copyData = await copyResponse.json();
+      const copiedActivityId = copyData.activity?.id;
+      
+      if (!copiedActivityId) {
+        throw new Error("Failed to copy activity");
+      }
+      
+      // Then share it to the group
+      const shareResponse = await apiRequest("POST", `/api/groups/${groupId}/activities`, {
+        activityId: copiedActivityId,
+      });
+      const shareData = await shareResponse.json();
+      
+      // Increment views
+      try {
+        await apiRequest("POST", `/api/activities/${activityId}/increment-views`);
+      } catch (error) {
+        console.warn('[SHARE] Failed to increment views:', error);
+      }
+      
+      return { ...shareData, copiedActivityId };
+    },
+    onSuccess: () => {
+      toast({
+        title: "Plan shared to group!",
+        description: "The plan has been added to the group",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      setAdoptDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to share plan to group",
         description: error.message || "Please try again",
         variant: "destructive",
       });
@@ -152,16 +218,41 @@ export default function CommunityPlansPage() {
     }
   }, [isLoading, plans.length, hasSeedAttempted, searchQuery]);
 
-  const handleCopyPlan = (activityId: string, shareToken: string | null, title: string) => {
+  const handleUsePlan = (activityId: string, shareToken: string | null, title: string) => {
     if (!shareToken) {
       toast({
-        title: "Cannot copy plan",
-        description: "This plan is not available for copying",
+        title: "Cannot use plan",
+        description: "This plan is not available for use",
         variant: "destructive",
       });
       return;
     }
-    copyPlanMutation.mutate({ activityId, shareToken, title });
+    setSelectedPlan({ id: activityId, shareToken, title });
+    setAdoptDialogOpen(true);
+  };
+
+  const handleAdoptPlan = () => {
+    if (!selectedPlan) return;
+
+    if (adoptTarget === "personal") {
+      copyPlanMutation.mutate({
+        activityId: selectedPlan.id,
+        shareToken: selectedPlan.shareToken!,
+        title: selectedPlan.title,
+      });
+    } else if (adoptTarget === "group" && selectedGroupId) {
+      sharePlanToGroupMutation.mutate({
+        activityId: selectedPlan.id,
+        shareToken: selectedPlan.shareToken!,
+        groupId: selectedGroupId,
+      });
+    } else {
+      toast({
+        title: "Please select a group",
+        description: "Choose which group to add this plan to",
+        variant: "destructive",
+      });
+    }
   };
 
   const getInitials = (name: string) => {
@@ -345,7 +436,10 @@ export default function CommunityPlansPage() {
 
                     {/* Category Badge */}
                     {plan.category && (
-                      <Badge variant="outline" className="capitalize" data-testid={`badge-category-${plan.id}`}>
+                      <Badge 
+                        className={`capitalize ${getCategoryColor(plan.category)} text-white border-0`}
+                        data-testid={`badge-category-${plan.id}`}
+                      >
                         {plan.category}
                       </Badge>
                     )}
@@ -354,11 +448,11 @@ export default function CommunityPlansPage() {
                   <CardFooter>
                     <Button
                       className="w-full"
-                      onClick={() => handleCopyPlan(plan.id, plan.shareToken, plan.title || "")}
-                      disabled={copyPlanMutation.isPending}
+                      onClick={() => handleUsePlan(plan.id, plan.shareToken, plan.title || "")}
+                      disabled={copyPlanMutation.isPending || sharePlanToGroupMutation.isPending}
                       data-testid={`button-use-plan-${plan.id}`}
                     >
-                      {copyPlanMutation.isPending ? "Copying..." : "Use This Plan"}
+                      {(copyPlanMutation.isPending || sharePlanToGroupMutation.isPending) ? "Processing..." : "Use This Plan"}
                     </Button>
                   </CardFooter>
                 </Card>
@@ -366,7 +460,99 @@ export default function CommunityPlansPage() {
             })}
           </div>
         )}
+
+        {/* Share Your Plan Section */}
+        {!isLoading && plans.length > 0 && (
+          <div className="mt-12">
+            <Card className="bg-gradient-to-br from-primary/10 to-transparent border-primary/20">
+              <CardContent className="p-8 text-center">
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <Sparkles className="w-6 h-6 text-primary" />
+                  <h2 className="text-2xl font-bold">Share Your Plan with the Community</h2>
+                </div>
+                <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
+                  Help others by sharing your successful plans and strategies
+                </p>
+                <Link href="/">
+                  <Button size="lg" data-testid="button-share-my-plan">
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Share My Plan
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
+
+      {/* Adopt Plan Dialog */}
+      <Dialog open={adoptDialogOpen} onOpenChange={setAdoptDialogOpen}>
+        <DialogContent data-testid="dialog-adopt-plan">
+          <DialogHeader>
+            <DialogTitle>Use This Plan</DialogTitle>
+            <DialogDescription>
+              Choose how you'd like to use "{selectedPlan?.title}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <RadioGroup value={adoptTarget} onValueChange={(value) => setAdoptTarget(value as "personal" | "group")}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="personal" id="personal" data-testid="radio-personal" />
+                <Label htmlFor="personal" className="flex-1 cursor-pointer">
+                  <div>
+                    <div className="font-medium">Personal Activity</div>
+                    <div className="text-sm text-muted-foreground">Add to your personal activities</div>
+                  </div>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="group" id="group" data-testid="radio-group" />
+                <Label htmlFor="group" className="flex-1 cursor-pointer">
+                  <div>
+                    <div className="font-medium">Group Activity</div>
+                    <div className="text-sm text-muted-foreground">Share with one of your groups</div>
+                  </div>
+                </Label>
+              </div>
+            </RadioGroup>
+
+            {adoptTarget === "group" && (
+              <div className="space-y-2">
+                <Label>Select Group</Label>
+                <RadioGroup value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                  {groups.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">
+                      You haven't joined any groups yet. <Link href="/groups" className="text-primary underline">Create or join a group</Link> to share plans.
+                    </p>
+                  ) : (
+                    groups.map((group) => (
+                      <div key={group.id} className="flex items-center space-x-2">
+                        <RadioGroupItem value={group.id} id={group.id} data-testid={`radio-group-${group.id}`} />
+                        <Label htmlFor={group.id} className="flex-1 cursor-pointer">
+                          {group.name}
+                        </Label>
+                      </div>
+                    ))
+                  )}
+                </RadioGroup>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setAdoptDialogOpen(false)} className="flex-1" data-testid="button-cancel-adopt">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAdoptPlan}
+              disabled={copyPlanMutation.isPending || sharePlanToGroupMutation.isPending || (adoptTarget === "group" && !selectedGroupId)}
+              className="flex-1"
+              data-testid="button-confirm-adopt"
+            >
+              {(copyPlanMutation.isPending || sharePlanToGroupMutation.isPending) ? "Processing..." : "Use Plan"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
