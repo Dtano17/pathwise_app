@@ -86,7 +86,7 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
       // Load group details
       const detailsResponse = await apiRequest('GET', `/api/groups/${groupId}`);
       const detailsData = await detailsResponse.json();
-      setGroupDetails(detailsData);
+      setGroupDetails(detailsData.group);
 
       // Load group activities
       const activitiesResponse = await apiRequest('GET', `/api/groups/${groupId}/activities`);
