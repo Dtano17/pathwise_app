@@ -142,6 +142,7 @@ export interface IStorage {
   getUserActivityFeedback(activityId: string, userId: string): Promise<ActivityFeedback | undefined>;
   deleteActivityFeedback(activityId: string, userId: string): Promise<void>;
   getActivityFeedbackStats(activityId: string): Promise<{ likes: number; dislikes: number }>;
+  getBulkActivityFeedback(activityIds: string[], userId: string): Promise<Map<string, { userHasLiked: boolean; likeCount: number }>>;
 
   // Task Feedback (Like/Unlike)
   upsertTaskFeedback(taskId: string, userId: string, feedbackType: 'like' | 'dislike'): Promise<TaskFeedback>;
@@ -707,6 +708,41 @@ export class DatabaseStorage implements IStorage {
     const dislikes = feedback.filter(f => f.feedbackType === 'dislike').length;
     
     return { likes, dislikes };
+  }
+
+  async getBulkActivityFeedback(activityIds: string[], userId: string): Promise<Map<string, { userHasLiked: boolean; likeCount: number }>> {
+    if (activityIds.length === 0) {
+      return new Map();
+    }
+
+    // Get all feedback for these activities in one query
+    const allFeedback = await db.select().from(activityFeedback)
+      .where(inArray(activityFeedback.activityId, activityIds));
+    
+    // Build a map of activity feedback
+    const feedbackMap = new Map<string, { userHasLiked: boolean; likeCount: number }>();
+    
+    // Initialize all activities
+    for (const activityId of activityIds) {
+      feedbackMap.set(activityId, { userHasLiked: false, likeCount: 0 });
+    }
+    
+    // Process feedback
+    for (const feedback of allFeedback) {
+      const current = feedbackMap.get(feedback.activityId)!;
+      
+      // Check if this user liked it
+      if (feedback.userId === userId && feedback.feedbackType === 'like') {
+        current.userHasLiked = true;
+      }
+      
+      // Count likes
+      if (feedback.feedbackType === 'like') {
+        current.likeCount++;
+      }
+    }
+    
+    return feedbackMap;
   }
 
   // Task Feedback Methods

@@ -3417,12 +3417,28 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
   // Get community plans (for discovery page)
   app.get("/api/community-plans", async (req, res) => {
     try {
+      const userId = getUserId(req) || DEMO_USER_ID;
       const category = req.query.category as string | undefined;
       const search = req.query.search as string | undefined;
       const limit = parseInt(req.query.limit as string) || 50;
       
       const plans = await storage.getCommunityPlans(category, search, limit);
-      res.json(plans);
+      
+      // Get all feedback in bulk (single query)
+      const activityIds = plans.map(p => p.id);
+      const feedbackMap = await storage.getBulkActivityFeedback(activityIds, userId);
+      
+      // Add user's like status and updated like count to each plan
+      const plansWithLikeStatus = plans.map(plan => {
+        const feedback = feedbackMap.get(plan.id) || { userHasLiked: false, likeCount: 0 };
+        return {
+          ...plan,
+          userHasLiked: feedback.userHasLiked,
+          likeCount: feedback.likeCount
+        };
+      });
+      
+      res.json(plansWithLikeStatus);
     } catch (error) {
       console.error('Get community plans error:', error);
       res.status(500).json({ error: 'Failed to fetch community plans' });

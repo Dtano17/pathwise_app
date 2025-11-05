@@ -111,7 +111,7 @@ export default function CommunityPlansPage() {
   const groups = groupsData?.groups || [];
 
   // Fetch community plans
-  const { data: plans = [], isLoading, refetch } = useQuery<Activity[]>({
+  const { data: plans = [], isLoading, refetch } = useQuery<Array<Activity & { userHasLiked?: boolean }>>({
     queryKey: ["/api/community-plans", selectedCategory, searchQuery],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -218,6 +218,27 @@ export default function CommunityPlansPage() {
     onError: (error: any) => {
       toast({
         title: "Failed to share plan to group",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Like/unlike plan mutation
+  const likePlanMutation = useMutation({
+    mutationFn: async (activityId: string) => {
+      const response = await apiRequest("POST", `/api/activities/${activityId}/feedback`, {
+        feedbackType: "like"
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate all community plans queries (with all filter variations)
+      queryClient.invalidateQueries({ queryKey: ["/api/community-plans"], exact: false });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to like plan",
         description: error.message || "Please try again",
         variant: "destructive",
       });
@@ -460,9 +481,18 @@ export default function CommunityPlansPage() {
                     </div>
                   </CardContent>
 
-                  <CardFooter className="pt-0">
+                  <CardFooter className="pt-0 gap-2">
                     <Button
-                      className="w-full"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => likePlanMutation.mutate(plan.id)}
+                      disabled={likePlanMutation.isPending}
+                      data-testid={`button-like-${plan.id}`}
+                    >
+                      <Heart className={`w-4 h-4 ${plan.userHasLiked ? 'fill-red-500 text-red-500' : ''}`} />
+                    </Button>
+                    <Button
+                      className="flex-1"
                       onClick={() => handleUsePlan(plan.id, plan.shareToken, plan.title || "")}
                       disabled={copyPlanMutation.isPending || sharePlanToGroupMutation.isPending}
                       data-testid={`button-use-plan-${plan.id}`}
