@@ -2417,7 +2417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/group-activities", async (req, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
-      const { groupId, title, description, category, theme, startDate, endDate, sampleTasks } = req.body;
+      const { groupId, title, description, category, theme, startDate, endDate } = req.body;
 
       if (!groupId || !title) {
         return res.status(400).json({ error: 'Group ID and title are required' });
@@ -2446,31 +2446,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sharePreview: null
       });
 
-      // Create sample tasks if provided
-      const createdTasks = [];
-      if (sampleTasks && Array.isArray(sampleTasks)) {
-        for (let i = 0; i < sampleTasks.length; i++) {
-          const taskData = sampleTasks[i];
-          const task = await storage.createTask({
-            userId,
-            activityId: activity.id,
-            title: taskData.title,
-            description: taskData.description || null,
-            category: taskData.category || category || 'other',
-            priority: taskData.priority || 'medium',
-            order: i,
-            completed: false,
-            completedType: 'boolean',
-            completedAt: null,
-            dueDate: null,
-            reminder: null,
-            labels: null
-          });
-          createdTasks.push(task);
-        }
-      }
-
-      // Get all tasks for canonical version
+      // Get tasks for canonical version (empty initially for template-based activities)
       const tasks = await storage.getTasksByActivity(activity.id);
 
       // Create group activity with canonical version
@@ -2496,8 +2472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         groupActivity,
         activity,
-        tasksCreated: createdTasks.length,
-        message: `Group activity "${title}" created successfully with ${createdTasks.length} tasks`
+        message: `Group activity "${title}" created successfully`
       });
     } catch (error) {
       console.error('Create group activity error:', error);
