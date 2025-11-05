@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { eq, and, desc, isNull, or, lte, inArray } from "drizzle-orm";
+import { eq, and, desc, isNull, or, lte, inArray, sql } from "drizzle-orm";
 import crypto from "crypto";
 import { 
   type User, 
@@ -82,8 +82,8 @@ import {
   groupActivities
 } from "@shared/schema";
 
-const sql = neon(process.env.DATABASE_URL!);
-export const db = drizzle(sql);
+const sqlClient = neon(process.env.DATABASE_URL!);
+export const db = drizzle(sqlClient);
 
 export interface IStorage {
   // User operations
@@ -1748,55 +1748,25 @@ export class DatabaseStorage implements IStorage {
 
   // Get all groups a user is a member of
   async getUserGroups(userId: string): Promise<Array<Group & { memberCount: number; role: string }>> {
-    // First get all memberships for this user
-    const memberships = await db
-      .select({
-        groupId: groupMemberships.groupId,
-        role: groupMemberships.role,
-      })
-      .from(groupMemberships)
-      .where(eq(groupMemberships.userId, userId));
+    // Use raw SQL to avoid Drizzle ORM circular reference bug
+    const result = await sqlClient`
+      SELECT 
+        g.id,
+        g.name,
+        g.description,
+        g.created_by as "createdBy",
+        g.is_private as "isPrivate",
+        g.invite_code as "inviteCode",
+        g.created_at as "createdAt",
+        g.updated_at as "updatedAt",
+        gm.role,
+        (SELECT COUNT(*) FROM group_memberships WHERE group_id = g.id)::int as "memberCount"
+      FROM groups g
+      INNER JOIN group_memberships gm ON g.id = gm.group_id
+      WHERE gm.user_id = ${userId}
+    `;
 
-    if (memberships.length === 0) {
-      return [];
-    }
-
-    // Then get the group details for each membership
-    const groupsWithCounts = await Promise.all(
-      memberships.map(async (membership) => {
-        const [group] = await db
-          .select({
-            id: groups.id,
-            name: groups.name,
-            description: groups.description,
-            createdBy: groups.createdBy,
-            isPrivate: groups.isPrivate,
-            inviteCode: groups.inviteCode,
-            createdAt: groups.createdAt,
-            updatedAt: groups.updatedAt,
-          })
-          .from(groups)
-          .where(eq(groups.id, membership.groupId));
-
-        if (!group) {
-          return null;
-        }
-
-        // Get member count
-        const [{ count }] = await db
-          .select({ count: sql<number>`count(*)` })
-          .from(groupMemberships)
-          .where(eq(groupMemberships.groupId, group.id));
-
-        return {
-          ...group,
-          role: membership.role,
-          memberCount: Number(count),
-        };
-      })
-    );
-
-    return groupsWithCounts.filter(Boolean) as Array<Group & { memberCount: number; role: string }>;
+    return result as any;
   }
 
   // Get group details with members
