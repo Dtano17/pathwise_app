@@ -1349,7 +1349,7 @@ export class DatabaseStorage implements IStorage {
         'fitness': 'health',
         'productivity': 'work',
         'events': 'personal',
-        'career': 'work',
+        'career': 'career',
         'home': 'home',
         'learning': 'learning'
       };

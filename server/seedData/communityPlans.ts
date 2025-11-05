@@ -112,7 +112,7 @@ export const demoCommunityPlans = [
     activity: {
       title: "Career Switch to Tech",
       description: "6-month plan: coding bootcamp, portfolio projects, and job applications",
-      category: "work" as const,
+      category: "career" as const,
       planSummary: "Comprehensive career transition roadmap from non-tech to software development role",
       isPublic: true,
       shareTitle: "Career Switch to Tech",
