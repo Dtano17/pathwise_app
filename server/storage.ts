@@ -1350,8 +1350,8 @@ export class DatabaseStorage implements IStorage {
         'productivity': 'work',
         'events': 'personal',
         'career': 'work',
-        'home': 'personal',
-        'learning': 'personal'
+        'home': 'home',
+        'learning': 'learning'
       };
       const dbCategory = categoryMap[category.toLowerCase()];
       if (dbCategory) {
