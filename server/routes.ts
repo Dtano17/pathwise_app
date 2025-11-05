@@ -2151,6 +2151,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: userId
       });
 
+      // Add the creator as an admin member
+      await storage.createGroupMembership({
+        groupId: group.id,
+        userId: userId,
+        role: 'admin',
+        joinedAt: new Date()
+      });
+
       res.json({
         group,
         message: `Group "${name}" created successfully!`
