@@ -55,6 +55,8 @@ import {
   type InsertGroupMembership,
   type GroupActivity,
   type InsertGroupActivity,
+  type GroupActivityFeedItem,
+  type InsertGroupActivityFeedItem,
   users,
   goals,
   tasks,
@@ -79,7 +81,8 @@ import {
   taskFeedback,
   groups,
   groupMemberships,
-  groupActivities
+  groupActivities,
+  groupActivityFeed
 } from "@shared/schema";
 
 const sqlClient = neon(process.env.DATABASE_URL!);
@@ -271,6 +274,15 @@ export interface IStorage {
   getGroup(groupId: string): Promise<Group | undefined>;
   createGroupMembership(membership: InsertGroupMembership & { userId: string }): Promise<GroupMembership>;
   createGroupActivity(groupActivity: InsertGroupActivity): Promise<GroupActivity>;
+  getGroupsForUser(userId: string): Promise<Array<Group & { memberCount: number; role: string }>>;
+  getGroupMembers(groupId: string): Promise<Array<{ userId: string; userName: string; role: string; joinedAt: Date }>>;
+  joinGroupByInviteCode(inviteCode: string, userId: string): Promise<{ group: Group; membership: GroupMembership } | null>;
+  shareActivityToGroup(activityId: string, groupId: string, userId: string, forceUpdate?: boolean): Promise<GroupActivity>;
+  
+  // Group Progress & Activity Feed
+  getGroupProgress(groupId: string): Promise<Array<{ groupActivityId: string; activityTitle: string; totalTasks: number; completedTasks: number }>>;
+  getGroupActivityFeed(groupId: string, limit?: number): Promise<GroupActivityFeedItem[]>;
+  logGroupActivity(feedItem: InsertGroupActivityFeedItem): Promise<GroupActivityFeedItem>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2086,6 +2098,53 @@ export class DatabaseStorage implements IStorage {
       description: log.description,
       timestamp: log.timestamp,
     }));
+  }
+
+  // Get group progress - calculate completion stats for each group activity
+  async getGroupProgress(groupId: string): Promise<Array<{ groupActivityId: string; activityTitle: string; totalTasks: number; completedTasks: number }>> {
+    const progressData = await sqlClient`
+      SELECT 
+        ga.id as "groupActivityId",
+        a.title as "activityTitle",
+        COUNT(DISTINCT t.id) as "totalTasks",
+        COUNT(DISTINCT CASE WHEN t.completed = true THEN t.id END) as "completedTasks"
+      FROM group_activities ga
+      INNER JOIN activities a ON ga.activity_id = a.id
+      INNER JOIN activity_tasks at ON at.activity_id = a.id
+      INNER JOIN tasks t ON at.task_id = t.id
+      WHERE ga.group_id = ${groupId}
+      GROUP BY ga.id, a.title
+      ORDER BY ga.created_at DESC
+    `;
+
+    return progressData.map((row: any) => ({
+      groupActivityId: row.groupActivityId,
+      activityTitle: row.activityTitle,
+      totalTasks: Number(row.totalTasks),
+      completedTasks: Number(row.completedTasks),
+    }));
+  }
+
+  // Get group activity feed - recent member actions
+  async getGroupActivityFeed(groupId: string, limit = 20): Promise<GroupActivityFeedItem[]> {
+    const feedItems = await db
+      .select()
+      .from(groupActivityFeed)
+      .where(eq(groupActivityFeed.groupId, groupId))
+      .orderBy(desc(groupActivityFeed.timestamp))
+      .limit(limit);
+
+    return feedItems;
+  }
+
+  // Log a group activity event
+  async logGroupActivity(feedItem: InsertGroupActivityFeedItem): Promise<GroupActivityFeedItem> {
+    const [loggedItem] = await db
+      .insert(groupActivityFeed)
+      .values(feedItem)
+      .returning();
+
+    return loggedItem;
   }
 
   // === Contact Shares / Invites ===

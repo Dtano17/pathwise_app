@@ -298,6 +298,22 @@ export const activityChangeLogs = pgTable("activity_change_logs", {
   userActivityLogIndex: index("user_activity_log_index").on(table.userId),
 }));
 
+// Group activity feed - tracks member actions for the activity feed (task completions, additions, etc.)
+export const groupActivityFeed = pgTable("group_activity_feed", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").references(() => groups.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  userName: text("user_name").notNull(), // Denormalized for faster queries
+  activityType: text("activity_type").notNull(), // 'task_completed' | 'task_added' | 'activity_shared'
+  activityTitle: text("activity_title"), // Title of the group activity/plan
+  taskTitle: text("task_title"), // Title of the task (for task-related events)
+  groupActivityId: varchar("group_activity_id").references(() => groupActivities.id, { onDelete: "cascade" }),
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => ({
+  groupFeedIndex: index("group_feed_index").on(table.groupId, table.timestamp),
+  userFeedIndex: index("user_feed_index").on(table.userId),
+}));
+
 // Zod schemas for validation
 // Signup schema - essential fields only for initial registration with strong validation
 export const signupUserSchema = createInsertSchema(users).pick({
@@ -545,6 +561,13 @@ export type InsertActivityChangeProposal = z.infer<typeof insertActivityChangePr
 
 export type ActivityChangeLog = typeof activityChangeLogs.$inferSelect;
 export type InsertActivityChangeLog = z.infer<typeof insertActivityChangeLogSchema>;
+
+export const insertGroupActivityFeedSchema = createInsertSchema(groupActivityFeed).omit({
+  id: true,
+  timestamp: true,
+});
+export type GroupActivityFeedItem = typeof groupActivityFeed.$inferSelect;
+export type InsertGroupActivityFeedItem = z.infer<typeof insertGroupActivityFeedSchema>;
 
 export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
 export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
