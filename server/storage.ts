@@ -1813,30 +1813,20 @@ export class DatabaseStorage implements IStorage {
         g.updated_at as "updatedAt",
         gm.role,
         (SELECT COUNT(*) FROM group_memberships WHERE group_id = g.id)::int as "memberCount",
-        COALESCE(
-          (SELECT SUM(completed_count)::int
-           FROM (
-             SELECT COUNT(*) FILTER (WHERE t.status = 'completed') as completed_count
-             FROM group_activities ga
-             INNER JOIN activity_tasks at ON ga.activity_id = at.activity_id
-             INNER JOIN tasks t ON at.task_id = t.id
-             WHERE ga.group_id = g.id
-             GROUP BY ga.id
-           ) counts),
-          0
-        ) as "tasksCompleted",
-        COALESCE(
-          (SELECT SUM(total_count)::int
-           FROM (
-             SELECT COUNT(*) as total_count
-             FROM group_activities ga
-             INNER JOIN activity_tasks at ON ga.activity_id = at.activity_id
-             INNER JOIN tasks t ON at.task_id = t.id
-             WHERE ga.group_id = g.id
-             GROUP BY ga.id
-           ) counts),
-          0
-        ) as "tasksTotal"
+        COALESCE((
+          SELECT COUNT(*) FILTER (WHERE t.completed = true)
+          FROM group_activities ga
+          INNER JOIN activity_tasks at ON ga.activity_id = at.activity_id
+          INNER JOIN tasks t ON at.task_id = t.id
+          WHERE ga.group_id = g.id
+        ), 0)::int as "tasksCompleted",
+        COALESCE((
+          SELECT COUNT(*)
+          FROM group_activities ga
+          INNER JOIN activity_tasks at ON ga.activity_id = at.activity_id
+          INNER JOIN tasks t ON at.task_id = t.id
+          WHERE ga.group_id = g.id
+        ), 0)::int as "tasksTotal"
       FROM groups g
       INNER JOIN group_memberships gm ON g.id = gm.group_id
       WHERE gm.user_id = ${userId}
@@ -2097,7 +2087,7 @@ export class DatabaseStorage implements IStorage {
       LEFT JOIN LATERAL (
         SELECT 
           COUNT(*) as total_tasks,
-          COUNT(*) FILTER (WHERE t.status = 'completed') as completed_tasks
+          COUNT(*) FILTER (WHERE t.completed = true) as completed_tasks
         FROM activity_tasks at
         INNER JOIN tasks t ON at.task_id = t.id
         WHERE at.activity_id = ga.activity_id
