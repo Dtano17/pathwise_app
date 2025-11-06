@@ -60,15 +60,11 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
     setSelectedActivityId(null);
   };
 
-  const handleSkipActivity = async () => {
-    await createGroup(null);
-  };
-
   const handleCreateGroup = async () => {
     if (!selectedActivityId) {
       toast({
         title: "No activity selected",
-        description: "Please select an activity or click Skip.",
+        description: "Please select an activity to create the group.",
         variant: "destructive"
       });
       return;
@@ -76,7 +72,7 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
     await createGroup(selectedActivityId);
   };
 
-  const createGroup = async (activityId: string | null) => {
+  const createGroup = async (activityId: string) => {
     try {
       setIsCreating(true);
 
@@ -88,7 +84,7 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
           name: groupName.trim(),
           description: description.trim() || undefined,
           isPrivate,
-          activityId: activityId || undefined,
+          activityId: activityId,
         })
       });
 
@@ -254,9 +250,9 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
         {createStep === 'activity' && (
           <>
             <DialogHeader>
-              <DialogTitle>Link an Activity (Optional)</DialogTitle>
+              <DialogTitle>Link an Activity</DialogTitle>
               <DialogDescription>
-                Choose an activity to share with your group, or skip to create an empty group
+                Choose an activity to share with your group. The tasks will be the progress tracker based on completion.
               </DialogDescription>
             </DialogHeader>
 
@@ -315,23 +311,13 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
               <Button variant="outline" onClick={handleBack} data-testid="button-back-create">
                 Back
               </Button>
-              <div className="flex gap-2 flex-1 sm:flex-initial">
-                <Button
-                  variant="ghost"
-                  onClick={handleSkipActivity}
-                  disabled={isCreating}
-                  data-testid="button-skip-activity"
-                >
-                  Skip
-                </Button>
-                <Button
-                  onClick={handleCreateGroup}
-                  disabled={!selectedActivityId || isCreating}
-                  data-testid="button-submit-create"
-                >
-                  {isCreating ? "Creating..." : "Create Group"}
-                </Button>
-              </div>
+              <Button
+                onClick={handleCreateGroup}
+                disabled={!selectedActivityId || isCreating}
+                data-testid="button-submit-create"
+              >
+                {isCreating ? "Creating..." : "Create Group"}
+              </Button>
             </DialogFooter>
           </>
         )}
