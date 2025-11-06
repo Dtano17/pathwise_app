@@ -2489,291 +2489,36 @@ Assistant: For nutrition, I recommend..."
                     )}
                   </div>
 
-                  {/* Recent Group Activity - Coming in Phase 4 (WebSocket Real-Time Updates) */}
-
-                  {/* Browse Community Plans Section */}
-                  <div>
-                    <div className="text-center mb-8">
-                      <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500/10 to-emerald-500/10 px-4 sm:px-6 py-2 rounded-full mb-4">
-                        <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 dark:text-purple-400" />
-                        <span className="text-xs sm:text-sm font-semibold text-purple-600 dark:text-purple-400">Community Powered</span>
+                  {/* Recent Group Activity */}
+                  <div className="mb-8">
+                    <h3 className="text-xl font-semibold mb-4">Recent Group Activity</h3>
+                    <Card className="p-8">
+                      <div className="text-center text-muted-foreground">
+                        <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/40" />
+                        <p>No recent activity. Group activities will appear here when members complete tasks or make changes.</p>
                       </div>
-                      <h3 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
-                        Discover & Use Community Plans
-                      </h3>
-                      <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
+                    </Card>
+                  </div>
+
+                  {/* Community Powered CTA */}
+                  <Card className="p-6 bg-gradient-to-r from-purple-500/5 to-emerald-500/5 border-dashed">
+                    <div className="text-center mb-4">
+                      <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500/10 to-emerald-500/10 px-4 py-2 rounded-full mb-3">
+                        <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">Community Powered</span>
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">Discover & Use Community Plans</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
                         Browse plans created by others, get inspired, and use them for your own goals. Join thousands planning together!
                       </p>
+                      <Link href="/">
+                        <Button className="gap-2" data-testid="button-browse-community-plans">
+                          <Sparkles className="w-4 h-4" />
+                          Browse Community Plans
+                        </Button>
+                      </Link>
                     </div>
-
-                    {/* Category Tabs */}
-                    <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
-                      <Badge variant="default" className="cursor-pointer whitespace-nowrap shrink-0">
-                        🔥 Trending
-                      </Badge>
-                      <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate shrink-0">
-                        ✈️ Travel
-                      </Badge>
-                      <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate shrink-0">
-                        💪 Fitness
-                      </Badge>
-                      <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate shrink-0">
-                        🎯 Productivity
-                      </Badge>
-                      <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate shrink-0">
-                        🎉 Events
-                      </Badge>
-                      <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate shrink-0">
-                        💼 Career
-                      </Badge>
-                      <Badge variant="outline" className="cursor-pointer whitespace-nowrap hover-elevate shrink-0">
-                        🏠 Home
-                      </Badge>
-                    </div>
-
-                    {/* Community Plans Grid */}
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
-                      {/* Plan Card 1 */}
-                      <Card className="overflow-hidden hover-elevate group">
-                        <div className="h-32 bg-gradient-to-br from-blue-500 to-purple-600 relative">
-                          <div className="absolute inset-0 bg-black/20"></div>
-                          <div className="absolute top-3 right-3">
-                            <Badge className="bg-white/90 text-purple-700 hover:bg-white">
-                              <Heart className="w-3 h-3 mr-1" />
-                              2.4k
-                            </Badge>
-                          </div>
-                          <div className="absolute bottom-3 left-3 right-3">
-                            <h4 className="text-white font-bold text-lg">Weekend Trip to Paris</h4>
-                          </div>
-                        </div>
-                        <div className="p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                              S
-                            </div>
-                            <span className="text-sm text-muted-foreground">by Sarah Chen</span>
-                            <Badge variant="outline" className="ml-auto text-xs">Travel</Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Complete 3-day Paris itinerary with sights, dining, and Eiffel Tower visit
-                          </p>
-                          <div className="flex gap-2">
-                            <Button size="sm" className="flex-1" data-testid="button-use-plan-1">
-                              <Copy className="w-3 h-3 mr-1" />
-                              Use This Plan
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Eye className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      </Card>
-
-                      {/* Plan Card 2 */}
-                      <Card className="overflow-hidden hover-elevate group">
-                        <div className="h-32 bg-gradient-to-br from-emerald-500 to-teal-600 relative">
-                          <div className="absolute inset-0 bg-black/20"></div>
-                          <div className="absolute top-3 right-3">
-                            <Badge className="bg-white/90 text-teal-700 hover:bg-white">
-                              <Heart className="w-3 h-3 mr-1" />
-                              1.8k
-                            </Badge>
-                          </div>
-                          <div className="absolute bottom-3 left-3 right-3">
-                            <h4 className="text-white font-bold text-lg">30-Day Fitness Challenge</h4>
-                          </div>
-                        </div>
-                        <div className="p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                              M
-                            </div>
-                            <span className="text-sm text-muted-foreground">by Mike Johnson</span>
-                            <Badge variant="outline" className="ml-auto text-xs">Fitness</Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Daily workouts, meal prep, and progress tracking for complete transformation
-                          </p>
-                          <div className="flex gap-2">
-                            <Button size="sm" className="flex-1" data-testid="button-use-plan-2">
-                              <Copy className="w-3 h-3 mr-1" />
-                              Use This Plan
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Eye className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      </Card>
-
-                      {/* Plan Card 3 */}
-                      <Card className="overflow-hidden hover-elevate group">
-                        <div className="h-32 bg-gradient-to-br from-orange-500 to-pink-600 relative">
-                          <div className="absolute inset-0 bg-black/20"></div>
-                          <div className="absolute top-3 right-3">
-                            <Badge className="bg-white/90 text-orange-700 hover:bg-white">
-                              <Heart className="w-3 h-3 mr-1" />
-                              3.2k
-                            </Badge>
-                          </div>
-                          <div className="absolute bottom-3 left-3 right-3">
-                            <h4 className="text-white font-bold text-lg">Wedding Planning Checklist</h4>
-                          </div>
-                        </div>
-                        <div className="p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 bg-gradient-to-br from-orange-400 to-pink-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                              E
-                            </div>
-                            <span className="text-sm text-muted-foreground">by Emma Davis</span>
-                            <Badge variant="outline" className="ml-auto text-xs">Events</Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            12-month wedding plan with venue, vendors, guests, and timeline
-                          </p>
-                          <div className="flex gap-2">
-                            <Button size="sm" className="flex-1" data-testid="button-use-plan-3">
-                              <Copy className="w-3 h-3 mr-1" />
-                              Use This Plan
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Eye className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      </Card>
-
-                      {/* Plan Card 4 */}
-                      <Card className="overflow-hidden hover-elevate group">
-                        <div className="h-32 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
-                          <div className="absolute inset-0 bg-black/20"></div>
-                          <div className="absolute top-3 right-3">
-                            <Badge className="bg-white/90 text-indigo-700 hover:bg-white">
-                              <Heart className="w-3 h-3 mr-1" />
-                              1.5k
-                            </Badge>
-                          </div>
-                          <div className="absolute bottom-3 left-3 right-3">
-                            <h4 className="text-white font-bold text-lg">Career Switch to Tech</h4>
-                          </div>
-                        </div>
-                        <div className="p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                              A
-                            </div>
-                            <span className="text-sm text-muted-foreground">by Alex Kim</span>
-                            <Badge variant="outline" className="ml-auto text-xs">Career</Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            6-month plan: coding bootcamp, portfolio projects, and job applications
-                          </p>
-                          <div className="flex gap-2">
-                            <Button size="sm" className="flex-1" data-testid="button-use-plan-4">
-                              <Copy className="w-3 h-3 mr-1" />
-                              Use This Plan
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Eye className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      </Card>
-
-                      {/* Plan Card 5 */}
-                      <Card className="overflow-hidden hover-elevate group">
-                        <div className="h-32 bg-gradient-to-br from-rose-500 to-red-600 relative">
-                          <div className="absolute inset-0 bg-black/20"></div>
-                          <div className="absolute top-3 right-3">
-                            <Badge className="bg-white/90 text-rose-700 hover:bg-white">
-                              <Heart className="w-3 h-3 mr-1" />
-                              2.1k
-                            </Badge>
-                          </div>
-                          <div className="absolute bottom-3 left-3 right-3">
-                            <h4 className="text-white font-bold text-lg">Home Renovation Project</h4>
-                          </div>
-                        </div>
-                        <div className="p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 bg-gradient-to-br from-rose-400 to-red-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                              J
-                            </div>
-                            <span className="text-sm text-muted-foreground">by John Smith</span>
-                            <Badge variant="outline" className="ml-auto text-xs">Home</Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Complete kitchen remodel timeline with contractor coordination and budget
-                          </p>
-                          <div className="flex gap-2">
-                            <Button size="sm" className="flex-1" data-testid="button-use-plan-5">
-                              <Copy className="w-3 h-3 mr-1" />
-                              Use This Plan
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Eye className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      </Card>
-
-                      {/* Plan Card 6 */}
-                      <Card className="overflow-hidden hover-elevate group">
-                        <div className="h-32 bg-gradient-to-br from-amber-500 to-orange-600 relative">
-                          <div className="absolute inset-0 bg-black/20"></div>
-                          <div className="absolute top-3 right-3">
-                            <Badge className="bg-white/90 text-amber-700 hover:bg-white">
-                              <Heart className="w-3 h-3 mr-1" />
-                              1.2k
-                            </Badge>
-                          </div>
-                          <div className="absolute bottom-3 left-3 right-3">
-                            <h4 className="text-white font-bold text-lg">Learn Spanish in 90 Days</h4>
-                          </div>
-                        </div>
-                        <div className="p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                              L
-                            </div>
-                            <span className="text-sm text-muted-foreground">by Lisa Garcia</span>
-                            <Badge variant="outline" className="ml-auto text-xs">Learning</Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Daily practice schedule, vocabulary building, and conversation practice
-                          </p>
-                          <div className="flex gap-2">
-                            <Button size="sm" className="flex-1" data-testid="button-use-plan-6">
-                              <Copy className="w-3 h-3 mr-1" />
-                              Use This Plan
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Eye className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      </Card>
-                    </div>
-
-                    {/* Call to Action */}
-                    <div>
-                      <Card className="p-4 sm:p-6 bg-gradient-to-r from-purple-500/5 to-emerald-500/5 border-dashed">
-                        <div className="flex flex-col sm:flex-row items-center gap-4">
-                          <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-purple-500 to-emerald-500 rounded-full flex items-center justify-center">
-                            <Share2 className="w-6 h-6 text-white" />
-                          </div>
-                          <div className="text-center sm:text-left flex-1">
-                            <h4 className="font-semibold mb-1">Share Your Plan with the Community</h4>
-                            <p className="text-sm text-muted-foreground">Help others by sharing your successful plans and strategies</p>
-                          </div>
-                          <Button className="w-full sm:w-auto shrink-0" data-testid="button-share-my-plan">
-                            Share My Plan
-                          </Button>
-                        </div>
-                      </Card>
-                    </div>
-                  </div>
+                  </Card>
                 </div>
               </SignInGate>
             </TabsContent>
