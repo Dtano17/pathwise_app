@@ -2207,13 +2207,14 @@ export class DatabaseStorage implements IStorage {
       ? userResult[0].username || `${userResult[0].first_name || ''} ${userResult[0].last_name || ''}`.trim() || 'Someone'
       : 'Someone';
 
-    // Insert into groupActivityFeed
+    // Insert into groupActivityFeed with correct field names
     await db.insert(groupActivityFeed).values({
       groupId,
       userId: change.userId,
-      actionType: change.changeType as 'task_completed' | 'task_added' | 'activity_shared' | 'member_joined' | 'member_left',
-      targetName: change.changeDescription,
+      userName,
+      activityType: change.changeType, // 'task_completed' | 'task_added' | etc.
       activityTitle,
+      taskTitle: change.changeDescription, // The task name
       groupActivityId: change.groupActivityId,
     });
   }

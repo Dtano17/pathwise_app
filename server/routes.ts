@@ -2416,18 +2416,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all user's groups
       const groups = await storage.getUserGroups(userId);
       
-      // Get activity change logs for all groups
+      // Get activity feed for all groups
       const allActivities = [];
       
       for (const group of groups) {
         try {
-          const logs = await storage.getGroupActivityChangeLogs(group.id);
-          // Add group name to each log
-          const logsWithGroup = logs.map((log: any) => ({
-            ...log,
+          const feedItems = await storage.getGroupActivityFeed(group.id, 20);
+          // Add group name to each feed item
+          const itemsWithGroup = feedItems.map((item: any) => ({
+            ...item,
             groupName: group.name,
           }));
-          allActivities.push(...logsWithGroup);
+          allActivities.push(...itemsWithGroup);
         } catch (err) {
           console.error(`Error fetching activity for group ${group.id}:`, err);
         }
