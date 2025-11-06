@@ -89,18 +89,16 @@ export default function GroupGoalsPage() {
   });
 
   // Fetch user activities (only when dialog is open)
-  const { data: userActivitiesData } = useQuery<{ activities: Activity[] }>({
+  const { data: userActivities = [] } = useQuery<Activity[]>({
     queryKey: ["/api/activities"],
     enabled: createDialogOpen && createStep === 'activity',
   });
-  const userActivities = userActivitiesData?.activities || [];
 
   // Fetch user activities for share dialog
-  const { data: shareActivitiesData } = useQuery<{ activities: Activity[] }>({
+  const { data: shareActivities = [] } = useQuery<Activity[]>({
     queryKey: ["/api/activities"],
     enabled: shareDialogOpen,
   });
-  const shareActivities = shareActivitiesData?.activities || [];
 
   // Create group mutation
   const createGroupMutation = useMutation({
