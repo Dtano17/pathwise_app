@@ -37,8 +37,11 @@ interface GroupActivity {
   activityId: string;
   title: string;
   description: string | null;
+  category: string;
   sharedAt: string;
   sharedBy: string;
+  totalTasks: number;
+  completedTasks: number;
 }
 
 interface GroupDetails {
@@ -344,20 +347,53 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
                   <p className="text-sm">Share activities to plan together with your group</p>
                 </div>
               ) : (
-                activities.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                  >
-                    <h4 className="font-medium">{activity.title}</h4>
-                    {activity.description && (
-                      <p className="text-sm text-muted-foreground mt-1">{activity.description}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Shared {activity.sharedAt ? format(new Date(activity.sharedAt), 'MMM d, yyyy') : 'Recently'}
-                    </p>
-                  </div>
-                ))
+                activities.map((activity) => {
+                  const progressPercentage = activity.totalTasks > 0 
+                    ? Math.round((activity.completedTasks / activity.totalTasks) * 100) 
+                    : 0;
+                  
+                  return (
+                    <div
+                      key={activity.id}
+                      className="p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium truncate">{activity.title}</h4>
+                          {activity.description && (
+                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{activity.description}</p>
+                          )}
+                        </div>
+                        {activity.category && (
+                          <Badge variant="secondary" className="shrink-0 text-xs">
+                            {activity.category}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="space-y-2 mt-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Progress</span>
+                          <span className="font-medium">
+                            {activity.completedTasks}/{activity.totalTasks} tasks
+                          </span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div 
+                            className="bg-primary h-2 rounded-full transition-all duration-300" 
+                            style={{ width: `${progressPercentage}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
+                        <span>Shared by {activity.sharedBy || 'Unknown'}</span>
+                        <span>{activity.sharedAt ? format(new Date(activity.sharedAt), 'MMM d, yyyy') : 'Recently'}</span>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </TabsContent>
 
