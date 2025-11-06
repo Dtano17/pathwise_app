@@ -102,6 +102,11 @@ export default function CommunityPlansPage() {
   const [selectedPlan, setSelectedPlan] = useState<{ id: string; shareToken: string | null; title: string } | null>(null);
   const [adoptTarget, setAdoptTarget] = useState<"personal" | "group">("personal");
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+  const [duplicateConfirmation, setDuplicateConfirmation] = useState<{
+    show: boolean;
+    message: string;
+    forGroup: boolean;
+  } | null>(null);
   const { toast } = useToast();
 
   // Fetch user's groups
@@ -145,10 +150,30 @@ export default function CommunityPlansPage() {
 
   // Copy plan to personal mutation
   const copyPlanMutation = useMutation({
-    mutationFn: async ({ activityId, shareToken, title }: { activityId: string; shareToken: string; title: string }) => {
+    mutationFn: async ({ activityId, shareToken, title, forceUpdate }: { activityId: string; shareToken: string; title: string; forceUpdate?: boolean }) => {
       // Copy the activity using the share token
-      const response = await apiRequest("POST", `/api/activities/copy/${shareToken}`);
+      const response = await fetch(`/api/activities/copy/${shareToken}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ forceUpdate }),
+        credentials: "include",
+      });
+      
       const data = await response.json();
+      
+      // Handle 409 conflict - user already has this plan
+      if (response.status === 409 && data.requiresConfirmation) {
+        throw {
+          status: 409,
+          requiresConfirmation: true,
+          message: data.message,
+          existingActivity: data.existingActivity,
+        };
+      }
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to copy activity");
+      }
       
       // Increment views after successful copy (non-critical, so catch errors)
       try {
@@ -171,6 +196,16 @@ export default function CommunityPlansPage() {
       setAdoptDialogOpen(false);
     },
     onError: (error: any) => {
+      // Handle 409 conflict specially - show confirmation dialog
+      if (error.status === 409 && error.requiresConfirmation) {
+        setDuplicateConfirmation({
+          show: true,
+          message: error.message || "You already have this plan. Update it with the latest version?",
+          forGroup: false,
+        });
+        return;
+      }
+      
       toast({
         title: "Failed to adopt plan",
         description: error.message || "Please try again",
@@ -181,10 +216,31 @@ export default function CommunityPlansPage() {
 
   // Share plan to group mutation
   const sharePlanToGroupMutation = useMutation({
-    mutationFn: async ({ activityId, shareToken, groupId }: { activityId: string; shareToken: string; groupId: string }) => {
+    mutationFn: async ({ activityId, shareToken, groupId, forceUpdate }: { activityId: string; shareToken: string; groupId: string; forceUpdate?: boolean }) => {
       // First copy the activity to user's personal activities
-      const copyResponse = await apiRequest("POST", `/api/activities/copy/${shareToken}`);
+      const copyResponse = await fetch(`/api/activities/copy/${shareToken}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ forceUpdate }),
+        credentials: "include",
+      });
+      
       const copyData = await copyResponse.json();
+      
+      // Handle 409 conflict for copy
+      if (copyResponse.status === 409 && copyData.requiresConfirmation) {
+        // If user hasn't confirmed yet, throw to show confirmation
+        if (!forceUpdate) {
+          throw {
+            status: 409,
+            requiresConfirmation: true,
+            message: copyData.message,
+            existingActivity: copyData.existingActivity,
+            needsCopyConfirmation: true,
+          };
+        }
+      }
+      
       const copiedActivityId = copyData.activity?.id;
       
       if (!copiedActivityId) {
@@ -192,10 +248,26 @@ export default function CommunityPlansPage() {
       }
       
       // Then share it to the group
-      const shareResponse = await apiRequest("POST", `/api/groups/${groupId}/activities`, {
-        activityId: copiedActivityId,
+      const shareResponse = await fetch(`/api/groups/${groupId}/activities`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activityId: copiedActivityId }),
+        credentials: "include",
       });
+      
       const shareData = await shareResponse.json();
+      
+      // Handle "already shared" case with friendly message
+      if (!shareResponse.ok) {
+        if (shareData.error?.includes('already shared')) {
+          throw {
+            status: 400,
+            alreadyShared: true,
+            message: "This plan is already in the group",
+          };
+        }
+        throw new Error(shareData.error || "Failed to share to group");
+      }
       
       // Increment views
       try {
@@ -216,6 +288,26 @@ export default function CommunityPlansPage() {
       setAdoptDialogOpen(false);
     },
     onError: (error: any) => {
+      // Handle "already shared" case with info message (not error)
+      if (error.alreadyShared) {
+        toast({
+          title: "Already in group",
+          description: "This plan is already shared with the group",
+        });
+        setAdoptDialogOpen(false);
+        return;
+      }
+      
+      // Handle 409 conflict for copy confirmation
+      if (error.status === 409 && error.requiresConfirmation) {
+        setDuplicateConfirmation({
+          show: true,
+          message: error.message || "You already have this plan. Update it with the latest version?",
+          forGroup: true,
+        });
+        return;
+      }
+      
       toast({
         title: "Failed to share plan to group",
         description: error.message || "Please try again",
@@ -267,20 +359,27 @@ export default function CommunityPlansPage() {
     setAdoptDialogOpen(true);
   };
 
-  const handleAdoptPlan = () => {
+  const handleAdoptPlan = (forceUpdate = false) => {
     if (!selectedPlan) return;
+
+    // Clear any previous confirmation state
+    if (!forceUpdate) {
+      setDuplicateConfirmation(null);
+    }
 
     if (adoptTarget === "personal") {
       copyPlanMutation.mutate({
         activityId: selectedPlan.id,
         shareToken: selectedPlan.shareToken!,
         title: selectedPlan.title,
+        forceUpdate,
       });
     } else if (adoptTarget === "group" && selectedGroupId) {
       sharePlanToGroupMutation.mutate({
         activityId: selectedPlan.id,
         shareToken: selectedPlan.shareToken!,
         groupId: selectedGroupId,
+        forceUpdate,
       });
     } else {
       toast({
@@ -289,6 +388,11 @@ export default function CommunityPlansPage() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleConfirmUpdate = () => {
+    setDuplicateConfirmation(null);
+    handleAdoptPlan(true);
   };
 
   const getInitials = (name: string) => {
@@ -594,6 +698,39 @@ export default function CommunityPlansPage() {
               data-testid="button-confirm-adopt"
             >
               {(copyPlanMutation.isPending || sharePlanToGroupMutation.isPending) ? "Processing..." : "Use Plan"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate plan confirmation dialog */}
+      <Dialog open={duplicateConfirmation?.show || false} onOpenChange={(open) => !open && setDuplicateConfirmation(null)}>
+        <DialogContent data-testid="dialog-duplicate-confirmation">
+          <DialogHeader>
+            <DialogTitle>Plan Already Exists</DialogTitle>
+            <DialogDescription>
+              {duplicateConfirmation?.message}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setDuplicateConfirmation(null);
+                setAdoptDialogOpen(false);
+              }} 
+              className="flex-1"
+              data-testid="button-cancel-update"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmUpdate}
+              disabled={copyPlanMutation.isPending || sharePlanToGroupMutation.isPending}
+              className="flex-1"
+              data-testid="button-confirm-update"
+            >
+              {(copyPlanMutation.isPending || sharePlanToGroupMutation.isPending) ? "Updating..." : "Update Plan"}
             </Button>
           </div>
         </DialogContent>
