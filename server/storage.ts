@@ -2061,7 +2061,7 @@ export class DatabaseStorage implements IStorage {
 
   // Get group activities
   async getGroupActivities(groupId: string): Promise<any[]> {
-    // Use raw SQL to avoid Drizzle ORM circular reference bug
+    // Use raw SQL to avoid Drizzle ORM circular reference bug and get task counts
     const groupActivitiesData = await sqlClient`
       SELECT 
         ga.id,
@@ -2070,12 +2070,26 @@ export class DatabaseStorage implements IStorage {
         ga.canonical_version as "canonicalVersion",
         ga.is_public as "isPublic",
         ga.created_at as "createdAt",
-        a.title as "activityTitle",
-        a.description as "activityDescription",
-        a.category as "activityCategory",
-        a.status as "status"
+        ga.created_at as "sharedAt",
+        a.title,
+        a.description,
+        a.category,
+        a.status,
+        a.user_id as "sharedById",
+        u.username as "sharedBy",
+        COALESCE(task_counts.total_tasks, 0) as "totalTasks",
+        COALESCE(task_counts.completed_tasks, 0) as "completedTasks"
       FROM group_activities ga
       INNER JOIN activities a ON ga.activity_id = a.id
+      LEFT JOIN users u ON a.user_id = u.id
+      LEFT JOIN LATERAL (
+        SELECT 
+          COUNT(*) as total_tasks,
+          COUNT(*) FILTER (WHERE t.status = 'completed') as completed_tasks
+        FROM activity_tasks at
+        INNER JOIN tasks t ON at.task_id = t.id
+        WHERE at.activity_id = ga.activity_id
+      ) task_counts ON true
       WHERE ga.group_id = ${groupId}
       ORDER BY ga.created_at DESC
     `;
