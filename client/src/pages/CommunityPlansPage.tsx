@@ -692,7 +692,7 @@ export default function CommunityPlansPage() {
               Cancel
             </Button>
             <Button
-              onClick={handleAdoptPlan}
+              onClick={() => handleAdoptPlan(false)}
               disabled={copyPlanMutation.isPending || sharePlanToGroupMutation.isPending || (adoptTarget === "group" && !selectedGroupId)}
               className="flex-1"
               data-testid="button-confirm-adopt"

@@ -83,14 +83,27 @@ export default function JoinGroupDialog({ open, onOpenChange, onGroupJoined }: J
 
     } catch (error: any) {
       console.error('Join group error:', error);
+      
+      // Extract error message from the response
+      // Error format: "404: {\"error\":\"message\"}"
+      let errorMessage = error.message || '';
+      try {
+        const jsonMatch = errorMessage.match(/\{.*\}/);
+        if (jsonMatch) {
+          const errorData = JSON.parse(jsonMatch[0]);
+          errorMessage = errorData.error || errorMessage;
+        }
+      } catch (e) {
+        // If JSON parsing fails, use the original message
+      }
 
-      if (error.message?.includes('already a member')) {
+      if (errorMessage.toLowerCase().includes('already a member')) {
         toast({
           title: "Already a member",
           description: "You're already part of this group.",
           variant: "destructive"
         });
-      } else if (error.message?.includes('Invalid invite code')) {
+      } else if (errorMessage.toLowerCase().includes('invalid invite code') || errorMessage.includes('404')) {
         toast({
           title: "Invalid invite code",
           description: "This invite code doesn't exist or has expired.",
@@ -99,7 +112,7 @@ export default function JoinGroupDialog({ open, onOpenChange, onGroupJoined }: J
       } else {
         toast({
           title: "Failed to join group",
-          description: "Please check the invite code and try again.",
+          description: errorMessage || "Please check the invite code and try again.",
           variant: "destructive"
         });
       }
