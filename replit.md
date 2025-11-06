@@ -54,7 +54,13 @@ The application employs a mobile-first responsive design featuring a clean, card
 - **Personal Journal**: Interface with 9 categories, auto-save, and backend persistence. Includes a "Journal Mode" for smart capture of text and media (photos/videos), with AI-driven categorization and enrichment.
 - **Social Sharing & Activity Management**: Customizable share previews, NYC-themed backdrops, custom images, and an AI-powered "Privacy Shield" for PII/PHI redaction. Includes automatic activity copying for visitors, duplicate detection with an update system, and activity history/archiving.
 - **Community Plans Discovery**: Users can browse and copy plans from others, featuring trending algorithms, category filters, and one-click "Use This Plan" functionality.
-- **Groups & Collaborative Planning**: Basic group creation and viewing. Future features include contributor change proposals, admin approval queues, real-time change logs, and personal vs. canonical versions with conflict resolution.
+- **Groups & Collaborative Planning**: Comprehensive group features including:
+  - Group creation, viewing, and member management
+  - Progress tracking showing tasks completed/total across all group activities
+  - Activity feed displaying member actions (task completions, additions, shares)
+  - Ability to share both community plans and personal activities to groups
+  - User-friendly error handling with confirmation dialogs
+  - Future features: contributor change proposals, admin approval queues, real-time change logs, and personal vs. canonical versions with conflict resolution.
 - **Authentication & User Management**: Unified authentication, functional profile management (Priorities & Settings), and access control.
 - **UI/UX**: Mobile-first, responsive, dark/light theme toggle, adaptive layouts, and accessibility.
 - **SEO**: About tab optimized with relevant keywords.
