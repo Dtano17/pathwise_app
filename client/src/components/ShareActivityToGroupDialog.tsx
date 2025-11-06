@@ -49,11 +49,12 @@ export default function ShareActivityToGroupDialog({
       const response = await apiRequest('GET', '/api/groups');
       const data = await response.json();
 
-      setGroups(data || []);
+      const groupsList = data.groups || [];
+      setGroups(groupsList);
 
       // Auto-select first group if only one exists
-      if (data.length === 1) {
-        setSelectedGroupId(data[0].id);
+      if (groupsList.length === 1) {
+        setSelectedGroupId(groupsList[0].id);
       }
     } catch (error) {
       console.error('Load groups error:', error);

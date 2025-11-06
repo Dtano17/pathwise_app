@@ -15,63 +15,6 @@ import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "wouter";
 
-// Component to display individual group card with progress
-function GroupCard({ group }: { group: Group }) {
-  const { data: progressData } = useQuery<{ progress: GroupProgress[] }>({
-    queryKey: ["/api/groups", group.id, "progress"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/groups/${group.id}/progress`);
-      return response.json();
-    },
-  });
-
-  const totalTasks = progressData?.progress.reduce((sum, p) => sum + p.totalTasks, 0) || 0;
-  const completedTasks = progressData?.progress.reduce((sum, p) => sum + p.completedTasks, 0) || 0;
-  const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-  return (
-    <Card className="hover-elevate cursor-pointer" data-testid={`card-group-${group.id}`}>
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-lg flex items-center gap-2">
-              {group.name}
-              <Badge variant="secondary" className="text-xs">
-                {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}
-              </Badge>
-            </CardTitle>
-            {group.description && (
-              <CardDescription className="mt-1 line-clamp-2">
-                {group.description}
-              </CardDescription>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {totalTasks > 0 ? (
-          <>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progress</span>
-              <span className="font-medium">
-                {completedTasks}/{totalTasks} tasks completed
-              </span>
-            </div>
-            <Progress value={progressPercent} className="h-2" />
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No shared activities yet. Share an activity to start tracking progress!
-          </p>
-        )}
-        <Button className="w-full" variant="secondary" size="sm" data-testid={`button-view-group-${group.id}`}>
-          View Group
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
 interface Group {
   id: string;
   name: string;
@@ -122,9 +65,10 @@ export default function GroupGoalsPage() {
   const [inviteCode, setInviteCode] = useState("");
 
   // Fetch user's groups
-  const { data: groups, isLoading: groupsLoading } = useQuery<Group[]>({
+  const { data: groupsData, isLoading: groupsLoading } = useQuery<{ groups: Group[] }>({
     queryKey: ["/api/groups"],
   });
+  const groups = groupsData?.groups || [];
 
   // Fetch recent group activity
   const { data: activities, isLoading: activitiesLoading } = useQuery<GroupActivity[]>({
@@ -317,9 +261,53 @@ export default function GroupGoalsPage() {
           </div>
         ) : groups && groups.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-3">
-            {groups.map((group) => (
-              <GroupCard key={group.id} group={group} />
-            ))}
+            {groups.map((group) => {
+              const progress = group.tasksTotal && group.tasksTotal > 0
+                ? Math.round((group.tasksCompleted || 0) / group.tasksTotal * 100)
+                : 0;
+
+              return (
+                <Card key={group.id} className="hover-elevate cursor-pointer" data-testid={`card-group-${group.id}`}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          {group.name}
+                          <Badge variant="secondary" className="text-xs">
+                            {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}
+                          </Badge>
+                        </CardTitle>
+                        {group.description && (
+                          <CardDescription className="mt-1 line-clamp-2">
+                            {group.description}
+                          </CardDescription>
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {group.tasksTotal && group.tasksTotal > 0 ? (
+                      <>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Progress</span>
+                          <span className="font-medium">
+                            {group.tasksCompleted || 0}/{group.tasksTotal} tasks completed
+                          </span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No shared activities yet. Share an activity to start tracking progress!
+                      </p>
+                    )}
+                    <Button className="w-full" variant="secondary" size="sm" data-testid={`button-view-group-${group.id}`}>
+                      View Group
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         ) : (
           <Card>
