@@ -1813,18 +1813,30 @@ export class DatabaseStorage implements IStorage {
         g.updated_at as "updatedAt",
         gm.role,
         (SELECT COUNT(*) FROM group_memberships WHERE group_id = g.id)::int as "memberCount",
-        (
-          SELECT COALESCE(SUM(
-            (SELECT COUNT(*)::int FROM tasks WHERE activity_id = ga.activity_id AND completed = true)
-          ), 0)
-          FROM group_activities ga WHERE ga.group_id = g.id
-        )::int as "tasksCompleted",
-        (
-          SELECT COALESCE(SUM(
-            (SELECT COUNT(*)::int FROM tasks WHERE activity_id = ga.activity_id)
-          ), 0)
-          FROM group_activities ga WHERE ga.group_id = g.id
-        )::int as "tasksTotal"
+        COALESCE(
+          (SELECT SUM(completed_count)::int
+           FROM (
+             SELECT COUNT(*) FILTER (WHERE t.status = 'completed') as completed_count
+             FROM group_activities ga
+             INNER JOIN activity_tasks at ON ga.activity_id = at.activity_id
+             INNER JOIN tasks t ON at.task_id = t.id
+             WHERE ga.group_id = g.id
+             GROUP BY ga.id
+           ) counts),
+          0
+        ) as "tasksCompleted",
+        COALESCE(
+          (SELECT SUM(total_count)::int
+           FROM (
+             SELECT COUNT(*) as total_count
+             FROM group_activities ga
+             INNER JOIN activity_tasks at ON ga.activity_id = at.activity_id
+             INNER JOIN tasks t ON at.task_id = t.id
+             WHERE ga.group_id = g.id
+             GROUP BY ga.id
+           ) counts),
+          0
+        ) as "tasksTotal"
       FROM groups g
       INNER JOIN group_memberships gm ON g.id = gm.group_id
       WHERE gm.user_id = ${userId}
