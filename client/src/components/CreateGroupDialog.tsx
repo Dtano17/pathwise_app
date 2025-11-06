@@ -5,9 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Users, Loader2, Copy, Check, Lock, Globe } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Users, Loader2, Copy, Check, Lock, Globe, Target, Calendar, MapPin, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
+import { useQuery } from '@tanstack/react-query';
+import type { Activity } from '@shared/schema';
 
 interface CreateGroupDialogProps {
   open: boolean;
@@ -17,14 +22,36 @@ interface CreateGroupDialogProps {
 
 export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }: CreateGroupDialogProps) {
   const { toast } = useToast();
+  
+  // Step state: 'details' -> 'activity' -> 'success'
+  const [createStep, setCreateStep] = useState<'details' | 'activity' | 'success'>('details');
+  
+  // Form state
   const [groupName, setGroupName] = useState('');
   const [description, setDescription] = useState('');
   const [isPrivate, setIsPrivate] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [createdGroup, setCreatedGroup] = useState<{ name: string; inviteCode: string } | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
+  
+  // Activity selection state
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  const [activityTab, setActivityTab] = useState<'personal' | 'community'>('personal');
 
-  const handleCreate = async () => {
+  // Fetch personal activities
+  const { data: personalActivitiesData } = useQuery<{ activities: Activity[] }>({
+    queryKey: ['/api/activities'],
+    enabled: open && createStep === 'activity',
+  });
+  const personalActivities = personalActivitiesData?.activities || [];
+
+  // Fetch community plans
+  const { data: communityPlans = [] } = useQuery<Activity[]>({
+    queryKey: ['/api/community-plans'],
+    enabled: open && createStep === 'activity',
+  });
+
+  const handleNext = () => {
     if (!groupName.trim()) {
       toast({
         title: "Name required",
@@ -33,7 +60,31 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
       });
       return;
     }
+    setCreateStep('activity');
+  };
 
+  const handleBack = () => {
+    setCreateStep('details');
+    setSelectedActivityId(null);
+  };
+
+  const handleSkipActivity = async () => {
+    await createGroup(null);
+  };
+
+  const handleCreateGroup = async () => {
+    if (!selectedActivityId) {
+      toast({
+        title: "No activity selected",
+        description: "Please select an activity or click Skip.",
+        variant: "destructive"
+      });
+      return;
+    }
+    await createGroup(selectedActivityId);
+  };
+
+  const createGroup = async (activityId: string | null) => {
     try {
       setIsCreating(true);
 
@@ -44,15 +95,14 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
         body: JSON.stringify({
           name: groupName.trim(),
           description: description.trim() || undefined,
-          isPrivate
+          isPrivate,
+          activityId: activityId || undefined,
         })
       });
 
       const data = await response.json();
 
-      // Check if response is an error
       if (!response.ok) {
-        // Handle subscription tier errors
         if (response.status === 403 && data.message) {
           toast({
             title: "Subscription Required",
@@ -73,6 +123,8 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
         name: data.group.name,
         inviteCode: data.group.inviteCode
       });
+
+      setCreateStep('success');
 
       toast({
         title: "Group created!",
@@ -108,19 +160,31 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
   };
 
   const handleClose = () => {
-    // Reset form
+    // Reset all state
     setGroupName('');
     setDescription('');
     setIsPrivate(true);
     setCreatedGroup(null);
     setCodeCopied(false);
+    setCreateStep('details');
+    setSelectedActivityId(null);
+    setActivityTab('personal');
     onOpenChange(false);
+  };
+
+  const getActivityIcon = (category?: string) => {
+    switch (category) {
+      case 'Travel': return <MapPin className="w-4 h-4" />;
+      case 'Events': return <Calendar className="w-4 h-4" />;
+      case 'Goals': return <Target className="w-4 h-4" />;
+      default: return <TrendingUp className="w-4 h-4" />;
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
-        {!createdGroup ? (
+      <DialogContent className="max-w-2xl max-h-[90vh]" data-testid="dialog-create-group">
+        {createStep === 'details' && (
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -133,32 +197,31 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
             </DialogHeader>
 
             <div className="space-y-4 py-4">
-              {/* Group Name */}
               <div className="space-y-2">
-                <Label htmlFor="groupName">Group Name *</Label>
+                <Label htmlFor="group-name">Group Name *</Label>
                 <Input
-                  id="groupName"
+                  id="group-name"
                   placeholder="e.g., Girls Trip to Miami"
                   value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
                   maxLength={100}
+                  data-testid="input-group-name"
                 />
               </div>
 
-              {/* Description */}
               <div className="space-y-2">
-                <Label htmlFor="description">Description (optional)</Label>
+                <Label htmlFor="group-description">Description (optional)</Label>
                 <Textarea
-                  id="description"
+                  id="group-description"
                   placeholder="What's this group about?"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
                   maxLength={500}
+                  data-testid="input-group-description"
                 />
               </div>
 
-              {/* Privacy Toggle */}
               <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
@@ -167,7 +230,7 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
                     ) : (
                       <Globe className="w-4 h-4 text-muted-foreground" />
                     )}
-                    <Label htmlFor="privacy" className="text-sm font-medium cursor-pointer">
+                    <Label htmlFor="privacy-toggle" className="text-sm font-medium cursor-pointer">
                       {isPrivate ? 'Private Group' : 'Public Group'}
                     </Label>
                   </div>
@@ -178,33 +241,180 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
                   </p>
                 </div>
                 <Switch
-                  id="privacy"
+                  id="privacy-toggle"
                   checked={isPrivate}
                   onCheckedChange={setIsPrivate}
+                  data-testid="switch-group-privacy"
                 />
               </div>
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={handleClose} disabled={isCreating}>
+              <Button variant="outline" onClick={handleClose} data-testid="button-cancel-create">
                 Cancel
               </Button>
-              <Button onClick={handleCreate} disabled={isCreating || !groupName.trim()}>
-                {isCreating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Users className="w-4 h-4 mr-2" />
-                    Create Group
-                  </>
-                )}
+              <Button onClick={handleNext} disabled={!groupName.trim()} data-testid="button-next-create">
+                Next: Add Activity
               </Button>
             </DialogFooter>
           </>
-        ) : (
+        )}
+
+        {createStep === 'activity' && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Link an Activity (Optional)</DialogTitle>
+              <DialogDescription>
+                Choose an activity to share with your group, or skip to create an empty group
+              </DialogDescription>
+            </DialogHeader>
+
+            <Tabs value={activityTab} onValueChange={(v) => setActivityTab(v as 'personal' | 'community')} className="flex-1">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="personal" data-testid="tab-personal-activities">
+                  My Activities
+                </TabsTrigger>
+                <TabsTrigger value="community" data-testid="tab-community-plans">
+                  Community Plans
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="personal" className="mt-4">
+                <ScrollArea className="h-[300px] pr-4">
+                  {personalActivities && personalActivities.length > 0 ? (
+                    <div className="space-y-2">
+                      {personalActivities.map((activity) => (
+                        <Card
+                          key={activity.id}
+                          className={`cursor-pointer transition-all ${
+                            selectedActivityId === activity.id
+                              ? 'ring-2 ring-primary'
+                              : 'hover-elevate'
+                          }`}
+                          onClick={() => setSelectedActivityId(activity.id)}
+                          data-testid={`card-activity-${activity.id}`}
+                        >
+                          <CardHeader className="p-4">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-start gap-3 flex-1 min-w-0">
+                                <div className="p-2 rounded-lg bg-primary/10 text-primary flex-shrink-0">
+                                  {getActivityIcon(activity.category)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <CardTitle className="text-sm truncate">{activity.title}</CardTitle>
+                                  {activity.description && (
+                                    <CardDescription className="text-xs line-clamp-2 mt-1">
+                                      {activity.description}
+                                    </CardDescription>
+                                  )}
+                                </div>
+                              </div>
+                              {selectedActivityId === activity.id && (
+                                <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              {activity.category && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {activity.category}
+                                </Badge>
+                              )}
+                            </div>
+                          </CardHeader>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No personal activities yet. Create one from the Activities tab!</p>
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="community" className="mt-4">
+                <ScrollArea className="h-[300px] pr-4">
+                  {communityPlans && communityPlans.length > 0 ? (
+                    <div className="space-y-2">
+                      {communityPlans.map((plan) => (
+                        <Card
+                          key={plan.id}
+                          className={`cursor-pointer transition-all ${
+                            selectedActivityId === plan.id
+                              ? 'ring-2 ring-primary'
+                              : 'hover-elevate'
+                          }`}
+                          onClick={() => setSelectedActivityId(plan.id)}
+                          data-testid={`card-plan-${plan.id}`}
+                        >
+                          <CardHeader className="p-4">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-start gap-3 flex-1 min-w-0">
+                                <div className="p-2 rounded-lg bg-primary/10 text-primary flex-shrink-0">
+                                  {getActivityIcon(plan.category)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <CardTitle className="text-sm truncate">{plan.title}</CardTitle>
+                                  {plan.description && (
+                                    <CardDescription className="text-xs line-clamp-2 mt-1">
+                                      {plan.description}
+                                    </CardDescription>
+                                  )}
+                                </div>
+                              </div>
+                              {selectedActivityId === plan.id && (
+                                <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              {plan.category && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {plan.category}
+                                </Badge>
+                              )}
+                              <span className="text-xs text-muted-foreground">
+                                by {plan.creatorName || 'Unknown'}
+                              </span>
+                            </div>
+                          </CardHeader>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No community plans available.</p>
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+            </Tabs>
+
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={handleBack} data-testid="button-back-create">
+                Back
+              </Button>
+              <div className="flex gap-2 flex-1 sm:flex-initial">
+                <Button
+                  variant="ghost"
+                  onClick={handleSkipActivity}
+                  disabled={isCreating}
+                  data-testid="button-skip-activity"
+                >
+                  Skip
+                </Button>
+                <Button
+                  onClick={handleCreateGroup}
+                  disabled={!selectedActivityId || isCreating}
+                  data-testid="button-submit-create"
+                >
+                  {isCreating ? "Creating..." : "Create Group"}
+                </Button>
+              </div>
+            </DialogFooter>
+          </>
+        )}
+
+        {createStep === 'success' && createdGroup && (
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -217,7 +427,6 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
             </DialogHeader>
 
             <div className="space-y-4 py-4">
-              {/* Invite Code Display */}
               <div className="space-y-2">
                 <Label>Invite Code</Label>
                 <div className="flex gap-2">
@@ -231,6 +440,7 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
                     size="icon"
                     onClick={handleCopyCode}
                     className="h-auto"
+                    data-testid="button-copy-code"
                   >
                     {codeCopied ? (
                       <Check className="w-4 h-4 text-green-500" />
@@ -244,7 +454,6 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
                 </p>
               </div>
 
-              {/* Quick Actions */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                 <p className="text-sm font-medium">Next Steps:</p>
                 <ul className="text-xs text-muted-foreground space-y-1">
@@ -256,7 +465,7 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
             </div>
 
             <DialogFooter>
-              <Button onClick={handleClose} className="w-full">
+              <Button onClick={handleClose} className="w-full" data-testid="button-done">
                 Done
               </Button>
             </DialogFooter>
