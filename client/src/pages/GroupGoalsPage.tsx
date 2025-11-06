@@ -427,20 +427,35 @@ export default function GroupGoalsPage() {
               return (
                 <Card key={group.id} className="hover-elevate cursor-pointer" data-testid={`card-group-${group.id}`}>
                   <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          {group.name}
-                          <Badge variant="secondary" className="text-xs">
-                            {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <CardTitle className="text-lg">{group.name}</CardTitle>
+                          <Badge 
+                            variant={group.role === 'admin' ? 'default' : 'secondary'} 
+                            className="text-xs"
+                          >
+                            {group.role === 'admin' ? 'Admin' : 'Member'}
                           </Badge>
-                        </CardTitle>
+                        </div>
                         {group.description && (
                           <CardDescription className="mt-1 line-clamp-2">
                             {group.description}
                           </CardDescription>
                         )}
                       </div>
+                    </div>
+                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
+                      <div className="flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        <span>{group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}</span>
+                      </div>
+                      {group.isPrivate && (
+                        <Badge variant="outline" className="text-xs">
+                          Private
+                        </Badge>
+                      )}
+                      <span>Created {formatDistanceToNow(new Date(group.createdAt), { addSuffix: true })}</span>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
