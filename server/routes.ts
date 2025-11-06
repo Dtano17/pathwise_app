@@ -1864,6 +1864,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Task not found' });
       }
 
+      // Check if this task belongs to a group activity and log completion
+      try {
+        const groupActivity = await storage.getGroupActivityByTaskId(taskId);
+        if (groupActivity) {
+          await storage.logActivityChange({
+            groupActivityId: groupActivity.id,
+            userId,
+            changeType: 'task_completed',
+            changeDescription: `completed "${task.title}"`,
+          });
+        }
+      } catch (logError) {
+        console.error('Failed to log group activity:', logError);
+        // Don't fail the request if logging fails
+      }
+
       res.json({ 
         task, 
         message: 'Task completed! 🎉',

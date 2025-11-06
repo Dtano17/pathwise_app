@@ -283,6 +283,8 @@ export interface IStorage {
   getGroupProgress(groupId: string): Promise<Array<{ groupActivityId: string; activityTitle: string; totalTasks: number; completedTasks: number }>>;
   getGroupActivityFeed(groupId: string, limit?: number): Promise<GroupActivityFeedItem[]>;
   logGroupActivity(feedItem: InsertGroupActivityFeedItem): Promise<GroupActivityFeedItem>;
+  getGroupActivityByTaskId(taskId: string): Promise<GroupActivity | null>;
+  logActivityChange(change: { groupActivityId: string; userId: string; changeType: string; changeDescription: string }): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1797,7 +1799,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Get all groups a user is a member of
-  async getUserGroups(userId: string): Promise<Array<Group & { memberCount: number; role: string }>> {
+  async getUserGroups(userId: string): Promise<Array<Group & { memberCount: number; role: string; tasksCompleted?: number; tasksTotal?: number }>> {
     // Use raw SQL to avoid Drizzle ORM circular reference bug
     const result = await sqlClient`
       SELECT 
@@ -1810,7 +1812,19 @@ export class DatabaseStorage implements IStorage {
         g.created_at as "createdAt",
         g.updated_at as "updatedAt",
         gm.role,
-        (SELECT COUNT(*) FROM group_memberships WHERE group_id = g.id)::int as "memberCount"
+        (SELECT COUNT(*) FROM group_memberships WHERE group_id = g.id)::int as "memberCount",
+        (
+          SELECT COALESCE(SUM(
+            (SELECT COUNT(*)::int FROM tasks WHERE activity_id = ga.activity_id AND completed = true)
+          ), 0)
+          FROM group_activities ga WHERE ga.group_id = g.id
+        )::int as "tasksCompleted",
+        (
+          SELECT COALESCE(SUM(
+            (SELECT COUNT(*)::int FROM tasks WHERE activity_id = ga.activity_id)
+          ), 0)
+          FROM group_activities ga WHERE ga.group_id = g.id
+        )::int as "tasksTotal"
       FROM groups g
       INNER JOIN group_memberships gm ON g.id = gm.group_id
       WHERE gm.user_id = ${userId}
@@ -2150,6 +2164,58 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return loggedItem;
+  }
+
+  async getGroupActivityByTaskId(taskId: string): Promise<GroupActivity | null> {
+    const result = await sqlClient`
+      SELECT ga.*
+      FROM group_activities ga
+      INNER JOIN activity_tasks at ON ga.activity_id = at.activity_id
+      WHERE at.task_id = ${taskId}
+      LIMIT 1
+    `;
+
+    return result.length > 0 ? result[0] : null;
+  }
+
+  async logActivityChange(change: { groupActivityId: string; userId: string; changeType: string; changeDescription: string }): Promise<void> {
+    // Get the group activity details to populate the feed
+    const groupActivityResult = await sqlClient`
+      SELECT ga.group_id, a.title as activity_title
+      FROM group_activities ga
+      INNER JOIN activities a ON ga.activity_id = a.id
+      WHERE ga.id = ${change.groupActivityId}
+      LIMIT 1
+    `;
+
+    if (groupActivityResult.length === 0) {
+      console.error('Group activity not found for logging');
+      return;
+    }
+
+    const { group_id: groupId, activity_title: activityTitle } = groupActivityResult[0];
+
+    // Get user info
+    const userResult = await sqlClient`
+      SELECT username, first_name, last_name
+      FROM users
+      WHERE id = ${change.userId}
+      LIMIT 1
+    `;
+
+    const userName = userResult.length > 0
+      ? userResult[0].username || `${userResult[0].first_name || ''} ${userResult[0].last_name || ''}`.trim() || 'Someone'
+      : 'Someone';
+
+    // Insert into groupActivityFeed
+    await db.insert(groupActivityFeed).values({
+      groupId,
+      userId: change.userId,
+      actionType: change.changeType as 'task_completed' | 'task_added' | 'activity_shared' | 'member_joined' | 'member_left',
+      targetName: change.changeDescription,
+      activityTitle,
+      groupActivityId: change.groupActivityId,
+    });
   }
 
   // Get groups for a user with member count and their role
