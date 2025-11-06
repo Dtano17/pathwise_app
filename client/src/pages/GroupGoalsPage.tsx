@@ -227,6 +227,14 @@ export default function GroupGoalsPage() {
       });
       return;
     }
+    if (!selectedActivityId) {
+      toast({
+        title: "Activity required",
+        description: "Please select an activity to create the group.",
+        variant: "destructive",
+      });
+      return;
+    }
     createGroupMutation.mutate({
       name: groupName,
       description: groupDescription,
@@ -236,10 +244,7 @@ export default function GroupGoalsPage() {
 
   const handleBack = () => {
     setCreateStep('details');
-  };
-
-  const handleSkipActivity = () => {
-    handleCreateGroup();
+    setSelectedActivityId(null);
   };
 
   const handleShareActivity = () => {
@@ -641,9 +646,9 @@ export default function GroupGoalsPage() {
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle>Add Activity to Group (Optional)</DialogTitle>
+                <DialogTitle>Link an Activity</DialogTitle>
                 <DialogDescription>
-                  Choose an activity to share with your group, or skip to add one later
+                  Choose an activity to share with your group. The tasks will be the progress tracker based on completion.
                 </DialogDescription>
               </DialogHeader>
               <ScrollArea className="h-[300px] pr-4">
@@ -687,23 +692,13 @@ export default function GroupGoalsPage() {
                 <Button variant="outline" onClick={handleBack} data-testid="button-back-create">
                   Back
                 </Button>
-                <div className="flex gap-2 flex-1 sm:flex-initial">
-                  <Button
-                    variant="ghost"
-                    onClick={handleSkipActivity}
-                    disabled={createGroupMutation.isPending}
-                    data-testid="button-skip-activity"
-                  >
-                    Skip
-                  </Button>
-                  <Button
-                    onClick={handleCreateGroup}
-                    disabled={!selectedActivityId || createGroupMutation.isPending}
-                    data-testid="button-submit-create"
-                  >
-                    {createGroupMutation.isPending ? "Creating..." : "Create Group"}
-                  </Button>
-                </div>
+                <Button
+                  onClick={handleCreateGroup}
+                  disabled={!selectedActivityId || createGroupMutation.isPending}
+                  data-testid="button-submit-create"
+                >
+                  {createGroupMutation.isPending ? "Creating..." : "Create Group"}
+                </Button>
               </DialogFooter>
             </>
           )}
