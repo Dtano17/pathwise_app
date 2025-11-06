@@ -620,7 +620,7 @@ export default function GroupGoalsPage() {
               <DialogHeader>
                 <DialogTitle>Create New Group</DialogTitle>
                 <DialogDescription>
-                  Start a new group for shared activities and collaborative planning
+                  Create a group to plan activities and collaborate with others.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
