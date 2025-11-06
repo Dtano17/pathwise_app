@@ -2511,7 +2511,7 @@ Assistant: For nutrition, I recommend..."
                       <p className="text-sm text-muted-foreground mb-4">
                         Browse plans created by others, get inspired, and use them for your own goals. Join thousands planning together!
                       </p>
-                      <Link href="/">
+                      <Link href="/discover">
                         <Button className="gap-2" data-testid="button-browse-community-plans">
                           <Sparkles className="w-4 h-4" />
                           Browse Community Plans

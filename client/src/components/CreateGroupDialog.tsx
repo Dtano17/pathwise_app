@@ -37,11 +37,10 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
 
   // Fetch personal activities
-  const { data: personalActivitiesData } = useQuery<{ activities: Activity[] }>({
+  const { data: personalActivities = [] } = useQuery<Activity[]>({
     queryKey: ['/api/activities'],
     enabled: open && createStep === 'activity',
   });
-  const personalActivities = personalActivitiesData?.activities || [];
 
   const handleNext = () => {
     if (!groupName.trim()) {
