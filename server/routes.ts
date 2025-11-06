@@ -2430,6 +2430,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get group progress - task completion stats
+  app.get("/api/groups/:groupId/progress", async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Check if user is member
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const progress = await storage.getGroupProgress(groupId);
+
+      res.json({ progress });
+    } catch (error) {
+      console.error('Get group progress error:', error);
+      res.status(500).json({ error: 'Failed to fetch group progress' });
+    }
+  });
+
+  // Get group activity feed - recent member actions
+  app.get("/api/groups/:groupId/feed", async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+
+      // Check if user is member
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const feed = await storage.getGroupActivityFeed(groupId, limit);
+
+      res.json({ feed });
+    } catch (error) {
+      console.error('Get group activity feed error:', error);
+      res.status(500).json({ error: 'Failed to fetch activity feed' });
+    }
+  });
+
+  // Log group activity event
+  app.post("/api/groups/:groupId/log-activity", async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { actionType, targetName, description } = req.body;
+
+      // Check if user is member
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      // Get user name
+      const user = await storage.getUser(userId);
+      const userName = user ? (user.username || `${user.firstName || ''} ${user.lastName || ''}`.trim()) : 'Someone';
+
+      const feedItem = await storage.logGroupActivity({
+        groupId,
+        userId,
+        userName,
+        actionType,
+        targetName,
+        description: description || null,
+      });
+
+      res.json({ feedItem });
+    } catch (error) {
+      console.error('Log group activity error:', error);
+      res.status(500).json({ error: 'Failed to log activity' });
+    }
+  });
+
   // Remove activity from group
   app.delete("/api/groups/:groupId/activities/:groupActivityId", async (req, res) => {
     try {

@@ -1973,7 +1973,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Share activity to group
-  async shareActivityToGroup(activityId: string, groupId: string, userId: string): Promise<GroupActivity> {
+  async shareActivityToGroup(activityId: string, groupId: string, userId: string, forceUpdate = false): Promise<GroupActivity> {
     // Check if already shared
     const [existing] = await db
       .select()
@@ -1983,8 +1983,13 @@ export class DatabaseStorage implements IStorage {
         eq(groupActivities.activityId, activityId)
       ));
 
-    if (existing) {
+    if (existing && !forceUpdate) {
       throw new Error('Activity is already shared to this group');
+    }
+    
+    if (existing && forceUpdate) {
+      // Return existing if force update requested
+      return existing;
     }
 
     // Get activity details for canonical version
@@ -2145,6 +2150,55 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return loggedItem;
+  }
+
+  // Get groups for a user with member count and their role
+  async getGroupsForUser(userId: string): Promise<Array<Group & { memberCount: number; role: string }>> {
+    const userGroups = await sqlClient`
+      SELECT 
+        g.*,
+        gm.role,
+        COUNT(DISTINCT gm2.user_id) as "memberCount"
+      FROM groups g
+      INNER JOIN group_memberships gm ON g.id = gm.group_id
+      LEFT JOIN group_memberships gm2 ON g.id = gm2.group_id
+      WHERE gm.user_id = ${userId}
+      GROUP BY g.id, g.name, g.description, g.invite_code, g.created_by, g.created_at, gm.role
+      ORDER BY g.created_at DESC
+    `;
+
+    return userGroups.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      inviteCode: row.invite_code,
+      createdBy: row.created_by,
+      createdAt: row.created_at,
+      memberCount: Number(row.memberCount),
+      role: row.role,
+    }));
+  }
+
+  // Get all members of a group
+  async getGroupMembers(groupId: string): Promise<Array<{ userId: string; userName: string; role: string; joinedAt: Date }>> {
+    const members = await sqlClient`
+      SELECT 
+        gm.user_id as "userId",
+        COALESCE(u.username, CONCAT(u.first_name, ' ', u.last_name)) as "userName",
+        gm.role,
+        gm.joined_at as "joinedAt"
+      FROM group_memberships gm
+      LEFT JOIN users u ON gm.user_id = u.id
+      WHERE gm.group_id = ${groupId}
+      ORDER BY gm.joined_at ASC
+    `;
+
+    return members.map((row: any) => ({
+      userId: row.userId,
+      userName: row.userName || 'Anonymous',
+      role: row.role,
+      joinedAt: new Date(row.joinedAt),
+    }));
   }
 
   // === Contact Shares / Invites ===
