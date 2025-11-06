@@ -2298,6 +2298,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all group activity feed across all user's groups (MUST come before /:groupId routes)
+  app.get("/api/groups/activity", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Get all user's groups
+      const groups = await storage.getUserGroups(userId);
+      
+      // Get activity feed for all groups
+      const allActivities = [];
+      
+      for (const group of groups) {
+        try {
+          const feedItems = await storage.getGroupActivityFeed(group.id, 20);
+          // Add group name to each feed item
+          const itemsWithGroup = feedItems.map((item: any) => ({
+            ...item,
+            groupName: group.name,
+          }));
+          allActivities.push(...itemsWithGroup);
+        } catch (err) {
+          console.error(`Error fetching activity for group ${group.id}:`, err);
+        }
+      }
+      
+      // Sort by timestamp descending (most recent first)
+      allActivities.sort((a, b) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      
+      // Return top 20 most recent activities
+      res.json(allActivities.slice(0, 20));
+    } catch (error) {
+      console.error('Get group activity feed error:', error);
+      res.status(500).json({ error: 'Failed to fetch group activity feed' });
+    }
+  });
+
   // Get group details with members
   app.get("/api/groups/:groupId", async (req, res) => {
     try {
@@ -2506,44 +2544,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Get group activities error:', error);
       res.status(500).json({ error: 'Failed to fetch group activities' });
-    }
-  });
-
-  // Get all group activity feed across all user's groups
-  app.get("/api/groups/activity", async (req, res) => {
-    try {
-      const userId = getUserId(req) || DEMO_USER_ID;
-
-      // Get all user's groups
-      const groups = await storage.getUserGroups(userId);
-      
-      // Get activity feed for all groups
-      const allActivities = [];
-      
-      for (const group of groups) {
-        try {
-          const feedItems = await storage.getGroupActivityFeed(group.id, 20);
-          // Add group name to each feed item
-          const itemsWithGroup = feedItems.map((item: any) => ({
-            ...item,
-            groupName: group.name,
-          }));
-          allActivities.push(...itemsWithGroup);
-        } catch (err) {
-          console.error(`Error fetching activity for group ${group.id}:`, err);
-        }
-      }
-      
-      // Sort by timestamp descending (most recent first)
-      allActivities.sort((a, b) => 
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
-      
-      // Return top 20 most recent activities
-      res.json(allActivities.slice(0, 20));
-    } catch (error) {
-      console.error('Get group activity feed error:', error);
-      res.status(500).json({ error: 'Failed to fetch group activity feed' });
     }
   });
 
