@@ -1985,17 +1985,26 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Activity not found');
     }
 
-    // Get activity tasks
-    const activityTasks = await db
-      .select()
-      .from(tasks)
-      .where(eq(tasks.activityId, activityId));
+    // Get activity tasks using the join table
+    const taskResults = await db
+      .select({
+        id: tasks.id,
+        title: tasks.title,
+        description: tasks.description,
+        category: tasks.category,
+        priority: tasks.priority,
+        order: activityTasks.order,
+      })
+      .from(activityTasks)
+      .innerJoin(tasks, eq(activityTasks.taskId, tasks.id))
+      .where(eq(activityTasks.activityId, activityId))
+      .orderBy(activityTasks.order);
 
     // Create canonical version
     const canonicalVersion = {
       title: activity.title,
       description: activity.description,
-      tasks: activityTasks.map(task => ({
+      tasks: taskResults.map(task => ({
         id: task.id,
         title: task.title,
         description: task.description || '',
