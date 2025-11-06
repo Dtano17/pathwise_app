@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +35,6 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
   
   // Activity selection state
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
-  const [activityTab, setActivityTab] = useState<'personal' | 'community'>('personal');
 
   // Fetch personal activities
   const { data: personalActivitiesData } = useQuery<{ activities: Activity[] }>({
@@ -44,12 +42,6 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
     enabled: open && createStep === 'activity',
   });
   const personalActivities = personalActivitiesData?.activities || [];
-
-  // Fetch community plans
-  const { data: communityPlans = [] } = useQuery<Activity[]>({
-    queryKey: ['/api/community-plans'],
-    enabled: open && createStep === 'activity',
-  });
 
   const handleNext = () => {
     if (!groupName.trim()) {
@@ -168,7 +160,6 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
     setCodeCopied(false);
     setCreateStep('details');
     setSelectedActivityId(null);
-    setActivityTab('personal');
     onOpenChange(false);
   };
 
@@ -269,125 +260,56 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
               </DialogDescription>
             </DialogHeader>
 
-            <Tabs value={activityTab} onValueChange={(v) => setActivityTab(v as 'personal' | 'community')} className="flex-1">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="personal" data-testid="tab-personal-activities">
-                  My Activities
-                </TabsTrigger>
-                <TabsTrigger value="community" data-testid="tab-community-plans">
-                  Community Plans
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="personal" className="mt-4">
-                <ScrollArea className="h-[300px] pr-4">
-                  {personalActivities && personalActivities.length > 0 ? (
-                    <div className="space-y-2">
-                      {personalActivities.map((activity) => (
-                        <Card
-                          key={activity.id}
-                          className={`cursor-pointer transition-all ${
-                            selectedActivityId === activity.id
-                              ? 'ring-2 ring-primary'
-                              : 'hover-elevate'
-                          }`}
-                          onClick={() => setSelectedActivityId(activity.id)}
-                          data-testid={`card-activity-${activity.id}`}
-                        >
-                          <CardHeader className="p-4">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-start gap-3 flex-1 min-w-0">
-                                <div className="p-2 rounded-lg bg-primary/10 text-primary flex-shrink-0">
-                                  {getActivityIcon(activity.category)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <CardTitle className="text-sm truncate">{activity.title}</CardTitle>
-                                  {activity.description && (
-                                    <CardDescription className="text-xs line-clamp-2 mt-1">
-                                      {activity.description}
-                                    </CardDescription>
-                                  )}
-                                </div>
-                              </div>
-                              {selectedActivityId === activity.id && (
-                                <Check className="w-5 h-5 text-primary flex-shrink-0" />
+            <ScrollArea className="h-[350px] pr-4">
+              {personalActivities && personalActivities.length > 0 ? (
+                <div className="space-y-2">
+                  {personalActivities.map((activity) => (
+                    <Card
+                      key={activity.id}
+                      className={`cursor-pointer transition-all ${
+                        selectedActivityId === activity.id
+                          ? 'ring-2 ring-primary'
+                          : 'hover-elevate'
+                      }`}
+                      onClick={() => setSelectedActivityId(activity.id)}
+                      data-testid={`card-activity-${activity.id}`}
+                    >
+                      <CardHeader className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <div className="p-2 rounded-lg bg-primary/10 text-primary flex-shrink-0">
+                              {getActivityIcon(activity.category)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <CardTitle className="text-sm truncate">{activity.title}</CardTitle>
+                              {activity.description && (
+                                <CardDescription className="text-xs line-clamp-2 mt-1">
+                                  {activity.description}
+                                </CardDescription>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 mt-2">
-                              {activity.category && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {activity.category}
-                                </Badge>
-                              )}
-                            </div>
-                          </CardHeader>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>No personal activities yet. Create one from the Activities tab!</p>
-                    </div>
-                  )}
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent value="community" className="mt-4">
-                <ScrollArea className="h-[300px] pr-4">
-                  {communityPlans && communityPlans.length > 0 ? (
-                    <div className="space-y-2">
-                      {communityPlans.map((plan) => (
-                        <Card
-                          key={plan.id}
-                          className={`cursor-pointer transition-all ${
-                            selectedActivityId === plan.id
-                              ? 'ring-2 ring-primary'
-                              : 'hover-elevate'
-                          }`}
-                          onClick={() => setSelectedActivityId(plan.id)}
-                          data-testid={`card-plan-${plan.id}`}
-                        >
-                          <CardHeader className="p-4">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-start gap-3 flex-1 min-w-0">
-                                <div className="p-2 rounded-lg bg-primary/10 text-primary flex-shrink-0">
-                                  {getActivityIcon(plan.category)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <CardTitle className="text-sm truncate">{plan.title}</CardTitle>
-                                  {plan.description && (
-                                    <CardDescription className="text-xs line-clamp-2 mt-1">
-                                      {plan.description}
-                                    </CardDescription>
-                                  )}
-                                </div>
-                              </div>
-                              {selectedActivityId === plan.id && (
-                                <Check className="w-5 h-5 text-primary flex-shrink-0" />
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 mt-2">
-                              {plan.category && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {plan.category}
-                                </Badge>
-                              )}
-                              <span className="text-xs text-muted-foreground">
-                                by {plan.creatorName || 'Unknown'}
-                              </span>
-                            </div>
-                          </CardHeader>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>No community plans available.</p>
-                    </div>
-                  )}
-                </ScrollArea>
-              </TabsContent>
-            </Tabs>
+                          </div>
+                          {selectedActivityId === activity.id && (
+                            <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          {activity.category && (
+                            <Badge variant="secondary" className="text-xs">
+                              {activity.category}
+                            </Badge>
+                          )}
+                        </div>
+                      </CardHeader>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No personal activities yet. Create one from the Activities tab!</p>
+                </div>
+              )}
+            </ScrollArea>
 
             <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button variant="outline" onClick={handleBack} data-testid="button-back-create">

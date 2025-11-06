@@ -9,10 +9,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Users, UserPlus, CheckCircle2, Plus, Sparkles, ArrowRight, Circle, Heart, Share2 } from "lucide-react";
+import { Users, UserPlus, CheckCircle2, Plus, Sparkles, ArrowRight, Circle, Share2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "wouter";
@@ -65,15 +64,6 @@ interface Activity {
   category: string;
 }
 
-interface CommunityPlan {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  authorName: string;
-  likes: number;
-}
-
 export default function GroupGoalsPage() {
   const { toast } = useToast();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -83,7 +73,6 @@ export default function GroupGoalsPage() {
   const [groupDescription, setGroupDescription] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
-  const [selectedActivityType, setSelectedActivityType] = useState<'personal' | 'community' | null>(null);
   const [inviteCode, setInviteCode] = useState("");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedGroupForShare, setSelectedGroupForShare] = useState<string | null>(null);
@@ -106,12 +95,6 @@ export default function GroupGoalsPage() {
   });
   const userActivities = userActivitiesData?.activities || [];
 
-  // Fetch community plans (only when dialog is open)
-  const { data: communityPlans } = useQuery<CommunityPlan[]>({
-    queryKey: ["/api/community-plans"],
-    enabled: (createDialogOpen && createStep === 'activity') || shareDialogOpen,
-  });
-
   // Fetch user activities for share dialog
   const { data: shareActivitiesData } = useQuery<{ activities: Activity[] }>({
     queryKey: ["/api/activities"],
@@ -129,17 +112,11 @@ export default function GroupGoalsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
       
       // If an activity was selected, share it to the group
-      if (selectedActivityId && selectedActivityType) {
+      if (selectedActivityId) {
         try {
-          const endpoint = selectedActivityType === 'personal' 
-            ? `/api/activities/${selectedActivityId}/share`
-            : `/api/community-plans/${selectedActivityId}/adopt`;
-          
-          const shareData = selectedActivityType === 'personal'
-            ? { groupId: data.group.id }
-            : { groupId: data.group.id };
-          
-          await apiRequest("POST", endpoint, shareData);
+          await apiRequest("POST", `/api/activities/${selectedActivityId}/share`, {
+            groupId: data.group.id
+          });
           
           toast({
             title: "Group created",
@@ -166,7 +143,6 @@ export default function GroupGoalsPage() {
       setGroupDescription("");
       setIsPrivate(false);
       setSelectedActivityId(null);
-      setSelectedActivityType(null);
       
       queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
       queryClient.invalidateQueries({ queryKey: ["/api/groups/activity"] });
@@ -206,12 +182,8 @@ export default function GroupGoalsPage() {
 
   // Share activity mutation
   const shareActivityMutation = useMutation({
-    mutationFn: async ({ activityId, groupId, type }: { activityId: string; groupId: string; type: 'personal' | 'community' }) => {
-      const endpoint = type === 'personal' 
-        ? `/api/activities/${activityId}/share`
-        : `/api/community-plans/${activityId}/adopt`;
-      
-      const response = await apiRequest("POST", endpoint, { groupId });
+    mutationFn: async ({ activityId, groupId }: { activityId: string; groupId: string }) => {
+      const response = await apiRequest("POST", `/api/activities/${activityId}/share`, { groupId });
       return response.json();
     },
     onSuccess: () => {
@@ -219,7 +191,6 @@ export default function GroupGoalsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/groups/activity"] });
       setShareDialogOpen(false);
       setSelectedActivityId(null);
-      setSelectedActivityType(null);
       setSelectedGroupForShare(null);
       toast({
         title: "Activity shared",
@@ -272,11 +243,10 @@ export default function GroupGoalsPage() {
   };
 
   const handleShareActivity = () => {
-    if (selectedActivityId && selectedActivityType && selectedGroupForShare) {
+    if (selectedActivityId && selectedGroupForShare) {
       shareActivityMutation.mutate({
         activityId: selectedActivityId,
         groupId: selectedGroupForShare,
-        type: selectedActivityType,
       });
     }
   };
@@ -284,7 +254,6 @@ export default function GroupGoalsPage() {
   const openShareDialog = (groupId: string) => {
     setSelectedGroupForShare(groupId);
     setSelectedActivityId(null);
-    setSelectedActivityType(null);
     setShareDialogOpen(true);
   };
 
@@ -611,7 +580,6 @@ export default function GroupGoalsPage() {
         if (!open) {
           setCreateStep('details');
           setSelectedActivityId(null);
-          setSelectedActivityType(null);
         }
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh]" data-testid="dialog-create-group">
@@ -678,102 +646,43 @@ export default function GroupGoalsPage() {
                   Choose an activity to share with your group, or skip to add one later
                 </DialogDescription>
               </DialogHeader>
-              <Tabs defaultValue="personal" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="personal">My Activities</TabsTrigger>
-                  <TabsTrigger value="community">Community Plans</TabsTrigger>
-                </TabsList>
-                <TabsContent value="personal" className="mt-4">
-                  <ScrollArea className="h-[300px] pr-4">
-                    {userActivities && userActivities.length > 0 ? (
-                      <div className="space-y-2">
-                        {userActivities.map((activity) => (
-                          <Card
-                            key={activity.id}
-                            className={`cursor-pointer transition-all ${
-                              selectedActivityId === activity.id && selectedActivityType === 'personal'
-                                ? 'ring-2 ring-primary'
-                                : 'hover-elevate'
-                            }`}
-                            onClick={() => {
-                              setSelectedActivityId(activity.id);
-                              setSelectedActivityType('personal');
-                            }}
-                            data-testid={`activity-card-${activity.id}`}
-                          >
-                            <CardHeader className="p-4">
-                              <CardTitle className="text-base">{activity.title}</CardTitle>
-                              {activity.description && (
-                                <CardDescription className="line-clamp-2 text-sm">
-                                  {activity.description}
-                                </CardDescription>
-                              )}
-                              <Badge variant="secondary" className="w-fit text-xs mt-2">
-                                {activity.category}
-                              </Badge>
-                            </CardHeader>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <p>No personal activities yet.</p>
-                        <p className="text-sm mt-1">Create an activity first to add it to a group.</p>
-                      </div>
-                    )}
-                  </ScrollArea>
-                </TabsContent>
-                <TabsContent value="community" className="mt-4">
-                  <ScrollArea className="h-[300px] pr-4">
-                    {communityPlans && communityPlans.length > 0 ? (
-                      <div className="space-y-2">
-                        {communityPlans.slice(0, 10).map((plan) => (
-                          <Card
-                            key={plan.id}
-                            className={`cursor-pointer transition-all ${
-                              selectedActivityId === plan.id && selectedActivityType === 'community'
-                                ? 'ring-2 ring-primary'
-                                : 'hover-elevate'
-                            }`}
-                            onClick={() => {
-                              setSelectedActivityId(plan.id);
-                              setSelectedActivityType('community');
-                            }}
-                            data-testid={`community-plan-card-${plan.id}`}
-                          >
-                            <CardHeader className="p-4">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex-1">
-                                  <CardTitle className="text-base">{plan.title}</CardTitle>
-                                  <CardDescription className="line-clamp-2 text-sm mt-1">
-                                    {plan.description}
-                                  </CardDescription>
-                                </div>
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Heart className="w-3 h-3" />
-                                  {plan.likes}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2 mt-2">
-                                <Badge variant="secondary" className="text-xs">
-                                  {plan.category}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  by {plan.authorName}
-                                </span>
-                              </div>
-                            </CardHeader>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <p>No community plans available.</p>
-                      </div>
-                    )}
-                  </ScrollArea>
-                </TabsContent>
-              </Tabs>
+              <ScrollArea className="h-[300px] pr-4">
+                {userActivities && userActivities.length > 0 ? (
+                  <div className="space-y-2">
+                    {userActivities.map((activity) => (
+                      <Card
+                        key={activity.id}
+                        className={`cursor-pointer transition-all ${
+                          selectedActivityId === activity.id
+                            ? 'ring-2 ring-primary'
+                            : 'hover-elevate'
+                        }`}
+                        onClick={() => {
+                          setSelectedActivityId(activity.id);
+                        }}
+                        data-testid={`activity-card-${activity.id}`}
+                      >
+                        <CardHeader className="p-4">
+                          <CardTitle className="text-base">{activity.title}</CardTitle>
+                          {activity.description && (
+                            <CardDescription className="line-clamp-2 text-sm">
+                              {activity.description}
+                            </CardDescription>
+                          )}
+                          <Badge variant="secondary" className="w-fit text-xs mt-2">
+                            {activity.category}
+                          </Badge>
+                        </CardHeader>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No personal activities yet.</p>
+                    <p className="text-sm mt-1">Create an activity first to add it to a group.</p>
+                  </div>
+                )}
+              </ScrollArea>
               <DialogFooter className="flex-col sm:flex-row gap-2">
                 <Button variant="outline" onClick={handleBack} data-testid="button-back-create">
                   Back
@@ -842,7 +751,6 @@ export default function GroupGoalsPage() {
         setShareDialogOpen(open);
         if (!open) {
           setSelectedActivityId(null);
-          setSelectedActivityType(null);
           setSelectedGroupForShare(null);
         }
       }}>
@@ -850,105 +758,46 @@ export default function GroupGoalsPage() {
           <DialogHeader>
             <DialogTitle>Share Activity to Group</DialogTitle>
             <DialogDescription>
-              Choose an activity from your personal plans or community plans to share with your group
+              Choose an activity to share with your group
             </DialogDescription>
           </DialogHeader>
-          <Tabs defaultValue="personal" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="personal">My Activities</TabsTrigger>
-              <TabsTrigger value="community">Community Plans</TabsTrigger>
-            </TabsList>
-            <TabsContent value="personal" className="mt-4">
-              <ScrollArea className="h-[350px] pr-4">
-                {shareActivities && shareActivities.length > 0 ? (
-                  <div className="space-y-2">
-                    {shareActivities.map((activity) => (
-                      <Card
-                        key={activity.id}
-                        className={`cursor-pointer transition-all ${
-                          selectedActivityId === activity.id && selectedActivityType === 'personal'
-                            ? 'ring-2 ring-primary'
-                            : 'hover-elevate'
-                        }`}
-                        onClick={() => {
-                          setSelectedActivityId(activity.id);
-                          setSelectedActivityType('personal');
-                        }}
-                        data-testid={`share-activity-card-${activity.id}`}
-                      >
-                        <CardHeader className="p-4">
-                          <CardTitle className="text-base">{activity.title}</CardTitle>
-                          {activity.description && (
-                            <CardDescription className="line-clamp-2 text-sm">
-                              {activity.description}
-                            </CardDescription>
-                          )}
-                          <Badge variant="secondary" className="w-fit text-xs mt-2">
-                            {activity.category}
-                          </Badge>
-                        </CardHeader>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No personal activities yet.</p>
-                    <p className="text-sm mt-1">Create an activity first to share it.</p>
-                  </div>
-                )}
-              </ScrollArea>
-            </TabsContent>
-            <TabsContent value="community" className="mt-4">
-              <ScrollArea className="h-[350px] pr-4">
-                {communityPlans && communityPlans.length > 0 ? (
-                  <div className="space-y-2">
-                    {communityPlans.slice(0, 10).map((plan) => (
-                      <Card
-                        key={plan.id}
-                        className={`cursor-pointer transition-all ${
-                          selectedActivityId === plan.id && selectedActivityType === 'community'
-                            ? 'ring-2 ring-primary'
-                            : 'hover-elevate'
-                        }`}
-                        onClick={() => {
-                          setSelectedActivityId(plan.id);
-                          setSelectedActivityType('community');
-                        }}
-                        data-testid={`share-community-plan-card-${plan.id}`}
-                      >
-                        <CardHeader className="p-4">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1">
-                              <CardTitle className="text-base">{plan.title}</CardTitle>
-                              <CardDescription className="line-clamp-2 text-sm mt-1">
-                                {plan.description}
-                              </CardDescription>
-                            </div>
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Heart className="w-3 h-3" />
-                              {plan.likes}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="secondary" className="text-xs">
-                              {plan.category}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              by {plan.authorName}
-                            </span>
-                          </div>
-                        </CardHeader>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No community plans available.</p>
-                  </div>
-                )}
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
+          <ScrollArea className="h-[350px] pr-4">
+            {shareActivities && shareActivities.length > 0 ? (
+              <div className="space-y-2">
+                {shareActivities.map((activity) => (
+                  <Card
+                    key={activity.id}
+                    className={`cursor-pointer transition-all ${
+                      selectedActivityId === activity.id
+                        ? 'ring-2 ring-primary'
+                        : 'hover-elevate'
+                    }`}
+                    onClick={() => {
+                      setSelectedActivityId(activity.id);
+                    }}
+                    data-testid={`share-activity-card-${activity.id}`}
+                  >
+                    <CardHeader className="p-4">
+                      <CardTitle className="text-base">{activity.title}</CardTitle>
+                      {activity.description && (
+                        <CardDescription className="line-clamp-2 text-sm">
+                          {activity.description}
+                        </CardDescription>
+                      )}
+                      <Badge variant="secondary" className="w-fit text-xs mt-2">
+                        {activity.category}
+                      </Badge>
+                    </CardHeader>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No personal activities yet.</p>
+                <p className="text-sm mt-1">Create an activity first to share it.</p>
+              </div>
+            )}
+          </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShareDialogOpen(false)} data-testid="button-cancel-share">
               Cancel

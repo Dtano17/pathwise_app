@@ -2134,6 +2134,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return parts.join('-');
   }
 
+  // Helper function to inherit/copy an activity to a group
+  async function inheritActivityToGroup(activityId: string, groupId: string, userId: string): Promise<Activity> {
+    try {
+      // Get the source activity
+      const sourceActivity = await storage.getActivity(activityId, userId);
+      if (!sourceActivity) {
+        throw new Error('Source activity not found');
+      }
+
+      // Get all tasks from the source activity
+      const sourceTasks = await storage.getActivityTasks(activityId, userId);
+
+      // Create a copy of the activity with trackingEnabled set to true
+      const newActivity = await storage.createActivity({
+        title: sourceActivity.title,
+        description: sourceActivity.description,
+        category: sourceActivity.category,
+        status: sourceActivity.status,
+        planSummary: sourceActivity.planSummary,
+        planningMode: sourceActivity.planningMode,
+        isPublic: false, // Group activities are private by default
+        trackingEnabled: true, // Enable tracking for group activities
+        userId
+      });
+
+      // Copy all tasks to the new activity
+      const copiedTasks = [];
+      for (let i = 0; i < sourceTasks.length; i++) {
+        const sourceTask = sourceTasks[i];
+        const newTask = await storage.createTask({
+          title: sourceTask.title,
+          description: sourceTask.description,
+          category: sourceTask.category,
+          priority: sourceTask.priority,
+          timeEstimate: sourceTask.timeEstimate,
+          dueDate: sourceTask.dueDate,
+          userId
+        });
+        
+        // Link task to the new activity
+        await storage.addTaskToActivity(newActivity.id, newTask.id, i);
+        copiedTasks.push(newTask);
+      }
+
+      // Create the canonical version for group activity
+      const canonicalVersion = {
+        title: newActivity.title,
+        description: newActivity.description || '',
+        tasks: copiedTasks.map((task, idx) => ({
+          id: task.id,
+          title: task.title,
+          description: task.description || '',
+          category: task.category,
+          priority: task.priority,
+          order: idx
+        }))
+      };
+
+      // Create groupActivity link
+      const groupActivity = await storage.createGroupActivity({
+        groupId,
+        activityId: newActivity.id,
+        canonicalVersion,
+        isPublic: false,
+        trackingEnabled: true
+      });
+
+      // Get user info for feed entry
+      const user = await storage.getUser(userId);
+      const userName = user?.username || user?.email || 'Unknown User';
+
+      // Create activity feed entry
+      await storage.logGroupActivity({
+        groupId,
+        userId,
+        userName,
+        activityType: 'activity_shared',
+        activityTitle: newActivity.title,
+        groupActivityId: groupActivity.id
+      });
+
+      return newActivity;
+    } catch (error) {
+      console.error('Error inheriting activity to group:', error);
+      throw error;
+    }
+  }
+
   // Create a new group (Family tier required)
   app.post("/api/groups", async (req, res) => {
     try {
@@ -2150,7 +2238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { name, description, isPrivate } = req.body;
+      const { name, description, isPrivate, activityId } = req.body;
 
       if (!name || name.trim().length === 0) {
         return res.status(400).json({ error: 'Group name is required' });
@@ -2175,9 +2263,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         joinedAt: new Date()
       });
 
+      // If an activityId is provided, inherit the activity to the group
+      let inheritedActivity = null;
+      if (activityId) {
+        try {
+          inheritedActivity = await inheritActivityToGroup(activityId, group.id, userId);
+        } catch (error) {
+          console.error('Error inheriting activity to group:', error);
+          // Don't fail group creation if activity inheritance fails
+          // Just log the error and continue
+        }
+      }
+
       res.json({
         group,
-        message: `Group "${name}" created successfully!`
+        activity: inheritedActivity,
+        message: `Group "${name}" created successfully!${inheritedActivity ? ' Activity has been shared to the group.' : ''}`
       });
     } catch (error) {
       console.error('Create group error:', error);
@@ -3005,7 +3106,9 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
     }
   });
 
-  // Generate shareable link for activity
+  // DEPRECATED: This endpoint has been replaced with the unified endpoint below
+  // that uses the inheritActivityToGroup helper function
+  /*
   app.post("/api/activities/:activityId/share", async (req, res) => {
     try {
       const { activityId} = req.params;
@@ -3122,6 +3225,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       res.status(500).json({ error: 'Failed to generate share link' });
     }
   });
+  */
 
   // Revoke shareable link
   app.delete("/api/activities/:activityId/share", async (req, res) => {
@@ -3240,18 +3344,45 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
     }
   });
 
-  // Generate shareable link for activity
+  // Generate shareable link for activity OR share to existing group
   app.post("/api/activities/:activityId/share", async (req, res) => {
     try {
       const { activityId } = req.params;
+      const { groupId } = req.body;
       const userId = getUserId(req) || DEMO_USER_ID;
       
-      // Check if activity exists and is public
+      // Check if activity exists
       const activity = await storage.getActivity(activityId, userId);
       if (!activity) {
         return res.status(404).json({ error: 'Activity not found' });
       }
+
+      // If groupId is provided, share to the group
+      if (groupId) {
+        // Verify user is a member of the group
+        const userGroups = await storage.getGroupsForUser(userId);
+        const isMember = userGroups.some(g => g.id === groupId);
+        
+        if (!isMember) {
+          return res.status(403).json({ error: 'You must be a member of the group to share activities to it' });
+        }
+
+        try {
+          // Inherit the activity to the group
+          const inheritedActivity = await inheritActivityToGroup(activityId, groupId, userId);
+          
+          return res.json({
+            success: true,
+            activity: inheritedActivity,
+            message: 'Activity has been successfully shared to the group'
+          });
+        } catch (error) {
+          console.error('Error sharing activity to group:', error);
+          return res.status(500).json({ error: 'Failed to share activity to group' });
+        }
+      }
       
+      // Otherwise, generate shareable link (original behavior)
       if (!activity.isPublic) {
         return res.status(403).json({ error: 'Activity must be public to share. Change privacy settings first.' });
       }
