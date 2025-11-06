@@ -27,7 +27,7 @@ import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
 import ProgressReport from './ProgressReport';
 import { SocialLogin } from '@/components/SocialLogin';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2 } from 'lucide-react';
 import { Link } from 'wouter';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
