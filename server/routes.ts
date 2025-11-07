@@ -5670,6 +5670,10 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
 
   // Get all journal entries for the current user
   app.get("/api/journal/entries", async (req, res) => {
+    // TEST: Return immediately to confirm endpoint is reached
+    return res.json({ entries: [], test: "ENDPOINT_REACHED" });
+    
+    console.log('[JOURNAL] ===== ENDPOINT HIT =====');
     try {
       // Disable caching to ensure fresh data
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
