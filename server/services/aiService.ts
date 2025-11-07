@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { type InsertTask, type InsertChatImport } from "@shared/schema";
 
 // Using GPT-4 Turbo which is currently the latest available OpenAI model
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /*
 <important_code_snippet_instructions>
