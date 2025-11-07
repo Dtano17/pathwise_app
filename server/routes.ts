@@ -5838,6 +5838,53 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
+  // Update journal entry (link to activity, etc.)
+  app.patch("/api/journal/entries/:entryId", async (req, res) => {
+    try {
+      const { entryId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { activityId, linkedActivityTitle } = req.body;
+      
+      // Get current preferences
+      const prefs = await storage.getPersonalJournalEntries(userId);
+      if (!prefs || !prefs.preferences?.journalData) {
+        return res.status(404).json({ error: 'No journal entries found' });
+      }
+      
+      // Find and update the entry across all categories
+      let found = false;
+      const journalData = prefs.preferences.journalData;
+      
+      for (const [category, entries] of Object.entries(journalData)) {
+        if (Array.isArray(entries)) {
+          const entryIndex = entries.findIndex((e: any) => e.id === entryId);
+          if (entryIndex !== -1) {
+            // Update the entry
+            entries[entryIndex] = {
+              ...entries[entryIndex],
+              activityId,
+              linkedActivityTitle
+            };
+            
+            // Save back to storage
+            await storage.savePersonalJournalEntry(userId, category, entries[entryIndex]);
+            found = true;
+            break;
+          }
+        }
+      }
+      
+      if (!found) {
+        return res.status(404).json({ error: 'Journal entry not found' });
+      }
+      
+      res.json({ success: true, message: 'Journal entry updated successfully' });
+    } catch (error) {
+      console.error('[JOURNAL] Update entry error:', error);
+      res.status(500).json({ error: 'Failed to update journal entry' });
+    }
+  });
+
   // Create demo journal data (for testing enrichment)
   app.post("/api/journal/demo-data", async (req, res) => {
     try {

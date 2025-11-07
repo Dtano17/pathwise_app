@@ -1,14 +1,17 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Search, Filter, RefreshCw, Image as ImageIcon, Smile, MapPin, Tag, Download, ArrowLeft, Sparkles } from 'lucide-react';
+import { Calendar, Search, Filter, RefreshCw, Image as ImageIcon, Smile, MapPin, Tag, Download, ArrowLeft, Sparkles, PlusCircle } from 'lucide-react';
 import { getCategoryColor } from '@/hooks/useKeywordDetection';
 import ExportDialog from './ExportDialog';
+import { ImageGalleryModal } from './ImageGalleryModal';
+import { apiRequest, queryClient } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface JournalEntry {
   id: string;
@@ -45,15 +48,68 @@ const moodColors = {
 };
 
 export default function JournalTimeline({ onClose }: JournalTimelineProps) {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [moodFilter, setMoodFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [galleryImages, setGalleryImages] = useState<Array<{url: string; filename?: string}>>([]);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [creatingActivityId, setCreatingActivityId] = useState<string | null>(null);
 
   // Fetch journal data from the same endpoint as ConversationalPlanner
   const { data: response, isLoading, refetch } = useQuery<{ entries: Array<JournalEntry & { category: string }> }>({
     queryKey: ['/api/journal/entries'],
+  });
+
+  // Mutation to create activity from journal entry
+  const createActivityMutation = useMutation({
+    mutationFn: async (entry: JournalEntry & { category: string }) => {
+      // Generate smart title from entry text
+      const title = entry.text.length > 60 
+        ? entry.text.substring(0, 57) + '...' 
+        : entry.text.split('\n')[0] || 'Untitled Activity';
+      
+      const response = await apiRequest('POST', '/api/activities', {
+        title,
+        description: entry.text,
+        category: entry.category,
+        status: 'planning'
+      });
+      
+      const activity = await response.json();
+      
+      // Link the journal entry to the created activity
+      await apiRequest('PATCH', `/api/journal/entries/${entry.id}`, {
+        activityId: activity.id,
+        linkedActivityTitle: activity.title
+      });
+      
+      return activity;
+    },
+    onMutate: (entry) => {
+      setCreatingActivityId(entry.id);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+      toast({
+        title: "Activity Created!",
+        description: "Your journal entry has been converted to an activity. Check the Activities tab to start tracking tasks.",
+      });
+      setCreatingActivityId(null);
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.error || error.message || "Failed to create activity";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      setCreatingActivityId(null);
+    }
   });
 
   // All entries are already flattened with category info
@@ -357,12 +413,36 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
                     <CardContent className="space-y-3">
                       <p className="text-sm whitespace-pre-wrap break-words">{entry.text}</p>
 
+                      {!entry.linkedActivityTitle && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => createActivityMutation.mutate(entry)}
+                          disabled={creatingActivityId === entry.id}
+                          className="gap-2"
+                          data-testid={`button-create-activity-${entry.id}`}
+                        >
+                          <PlusCircle className="h-4 w-4" />
+                          {creatingActivityId === entry.id ? 'Creating...' : 'Create Activity from Journal'}
+                        </Button>
+                      )}
+
                       {entry.media && entry.media.length > 0 && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {entry.media.map((item, idx) => (
                             <div
                               key={idx}
                               className="relative aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => {
+                                if (item.type === 'image') {
+                                  const imageMedia = entry.media?.filter(m => m.type === 'image') || [];
+                                  const imageIndex = imageMedia.findIndex(m => m.url === item.url);
+                                  setGalleryImages(imageMedia.map(m => ({ url: m.url, filename: m.url.split('/').pop() })));
+                                  setGalleryIndex(imageIndex);
+                                  setIsGalleryOpen(true);
+                                }
+                              }}
+                              data-testid={`img-thumbnail-${idx}`}
                             >
                               {item.type === 'image' ? (
                                 <img
@@ -396,6 +476,14 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
           // Trigger upgrade modal (will be handled by parent component)
           console.log('Upgrade required for export feature');
         }}
+      />
+
+      {/* Image Gallery Modal */}
+      <ImageGalleryModal
+        images={galleryImages}
+        initialIndex={galleryIndex}
+        isOpen={isGalleryOpen}
+        onClose={() => setIsGalleryOpen(false)}
       />
     </div>
   );

@@ -641,6 +641,20 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   // Journal Mode submitJournalEntry mutation
   const submitJournalEntry = useMutation({
     mutationFn: async () => {
+      // Duplicate detection - check if same text was submitted in last 5 minutes
+      const now = Date.now();
+      const recentEntries = journalEntriesData?.entries || [];
+      const fiveMinutesAgo = now - (5 * 60 * 1000);
+      
+      const isDuplicate = recentEntries.some((entry: any) => {
+        const entryTime = new Date(entry.timestamp).getTime();
+        return entry.text.trim() === journalText.trim() && entryTime > fiveMinutesAgo;
+      });
+      
+      if (isDuplicate) {
+        throw new Error('This exact text was already submitted recently. Please modify your entry or wait a few minutes before resubmitting.');
+      }
+      
       setIsUploadingJournal(true);
       
       // Upload media first if any
@@ -665,7 +679,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       });
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Handle both new grouped categories response and old single category response
       const categoryDisplay = data.categories && data.categories.length > 0
         ? data.categories.join(', ') 
@@ -686,10 +700,10 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       );
       setIsUploadingJournal(false);
       
-      // Refresh journal data - PersonalJournal uses /api/user-preferences
-      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
-      refetchJournalEntries();
+      // Refresh journal data immediately to ensure duplicate detection has fresh data
+      await queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+      await refetchJournalEntries();
     },
     onError: (error) => {
       console.error('Failed to save journal entry:', error);
