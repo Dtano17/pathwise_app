@@ -1185,8 +1185,15 @@ export class DatabaseStorage implements IStorage {
       // Merge with existing entry from today
       const existingEntry = categoryEntries[todayEntryIndex];
       
-      // Combine text with newline
-      const combinedText = existingEntry.text ? `${existingEntry.text}\n${entry.text}` : entry.text;
+      // Check if the new text is already in the existing entry (duplicate detection)
+      const trimmedNewText = entry.text.trim();
+      const existingText = existingEntry.text || '';
+      const isDuplicate = existingText.includes(trimmedNewText) || trimmedNewText === existingText.trim();
+      
+      // Combine text with newline (skip if duplicate)
+      const combinedText = isDuplicate 
+        ? existingEntry.text 
+        : existingEntry.text ? `${existingEntry.text}\n${entry.text}` : entry.text;
       
       // Merge media arrays
       const existingMedia = existingEntry.media || [];
