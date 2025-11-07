@@ -1051,52 +1051,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 <p className="text-xs text-slate-600 dark:text-slate-400">Your smart adaptive journal</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => setShowKeywordHelp(true)}
-                variant="ghost"
-                size="sm"
-                title="Learn about @keywords"
-                data-testid="button-keyword-help"
-              >
-                <Lightbulb className="h-4 w-4" />
-              </Button>
-              <Button
-                onClick={() => setShowTemplateSelector(true)}
-                variant="ghost"
-                size="sm"
-                className="gap-2"
-                data-testid="button-use-template"
-              >
-                <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Templates</span>
-              </Button>
-              <Button
-                onClick={() => setShowJournalTimeline(true)}
-                variant="ghost"
-                size="sm"
-                className="gap-2"
-                data-testid="button-view-timeline"
-              >
-                <Calendar className="h-4 w-4" />
-                <span className="hidden sm:inline">Timeline</span>
-              </Button>
-              <Button
-                onClick={() => {
-                  queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
-                  refetchJournalEntries();
-                  toast({
-                    title: "Refreshed",
-                    description: "Journal entries reloaded",
-                    duration: 2000,
-                  });
-                }}
-                variant="ghost"
-                size="sm"
-                data-testid="button-refresh-journal"
-              >
-                <RefreshCcw className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center gap-1 sm:gap-2">
               <Button
                 onClick={() => {
                   localStorage.removeItem('planner_session');
@@ -1111,10 +1066,57 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 }}
                 variant="ghost"
                 size="sm"
+                className="gap-2"
                 data-testid="button-exit-journal"
               >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Back</span>
+              </Button>
+              <Button
+                onClick={() => setShowJournalTimeline(true)}
+                variant="ghost"
+                size="sm"
+                className="gap-2"
+                data-testid="button-view-timeline"
+              >
+                <Calendar className="h-4 w-4" />
+                <span className="hidden sm:inline">Timeline</span>
+              </Button>
+              <Button
+                onClick={() => setShowTemplateSelector(true)}
+                variant="ghost"
+                size="sm"
+                className="gap-2"
+                data-testid="button-use-template"
+              >
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Templates</span>
+              </Button>
+              <Button
+                onClick={() => {
+                  queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+                  refetchJournalEntries();
+                  toast({
+                    title: "Refreshed",
+                    description: "Journal entries reloaded",
+                    duration: 2000,
+                  });
+                }}
+                variant="ghost"
+                size="sm"
+                title="Refresh entries"
+                data-testid="button-refresh-journal"
+              >
+                <RefreshCcw className="h-4 w-4" />
+              </Button>
+              <Button
+                onClick={() => setShowKeywordHelp(true)}
+                variant="ghost"
+                size="sm"
+                title="Learn about @keywords"
+                data-testid="button-keyword-help"
+              >
+                <Lightbulb className="h-4 w-4" />
               </Button>
             </div>
           </div>
