@@ -1433,7 +1433,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
 
         {/* Journal Timeline */}
         <Dialog open={showJournalTimeline} onOpenChange={setShowJournalTimeline}>
-          <DialogContent className="max-w-4xl h-[90vh] p-0">
+          <DialogContent className="w-[calc(100vw-2rem)] sm:w-full max-w-[95vw] sm:max-w-4xl h-[95vh] sm:h-[90vh] p-0 overflow-hidden">
             <JournalTimeline onClose={() => setShowJournalTimeline(false)} />
           </DialogContent>
         </Dialog>

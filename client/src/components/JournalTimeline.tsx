@@ -200,37 +200,38 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="p-4 sm:p-6 space-y-4 border-b bg-gradient-to-r from-purple-50 to-emerald-50 dark:from-purple-950/20 dark:to-emerald-950/20">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+      <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 border-b bg-gradient-to-r from-purple-50 to-emerald-50 dark:from-purple-950/20 dark:to-emerald-950/20 flex-shrink-0">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {onClose && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onClose}
-                className="gap-2"
+                className="gap-1 sm:gap-2 flex-shrink-0"
                 data-testid="button-back-journal"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Back
+                <span className="hidden sm:inline">Back</span>
               </Button>
             )}
-            <h2 className="text-2xl font-bold">Journal Timeline</h2>
+            <h2 className="text-lg sm:text-xl md:text-2xl font-bold truncate">Journal Timeline</h2>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2 flex-shrink-0">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowExportDialog(true)}
+              className="gap-1 sm:gap-2"
             >
-              <Download className="h-4 w-4 mr-2" />
-              Export
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">Export</span>
             </Button>
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={() => refetch()}
               disabled={isLoading}
             >
@@ -333,7 +334,7 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
 
       {/* Timeline Feed */}
       <ScrollArea className="flex-1">
-        <div className="p-4 sm:p-6 space-y-6">
+        <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
           {isLoading ? (
             <div className="text-center py-12 text-muted-foreground">
               <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2" />
@@ -371,41 +372,46 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
                 {entries.map((entry) => (
                   <Card key={entry.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge className={`${getCategoryColor(entry.category)} text-xs`}>
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge className={`${getCategoryColor(entry.category)} text-xs flex-shrink-0`}>
                               {entry.category}
                             </Badge>
 
                             {entry.mood && (
-                              <Badge variant="outline" className={`${moodColors[entry.mood]} text-xs`}>
+                              <Badge variant="outline" className={`${moodColors[entry.mood]} text-xs flex-shrink-0`}>
                                 <Smile className="h-3 w-3 mr-1" />
                                 {moodEmojis[entry.mood]} {entry.mood}
                               </Badge>
                             )}
 
                             {entry.linkedActivityTitle && (
-                              <Badge variant="outline" className="text-xs bg-purple-50 dark:bg-purple-900/20">
-                                <MapPin className="h-3 w-3 mr-1" />
-                                {entry.linkedActivityTitle}
+                              <Badge variant="outline" className="text-xs bg-purple-50 dark:bg-purple-900/20 flex-shrink-0 max-w-full">
+                                <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+                                <span className="truncate">{entry.linkedActivityTitle}</span>
                               </Badge>
                             )}
                           </div>
 
                           {entry.keywords && entry.keywords.length > 0 && (
                             <div className="flex items-center gap-1 flex-wrap">
-                              {entry.keywords.map((keyword, idx) => (
-                                <Badge key={idx} variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {entry.keywords.slice(0, 8).map((keyword, idx) => (
+                                <Badge key={idx} variant="secondary" className="text-[10px] px-1.5 py-0 flex-shrink-0">
                                   <Tag className="h-2.5 w-2.5 mr-0.5" />
                                   {keyword}
                                 </Badge>
                               ))}
+                              {entry.keywords.length > 8 && (
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                  +{entry.keywords.length - 8}
+                                </Badge>
+                              )}
                             </div>
                           )}
                         </div>
 
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0 sm:self-start">
                           {formatTime(entry.timestamp)}
                         </span>
                       </div>
