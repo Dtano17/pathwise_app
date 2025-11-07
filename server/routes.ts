@@ -5679,9 +5679,128 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       const userId = getUserId(req) || DEMO_USER_ID;
       console.log('[JOURNAL] Fetching entries for user:', userId);
       
-      const prefs = await storage.getPersonalJournalEntries(userId);
+      let prefs = await storage.getPersonalJournalEntries(userId);
       console.log('[JOURNAL] Retrieved preferences:', prefs ? 'exists' : 'null');
       console.log('[JOURNAL] JournalData exists:', prefs?.preferences?.journalData ? 'yes' : 'no');
+      
+      // Auto-seed demo data for demo users on first visit
+      if ((!prefs || !prefs.preferences?.journalData || Object.keys(prefs.preferences.journalData).length === 0) && userId === DEMO_USER_ID) {
+        console.log('[JOURNAL] Auto-seeding demo data for demo user');
+        
+        // Rich demo entries across all categories
+        const demoEntries = {
+          restaurants: [
+            {
+              id: `demo-${Date.now()}-1`,
+              text: "Had an amazing dinner at Nobu Malibu tonight. The sunset views over the Pacific were breathtaking! We started with their signature black cod miso - absolutely melts in your mouth. The yellowtail jalapeño was perfectly balanced, and the rock shrimp tempura was crispy perfection. Total splurge at $$$$ but worth it for a special celebration. The ambiance was elegant yet relaxed, perfect for our anniversary.",
+              timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+              mood: 'great' as const
+            },
+            {
+              id: `demo-${Date.now()}-2`,
+              text: "Quick lunch at Sweetgreen near the office. Got the harvest bowl with chicken - fresh, healthy, and under $15. Love how fast and convenient it is. Perfect for those busy workdays when you want something nutritious without the wait.",
+              timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+              mood: 'good' as const
+            }
+          ],
+          travel: [
+            {
+              id: `demo-${Date.now()}-3`,
+              text: "Just got back from an incredible week in Tokyo! Stayed at a boutique hotel in Shibuya - loved the blend of modern design and traditional Japanese touches. Highlights: exploring Senso-ji Temple in Asakusa, getting lost in the backstreets of Shimokitazawa, and the mind-blowing sushi at Sukiyabashi Jiro (bucket list achieved!). Used the subway everywhere - so efficient. Already planning my next trip back to explore Kyoto and Osaka. This was the perfect mix of cultural immersion and urban adventure.",
+              timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+              mood: 'great' as const
+            }
+          ],
+          books: [
+            {
+              id: `demo-${Date.now()}-4`,
+              text: "Finally finished 'Project Hail Mary' by Andy Weir. What a ride! The hard sci-fi mixed with humor reminded me why I love this genre. The friendship between Ryland and Rocky was unexpectedly touching. Perfect for my late-night reading sessions - couldn't put it down. 5/5 stars, would recommend to any sci-fi fan.",
+              timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+              mood: 'great' as const
+            }
+          ],
+          movies: [
+            {
+              id: `demo-${Date.now()}-5`,
+              text: "Movie night with friends - we watched Everything Everywhere All at Once. Absolutely blown away by the creativity and emotional depth. Michelle Yeoh was phenomenal. The multiverse concept was executed perfectly, balancing comedy, action, and heartfelt family drama. We stayed up until 2am discussing the themes. Definitely one of the best films I've seen this year.",
+              timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+              mood: 'great' as const
+            }
+          ],
+          shopping: [
+            {
+              id: `demo-${Date.now()}-6`,
+              text: "Treated myself to a new pair of Allbirds wool runners. I've been wanting minimalist, sustainable sneakers for a while. They're incredibly comfortable and go with everything in my wardrobe. Love the eco-friendly materials - feels good to support brands with values. Perfect for my casual, everyday style.",
+              timestamp: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+              mood: 'good' as const
+            }
+          ],
+          notes: [
+            {
+              id: `demo-${Date.now()}-7`,
+              text: "Reflecting on my goals for Q2. Want to focus more on health (commit to 3x week workouts), deepen relationships (plan monthly friend dinners), and make progress on learning Spanish. Feeling motivated but also need to be realistic about time. Work-life balance is the key.",
+              timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+              mood: 'good' as const
+            }
+          ],
+          'self-care': [
+            {
+              id: `demo-${Date.now()}-8`,
+              text: "Started my Sunday with a 60-minute hot yoga class at CorePower. Felt amazing to stretch out all the tension from this week. Followed it up with a matcha latte and a face mask at home. Taking time for myself really resets my energy. Made me realize I need to prioritize these self-care rituals more often.",
+              timestamp: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+              mood: 'great' as const
+            }
+          ],
+          work: [
+            {
+              id: `demo-${Date.now()}-9`,
+              text: "Wrapped up the Q1 product launch presentation today. Spent weeks preparing the pitch deck, analyzing user data, and coordinating with engineering and design teams. The stakeholder meeting went really well - they loved the roadmap. Proud of how the team collaborated. Skills leveled up: public speaking, data visualization, cross-functional leadership.",
+              timestamp: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+              mood: 'great' as const
+            }
+          ],
+          activities: [
+            {
+              id: `demo-${Date.now()}-10`,
+              text: "Went on a challenging 10-mile hike up Runyon Canyon with my partner this morning. The views of LA from the top were worth every step! We brought snacks and just enjoyed the outdoors for 3 hours. Perfect moderate difficulty level - got our hearts pumping but still had energy to grab brunch after. Love these weekend adventures together.",
+              timestamp: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
+              mood: 'great' as const
+            },
+            {
+              id: `demo-${Date.now()}-11`,
+              text: "Game night with the crew! Hosted at my place - we played Codenames and Catan until midnight. Everyone brought snacks and drinks. Such a fun, low-key way to spend Friday evening. Easy activity that brings people together. Already looking forward to next month's game night.",
+              timestamp: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+              mood: 'great' as const
+            }
+          ]
+        };
+
+        // Enrich and save each entry
+        for (const [category, entries] of Object.entries(demoEntries)) {
+          for (const entry of entries) {
+            try {
+              const enrichedData = await journalEnrichmentService.enrichJournalEntry(entry.text, category);
+              await storage.savePersonalJournalEntry(userId, category, {
+                ...entry,
+                keywords: enrichedData.keywords,
+                aiConfidence: enrichedData.aiConfidence,
+                extractedData: enrichedData.extractedData,
+                suggestions: enrichedData.suggestions
+              });
+            } catch (error) {
+              console.error(`[JOURNAL] Failed to enrich demo entry for ${category}:`, error);
+              await storage.savePersonalJournalEntry(userId, category, entry);
+            }
+          }
+        }
+
+        // Invalidate cache
+        aiService.invalidateUserContext(userId);
+        
+        // Refetch prefs after seeding
+        prefs = await storage.getPersonalJournalEntries(userId);
+        console.log('[JOURNAL] Demo data seeded successfully');
+      }
       
       if (!prefs || !prefs.preferences?.journalData) {
         console.log('[JOURNAL] No journal data found, returning empty array');

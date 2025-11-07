@@ -1370,56 +1370,14 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
               </div>
             )}
 
-            {/* Empty State with Demo Data Option */}
+            {/* Empty State */}
             {journalEntries.length === 0 && (
               <Card className="border-none shadow-md bg-white/60 dark:bg-slate-900/60 backdrop-blur">
-                <CardContent className="p-8 text-center space-y-4">
+                <CardContent className="p-8 text-center">
                   <BookOpen className="h-12 w-12 mx-auto text-slate-300 dark:text-slate-700 mb-3" />
-                  <div>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Your journal is waiting for its first entry.
-                    </p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                      Start typing above to capture your thoughts!
-                    </p>
-                  </div>
-                  
-                  <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                      Want to see AI enrichment in action?
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          const response = await fetch('/api/journal/demo-data', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' }
-                          });
-                          if (response.ok) {
-                            refetchJournalEntries();
-                            toast({
-                              title: "Demo data created!",
-                              description: "Your journal now has sample entries across all categories with AI enrichment.",
-                              duration: 4000,
-                            });
-                          }
-                        } catch (error) {
-                          toast({
-                            title: "Failed to create demo data",
-                            description: "Please try again later",
-                            variant: "destructive"
-                          });
-                        }
-                      }}
-                      className="gap-2"
-                      data-testid="button-load-demo-data"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      Load Demo Data
-                    </Button>
-                  </div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Loading your journal...
+                  </p>
                 </CardContent>
               </Card>
             )}

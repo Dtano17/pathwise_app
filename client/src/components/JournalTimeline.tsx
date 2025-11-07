@@ -51,28 +51,20 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [showExportDialog, setShowExportDialog] = useState(false);
 
-  // Fetch journal data
-  const { data: prefs, isLoading, refetch } = useQuery<{ journalData?: JournalData }>({
-    queryKey: ['/api/user/preferences'],
+  // Fetch journal data from the same endpoint as ConversationalPlanner
+  const { data: response, isLoading, refetch } = useQuery<{ entries: Array<JournalEntry & { category: string }> }>({
+    queryKey: ['/api/journal/entries'],
   });
 
-  const journalData = prefs?.journalData || {};
-
-  // Flatten all entries with category info
+  // All entries are already flattened with category info
   const allEntries = useMemo(() => {
-    const entries: Array<JournalEntry & { category: string }> = [];
-
-    Object.entries(journalData).forEach(([category, categoryEntries]) => {
-      categoryEntries.forEach(entry => {
-        entries.push({ ...entry, category });
-      });
-    });
-
+    const entries = response?.entries || [];
+    
     // Sort by timestamp (newest first)
     return entries.sort((a, b) =>
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
-  }, [journalData]);
+  }, [response]);
 
   // Get unique categories for filter
   const categories = useMemo(() => {
