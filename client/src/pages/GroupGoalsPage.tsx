@@ -275,15 +275,30 @@ export default function GroupGoalsPage() {
   const getActivityIcon = (activityType: string) => {
     switch (activityType) {
       case "task_completed":
-        return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
+        return <CheckCircle2 className="w-5 h-5 text-emerald-400" />;
       case "task_added":
-        return <Circle className="w-5 h-5 text-blue-500" />;
+        return <Circle className="w-5 h-5 text-blue-400" />;
       case "activity_shared":
-        return <Share2 className="w-5 h-5 text-purple-500" />;
+        return <Share2 className="w-5 h-5 text-purple-400" />;
       case "member_joined":
         return <UserPlus className="w-5 h-5 text-primary" />;
       default:
         return <Users className="w-5 h-5 text-muted-foreground" />;
+    }
+  };
+
+  const getActivityBackground = (activityType: string) => {
+    switch (activityType) {
+      case "task_completed":
+        return "bg-emerald-500/10 border-emerald-500/20";
+      case "task_added":
+        return "bg-blue-500/10 border-blue-500/20";
+      case "activity_shared":
+        return "bg-purple-500/10 border-purple-500/20";
+      case "member_joined":
+        return "bg-primary/10 border-primary/20";
+      default:
+        return "bg-background/40 border-border/50";
     }
   };
 
@@ -426,41 +441,22 @@ export default function GroupGoalsPage() {
 
               return (
                 <Card key={group.id} className="hover-elevate cursor-pointer" data-testid={`card-group-${group.id}`}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <CardTitle className="text-lg">{group.name}</CardTitle>
-                          <Badge 
-                            variant={group.role === 'admin' ? 'default' : 'secondary'} 
-                            className="text-xs"
-                          >
-                            {group.role === 'admin' ? 'Admin' : 'Member'}
-                          </Badge>
-                        </div>
-                        {group.description && (
-                          <CardDescription className="mt-1 line-clamp-2">
-                            {group.description}
-                          </CardDescription>
-                        )}
-                      </div>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <CardTitle className="text-lg">{group.name}</CardTitle>
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}
+                      </Badge>
                     </div>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
-                      <div className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        <span>{group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}</span>
-                      </div>
-                      {group.isPrivate && (
-                        <Badge variant="outline" className="text-xs">
-                          Private
-                        </Badge>
-                      )}
-                      <span>Created {formatDistanceToNow(new Date(group.createdAt), { addSuffix: true })}</span>
-                    </div>
+                    {group.description && (
+                      <CardDescription className="text-sm line-clamp-2">
+                        {group.description}
+                      </CardDescription>
+                    )}
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {group.tasksTotal && group.tasksTotal > 0 ? (
-                      <>
+                      <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Progress</span>
                           <span className="font-medium">
@@ -468,25 +464,12 @@ export default function GroupGoalsPage() {
                           </span>
                         </div>
                         <Progress value={progress} className="h-2" />
-                      </>
+                      </div>
                     ) : (
                       <div className="text-center py-2">
                         <p className="text-sm text-muted-foreground mb-3">
                           No activities yet
                         </p>
-                        <Button
-                          className="w-full"
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openShareDialog(group.id);
-                          }}
-                          data-testid={`button-share-activity-${group.id}`}
-                        >
-                          <Share2 className="w-4 h-4 mr-2" />
-                          Share Activity
-                        </Button>
                       </div>
                     )}
                     <Button className="w-full" variant="secondary" size="sm" data-testid={`button-view-group-${group.id}`}>
@@ -533,7 +516,7 @@ export default function GroupGoalsPage() {
               {activities.map((activity) => (
                 <div 
                   key={activity.id} 
-                  className="flex items-start gap-3 p-3 rounded-lg bg-background/40 border border-border/50" 
+                  className={`flex items-start gap-3 p-3 rounded-lg border ${getActivityBackground(activity.activityType)}`}
                   data-testid={`activity-${activity.id}`}
                 >
                   <div className="mt-0.5">
@@ -543,9 +526,9 @@ export default function GroupGoalsPage() {
                     <p className="text-sm">
                       {getActivityText(activity)}
                     </p>
-                    {activity.activityTitle && (
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
-                        {activity.activityTitle}
+                    {activity.groupName && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {activity.groupName}
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground mt-1">
