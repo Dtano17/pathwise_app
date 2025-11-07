@@ -27,10 +27,11 @@ import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
 import ProgressReport from './ProgressReport';
 import { SocialLogin } from '@/components/SocialLogin';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2, Circle, UserPlus } from 'lucide-react';
 import { Link } from 'wouter';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
+import { formatDistanceToNow } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -242,6 +243,72 @@ export default function MainApp({
     // Set the selected activity and navigate to tasks tab
     setSelectedActivityId(activity.id);
     setActiveTab('tasks');
+  };
+
+  // Helper functions for group activity feed
+  const getActivityIcon = (activityType: string) => {
+    switch (activityType) {
+      case "task_completed":
+        return <CheckCircle2 className="w-5 h-5 text-emerald-400" />;
+      case "task_added":
+        return <Circle className="w-5 h-5 text-blue-400" />;
+      case "activity_shared":
+        return <Share2 className="w-5 h-5 text-purple-400" />;
+      case "member_joined":
+        return <UserPlus className="w-5 h-5 text-primary" />;
+      default:
+        return <Users className="w-5 h-5 text-muted-foreground" />;
+    }
+  };
+
+  const getActivityBackground = (activityType: string) => {
+    switch (activityType) {
+      case "task_completed":
+        return "bg-emerald-500/10 border-emerald-500/20";
+      case "task_added":
+        return "bg-blue-500/10 border-blue-500/20";
+      case "activity_shared":
+        return "bg-purple-500/10 border-purple-500/20";
+      case "member_joined":
+        return "bg-primary/10 border-primary/20";
+      default:
+        return "bg-background/40 border-border/50";
+    }
+  };
+
+  const getActivityText = (activity: { userName: string; activityType: string; taskTitle: string | null; activityTitle: string | null }) => {
+    const taskName = activity.taskTitle || "a task";
+    const activityName = activity.activityTitle || "an activity";
+    const userName = activity.userName || "Someone";
+
+    switch (activity.activityType) {
+      case "task_completed":
+        return (
+          <>
+            <span className="font-medium">{userName}</span> completed <span className="font-medium">"{taskName}"</span>
+          </>
+        );
+      case "task_added":
+        return (
+          <>
+            <span className="font-medium">{userName}</span> added new task <span className="font-medium">"{taskName}"</span>
+          </>
+        );
+      case "activity_shared":
+        return (
+          <>
+            <span className="font-medium">{userName}</span> shared <span className="font-medium">{activityName}</span>
+          </>
+        );
+      case "member_joined":
+        return (
+          <>
+            <span className="font-medium">{userName}</span> joined the group
+          </>
+        );
+      default:
+        return <span className="font-medium">{userName}</span>;
+    }
   };
 
   const handleDeleteActivity = useMutation({
@@ -478,11 +545,26 @@ export default function MainApp({
   });
 
   // Fetch user's groups
-  const { data: groupsData, isLoading: groupsLoading, refetch: refetchGroups } = useQuery<{ groups: Array<{ id: string; name: string; description: string | null; isPrivate: boolean; inviteCode: string; createdBy: string; createdAt: string; memberCount: number; role: string }> }>({
+  const { data: groupsData, isLoading: groupsLoading, refetch: refetchGroups } = useQuery<{ groups: Array<{ id: string; name: string; description: string | null; isPrivate: boolean; inviteCode: string; createdBy: string; createdAt: string; memberCount: number; role: string; tasksCompleted?: number; tasksTotal?: number; }> }>({
     queryKey: ['/api/groups'],
     staleTime: 30000, // 30 seconds
   });
   const groups = groupsData?.groups || [];
+
+  // Fetch recent group activity
+  const { data: groupActivities, isLoading: groupActivitiesLoading } = useQuery<Array<{
+    id: string;
+    userId: string;
+    userName: string;
+    activityType: string;
+    taskTitle: string | null;
+    activityTitle: string | null;
+    timestamp: string;
+    groupName: string;
+  }>>({
+    queryKey: ['/api/groups/activity'],
+    staleTime: 30000, // 30 seconds
+  });
 
   // Fetch activity-specific tasks when an activity is selected
   const { data: activityTasks, isLoading: activityTasksLoading, error: activityTasksError } = useQuery<Task[]>({
@@ -2492,12 +2574,58 @@ Assistant: For nutrition, I recommend..."
                   {/* Recent Group Activity */}
                   <div className="mb-8">
                     <h3 className="text-xl font-semibold mb-4">Recent Group Activity</h3>
-                    <Card className="p-8">
-                      <div className="text-center text-muted-foreground">
-                        <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/40" />
-                        <p>No recent activity. Group activities will appear here when members complete tasks or make changes.</p>
-                      </div>
-                    </Card>
+                    
+                    {groupActivitiesLoading ? (
+                      <Card className="bg-card/50">
+                        <CardContent className="py-6 space-y-3">
+                          {[1, 2, 3].map((i) => (
+                            <div key={i} className="flex items-start gap-3 p-3 rounded-lg animate-pulse">
+                              <div className="w-5 h-5 bg-muted rounded-full mt-0.5" />
+                              <div className="flex-1">
+                                <div className="h-4 bg-muted rounded w-3/4 mb-2" />
+                                <div className="h-3 bg-muted rounded w-1/2" />
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    ) : groupActivities && groupActivities.length > 0 ? (
+                      <Card className="bg-card/50">
+                        <CardContent className="py-6 space-y-2">
+                          {groupActivities.map((activity) => (
+                            <div 
+                              key={activity.id} 
+                              className={`flex items-start gap-3 p-3 rounded-lg border ${getActivityBackground(activity.activityType)}`}
+                              data-testid={`activity-${activity.id}`}
+                            >
+                              <div className="mt-0.5">
+                                {getActivityIcon(activity.activityType)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm">
+                                  {getActivityText(activity)}
+                                </p>
+                                {activity.groupName && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {activity.groupName}
+                                  </p>
+                                )}
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card className="p-8">
+                        <div className="text-center text-muted-foreground">
+                          <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/40" />
+                          <p>No recent activity. Group activities will appear here when members complete tasks or make changes.</p>
+                        </div>
+                      </Card>
+                    )}
                   </div>
 
                   {/* Community Powered CTA */}
