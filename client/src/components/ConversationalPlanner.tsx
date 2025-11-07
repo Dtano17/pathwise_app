@@ -1065,21 +1065,21 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 onClick={() => setShowTemplateSelector(true)}
                 variant="ghost"
                 size="sm"
-                className="hidden sm:flex"
+                className="gap-2"
                 data-testid="button-use-template"
               >
-                <FileText className="h-4 w-4 mr-2" />
-                Templates
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Templates</span>
               </Button>
               <Button
                 onClick={() => setShowJournalTimeline(true)}
                 variant="ghost"
                 size="sm"
-                className="hidden sm:flex"
+                className="gap-2"
                 data-testid="button-view-timeline"
               >
-                <Calendar className="h-4 w-4 mr-2" />
-                Timeline
+                <Calendar className="h-4 w-4" />
+                <span className="hidden sm:inline">Timeline</span>
               </Button>
               <Button
                 onClick={() => {
