@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
-import { MapPin, Heart, Coffee, UtensilsCrossed, Camera, Music, Star, Clock, Navigation } from 'lucide-react';
+import { MapPin, Heart, Coffee, UtensilsCrossed, Camera, Music, Star, Clock, Navigation, FlaskConical } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 interface LocationDatePlannerProps {
   onPlanGenerated: (plan: string) => void;
@@ -117,6 +118,69 @@ export default function LocationDatePlanner({ onPlanGenerated }: LocationDatePla
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedVenues, setSelectedVenues] = useState<DateVenue[]>([]);
 
+  // Fetch real journal data
+  const { data: journalResponse } = useQuery<{ entries: Array<{
+    id: string;
+    text: string;
+    category: string;
+    mood?: string;
+    keywords?: string[];
+    timestamp: string;
+  }> }>({
+    queryKey: ['/api/journal/entries'],
+  });
+
+  // Convert journal restaurant entries to DateVenue format
+  const realRestaurants: DateVenue[] = useMemo(() => {
+    if (!journalResponse?.entries) return [];
+    
+    return journalResponse.entries
+      .filter(entry => entry.category === 'restaurants')
+      .map(entry => {
+        // Extract restaurant name from text (first line or first few words)
+        const firstLine = entry.text.split('\n')[0];
+        const name = firstLine.length > 50 ? firstLine.substring(0, 47) + '...' : firstLine;
+        
+        // Infer price range from keywords or text - prioritize premium cues first
+        let priceRange: '$' | '$$' | '$$$' = '$$';
+        const text = entry.text.toLowerCase();
+        
+        // Check for premium indicators first (highest priority)
+        if (text.includes('$$$$') || text.includes('$$$') || text.includes('fine dining') || 
+            text.includes('expensive') || text.includes('splurge') || text.includes('upscale') || 
+            text.includes('luxury')) {
+          priceRange = '$$$';
+        } 
+        // Then check for budget indicators
+        else if (text.includes('cheap') || text.includes('affordable') || text.includes('budget') ||
+                 text.includes('under $15') || text.includes('under $20') || text.includes('inexpensive')) {
+          priceRange = '$';
+        }
+        // Default to $$ (mid-range) if no clear indicators
+        
+        // Assign rating based on mood
+        const rating = entry.mood === 'great' ? 4.8 : entry.mood === 'good' ? 4.5 : 4.0;
+        
+        // Create venue
+        return {
+          id: entry.id,
+          name: name,
+          type: 'restaurant' as const,
+          description: entry.text.length > 150 ? entry.text.substring(0, 147) + '...' : entry.text,
+          rating,
+          estimatedTime: '2-3 hours',
+          atmosphere: entry.mood === 'great' ? 'Highly Recommended' : 'Enjoyed by You',
+          priceRange,
+          distance: undefined // Real data doesn't have distance
+        };
+      });
+  }, [journalResponse]);
+
+  // Combine real and mock data, prioritizing real restaurants
+  const allVenues: DateVenue[] = useMemo(() => {
+    return [...realRestaurants, ...mockVenues];
+  }, [realRestaurants]);
+
   const requestLocation = () => {
     setLocationStatus('requesting');
     
@@ -169,15 +233,15 @@ export default function LocationDatePlanner({ onPlanGenerated }: LocationDatePla
   const getThemeVenues = (themeId: string) => {
     switch (themeId) {
       case 'romantic':
-        return mockVenues.filter(v => ['restaurant', 'scenic'].includes(v.type));
+        return allVenues.filter(v => ['restaurant', 'scenic'].includes(v.type));
       case 'adventurous':
-        return mockVenues.filter(v => ['activity', 'scenic', 'entertainment'].includes(v.type));
+        return allVenues.filter(v => ['activity', 'scenic', 'entertainment'].includes(v.type));
       case 'cultural':
-        return mockVenues.filter(v => ['activity', 'cafe', 'entertainment'].includes(v.type));
+        return allVenues.filter(v => ['activity', 'cafe', 'entertainment'].includes(v.type));
       case 'casual':
-        return mockVenues.filter(v => ['cafe', 'scenic'].includes(v.type));
+        return allVenues.filter(v => ['cafe', 'scenic'].includes(v.type));
       default:
-        return mockVenues;
+        return allVenues;
     }
   };
 
@@ -195,9 +259,13 @@ export default function LocationDatePlanner({ onPlanGenerated }: LocationDatePla
         <h2 className="text-2xl font-bold mb-2 flex items-center justify-center gap-2">
           <Heart className="w-6 h-6 text-pink-500" />
           Perfect Date Night Planner
+          <Badge variant="secondary" className="gap-1">
+            <FlaskConical className="h-3 w-3" />
+            Beta
+          </Badge>
         </h2>
         <p className="text-muted-foreground">
-          Find amazing places nearby and create the perfect date itinerary
+          Find amazing places nearby and create the perfect date itinerary. Now featuring real restaurants from your journal!
         </p>
       </div>
 
