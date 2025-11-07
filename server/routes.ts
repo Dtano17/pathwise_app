@@ -7,6 +7,7 @@ import { aiService } from "./services/aiService";
 import { lifestylePlannerAgent } from "./services/lifestylePlannerAgent";
 import { langGraphPlanningAgent } from "./services/langgraphPlanningAgent";
 import { simpleConversationalPlanner } from "./services/simpleConversationalPlanner";
+import { enrichJournalEntry } from "./services/journalEnrichmentService";
 import { contactSyncService } from "./contactSync";
 import { 
   insertGoalSchema,
@@ -5426,8 +5427,40 @@ You can find these tasks in your task list and start working on them right away!
       const currentPrefs = prefs?.preferences || {};
       const journalData = currentPrefs.journalData || {};
       
-      // Update the specific category
-      journalData[category] = items;
+      // Enrich journal entries with AI insights (async, in parallel)
+      console.log(`[JOURNAL SAVE] Enriching ${items.length} entries for category: ${category}`);
+      const enrichedItems = await Promise.all(
+        items.map(async (item: any) => {
+          // Only enrich items with text content
+          if (!item.text || typeof item.text !== 'string' || item.text.trim().length < 10) {
+            return item; // Skip enrichment for empty or very short entries
+          }
+          
+          try {
+            // Check if already enriched (has keywords and aiConfidence)
+            if (item.keywords && item.aiConfidence !== undefined) {
+              console.log(`[JOURNAL SAVE] Entry already enriched, skipping`);
+              return item;
+            }
+            
+            const enrichedData = await enrichJournalEntry(item.text, category, item.keywords);
+            
+            return {
+              ...item,
+              keywords: enrichedData.keywords,
+              extractedData: enrichedData.extractedData,
+              aiConfidence: enrichedData.aiConfidence,
+              suggestions: enrichedData.suggestions
+            };
+          } catch (enrichError) {
+            console.error('[JOURNAL SAVE] Enrichment failed for item, saving without enrichment:', enrichError);
+            return item; // Save the original item if enrichment fails
+          }
+        })
+      );
+      
+      // Update the specific category with enriched items
+      journalData[category] = enrichedItems;
       
       // Save back to preferences
       const updatedPrefs = await storage.upsertUserPreferences(userId, {
@@ -5436,6 +5469,10 @@ You can find these tasks in your task list and start working on them right away!
           journalData
         }
       });
+      
+      // Invalidate user context cache to refresh personalization
+      aiService.invalidateUserContext(userId);
+      console.log(`[JOURNAL SAVE] Cache invalidated for user ${userId}`);
 
       res.json({ success: true, journalData });
     } catch (error) {
@@ -5586,18 +5623,37 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       // Normalize all category names to IDs (convert "Personal Notes" -> "notes", etc.)
       const normalizedCategories = detectedCategories.map(cat => normalizeCategoryName(cat));
 
+      // Enrich entry with AI insights before saving
+      let enrichedData: any = {};
+      if (text && text.trim().length >= 10) {
+        try {
+          const primaryCategory = normalizedCategories[0] || 'notes';
+          enrichedData = await enrichJournalEntry(text, primaryCategory, detectedKeywords);
+          console.log(`[SMART ENTRY] Enriched with ${enrichedData.keywords.length} keywords, confidence: ${enrichedData.aiConfidence}`);
+        } catch (enrichError) {
+          console.error('[SMART ENTRY] Enrichment failed, continuing without enrichment:', enrichError);
+        }
+      }
+
       // Add journal entries for each detected category (grouped experiences create multiple entries)
       for (const category of normalizedCategories) {
         await storage.addPersonalJournalEntry(userId, category, {
           text,
           media,
-          keywords: detectedKeywords.length > 0 ? detectedKeywords : keywords,
-          aiConfidence,
+          keywords: enrichedData.keywords || (detectedKeywords.length > 0 ? detectedKeywords : keywords),
+          aiConfidence: enrichedData.aiConfidence || aiConfidence,
           activityId,
           linkedActivityTitle,
-          mood
+          mood,
+          // Add enriched data
+          ...(enrichedData.extractedData ? { extractedData: enrichedData.extractedData } : {}),
+          ...(enrichedData.suggestions ? { suggestions: enrichedData.suggestions } : {})
         });
       }
+      
+      // Invalidate user context cache to refresh personalization
+      aiService.invalidateUserContext(userId);
+      console.log(`[SMART ENTRY] Cache invalidated for user ${userId}`);
 
       res.json({
         success: true,

@@ -1251,16 +1251,154 @@ Guidelines:
       if (userPreferences?.preferences) {
         const prefs = userPreferences.preferences;
 
-        // Journal data (personal interests, preferences, etc.)
+        // Journal data - Extract enriched insights organized by category
         if (prefs.journalData) {
-          const journalEntries: string[] = [];
+          const categoryInsights: Record<string, any> = {
+            dining: { cuisines: new Set(), vibes: new Set(), priceRanges: new Set(), locations: new Set() },
+            travel: { destinations: new Set(), styles: new Set(), accommodations: new Set(), activities: new Set() },
+            entertainment: { genres: new Set(), moods: new Set(), types: new Set() },
+            shopping: { brands: new Set(), styles: new Set(), categories: new Set() },
+            wellness: { activities: new Set(), preferences: new Set() },
+            general: { interests: new Set(), keywords: new Set() }
+          };
+
           Object.entries(prefs.journalData).forEach(([category, entries]) => {
-            if (Array.isArray(entries) && entries.length > 0) {
-              journalEntries.push(`${category}: ${entries.join('; ')}`);
-            }
+            if (!Array.isArray(entries) || entries.length === 0) return;
+
+            entries.forEach((entry: any) => {
+              const enriched = entry.extractedData || {};
+              const keywords = entry.keywords || [];
+
+              // Restaurant/Dining preferences
+              if (category === 'restaurants' || category.includes('food') || category.includes('dining')) {
+                if (enriched.cuisine) {
+                  (Array.isArray(enriched.cuisine) ? enriched.cuisine : [enriched.cuisine]).forEach(c => categoryInsights.dining.cuisines.add(c));
+                }
+                if (enriched.priceRange) categoryInsights.dining.priceRanges.add(enriched.priceRange);
+                if (enriched.vibe) {
+                  (Array.isArray(enriched.vibe) ? enriched.vibe : [enriched.vibe]).forEach(v => categoryInsights.dining.vibes.add(v));
+                }
+                if (enriched.city || enriched.location) {
+                  categoryInsights.dining.locations.add(enriched.city || enriched.location);
+                }
+              }
+
+              // Travel preferences
+              if (category === 'travel' || category.includes('trip') || category.includes('vacation')) {
+                if (enriched.city || enriched.destination) {
+                  categoryInsights.travel.destinations.add(enriched.city || enriched.destination);
+                }
+                if (enriched.travelStyle) {
+                  (Array.isArray(enriched.travelStyle) ? enriched.travelStyle : [enriched.travelStyle]).forEach(s => categoryInsights.travel.styles.add(s));
+                }
+                if (enriched.accommodationType) categoryInsights.travel.accommodations.add(enriched.accommodationType);
+                if (enriched.activities) {
+                  (Array.isArray(enriched.activities) ? enriched.activities : [enriched.activities]).forEach(a => categoryInsights.travel.activities.add(a));
+                }
+              }
+
+              // Entertainment (books, movies, music)
+              if (category === 'books' || category === 'movies' || category.includes('music') || category.includes('entertainment')) {
+                if (enriched.genre) {
+                  (Array.isArray(enriched.genre) ? enriched.genre : [enriched.genre]).forEach(g => categoryInsights.entertainment.genres.add(g));
+                }
+                if (enriched.mood) {
+                  (Array.isArray(enriched.mood) ? enriched.mood : [enriched.mood]).forEach(m => categoryInsights.entertainment.moods.add(m));
+                }
+                categoryInsights.entertainment.types.add(category);
+              }
+
+              // Shopping preferences
+              if (category === 'shopping' || category.includes('style') || category.includes('fashion')) {
+                if (enriched.brand) categoryInsights.shopping.brands.add(enriched.brand);
+                if (enriched.style) {
+                  (Array.isArray(enriched.style) ? enriched.style : [enriched.style]).forEach(s => categoryInsights.shopping.styles.add(s));
+                }
+                if (enriched.category) categoryInsights.shopping.categories.add(enriched.category);
+              }
+
+              // Self-care/Wellness
+              if (category === 'self-care' || category.includes('wellness') || category.includes('fitness')) {
+                if (enriched.activityType) {
+                  (Array.isArray(enriched.activityType) ? enriched.activityType : [enriched.activityType]).forEach(a => categoryInsights.wellness.activities.add(a));
+                }
+              }
+
+              // General interests (collect all keywords)
+              keywords.forEach(kw => categoryInsights.general.keywords.add(kw));
+            });
           });
-          if (journalEntries.length > 0) {
-            contextParts.push(`Personal Interests & Preferences:\n${journalEntries.join('\n')}`);
+
+          // Build structured insights summary
+          const insightsSummary: string[] = [];
+
+          if (categoryInsights.dining.cuisines.size > 0 || categoryInsights.dining.vibes.size > 0) {
+            const diningParts: string[] = [];
+            if (categoryInsights.dining.cuisines.size > 0) {
+              diningParts.push(`Cuisines: ${Array.from(categoryInsights.dining.cuisines).join(', ')}`);
+            }
+            if (categoryInsights.dining.vibes.size > 0) {
+              diningParts.push(`Atmosphere: ${Array.from(categoryInsights.dining.vibes).join(', ')}`);
+            }
+            if (categoryInsights.dining.priceRanges.size > 0) {
+              diningParts.push(`Budget: ${Array.from(categoryInsights.dining.priceRanges).join(', ')}`);
+            }
+            if (categoryInsights.dining.locations.size > 0) {
+              diningParts.push(`Locations: ${Array.from(categoryInsights.dining.locations).slice(0, 5).join(', ')}`);
+            }
+            insightsSummary.push(`Dining Preferences: ${diningParts.join(' | ')}`);
+          }
+
+          if (categoryInsights.travel.destinations.size > 0 || categoryInsights.travel.styles.size > 0) {
+            const travelParts: string[] = [];
+            if (categoryInsights.travel.destinations.size > 0) {
+              travelParts.push(`Destinations: ${Array.from(categoryInsights.travel.destinations).slice(0, 5).join(', ')}`);
+            }
+            if (categoryInsights.travel.styles.size > 0) {
+              travelParts.push(`Style: ${Array.from(categoryInsights.travel.styles).join(', ')}`);
+            }
+            if (categoryInsights.travel.accommodations.size > 0) {
+              travelParts.push(`Stays: ${Array.from(categoryInsights.travel.accommodations).join(', ')}`);
+            }
+            if (categoryInsights.travel.activities.size > 0) {
+              travelParts.push(`Activities: ${Array.from(categoryInsights.travel.activities).slice(0, 5).join(', ')}`);
+            }
+            insightsSummary.push(`Travel Preferences: ${travelParts.join(' | ')}`);
+          }
+
+          if (categoryInsights.entertainment.genres.size > 0 || categoryInsights.entertainment.moods.size > 0) {
+            const entertainmentParts: string[] = [];
+            if (categoryInsights.entertainment.genres.size > 0) {
+              entertainmentParts.push(`Genres: ${Array.from(categoryInsights.entertainment.genres).join(', ')}`);
+            }
+            if (categoryInsights.entertainment.moods.size > 0) {
+              entertainmentParts.push(`Moods: ${Array.from(categoryInsights.entertainment.moods).join(', ')}`);
+            }
+            insightsSummary.push(`Entertainment Preferences: ${entertainmentParts.join(' | ')}`);
+          }
+
+          if (categoryInsights.shopping.brands.size > 0 || categoryInsights.shopping.styles.size > 0) {
+            const shoppingParts: string[] = [];
+            if (categoryInsights.shopping.brands.size > 0) {
+              shoppingParts.push(`Brands: ${Array.from(categoryInsights.shopping.brands).slice(0, 5).join(', ')}`);
+            }
+            if (categoryInsights.shopping.styles.size > 0) {
+              shoppingParts.push(`Style: ${Array.from(categoryInsights.shopping.styles).join(', ')}`);
+            }
+            insightsSummary.push(`Shopping Preferences: ${shoppingParts.join(' | ')}`);
+          }
+
+          if (categoryInsights.wellness.activities.size > 0) {
+            insightsSummary.push(`Wellness Activities: ${Array.from(categoryInsights.wellness.activities).join(', ')}`);
+          }
+
+          if (categoryInsights.general.keywords.size > 0) {
+            const topKeywords = Array.from(categoryInsights.general.keywords).slice(0, 15);
+            insightsSummary.push(`Key Interests: ${topKeywords.join(', ')}`);
+          }
+
+          if (insightsSummary.length > 0) {
+            contextParts.push(`Personal Preferences from Journal:\n${insightsSummary.join('\n')}`);
           }
         }
 
