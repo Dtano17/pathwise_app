@@ -87,6 +87,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const fileInputRef = useRef<HTMLInputElement>(null);
   const journalTextareaRef = useRef<HTMLTextAreaElement>(null);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastAutoSavedTextRef = useRef<string>('');
   
   // Autocomplete state
   const [showAutocomplete, setShowAutocomplete] = useState(false);
@@ -641,6 +642,15 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   // Journal Mode submitJournalEntry mutation
   const submitJournalEntry = useMutation({
     mutationFn: async () => {
+      // Cancel any pending auto-save to prevent duplicate submission
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+        autoSaveTimeoutRef.current = null;
+      }
+      
+      // Mark this text as already saved to block any late auto-save
+      lastAutoSavedTextRef.current = journalText.trim();
+      
       // Duplicate detection - check if same text was submitted in last 5 minutes
       const now = Date.now();
       const recentEntries = journalEntriesData?.entries || [];
@@ -693,6 +703,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       });
       setJournalText('');
       setJournalMedia([]);
+      lastAutoSavedTextRef.current = ''; // Clear auto-save tracking
       setDetectedCategory(
         data.categories && data.categories.length > 0 
           ? data.categories[0] 
@@ -934,11 +945,17 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       clearTimeout(autoSaveTimeoutRef.current);
     }
 
-    // Only auto-save if there's meaningful text (at least 10 characters)
-    if (text.trim().length >= 10) {
+    // Only auto-save if there's meaningful text (at least 10 characters) AND it's different from last auto-save
+    if (text.trim().length >= 10 && text.trim() !== lastAutoSavedTextRef.current) {
       setIsSavingJournal(true);
       autoSaveTimeoutRef.current = setTimeout(async () => {
         try {
+          // Double-check text hasn't changed to what was last saved (race condition protection)
+          if (text.trim() === lastAutoSavedTextRef.current) {
+            setIsSavingJournal(false);
+            return;
+          }
+          
           // Auto-save journal entry
           const response = await apiRequest('POST', '/api/journal/smart-entry', {
             text: text.trim(),
@@ -950,6 +967,9 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           
           if (data.success) {
             setIsSavingJournal(false);
+            
+            // Track what was auto-saved to prevent duplicates
+            lastAutoSavedTextRef.current = text.trim();
             
             // Force cache invalidation and refetch
             queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
@@ -968,6 +988,8 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           setIsSavingJournal(false);
         }
       }, 2000); // Wait 2 seconds after user stops typing
+    } else {
+      setIsSavingJournal(false);
     }
   };
 
@@ -1082,6 +1104,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                   localStorage.removeItem('planner_chips');
                   setJournalText('');
                   setJournalMedia([]);
+                  lastAutoSavedTextRef.current = ''; // Clear auto-save tracking
                   if (onClose) {
                     onClose();
                   }
