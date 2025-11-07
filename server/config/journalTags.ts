@@ -60,6 +60,12 @@ export const TAG_CATEGORY_MAPPINGS: Record<string, string[]> = {
   '@fashion': ['Fashion & Style'],
   '@style': ['Fashion & Style'],
   '@outfit': ['Fashion & Style'],
+  
+  // Daily review and reflection tags
+  '@dailyreview': ['Personal Notes'],
+  '@reflection': ['Personal Notes'],
+  '@review': ['Personal Notes'],
+  '@notes': ['Personal Notes'],
 };
 
 // Extract tags from text
@@ -106,4 +112,55 @@ export function detectCategoriesFromTags(text: string): {
     suggestedCategories: uniqueCategories,
     isGroupedExperience: isGrouped
   };
+}
+
+// Category name to ID mapping (for compatibility with PersonalJournal component)
+const CATEGORY_NAME_TO_ID: Record<string, string> = {
+  'Restaurants & Food': 'restaurants',
+  'Movies & TV Shows': 'movies',
+  'Music & Artists': 'music',
+  'Music & Concerts': 'music',
+  'Books & Reading': 'books',
+  'Books & Learning': 'books',
+  'Hobbies & Interests': 'hobbies',
+  'Travel & Places': 'travel',
+  'Personal Style': 'style',
+  'Fashion & Style': 'style',
+  'Favorite Things': 'favorites',
+  'Personal Notes': 'notes',
+  'Health & Fitness': 'fitness',
+  'Activities & Events': 'activities',
+  'Shopping & Purchases': 'shopping',
+};
+
+// Convert full category names to short IDs used by PersonalJournal
+export function normalizeCategoryName(categoryName: string): string {
+  return CATEGORY_NAME_TO_ID[categoryName] || categoryName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+}
+
+// Normalize journal data structure to use slug IDs instead of full category names
+export function normalizeJournalData(journalData: Record<string, any[]>): {
+  normalized: Record<string, any[]>;
+  hasChanges: boolean;
+} {
+  const normalized: Record<string, any[]> = {};
+  let hasChanges = false;
+
+  for (const [categoryKey, entries] of Object.entries(journalData)) {
+    const normalizedKey = normalizeCategoryName(categoryKey);
+    
+    // Track if we're renaming a category
+    if (normalizedKey !== categoryKey) {
+      hasChanges = true;
+    }
+
+    // Merge entries if the normalized key already exists
+    if (normalized[normalizedKey]) {
+      normalized[normalizedKey] = [...normalized[normalizedKey], ...entries];
+    } else {
+      normalized[normalizedKey] = entries;
+    }
+  }
+
+  return { normalized, hasChanges };
 }

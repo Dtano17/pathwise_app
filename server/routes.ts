@@ -5291,6 +5291,48 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
+  // Get user preferences (with automatic journal data normalization)
+  app.get("/api/user-preferences", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      console.log('[PREFERENCES] Fetching preferences for user:', userId);
+      
+      const preferences = await storage.getUserPreferences(userId);
+      
+      if (!preferences || !preferences.preferences) {
+        console.log('[PREFERENCES] No preferences found, returning empty');
+        return res.json({ preferences: {} });
+      }
+
+      let responsePrefs = { ...preferences.preferences };
+      
+      // Normalize journal data if it exists
+      if (responsePrefs.journalData) {
+        const { normalizeJournalData } = await import('./config/journalTags.js');
+        const { normalized, hasChanges } = normalizeJournalData(responsePrefs.journalData);
+        
+        if (hasChanges) {
+          console.log('[PREFERENCES] Migrating legacy journal category names to slug IDs');
+          // Persist normalized data back to storage
+          await storage.upsertUserPreferences(userId, {
+            preferences: {
+              ...responsePrefs,
+              journalData: normalized
+            }
+          });
+        }
+        
+        responsePrefs.journalData = normalized;
+      }
+      
+      console.log('[PREFERENCES] Returning normalized preferences');
+      res.json({ preferences: responsePrefs });
+    } catch (error) {
+      console.error('[PREFERENCES] Error fetching user preferences:', error);
+      res.status(500).json({ error: 'Failed to fetch user preferences' });
+    }
+  });
+
   // User Profile Management
   app.get("/api/user/profile", async (req: any, res) => {
     try {
@@ -5465,7 +5507,7 @@ You can find these tasks in your task list and start working on them right away!
       }
 
       // Import tag detection utilities
-      const { detectCategoriesFromTags } = await import('./config/journalTags.js');
+      const { detectCategoriesFromTags, normalizeCategoryName } = await import('./config/journalTags.js');
       
       // First, try tag-based detection (@vacation, @restaurants, etc.)
       const tagDetection = detectCategoriesFromTags(text);
@@ -5481,9 +5523,9 @@ You can find these tasks in your task list and start working on them right away!
         aiConfidence = 0.95; // High confidence for explicit @tags
       } else if (tagDetection.detectedTags.length > 0) {
         // Tags detected but not recognized - route to Personal Notes
-        detectedCategories = ['Personal Notes'];
+        detectedCategories = ['notes'];
         aiConfidence = 0.6; // Medium confidence for unrecognized tags
-        console.log(`Unrecognized tags ${tagDetection.detectedTags.join(', ')} routed to Personal Notes`);
+        console.log(`Unrecognized tags ${tagDetection.detectedTags.join(', ')} routed to notes category`);
       } else {
         // No tags found at all, use AI to detect category
         const baseCategories = [
@@ -5530,19 +5572,22 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           });
 
           const categoryData = JSON.parse(response.choices[0]?.message?.content || '{}');
-          detectedCategories = [categoryData.category || 'Personal Notes'];
+          detectedCategories = [categoryData.category || 'notes'];
           detectedKeywords = categoryData.keywords || [];
           aiConfidence = categoryData.confidence || 0.7;
         } catch (aiError) {
           console.error('AI category detection failed:', aiError);
           // Fall back to simple text analysis if AI fails
-          detectedCategories = ['Personal Notes'];
+          detectedCategories = ['notes'];
           aiConfidence = 0.3;
         }
       }
 
+      // Normalize all category names to IDs (convert "Personal Notes" -> "notes", etc.)
+      const normalizedCategories = detectedCategories.map(cat => normalizeCategoryName(cat));
+
       // Add journal entries for each detected category (grouped experiences create multiple entries)
-      for (const category of detectedCategories) {
+      for (const category of normalizedCategories) {
         await storage.addPersonalJournalEntry(userId, category, {
           text,
           media,
@@ -5556,7 +5601,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
 
       res.json({
         success: true,
-        categories: detectedCategories,
+        categories: normalizedCategories,
         keywords: detectedKeywords,
         aiConfidence,
         isGroupedExperience

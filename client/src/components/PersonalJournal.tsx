@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,20 +78,19 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       const response = await fetch('/api/user-preferences');
       if (!response.ok) throw new Error('Failed to load preferences');
       const data = await response.json();
-      
-      // Load journal data from preferences (new format with media support)
-      if (data?.preferences?.journalData) {
-        setJournalData(data.preferences.journalData);
-      }
-      
-      // Load custom categories from preferences
-      if (data?.preferences?.customJournalCategories) {
-        setCustomCategories(data.preferences.customJournalCategories);
-      }
-      
       return data;
     }
   });
+
+  // Sync local state with query data whenever it updates
+  useEffect(() => {
+    if (userData?.preferences?.journalData) {
+      setJournalData(userData.preferences.journalData);
+    }
+    if (userData?.preferences?.customJournalCategories) {
+      setCustomCategories(userData.preferences.customJournalCategories);
+    }
+  }, [userData]);
 
   // Merge default and custom categories
   const allCategories = [
