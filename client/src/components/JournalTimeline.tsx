@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Search, Filter, RefreshCw, Image as ImageIcon, Smile, MapPin, Tag, Download } from 'lucide-react';
+import { Calendar, Search, Filter, RefreshCw, Image as ImageIcon, Smile, MapPin, Tag, Download, ArrowLeft, Sparkles } from 'lucide-react';
 import { getCategoryColor } from '@/hooks/useKeywordDetection';
 import ExportDialog from './ExportDialog';
 
@@ -155,8 +155,22 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-4 sm:p-6 space-y-4 border-b bg-gradient-to-r from-purple-50 to-emerald-50 dark:from-purple-950/20 dark:to-emerald-950/20">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Journal Timeline</h2>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            {onClose && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="gap-2"
+                data-testid="button-back-journal"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            )}
+            <h2 className="text-2xl font-bold">Journal Timeline</h2>
+          </div>
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -176,6 +190,23 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
             </Button>
           </div>
         </div>
+
+        {/* Reference Info */}
+        {allEntries.length > 0 && (
+          <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-start gap-2">
+              <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs font-medium text-blue-900 dark:text-blue-100 mb-1">
+                  AI-Enriched Journal
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  {allEntries.length} {allEntries.length === 1 ? 'entry' : 'entries'} across {categories.length} {categories.length === 1 ? 'category' : 'categories'} • Automatically organized and enriched with insights
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Search */}
         <div className="relative">
