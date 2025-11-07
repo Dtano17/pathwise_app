@@ -154,11 +154,29 @@ export function normalizeJournalData(journalData: Record<string, any[]>): {
       hasChanges = true;
     }
 
+    // Fix invalid timestamps in entries
+    const cleanedEntries = entries.map((entry: any) => {
+      if (!entry.timestamp) {
+        hasChanges = true;
+        return { ...entry, timestamp: new Date().toISOString() };
+      }
+      
+      // Validate timestamp
+      try {
+        new Date(entry.timestamp).toISOString();
+        return entry;
+      } catch (error) {
+        hasChanges = true;
+        console.warn(`[JOURNAL] Fixing invalid timestamp:`, entry.timestamp);
+        return { ...entry, timestamp: new Date().toISOString() };
+      }
+    });
+
     // Merge entries if the normalized key already exists
     if (normalized[normalizedKey]) {
-      normalized[normalizedKey] = [...normalized[normalizedKey], ...entries];
+      normalized[normalizedKey] = [...normalized[normalizedKey], ...cleanedEntries];
     } else {
-      normalized[normalizedKey] = entries;
+      normalized[normalizedKey] = cleanedEntries;
     }
   }
 

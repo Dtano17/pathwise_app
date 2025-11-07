@@ -1170,8 +1170,15 @@ export class DatabaseStorage implements IStorage {
     // Check if there's already an entry from today in this category
     const today = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD
     const todayEntryIndex = categoryEntries.findIndex((e: any) => {
-      const entryDate = new Date(e.timestamp).toISOString().split('T')[0];
-      return entryDate === today;
+      // Safely handle invalid/missing timestamps
+      if (!e.timestamp) return false;
+      try {
+        const entryDate = new Date(e.timestamp).toISOString().split('T')[0];
+        return entryDate === today;
+      } catch (error) {
+        console.warn(`[JOURNAL] Invalid timestamp in entry:`, e.timestamp);
+        return false;
+      }
     });
     
     if (todayEntryIndex !== -1) {
