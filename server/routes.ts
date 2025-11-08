@@ -853,6 +853,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
   
+  // ========== DYNAMIC OPEN GRAPH IMAGE GENERATOR ==========
+  // Serve dynamically generated OG images for share previews
+  app.get("/api/og-image/:activityId", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const { generateOGImage } = await import('./services/ogImageGenerator');
+      
+      // Get activity data (try via share token or activity ID)
+      const activity = await storage.getActivityByShareToken(activityId) || 
+                      await storage.getActivity(activityId, DEMO_USER_ID);
+      
+      if (!activity || !activity.isPublic) {
+        return res.status(404).send('Activity not found or not public');
+      }
+      
+      const tasks = await storage.getActivityTasks(activity.id, activity.userId);
+      
+      // Generate image
+      const imageBuffer = await generateOGImage({
+        activity,
+        tasks
+      });
+      
+      // Set caching headers (cache for 1 hour)
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(imageBuffer);
+    } catch (error) {
+      console.error('[OG IMAGE] Error generating image:', error);
+      res.status(500).send('Error generating image');
+    }
+  });
+  
   // ========== SERVER-SIDE RENDERED SHARE PAGE FOR SOCIAL CRAWLERS ==========
   // This route must come BEFORE Vite middleware to serve pre-rendered HTML with OG tags
   // Social media crawlers (WhatsApp, Facebook, Twitter) don't execute JavaScript,
@@ -910,13 +943,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? `${activity.description}${taskInfo}` 
         : `Join this ${activity.category} plan on JournalMate${taskInfo}`;
       
-      // Ensure backdrop image has full URL
-      let shareImage = activity.backdrop || 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1200&h=630&fit=crop&q=80';
-      if (shareImage && !shareImage.startsWith('http')) {
-        // Handle relative paths - convert to absolute URLs
-        const baseUrl = req.protocol + '://' + req.get('host');
-        shareImage = baseUrl + (shareImage.startsWith('/') ? shareImage : `/${shareImage}`);
-      }
+      // Use dynamically generated OG image with activity details
+      const baseUrl = req.protocol + '://' + req.get('host');
+      const shareImage = `${baseUrl}/api/og-image/${token}`;
       const currentUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
       
       // Read client template (works in both dev and production)

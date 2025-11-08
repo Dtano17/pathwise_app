@@ -61,6 +61,7 @@
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/passport-instagram": "^1.0.5",
     "bcrypt": "^6.0.0",
+    "canvas": "^3.2.0",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
