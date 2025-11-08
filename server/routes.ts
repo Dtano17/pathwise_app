@@ -30,6 +30,7 @@ import {
   insertLifestylePlannerSessionSchema,
   insertGroupSchema,
   tasks as tasksTable,
+  userNotifications,
   type Task,
   type Activity,
   type ActivityTask,
@@ -3345,7 +3346,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
   app.post("/api/activities/:activityId/share", async (req, res) => {
     try {
       const { activityId } = req.params;
-      const { groupId } = req.body;
+      const { groupId, targetGroupId } = req.body;
       const userId = getUserId(req) || DEMO_USER_ID;
       
       // Check if activity exists
@@ -3354,7 +3355,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         return res.status(404).json({ error: 'Activity not found' });
       }
 
-      // If groupId is provided, share to the group
+      // If groupId is provided, share to the group (add activity directly to group)
       if (groupId) {
         // Verify user is a member of the group
         const userGroups = await storage.getGroupsForUser(userId);
@@ -3382,6 +3383,19 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       // Otherwise, generate shareable link (original behavior)
       if (!activity.isPublic) {
         return res.status(403).json({ error: 'Activity must be public to share. Change privacy settings first.' });
+      }
+      
+      // If targetGroupId is provided, verify user is a member and store it
+      if (targetGroupId) {
+        const userGroups = await storage.getGroupsForUser(userId);
+        const isMember = userGroups.some(g => g.id === targetGroupId);
+        
+        if (!isMember) {
+          return res.status(403).json({ error: 'You must be a member of the group to share from it' });
+        }
+        
+        // Store targetGroupId for auto-join after copy
+        await storage.updateActivity(activityId, { targetGroupId }, userId);
       }
       
       const shareToken = await storage.generateShareableLink(activityId, userId);
@@ -3581,14 +3595,92 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       // Count preserved progress
       const preservedCompletions = copiedTasks.filter(t => t.completed).length;
       
+      // Auto-join group if activity has targetGroupId (and user is authenticated)
+      let joinedGroup = null;
+      if (sharedActivity.targetGroupId && currentUserId) {
+        try {
+          // Check if user is already a member
+          const userGroups = await storage.getGroupsForUser(currentUserId);
+          const alreadyMember = userGroups.some(g => g.id === sharedActivity.targetGroupId);
+          
+          if (!alreadyMember) {
+            // Add user to the group
+            await storage.addGroupMember(
+              sharedActivity.targetGroupId,
+              currentUserId,
+              'member'
+            );
+            
+            // Get user info for activity feed
+            const user = await storage.getUser(currentUserId);
+            const userName = user 
+              ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || 'Someone'
+              : 'Someone';
+            
+            // Log the activity in the group feed
+            await storage.logGroupActivity({
+              groupId: sharedActivity.targetGroupId,
+              userId: currentUserId,
+              userName,
+              activityType: 'member_joined',
+              activityTitle: sharedActivity.title,
+              taskTitle: `Joined via share link`
+            });
+            
+            // Get group info for response
+            const group = await storage.getGroup(sharedActivity.targetGroupId);
+            joinedGroup = group;
+            
+            // Notify all group admins
+            try {
+              const groupMembers = await storage.getGroupMembers(sharedActivity.targetGroupId);
+              const admins = groupMembers.filter(m => m.role === 'admin');
+              
+              // Create notification for each admin
+              for (const admin of admins) {
+                // Skip notification if admin is the one who joined
+                if (admin.userId === currentUserId) continue;
+                
+                await db.insert(userNotifications).values({
+                  userId: admin.userId,
+                  sourceGroupId: sharedActivity.targetGroupId,
+                  actorUserId: currentUserId,
+                  type: 'group_member_joined',
+                  title: `New member joined ${group?.name || 'your group'}`,
+                  body: `${userName} joined via a shared activity link`,
+                  metadata: {
+                    activityTitle: sharedActivity.title,
+                    viaShareLink: true,
+                    groupName: group?.name || '',
+                  }
+                });
+              }
+              
+              console.log('[COPY ACTIVITY] Created notifications for', admins.length, 'admins');
+            } catch (notifError) {
+              console.error('[COPY ACTIVITY] Error creating admin notifications:', notifError);
+              // Don't fail the operation if notification creation fails
+            }
+            
+            console.log('[COPY ACTIVITY] User auto-joined group:', sharedActivity.targetGroupId);
+          }
+        } catch (error) {
+          console.error('[COPY ACTIVITY] Error auto-joining group:', error);
+          // Don't fail the whole copy operation if group join fails
+        }
+      }
+      
       res.json({
         activity: copiedActivity,
         tasks: copiedTasks,
         isUpdate: !!forceUpdate,
         preservedProgress: preservedCompletions,
+        joinedGroup,
         message: forceUpdate 
           ? `Update complete! ${preservedCompletions} completed tasks preserved. Previous version moved to History.`
-          : 'Activity copied successfully!'
+          : joinedGroup 
+            ? `Activity copied successfully! You've been added to ${joinedGroup.name}.`
+            : 'Activity copied successfully!'
       });
     } catch (error) {
       console.error('[COPY ACTIVITY] Error copying activity:', error);

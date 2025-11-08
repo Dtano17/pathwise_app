@@ -474,6 +474,27 @@ export const taskReminders = pgTable("task_reminders", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// User notifications for in-app alerts
+export const userNotifications = pgTable("user_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  sourceGroupId: varchar("source_group_id").references(() => groups.id, { onDelete: "cascade" }), // Optional: group that triggered notification
+  actorUserId: varchar("actor_user_id").references(() => users.id, { onDelete: "set null" }), // Optional: user who caused the event
+  type: text("type").notNull(), // 'group_member_joined' | 'activity_shared' | etc.
+  title: text("title").notNull(),
+  body: text("body"),
+  metadata: jsonb("metadata").$type<{
+    activityTitle?: string;
+    viaShareLink?: boolean;
+    groupName?: string;
+    [key: string]: any;
+  }>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  readAt: timestamp("read_at"),
+}, (table) => ({
+  userIdReadAtIndex: index("user_notifications_user_id_read_at_index").on(table.userId, table.readAt),
+}));
+
 // Smart scheduling suggestions
 export const schedulingSuggestions = pgTable("scheduling_suggestions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -507,6 +528,12 @@ export const insertTaskReminderSchema = createInsertSchema(taskReminders).omit({
   userId: true,
   createdAt: true,
   sentAt: true,
+});
+
+export const insertUserNotificationSchema = createInsertSchema(userNotifications).omit({
+  id: true,
+  createdAt: true,
+  readAt: true,
 });
 
 export const insertSchedulingSuggestionSchema = createInsertSchema(schedulingSuggestions).omit({
@@ -574,6 +601,9 @@ export type InsertNotificationPreferences = z.infer<typeof insertNotificationPre
 
 export type TaskReminder = typeof taskReminders.$inferSelect;
 export type InsertTaskReminder = z.infer<typeof insertTaskReminderSchema>;
+
+export type UserNotification = typeof userNotifications.$inferSelect;
+export type InsertUserNotification = z.infer<typeof insertUserNotificationSchema>;
 
 export type SchedulingSuggestion = typeof schedulingSuggestions.$inferSelect;
 export type InsertSchedulingSuggestion = z.infer<typeof insertSchedulingSuggestionSchema>;
