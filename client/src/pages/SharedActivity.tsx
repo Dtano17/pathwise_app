@@ -180,11 +180,39 @@ export default function SharedActivity() {
   });
 
   useEffect(() => {
-    if (data?.activity) {
-      const { title, description, category, backdrop } = data.activity;
-      const pageTitle = title || 'Shared Activity';
-      const pageDescription = description || `Join this ${category} plan on JournalMate`;
+    if (data?.activity && data?.tasks) {
+      const { title, description, category, backdrop, shareTitle, planSummary } = data.activity;
       const currentUrl = window.location.href;
+      
+      // Category emoji mapping
+      const categoryEmojis: Record<string, string> = {
+        fitness: '💪',
+        health: '🏥',
+        career: '💼',
+        learning: '📚',
+        finance: '💰',
+        relationships: '❤️',
+        creativity: '🎨',
+        travel: '✈️',
+        home: '🏠',
+        personal: '⭐',
+        other: '📋'
+      };
+      const emoji = categoryEmojis[category?.toLowerCase()] || '✨';
+      
+      // Calculate progress
+      const completedTasks = data.tasks.filter(t => t.completed).length;
+      const totalTasks = data.tasks.length;
+      const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
+      
+      // Create rich, emoji-enhanced title and description for social sharing
+      const baseTitle = shareTitle || planSummary || title || 'Shared Activity';
+      const pageTitle = `${emoji} ${baseTitle}${progressText}`;
+      const taskInfo = totalTasks > 0 ? ` • ${totalTasks} tasks • ${completedTasks} completed` : '';
+      const pageDescription = description 
+        ? `${description}${taskInfo}` 
+        : `Join this ${category} plan on JournalMate${taskInfo}`;
       
       // Determine the best image for social sharing
       const shareImage = backdrop || 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1200&h=630&fit=crop&q=80';
