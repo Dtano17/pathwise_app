@@ -3390,11 +3390,17 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         return res.status(404).json({ error: 'Failed to generate share token' });
       }
       
-      // Use REPLIT_DOMAINS for production, fall back to current host for dev
-      const replitDomains = process.env.REPL_SLUG;
-      const baseUrl = replitDomains 
-        ? `https://${replitDomains}.replit.app`
-        : `${req.protocol}://${req.get('host')}`;
+      // Determine base URL for share links
+      // Priority: Production domain > REPLIT_DOMAINS > localhost
+      let baseUrl = 'http://localhost:5000';
+      
+      // Always use production domain if available
+      if (process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production') {
+        baseUrl = 'https://journalmate.ai';
+      } else if (process.env.REPLIT_DOMAINS) {
+        const domains = process.env.REPLIT_DOMAINS.split(',').map(d => d.trim());
+        baseUrl = `https://${domains[0]}`;
+      }
       
       const shareableLink = `${baseUrl}/share/${shareToken}`;
       res.json({ shareableLink });
