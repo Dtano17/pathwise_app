@@ -776,10 +776,6 @@ ${url}`;
               transition={{ duration: 0.5 }}
               className="text-center"
             >
-              <div className="mb-4 flex items-center justify-center">
-                <theme.Icon className="w-16 h-16 text-white" />
-              </div>
-              
               {/* Activity Summary with Emoji */}
               <div className="mb-4">
                 <h2 className="text-3xl sm:text-5xl font-bold text-white mb-3 break-words drop-shadow-lg flex items-center justify-center gap-3 flex-wrap">
