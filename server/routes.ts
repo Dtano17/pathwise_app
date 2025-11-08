@@ -3629,11 +3629,20 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       const completedTasks = tasks.filter(t => t.completed).length;
       const totalTasks = tasks.length;
       const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-      const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
       
       const shareTitle = activity.shareTitle || activity.planSummary || activity.title;
-      const shareDescription = activity.description || `Join this ${activity.category} plan on JournalMate`;
-      const socialText = `Check out my activity: ${emoji} ${shareTitle}${progressText}\n${shareDescription}`;
+      const shareDescription = activity.description || `Join me in planning this amazing ${activity.category} experience`;
+      
+      // Generate conversational social text with engaging copy
+      const progressLine = totalTasks > 0 ? `${progressPercent}% complete with ${totalTasks} tasks!` : 'Just getting started!';
+      const socialText = `✨ Check out my ${shareTitle}!
+
+${shareDescription}
+Track progress, own and edit your own version!
+
+${emoji} ${progressLine}
+
+👉`;
       
       // Update activity with social text
       await storage.updateActivity(activityId, { socialText }, userId);
