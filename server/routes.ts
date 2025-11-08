@@ -852,6 +852,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
+  
+  // ========== SERVER-SIDE RENDERED SHARE PAGE FOR SOCIAL CRAWLERS ==========
+  // This route must come BEFORE Vite middleware to serve pre-rendered HTML with OG tags
+  // Social media crawlers (WhatsApp, Facebook, Twitter) don't execute JavaScript,
+  // so we need to inject Open Graph meta tags server-side for rich previews
+  app.get("/share/:token", async (req, res, next) => {
+    const { token } = req.params;
+    
+    try {
+      const activity = await storage.getActivityByShareToken(token);
+      
+      if (!activity || !activity.isPublic) {
+        // Fall through to normal SPA handling which will show error
+        return next();
+      }
+      
+      const tasks = await storage.getActivityTasks(activity.id, activity.userId);
+      
+      // Category emoji mapping
+      const categoryEmojis: Record<string, string> = {
+        fitness: '💪',
+        health: '🏥',
+        career: '💼',
+        learning: '📚',
+        finance: '💰',
+        relationships: '❤️',
+        creativity: '🎨',
+        travel: '✈️',
+        home: '🏠',
+        personal: '⭐',
+        other: '📋'
+      };
+      const emoji = categoryEmojis[activity.category?.toLowerCase()] || '✨';
+      
+      // Calculate progress
+      const completedTasks = tasks.filter(t => t.completed).length;
+      const totalTasks = tasks.length;
+      const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
+      
+      // Create rich, emoji-enhanced title and description
+      const baseTitle = activity.shareTitle || activity.planSummary || activity.title || 'Shared Activity';
+      const pageTitle = `${emoji} ${baseTitle}${progressText}`;
+      const taskInfo = totalTasks > 0 ? ` • ${totalTasks} tasks • ${completedTasks} completed` : '';
+      const pageDescription = activity.description 
+        ? `${activity.description}${taskInfo}` 
+        : `Join this ${activity.category} plan on JournalMate${taskInfo}`;
+      
+      // Ensure backdrop image has full URL
+      let shareImage = activity.backdrop || 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1200&h=630&fit=crop&q=80';
+      if (shareImage && !shareImage.startsWith('http')) {
+        // Handle relative paths - convert to absolute URLs
+        const baseUrl = req.protocol + '://' + req.get('host');
+        shareImage = baseUrl + (shareImage.startsWith('/') ? shareImage : `/${shareImage}`);
+      }
+      const currentUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      
+      // Read client template (works in both dev and production)
+      const pathModule = await import('path');
+      const fsPromises = await import('fs/promises');
+      const clientTemplate = pathModule.resolve(process.cwd(), "client", "index.html");
+      
+      let template = await fsPromises.readFile(clientTemplate, "utf-8");
+      
+      // Escape HTML to prevent XSS (for attributes and content)
+      const escapeHtml = (str: string) => str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+      
+      const safePageTitle = escapeHtml(pageTitle);
+      const safePageDescription = escapeHtml(pageDescription);
+      const safeCurrentUrl = escapeHtml(currentUrl);
+      const safeShareImage = escapeHtml(shareImage);
+      
+      // Remove all existing OG/Twitter meta tags from default template
+      // This ensures crawlers see our share-specific tags first
+      template = template.replace(/<meta\s+property="og:[^"]*"[^>]*>/gi, '');
+      template = template.replace(/<meta\s+name="twitter:[^"]*"[^>]*>/gi, '');
+      template = template.replace(/<meta\s+name="description"[^>]*>/gi, '');
+      
+      // Inject share-specific Open Graph and Twitter Card meta tags
+      const ogTags = `
+    <title>${safePageTitle} - JournalMate</title>
+    <meta name="description" content="${safePageDescription}" />
+    
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="${safeCurrentUrl}" />
+    <meta property="og:title" content="${safePageTitle}" />
+    <meta property="og:description" content="${safePageDescription}" />
+    <meta property="og:image" content="${safeShareImage}" />
+    <meta property="og:site_name" content="JournalMate" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="${safeCurrentUrl}" />
+    <meta name="twitter:title" content="${safePageTitle}" />
+    <meta name="twitter:description" content="${safePageDescription}" />
+    <meta name="twitter:image" content="${safeShareImage}" />
+  </head>`;
+      
+      template = template.replace('</head>', ogTags);
+      
+      // Send HTML with injected OG tags
+      res.status(200).set({ "Content-Type": "text/html" }).send(template);
+    } catch (e) {
+      console.error('[SHARE SSR] Error serving share page:', e);
+      // Fall through to normal SPA handling
+      next();
+    }
+  });
 
   // ========== STRIPE SUBSCRIPTION ROUTES ==========
   
