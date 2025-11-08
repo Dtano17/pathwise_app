@@ -1,5 +1,7 @@
 import sharp from 'sharp';
 import axios from 'axios';
+import fs from 'fs/promises';
+import path from 'path';
 import type { Activity, Task } from '@shared/schema';
 import { getActivityImage } from './webImageSearch';
 
@@ -23,21 +25,65 @@ const categoryEmojis: Record<string, string> = {
 };
 
 /**
- * Download image from URL and return as Buffer
+ * Load image from URL or local file path and return as Buffer
+ * Security: Only allows loading from attached_assets directory to prevent path traversal
  */
-async function downloadImage(url: string): Promise<Buffer> {
+async function loadImage(imageSource: string): Promise<Buffer> {
   try {
-    const response = await axios.get(url, {
-      responseType: 'arraybuffer',
-      timeout: 10000,
-      headers: {
-        'User-Agent': 'JournalMate/1.0'
+    // Check if it's a URL
+    if (imageSource.startsWith('http://') || imageSource.startsWith('https://')) {
+      // Download from URL
+      const response = await axios.get(imageSource, {
+        responseType: 'arraybuffer',
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'JournalMate/1.0'
+        }
+      });
+      return Buffer.from(response.data);
+    } else {
+      // Load from local file system (SECURITY: restrict to attached_assets only)
+      
+      // Reject absolute paths and path traversal attempts
+      if (path.isAbsolute(imageSource) || imageSource.includes('..')) {
+        console.error(`[OGImage] Security: Rejected unsafe path: ${imageSource}`);
+        throw new Error('Invalid image path: only relative paths within attached_assets are allowed');
       }
-    });
-    return Buffer.from(response.data);
+
+      // Only allow files within attached_assets
+      const allowedBaseDir = path.join(process.cwd(), 'attached_assets');
+      
+      // Try common subdirectories
+      const possiblePaths = [
+        path.join(allowedBaseDir, 'stock_images', imageSource),
+        path.join(allowedBaseDir, imageSource)
+      ];
+
+      for (const filePath of possiblePaths) {
+        // Resolve to absolute path and verify it's within allowed directory
+        const resolvedPath = path.resolve(filePath);
+        const resolvedBaseDir = path.resolve(allowedBaseDir);
+        
+        if (!resolvedPath.startsWith(resolvedBaseDir)) {
+          console.error(`[OGImage] Security: Path outside allowed directory: ${resolvedPath}`);
+          continue;
+        }
+
+        try {
+          const fileBuffer = await fs.readFile(resolvedPath);
+          console.log(`[OGImage] Loaded image from: ${resolvedPath}`);
+          return fileBuffer;
+        } catch (err) {
+          // Try next path
+          continue;
+        }
+      }
+
+      throw new Error(`File not found in attached_assets: ${imageSource}`);
+    }
   } catch (error) {
-    console.error('[OGImage] Error downloading image:', error);
-    throw new Error('Failed to download backdrop image');
+    console.error('[OGImage] Error loading image:', error);
+    throw new Error('Failed to load backdrop image');
   }
 }
 
@@ -157,8 +203,8 @@ export async function generateOGImage(options: OGImageOptions): Promise<Buffer> 
 
     console.log(`[OGImage] Using image: ${imageUrl}`);
 
-    // Download the backdrop image
-    const backdropBuffer = await downloadImage(imageUrl);
+    // Load the backdrop image (from URL or local file)
+    const backdropBuffer = await loadImage(imageUrl);
 
     // Get category emoji
     const category = activity.category?.toLowerCase() || 'other';
