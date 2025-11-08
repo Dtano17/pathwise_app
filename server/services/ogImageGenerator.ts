@@ -1,9 +1,11 @@
-import { createCanvas, registerFont } from 'canvas';
-import type { Activity, ActivityTask } from '@shared/schema';
+import sharp from 'sharp';
+import axios from 'axios';
+import type { Activity, Task } from '@shared/schema';
+import { getActivityImage } from './webImageSearch';
 
 export interface OGImageOptions {
   activity: Activity;
-  tasks: ActivityTask[];
+  tasks: Task[];
 }
 
 const categoryEmojis: Record<string, string> = {
@@ -20,193 +22,241 @@ const categoryEmojis: Record<string, string> = {
   other: '📋'
 };
 
-const categoryGradients: Record<string, { start: string; end: string }> = {
-  fitness: { start: '#FF6B6B', end: '#FF8E53' },
-  health: { start: '#4ECDC4', end: '#44A08D' },
-  career: { start: '#667EEA', end: '#764BA2' },
-  learning: { start: '#F093FB', end: '#F5576C' },
-  finance: { start: '#43E97B', end: '#38F9D7' },
-  relationships: { start: '#FA709A', end: '#FEE140' },
-  creativity: { start: '#A8EDEA', end: '#FED6E3' },
-  travel: { start: '#FF9A9E', end: '#FAD0C4' },
-  home: { start: '#FEC163', end: '#DE4313' },
-  personal: { start: '#C471F5', end: '#FA71CD' },
-  other: { start: '#667EEA', end: '#764BA2' }
-};
+/**
+ * Download image from URL and return as Buffer
+ */
+async function downloadImage(url: string): Promise<Buffer> {
+  try {
+    const response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'JournalMate/1.0'
+      }
+    });
+    return Buffer.from(response.data);
+  } catch (error) {
+    console.error('[OGImage] Error downloading image:', error);
+    throw new Error('Failed to download backdrop image');
+  }
+}
 
-export async function generateOGImage(options: OGImageOptions): Promise<Buffer> {
-  const { activity, tasks } = options;
-  
-  // Standard Open Graph image size: 1200x630
-  const width = 1200;
-  const height = 630;
-  const canvas = createCanvas(width, height);
-  const ctx = canvas.getContext('2d');
-  
-  // Get category data
-  const category = activity.category?.toLowerCase() || 'other';
-  const emoji = categoryEmojis[category] || '✨';
-  const gradient = categoryGradients[category] || categoryGradients.other;
-  
+/**
+ * Create SVG text overlay with activity details
+ */
+function createTextOverlay(
+  activity: Activity,
+  tasks: Task[],
+  emoji: string
+): string {
+  const title = activity.shareTitle || activity.planSummary || activity.title || 'Shared Activity';
+  const category = activity.category || 'other';
+
   // Calculate progress
   const completedTasks = tasks.filter(t => t.completed).length;
   const totalTasks = tasks.length;
   const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  
-  // Draw gradient background
-  const bgGradient = ctx.createLinearGradient(0, 0, width, height);
-  bgGradient.addColorStop(0, gradient.start);
-  bgGradient.addColorStop(1, gradient.end);
-  ctx.fillStyle = bgGradient;
-  ctx.fillRect(0, 0, width, height);
-  
-  // Add subtle pattern overlay
-  ctx.globalAlpha = 0.1;
-  for (let i = 0; i < width; i += 40) {
-    for (let j = 0; j < height; j += 40) {
-      ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      ctx.arc(i, j, 2, 0, Math.PI * 2);
-      ctx.fill();
-    }
+
+  // Truncate title if too long (max 50 chars)
+  const displayTitle = title.length > 50 ? title.substring(0, 47) + '...' : title;
+
+  // Get first 3-4 tasks to display
+  const displayTasks = tasks.slice(0, 4);
+  const taskItems = displayTasks.map((task, index) => {
+    const icon = task.completed ? '✅' : '◻️';
+    const taskTitle = task.title.length > 40 ? task.title.substring(0, 37) + '...' : task.title;
+    return `
+      <text x="60" y="${320 + (index * 45)}" font-family="Arial, sans-serif" font-size="24" fill="white" font-weight="400">
+        ${icon} ${taskTitle}
+      </text>
+    `;
+  }).join('');
+
+  const moreTasksText = tasks.length > 4
+    ? `<text x="60" y="${320 + (4 * 45)}" font-family="Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.8)" font-style="italic">
+        +${tasks.length - 4} more tasks...
+      </text>`
+    : '';
+
+  // Calculate progress bar width (max 1080px with 60px padding on each side)
+  const progressBarWidth = 1080;
+  const progressFillWidth = (progressBarWidth * progressPercent) / 100;
+
+  return `
+    <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+      <!-- Dark gradient overlay for readability -->
+      <defs>
+        <linearGradient id="darkGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" style="stop-color:rgba(0,0,0,0.75);stop-opacity:1" />
+          <stop offset="100%" style="stop-color:rgba(0,0,0,0.9);stop-opacity:1" />
+        </linearGradient>
+      </defs>
+
+      <!-- Overlay gradient -->
+      <rect width="1200" height="630" fill="url(#darkGradient)" />
+
+      <!-- Emoji and Title Section -->
+      <text x="60" y="100" font-family="Arial, sans-serif" font-size="80" fill="white">
+        ${emoji}
+      </text>
+
+      <text x="60" y="180" font-family="Arial, sans-serif" font-size="52" font-weight="bold" fill="white">
+        ${displayTitle}
+      </text>
+
+      <!-- Category Badge -->
+      <rect x="60" y="210" width="${category.length * 16 + 40}" height="40" fill="rgba(255,255,255,0.2)" rx="20" />
+      <text x="80" y="235" font-family="Arial, sans-serif" font-size="20" fill="white" font-weight="500">
+        ${category.toUpperCase()}
+      </text>
+
+      <!-- Tasks Section -->
+      ${taskItems}
+      ${moreTasksText}
+
+      <!-- Progress Bar Section -->
+      <text x="60" y="${tasks.length > 0 ? 500 : 320}" font-family="Arial, sans-serif" font-size="28" fill="white" font-weight="600">
+        ${progressPercent}% Complete
+      </text>
+
+      <!-- Progress Bar Background -->
+      <rect x="60" y="${tasks.length > 0 ? 515 : 335}" width="${progressBarWidth}" height="20" fill="rgba(255,255,255,0.3)" rx="10" />
+
+      <!-- Progress Bar Fill -->
+      ${progressPercent > 0 ? `
+        <rect x="60" y="${tasks.length > 0 ? 515 : 335}" width="${progressFillWidth}" height="20" fill="white" rx="10" />
+      ` : ''}
+
+      <!-- Task Stats -->
+      <text x="60" y="${tasks.length > 0 ? 570 : 390}" font-family="Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.9)">
+        ${completedTasks} of ${totalTasks} tasks completed
+      </text>
+
+      <!-- JournalMate Branding -->
+      <text x="60" y="600" font-family="Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.8)" font-weight="500">
+        JournalMate | Own, Edit &amp; Share Your Plans
+      </text>
+    </svg>
+  `;
+}
+
+/**
+ * Generate Open Graph image with activity backdrop and details overlay
+ */
+export async function generateOGImage(options: OGImageOptions): Promise<Buffer> {
+  const { activity, tasks } = options;
+
+  try {
+    // Get the best available image (user backdrop > web search > category fallback)
+    const imageUrl = await getActivityImage(
+      activity.title,
+      activity.category || 'other',
+      activity.backdrop || undefined
+    );
+
+    console.log(`[OGImage] Using image: ${imageUrl}`);
+
+    // Download the backdrop image
+    const backdropBuffer = await downloadImage(imageUrl);
+
+    // Get category emoji
+    const category = activity.category?.toLowerCase() || 'other';
+    const emoji = categoryEmojis[category] || '✨';
+
+    // Create SVG overlay with activity details
+    const svgOverlay = createTextOverlay(activity, tasks, emoji);
+
+    // Composite the backdrop with the text overlay
+    const finalImage = await sharp(backdropBuffer)
+      .resize(1200, 630, {
+        fit: 'cover',
+        position: 'center'
+      })
+      .composite([
+        {
+          input: Buffer.from(svgOverlay),
+          top: 0,
+          left: 0
+        }
+      ])
+      .png()
+      .toBuffer();
+
+    console.log('[OGImage] Successfully generated OG image');
+    return finalImage;
+
+  } catch (error) {
+    console.error('[OGImage] Error generating OG image:', error);
+
+    // Fallback: Create a simple gradient image with text if image processing fails
+    return createFallbackImage(activity, tasks);
   }
-  ctx.globalAlpha = 1;
-  
-  // Draw white card container with rounded corners and shadow
-  const cardPadding = 60;
-  const cardX = cardPadding;
-  const cardY = cardPadding;
-  const cardWidth = width - (cardPadding * 2);
-  const cardHeight = height - (cardPadding * 2);
-  const borderRadius = 24;
-  
-  // Shadow
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-  ctx.shadowBlur = 30;
-  ctx.shadowOffsetY = 10;
-  
-  // Card background
-  ctx.fillStyle = '#FFFFFF';
-  ctx.beginPath();
-  ctx.roundRect(cardX, cardY, cardWidth, cardHeight, borderRadius);
-  ctx.fill();
-  
-  // Reset shadow
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
-  
-  // Draw emoji (large, top left)
-  const emojiSize = 120;
-  ctx.font = `${emojiSize}px Arial`;
-  ctx.fillText(emoji, cardX + 50, cardY + 130);
-  
-  // Draw activity title (next to emoji, wrapped)
-  const titleX = cardX + 200;
-  const titleY = cardY + 80;
-  const titleMaxWidth = cardWidth - 250;
-  
-  ctx.fillStyle = '#1A1A1A';
-  ctx.font = 'bold 56px Arial';
-  
+}
+
+/**
+ * Create a fallback OG image when backdrop processing fails
+ */
+async function createFallbackImage(activity: Activity, tasks: Task[]): Promise<Buffer> {
+  const category = activity.category?.toLowerCase() || 'other';
+  const emoji = categoryEmojis[category] || '✨';
+
+  const categoryGradients: Record<string, { start: string; end: string }> = {
+    fitness: { start: '#FF6B6B', end: '#FF8E53' },
+    health: { start: '#4ECDC4', end: '#44A08D' },
+    career: { start: '#667EEA', end: '#764BA2' },
+    learning: { start: '#F093FB', end: '#F5576C' },
+    finance: { start: '#43E97B', end: '#38F9D7' },
+    relationships: { start: '#FA709A', end: '#FEE140' },
+    creativity: { start: '#A8EDEA', end: '#FED6E3' },
+    travel: { start: '#FF9A9E', end: '#FAD0C4' },
+    home: { start: '#FEC163', end: '#DE4313' },
+    personal: { start: '#C471F5', end: '#FA71CD' },
+    other: { start: '#667EEA', end: '#764BA2' }
+  };
+
+  const gradient = categoryGradients[category] || categoryGradients.other;
+
+  const completedTasks = tasks.filter(t => t.completed).length;
+  const totalTasks = tasks.length;
+  const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
   const title = activity.shareTitle || activity.planSummary || activity.title || 'Shared Activity';
-  const words = title.split(' ');
-  let line = '';
-  let lineY = titleY;
-  const lineHeight = 65;
-  let lineCount = 0;
-  const maxLines = 2;
-  
-  for (let i = 0; i < words.length; i++) {
-    const testLine = line + words[i] + ' ';
-    const metrics = ctx.measureText(testLine);
-    
-    if (metrics.width > titleMaxWidth && i > 0) {
-      if (lineCount < maxLines - 1) {
-        ctx.fillText(line, titleX, lineY);
-        line = words[i] + ' ';
-        lineY += lineHeight;
-        lineCount++;
-      } else {
-        // Truncate with ellipsis
-        ctx.fillText(line.trim() + '...', titleX, lineY);
-        break;
-      }
-    } else {
-      line = testLine;
-    }
-  }
-  
-  // Draw last line if we haven't exceeded maxLines
-  if (lineCount < maxLines && line.length > 0) {
-    ctx.fillText(line, titleX, lineY);
-  }
-  
-  // Draw progress bar
-  const progressBarY = cardY + cardHeight - 200;
-  const progressBarWidth = cardWidth - 100;
-  const progressBarHeight = 20;
-  const progressBarX = cardX + 50;
-  
-  // Progress bar background
-  ctx.fillStyle = '#E8E8E8';
-  ctx.beginPath();
-  ctx.roundRect(progressBarX, progressBarY, progressBarWidth, progressBarHeight, 10);
-  ctx.fill();
-  
-  // Progress bar fill
-  if (progressPercent > 0) {
-    const fillGradient = ctx.createLinearGradient(progressBarX, 0, progressBarX + progressBarWidth, 0);
-    fillGradient.addColorStop(0, gradient.start);
-    fillGradient.addColorStop(1, gradient.end);
-    ctx.fillStyle = fillGradient;
-    
-    const fillWidth = (progressBarWidth * progressPercent) / 100;
-    ctx.beginPath();
-    ctx.roundRect(progressBarX, progressBarY, fillWidth, progressBarHeight, 10);
-    ctx.fill();
-  }
-  
-  // Draw progress text
-  ctx.fillStyle = '#1A1A1A';
-  ctx.font = 'bold 36px Arial';
-  ctx.fillText(`${progressPercent}% Complete`, progressBarX, progressBarY - 15);
-  
-  // Draw task stats
-  const statsY = cardY + cardHeight - 100;
-  ctx.fillStyle = '#666666';
-  ctx.font = '32px Arial';
-  
-  const taskStatsText = `${completedTasks} of ${totalTasks} tasks completed`;
-  ctx.fillText(taskStatsText, progressBarX, statsY);
-  
-  // Draw category badge (bottom right)
-  const badgeText = category.charAt(0).toUpperCase() + category.slice(1);
-  ctx.font = 'bold 28px Arial';
-  const badgeMetrics = ctx.measureText(badgeText);
-  const badgePadding = 20;
-  const badgeWidth = badgeMetrics.width + (badgePadding * 2);
-  const badgeHeight = 50;
-  const badgeX = cardX + cardWidth - badgeWidth - 50;
-  const badgeY = cardY + cardHeight - badgeHeight - 40;
-  
-  // Badge background
-  ctx.fillStyle = gradient.start;
-  ctx.globalAlpha = 0.15;
-  ctx.beginPath();
-  ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 25);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-  
-  // Badge text
-  ctx.fillStyle = gradient.start;
-  ctx.fillText(badgeText, badgeX + badgePadding, badgeY + 35);
-  
-  // Draw JournalMate branding (bottom left)
-  ctx.fillStyle = '#999999';
-  ctx.font = '24px Arial';
-  ctx.fillText('JournalMate', cardX + 50, cardY + cardHeight - 40);
-  
-  // Convert canvas to buffer
-  return canvas.toBuffer('image/png');
+  const displayTitle = title.length > 50 ? title.substring(0, 47) + '...' : title;
+
+  const svg = `
+    <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:${gradient.start};stop-opacity:1" />
+          <stop offset="100%" style="stop-color:${gradient.end};stop-opacity:1" />
+        </linearGradient>
+      </defs>
+
+      <rect width="1200" height="630" fill="url(#bgGradient)" />
+
+      <text x="60" y="100" font-family="Arial, sans-serif" font-size="80" fill="white">
+        ${emoji}
+      </text>
+
+      <text x="60" y="200" font-family="Arial, sans-serif" font-size="52" font-weight="bold" fill="white">
+        ${displayTitle}
+      </text>
+
+      <text x="60" y="400" font-family="Arial, sans-serif" font-size="36" fill="white" font-weight="600">
+        ${progressPercent}% Complete
+      </text>
+
+      <text x="60" y="450" font-family="Arial, sans-serif" font-size="28" fill="rgba(255,255,255,0.9)">
+        ${completedTasks} of ${totalTasks} tasks completed
+      </text>
+
+      <text x="60" y="580" font-family="Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.9)" font-weight="500">
+        JournalMate | Own, Edit &amp; Share Your Plans
+      </text>
+    </svg>
+  `;
+
+  return sharp(Buffer.from(svg))
+    .png()
+    .toBuffer();
 }

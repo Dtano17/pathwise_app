@@ -3453,6 +3453,42 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
     }
   });
 
+  // Generate OG image for shared activity (no auth required)
+  app.get("/api/share/:shareToken/og-image", async (req, res) => {
+    try {
+      const { shareToken } = req.params;
+
+      // Get activity and its tasks
+      const activity = await storage.getActivityByShareToken(shareToken);
+
+      if (!activity || !activity.isPublic) {
+        return res.status(404).json({ error: 'Shared activity not found' });
+      }
+
+      // Get tasks for this activity
+      const tasks = await storage.getActivityTasks(activity.id, activity.userId);
+
+      // Import the OG image generator (dynamic import to avoid circular deps)
+      const { generateOGImage } = await import('./services/ogImageGenerator');
+
+      // Generate the OG image
+      const imageBuffer = await generateOGImage({
+        activity,
+        tasks
+      });
+
+      // Set appropriate cache headers (24 hours)
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+      res.setHeader('Content-Length', imageBuffer.length);
+
+      res.send(imageBuffer);
+    } catch (error) {
+      console.error('Generate OG image error:', error);
+      res.status(500).json({ error: 'Failed to generate preview image' });
+    }
+  });
+
   // Add task to activity
   app.post("/api/activities/:activityId/tasks", async (req, res) => {
     try {

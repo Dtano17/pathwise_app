@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, type LucideIcon } from 'lucide-react';
+import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, Sparkles, type LucideIcon } from 'lucide-react';
 import journalMateLogo from '@assets/Export_JournalMate_2_1760772138217.png';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -214,11 +214,13 @@ export default function SharedActivity() {
         ? `${description}${taskInfo}` 
         : `Join this ${category} plan on JournalMate${taskInfo}`;
       
-      // Determine the best image for social sharing
-      const shareImage = backdrop || 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1200&h=630&fit=crop&q=80';
-      
+      // Use OG image endpoint for rich social media previews
+      // This generates an image with the activity backdrop + details overlay
+      const baseUrl = window.location.origin;
+      const ogImageUrl = `${baseUrl}/api/share/${token}/og-image`;
+
       document.title = `${pageTitle} - JournalMate`;
-      
+
       // Helper function to set or create meta tags
       const setMetaTag = (selector: string, attribute: string, content: string) => {
         let tag = document.querySelector(selector);
@@ -233,23 +235,26 @@ export default function SharedActivity() {
         }
         tag.setAttribute('content', content);
       };
-      
+
       // Standard meta tags
       setMetaTag('meta[name="description"]', 'content', pageDescription);
-      
-      // Open Graph tags for Facebook, LinkedIn, etc.
+
+      // Open Graph tags for Facebook, LinkedIn, WhatsApp, etc.
       setMetaTag('meta[property="og:title"]', 'content', pageTitle);
       setMetaTag('meta[property="og:description"]', 'content', pageDescription);
-      setMetaTag('meta[property="og:image"]', 'content', shareImage);
+      setMetaTag('meta[property="og:image"]', 'content', ogImageUrl);
+      setMetaTag('meta[property="og:image:width"]', 'content', '1200');
+      setMetaTag('meta[property="og:image:height"]', 'content', '630');
+      setMetaTag('meta[property="og:image:type"]', 'content', 'image/png');
       setMetaTag('meta[property="og:url"]', 'content', currentUrl);
       setMetaTag('meta[property="og:type"]', 'content', 'website');
       setMetaTag('meta[property="og:site_name"]', 'content', 'JournalMate');
-      
+
       // Twitter Card tags
       setMetaTag('meta[name="twitter:card"]', 'content', 'summary_large_image');
       setMetaTag('meta[name="twitter:title"]', 'content', pageTitle);
       setMetaTag('meta[name="twitter:description"]', 'content', pageDescription);
-      setMetaTag('meta[name="twitter:image"]', 'content', shareImage);
+      setMetaTag('meta[name="twitter:image"]', 'content', ogImageUrl);
     }
   }, [data]);
 
@@ -378,11 +383,12 @@ export default function SharedActivity() {
     if (!data?.activity) return;
     const url = window.location.href;
     const activityTitle = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
-    const activityDescription = data.activity.description || `Join this ${data.activity.category} plan on JournalMate`;
-    
+    const activityDescription = data.activity.description || '';
+    const category = data.activity.category || 'other';
+
     // Calculate progress if tasks exist
-    const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
-    
+    const progressText = totalTasks > 0 ? `${progressPercent}% complete` : 'Just started';
+
     // Get category emoji
     const categoryEmojis: Record<string, string> = {
       fitness: '💪',
@@ -397,17 +403,35 @@ export default function SharedActivity() {
       personal: '⭐',
       other: '📋'
     };
-    const emoji = categoryEmojis[data.activity.category.toLowerCase()] || '✨';
-    
-    // Beautiful formatted message with share link
-    const shareText = `Check out my activity: ${emoji} ${activityTitle}${progressText}\n${activityDescription}\n\n${url}`;
-    
+    const emoji = categoryEmojis[category.toLowerCase()] || '✨';
+
+    // Get first 3 tasks to show in preview
+    const topTasks = data.tasks.slice(0, 3);
+    const taskList = topTasks.map((task, i) => {
+      const icon = task.completed ? '✅' : '▢';
+      return `${icon} ${task.title}`;
+    }).join('\n');
+
+    const moreTasksText = totalTasks > 3 ? `\n...and ${totalTasks - 3} more tasks` : '';
+
+    // Rich WhatsApp-formatted message
+    const shareText = `${emoji} *${activityTitle}* ${emoji}
+
+${activityDescription ? `${activityDescription}\n\n` : ''}📊 *Progress:* ${progressText}
+📝 *Tasks:* ${completedTasks} of ${totalTasks} completed
+
+${topTasks.length > 0 ? `*Task Highlights:*\n${taskList}${moreTasksText}\n\n` : ''}✨ *JournalMate* - Own, Edit & Share Your Plans
+Track your goals, manage tasks, and collaborate with others!
+
+👉 View this plan and start your own:
+${url}`;
+
     try {
       await navigator.clipboard.writeText(shareText);
       setCopyingLink(true);
       toast({
         title: 'Link Copied!',
-        description: 'Share link copied to clipboard',
+        description: 'Share link with rich formatting copied to clipboard',
       });
       setTimeout(() => setCopyingLink(false), 2000);
     } catch (err) {
@@ -604,16 +628,25 @@ export default function SharedActivity() {
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
           <Card className="max-w-md w-full p-6 sm:p-8 text-center">
             <div className="flex items-center justify-center mb-4 sm:mb-6">
-              <img 
-                src={journalMateLogo} 
-                alt="JournalMate" 
+              <img
+                src={journalMateLogo}
+                alt="JournalMate"
                 className="w-14 h-14 sm:w-16 sm:h-16"
               />
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Sign in to own and edit this plan</h2>
-            <Button onClick={handleSignIn} className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto" data-testid="button-sign-in" size="lg">
-              Sign In
-            </Button>
+            <h2 className="text-xl sm:text-2xl font-bold mb-3">Own, Edit & Track This Plan</h2>
+            <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
+              Sign in to customize this activity, track your progress, and collaborate with others on JournalMate
+            </p>
+            <div className="space-y-2">
+              <Button onClick={handleSignIn} className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto" data-testid="button-sign-in" size="lg">
+                <Sparkles className="w-4 h-4" />
+                Sign In to Own This Plan
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Free to start • Track unlimited goals • Collaborate with friends
+              </p>
+            </div>
           </Card>
         </div>
       );
@@ -996,22 +1029,26 @@ export default function SharedActivity() {
           >
             <Card className="p-6 sm:p-8 text-center bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
               <div className="flex items-center justify-center gap-2 mb-4 sm:mb-6">
-                <img 
-                  src={journalMateLogo} 
-                  alt="JournalMate" 
+                <img
+                  src={journalMateLogo}
+                  alt="JournalMate"
                   className="w-14 h-14 sm:w-16 sm:h-16"
                 />
               </div>
-              <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">
-                Sign in to own and edit this plan
+              <h3 className="text-lg sm:text-xl font-bold mb-2">
+                Make This Plan Yours
               </h3>
-              <Button 
-                onClick={handleSignIn} 
-                className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto" 
+              <p className="text-sm text-muted-foreground mb-4 sm:mb-6">
+                Sign in to customize, track progress, and share your own activities
+              </p>
+              <Button
+                onClick={handleSignIn}
+                className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto"
                 data-testid="button-sign-in-to-edit"
                 size="lg"
               >
-                Sign In
+                <Sparkles className="w-4 h-4" />
+                Get Started Free
               </Button>
             </Card>
           </motion.div>
