@@ -8081,19 +8081,11 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   <meta name="twitter:description" content="${shareDescription}" />
   
   <!-- WhatsApp Preview -->
-  <meta property="og:image" content="${baseUrl}/og-image.png" />
+  <meta property="og:image" content="${baseUrl}/api/share/${token}/og-image" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   
   <title>${fullTitle}</title>
-  
-  <!-- Redirect to SPA for actual browsers (not crawlers) -->
-  <script>
-    // Only redirect if this is a real browser visit, not a crawler
-    if (navigator.userAgent && !navigator.userAgent.includes('bot') && !navigator.userAgent.includes('crawler')) {
-      window.location.href = window.location.pathname;
-    }
-  </script>
 </head>
 <body>
   <div style="font-family: system-ui; max-width: 600px; margin: 50px auto; padding: 20px;">
