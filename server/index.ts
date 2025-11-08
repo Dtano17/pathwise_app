@@ -51,6 +51,9 @@ validateEnvironment();
 // Initialize LLM providers (OpenAI, Claude, DeepSeek) before starting server
 initializeLLMProviders();
 
+// Import seed function
+import { seedSampleGroups } from './seedSampleGroups';
+
 const app = express();
 
 // Disable ETags globally to prevent 304 Not Modified responses
@@ -120,7 +123,14 @@ app.use((req, res, next) => {
     port,
     host: "0.0.0.0",
     reusePort: true,
-  }, () => {
+  }, async () => {
     log(`serving on port ${port}`);
+    
+    // Seed sample groups for demo user on startup
+    try {
+      await seedSampleGroups();
+    } catch (error) {
+      console.error('[SEED] Failed to seed sample groups:', error);
+    }
   });
 })();

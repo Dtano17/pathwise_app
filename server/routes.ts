@@ -3145,19 +3145,15 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       const shareToken = crypto.randomBytes(16).toString('hex');
       
       // Determine base URL for share links
-      // Priority: journalmate.ai (if in REPLIT_DOMAINS) > REPLIT_DOMAINS > REPLIT_DEV_DOMAIN > localhost
+      // Priority: Production domain > REPLIT_DOMAINS > localhost
       let baseUrl = 'http://localhost:5000';
       
-      if (process.env.REPLIT_DOMAINS) {
+      // Always use production domain if available
+      if (process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production') {
+        baseUrl = 'https://journalmate.ai';
+      } else if (process.env.REPLIT_DOMAINS) {
         const domains = process.env.REPLIT_DOMAINS.split(',').map(d => d.trim());
-        // Prefer journalmate.ai if it's in the list, otherwise use first domain
-        if (domains.includes('journalmate.ai')) {
-          baseUrl = 'https://journalmate.ai';
-        } else {
-          baseUrl = `https://${domains[0]}`;
-        }
-      } else if (process.env.REPLIT_DEV_DOMAIN) {
-        baseUrl = `https://${process.env.REPLIT_DEV_DOMAIN}`;
+        baseUrl = `https://${domains[0]}`;
       }
       
       const activity = await storage.updateActivity(activityId, {

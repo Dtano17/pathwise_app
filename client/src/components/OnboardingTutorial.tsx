@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/card";
 import { 
   Sparkles, CheckCircle2, Mic, Target, Share2, Copy, 
   ChevronRight, ChevronLeft, Zap, Brain, Users, Play,
-  UserCircle, Shield, MessageSquare, Palette, Plug, BookOpen, Globe
+  UserCircle, Shield, MessageSquare, Palette, Plug, BookOpen, Globe,
+  ArrowRight, ListTodo
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -100,6 +101,19 @@ const tutorialSteps: TutorialStep[] = [
     ]
   },
   {
+    title: "How It All Connects: The JournalMate Flow",
+    description: "Journal → AI Plans → Activities → Groups. Everything works together seamlessly. Your journal feeds AI planning, plans become activities with tasks, and groups let you collaborate on shared goals.",
+    icon: ArrowRight,
+    tips: [
+      "📔 Journal: Tag images with @restaurants, @travel, @music to capture preferences",
+      "🤖 AI Planning: AI uses your journal to create personalized plans",
+      "✅ Activities: Plans convert to activities with swipeable tasks",
+      "👥 Groups: Share activities with groups for collaborative planning",
+      "🔄 Full circle: Task feedback enriches your journal automatically",
+      "Example: Journal about loving chilantro → AI suggests Austin food tour → Share with 'Girls Trip' group"
+    ]
+  },
+  {
     title: "Automatic AI Journaling",
     description: "JournalMate does the journaling FOR YOU using AI. It learns from your task feedback (likes/dislikes), then you just tag images/videos and link activities. You choose when to add more details—let JournalMate do the rest.",
     icon: BookOpen,
@@ -109,6 +123,19 @@ const tutorialSteps: TutorialStep[] = [
       "Link to activities—JournalMate enriches entries with AI",
       "You choose when to add more details, AI handles the rest",
       "Your journal builds over time with rich, AI-powered memories"
+    ]
+  },
+  {
+    title: "Collaborate in Groups",
+    description: "Create groups for shared goals like family trips, health challenges, or event planning. Every group requires a linked activity so everyone stays aligned on tasks and progress.",
+    icon: Users,
+    tips: [
+      "Each group MUST have a linked activity (the shared plan/goal)",
+      "Real-time activity feed shows who completed tasks and added items",
+      "Track group progress: see completed/total tasks across all members",
+      "Share community plans or personal activities to your groups",
+      "Perfect for: Girls Trip to Miami, Family Vacations, Workout Accountability",
+      "Example groups: 'Eat Healthier & Workout' with 18/25 tasks done"
     ]
   },
   {
