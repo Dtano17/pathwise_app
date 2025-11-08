@@ -6,6 +6,8 @@ import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap } from 
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 import ShareDialog from './ShareDialog';
+import { useMutation } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
 
 interface Task {
   id: string;
@@ -45,9 +47,51 @@ export default function ClaudePlanOutput({
   activityId,
   isCreating = false
 }: ClaudePlanOutputProps) {
+  const { toast } = useToast();
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [showCelebration, setShowCelebration] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string>('');
+  
+  // Infer category from tasks (use most common category)
+  const category = tasks.length > 0 
+    ? (() => {
+        const counts = tasks.reduce((acc, task) => {
+          acc[task.category] = (acc[task.category] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'other';
+      })()
+    : 'other';
+  
+  // Generate share link mutation
+  const generateShareLinkMutation = useMutation({
+    mutationFn: async () => {
+      if (!activityId) {
+        throw new Error('No activity ID available');
+      }
+      const response = await fetch(`/api/activities/${activityId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate share link');
+      }
+      return response.json();
+    },
+    onSuccess: (data: { shareableLink: string; socialText: string }) => {
+      setShareUrl(data.shareableLink);
+      setShowShareDialog(true);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Share Failed',
+        description: error.message || 'Could not generate share link. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
 
   // Sync completed tasks from actual task data (additive to preserve optimistic UI, prune stale IDs)
   useEffect(() => {
@@ -353,13 +397,24 @@ export default function ClaudePlanOutput({
 
           {/* Share to Social Media */}
           <Button
-            onClick={() => setShowShareDialog(true)}
+            onClick={() => {
+              if (!activityId) {
+                toast({
+                  title: 'Cannot Share',
+                  description: 'Please create the activity first before sharing.',
+                  variant: 'destructive',
+                });
+                return;
+              }
+              generateShareLinkMutation.mutate();
+            }}
             className="gap-2"
             variant="outline"
+            disabled={!activityId || generateShareLinkMutation.isPending}
             data-testid="button-share-plan"
           >
             <Share2 className="w-4 h-4" />
-            Share Plan
+            {generateShareLinkMutation.isPending ? 'Generating...' : 'Share Plan'}
           </Button>
 
           {/* Set as Theme */}
@@ -388,6 +443,9 @@ export default function ClaudePlanOutput({
         onOpenChange={setShowShareDialog}
         title={planTitle || 'My Action Plan'}
         description={summary || `Generated plan with ${tasks.length} tasks`}
+        url={shareUrl}
+        category={category}
+        progressPercent={Math.round((completedTasks.size / tasks.length) * 100)}
       />
     </motion.div>
   );

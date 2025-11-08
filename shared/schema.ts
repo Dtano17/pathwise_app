@@ -783,6 +783,7 @@ export const activities = pgTable("activities", {
   tags: jsonb("tags").$type<string[]>().default([]),
   shareTitle: text("share_title"), // Custom title for shared activity page (falls back to planSummary or title)
   backdrop: text("backdrop"), // Custom backdrop URL or theme name for shared activity page
+  targetGroupId: varchar("target_group_id").references(() => groups.id, { onDelete: "set null" }), // Track which group this was shared from for auto-join
   
   // Community and popularity metrics
   viewCount: integer("view_count").default(0), // Total views for discovery

@@ -56,61 +56,72 @@ interface SharedActivityData {
   };
 }
 
-const categoryThemes: Record<string, { gradient: string; Icon: LucideIcon; accentColor: string }> = {
+const categoryThemes: Record<string, { gradient: string; Icon: LucideIcon; accentColor: string; emoji: string }> = {
   fitness: {
     gradient: 'from-orange-500/20 via-red-500/20 to-pink-500/20',
     Icon: Dumbbell,
-    accentColor: 'text-orange-600 dark:text-orange-400'
+    accentColor: 'text-orange-600 dark:text-orange-400',
+    emoji: '💪'
   },
   health: {
     gradient: 'from-emerald-500/20 via-teal-500/20 to-cyan-500/20',
     Icon: HeartPulse,
-    accentColor: 'text-emerald-600 dark:text-emerald-400'
+    accentColor: 'text-emerald-600 dark:text-emerald-400',
+    emoji: '🏥'
   },
   career: {
     gradient: 'from-blue-500/20 via-indigo-500/20 to-purple-500/20',
     Icon: Briefcase,
-    accentColor: 'text-blue-600 dark:text-blue-400'
+    accentColor: 'text-blue-600 dark:text-blue-400',
+    emoji: '💼'
   },
   learning: {
     gradient: 'from-violet-500/20 via-purple-500/20 to-fuchsia-500/20',
     Icon: BookOpen,
-    accentColor: 'text-violet-600 dark:text-violet-400'
+    accentColor: 'text-violet-600 dark:text-violet-400',
+    emoji: '📚'
   },
   finance: {
     gradient: 'from-green-500/20 via-emerald-500/20 to-teal-500/20',
     Icon: DollarSign,
-    accentColor: 'text-green-600 dark:text-green-400'
+    accentColor: 'text-green-600 dark:text-green-400',
+    emoji: '💰'
   },
   relationships: {
     gradient: 'from-pink-500/20 via-rose-500/20 to-red-500/20',
     Icon: Heart,
-    accentColor: 'text-pink-600 dark:text-pink-400'
+    accentColor: 'text-pink-600 dark:text-pink-400',
+    emoji: '❤️'
   },
   creativity: {
     gradient: 'from-yellow-500/20 via-amber-500/20 to-orange-500/20',
     Icon: Palette,
-    accentColor: 'text-yellow-600 dark:text-yellow-400'
+    accentColor: 'text-yellow-600 dark:text-yellow-400',
+    emoji: '🎨'
   },
   travel: {
     gradient: 'from-sky-500/20 via-blue-500/20 to-indigo-500/20',
     Icon: Plane,
-    accentColor: 'text-sky-600 dark:text-sky-400'
+    accentColor: 'text-sky-600 dark:text-sky-400',
+    emoji: '✈️'
   },
   home: {
     gradient: 'from-amber-500/20 via-orange-500/20 to-red-500/20',
     Icon: Home,
-    accentColor: 'text-amber-600 dark:text-amber-400'
+    accentColor: 'text-amber-600 dark:text-amber-400',
+    emoji: '🏠'
   },
   personal: {
     gradient: 'from-purple-500/20 via-pink-500/20 to-rose-500/20',
     Icon: Star,
-    accentColor: 'text-purple-600 dark:text-purple-400'
+    accentColor: 'text-purple-600 dark:text-purple-400',
+    emoji: '⭐'
   },
   other: {
     gradient: 'from-slate-500/20 via-gray-500/20 to-zinc-500/20',
     Icon: ClipboardList,
-    accentColor: 'text-slate-600 dark:text-slate-400'
+    accentColor: 'text-slate-600 dark:text-slate-400',
+    emoji: '📋'
   }
 };
 
@@ -708,16 +719,22 @@ export default function SharedActivity() {
                 <theme.Icon className="w-16 h-16 text-white" />
               </div>
               
-              {/* Activity Summary */}
+              {/* Activity Summary with Emoji */}
               <div className="mb-4">
-                <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3 break-words drop-shadow-lg">
-                  {activity.shareTitle || activity.planSummary || activity.title}
+                <h2 className="text-3xl sm:text-5xl font-bold text-white mb-3 break-words drop-shadow-lg flex items-center justify-center gap-3 flex-wrap">
+                  <span className="text-5xl sm:text-6xl">{theme.emoji}</span>
+                  <span>{activity.shareTitle || activity.planSummary || activity.title}</span>
                 </h2>
                 {activity.description && (
-                  <p className="text-lg text-white/90 max-w-2xl mx-auto break-words drop-shadow-md">
+                  <p className="text-lg sm:text-xl text-white/95 max-w-2xl mx-auto break-words drop-shadow-md font-medium">
                     {activity.description}
                   </p>
                 )}
+                
+                {/* Motivational Tagline */}
+                <div className="mt-4 text-white/90 text-base sm:text-lg italic">
+                  "{progressPercent === 100 ? '🎉 Achievement unlocked!' : progressPercent > 50 ? '💫 You\'re making great progress!' : '🚀 Ready to start your journey?'}"
+                </div>
               </div>
 
               {/* Activity Meta Info */}
@@ -806,67 +823,91 @@ export default function SharedActivity() {
             transition={{ duration: 0.4, delay: 0.2 }}
             className="mb-8"
           >
-            <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-              <ChevronRight className="w-5 h-5 text-primary" />
-              Active Tasks
+            <h3 className="text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <span className="text-2xl">✨</span>
+              <span>What's Ahead</span>
+              <Badge variant="outline" className="ml-2">{activeTasks.length}</Badge>
             </h3>
             <div className="space-y-3">
-              {activeTasks.map((task, index) => (
-                <motion.div
-                  key={task.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: Math.min(index * 0.05, 0.3) }}
-                >
-                  <Card 
-                    className={`p-4 sm:p-5 hover-elevate ${isAuthenticated ? 'cursor-pointer' : ''}`}
-                    data-testid={`task-active-${task.id}`}
-                    onClick={() => {
-                      if (isAuthenticated) {
-                        window.location.href = `/?activity=${activity.id}&tab=tasks`;
-                      }
-                    }}
+              {activeTasks.map((task, index) => {
+                const priorityEmoji = task.priority === 'high' ? '🔥' : task.priority === 'medium' ? '⚡' : '✅';
+                return (
+                  <motion.div
+                    key={task.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: Math.min(index * 0.05, 0.3) }}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/50 mt-0.5 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-foreground mb-1 break-words">
-                          {task.title}
-                        </h4>
-                        {task.description && (
-                          <p className="text-sm text-muted-foreground mb-2 break-words">
-                            {task.description}
-                          </p>
-                        )}
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {task.category}
-                          </Badge>
-                          {task.timeEstimate && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Clock className="w-3 h-3" />
-                              <span>{task.timeEstimate}</span>
-                            </div>
+                    <Card 
+                      className={`p-4 sm:p-5 hover-elevate ${isAuthenticated ? 'cursor-pointer' : ''} border-l-4 ${
+                        task.priority === 'high' ? 'border-l-red-500' :
+                        task.priority === 'medium' ? 'border-l-yellow-500' :
+                        'border-l-green-500'
+                      }`}
+                      data-testid={`task-active-${task.id}`}
+                      onClick={() => {
+                        if (isAuthenticated) {
+                          window.location.href = `/?activity=${activity.id}&tab=tasks`;
+                        }
+                      }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="text-2xl shrink-0">{priorityEmoji}</div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-foreground mb-1 break-words text-lg">
+                            {task.title}
+                          </h4>
+                          {task.description && (
+                            <p className="text-sm text-muted-foreground mb-3 break-words leading-relaxed">
+                              {task.description}
+                            </p>
                           )}
-                          {task.priority && (
-                            <Badge 
-                              variant="outline" 
-                              className={`text-xs ${
-                                task.priority === 'high' ? 'border-red-500 text-red-600' :
-                                task.priority === 'medium' ? 'border-yellow-500 text-yellow-600' :
-                                'border-green-500 text-green-600'
-                              }`}
-                            >
-                              {task.priority}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className="text-xs gap-1">
+                              <span>{categoryThemes[task.category.toLowerCase()]?.emoji || '📋'}</span>
+                              <span>{task.category}</span>
                             </Badge>
-                          )}
+                            {task.timeEstimate && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">
+                                <Clock className="w-3 h-3" />
+                                <span className="font-medium">{task.timeEstimate}</span>
+                              </div>
+                            )}
+                            {task.priority && (
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs font-bold ${
+                                  task.priority === 'high' ? 'bg-red-50 border-red-300 text-red-700 dark:bg-red-950 dark:border-red-800 dark:text-red-300' :
+                                  task.priority === 'medium' ? 'bg-yellow-50 border-yellow-300 text-yellow-700 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-300' :
+                                  'bg-green-50 border-green-300 text-green-700 dark:bg-green-950 dark:border-green-800 dark:text-green-300'
+                                }`}
+                              >
+                                {task.priority.toUpperCase()}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </Card>
-                </motion.div>
-              ))}
+                    </Card>
+                  </motion.div>
+                );
+              })}
             </div>
+            
+            {/* Inspiring Call-to-Action */}
+            {!isAuthenticated && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="mt-6 text-center"
+              >
+                <div className="inline-flex items-center gap-2 text-sm text-muted-foreground bg-muted px-4 py-2 rounded-full">
+                  <span>💡</span>
+                  <span>Sign in to start checking off these tasks!</span>
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         )}
 
