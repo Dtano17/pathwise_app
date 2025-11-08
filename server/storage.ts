@@ -439,7 +439,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserActivities(userId: string): Promise<ActivityWithProgress[]> {
-    // First get all activities (exclude archived and isArchived)
     const userActivities = await db.select().from(activities)
       .where(and(
         eq(activities.userId, userId),
@@ -448,71 +447,88 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(desc(activities.createdAt));
 
-    // For each activity, calculate progress from associated tasks
-    const activitiesWithProgress = await Promise.all(
-      userActivities.map(async (activity) => {
-        // Get all tasks associated with this activity
-        const activityTasksResult = await db
-          .select({
-            taskId: activityTasks.taskId,
-            completed: tasks.completed,
-          })
-          .from(activityTasks)
-          .innerJoin(tasks, eq(activityTasks.taskId, tasks.id))
-          .where(eq(activityTasks.activityId, activity.id));
+    if (userActivities.length === 0) {
+      return [];
+    }
 
-        const totalTasks = activityTasksResult.length;
-        const completedTasks = activityTasksResult.filter(t => t.completed).length;
-        const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-        return {
-          ...activity,
-          totalTasks,
-          completedTasks,
-          progressPercent,
-        };
+    const activityIds = userActivities.map(a => a.id);
+    const allTaskData = await db
+      .select({
+        activityId: activityTasks.activityId,
+        taskId: activityTasks.taskId,
+        completed: tasks.completed,
       })
-    );
+      .from(activityTasks)
+      .innerJoin(tasks, eq(activityTasks.taskId, tasks.id))
+      .where(inArray(activityTasks.activityId, activityIds));
 
-    return activitiesWithProgress;
+    const tasksByActivity = new Map<string, Array<{ completed: boolean }>>();
+    for (const task of allTaskData) {
+      if (!tasksByActivity.has(task.activityId)) {
+        tasksByActivity.set(task.activityId, []);
+      }
+      tasksByActivity.get(task.activityId)!.push({ completed: task.completed ?? false });
+    }
+
+    return userActivities.map(activity => {
+      const activityTasks = tasksByActivity.get(activity.id) || [];
+      const totalTasks = activityTasks.length;
+      const completedTasks = activityTasks.filter(t => t.completed).length;
+      const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+      return {
+        ...activity,
+        totalTasks,
+        completedTasks,
+        progressPercent,
+      };
+    });
   }
 
   async getUserArchivedActivities(userId: string): Promise<ActivityWithProgress[]> {
-    // Get all archived activities (isArchived = true)
     const userActivities = await db.select().from(activities)
       .where(and(
         eq(activities.userId, userId),
         eq(activities.isArchived, true)
       ))
-      .orderBy(desc(activities.updatedAt)); // Show most recently archived first
+      .orderBy(desc(activities.updatedAt));
 
-    // For each activity, calculate progress from associated tasks
-    const activitiesWithProgress = await Promise.all(
-      userActivities.map(async (activity) => {
-        // Get all tasks associated with this activity
-        const activityTasksResult = await db
-          .select({
-            taskId: activityTasks.taskId,
-            completed: tasks.completed,
-          })
-          .from(activityTasks)
-          .innerJoin(tasks, eq(activityTasks.taskId, tasks.id))
-          .where(eq(activityTasks.activityId, activity.id));
+    if (userActivities.length === 0) {
+      return [];
+    }
 
-        const totalTasks = activityTasksResult.length;
-        const completedTasks = activityTasksResult.filter(t => t.completed).length;
-        const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-        return {
-          ...activity,
-          totalTasks,
-          completedTasks,
-          progressPercent,
-        };
+    const activityIds = userActivities.map(a => a.id);
+    const allTaskData = await db
+      .select({
+        activityId: activityTasks.activityId,
+        taskId: activityTasks.taskId,
+        completed: tasks.completed,
       })
-    );
+      .from(activityTasks)
+      .innerJoin(tasks, eq(activityTasks.taskId, tasks.id))
+      .where(inArray(activityTasks.activityId, activityIds));
 
-    return activitiesWithProgress;
+    const tasksByActivity = new Map<string, Array<{ completed: boolean }>>();
+    for (const task of allTaskData) {
+      if (!tasksByActivity.has(task.activityId)) {
+        tasksByActivity.set(task.activityId, []);
+      }
+      tasksByActivity.get(task.activityId)!.push({ completed: task.completed ?? false });
+    }
+
+    return userActivities.map(activity => {
+      const activityTasks = tasksByActivity.get(activity.id) || [];
+      const totalTasks = activityTasks.length;
+      const completedTasks = activityTasks.filter(t => t.completed).length;
+      const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+      return {
+        ...activity,
+        totalTasks,
+        completedTasks,
+        progressPercent,
+      };
+    });
   }
 
   async getActivity(activityId: string, userId: string): Promise<Activity | undefined> {
