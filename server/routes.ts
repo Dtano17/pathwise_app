@@ -2997,18 +2997,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = getUserId(req) || DEMO_USER_ID;
       const activities = await storage.getUserActivities(userId);
       
-      // Add user's like status to each activity
-      const activitiesWithFeedback = await Promise.all(
-        activities.map(async (activity) => {
-          const userFeedback = await storage.getUserActivityFeedback(activity.id, userId);
-          return {
-            ...activity,
-            userLiked: userFeedback?.feedbackType === 'like'
-          };
-        })
-      );
+      const activityIds = activities.map(a => a.id);
+      const feedbackMap = await storage.getBulkActivityFeedback(activityIds, userId);
       
-      // Prevent caching to ensure UI updates immediately after changes
+      const activitiesWithFeedback = activities.map(activity => ({
+        ...activity,
+        userLiked: feedbackMap.get(activity.id)?.userHasLiked || false
+      }));
+      
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
