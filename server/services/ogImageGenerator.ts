@@ -58,87 +58,84 @@ function createTextOverlay(
   const totalTasks = tasks.length;
   const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // Truncate title if too long (max 45 chars for better display)
-  const displayTitle = title.length > 45 ? title.substring(0, 42) + '...' : title;
+  // Truncate title if too long (max 50 chars for better display)
+  const displayTitle = title.length > 50 ? title.substring(0, 47) + '...' : title;
   
-  // Truncate description if present (max 80 chars)
-  const displayDescription = description.length > 80 ? description.substring(0, 77) + '...' : description;
+  // Create description with task summary
+  let displayDescription = '';
+  if (description) {
+    const shortDesc = description.length > 60 ? description.substring(0, 57) + '...' : description;
+    displayDescription = `${shortDesc} • ${totalTasks} ${totalTasks === 1 ? 'task' : 'tasks'} • ${completedTasks} completed`;
+  } else {
+    displayDescription = `${totalTasks} ${totalTasks === 1 ? 'task' : 'tasks'} • ${completedTasks} completed`;
+  }
 
-  // Get first 3 tasks to display
-  const displayTasks = tasks.slice(0, 3);
-  const taskStartY = description ? 360 : 330;
-  const taskItems = displayTasks.map((task, index) => {
-    const icon = task.completed ? '✅' : '▢';
-    const taskTitle = task.title.length > 50 ? task.title.substring(0, 47) + '...' : task.title;
-    const yPosition = taskStartY + (index * 50);
-    return `
-      <text x="60" y="${yPosition}" font-family="Arial, sans-serif" font-size="26" fill="white" font-weight="400" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
-        ${icon} ${taskTitle}
-      </text>
-    `;
-  }).join('');
-
-  const moreTasksText = tasks.length > 3
-    ? `<text x="60" y="${description ? 510 : 480}" font-family="Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.85)" font-style="italic" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
-        ... ${tasks.length - 3} more ${tasks.length - 3 === 1 ? 'task' : 'tasks'}
-      </text>`
-    : '';
+  // Progress percentage text for prominent display
+  const progressText = progressPercent === 100 ? `${progressPercent}% complete!` : `${progressPercent}% complete!`;
 
   return `
     <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
-      <!-- Dark gradient overlay for readability -->
+      <!-- Dark gradient overlay for text readability -->
       <defs>
         <linearGradient id="darkGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" style="stop-color:rgba(0,0,0,0.70);stop-opacity:1" />
-          <stop offset="50%" style="stop-color:rgba(0,0,0,0.80);stop-opacity:1" />
-          <stop offset="100%" style="stop-color:rgba(0,0,0,0.85);stop-opacity:1" />
+          <stop offset="0%" style="stop-color:rgba(0,0,0,0.75);stop-opacity:1" />
+          <stop offset="40%" style="stop-color:rgba(0,0,0,0.65);stop-opacity:1" />
+          <stop offset="100%" style="stop-color:rgba(0,0,0,0.80);stop-opacity:1" />
         </linearGradient>
+        
+        <!-- Multi-layer text shadow filter for maximum readability -->
+        <filter id="strongShadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+          <feOffset dx="2" dy="2" result="offsetblur"/>
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="0.8"/>
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
       </defs>
 
       <!-- Overlay gradient -->
       <rect width="1200" height="630" fill="url(#darkGradient)" />
 
-      <!-- Header Section with Emoji and Title -->
-      <text x="60" y="110" font-family="Arial, sans-serif" font-size="90" fill="white" style="text-shadow: 3px 3px 6px rgba(0,0,0,0.6);">
+      <!-- Top Branding Bar -->
+      <text x="60" y="45" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="white" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);">
+        JournalMate
+      </text>
+      <text x="200" y="45" font-family="Arial, sans-serif" font-size="18" fill="rgba(255,255,255,0.90)" style="text-shadow: 0 2px 6px rgba(0,0,0,0.7);">
+        Adaptive Planning Engine | Transform Dreams into Reality
+      </text>
+
+      <!-- Main Content: Emoji and Title -->
+      <text x="60" y="145" font-family="Arial, sans-serif" font-size="85" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.8);">
         ${emoji}
       </text>
 
-      <text x="60" y="200" font-family="Arial, sans-serif" font-size="56" font-weight="bold" fill="white" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.6);">
+      <text x="60" y="235" font-family="Arial, sans-serif" font-size="58" font-weight="bold" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5);">
         ${displayTitle}
       </text>
 
-      ${description ? `
-      <text x="60" y="245" font-family="Arial, sans-serif" font-size="26" fill="rgba(255,255,255,0.95)" font-weight="400" style="text-shadow: 1px 1px 3px rgba(0,0,0,0.5);">
+      <!-- Description with task summary -->
+      <text x="60" y="285" font-family="Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.95)" font-weight="400" style="text-shadow: 0 3px 8px rgba(0,0,0,0.8), 0 1px 3px rgba(0,0,0,0.9);">
         ${displayDescription}
       </text>
-      ` : ''}
 
-      <!-- Category Badge and Progress -->
-      <rect x="60" y="${description ? 270 : 230}" width="${Math.max(category.length * 14 + 30, 100)}" height="36" fill="rgba(255,255,255,0.25)" rx="18" />
-      <text x="75" y="${description ? 293 : 253}" font-family="Arial, sans-serif" font-size="18" fill="white" font-weight="600">
-        ${category.toUpperCase()}
+      <!-- Prominent Progress Display -->
+      <text x="60" y="360" font-family="Arial, sans-serif" font-size="48" font-weight="700" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.8);">
+        ${progressText}
       </text>
 
-      <!-- Progress Percentage Badge -->
-      <rect x="${100 + Math.max(category.length * 14 + 30, 100)}" y="${description ? 270 : 230}" width="${progressPercent === 100 ? 140 : 110}" height="36" fill="rgba(16, 185, 129, 0.3)" rx="18" />
-      <text x="${115 + Math.max(category.length * 14 + 30, 100)}" y="${description ? 293 : 253}" font-family="Arial, sans-serif" font-size="18" fill="white" font-weight="700">
-        ${progressPercent}% ${progressPercent === 100 ? 'COMPLETE' : 'DONE'}
-      </text>
-
-      <!-- Tasks Section -->
-      ${taskItems}
-      ${moreTasksText}
-
-      <!-- Bottom Stats Bar -->
-      <rect x="0" y="540" width="1200" height="90" fill="rgba(0,0,0,0.6)" />
+      <!-- Bottom Branding Bar with subtle gradient -->
+      <rect x="0" y="550" width="1200" height="80" fill="rgba(0,0,0,0.70)" />
       
-      <text x="60" y="575" font-family="Arial, sans-serif" font-size="26" fill="white" font-weight="600">
-        📊 ${completedTasks} / ${totalTasks} tasks completed
+      <!-- JournalMate tagline -->
+      <text x="60" y="590" font-family="Arial, sans-serif" font-size="24" fill="white" font-weight="600" style="text-shadow: 0 2px 6px rgba(0,0,0,0.8);">
+        JournalMate
       </text>
-
-      <!-- JournalMate Branding -->
-      <text x="60" y="610" font-family="Arial, sans-serif" font-size="20" fill="rgba(255,255,255,0.85)" font-weight="500">
-        JournalMate — Plan and Share Your Activities
+      <text x="230" y="590" font-family="Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.90)" style="text-shadow: 0 2px 6px rgba(0,0,0,0.7);">
+        Plan → Execute → Reflect → Share with AI-powered adaptive intelligence
       </text>
     </svg>
   `;
@@ -227,6 +224,10 @@ async function createFallbackImage(activity: Activity, tasks: Task[]): Promise<B
   const title = activity.shareTitle || activity.planSummary || activity.title || 'Shared Activity';
   const displayTitle = title.length > 50 ? title.substring(0, 47) + '...' : title;
 
+  // Create description with task summary
+  const taskSummary = `${totalTasks} ${totalTasks === 1 ? 'task' : 'tasks'} • ${completedTasks} completed`;
+  const progressText = `${progressPercent}% complete!`;
+
   const svg = `
     <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -238,24 +239,39 @@ async function createFallbackImage(activity: Activity, tasks: Task[]): Promise<B
 
       <rect width="1200" height="630" fill="url(#bgGradient)" />
 
-      <text x="60" y="100" font-family="Arial, sans-serif" font-size="80" fill="white">
+      <!-- Top Branding Bar -->
+      <text x="60" y="45" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="white" style="text-shadow: 0 2px 8px rgba(0,0,0,0.6);">
+        JournalMate
+      </text>
+      <text x="200" y="45" font-family="Arial, sans-serif" font-size="18" fill="rgba(255,255,255,0.95)" style="text-shadow: 0 2px 6px rgba(0,0,0,0.5);">
+        Adaptive Planning Engine | Transform Dreams into Reality
+      </text>
+
+      <!-- Main Content -->
+      <text x="60" y="145" font-family="Arial, sans-serif" font-size="85" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.6);">
         ${emoji}
       </text>
 
-      <text x="60" y="200" font-family="Arial, sans-serif" font-size="52" font-weight="bold" fill="white">
+      <text x="60" y="235" font-family="Arial, sans-serif" font-size="58" font-weight="bold" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.6);">
         ${displayTitle}
       </text>
 
-      <text x="60" y="400" font-family="Arial, sans-serif" font-size="36" fill="white" font-weight="600">
-        ${progressPercent}% Complete
+      <text x="60" y="285" font-family="Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.95)" style="text-shadow: 0 3px 8px rgba(0,0,0,0.5);">
+        ${taskSummary}
       </text>
 
-      <text x="60" y="450" font-family="Arial, sans-serif" font-size="28" fill="rgba(255,255,255,0.9)">
-        ${completedTasks} of ${totalTasks} tasks completed
+      <text x="60" y="360" font-family="Arial, sans-serif" font-size="48" fill="white" font-weight="700" style="text-shadow: 0 4px 12px rgba(0,0,0,0.6);">
+        ${progressText}
       </text>
 
-      <text x="60" y="580" font-family="Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.9)" font-weight="500">
-        JournalMate | Own, Edit &amp; Share Your Plans
+      <!-- Bottom Branding Bar -->
+      <rect x="0" y="550" width="1200" height="80" fill="rgba(0,0,0,0.25)" />
+      
+      <text x="60" y="590" font-family="Arial, sans-serif" font-size="24" fill="white" font-weight="600" style="text-shadow: 0 2px 6px rgba(0,0,0,0.5);">
+        JournalMate
+      </text>
+      <text x="230" y="590" font-family="Arial, sans-serif" font-size="22" fill="rgba(255,255,255,0.95)" style="text-shadow: 0 2px 6px rgba(0,0,0,0.5);">
+        Plan → Execute → Reflect → Share with AI-powered adaptive intelligence
       </text>
     </svg>
   `;
