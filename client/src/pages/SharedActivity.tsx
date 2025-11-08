@@ -259,9 +259,9 @@ export default function SharedActivity() {
   }, [data]);
 
   const handleSignIn = () => {
-    // Use full pathname as returnTo - it already contains the share token in the URL
-    const returnTo = encodeURIComponent(window.location.pathname);
-    console.log('[SHARED ACTIVITY] Redirecting to login with returnTo:', window.location.pathname);
+    // Use full pathname as returnTo with autoCopy parameter to trigger copy after auth
+    const returnTo = encodeURIComponent(`${window.location.pathname}?autoCopy=true`);
+    console.log('[SHARED ACTIVITY] Redirecting to login with returnTo and autoCopy:', window.location.pathname);
     window.location.href = `/login?returnTo=${returnTo}`;
   };
 
@@ -340,9 +340,9 @@ export default function SharedActivity() {
 
   // Automatic copy when user signs in
   useEffect(() => {
-    // Check if user just authenticated (auth=success in URL)
+    // Check if user just authenticated (auth=success OR autoCopy=true in URL)
     const urlParams = new URLSearchParams(window.location.search);
-    const justAuthenticated = urlParams.get('auth') === 'success';
+    const justAuthenticated = urlParams.get('auth') === 'success' || urlParams.get('autoCopy') === 'true';
     
     console.log('[SHARED ACTIVITY] Auto-copy check:', {
       isAuthenticated,
@@ -350,7 +350,8 @@ export default function SharedActivity() {
       hasActivity: !!data?.activity,
       hasUser: !!user,
       isOwner: data?.activity?.userId === (user as any)?.id,
-      permissionRequested
+      permissionRequested,
+      urlParams: Object.fromEntries(urlParams.entries())
     });
     
     // Only auto-copy if:
@@ -358,7 +359,7 @@ export default function SharedActivity() {
     // 2. Activity data is loaded
     // 3. User is not the owner
     // 4. Haven't already requested permission
-    // 5. Just authenticated (from OAuth callback)
+    // 5. Just authenticated (from OAuth callback or clicked "Get Started Free")
     if (
       isAuthenticated && 
       justAuthenticated &&
@@ -376,6 +377,9 @@ export default function SharedActivity() {
       
       // Automatically trigger copy (forceUpdate = false for initial copy)
       copyActivityMutation.mutate(false);
+      
+      // Clean up URL params after triggering copy
+      window.history.replaceState({}, '', window.location.pathname);
     }
   }, [isAuthenticated, data, user, permissionRequested]);
 
