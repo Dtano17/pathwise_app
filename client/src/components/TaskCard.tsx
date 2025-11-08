@@ -38,22 +38,22 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentToastIdRef = useRef<string | null>(null);
 
-  // Fetch task feedback
-  const { data: feedbackData } = useQuery<{ userFeedback: { feedbackType: 'like' | 'dislike' } | null; stats: { likes: number; dislikes: number } }>({
-    queryKey: ['/api/tasks', task.id, 'feedback'],
-    staleTime: 30000,
-  });
+  // TEMPORARILY DISABLED: Fetch task feedback (causing N+1 query performance issues)
+  // const { data: feedbackData } = useQuery<{ userFeedback: { feedbackType: 'like' | 'dislike' } | null; stats: { likes: number; dislikes: number } }>({
+  //   queryKey: ['/api/tasks', task.id, 'feedback'],
+  //   staleTime: 30000,
+  // });
 
-  // Task feedback mutation
-  const feedbackMutation = useMutation({
-    mutationFn: async (feedbackType: 'like' | 'dislike') => {
-      const response = await apiRequest('POST', `/api/tasks/${task.id}/feedback`, { feedbackType });
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks', task.id, 'feedback'] });
-    }
-  });
+  // TEMPORARILY DISABLED: Task feedback mutation
+  // const feedbackMutation = useMutation({
+  //   mutationFn: async (feedbackType: 'like' | 'dislike') => {
+  //     const response = await apiRequest('POST', `/api/tasks/${task.id}/feedback`, { feedbackType });
+  //     return await response.json();
+  //   },
+  //   onSuccess: () => {
+  //     queryClient.invalidateQueries({ queryKey: ['/api/tasks', task.id, 'feedback'] });
+  //   }
+  // });
 
   const triggerHapticFeedback = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
     if ('vibrate' in navigator && navigator.vibrate) {
@@ -279,8 +279,8 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
           )}
         </div>
 
-        {/* Feedback Buttons - YouTube Style */}
-        <div className="flex items-center justify-center gap-4 mb-4 border-t pt-4">
+        {/* TEMPORARILY DISABLED: Feedback Buttons - YouTube Style (causing N+1 query performance issues) */}
+        {/* <div className="flex items-center justify-center gap-4 mb-4 border-t pt-4">
           <button
             onClick={() => feedbackMutation.mutate('like')}
             disabled={feedbackMutation.isPending}
@@ -318,7 +318,7 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
               {feedbackData?.stats?.dislikes || ''}
             </span>
           </button>
-        </div>
+        </div> */}
 
         {/* Action Buttons */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
