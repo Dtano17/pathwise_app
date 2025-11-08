@@ -3380,11 +3380,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         }
       }
       
-      // Otherwise, generate shareable link (original behavior)
-      if (!activity.isPublic) {
-        return res.status(403).json({ error: 'Activity must be public to share. Change privacy settings first.' });
-      }
-      
+      // Otherwise, generate shareable link
       // If targetGroupId is provided, verify user is a member and store it
       if (targetGroupId) {
         const userGroups = await storage.getGroupsForUser(userId);
@@ -3393,12 +3389,17 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         if (!isMember) {
           return res.status(403).json({ error: 'You must be a member of the group to share from it' });
         }
-        
-        // Store targetGroupId for auto-join after copy
-        await storage.updateActivity(activityId, { targetGroupId }, userId);
       }
       
+      // Generate share token and make activity public
       const shareToken = await storage.generateShareableLink(activityId, userId);
+      
+      // Update activity with isPublic, targetGroupId if provided
+      const updateData: any = { isPublic: true };
+      if (targetGroupId) {
+        updateData.targetGroupId = targetGroupId;
+      }
+      await storage.updateActivity(activityId, updateData, userId);
       
       if (!shareToken) {
         return res.status(404).json({ error: 'Failed to generate share token' });
