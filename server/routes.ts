@@ -859,6 +859,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // so we need to inject Open Graph meta tags server-side for rich previews
   app.get("/share/:token", async (req, res, next) => {
     const { token } = req.params;
+    const userAgent = req.get('user-agent') || '';
+    
+    // Detect social media crawlers and bots
+    const isCrawler = /bot|crawler|spider|crawling|facebookexternalhit|WhatsApp|Twitterbot|LinkedInBot|TelegramBot|Slackbot|instagram|pinterest|reddit/i.test(userAgent);
+    
+    // Real users get the full React SPA with interactive features
+    // Only serve static HTML with OG tags for social crawlers
+    if (!isCrawler) {
+      return next();
+    }
     
     try {
       const activity = await storage.getActivityByShareToken(token);
