@@ -3402,8 +3402,44 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         baseUrl = `https://${domains[0]}`;
       }
       
+      // Generate compelling social text with emoji
+      const categoryEmojis: Record<string, string> = {
+        fitness: '💪',
+        health: '🏥',
+        career: '💼',
+        learning: '📚',
+        finance: '💰',
+        relationships: '❤️',
+        creativity: '🎨',
+        travel: '✈️',
+        home: '🏠',
+        personal: '⭐',
+        other: '📋'
+      };
+      const emoji = categoryEmojis[activity.category?.toLowerCase()] || '✨';
+      
+      // Get tasks to calculate progress
+      let tasks: any[] = [];
+      try {
+        tasks = await storage.getActivityTasks(activityId, userId);
+      } catch (err) {
+        console.error('Error fetching tasks for social text:', err);
+      }
+      
+      const completedTasks = tasks.filter(t => t.completed).length;
+      const totalTasks = tasks.length;
+      const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
+      
+      const shareTitle = activity.shareTitle || activity.planSummary || activity.title;
+      const shareDescription = activity.description || `Join this ${activity.category} plan on JournalMate`;
+      const socialText = `Check out my activity: ${emoji} ${shareTitle}${progressText}\n${shareDescription}`;
+      
+      // Update activity with social text
+      await storage.updateActivity(activityId, { socialText }, userId);
+      
       const shareableLink = `${baseUrl}/share/${shareToken}`;
-      res.json({ shareableLink });
+      res.json({ shareableLink, socialText });
     } catch (error) {
       console.error('Generate share link error:', error);
       res.status(500).json({ error: 'Failed to generate shareable link' });
@@ -7679,6 +7715,119 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     } catch (error) {
       console.error('Facebook data deletion callback error:', error);
       res.status(500).json({ error: 'Failed to process Facebook data deletion request' });
+    }
+  });
+
+  // Server-side rendering for share preview pages (for social media Open Graph tags)
+  app.get("/share/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const activity = await storage.getActivityByShareToken(token);
+      
+      if (!activity) {
+        // If activity not found, let the SPA handle it
+        return res.redirect(`/?error=activity_not_found`);
+      }
+
+      // Category emoji mapping (matches client-side)
+      const categoryEmojis: Record<string, string> = {
+        fitness: '💪',
+        health: '🏥',
+        career: '💼',
+        learning: '📚',
+        finance: '💰',
+        relationships: '❤️',
+        creativity: '🎨',
+        travel: '✈️',
+        home: '🏠',
+        personal: '⭐',
+        other: '📋'
+      };
+      const emoji = categoryEmojis[activity.category?.toLowerCase()] || '✨';
+
+      // Get tasks to calculate progress
+      let tasks: any[] = [];
+      try {
+        tasks = await storage.getActivityTasks(activity.id, activity.userId);
+      } catch (err) {
+        console.error('Error fetching tasks for share preview:', err);
+      }
+
+      const completedTasks = tasks.filter(t => t.completed).length;
+      const totalTasks = tasks.length;
+      const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      const progressText = totalTasks > 0 ? ` - ${progressPercent}% complete!` : '';
+
+      // Generate compelling share text
+      const shareTitle = activity.shareTitle || activity.planSummary || activity.title;
+      const shareDescription = activity.description || `Join this ${activity.category} plan on JournalMate`;
+      const fullTitle = `Check out my activity: ${emoji} ${shareTitle}${progressText}`;
+      
+      // Determine base URL for Open Graph
+      let baseUrl = 'http://localhost:5000';
+      if (process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production') {
+        baseUrl = 'https://journalmate.ai';
+      } else if (process.env.REPLIT_DOMAINS) {
+        const domains = process.env.REPLIT_DOMAINS.split(',').map(d => d.trim());
+        baseUrl = `https://${domains[0]}`;
+      }
+      const shareUrl = `${baseUrl}/share/${token}`;
+
+      // Server-rendered HTML with Open Graph meta tags
+      const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- Open Graph / Social Media Preview Tags -->
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="${shareUrl}" />
+  <meta property="og:title" content="${fullTitle}" />
+  <meta property="og:description" content="${shareDescription}" />
+  <meta property="og:site_name" content="JournalMate - AI-Powered Lifestyle Planner" />
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${fullTitle}" />
+  <meta name="twitter:description" content="${shareDescription}" />
+  
+  <!-- WhatsApp Preview -->
+  <meta property="og:image" content="${baseUrl}/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  
+  <title>${fullTitle}</title>
+  
+  <!-- Redirect to SPA for actual browsers (not crawlers) -->
+  <script>
+    // Only redirect if this is a real browser visit, not a crawler
+    if (navigator.userAgent && !navigator.userAgent.includes('bot') && !navigator.userAgent.includes('crawler')) {
+      window.location.href = window.location.pathname;
+    }
+  </script>
+</head>
+<body>
+  <div style="font-family: system-ui; max-width: 600px; margin: 50px auto; padding: 20px;">
+    <h1 style="color: #7c3aed;">${emoji} ${shareTitle}</h1>
+    <p style="color: #6b7280; font-size: 18px;">${shareDescription}</p>
+    ${progressText ? `<p style="color: #059669; font-weight: 600;">Progress: ${progressPercent}%</p>` : ''}
+    <p style="margin-top: 30px;">
+      <a href="/" style="background: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
+        View on JournalMate
+      </a>
+    </p>
+  </div>
+</body>
+</html>`;
+
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+    } catch (error) {
+      console.error('Share preview error:', error);
+      // If error, let the SPA handle it
+      res.redirect('/');
     }
   });
 
