@@ -165,7 +165,7 @@ After successful deployment, populate the Discover Plans section with 44 curated
 ### Seed Community Plans
 
 **Important**: This is a **one-time setup** step after your first deployment. The community plans include:
-- 44 curated plans with emoji-enhanced titles (⚽ FIFA World Cup 2026, 🌅 Santorini Sunset Romance, etc.)
+- 40+ curated plans with emoji-enhanced titles (⚽ FIFA World Cup 2026, 🌅 Santorini Sunset Romance, etc.)
 - HD stock images automatically deployed with the code (from `client/public/community-backdrops/`)
 - 7-10 detailed tasks per plan with realistic budget breakdowns
 - Categories: Travel, Fitness, Career, Personal
@@ -202,7 +202,7 @@ curl -X POST https://your-app.replit.app/api/admin/seed-community-plans \
 
 1. **Navigate to Discover Plans**:
    - Go to `https://your-app.replit.app/discover`
-   - You should see 44 plans with emoji titles
+   - You should see 40+ plans with emoji titles
 
 2. **Check categories**:
    - Filter by: All, Travel, Fitness, Career, Personal

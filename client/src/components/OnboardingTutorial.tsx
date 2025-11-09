@@ -65,10 +65,10 @@ const tutorialSteps: TutorialStep[] = [
   },
   {
     title: "Discover & Use Community Plans",
-    description: "Browse 44+ curated plans with emoji-enhanced titles! Get inspired by FIFA World Cup ⚽, Santorini sunsets 🌅, NYC adventures 🗽, and more. One-click copy to your account, then customize to match your rhythm.",
+    description: "Browse 40+ curated plans with emoji-enhanced titles! Get inspired by FIFA World Cup ⚽, Santorini sunsets 🌅, NYC adventures 🗽, and more. One-click copy to your account, then customize to match your rhythm.",
     icon: Globe,
     tips: [
-      "44+ curated plans with eye-catching emoji titles (⚽ 🌅 💪 🗼 🏝️)",
+      "40+ curated plans with eye-catching emoji titles (⚽ 🌅 💪 🗼 🏝️)",
       "Filter by All, Travel, Fitness, Career, or Personal categories",
       "Click 'Use This Plan' to instantly copy with all tasks and budget breakdown",
       "Each plan includes 7-10 detailed tasks and realistic budget estimates",
