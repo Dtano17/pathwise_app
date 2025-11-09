@@ -733,7 +733,7 @@ export const demoCommunityPlans = [
       planSummary: "Complete preparation guide for multi-day music festival with camping tips and safety essentials",
       isPublic: true,
       shareTitle: "Music Festival Survival Guide",
-      backdrop: "/community-backdrops/concert_music_festiv_18316657.jpg",
+      backdrop: "/community-backdrops/outdoor_music_festiv_0cb592ca.jpg",
       tags: ["festival", "music", "camping", "travel", "events"],
       viewCount: 2340,
       likeCount: 1950,

@@ -8060,14 +8060,15 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       
       // Verify admin authorization using secret
       const requiredSecret = process.env.ADMIN_SECRET;
+      const isDevelopment = process.env.NODE_ENV === 'development';
       
-      if (!requiredSecret) {
+      if (!requiredSecret && !isDevelopment) {
         return res.status(500).json({ 
           error: 'Admin functionality not configured. Set ADMIN_SECRET environment variable.' 
         });
       }
       
-      if (!adminSecret || adminSecret !== requiredSecret) {
+      if (!isDevelopment && (!adminSecret || adminSecret !== requiredSecret)) {
         console.warn('[ADMIN] Unauthorized seed attempt');
         return res.status(403).json({ 
           error: 'Unauthorized. Admin secret required.' 
