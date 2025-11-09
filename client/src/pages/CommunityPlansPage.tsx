@@ -531,19 +531,23 @@ export default function CommunityPlansPage() {
 
           {/* Category Tabs - Horizontal Scrollable Carousel */}
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-            <div className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory">
-              <TabsList data-testid="tabs-categories" className="inline-flex gap-1 w-auto">
-                {categories.map((cat) => (
-                  <TabsTrigger
-                    key={cat.value}
-                    value={cat.value}
-                    data-testid={`tab-${cat.value}`}
-                    className="flex-shrink-0 snap-start"
-                  >
-                    {cat.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+            <div className="relative">
+              <div className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory pr-8 md:pr-0">
+                <TabsList data-testid="tabs-categories" className="inline-flex gap-1 w-auto">
+                  {categories.map((cat) => (
+                    <TabsTrigger
+                      key={cat.value}
+                      value={cat.value}
+                      data-testid={`tab-${cat.value}`}
+                      className="flex-shrink-0 snap-start"
+                    >
+                      {cat.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+              {/* Gradient fade indicator on mobile */}
+              <div className="absolute right-0 top-0 bottom-0 w-20 pointer-events-none bg-gradient-to-l from-background to-transparent md:hidden" />
             </div>
           </Tabs>
 

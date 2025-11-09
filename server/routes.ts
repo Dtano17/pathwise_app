@@ -3797,6 +3797,7 @@ ${emoji} ${progressLine}
         startDate: sharedActivity.startDate,
         endDate: sharedActivity.endDate,
         copiedFromShareToken: shareToken, // Track where it came from
+        backdrop: sharedActivity.backdrop, // Preserve the stock image/backdrop
       });
       console.log('[COPY ACTIVITY] Activity copied successfully:', {
         newActivityId: copiedActivity.id,
