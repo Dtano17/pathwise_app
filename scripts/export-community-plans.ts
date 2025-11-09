@@ -28,10 +28,10 @@ function escapeSql(value: any): string {
   return `'${value.toString().replace(/'/g, "''")}'`;
 }
 
-// Safe boolean escape - handles undefined/null
+// Safe boolean escape - preserves NULL semantics
 function escapeBool(value: any): string {
   if (value === null || value === undefined) {
-    return 'false';
+    return 'NULL';
   }
   return value ? 'true' : 'false';
 }
