@@ -456,7 +456,11 @@ export default function CommunityPlansPage() {
     if (backdrop.startsWith('http://') || backdrop.startsWith('https://')) {
       return backdrop;
     }
-    // Otherwise, check the local stock image map
+    // If it's a public path (starts with /), return it directly (Vite serves public/ assets at this path)
+    if (backdrop.startsWith('/')) {
+      return backdrop;
+    }
+    // Otherwise, check the local stock image map for legacy filename-only entries
     return stockImageMap[backdrop] || null;
   };
 
