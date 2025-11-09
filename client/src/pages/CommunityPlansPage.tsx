@@ -83,14 +83,11 @@ const stockImageMap: Record<string, string> = {
 };
 
 const categories = [
-  { value: "trending", label: "Trending", Icon: TrendingUp },
+  { value: "all", label: "All", Icon: TrendingUp },
   { value: "travel", label: "Travel", Icon: Plane, color: "bg-blue-500" },
   { value: "fitness", label: "Fitness", Icon: Dumbbell, color: "bg-green-500" },
-  { value: "productivity", label: "Productivity", Icon: ListTodo, color: "bg-purple-500" },
-  { value: "events", label: "Events", Icon: PartyPopper, color: "bg-orange-500" },
   { value: "career", label: "Career", Icon: Briefcase, color: "bg-indigo-500" },
-  { value: "home", label: "Home", Icon: HomeIcon, color: "bg-amber-500" },
-  { value: "learning", label: "Learning", Icon: BookOpen, color: "bg-pink-500" },
+  { value: "personal", label: "Personal", Icon: HomeIcon, color: "bg-amber-500" },
 ];
 
 const budgetRanges = [
@@ -109,7 +106,7 @@ const getCategoryColor = (category: string | null) => {
 };
 
 export default function CommunityPlansPage() {
-  const [selectedCategory, setSelectedCategory] = useState("trending");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedBudgetRange, setSelectedBudgetRange] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [hasSeedAttempted, setHasSeedAttempted] = useState(false);
@@ -149,7 +146,7 @@ export default function CommunityPlansPage() {
     queryKey: ["/api/community-plans", selectedCategory, searchQuery, selectedBudgetRange],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (selectedCategory !== "trending") {
+      if (selectedCategory !== "all") {
         params.set("category", selectedCategory);
       }
       if (searchQuery.trim()) {
