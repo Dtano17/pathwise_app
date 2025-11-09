@@ -152,10 +152,10 @@ export default function CommunityPlansPage() {
 
   // Fetch plan details for preview
   const { data: previewData, isLoading: isPreviewLoading } = useQuery({
-    queryKey: ["/api/activities/share", selectedPlan?.shareToken],
+    queryKey: ["/api/share/activity", selectedPlan?.shareToken],
     queryFn: async () => {
       if (!selectedPlan?.shareToken) return null;
-      const response = await fetch(`/api/activities/share/${selectedPlan.shareToken}`);
+      const response = await fetch(`/api/share/activity/${selectedPlan.shareToken}`);
       if (!response.ok) throw new Error("Failed to fetch plan details");
       return response.json();
     },
