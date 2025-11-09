@@ -14,9 +14,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Eye, Search, Sparkles, ArrowLeft, Home, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign } from "lucide-react";
+import { Heart, Eye, Search, Sparkles, ArrowLeft, Home, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus } from "lucide-react";
 import { Link } from "wouter";
 import type { Activity } from "@shared/schema";
+import CreateGroupDialog from "@/components/CreateGroupDialog";
 
 // Stock image imports
 import romanticParisCityscape from "@assets/stock_images/romantic_paris_citys_dfc7c798.jpg";
@@ -120,6 +121,8 @@ export default function CommunityPlansPage() {
     message: string;
     forGroup: boolean;
   } | null>(null);
+  const [createGroupDialogOpen, setCreateGroupDialogOpen] = useState(false);
+  const [pendingGroupId, setPendingGroupId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Fetch user's groups
@@ -127,6 +130,17 @@ export default function CommunityPlansPage() {
     queryKey: ["/api/groups"],
   });
   const groups = groupsData?.groups || [];
+
+  // Auto-select newly created group
+  useEffect(() => {
+    if (pendingGroupId && groups.length > 0) {
+      const newGroup = groups.find((g) => g.id === pendingGroupId);
+      if (newGroup) {
+        setSelectedGroupId(pendingGroupId);
+        setPendingGroupId(null);
+      }
+    }
+  }, [groups, pendingGroupId]);
 
   // Fetch community plans
   const { data: plans = [], isLoading, refetch } = useQuery<Array<Activity & { userHasLiked?: boolean }>>({
@@ -499,57 +513,61 @@ export default function CommunityPlansPage() {
           </p>
         </div>
 
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search plans..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-              data-testid="input-search"
-            />
+        {/* Filters Section - Mobile Responsive */}
+        <div className="flex flex-col gap-4 mb-8">
+          {/* Search Bar */}
+          <div className="w-full sm:max-w-md">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search plans..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 w-full"
+                data-testid="input-search"
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Category Tabs */}
-        <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-6">
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <TabsList data-testid="tabs-categories" className="w-fit">
-              {categories.map((cat) => (
-                <TabsTrigger
-                  key={cat.value}
-                  value={cat.value}
-                  data-testid={`tab-${cat.value}`}
-                >
-                  {cat.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-        </Tabs>
-
-        {/* Budget Filter */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 w-full sm:max-w-xs">
-            <DollarSign className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            <Select value={selectedBudgetRange} onValueChange={setSelectedBudgetRange}>
-              <SelectTrigger data-testid="select-budget-range" className="w-full">
-                <SelectValue placeholder="Filter by budget" />
-              </SelectTrigger>
-              <SelectContent>
-                {budgetRanges.map((range) => (
-                  <SelectItem 
-                    key={range.value} 
-                    value={range.value}
-                    data-testid={`budget-option-${range.value}`}
+          {/* Category Tabs - Responsive */}
+          <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
+            <div className="w-full max-w-full overflow-hidden">
+              <TabsList data-testid="tabs-categories" className="w-full sm:w-auto flex flex-wrap gap-1">
+                {categories.map((cat) => (
+                  <TabsTrigger
+                    key={cat.value}
+                    value={cat.value}
+                    data-testid={`tab-${cat.value}`}
+                    className="flex-shrink-0"
                   >
-                    {range.label}
-                  </SelectItem>
+                    {cat.label}
+                  </TabsTrigger>
                 ))}
-              </SelectContent>
-            </Select>
+              </TabsList>
+            </div>
+          </Tabs>
+
+          {/* Budget Filter */}
+          <div className="w-full sm:w-auto sm:max-w-xs">
+            <div className="flex items-center gap-3">
+              <DollarSign className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <Select value={selectedBudgetRange} onValueChange={setSelectedBudgetRange}>
+                <SelectTrigger data-testid="select-budget-range" className="w-full">
+                  <SelectValue placeholder="Filter by budget" />
+                </SelectTrigger>
+                <SelectContent>
+                  {budgetRanges.map((range) => (
+                    <SelectItem 
+                      key={range.value} 
+                      value={range.value}
+                      data-testid={`budget-option-${range.value}`}
+                    >
+                      {range.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
@@ -919,24 +937,47 @@ export default function CommunityPlansPage() {
             </RadioGroup>
 
             {adoptTarget === "group" && (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label>Select Group</Label>
-                <RadioGroup value={selectedGroupId} onValueChange={setSelectedGroupId}>
-                  {groups.length === 0 ? (
+                {groups.length === 0 ? (
+                  <div className="space-y-3">
                     <p className="text-sm text-muted-foreground py-2">
-                      You haven't joined any groups yet. <Link href="/groups" className="text-primary underline">Create or join a group</Link> to share plans.
+                      You haven't created any groups yet. Create one now to start collaborating!
                     </p>
-                  ) : (
-                    groups.map((group) => (
-                      <div key={group.id} className="flex items-center space-x-2">
-                        <RadioGroupItem value={group.id} id={group.id} data-testid={`radio-group-${group.id}`} />
-                        <Label htmlFor={group.id} className="flex-1 cursor-pointer">
-                          {group.name}
-                        </Label>
-                      </div>
-                    ))
-                  )}
-                </RadioGroup>
+                    <Button
+                      variant="outline"
+                      onClick={() => setCreateGroupDialogOpen(true)}
+                      className="w-full gap-2"
+                      data-testid="button-create-group"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create New Group
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <RadioGroup value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                      {groups.map((group) => (
+                        <div key={group.id} className="flex items-center space-x-2">
+                          <RadioGroupItem value={group.id} id={group.id} data-testid={`radio-group-${group.id}`} />
+                          <Label htmlFor={group.id} className="flex-1 cursor-pointer">
+                            {group.name}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCreateGroupDialogOpen(true)}
+                      className="w-full gap-2 mt-2"
+                      data-testid="button-create-another-group"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create Another Group
+                    </Button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -988,6 +1029,17 @@ export default function CommunityPlansPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Create Group Dialog */}
+      <CreateGroupDialog
+        open={createGroupDialogOpen}
+        onOpenChange={setCreateGroupDialogOpen}
+        onGroupCreated={(group) => {
+          queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
+          setAdoptTarget("group");
+          setPendingGroupId(group.id);
+        }}
+      />
     </div>
   );
 }

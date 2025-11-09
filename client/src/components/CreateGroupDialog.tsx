@@ -16,7 +16,7 @@ import type { Activity } from '@shared/schema';
 interface CreateGroupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onGroupCreated?: () => void;
+  onGroupCreated?: (group: { id: string; name: string }) => void;
 }
 
 export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }: CreateGroupDialogProps) {
@@ -119,7 +119,10 @@ export default function CreateGroupDialog({ open, onOpenChange, onGroupCreated }
       });
 
       if (onGroupCreated) {
-        onGroupCreated();
+        onGroupCreated({
+          id: data.group.id,
+          name: data.group.name,
+        });
       }
 
     } catch (error: any) {
