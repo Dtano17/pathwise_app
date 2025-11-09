@@ -4,7 +4,7 @@ import type { InsertActivity, InsertTask } from "@shared/schema";
 export const demoCommunityPlans = [
   {
     activity: {
-      title: "Weekend Trip to Paris",
+      title: "🗼 Weekend Trip to Paris",
       description: "Complete 3-day Paris itinerary with sights, dining, and Eiffel Tower visit",
       category: "travel" as const,
       planSummary: "Romantic 3-day Paris escape with iconic landmarks, French cuisine, and evening river cruise",
@@ -40,7 +40,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "30-Day Fitness Challenge",
+      title: "💪 30-Day Fitness Challenge",
       description: "Daily workouts, meal prep, and progress tracking for complete transformation",
       category: "health" as const,
       planSummary: "Structured 30-day fitness program with workouts, nutrition plan, and accountability tracking",
@@ -77,7 +77,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Daily Meditation Practice",
+      title: "🧘‍♀️ Daily Meditation Practice",
       description: "30-day mindfulness program to reduce stress and improve mental clarity",
       category: "health" as const,
       planSummary: "Progressive meditation guide from 5-minute sessions to 20-minute daily practice with breath work",
@@ -111,7 +111,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Wedding Planning Checklist",
+      title: "💍 Wedding Planning Checklist",
       description: "12-month wedding plan with venue, vendors, guests, and timeline",
       category: "personal" as const,
       planSummary: "Complete wedding planning guide covering venue booking, vendor selection, and timeline management",
@@ -153,7 +153,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Career Switch to Tech",
+      title: "💻 Career Switch to Tech",
       description: "6-month plan: coding bootcamp, portfolio projects, and job applications",
       category: "career" as const,
       planSummary: "Comprehensive career transition roadmap from non-tech to software development role",
@@ -190,7 +190,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Home Renovation Project",
+      title: "🏠 Home Renovation Project",
       description: "Complete kitchen remodel timeline with contractor coordination and budget",
       category: "home" as const,
       planSummary: "Step-by-step kitchen renovation with contractor management and budget control",
@@ -230,7 +230,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Master Productivity System",
+      title: "📊 Master Productivity System",
       description: "Daily routines, time blocking, and focus techniques for peak performance",
       category: "work" as const,
       planSummary: "Evidence-based productivity framework combining time management and deep work principles",
@@ -264,7 +264,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Digital Nomad Guide to Bali",
+      title: "🌴 Digital Nomad Guide to Bali",
       description: "Remote work paradise: visa, coworking spaces, best neighborhoods, and scooter rentals",
       category: "travel" as const,
       planSummary: "Complete guide for remote workers relocating to Bali with workspace, visa, and living tips",
@@ -302,7 +302,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Marathon Training: 16-Week Plan",
+      title: "🏃‍♂️ Marathon Training: 16-Week Plan",
       description: "First-time marathoner? Build endurance from 5K to 26.2 miles with injury prevention",
       category: "health" as const,
       planSummary: "Structured 16-week training program with progressive mileage, nutrition, and recovery strategies",
@@ -338,7 +338,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Tokyo Adventure: 7-Day Itinerary",
+      title: "🗾 Tokyo Adventure: 7-Day Itinerary",
       description: "Shibuya crossing, Mt. Fuji day trip, ramen tours, and hidden temples",
       category: "travel" as const,
       planSummary: "Week-long Tokyo exploration blending modern culture, traditional sites, and culinary experiences",
@@ -376,7 +376,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Launch Your Side Hustle",
+      title: "🚀 Launch Your Side Hustle",
       description: "Validate idea, build MVP, get first 10 customers in 90 days",
       category: "work" as const,
       planSummary: "Practical startup framework from idea validation to revenue generation in 3 months",
@@ -410,7 +410,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Master Public Speaking",
+      title: "🎤 Master Public Speaking",
       description: "Overcome stage fright, craft compelling talks, and deliver with confidence",
       category: "work" as const,
       planSummary: "8-week public speaking mastery program with Toastmasters, speech writing, and TEDx prep",
@@ -446,7 +446,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "NYC Holiday Magic: Christmas Week",
+      title: "🎄 NYC Holiday Magic: Christmas Week",
       description: "Rockefeller tree, ice skating, Broadway shows, and holiday markets",
       category: "travel" as const,
       planSummary: "Festive New York City experience with iconic holiday traditions and winter activities",
@@ -482,7 +482,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Mindfulness & Meditation Practice",
+      title: "🧘 Mindfulness & Meditation Practice",
       description: "21-day habit builder with guided sessions, breathwork, and journaling",
       category: "health" as const,
       planSummary: "Structured meditation program for beginners to establish daily mindfulness routine",
@@ -517,7 +517,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Iceland Northern Lights Expedition",
+      title: "🌌 Iceland Northern Lights Expedition",
       description: "Chase aurora borealis, explore ice caves, and relax in Blue Lagoon",
       category: "travel" as const,
       planSummary: "5-day Iceland adventure focusing on Northern Lights photography and natural wonders",
@@ -556,7 +556,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Cycling Century Ride: 100-Mile Challenge",
+      title: "🚴 Cycling Century Ride: 100-Mile Challenge",
       description: "12-week training plan from 20 miles to 100-mile century ride",
       category: "health" as const,
       planSummary: "Progressive cycling program building endurance for first 100-mile ride with nutrition tips",
@@ -592,7 +592,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Learn Spanish in 90 Days",
+      title: "🇪🇸 Learn Spanish in 90 Days",
       description: "Daily practice schedule, vocabulary building, and conversation practice",
       category: "learning" as const,
       planSummary: "Immersive Spanish learning program with daily practice and real conversation partners",
@@ -627,7 +627,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Strength Training for Beginners",
+      title: "🏋️ Strength Training for Beginners",
       description: "8-week progressive overload program with compound movements",
       category: "health" as const,
       planSummary: "Science-based strength program teaching squat, deadlift, bench press, and overhead press fundamentals",
@@ -663,7 +663,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Professional Networking Strategy",
+      title: "🤝 Professional Networking Strategy",
       description: "Build genuine relationships, attend industry events, and grow LinkedIn presence",
       category: "work" as const,
       planSummary: "90-day networking plan to expand professional connections and unlock career opportunities",
@@ -699,7 +699,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Personal Reading Challenge: 52 Books",
+      title: "📚 Personal Reading Challenge: 52 Books",
       description: "One book per week with diverse genres, discussion groups, and reflection journal",
       category: "personal" as const,
       planSummary: "Year-long reading habit with curated book list, tracking system, and community engagement",
@@ -733,7 +733,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Epic Birthday Party: 30th Celebration",
+      title: "🎉 Epic Birthday Party: 30th Celebration",
       description: "Venue, theme, guest list, catering, entertainment, and surprise moments",
       category: "personal" as const,
       planSummary: "Complete party planning guide for milestone birthday with 50-80 guests",
@@ -771,7 +771,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Music Festival Survival Guide",
+      title: "🎸 Music Festival Survival Guide",
       description: "Packing list, camping setup, schedule planning, and festival hacks",
       category: "personal" as const,
       planSummary: "Complete preparation guide for multi-day music festival with camping tips and safety essentials",
@@ -808,7 +808,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Sunday NFL Game Day Experience",
+      title: "🏈 Sunday NFL Game Day Experience",
       description: "Ultimate NFL game day with tailgate party, stadium experience, and safe transportation home",
       category: "personal" as const,
       planSummary: "Complete NFL game day experience with pre-game tailgate, stadium excitement, and responsible post-game celebration",
@@ -847,7 +847,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Sunday Funday in Austin",
+      title: "☀️ Sunday Funday in Austin",
       description: "Perfect Austin Sunday with brunch, outdoor activities, live music, and sunset drinks",
       category: "personal" as const,
       planSummary: "Quintessential Austin Sunday featuring bottomless brunch, Zilker Park hangout, South Congress shopping, and live music at a local venue",
@@ -886,7 +886,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Austin ACL Festival Weekend",
+      title: "🎵 Austin ACL Festival Weekend",
       description: "Epic 3-day Austin City Limits music festival with top artists and responsible celebration for Austin locals",
       category: "travel" as const,
       planSummary: "Austin local's ACL Festival guide with GA pass, festival essentials, food strategy, and safe transportation",
@@ -924,7 +924,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Austin Formula 1 Race Weekend",
+      title: "🏎️ Austin Formula 1 Race Weekend",
       description: "Premium F1 Grand Prix experience at Circuit of the Americas with hospitality, pit access, and VIP after-parties",
       category: "travel" as const,
       planSummary: "Ultimate Formula 1 weekend in Austin with grandstand tickets, paddock club access, downtown parties, and luxury transportation",
@@ -964,7 +964,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Austin SXSW Music & Tech Festival",
+      title: "🎬 Austin SXSW Music & Tech Festival",
       description: "Navigate South by Southwest with badge strategy, must-see showcases, and party-hopping for Austin locals",
       category: "travel" as const,
       planSummary: "Local's SXSW survival guide: badge options, showcase priorities, free parties, and budget-friendly strategies",
@@ -1002,7 +1002,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Lagos Cultural Experience",
+      title: "🌍 Lagos Cultural Experience",
       description: "Immerse yourself in Nigeria's vibrant culture with markets, nightlife, and Afrobeat music scene",
       category: "travel" as const,
       planSummary: "5-day Lagos adventure exploring Lekki Market, Eko Bridge lights, Afrobeat clubs, and local cuisine",
@@ -1040,7 +1040,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Colorado Mountain Retreat: Ski & Relax",
+      title: "⛷️ Colorado Mountain Retreat: Ski & Relax",
       description: "Hit the slopes, soak in hot springs, and enjoy mountain luxury in the Colorado Rockies",
       category: "travel" as const,
       planSummary: "7-day Colorado ski adventure with world-class slopes, après-ski hot springs, and mountain lodge luxury",
@@ -1078,7 +1078,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Hawaiian Paradise: Island Adventure",
+      title: "🌺 Hawaiian Paradise: Island Adventure",
       description: "Explore volcanoes, pristine beaches, tropical rainforests, and authentic Hawaiian culture",
       category: "travel" as const,
       planSummary: "10-day Hawaii adventure across Oahu and Big Island with volcanoes, snorkeling, luaus, and island hopping",
@@ -1116,7 +1116,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Miami Beach Week: Ultimate Coastal Escape",
+      title: "🏖️ Miami Beach Week: Ultimate Coastal Escape",
       description: "Experience the best of Miami Beach with sun, surf, Art Deco architecture, and vibrant nightlife",
       category: "travel" as const,
       planSummary: "7-day Miami adventure with South Beach, Ocean Drive, Cuban cuisine, and world-class nightclubs",
@@ -1154,7 +1154,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Dubai Luxury Weekend",
+      title: "🏙️ Dubai Luxury Weekend",
       description: "Experience Dubai's ultra-modern skyline, desert adventures, and luxury shopping in 4 days",
       category: "travel" as const,
       planSummary: "4-day Dubai luxury trip with Burj Khalifa, desert safari, gold souks, and 5-star dining",
@@ -1192,7 +1192,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Barcelona Adventure: Gaudí & Tapas",
+      title: "🏛️ Barcelona Adventure: Gaudí & Tapas",
       description: "Discover Barcelona's unique architecture, beach culture, and incredible Spanish cuisine",
       category: "travel" as const,
       planSummary: "5-day Barcelona experience with Sagrada Familia, Park Güell, Gothic Quarter, and tapas crawls",
@@ -1230,7 +1230,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Amsterdam Canal Discovery",
+      title: "🚲 Amsterdam Canal Discovery",
       description: "Bike through Amsterdam's canals, visit world-class museums, and explore Dutch culture",
       category: "travel" as const,
       planSummary: "4-day Amsterdam trip with canal cruises, Anne Frank House, Van Gogh Museum, and cycling adventures",
@@ -1267,7 +1267,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Thailand Island Hopping Adventure",
+      title: "🏝️ Thailand Island Hopping Adventure",
       description: "Explore Thailand's pristine islands with turquoise waters, limestone cliffs, and beach culture",
       category: "travel" as const,
       planSummary: "10-day Thailand island adventure across Phuket, Phi Phi, and Krabi with snorkeling and beach paradise",
@@ -1305,7 +1305,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Santorini Sunset Romance",
+      title: "🌅 Santorini Sunset Romance",
       description: "Experience Greece's most romantic island with white buildings, blue domes, wine, and sunsets",
       category: "travel" as const,
       planSummary: "5-day Santorini romantic escape with sunset views, wine tasting, volcanic beaches, and Greek cuisine",
@@ -1343,7 +1343,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Ibiza White Island Experience",
+      title: "🎧 Ibiza White Island Experience",
       description: "5-day Ibiza adventure combining beach clubs, old town exploration, sunset boat parties, and wellness",
       category: "travel" as const,
       planSummary: "Ultimate Ibiza escape with legendary beach clubs, Dalt Vila history, sunset sessions, and wellness retreats",
@@ -1380,7 +1380,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "New Orleans Jazz & Culture Festival",
+      title: "🎺 New Orleans Jazz & Culture Festival",
       description: "Immerse yourself in New Orleans' unique blend of jazz, Creole cuisine, and historic French Quarter",
       category: "travel" as const,
       planSummary: "5-day New Orleans experience with jazz clubs, beignets, voodoo culture, and Southern hospitality",
@@ -1418,7 +1418,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Seattle Coffee & Tech Culture",
+      title: "☕ Seattle Coffee & Tech Culture",
       description: "Discover Seattle's coffee scene, tech innovation, Pike Place Market, and Pacific Northwest beauty",
       category: "travel" as const,
       planSummary: "4-day Seattle trip exploring coffee roasters, Space Needle, Pike Place fish market, and Puget Sound",
@@ -1455,7 +1455,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Portland Food Cart & Brewery Crawl",
+      title: "🍺 Portland Food Cart & Brewery Crawl",
       description: "Experience Portland's legendary food carts, craft breweries, and Pacific Northwest nature",
       category: "travel" as const,
       planSummary: "3-day Portland adventure with food cart pods, breweries, Powell's Books, and Forest Park hiking",
@@ -1492,7 +1492,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Nashville Music City Experience",
+      title: "🎸 Nashville Music City Experience",
       description: "Dive into country music history with honky-tonks, hot chicken, and live music on Broadway",
       category: "travel" as const,
       planSummary: "4-day Nashville trip with Grand Ole Opry, Broadway honky-tonks, hot chicken, and recording studios",
@@ -1530,7 +1530,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Charleston Southern Charm",
+      title: "🌸 Charleston Southern Charm",
       description: "Experience Charleston's historic architecture, plantation tours, Lowcountry cuisine, and harbor views",
       category: "travel" as const,
       planSummary: "4-day Charleston trip with Rainbow Row, plantation history, she-crab soup, and waterfront strolls",
@@ -1567,7 +1567,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Sedona Spiritual Retreat",
+      title: "🏜️ Sedona Spiritual Retreat",
       description: "Recharge with Sedona's red rocks, energy vortexes, hiking trails, and wellness experiences",
       category: "travel" as const,
       planSummary: "5-day Sedona wellness retreat with vortex hikes, yoga, spa treatments, and desert sunset views",
@@ -1601,6 +1601,47 @@ export const demoCommunityPlans = [
       { title: "Explore Tlaquepaque Arts & Shopping Village", description: "Southwest art galleries in charming Spanish-style plaza", category: "travel", priority: "medium" as const, timeEstimate: "2.5 hours" },
       { title: "Jeep tour through Oak Creek Canyon", description: "Off-road adventure to hidden viewpoints and ruins", category: "travel", priority: "high" as const, timeEstimate: "4 hours" },
       { title: "Sound healing or crystal meditation session", description: "Holistic wellness experience with local practitioners", category: "travel", priority: "medium" as const, timeEstimate: "1.5 hours" },
+    ]
+  },
+  {
+    activity: {
+      title: "⚽ FIFA World Cup 2026: Live Experience",
+      description: "Attend the FIFA World Cup 2026 in North America with match tickets, travel across host cities, and unforgettable soccer memories",
+      category: "travel" as const,
+      planSummary: "Ultimate FIFA World Cup 2026 experience across USA, Canada, and Mexico with match tickets, host city exploration, and fan celebrations",
+      isPublic: true,
+      shareTitle: "FIFA World Cup 2026: Live Experience",
+      backdrop: "/community-backdrops/fifa_world_cup_2026__34a2add6.jpg",
+      tags: ["world-cup", "soccer", "fifa", "2026", "sports", "travel", "international"],
+      viewCount: 4200,
+      likeCount: 3800,
+      trendingScore: 8000,
+      featuredInCommunity: true,
+      creatorName: "Diego Santos",
+      creatorAvatar: null,
+      status: "planning" as const,
+      budget: 700000,
+      budgetBreakdown: [
+        { category: "Match tickets", amount: 150000, notes: "2-3 matches including knockout round via FIFA lottery" },
+        { category: "Flights", amount: 180000, notes: "Round-trip international + inter-city flights" },
+        { category: "Hotels & accommodation", amount: 220000, notes: "10 nights in host cities during tournament" },
+        { category: "Food & dining", amount: 60000, notes: "Local cuisine and fan zone food" },
+        { category: "Local transportation", amount: 40000, notes: "Trains, buses, metro between cities and stadiums" },
+        { category: "Merchandise & souvenirs", amount: 30000, notes: "Official jerseys, scarves, memorabilia" },
+        { category: "Activities & tours", amount: 20000, notes: "City tours and cultural experiences" }
+      ],
+      budgetBuffer: 70000,
+    },
+    tasks: [
+      { title: "Research match schedule and host cities", description: "Study fixture calendar, select matches to attend across USA/Canada/Mexico cities", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
+      { title: "Register for FIFA ticket lottery (opens early 2026)", description: "Create FIFA account, apply for match tickets during sales phases", category: "travel", priority: "high" as const, timeEstimate: "2 hours" },
+      { title: "Book flights to primary host city", description: "Early booking for best prices to NYC, LA, Mexico City, Toronto, or other host cities", category: "travel", priority: "high" as const, timeEstimate: "2 hours" },
+      { title: "Secure accommodation near stadiums", description: "Book hotels 6-12 months ahead as prices surge during tournament", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
+      { title: "Plan inter-city travel for multiple matches", description: "Book trains/flights between host cities if attending games in different locations", category: "travel", priority: "high" as const, timeEstimate: "2 hours" },
+      { title: "Arrange travel documents and visas", description: "Ensure passport valid 6+ months, apply for visas if needed for USA/Canada/Mexico", category: "travel", priority: "high" as const, timeEstimate: "1 week" },
+      { title: "Pack World Cup essentials and fan gear", description: "Team jersey, flags, comfortable shoes, portable charger, sunscreen", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Attend matches and soak in stadium atmosphere", description: "Arrive early, explore fan zones, chant with supporters, witness history", category: "travel", priority: "high" as const, timeEstimate: "6 hours/match" },
+      { title: "Explore host cities and local culture", description: "Visit landmarks, try local cuisine, experience culture between matches", category: "travel", priority: "medium" as const, timeEstimate: "4 hours/day" },
     ]
   }
 ];
