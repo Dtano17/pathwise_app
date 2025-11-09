@@ -529,16 +529,16 @@ export default function CommunityPlansPage() {
             </div>
           </div>
 
-          {/* Category Tabs - Responsive */}
+          {/* Category Tabs - Horizontal Scrollable Carousel */}
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-            <div className="w-full max-w-full overflow-hidden">
-              <TabsList data-testid="tabs-categories" className="w-full sm:w-auto flex flex-wrap gap-1">
+            <div className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory">
+              <TabsList data-testid="tabs-categories" className="inline-flex gap-1 w-auto">
                 {categories.map((cat) => (
                   <TabsTrigger
                     key={cat.value}
                     value={cat.value}
                     data-testid={`tab-${cat.value}`}
-                    className="flex-shrink-0"
+                    className="flex-shrink-0 snap-start"
                   >
                     {cat.label}
                   </TabsTrigger>
