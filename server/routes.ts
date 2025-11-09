@@ -4050,18 +4050,6 @@ ${emoji} ${progressLine}
     }
   });
 
-  // Seed community plans (admin endpoint)
-  app.post("/api/admin/seed-community-plans", async (req, res) => {
-    try {
-      const force = req.body.force === true;
-      await storage.seedCommunityPlans(force);
-      res.json({ success: true, message: 'Community plans seeded successfully' });
-    } catch (error) {
-      console.error('Seed community plans error:', error);
-      res.status(500).json({ error: 'Failed to seed community plans' });
-    }
-  });
-
   // Test welcome email endpoint (temporary - for development only)
   app.post("/api/admin/test-welcome-email", async (req, res) => {
     // Only allow in development mode
