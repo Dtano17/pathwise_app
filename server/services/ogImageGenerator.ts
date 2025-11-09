@@ -8,6 +8,7 @@ import { getActivityImage } from './webImageSearch';
 export interface OGImageOptions {
   activity: Activity;
   tasks: Task[];
+  baseUrl?: string;
 }
 
 const categoryEmojis: Record<string, string> = {
@@ -191,14 +192,15 @@ function createTextOverlay(
  * Generate Open Graph image with activity backdrop and details overlay
  */
 export async function generateOGImage(options: OGImageOptions): Promise<Buffer> {
-  const { activity, tasks } = options;
+  const { activity, tasks, baseUrl } = options;
 
   try {
     // Get the best available image (user backdrop > web search > category fallback)
     const imageUrl = await getActivityImage(
       activity.title,
       activity.category || 'other',
-      activity.backdrop || undefined
+      activity.backdrop || undefined,
+      baseUrl
     );
 
     console.log(`[OGImage] Using image: ${imageUrl}`);

@@ -870,10 +870,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const tasks = await storage.getActivityTasks(activity.id, activity.userId);
       
+      // Construct base URL for absolute image paths
+      const baseUrl = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
+      
       // Generate image
       const imageBuffer = await generateOGImage({
         activity,
-        tasks
+        tasks,
+        baseUrl
       });
       
       // Set caching headers (cache for 1 hour)
@@ -3477,10 +3481,14 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       // Import the OG image generator (dynamic import to avoid circular deps)
       const { generateOGImage } = await import('./services/ogImageGenerator');
 
+      // Construct base URL for absolute image paths
+      const baseUrl = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
+
       // Generate the OG image
       const imageBuffer = await generateOGImage({
         activity,
-        tasks
+        tasks,
+        baseUrl
       });
 
       // Set appropriate cache headers (24 hours)

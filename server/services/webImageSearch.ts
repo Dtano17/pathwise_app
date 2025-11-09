@@ -113,11 +113,21 @@ export function getCategoryFallbackImage(category: string, activityTitle?: strin
 export async function getActivityImage(
   activityTitle: string,
   category: string,
-  userBackdrop?: string
+  userBackdrop?: string,
+  baseUrl?: string
 ): Promise<string> {
   // Priority 1: User's custom backdrop
   if (userBackdrop) {
     console.log('[WebImageSearch] Using user-provided backdrop');
+    
+    // If backdrop starts with /community-backdrops/, convert to absolute URL
+    if (userBackdrop.startsWith('/community-backdrops/')) {
+      const publicBaseUrl = baseUrl || process.env.PUBLIC_BASE_URL || 'http://localhost:5000';
+      const absoluteUrl = `${publicBaseUrl}${userBackdrop}`;
+      console.log('[WebImageSearch] Converting community backdrop to absolute URL:', absoluteUrl);
+      return absoluteUrl;
+    }
+    
     return userBackdrop;
   }
 
