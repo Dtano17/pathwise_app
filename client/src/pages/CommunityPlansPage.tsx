@@ -406,6 +406,11 @@ export default function CommunityPlansPage() {
 
   const getStockImage = (backdrop: string | null) => {
     if (!backdrop) return null;
+    // If it's a full URL (Unsplash, etc.), return it directly
+    if (backdrop.startsWith('http://') || backdrop.startsWith('https://')) {
+      return backdrop;
+    }
+    // Otherwise, check the local stock image map
     return stockImageMap[backdrop] || null;
   };
 
