@@ -3653,12 +3653,15 @@ Assistant: For nutrition, I recommend..."
             if (!activity) return;
             
             try {
-              // Generate proper shareable link via backend
-              const response = await apiRequest('POST', `/api/activities/${activity.id}/share`);
-              const data = await response.json();
-              const shareUrl = data.shareableLink;
+              // Use the shareableLink from SharePreviewDialog (already generated)
+              const shareUrl = shareData.shareableLink;
+              
+              if (!shareUrl) {
+                throw new Error('No share link generated');
+              }
+              
               const displayTitle = shareData.shareTitle || activity.planSummary || activity.title;
-              const shareText = `Check out my activity: ${displayTitle}!`;
+              const shareText = shareData.socialText || `Check out my activity: ${displayTitle}!`;
               
               if (navigator.share) {
                 await navigator.share({
@@ -3667,7 +3670,7 @@ Assistant: For nutrition, I recommend..."
                   url: shareUrl
                 });
               } else {
-                await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+                await navigator.clipboard.writeText(`${shareText}\n\n${shareUrl}`);
                 toast({
                   title: 'Link Copied!',
                   description: 'Share link has been copied to clipboard',
@@ -3677,7 +3680,7 @@ Assistant: For nutrition, I recommend..."
               console.error('Share error:', error);
               toast({
                 title: "Share Failed",
-                description: "Unable to generate share link. Please try again.",
+                description: "Unable to copy share link. Please try again.",
                 variant: "destructive"
               });
             }

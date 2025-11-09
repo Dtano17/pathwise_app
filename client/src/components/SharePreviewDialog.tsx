@@ -24,7 +24,7 @@ interface SharePreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   activity: Activity;
-  onConfirmShare: (shareData: { shareTitle: string; backdrop: string }) => void;
+  onConfirmShare: (shareData: { shareTitle: string; backdrop: string; shareableLink?: string; socialText?: string }) => void;
 }
 
 const backdropPresets = [
@@ -158,8 +158,8 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         });
       }
       
-      // Pass the updated values to parent
-      onConfirmShare({ shareTitle, backdrop });
+      // Pass the updated values AND shareableLink to parent
+      onConfirmShare({ shareTitle, backdrop, shareableLink: data.shareableLink, socialText: data.socialText });
       onOpenChange(false);
     },
     onError: (error: Error) => {
