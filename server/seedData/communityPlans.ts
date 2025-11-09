@@ -34,6 +34,8 @@ export const demoCommunityPlans = [
       { title: "Explore Louvre Museum", description: "See Mona Lisa and Egyptian exhibits", category: "travel", priority: "high" as const, timeEstimate: "4 hours" },
       { title: "Seine River dinner cruise", description: "Evening cruise with French dinner", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
       { title: "Stroll through Montmartre", description: "Visit Sacré-Cœur and artist square", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Experience Versailles Palace and Gardens", description: "Day trip to Louis XIV's opulent château", category: "travel", priority: "high" as const, timeEstimate: "6 hours" },
+      { title: "Café culture in Saint-Germain-des-Prés", description: "Coffee at historic Café de Flore or Les Deux Magots", category: "travel", priority: "medium" as const, timeEstimate: "1.5 hours" },
     ]
   },
   {
@@ -68,6 +70,9 @@ export const demoCommunityPlans = [
       { title: "Week 2: Add resistance training", description: "Dumbbells and resistance bands", category: "health", priority: "high" as const, timeEstimate: "1 hour" },
       { title: "Track daily water intake (64oz)", description: "Use water tracking app", category: "health", priority: "medium" as const, timeEstimate: "5 min" },
       { title: "Weekly progress photos and measurements", description: "Track body composition changes", category: "health", priority: "medium" as const, timeEstimate: "10 min" },
+      { title: "Week 3-4: Add cardio sessions", description: "20-30 min HIIT or running 3x/week", category: "health", priority: "high" as const, timeEstimate: "30 min" },
+      { title: "Prep high-protein dinners", description: "Grilled chicken, salmon, turkey, quinoa bowls", category: "health", priority: "high" as const, timeEstimate: "2 hours" },
+      { title: "Final week: Challenge yourself with personal records", description: "Test max push-ups, plank time, weights lifted", category: "health", priority: "medium" as const, timeEstimate: "1 hour" },
     ]
   },
   {
@@ -141,6 +146,9 @@ export const demoCommunityPlans = [
       { title: "Hire photographer and videographer", description: "Review portfolios, book 9-12 months ahead", category: "personal", priority: "high" as const, timeEstimate: "3 hours" },
       { title: "Finalize guest list and send save-the-dates", description: "Confirm addresses, design and mail STDs", category: "personal", priority: "medium" as const, timeEstimate: "4 hours" },
       { title: "Schedule dress fittings and alterations", description: "Order dress 8-10 months out, fittings begin", category: "personal", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Book florist and finalize flower arrangements", description: "Bouquets, centerpieces, ceremony arch flowers", category: "personal", priority: "high" as const, timeEstimate: "3 hours" },
+      { title: "Arrange music: DJ and/or live band", description: "Book ceremony musicians and reception entertainment", category: "personal", priority: "high" as const, timeEstimate: "4 hours" },
+      { title: "Plan rehearsal dinner and confirm timeline", description: "Schedule day-before rehearsal with wedding party", category: "personal", priority: "medium" as const, timeEstimate: "3 hours" },
     ]
   },
   {
@@ -250,6 +258,8 @@ export const demoCommunityPlans = [
       { title: "Use Pomodoro technique (25 min focus)", description: "Work in focused sprints with breaks", category: "work", priority: "high" as const, timeEstimate: "25 min" },
       { title: "Weekly review and planning session", description: "Reflect on wins, plan next week", category: "work", priority: "medium" as const, timeEstimate: "1 hour" },
       { title: "Eliminate digital distractions", description: "Block social media during work hours", category: "work", priority: "medium" as const, timeEstimate: "15 min" },
+      { title: "Create a 'not-to-do' list", description: "Identify time-wasting activities to eliminate", category: "work", priority: "medium" as const, timeEstimate: "20 min" },
+      { title: "Batch similar tasks together", description: "Group emails, calls, admin work for efficiency", category: "work", priority: "high" as const, timeEstimate: "ongoing" },
     ]
   },
   {
@@ -285,6 +295,9 @@ export const demoCommunityPlans = [
       { title: "Join Dojo Bali or Hubud coworking", description: "Monthly membership for reliable internet", category: "travel", priority: "high" as const, timeEstimate: "1 hour" },
       { title: "Rent scooter and get international license", description: "Essential for island mobility", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
       { title: "Set up Indonesian bank account", description: "For local payments and withdrawals", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Explore Tegallalang rice terraces", description: "Iconic Bali landscapes and jungle swing photo ops", category: "travel", priority: "medium" as const, timeEstimate: "4 hours" },
+      { title: "Attend Sunday yoga and sound healing in Ubud", description: "Wellness retreat activities and meditation sessions", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Surf lessons at Echo Beach or Canggu", description: "Perfect beginner-friendly waves", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
     ]
   },
   {
@@ -318,6 +331,8 @@ export const demoCommunityPlans = [
       { title: "Get fitted for proper running shoes", description: "Visit running specialty store for gait analysis", category: "health", priority: "high" as const, timeEstimate: "1 hour" },
       { title: "Weeks 5-8: Add tempo runs (35-40 miles/week)", description: "Increase pace on mid-week runs", category: "health", priority: "high" as const, timeEstimate: "7 hours/week" },
       { title: "Practice race-day nutrition strategy", description: "Test gels, hydration during long runs", category: "health", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Weeks 9-11: Peak weeks with 20-mile long runs", description: "Build endurance with progressive long runs", category: "health", priority: "high" as const, timeEstimate: "8 hours/week" },
+      { title: "Cross-training: Yoga and strength work", description: "Prevent injuries with 2x/week strength training", category: "health", priority: "medium" as const, timeEstimate: "2 hours/week" },
       { title: "Weeks 12-16: Taper and race prep", description: "Reduce mileage, rest, carb load", category: "health", priority: "medium" as const, timeEstimate: "4 hours/week" },
     ]
   },
@@ -354,6 +369,9 @@ export const demoCommunityPlans = [
       { title: "Day 3: Mt. Fuji day trip from Shinjuku", description: "Early morning bus to 5th station", category: "travel", priority: "high" as const, timeEstimate: "12 hours" },
       { title: "Reserve TeamLab Borderless tickets", description: "Digital art museum, book weeks ahead", category: "travel", priority: "medium" as const, timeEstimate: "30 min" },
       { title: "Day 5: Tsukiji Market breakfast & Senso-ji Temple", description: "Fresh sushi and traditional shopping", category: "travel", priority: "medium" as const, timeEstimate: "6 hours" },
+      { title: "Day 2: Akihabara anime/gaming district", description: "Explore electronics, manga shops, themed cafes", category: "travel", priority: "medium" as const, timeEstimate: "5 hours" },
+      { title: "Evening in Golden Gai tiny bar district", description: "Shinjuku's intimate bars with unique themes", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
+      { title: "Day 6: Day trip to Nikko shrines and nature", description: "Toshogu Shrine, waterfalls, mountain scenery", category: "travel", priority: "medium" as const, timeEstimate: "10 hours" },
     ]
   },
   {
@@ -386,6 +404,8 @@ export const demoCommunityPlans = [
       { title: "Create MVP in 2-3 weeks", description: "Minimum viable product, not perfect", category: "work", priority: "high" as const, timeEstimate: "40 hours" },
       { title: "Run small paid ads campaign ($200 budget)", description: "Facebook or Google Ads to test demand", category: "work", priority: "medium" as const, timeEstimate: "4 hours" },
       { title: "Reach out to first 100 potential customers", description: "Email, LinkedIn, Twitter DMs", category: "work", priority: "high" as const, timeEstimate: "2 weeks" },
+      { title: "Set up payment processing with Stripe", description: "Enable online payments for first customers", category: "work", priority: "high" as const, timeEstimate: "3 hours" },
+      { title: "Create simple analytics dashboard", description: "Track signups, conversions, revenue metrics", category: "work", priority: "medium" as const, timeEstimate: "6 hours" },
     ]
   },
   {
@@ -419,6 +439,9 @@ export const demoCommunityPlans = [
       { title: "Write and memorize signature talk (10 min)", description: "Use storytelling framework", category: "work", priority: "high" as const, timeEstimate: "12 hours" },
       { title: "Practice power poses before speaking", description: "Amy Cuddy's confidence technique", category: "work", priority: "medium" as const, timeEstimate: "5 min" },
       { title: "Apply to speak at local meetups or conferences", description: "Start small, build experience", category: "work", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Study TED talks and analyze structure", description: "Learn from great speakers' techniques", category: "work", priority: "high" as const, timeEstimate: "4 hours" },
+      { title: "Work with vocal coach on projection and pacing", description: "Improve voice clarity and eliminate filler words", category: "work", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Present to friends/family for feedback", description: "Practice with supportive audience before real events", category: "work", priority: "medium" as const, timeEstimate: "1 hour" },
     ]
   },
   {
@@ -453,6 +476,8 @@ export const demoCommunityPlans = [
       { title: "Ice skate at Bryant Park (free admission)", description: "Bring warm clothes, rent skates on-site", category: "travel", priority: "high" as const, timeEstimate: "2 hours" },
       { title: "Explore holiday markets (Union Square, Columbus Circle)", description: "Shop for gifts and hot chocolate", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
       { title: "Walk through Dyker Heights Christmas lights (Brooklyn)", description: "Over-the-top neighborhood decorations", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Visit Radio City Christmas Spectacular", description: "Classic Rockettes show with Santa finale", category: "travel", priority: "high" as const, timeEstimate: "2.5 hours" },
+      { title: "Window shopping at Saks Fifth Avenue and Macy's", description: "Elaborate holiday window displays and decorations", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
     ]
   },
   {
@@ -485,6 +510,9 @@ export const demoCommunityPlans = [
       { title: "Days 8-14: Add breathwork (box breathing)", description: "4-4-4-4 pattern for stress relief", category: "health", priority: "high" as const, timeEstimate: "10 min/day" },
       { title: "Keep gratitude journal (evening)", description: "Write 3 things daily", category: "health", priority: "medium" as const, timeEstimate: "5 min/day" },
       { title: "Days 15-21: Extend to 15-minute sessions", description: "Deepen practice, notice improvements", category: "health", priority: "medium" as const, timeEstimate: "15 min/day" },
+      { title: "Try loving-kindness meditation", description: "Send compassion to yourself and others", category: "health", priority: "medium" as const, timeEstimate: "10 min" },
+      { title: "Incorporate walking meditation outdoors", description: "Mindful movement in nature for variety", category: "health", priority: "medium" as const, timeEstimate: "20 min" },
+      { title: "Join online meditation community", description: "Group sessions for accountability and connection", category: "health", priority: "medium" as const, timeEstimate: "30 min/week" },
     ]
   },
   {
@@ -521,6 +549,9 @@ export const demoCommunityPlans = [
       { title: "Reserve Blue Lagoon premium entry", description: "Book weeks ahead, go at sunset", category: "travel", priority: "high" as const, timeEstimate: "30 min" },
       { title: "Download Aurora forecast app", description: "Track KP index and cloud cover", category: "travel", priority: "medium" as const, timeEstimate: "15 min" },
       { title: "Join guided ice cave tour in Vatnajökull", description: "Safe exploration with expert guides", category: "travel", priority: "medium" as const, timeEstimate: "4 hours" },
+      { title: "Chase Northern Lights away from city lights", description: "Drive to remote locations, multiple nights for best chance", category: "travel", priority: "high" as const, timeEstimate: "3 hours/night" },
+      { title: "Visit Jökulsárlón glacier lagoon", description: "Icebergs floating in crystal blue waters", category: "travel", priority: "high" as const, timeEstimate: "4 hours" },
+      { title: "Explore Reykjavik's food scene", description: "Try traditional Icelandic dishes and craft breweries", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
     ]
   },
   {
@@ -554,6 +585,8 @@ export const demoCommunityPlans = [
       { title: "Get professional bike fit", description: "Prevent injury, improve efficiency", category: "health", priority: "high" as const, timeEstimate: "2 hours" },
       { title: "Weeks 5-8: Add interval training", description: "Hill repeats and tempo rides", category: "health", priority: "high" as const, timeEstimate: "7 hours/week" },
       { title: "Practice nutrition strategy on long rides", description: "Test energy bars, electrolytes", category: "health", priority: "medium" as const, timeEstimate: "1 hour" },
+      { title: "Join group rides for motivation and pacing", description: "Local cycling club rides 1-2x/week", category: "health", priority: "medium" as const, timeEstimate: "3 hours" },
+      { title: "Weeks 9: Push 70-mile Saturday ride", description: "Build confidence for century distance", category: "health", priority: "high" as const, timeEstimate: "6 hours" },
       { title: "Weeks 10-12: Peak with 80-mile ride, then taper", description: "Final long ride 2 weeks before century", category: "health", priority: "medium" as const, timeEstimate: "8 hours" },
     ]
   },
@@ -623,6 +656,9 @@ export const demoCommunityPlans = [
       { title: "Follow 3x/week full-body program", description: "Monday/Wednesday/Friday schedule", category: "health", priority: "high" as const, timeEstimate: "1 hour/session" },
       { title: "Track lifts in fitness app", description: "Progressive overload: add 5 lbs weekly", category: "health", priority: "medium" as const, timeEstimate: "10 min" },
       { title: "Eat in caloric surplus (300-500 cals)", description: "Support muscle growth with protein", category: "health", priority: "medium" as const, timeEstimate: "daily" },
+      { title: "Film yourself lifting for form checks", description: "Review technique and compare to expert videos", category: "health", priority: "high" as const, timeEstimate: "30 min" },
+      { title: "Add accessory exercises for weak points", description: "Rows, pull-ups, dips to complement main lifts", category: "health", priority: "medium" as const, timeEstimate: "20 min/session" },
+      { title: "Week 8: Test 1-rep max on all lifts", description: "Measure progress and set new goals", category: "health", priority: "medium" as const, timeEstimate: "1.5 hours" },
     ]
   },
   {
@@ -656,6 +692,9 @@ export const demoCommunityPlans = [
       { title: "Send 5 personalized connection requests weekly", description: "Reference shared interests or mutual connections", category: "work", priority: "high" as const, timeEstimate: "30 min/week" },
       { title: "Schedule 2 coffee chats monthly", description: "Informational interviews with industry pros", category: "work", priority: "medium" as const, timeEstimate: "2 hours/month" },
       { title: "Share valuable content on LinkedIn (2x/week)", description: "Industry insights, personal experiences", category: "work", priority: "medium" as const, timeEstimate: "30 min/week" },
+      { title: "Join professional associations in your field", description: "Access exclusive events and member directories", category: "work", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Follow up within 24 hours after meeting", description: "Send personalized notes referencing your conversation", category: "work", priority: "high" as const, timeEstimate: "15 min/person" },
+      { title: "Offer value before asking for favors", description: "Share resources, make introductions, provide feedback", category: "work", priority: "medium" as const, timeEstimate: "ongoing" },
     ]
   },
   {
@@ -688,6 +727,8 @@ export const demoCommunityPlans = [
       { title: "Join Goodreads and book club community", description: "Track progress, get recommendations", category: "personal", priority: "high" as const, timeEstimate: "1 hour" },
       { title: "Write reflection notes after each book", description: "Key takeaways, favorite quotes", category: "personal", priority: "medium" as const, timeEstimate: "20 min/book" },
       { title: "Visit library or use Libby app", description: "Free access to audiobooks and ebooks", category: "personal", priority: "medium" as const, timeEstimate: "1 hour" },
+      { title: "Listen to audiobooks during commute", description: "Maximize reading time while driving or on public transit", category: "personal", priority: "medium" as const, timeEstimate: "30 min/day" },
+      { title: "Join a monthly book club meetup", description: "Discuss books with others and discover new perspectives", category: "personal", priority: "medium" as const, timeEstimate: "2 hours/month" },
     ]
   },
   {
@@ -723,6 +764,9 @@ export const demoCommunityPlans = [
       { title: "Send digital invitations (Paperless Post)", description: "RSVP deadline 2 weeks before", category: "personal", priority: "high" as const, timeEstimate: "2 hours" },
       { title: "Arrange catering or food stations", description: "Consider dietary restrictions", category: "personal", priority: "medium" as const, timeEstimate: "4 hours" },
       { title: "Plan surprise element or entertainment", description: "DJ, photo booth, or special performance", category: "personal", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Create party playlist or hire DJ", description: "Mix of birthday person's favorite songs and crowd-pleasers", category: "personal", priority: "high" as const, timeEstimate: "3 hours" },
+      { title: "Order custom birthday cake", description: "Place order 2 weeks ahead with design consultation", category: "personal", priority: "high" as const, timeEstimate: "1 hour" },
+      { title: "Coordinate with friends for surprise toasts", description: "Prepare speeches and memorable moments", category: "personal", priority: "medium" as const, timeEstimate: "2 hours" },
     ]
   },
   {
@@ -757,6 +801,9 @@ export const demoCommunityPlans = [
       { title: "Prepare hydration and food strategy", description: "Reusable water bottle, energy bars, cashless payment", category: "personal", priority: "high" as const, timeEstimate: "1 hour" },
       { title: "Set up camp in shaded area early", description: "Arrive Thursday to secure good spot", category: "personal", priority: "medium" as const, timeEstimate: "2 hours" },
       { title: "Coordinate meeting spots with friends", description: "Cell service unreliable, plan meetup times/locations", category: "personal", priority: "medium" as const, timeEstimate: "30 min" },
+      { title: "Bring earplugs and face mask for sleep", description: "Essential for camping near loud music and lights", category: "personal", priority: "high" as const, timeEstimate: "included" },
+      { title: "Download festival app for real-time updates", description: "Set changes, secret performances, emergency alerts", category: "personal", priority: "medium" as const, timeEstimate: "15 min" },
+      { title: "Plan safe transportation home", description: "Designated driver, festival shuttle, or rideshare", category: "personal", priority: "high" as const, timeEstimate: "1 hour" },
     ]
   },
   {
@@ -986,6 +1033,9 @@ export const demoCommunityPlans = [
       { title: "Explore Nike Art Gallery and local crafts", description: "5-story building with thousands of Nigerian artworks", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
       { title: "Experience Afrobeat nightlife at Quilox Club", description: "Premier nightclub featuring top Nigerian artists", category: "travel", priority: "medium" as const, timeEstimate: "5 hours" },
       { title: "Shop at Lekki Arts & Crafts Market", description: "Bargain for traditional fabrics, art, jewelry", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
+      { title: "Try jollof rice and suya at local restaurants", description: "Authentic Nigerian cuisine at Terra Kulture or Jevinik", category: "travel", priority: "high" as const, timeEstimate: "2 hours" },
+      { title: "Relax at Elegushi Beach or Tarkwa Bay", description: "Popular Lagos beaches with water sports", category: "travel", priority: "medium" as const, timeEstimate: "4 hours" },
+      { title: "Visit Freedom Park and National Museum", description: "Learn Lagos history and independence movement", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
     ]
   },
   {
@@ -1021,6 +1071,9 @@ export const demoCommunityPlans = [
       { title: "Day 1-3: Ski blue and black diamond runs", description: "Take lessons if needed, explore multiple mountain faces", category: "travel", priority: "high" as const, timeEstimate: "6 hours/day" },
       { title: "Afternoon: Relax at Glenwood Hot Springs", description: "World's largest hot springs pool with mountain views", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
       { title: "Enjoy après-ski at mountain lodge bar", description: "Live music, craft cocktails, mountain lodge atmosphere", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Day 4: Snowshoeing or Nordic skiing", description: "Change pace with cross-country trails through forests", category: "travel", priority: "medium" as const, timeEstimate: "4 hours" },
+      { title: "Fine dining at mountain resort restaurant", description: "Celebrate with elk, bison, or fresh trout entrées", category: "travel", priority: "medium" as const, timeEstimate: "2.5 hours" },
+      { title: "Day 5-6: Advanced terrain and powder bowls", description: "Backcountry access or expert mogul runs", category: "travel", priority: "high" as const, timeEstimate: "6 hours/day" },
     ]
   },
   {
@@ -1056,6 +1109,9 @@ export const demoCommunityPlans = [
       { title: "Snorkel at Hanauma Bay Nature Preserve", description: "Protected bay with 400+ species of tropical fish", category: "travel", priority: "high" as const, timeEstimate: "4 hours" },
       { title: "Attend traditional Hawaiian luau", description: "Polynesian fire dancing, kalua pig feast, hula lessons", category: "travel", priority: "high" as const, timeEstimate: "4 hours" },
       { title: "Sunrise hike to Diamond Head crater", description: "Iconic Oahu summit with 360° ocean views", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
+      { title: "Visit Pearl Harbor and USS Arizona Memorial", description: "Historical WWII site, reserve tickets in advance", category: "travel", priority: "high" as const, timeEstimate: "4 hours" },
+      { title: "Drive scenic Road to Hana on Maui", description: "Waterfalls, black sand beaches, tropical rainforest", category: "travel", priority: "medium" as const, timeEstimate: "8 hours" },
+      { title: "Try shave ice and poke bowls", description: "Hawaiian food specialties at local favorites", category: "travel", priority: "medium" as const, timeEstimate: "1 hour" },
     ]
   },
   {
@@ -1091,6 +1147,9 @@ export const demoCommunityPlans = [
       { title: "Explore Wynwood Walls street art district", description: "Massive outdoor graffiti gallery, hip cafes and breweries", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
       { title: "Cuban dinner in Little Havana at Versailles", description: "Authentic ropa vieja, mojitos, live music", category: "travel", priority: "high" as const, timeEstimate: "2 hours" },
       { title: "Experience Miami nightlife at LIV nightclub", description: "World-famous club with top DJs and bottle service", category: "travel", priority: "medium" as const, timeEstimate: "5 hours" },
+      { title: "Bike or rollerblade along Ocean Drive", description: "Rent bikes and cruise the iconic beachfront promenade", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Visit Vizcaya Museum and Gardens", description: "Italian Renaissance villa with bayfront gardens", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
+      { title: "Sunset drinks at rooftop bar", description: "Juvia or Sugar for skyline and ocean views", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
     ]
   },
   {
@@ -1126,6 +1185,9 @@ export const demoCommunityPlans = [
       { title: "Evening desert safari with dune bashing", description: "4x4 adventure, camel rides, Bedouin dinner under stars", category: "travel", priority: "high" as const, timeEstimate: "6 hours" },
       { title: "Shop at Dubai Gold Souk and traditional markets", description: "Bargain for gold jewelry, spices, textiles", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
       { title: "Dinner at At.mosphere in Burj Khalifa", description: "World's highest restaurant on 122nd floor", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
+      { title: "Explore Dubai Mall and Dubai Fountain show", description: "World's largest mall, watch choreographed fountain displays", category: "travel", priority: "medium" as const, timeEstimate: "4 hours" },
+      { title: "Visit Palm Jumeirah and Atlantis Resort", description: "Man-made island, aquarium, water park", category: "travel", priority: "medium" as const, timeEstimate: "5 hours" },
+      { title: "Indoor skiing at Mall of the Emirates", description: "Ski Dubai - indoor snow park in the desert", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
     ]
   },
   {
@@ -1161,6 +1223,9 @@ export const demoCommunityPlans = [
       { title: "Gothic Quarter walking tour and tapas crawl", description: "Medieval streets, hidden plazas, authentic tapas bars", category: "travel", priority: "high" as const, timeEstimate: "4 hours" },
       { title: "Visit La Boqueria market for fresh food", description: "Historic market with seafood, jamón, fruit smoothies", category: "travel", priority: "high" as const, timeEstimate: "2 hours" },
       { title: "Relax at Barceloneta Beach", description: "Urban beach with restaurants and Mediterranean views", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
+      { title: "Tour Casa Batlló and Casa Milà", description: "Gaudí's modernist masterpieces on Passeig de Gràcia", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
+      { title: "Watch sunset from Bunkers del Carmel", description: "Panoramic city views from hilltop vantage point", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Evening flamenco show in El Raval", description: "Authentic Spanish dance performance with dinner", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
     ]
   },
   {
@@ -1196,6 +1261,8 @@ export const demoCommunityPlans = [
       { title: "Visit Van Gogh Museum with timed entry", description: "World's largest Van Gogh collection, Sunflowers, Bedroom", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
       { title: "Evening canal cruise with cheese and wine", description: "See illuminated bridges and canal houses from water", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
       { title: "Explore Jordaan district cafes and shops", description: "Trendy neighborhood with vintage stores and brown cafes", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
+      { title: "Visit Rijksmuseum for Dutch Masters", description: "Rembrandt's Night Watch and Vermeer's Milkmaid", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
+      { title: "Try stroopwafels and bitterballen", description: "Dutch treats at Albert Cuyp Market or local cafes", category: "travel", priority: "medium" as const, timeEstimate: "1.5 hours" },
     ]
   },
   {
@@ -1231,6 +1298,9 @@ export const demoCommunityPlans = [
       { title: "Snorkel or dive at Similan Islands", description: "World-class diving with sea turtles and manta rays", category: "travel", priority: "high" as const, timeEstimate: "Full day" },
       { title: "Explore Krabi's limestone karsts and beaches", description: "Railay Beach accessible only by boat, rock climbing", category: "travel", priority: "high" as const, timeEstimate: "2 days" },
       { title: "Thai cooking class and night market", description: "Learn pad thai, green curry, then explore street food", category: "travel", priority: "medium" as const, timeEstimate: "4 hours" },
+      { title: "Visit Big Buddha and Wat Chalong temple", description: "Phuket's iconic 45-meter marble Buddha statue", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
+      { title: "Sunset dinner cruise in Phang Nga Bay", description: "Limestone cliffs, James Bond Island, floating villages", category: "travel", priority: "medium" as const, timeEstimate: "6 hours" },
+      { title: "Get traditional Thai massage", description: "Authentic spa experience on the beach", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
     ]
   },
   {
@@ -1266,6 +1336,46 @@ export const demoCommunityPlans = [
       { title: "Visit Santo Wines for sunset wine tasting", description: "Assyrtiko wines with caldera panoramic views", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
       { title: "Explore Red Beach and volcanic hot springs", description: "Unique red volcanic sand, swim in thermal waters", category: "travel", priority: "high" as const, timeEstimate: "4 hours" },
       { title: "Sunset catamaran cruise around the caldera", description: "Sailing, swimming, dinner on board with volcano views", category: "travel", priority: "medium" as const, timeEstimate: "5 hours" },
+      { title: "Hike from Fira to Oia along the caldera", description: "3-hour scenic trail with breathtaking cliff views", category: "travel", priority: "high" as const, timeEstimate: "3.5 hours" },
+      { title: "Visit Akrotiri archaeological site", description: "Ancient Minoan city preserved by volcanic ash", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Romantic dinner in Oia with caldera views", description: "Reserve cliffside restaurant table at sunset", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
+    ]
+  },
+  {
+    activity: {
+      title: "Ibiza White Island Experience",
+      description: "5-day Ibiza adventure combining beach clubs, old town exploration, sunset boat parties, and wellness",
+      category: "travel" as const,
+      planSummary: "Ultimate Ibiza escape with legendary beach clubs, Dalt Vila history, sunset sessions, and wellness retreats",
+      isPublic: true,
+      shareTitle: "Ibiza White Island Experience",
+      backdrop: "/community-backdrops/ibiza_spain_white_be_b5b0dc3e.jpg",
+      tags: ["ibiza", "spain", "beach", "party", "mediterranean", "island"],
+      viewCount: 2100,
+      likeCount: 2100,
+      trendingScore: 4200,
+      featuredInCommunity: true,
+      creatorName: "Alex Rodriguez",
+      creatorAvatar: null,
+      status: "planning" as const,
+      budget: 280000,
+      budgetBreakdown: [
+        { category: "Flights", amount: 100000, notes: "Round-trip to Ibiza from Europe" },
+        { category: "Hotel", amount: 120000, notes: "4 nights beach hotel or boutique in Ibiza Town" },
+        { category: "Food & drinks", amount: 40000, notes: "Beach clubs, restaurants, cocktails" },
+        { category: "Activities", amount: 20000, notes: "Boat parties, sunset sessions, yoga" }
+      ],
+      budgetBuffer: 28000,
+    },
+    tasks: [
+      { title: "Book beach hotel near Playa d'en Bossa", description: "Close to top beach clubs and airport", category: "travel", priority: "high" as const, timeEstimate: "2 hours" },
+      { title: "Sunset session at Café del Mar or Café Mambo", description: "Iconic Ibiza sunset DJ sets in San Antonio", category: "travel", priority: "high" as const, timeEstimate: "4 hours" },
+      { title: "Day party at Ushuaïa or Hï Ibiza beach club", description: "World-class DJs and poolside parties", category: "travel", priority: "high" as const, timeEstimate: "6 hours" },
+      { title: "Explore Dalt Vila old town and fortress", description: "UNESCO site with cobblestone streets and panoramic views", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
+      { title: "Boat party to Es Vedrà rock", description: "Sunset cruise to mysterious magnetic island", category: "travel", priority: "high" as const, timeEstimate: "5 hours" },
+      { title: "Visit Las Dalias hippie market", description: "Bohemian crafts, live music, artisan goods on Saturdays", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
+      { title: "Morning yoga and wellness at beach", description: "Start day with meditation and healthy breakfast", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Night out at Pacha or Amnesia superclub", description: "Legendary Ibiza nightlife until sunrise", category: "travel", priority: "high" as const, timeEstimate: "8 hours" },
     ]
   },
   {
@@ -1301,6 +1411,9 @@ export const demoCommunityPlans = [
       { title: "Jazz night at Preservation Hall", description: "Intimate traditional jazz venue, arrive early for seats", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
       { title: "Creole cooking class: gumbo and jambalaya", description: "Learn Louisiana cuisine secrets from local chef", category: "travel", priority: "medium" as const, timeEstimate: "4 hours" },
       { title: "Explore Bourbon Street nightlife responsibly", description: "Live music bars, street performers, famous Hand Grenade drinks", category: "travel", priority: "medium" as const, timeEstimate: "4 hours" },
+      { title: "Take streetcar to Garden District mansions", description: "Historic neighborhood with beautiful antebellum homes", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
+      { title: "Cemetery tour at Lafayette or St. Louis No. 1", description: "Above-ground tombs and voodoo history", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Po-boy sandwich at Parkway Bakery", description: "Try classic roast beef or fried shrimp po-boy", category: "travel", priority: "medium" as const, timeEstimate: "1 hour" },
     ]
   },
   {
@@ -1336,6 +1449,8 @@ export const demoCommunityPlans = [
       { title: "Visit Space Needle and Chihuly Garden and Glass", description: "Iconic observation deck plus stunning glass art installations", category: "travel", priority: "high" as const, timeEstimate: "4 hours" },
       { title: "Ferry to Bainbridge Island for views", description: "35-minute scenic ride across Puget Sound, explore island town", category: "travel", priority: "medium" as const, timeEstimate: "4 hours" },
       { title: "Explore Capitol Hill nightlife and music", description: "Indie music venues, craft cocktail bars, late-night eats", category: "travel", priority: "medium" as const, timeEstimate: "4 hours" },
+      { title: "Visit Museum of Pop Culture (MoPOP)", description: "Music, sci-fi, and pop culture exhibits", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
+      { title: "Fresh seafood at Pike Place Chowder", description: "Award-winning clam chowder and Dungeness crab", category: "travel", priority: "high" as const, timeEstimate: "1.5 hours" },
     ]
   },
   {
@@ -1371,6 +1486,8 @@ export const demoCommunityPlans = [
       { title: "Spend hours at Powell's City of Books", description: "World's largest independent bookstore, 9 color-coded rooms", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
       { title: "Hike Forest Park's Wildwood Trail", description: "5,200-acre urban forest with 80+ miles of trails", category: "travel", priority: "medium" as const, timeEstimate: "3 hours" },
       { title: "Explore Pearl District galleries and shops", description: "Art galleries, boutiques, trendy restaurants", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Visit Portland Japanese Garden", description: "Peaceful 12-acre garden with authentic design", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Donuts at Voodoo Doughnut or Blue Star", description: "Portland's iconic donut shops with creative flavors", category: "travel", priority: "high" as const, timeEstimate: "1 hour" },
     ]
   },
   {
@@ -1406,6 +1523,9 @@ export const demoCommunityPlans = [
       { title: "Hot chicken challenge at Hattie B's or Prince's", description: "Try Nashville's signature spicy fried chicken", category: "travel", priority: "high" as const, timeEstimate: "1.5 hours" },
       { title: "Tour Country Music Hall of Fame and Museum", description: "Elvis's Cadillac, Taylor Swift exhibit, songwriting history", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
       { title: "Visit RCA Studio B where Elvis recorded", description: "Historic recording studio tour with piano Elvis played", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Brunch at Biscuit Love or Pancake Pantry", description: "Southern comfort food with long lines", category: "travel", priority: "high" as const, timeEstimate: "2 hours" },
+      { title: "Visit historic Ryman Auditorium", description: "Mother Church of Country Music, self-guided tours", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "12 South neighborhood murals and boutiques", description: "Trendy area with Instagram-worthy street art", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
     ]
   },
   {
@@ -1441,6 +1561,8 @@ export const demoCommunityPlans = [
       { title: "Lowcountry cuisine: she-crab soup and shrimp & grits", description: "Traditional Charleston dishes at Husk or FIG", category: "travel", priority: "high" as const, timeEstimate: "2 hours" },
       { title: "Horse-drawn carriage tour of historic district", description: "Hear stories of antebellum architecture and history", category: "travel", priority: "medium" as const, timeEstimate: "1.5 hours" },
       { title: "Sunset at Waterfront Park with pineapple fountain", description: "Iconic Charleston landmark, harbor views, live oaks", category: "travel", priority: "medium" as const, timeEstimate: "1 hour" },
+      { title: "Explore Charleston City Market", description: "Local artisans, sweetgrass baskets, souvenirs", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Evening ghost tour of historic streets", description: "Haunted tales and spooky history after dark", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
     ]
   },
   {
@@ -1476,6 +1598,9 @@ export const demoCommunityPlans = [
       { title: "Afternoon spa treatment and massage", description: "Red rock clay wrap, hot stone massage, desert botanicals", category: "travel", priority: "high" as const, timeEstimate: "3 hours" },
       { title: "Guided vortex meditation tour", description: "Visit Bell Rock, Airport Mesa, learn about energy sites", category: "travel", priority: "high" as const, timeEstimate: "4 hours" },
       { title: "Sunset yoga on red rocks plateau", description: "Outdoor group yoga class with 360° canyon views", category: "travel", priority: "medium" as const, timeEstimate: "2 hours" },
+      { title: "Explore Tlaquepaque Arts & Shopping Village", description: "Southwest art galleries in charming Spanish-style plaza", category: "travel", priority: "medium" as const, timeEstimate: "2.5 hours" },
+      { title: "Jeep tour through Oak Creek Canyon", description: "Off-road adventure to hidden viewpoints and ruins", category: "travel", priority: "high" as const, timeEstimate: "4 hours" },
+      { title: "Sound healing or crystal meditation session", description: "Holistic wellness experience with local practitioners", category: "travel", priority: "medium" as const, timeEstimate: "1.5 hours" },
     ]
   }
 ];
