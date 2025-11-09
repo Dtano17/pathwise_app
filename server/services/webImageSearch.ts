@@ -55,10 +55,40 @@ export async function searchActivityImage(
 }
 
 /**
- * Get fallback image URL based on category
- * Uses curated Unsplash images for each category
+ * Get fallback image URL based on activity title and category
+ * Uses curated Unsplash images with city-specific detection
  */
-export function getCategoryFallbackImage(category: string): string {
+export function getCategoryFallbackImage(category: string, activityTitle?: string): string {
+  // City/location-specific images (if title matches)
+  if (activityTitle) {
+    const title = activityTitle.toLowerCase();
+    
+    if (title.includes('new year') && (title.includes('new york') || title.includes('nyc'))) {
+      return 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1200&h=630&fit=crop&q=80'; // Times Square NYE
+    } else if (title.includes('new york') || title.includes('nyc')) {
+      return 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=1200&h=630&fit=crop&q=80';
+    } else if (title.includes('paris')) {
+      return 'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=1200&h=630&fit=crop&q=80';
+    } else if (title.includes('tokyo')) {
+      return 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1200&h=630&fit=crop&q=80';
+    } else if (title.includes('london')) {
+      return 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=1200&h=630&fit=crop&q=80';
+    } else if (title.includes('lagos')) {
+      return 'https://images.unsplash.com/photo-1578846967126-11ec89440219?w=1200&h=630&fit=crop&q=80';
+    } else if (title.includes('miami')) {
+      return 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=1200&h=630&fit=crop&q=80';
+    } else if (title.includes('hawaii')) {
+      return 'https://images.unsplash.com/photo-1542259009477-d625272157b7?w=1200&h=630&fit=crop&q=80';
+    } else if (title.includes('colorado')) {
+      return 'https://images.unsplash.com/photo-1489392191049-fc10c97e64b6?w=1200&h=630&fit=crop&q=80';
+    } else if (title.includes('beach') || title.includes('tropical')) {
+      return 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&h=630&fit=crop&q=80';
+    } else if (title.includes('mountain') || title.includes('hiking')) {
+      return 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&h=630&fit=crop&q=80';
+    }
+  }
+  
+  // Category-based fallback images
   const fallbackImages: Record<string, string> = {
     fitness: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&h=630&fit=crop&q=80',
     health: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=1200&h=630&fit=crop&q=80',
@@ -97,7 +127,7 @@ export async function getActivityImage(
     return searchedImage;
   }
 
-  // Priority 3: Category-based fallback
-  console.log('[WebImageSearch] Using category fallback image');
-  return getCategoryFallbackImage(category);
+  // Priority 3: City/category-based fallback with title detection
+  console.log('[WebImageSearch] Using category/city fallback image');
+  return getCategoryFallbackImage(category, activityTitle);
 }
