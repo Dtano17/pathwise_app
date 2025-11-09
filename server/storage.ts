@@ -265,7 +265,7 @@ export interface IStorage {
   deleteLifestylePlannerSession(sessionId: string, userId: string): Promise<void>;
 
   // Community Plans
-  getCommunityPlans(category?: string, search?: string, limit?: number): Promise<Activity[]>;
+  getCommunityPlans(category?: string, search?: string, limit?: number, budgetRange?: string): Promise<Activity[]>;
   seedCommunityPlans(force?: boolean): Promise<void>;
   incrementActivityViews(activityId: string): Promise<void>;
 
@@ -1415,7 +1415,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Community Plans
-  async getCommunityPlans(category?: string, search?: string, limit: number = 50): Promise<Activity[]> {
+  async getCommunityPlans(category?: string, search?: string, limit: number = 50, budgetRange?: string): Promise<Activity[]> {
     let query = db.select().from(activities)
       .where(and(
         eq(activities.isPublic, true),
@@ -1454,6 +1454,31 @@ export class DatabaseStorage implements IStorage {
         activity.description?.toLowerCase().includes(searchLower) ||
         activity.tags?.some(tag => tag.toLowerCase().includes(searchLower))
       );
+    }
+
+    // Apply budget range filter if provided
+    if (budgetRange && budgetRange !== 'all') {
+      const budgetRanges: Record<string, {min: number, max: number}> = {
+        'free': { min: 0, max: 0 },
+        'low': { min: 1, max: 10000 },        // $1-$100
+        'medium': { min: 10000, max: 50000 }, // $100-$500
+        'high': { min: 50000, max: 100000 },  // $500-$1000
+        'premium': { min: 100000, max: Infinity } // $1000+
+      };
+      
+      const range = budgetRanges[budgetRange];
+      if (range) {
+        results = results.filter(activity => {
+          const budget = activity.budget || 0;
+          if (budgetRange === 'free') {
+            return budget === 0;
+          } else if (budgetRange === 'premium') {
+            return budget >= range.min;
+          } else {
+            return budget >= range.min && budget < range.max;
+          }
+        });
+      }
     }
 
     // Sort by trendingScore (trending tab) or just by creation date

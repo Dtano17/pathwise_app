@@ -4025,9 +4025,10 @@ ${emoji} ${progressLine}
       const userId = getUserId(req) || DEMO_USER_ID;
       const category = req.query.category as string | undefined;
       const search = req.query.search as string | undefined;
+      const budgetRange = req.query.budgetRange as string | undefined;
       const limit = parseInt(req.query.limit as string) || 50;
       
-      const plans = await storage.getCommunityPlans(category, search, limit);
+      const plans = await storage.getCommunityPlans(category, search, limit, budgetRange);
       
       // Get all feedback in bulk (single query)
       const activityIds = plans.map(p => p.id);
@@ -4857,9 +4858,9 @@ ${emoji} ${progressLine}
             description: generatedPlan.description,
             category: generatedPlan.domain || generatedPlan.category || 'personal',
             status: 'planning',
-            budget: generatedPlan.budget?.total ? Math.round(generatedPlan.budget.total * 100) : undefined,
-            budgetBreakdown: generatedPlan.budget?.breakdown || [],
-            budgetBuffer: generatedPlan.budget?.buffer ? Math.round(generatedPlan.budget.buffer * 100) : undefined
+            budget: Math.round(generatedPlan.budget.total * 100),
+            budgetBreakdown: generatedPlan.budget.breakdown,
+            budgetBuffer: generatedPlan.budget.buffer ? Math.round(generatedPlan.budget.buffer * 100) : 0
           }, userId);
           
           if (!activity) {
@@ -4870,9 +4871,9 @@ ${emoji} ${progressLine}
               description: generatedPlan.description,
               category: generatedPlan.domain || generatedPlan.category || 'personal',
               status: 'planning',
-              budget: generatedPlan.budget?.total ? Math.round(generatedPlan.budget.total * 100) : undefined,
-              budgetBreakdown: generatedPlan.budget?.breakdown || [],
-              budgetBuffer: generatedPlan.budget?.buffer ? Math.round(generatedPlan.budget.buffer * 100) : undefined,
+              budget: Math.round(generatedPlan.budget.total * 100),
+              budgetBreakdown: generatedPlan.budget.breakdown,
+              budgetBuffer: generatedPlan.budget.buffer ? Math.round(generatedPlan.budget.buffer * 100) : 0,
               userId
             });
           } else {
@@ -4891,9 +4892,9 @@ ${emoji} ${progressLine}
             description: generatedPlan.description,
             category: generatedPlan.domain || generatedPlan.category || 'personal',
             status: 'planning',
-            budget: generatedPlan.budget?.total ? Math.round(generatedPlan.budget.total * 100) : undefined,
-            budgetBreakdown: generatedPlan.budget?.breakdown || [],
-            budgetBuffer: generatedPlan.budget?.buffer ? Math.round(generatedPlan.budget.buffer * 100) : undefined,
+            budget: Math.round(generatedPlan.budget.total * 100),
+            budgetBreakdown: generatedPlan.budget.breakdown,
+            budgetBuffer: generatedPlan.budget.buffer ? Math.round(generatedPlan.budget.buffer * 100) : 0,
             userId
           });
         }
@@ -4905,7 +4906,7 @@ ${emoji} ${progressLine}
             const taskData = generatedPlan.tasks[i];
 
             // Match budget breakdown to task category
-            const budgetItem = generatedPlan.budget?.breakdown?.find(
+            const budgetItem = generatedPlan.budget.breakdown.find(
               (item: any) => item.category.toLowerCase().includes(taskData.category?.toLowerCase() || '') ||
                              (taskData.taskName || taskData.title)?.toLowerCase().includes(item.category.toLowerCase())
             );

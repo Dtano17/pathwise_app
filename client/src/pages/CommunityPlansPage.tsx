@@ -11,8 +11,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Eye, Search, Sparkles, ArrowLeft, Home, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen } from "lucide-react";
+import { Heart, Eye, Search, Sparkles, ArrowLeft, Home, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign } from "lucide-react";
 import { Link } from "wouter";
 import type { Activity } from "@shared/schema";
 
@@ -88,6 +89,15 @@ const categories = [
   { value: "learning", label: "Learning", Icon: BookOpen, color: "bg-pink-500" },
 ];
 
+const budgetRanges = [
+  { value: "all", label: "All Budgets" },
+  { value: "free", label: "Free", min: 0, max: 0 },
+  { value: "low", label: "$1-$100", min: 1, max: 10000 },
+  { value: "medium", label: "$100-$500", min: 10000, max: 50000 },
+  { value: "high", label: "$500-$1000", min: 50000, max: 100000 },
+  { value: "premium", label: "$1000+", min: 100000, max: Infinity },
+];
+
 const getCategoryColor = (category: string | null) => {
   if (!category) return "bg-gray-500";
   const cat = categories.find(c => c.value === category.toLowerCase());
@@ -96,9 +106,11 @@ const getCategoryColor = (category: string | null) => {
 
 export default function CommunityPlansPage() {
   const [selectedCategory, setSelectedCategory] = useState("trending");
+  const [selectedBudgetRange, setSelectedBudgetRange] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [hasSeedAttempted, setHasSeedAttempted] = useState(false);
   const [adoptDialogOpen, setAdoptDialogOpen] = useState(false);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{ id: string; shareToken: string | null; title: string } | null>(null);
   const [adoptTarget, setAdoptTarget] = useState<"personal" | "group">("personal");
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
@@ -117,7 +129,7 @@ export default function CommunityPlansPage() {
 
   // Fetch community plans
   const { data: plans = [], isLoading, refetch } = useQuery<Array<Activity & { userHasLiked?: boolean }>>({
-    queryKey: ["/api/community-plans", selectedCategory, searchQuery],
+    queryKey: ["/api/community-plans", selectedCategory, searchQuery, selectedBudgetRange],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedCategory !== "trending") {
@@ -126,12 +138,27 @@ export default function CommunityPlansPage() {
       if (searchQuery.trim()) {
         params.set("search", searchQuery);
       }
+      if (selectedBudgetRange !== "all") {
+        params.set("budgetRange", selectedBudgetRange);
+      }
       params.set("limit", "50");
       
       const response = await fetch(`/api/community-plans?${params}`);
       if (!response.ok) throw new Error("Failed to fetch community plans");
       return response.json();
     },
+  });
+
+  // Fetch plan details for preview
+  const { data: previewData, isLoading: isPreviewLoading } = useQuery({
+    queryKey: ["/api/activities/share", selectedPlan?.shareToken],
+    queryFn: async () => {
+      if (!selectedPlan?.shareToken) return null;
+      const response = await fetch(`/api/activities/share/${selectedPlan.shareToken}`);
+      if (!response.ok) throw new Error("Failed to fetch plan details");
+      return response.json();
+    },
+    enabled: previewDialogOpen && !!selectedPlan?.shareToken,
   });
 
   // Seed mutation
@@ -346,6 +373,24 @@ export default function CommunityPlansPage() {
     }
   }, [isLoading, plans.length, hasSeedAttempted, searchQuery]);
 
+  const handlePreviewPlan = (activityId: string, shareToken: string | null, title: string) => {
+    if (!shareToken) {
+      toast({
+        title: "Cannot preview plan",
+        description: "This plan is not available for preview",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSelectedPlan({ id: activityId, shareToken, title });
+    setPreviewDialogOpen(true);
+  };
+
+  const handleUsePlanFromPreview = () => {
+    setPreviewDialogOpen(false);
+    setAdoptDialogOpen(true);
+  };
+
   const handleUsePlan = (activityId: string, shareToken: string | null, title: string) => {
     if (!shareToken) {
       toast({
@@ -464,7 +509,7 @@ export default function CommunityPlansPage() {
         </div>
 
         {/* Category Tabs */}
-        <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-8">
+        <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-6">
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
             <TabsList data-testid="tabs-categories" className="w-fit">
               {categories.map((cat) => (
@@ -479,6 +524,29 @@ export default function CommunityPlansPage() {
             </TabsList>
           </div>
         </Tabs>
+
+        {/* Budget Filter */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 w-full sm:max-w-xs">
+            <DollarSign className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <Select value={selectedBudgetRange} onValueChange={setSelectedBudgetRange}>
+              <SelectTrigger data-testid="select-budget-range" className="w-full">
+                <SelectValue placeholder="Filter by budget" />
+              </SelectTrigger>
+              <SelectContent>
+                {budgetRanges.map((range) => (
+                  <SelectItem 
+                    key={range.value} 
+                    value={range.value}
+                    data-testid={`budget-option-${range.value}`}
+                  >
+                    {range.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         {/* Plans Grid */}
         {isLoading ? (
@@ -601,12 +669,20 @@ export default function CommunityPlansPage() {
                       <Heart className={`w-4 h-4 ${plan.userHasLiked ? 'fill-red-500 text-red-500' : ''}`} />
                     </Button>
                     <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => handlePreviewPlan(plan.id, plan.shareToken, plan.title || "")}
+                      data-testid={`button-preview-${plan.id}`}
+                    >
+                      Preview
+                    </Button>
+                    <Button
                       className="flex-1"
                       onClick={() => handleUsePlan(plan.id, plan.shareToken, plan.title || "")}
                       disabled={copyPlanMutation.isPending || sharePlanToGroupMutation.isPending}
                       data-testid={`button-use-plan-${plan.id}`}
                     >
-                      {(copyPlanMutation.isPending || sharePlanToGroupMutation.isPending) ? "Processing..." : "Use This Plan"}
+                      {(copyPlanMutation.isPending || sharePlanToGroupMutation.isPending) ? "Adding..." : "Add"}
                     </Button>
                   </CardFooter>
                 </Card>
@@ -638,6 +714,120 @@ export default function CommunityPlansPage() {
           </div>
         )}
       </div>
+
+      {/* Plan Preview Dialog */}
+      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-plan-preview">
+          <DialogHeader>
+            <DialogTitle>{selectedPlan?.title || "Plan Preview"}</DialogTitle>
+            <DialogDescription>
+              Review the plan details before adding it to your activities
+            </DialogDescription>
+          </DialogHeader>
+
+          {isPreviewLoading ? (
+            <div className="space-y-4 py-4">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : previewData?.activity ? (
+            <div className="space-y-6 py-4">
+              {/* Description */}
+              <div>
+                <h3 className="font-semibold mb-2">Description</h3>
+                <p className="text-sm text-muted-foreground">
+                  {previewData.activity.description || previewData.activity.planSummary || "No description available"}
+                </p>
+              </div>
+
+              {/* Budget Breakdown */}
+              {previewData.activity.budget && previewData.activity.budget > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3">Budget Breakdown</h3>
+                  <div className="space-y-2">
+                    {previewData.activity.budgetBreakdown?.map((item: any, index: number) => (
+                      <div key={index} className="flex justify-between items-start gap-4 text-sm">
+                        <div className="flex-1">
+                          <div className="font-medium">{item.category}</div>
+                          {item.notes && (
+                            <div className="text-xs text-muted-foreground mt-0.5">{item.notes}</div>
+                          )}
+                        </div>
+                        <div className="font-semibold whitespace-nowrap">
+                          ${(item.amount / 100).toFixed(2)}
+                        </div>
+                      </div>
+                    ))}
+                    {previewData.activity.budgetBuffer > 0 && (
+                      <div className="flex justify-between items-center gap-4 text-sm border-t pt-2 mt-2">
+                        <div className="font-medium">Buffer (10%)</div>
+                        <div className="font-semibold">${(previewData.activity.budgetBuffer / 100).toFixed(2)}</div>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center gap-4 text-base font-bold border-t pt-2 mt-2">
+                      <div>Total Budget</div>
+                      <div>${(previewData.activity.budget / 100).toFixed(2)}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tasks */}
+              {previewData.tasks && previewData.tasks.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3">Tasks ({previewData.tasks.length})</h3>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {previewData.tasks.map((task: any, index: number) => (
+                      <div key={task.id || index} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                        <div className="w-5 h-5 rounded-full border-2 border-primary flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">{task.title}</div>
+                          {task.description && (
+                            <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              {task.description}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-2 text-sm">
+                  <Heart className="w-4 h-4 text-red-500" />
+                  <span>{previewData.activity.likeCount || 0} likes</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Eye className="w-4 h-4 text-muted-foreground" />
+                  <span>{previewData.activity.viewCount || 0} views</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              Failed to load plan details
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setPreviewDialogOpen(false)} className="flex-1" data-testid="button-close-preview">
+              Close
+            </Button>
+            <Button
+              onClick={handleUsePlanFromPreview}
+              className="flex-1"
+              data-testid="button-use-from-preview"
+            >
+              Add This Plan
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Adopt Plan Dialog */}
       <Dialog open={adoptDialogOpen} onOpenChange={setAdoptDialogOpen}>

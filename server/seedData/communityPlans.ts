@@ -19,6 +19,14 @@ export const demoCommunityPlans = [
       creatorName: "Sarah Chen",
       creatorAvatar: null,
       status: "completed" as const,
+      budget: 350000,
+      budgetBreakdown: [
+        { category: "Flights", amount: 120000, notes: "Round-trip economy tickets" },
+        { category: "Hotel", amount: 150000, notes: "3 nights boutique hotel in Le Marais" },
+        { category: "Food", amount: 50000, notes: "Dining and cafes" },
+        { category: "Activities", amount: 30000, notes: "Museum tickets, Eiffel Tower, river cruise" }
+      ],
+      budgetBuffer: 35000,
     },
     tasks: [
       { title: "Book hotel in Le Marais district", description: "Boutique hotel near Metro", category: "travel", priority: "high" as const, timeEstimate: "30 min" },
@@ -45,6 +53,14 @@ export const demoCommunityPlans = [
       creatorName: "Mike Johnson",
       creatorAvatar: null,
       status: "active" as const,
+      budget: 20000,
+      budgetBreakdown: [
+        { category: "Gym membership", amount: 10000, notes: "30-day gym pass" },
+        { category: "Meal prep containers", amount: 3000, notes: "Reusable food storage set" },
+        { category: "Resistance bands", amount: 4000, notes: "Set of 5 resistance levels" },
+        { category: "Fitness tracker", amount: 3000, notes: "Basic heart rate monitor" }
+      ],
+      budgetBuffer: 2000,
     },
     tasks: [
       { title: "Week 1: Build foundation with bodyweight exercises", description: "Push-ups, squats, planks", category: "health", priority: "high" as const, timeEstimate: "45 min" },
@@ -71,6 +87,12 @@ export const demoCommunityPlans = [
       creatorName: "Maya Patel",
       creatorAvatar: null,
       status: "active" as const,
+      budget: 0,
+      budgetBreakdown: [
+        { category: "App subscription", amount: 0, notes: "Free apps (Insight Timer, UCLA Mindful App)" },
+        { category: "Equipment", amount: 0, notes: "No special equipment needed - just a quiet space" }
+      ],
+      budgetBuffer: 0,
     },
     tasks: [
       { title: "Week 1: Start with 5-minute guided sessions", description: "Use Headspace or Calm app for beginner meditations", category: "health", priority: "high" as const, timeEstimate: "5 min/day" },
@@ -99,6 +121,19 @@ export const demoCommunityPlans = [
       creatorName: "Emma Davis",
       creatorAvatar: null,
       status: "planning" as const,
+      budget: 3500000,
+      budgetBreakdown: [
+        { category: "Venue & catering", amount: 1800000, notes: "150 guests, full dinner service" },
+        { category: "Photography & videography", amount: 500000, notes: "Full-day coverage, albums" },
+        { category: "Wedding dress & alterations", amount: 300000, notes: "Designer gown with fittings" },
+        { category: "Flowers & decorations", amount: 250000, notes: "Bouquets, centerpieces, ceremony decor" },
+        { category: "Music & entertainment", amount: 200000, notes: "DJ and live band for ceremony" },
+        { category: "Invitations & stationery", amount: 150000, notes: "Save-the-dates, invites, programs" },
+        { category: "Cake & desserts", amount: 100000, notes: "3-tier cake and dessert bar" },
+        { category: "Transportation", amount: 50000, notes: "Limo service for wedding party" },
+        { category: "Misc & contingency", amount: 150000, notes: "Hair, makeup, favors, tips" }
+      ],
+      budgetBuffer: 350000,
     },
     tasks: [
       { title: "Set wedding budget and priorities", description: "Allocate funds across venue, catering, photography", category: "personal", priority: "high" as const, timeEstimate: "2 hours" },
@@ -125,6 +160,15 @@ export const demoCommunityPlans = [
       creatorName: "Alex Kim",
       creatorAvatar: null,
       status: "active" as const,
+      budget: 1200000,
+      budgetBreakdown: [
+        { category: "Coding bootcamp tuition", amount: 1000000, notes: "12-week immersive program" },
+        { category: "Laptop & equipment", amount: 120000, notes: "MacBook for development work" },
+        { category: "Books & learning resources", amount: 30000, notes: "Technical books and courses" },
+        { category: "Certification exams", amount: 20000, notes: "AWS or similar certifications" },
+        { category: "Networking events", amount: 30000, notes: "Meetups, conferences, memberships" }
+      ],
+      budgetBuffer: 120000,
     },
     tasks: [
       { title: "Complete HTML/CSS/JavaScript fundamentals", description: "FreeCodeCamp or Codecademy - 3 months", category: "work", priority: "high" as const, timeEstimate: "80 hours" },
@@ -153,6 +197,18 @@ export const demoCommunityPlans = [
       creatorName: "John Smith",
       creatorAvatar: null,
       status: "planning" as const,
+      budget: 4500000,
+      budgetBreakdown: [
+        { category: "Custom cabinets", amount: 1500000, notes: "Soft-close drawers, premium finishes" },
+        { category: "Quartz countertops", amount: 800000, notes: "Full kitchen perimeter with island" },
+        { category: "Appliances", amount: 600000, notes: "Stainless steel fridge, range, dishwasher, microwave" },
+        { category: "Labor & installation", amount: 1000000, notes: "Licensed contractors, electrician, plumber" },
+        { category: "Flooring", amount: 300000, notes: "Luxury vinyl or tile flooring" },
+        { category: "Lighting & fixtures", amount: 150000, notes: "Recessed lights, pendant over island" },
+        { category: "Permits & inspections", amount: 50000, notes: "City permits and final inspections" },
+        { category: "Misc & contingency", amount: 100000, notes: "Hardware, backsplash, touch-ups" }
+      ],
+      budgetBuffer: 450000,
     },
     tasks: [
       { title: "Set renovation budget and priorities", description: "Determine must-haves vs nice-to-haves, allocate $30-60k", category: "personal", priority: "high" as const, timeEstimate: "1 week" },
@@ -181,6 +237,12 @@ export const demoCommunityPlans = [
       creatorName: "David Lee",
       creatorAvatar: null,
       status: "active" as const,
+      budget: 0,
+      budgetBreakdown: [
+        { category: "Productivity tools", amount: 0, notes: "Free tools (Google Calendar, Todoist free tier)" },
+        { category: "Resources", amount: 0, notes: "Free online guides and templates" }
+      ],
+      budgetBuffer: 0,
     },
     tasks: [
       { title: "Implement morning routine (5:30 AM start)", description: "Exercise, meditation, journaling", category: "work", priority: "high" as const, timeEstimate: "90 min" },
@@ -207,6 +269,15 @@ export const demoCommunityPlans = [
       creatorName: "Jordan Rivera",
       creatorAvatar: null,
       status: "active" as const,
+      budget: 300000,
+      budgetBreakdown: [
+        { category: "Visa & permits", amount: 50000, notes: "B211A visa processing fees" },
+        { category: "Coworking membership", amount: 80000, notes: "2-month Dojo Bali membership" },
+        { category: "Scooter rental", amount: 40000, notes: "2-month motorbike rental" },
+        { category: "Accommodation deposit", amount: 100000, notes: "First month + security deposit" },
+        { category: "SIM card & internet", amount: 30000, notes: "Local SIM with data package" }
+      ],
+      budgetBuffer: 30000,
     },
     tasks: [
       { title: "Apply for B211A visa (60 days)", description: "Required documents and embassy appointment", category: "travel", priority: "high" as const, timeEstimate: "2 hours" },
@@ -233,6 +304,14 @@ export const demoCommunityPlans = [
       creatorName: "Rachel Martinez",
       creatorAvatar: null,
       status: "active" as const,
+      budget: 25000,
+      budgetBreakdown: [
+        { category: "Running shoes", amount: 15000, notes: "Professional fitting at specialty store" },
+        { category: "Race registration", amount: 5000, notes: "Marathon entry fee" },
+        { category: "Running gear", amount: 3000, notes: "Moisture-wicking shirts, shorts" },
+        { category: "Nutrition supplies", amount: 2000, notes: "Energy gels, electrolyte drinks" }
+      ],
+      budgetBuffer: 2500,
     },
     tasks: [
       { title: "Weeks 1-4: Build base (20-30 miles/week)", description: "Easy pace with one long run", category: "health", priority: "high" as const, timeEstimate: "6 hours/week" },
@@ -259,6 +338,15 @@ export const demoCommunityPlans = [
       creatorName: "Kenji Tanaka",
       creatorAvatar: null,
       status: "planning" as const,
+      budget: 450000,
+      budgetBreakdown: [
+        { category: "Flights", amount: 180000, notes: "Round-trip from US to Tokyo" },
+        { category: "Hotel", amount: 140000, notes: "7 nights mid-range hotel in Shinjuku" },
+        { category: "JR Rail Pass", amount: 30000, notes: "7-day unlimited train travel" },
+        { category: "Food & dining", amount: 60000, notes: "Ramen, sushi, street food, restaurants" },
+        { category: "Activities", amount: 40000, notes: "TeamLab, Mt. Fuji tour, temple visits" }
+      ],
+      budgetBuffer: 45000,
     },
     tasks: [
       { title: "Get JR Rail Pass (7-day)", description: "Order online 2 weeks before trip", category: "travel", priority: "high" as const, timeEstimate: "30 min" },
@@ -285,6 +373,12 @@ export const demoCommunityPlans = [
       creatorName: "Priya Sharma",
       creatorAvatar: null,
       status: "active" as const,
+      budget: 30000,
+      budgetBreakdown: [
+        { category: "Landing page builder", amount: 10000, notes: "Webflow or Carrd annual subscription" },
+        { category: "Paid ads testing", amount: 20000, notes: "Facebook/Google Ads budget for validation" }
+      ],
+      budgetBuffer: 3000,
     },
     tasks: [
       { title: "Validate idea with 20 customer interviews", description: "Talk to target customers about pain points", category: "work", priority: "high" as const, timeEstimate: "2 weeks" },
@@ -311,6 +405,13 @@ export const demoCommunityPlans = [
       creatorName: "Marcus Thompson",
       creatorAvatar: null,
       status: "planning" as const,
+      budget: 20000,
+      budgetBreakdown: [
+        { category: "Toastmasters membership", amount: 10000, notes: "6-month club dues" },
+        { category: "Public speaking course", amount: 7000, notes: "Online masterclass or workshop" },
+        { category: "Books & resources", amount: 3000, notes: "Speaking guides and TED talk analysis" }
+      ],
+      budgetBuffer: 2000,
     },
     tasks: [
       { title: "Join local Toastmasters club", description: "Attend meetings twice monthly for practice", category: "work", priority: "high" as const, timeEstimate: "2 hours/meeting" },
@@ -337,6 +438,14 @@ export const demoCommunityPlans = [
       creatorName: "Amanda Collins",
       creatorAvatar: null,
       status: "planning" as const,
+      budget: 380000,
+      budgetBreakdown: [
+        { category: "Hotel", amount: 180000, notes: "5 nights in Midtown during holidays" },
+        { category: "Broadway tickets", amount: 100000, notes: "Premium seats for 2 shows" },
+        { category: "Food & dining", amount: 60000, notes: "Holiday dinners and restaurants" },
+        { category: "Activities", amount: 40000, notes: "Ice skating, museums, attractions" }
+      ],
+      budgetBuffer: 38000,
     },
     tasks: [
       { title: "Book Broadway show tickets (Hamilton or Wicked)", description: "Reserve 2-3 months ahead for holiday dates", category: "travel", priority: "high" as const, timeEstimate: "1 hour" },
@@ -363,6 +472,12 @@ export const demoCommunityPlans = [
       creatorName: "Elena Rodriguez",
       creatorAvatar: null,
       status: "active" as const,
+      budget: 0,
+      budgetBreakdown: [
+        { category: "App subscription", amount: 0, notes: "Free apps (Headspace basic, Calm)" },
+        { category: "Materials", amount: 0, notes: "Journal and cushion (optional, use what you have)" }
+      ],
+      budgetBuffer: 0,
     },
     tasks: [
       { title: "Days 1-7: 5-minute morning meditation", description: "Use Headspace or Calm app", category: "health", priority: "high" as const, timeEstimate: "5 min/day" },
@@ -389,6 +504,16 @@ export const demoCommunityPlans = [
       creatorName: "Stefan Olafsson",
       creatorAvatar: null,
       status: "planning" as const,
+      budget: 420000,
+      budgetBreakdown: [
+        { category: "Flights", amount: 150000, notes: "Round-trip to Reykjavik" },
+        { category: "4WD car rental", amount: 100000, notes: "5 days winter rental with insurance" },
+        { category: "Accommodation", amount: 80000, notes: "4 nights in guesthouses" },
+        { category: "Blue Lagoon", amount: 40000, notes: "Premium entry with towel rental" },
+        { category: "Ice cave tour", amount: 30000, notes: "Guided glacier tour" },
+        { category: "Food & supplies", amount: 20000, notes: "Groceries and gas stations" }
+      ],
+      budgetBuffer: 42000,
     },
     tasks: [
       { title: "Book trip between September-March", description: "Peak aurora season with longer nights", category: "travel", priority: "high" as const, timeEstimate: "2 hours" },
@@ -415,6 +540,14 @@ export const demoCommunityPlans = [
       creatorName: "Tyler Chen",
       creatorAvatar: null,
       status: "active" as const,
+      budget: 30000,
+      budgetBreakdown: [
+        { category: "Bike fit session", amount: 15000, notes: "Professional fitting service" },
+        { category: "Cycling gear", amount: 8000, notes: "Padded shorts, jerseys, gloves" },
+        { category: "Nutrition supplies", amount: 4000, notes: "Energy bars, gels, electrolytes" },
+        { category: "Century ride entry", amount: 3000, notes: "Event registration fee" }
+      ],
+      budgetBuffer: 3000,
     },
     tasks: [
       { title: "Weeks 1-4: Build base (50-70 miles/week)", description: "3-4 rides with progressive distance", category: "health", priority: "high" as const, timeEstimate: "6 hours/week" },
@@ -441,6 +574,13 @@ export const demoCommunityPlans = [
       creatorName: "Lisa Garcia",
       creatorAvatar: null,
       status: "active" as const,
+      budget: 48000,
+      budgetBreakdown: [
+        { category: "italki tutoring", amount: 36000, notes: "12 sessions @ $30 each" },
+        { category: "Duolingo Plus", amount: 7000, notes: "3-month subscription" },
+        { category: "Spanish books", amount: 5000, notes: "Textbooks and readers" }
+      ],
+      budgetBuffer: 4800,
     },
     tasks: [
       { title: "Complete Duolingo Spanish course (30 min/day)", description: "Build foundation with vocabulary and grammar basics", category: "personal", priority: "high" as const, timeEstimate: "30 min/day" },
@@ -469,6 +609,13 @@ export const demoCommunityPlans = [
       creatorName: "Chris Anderson",
       creatorAvatar: null,
       status: "active" as const,
+      budget: 15000,
+      budgetBreakdown: [
+        { category: "Gym membership", amount: 10000, notes: "2-month membership" },
+        { category: "Workout gear", amount: 3000, notes: "Lifting shoes and belt" },
+        { category: "Protein powder", amount: 2000, notes: "Whey protein supplement" }
+      ],
+      budgetBuffer: 1500,
     },
     tasks: [
       { title: "Learn proper form for big 4 lifts", description: "Squat, deadlift, bench, overhead press - watch videos", category: "health", priority: "high" as const, timeEstimate: "2 hours" },
@@ -495,6 +642,13 @@ export const demoCommunityPlans = [
       creatorName: "Jennifer Wong",
       creatorAvatar: null,
       status: "planning" as const,
+      budget: 10000,
+      budgetBreakdown: [
+        { category: "Professional headshot", amount: 5000, notes: "LinkedIn profile photo" },
+        { category: "Event tickets", amount: 3000, notes: "Industry conferences and meetups" },
+        { category: "Coffee meetings", amount: 2000, notes: "Informational interviews" }
+      ],
+      budgetBuffer: 1000,
     },
     tasks: [
       { title: "Optimize LinkedIn profile with keywords", description: "Professional photo, compelling headline", category: "work", priority: "high" as const, timeEstimate: "2 hours" },
@@ -521,6 +675,12 @@ export const demoCommunityPlans = [
       creatorName: "Olivia Brown",
       creatorAvatar: null,
       status: "active" as const,
+      budget: 0,
+      budgetBreakdown: [
+        { category: "Books", amount: 0, notes: "Use library or free Libby app for ebooks/audiobooks" },
+        { category: "Reading tracker", amount: 0, notes: "Free Goodreads account for progress tracking" }
+      ],
+      budgetBuffer: 0,
     },
     tasks: [
       { title: "Create reading list with genre variety", description: "Fiction, non-fiction, biography, self-help mix", category: "personal", priority: "high" as const, timeEstimate: "2 hours" },
@@ -547,6 +707,15 @@ export const demoCommunityPlans = [
       creatorName: "Michael Torres",
       creatorAvatar: null,
       status: "planning" as const,
+      budget: 250000,
+      budgetBreakdown: [
+        { category: "Venue rental", amount: 80000, notes: "Private event space for 80 guests" },
+        { category: "Catering", amount: 100000, notes: "Food and bar service" },
+        { category: "DJ & entertainment", amount: 40000, notes: "Music and photo booth" },
+        { category: "Decorations", amount: 20000, notes: "Theme decor and balloons" },
+        { category: "Cake", amount: 10000, notes: "Custom birthday cake" }
+      ],
+      budgetBuffer: 25000,
     },
     tasks: [
       { title: "Book venue 2-3 months ahead", description: "Restaurant private room or event space", category: "personal", priority: "high" as const, timeEstimate: "3 hours" },
@@ -573,6 +742,14 @@ export const demoCommunityPlans = [
       creatorName: "Sophie Anderson",
       creatorAvatar: null,
       status: "planning" as const,
+      budget: 80000,
+      budgetBreakdown: [
+        { category: "Festival ticket", amount: 40000, notes: "3-day general admission pass" },
+        { category: "Camping gear", amount: 20000, notes: "Tent, sleeping bag, camp chair" },
+        { category: "Food & drinks", amount: 12000, notes: "Snacks and hydration supplies" },
+        { category: "Transportation", amount: 8000, notes: "Gas and parking fees" }
+      ],
+      budgetBuffer: 8000,
     },
     tasks: [
       { title: "Pack festival essentials kit", description: "Tent, sleeping bag, portable charger, sunscreen", category: "personal", priority: "high" as const, timeEstimate: "3 hours" },

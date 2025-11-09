@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Users, UserPlus, CheckCircle2, Plus, Sparkles, ArrowRight, Circle, Share2 } from "lucide-react";
+import { Users, UserPlus, CheckCircle2, Plus, Sparkles, ArrowRight, Circle, Share2, ArrowLeft, Home } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "wouter";
@@ -339,6 +339,24 @@ export default function GroupGoalsPage() {
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-8">
+      {/* Navigation Buttons */}
+      <div className="max-w-6xl mx-auto">
+        <div className="flex gap-2 mb-6">
+          <Link href="/">
+            <Button variant="outline" size="sm" className="gap-2" data-testid="button-back">
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </Button>
+          </Link>
+          <Link href="/">
+            <Button variant="outline" size="sm" className="gap-2" data-testid="button-home">
+              <Home className="w-4 h-4" />
+              Home
+            </Button>
+          </Link>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center gap-3 mb-2">

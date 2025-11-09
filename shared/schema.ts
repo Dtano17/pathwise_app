@@ -839,13 +839,13 @@ export const activities = pgTable("activities", {
   
   // Location and context
   location: text("location"),
-  budget: integer("budget"), // Optional budget in cents
+  budget: integer("budget").notNull().default(0), // Budget in cents (0 for free activities)
   budgetBreakdown: jsonb("budget_breakdown").$type<Array<{
     category: string;
     amount: number;
     notes?: string;
-  }>>().default([]), // Detailed budget breakdown from AI planner
-  budgetBuffer: integer("budget_buffer"), // Recommended buffer for unexpected costs (in cents)
+  }>>().notNull().default([]), // Detailed budget breakdown from AI planner
+  budgetBuffer: integer("budget_buffer").notNull().default(0), // Recommended buffer for unexpected costs (in cents)
   participants: jsonb("participants").$type<Array<{
     name: string;
     email?: string;

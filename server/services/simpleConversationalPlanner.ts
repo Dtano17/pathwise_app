@@ -248,13 +248,14 @@ interface GeneratedPlan {
     location?: string;
     notes?: string;
   }>;
-  budget?: {
+  budget: {
     total: number;
     breakdown: Array<{
       category: string;
       amount: number;
       notes?: string;
     }>;
+    buffer?: number;
   };
   weather?: {
     forecast: string;
@@ -1574,15 +1575,15 @@ function getPlanningTool(mode: 'quick' | 'smart') {
             },
             budget: {
               type: 'object',
-              description: 'ONLY include if activity needs budget (travel, dining, events, shopping, etc.). OMIT entirely for free activities (hiking, walking, meditation, etc.)',
+              description: 'REQUIRED for all activities. Use total: 0, breakdown: [], buffer: 0 for completely free activities (hiking, meditation, walking). For paid activities, provide realistic estimates with itemized breakdown and 10-15% buffer.',
               properties: {
                 total: {
                   type: 'number',
-                  description: 'Total budget amount user specified'
+                  description: 'Total budget amount user specified or realistic estimate. Use 0 for free activities.'
                 },
                 breakdown: {
                   type: 'array',
-                  description: 'Itemized costs showing WHERE money goes - be specific!',
+                  description: 'Itemized costs showing WHERE money goes - be specific! Empty array for free activities.',
                   items: {
                     type: 'object',
                     properties: {
@@ -1604,9 +1605,10 @@ function getPlanningTool(mode: 'quick' | 'smart') {
                 },
                 buffer: {
                   type: 'number',
-                  description: 'Recommended buffer for unexpected costs (10-15% of total)'
+                  description: 'Recommended buffer for unexpected costs (10-15% of total). Use 0 for free activities.'
                 }
-              }
+              },
+              required: ['total', 'breakdown', 'buffer']
             },
             weather: {
               type: 'object',
@@ -1621,7 +1623,7 @@ function getPlanningTool(mode: 'quick' | 'smart') {
               items: { type: 'string' }
             }
           },
-          required: ['title', 'description', 'tasks']
+          required: ['title', 'description', 'tasks', 'budget']
         },
         redirectToPlanning: {
           type: 'boolean',
