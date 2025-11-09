@@ -98,4 +98,21 @@ To deploy to production:
 
 4. **Deploy**: Click "Deploy" button in Replit workspace
 
+5. **Seed Community Plans** (One-time setup after first deployment):
+   - Set `ADMIN_SECRET` environment variable in production (use a strong random value)
+   - Community plan backdrop images deploy automatically with code (located in `client/public/community-backdrops/`)
+   - After deployment, call the admin endpoint to populate 25 curated community plans:
+     ```bash
+     curl -X POST https://your-app.replit.app/api/admin/seed-community-plans \
+       -H "Content-Type: application/json" \
+       -d '{"adminSecret": "YOUR_ADMIN_SECRET_VALUE"}'
+     ```
+   - To force re-seed (delete and recreate all plans):
+     ```bash
+     curl -X POST https://your-app.replit.app/api/admin/seed-community-plans \
+       -H "Content-Type: application/json" \
+       -d '{"adminSecret": "YOUR_ADMIN_SECRET_VALUE", "force": true}'
+     ```
+   - Verify in the Discover Plans section - you should see 25 community plans with backdrop images
+
 See **PRODUCTION_DEPLOYMENT.md** for deployment instructions and **REVENUE_SYSTEM.md** for monetization setup.
