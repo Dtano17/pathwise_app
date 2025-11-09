@@ -566,6 +566,8 @@ ${url}`;
       searchTerm = 'tokyo japan cityscape';
     } else if (title.includes('london')) {
       searchTerm = 'london big ben';
+    } else if (title.includes('lagos')) {
+      searchTerm = 'lagos nigeria cityscape';
     } else if (title.includes('beach') || title.includes('tropical')) {
       searchTerm = 'tropical beach paradise';
     } else if (title.includes('mountain') || title.includes('hiking')) {
@@ -593,6 +595,7 @@ ${url}`;
       'paris eiffel tower': 'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=1600&h=900&fit=crop&q=80',
       'tokyo japan cityscape': 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1600&h=900&fit=crop&q=80',
       'london big ben': 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=1600&h=900&fit=crop&q=80',
+      'lagos nigeria cityscape': 'https://images.unsplash.com/photo-1578846967126-11ec89440219?w=1600&h=900&fit=crop&q=80',
       'tropical beach paradise': 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1600&h=900&fit=crop&q=80',
       'mountain landscape hiking': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&h=900&fit=crop&q=80',
       'fitness workout gym': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1600&h=900&fit=crop&q=80',
