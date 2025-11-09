@@ -89,6 +89,72 @@ async function loadImage(imageSource: string): Promise<Buffer> {
 }
 
 /**
+ * Check if a code point is an emoji base character
+ */
+function isEmojiBase(code: number): boolean {
+  return (
+    (code >= 0x1F300 && code <= 0x1F9FF) || // Misc symbols, emoticons, transport, food, etc.
+    (code >= 0x2600 && code <= 0x26FF) ||   // Misc symbols (sun, moon, stars, etc.)
+    (code >= 0x2700 && code <= 0x27BF) ||   // Dingbats (scissors, checkmarks, etc.)
+    (code >= 0x231A && code <= 0x231B) ||   // Watch, hourglass
+    (code >= 0x23E9 && code <= 0x23F3) ||   // Media controls
+    (code >= 0x25AA && code <= 0x25AB) ||   // Squares
+    (code >= 0x25FB && code <= 0x25FE) ||   // Squares and circles
+    (code >= 0x2B50 && code <= 0x2B55) ||   // Stars
+    (code >= 0x3030 && code <= 0x303D) ||   // Wavy dash
+    (code >= 0x1F004 && code <= 0x1F0CF) || // Mahjong, playing cards
+    (code >= 0x1F170 && code <= 0x1F251) || // Enclosed characters
+    (code >= 0x1FA00 && code <= 0x1FAFF) || // Symbols & Pictographs Extended-A
+    (code >= 0x1F900 && code <= 0x1F9FF)    // Supplemental symbols
+  );
+}
+
+/**
+ * Check if a code point is an emoji modifier (skin tone, variation selector, ZWJ, etc.)
+ */
+function isEmojiModifier(code: number): boolean {
+  return (
+    (code >= 0x1F3FB && code <= 0x1F3FF) || // Skin tone modifiers
+    code === 0x200D ||                       // Zero-width joiner
+    code === 0xFE0F ||                       // Variation selector
+    (code >= 0xE0020 && code <= 0xE007F)    // Tag characters
+  );
+}
+
+/**
+ * Extract the first emoji from a string
+ * Returns the full emoji sequence including modifiers/joiners, or null if none
+ * Properly handles surrogate pairs and complex emoji sequences (ZWJ, skin tones, etc.)
+ */
+function extractFirstEmoji(text: string): string | null {
+  if (!text || text.length === 0) return null;
+  
+  // Convert to array of Unicode code points (handles surrogate pairs correctly)
+  const codePoints = Array.from(text);
+  
+  let emojiSequence = '';
+  let foundEmoji = false;
+  
+  // Iterate through code points (not UTF-16 code units)
+  for (const codePoint of codePoints) {
+    const code = codePoint.codePointAt(0);
+    
+    if (!code) continue;
+    
+    // Check if this is an emoji base character or a modifier following an emoji
+    if (isEmojiBase(code) || (foundEmoji && isEmojiModifier(code))) {
+      emojiSequence += codePoint;
+      foundEmoji = true;
+    } else if (foundEmoji) {
+      // We've found an emoji sequence and hit a non-emoji character
+      break;
+    }
+  }
+  
+  return foundEmoji ? emojiSequence : null;
+}
+
+/**
  * Create SVG text overlay with activity details
  */
 function createTextOverlay(
@@ -105,8 +171,15 @@ function createTextOverlay(
   const totalTasks = tasks.length;
   const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
+  // Extract emoji from title if present, otherwise use the provided emoji
+  const extractedEmoji = extractFirstEmoji(title);
+  const displayEmoji = extractedEmoji || emoji;
+  
+  // Remove emoji from title if it was extracted
+  const titleWithoutEmoji = extractedEmoji ? title.replace(extractedEmoji, '').trim() : title;
+  
   // Truncate title if too long (max 50 chars for better display)
-  const displayTitle = title.length > 50 ? title.substring(0, 47) + '...' : title;
+  const displayTitle = titleWithoutEmoji.length > 50 ? titleWithoutEmoji.substring(0, 47) + '...' : titleWithoutEmoji;
   
   // Create description with task summary
   let displayDescription = '';
@@ -157,7 +230,7 @@ function createTextOverlay(
 
       <!-- Main Content: Emoji and Title -->
       <text x="60" y="145" font-family="Arial, sans-serif" font-size="85" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.8);">
-        ${emoji}
+        ${displayEmoji}
       </text>
 
       <text x="60" y="235" font-family="Arial, sans-serif" font-size="58" font-weight="bold" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5);">
@@ -247,7 +320,7 @@ export async function generateOGImage(options: OGImageOptions): Promise<Buffer> 
  */
 async function createFallbackImage(activity: Activity, tasks: Task[]): Promise<Buffer> {
   const category = activity.category?.toLowerCase() || 'other';
-  const emoji = categoryEmojis[category] || '✨';
+  const categoryEmoji = categoryEmojis[category] || '✨';
 
   const categoryGradients: Record<string, { start: string; end: string }> = {
     fitness: { start: '#FF6B6B', end: '#FF8E53' },
@@ -270,7 +343,14 @@ async function createFallbackImage(activity: Activity, tasks: Task[]): Promise<B
   const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   const title = activity.shareTitle || activity.planSummary || activity.title || 'Shared Activity';
-  const displayTitle = title.length > 50 ? title.substring(0, 47) + '...' : title;
+  
+  // Extract emoji from title if present, otherwise use category emoji
+  const extractedEmoji = extractFirstEmoji(title);
+  const displayEmoji = extractedEmoji || categoryEmoji;
+  
+  // Remove emoji from title if it was extracted
+  const titleWithoutEmoji = extractedEmoji ? title.replace(extractedEmoji, '').trim() : title;
+  const displayTitle = titleWithoutEmoji.length > 50 ? titleWithoutEmoji.substring(0, 47) + '...' : titleWithoutEmoji;
 
   // Create description with task summary
   const taskSummary = `${totalTasks} ${totalTasks === 1 ? 'task' : 'tasks'} • ${completedTasks} completed`;
@@ -297,7 +377,7 @@ async function createFallbackImage(activity: Activity, tasks: Task[]): Promise<B
 
       <!-- Main Content -->
       <text x="60" y="145" font-family="Arial, sans-serif" font-size="85" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.6);">
-        ${emoji}
+        ${displayEmoji}
       </text>
 
       <text x="60" y="235" font-family="Arial, sans-serif" font-size="58" font-weight="bold" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.6);">

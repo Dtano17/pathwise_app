@@ -528,24 +528,21 @@ export default function CommunityPlansPage() {
             </div>
           </div>
 
-          {/* Category Tabs - Horizontal Scrollable */}
+          {/* Category Tabs - Fully Visible on Mobile */}
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-            <ScrollArea className="w-full">
-              <TabsList data-testid="tabs-categories" className="inline-flex gap-1 w-max">
-                {categories.map((cat) => (
-                  <TabsTrigger
-                    key={cat.value}
-                    value={cat.value}
-                    data-testid={`tab-${cat.value}`}
-                    className="flex-shrink-0"
-                    aria-label={`Filter by ${cat.label}`}
-                  >
-                    {cat.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              <ScrollBar orientation="horizontal" className="h-2" />
-            </ScrollArea>
+            <TabsList data-testid="tabs-categories" className="flex flex-wrap gap-1 w-full justify-start">
+              {categories.map((cat) => (
+                <TabsTrigger
+                  key={cat.value}
+                  value={cat.value}
+                  data-testid={`tab-${cat.value}`}
+                  className="flex-shrink-0"
+                  aria-label={`Filter by ${cat.label}`}
+                >
+                  {cat.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
           </Tabs>
 
           {/* Budget Filter */}

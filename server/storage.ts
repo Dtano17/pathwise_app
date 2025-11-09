@@ -539,7 +539,7 @@ export class DatabaseStorage implements IStorage {
 
   async getActivityByShareToken(shareToken: string): Promise<Activity | undefined> {
     const [result] = await db.select().from(activities)
-      .where(and(eq(activities.shareToken, shareToken), eq(activities.isPublic, true)));
+      .where(eq(activities.shareToken, shareToken));
     return result;
   }
 
