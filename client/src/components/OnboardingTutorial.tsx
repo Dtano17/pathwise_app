@@ -65,15 +65,15 @@ const tutorialSteps: TutorialStep[] = [
   },
   {
     title: "Discover & Use Community Plans",
-    description: "Get inspired by thousands of plans created by other JournalMate users. Browse trending plans, filter by category, and instantly copy any plan to your account—then customize it to match your rhythm.",
+    description: "Browse 44+ curated plans with emoji-enhanced titles! Get inspired by FIFA World Cup ⚽, Santorini sunsets 🌅, NYC adventures 🗽, and more. One-click copy to your account, then customize to match your rhythm.",
     icon: Globe,
     tips: [
-      "Browse trending plans from creators, planners, and fellow users",
-      "Filter by Travel, Fitness, Events, Career, or Home categories",
-      "Click 'Use This Plan' to instantly copy with all tasks",
+      "44+ curated plans with eye-catching emoji titles (⚽ 🌅 💪 🗼 🏝️)",
+      "Filter by All, Travel, Fitness, Career, or Personal categories",
+      "Click 'Use This Plan' to instantly copy with all tasks and budget breakdown",
+      "Each plan includes 7-10 detailed tasks and realistic budget estimates",
       "Customize any copied plan to match your priorities and style",
-      "Perfect for jumpstarting goals or discovering new ideas",
-      "Plans are shared by travel agents, event planners, and lifestyle creators"
+      "Perfect for jumpstarting goals, trips, fitness challenges, and life events"
     ]
   },
   {

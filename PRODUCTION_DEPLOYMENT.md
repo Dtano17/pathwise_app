@@ -110,7 +110,24 @@ The app uses Drizzle ORM with automatic schema sync. On first deployment:
    - Check Replit's database console
    - Should see tables: users, activities, tasks, journal_entries, etc.
 
-## Step 4: Deploy to Production
+## Step 4: Configure Admin Secret for Community Plans
+
+To seed community plans in production, you need to set an ADMIN_SECRET:
+
+1. **Generate a secure secret**:
+   ```bash
+   # Use a strong random value (32+ characters recommended)
+   openssl rand -hex 32
+   ```
+
+2. **Add to production environment variables**:
+   ```
+   ADMIN_SECRET=your-generated-secret-here
+   ```
+
+**Note**: This secret is used exclusively for the one-time community plans seeding endpoint. Keep it secure and never share it publicly.
+
+## Step 5: Deploy to Production
 
 ### Using Replit's Deploy Button
 
@@ -141,7 +158,62 @@ After deployment, verify the following:
 - [ ] Journal entries can be created and saved
 - [ ] Database persistence works across sessions
 
-## Step 5: Monitor Production
+## Step 6: Seed Community Plans (One-Time Setup)
+
+After successful deployment, populate the Discover Plans section with 44 curated community plans:
+
+### Seed Community Plans
+
+**Important**: This is a **one-time setup** step after your first deployment. The community plans include:
+- 44 curated plans with emoji-enhanced titles (⚽ FIFA World Cup 2026, 🌅 Santorini Sunset Romance, etc.)
+- HD stock images automatically deployed with the code (from `client/public/community-backdrops/`)
+- 7-10 detailed tasks per plan with realistic budget breakdowns
+- Categories: Travel, Fitness, Career, Personal
+
+### How to Seed:
+
+1. **Use the admin endpoint** to populate the database:
+   ```bash
+   curl -X POST https://your-app.replit.app/api/admin/seed-community-plans \
+     -H "Content-Type: application/json" \
+     -d '{"adminSecret": "YOUR_ADMIN_SECRET_VALUE"}'
+   ```
+
+2. **Replace placeholders**:
+   - `your-app.replit.app` → Your actual deployment URL
+   - `YOUR_ADMIN_SECRET_VALUE` → The ADMIN_SECRET you configured in Step 4
+
+3. **Wait for completion** (takes 30-60 seconds):
+   - The endpoint seeds all 44 plans with activities, tasks, and budgets
+   - Check the deployment logs for confirmation: `[SEED] Seeding community plans...`
+
+### Force Re-seed (Optional):
+
+If you need to update plans with new data (e.g., after modifying seed data):
+```bash
+curl -X POST https://your-app.replit.app/api/admin/seed-community-plans \
+  -H "Content-Type: application/json" \
+  -d '{"adminSecret": "YOUR_ADMIN_SECRET_VALUE", "force": true}'
+```
+
+**Note**: `force: true` deletes and recreates all community plans. Use with caution in production.
+
+### Verify Seeding Success:
+
+1. **Navigate to Discover Plans**:
+   - Go to `https://your-app.replit.app/discover`
+   - You should see 44 plans with emoji titles
+
+2. **Check categories**:
+   - Filter by: All, Travel, Fitness, Career, Personal
+   - Each category should show relevant plans
+
+3. **Test plan adoption**:
+   - Click "Preview" on any plan to see details
+   - Click "Use This Plan" to copy to your account
+   - Verify tasks and budget breakdown appear correctly
+
+## Step 7: Monitor Production
 
 ### Key Metrics to Watch
 
