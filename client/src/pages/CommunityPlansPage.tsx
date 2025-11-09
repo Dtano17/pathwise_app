@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useToast } from "@/hooks/use-toast";
 import { Heart, Eye, Search, Sparkles, ArrowLeft, Home, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign } from "lucide-react";
 import { Link } from "wouter";
@@ -574,13 +575,16 @@ export default function CommunityPlansPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {plans.map((plan) => {
               const stockImage = getStockImage(plan.backdrop);
+              const budgetDisplay = plan.budget ? `$${(plan.budget / 100).toFixed(2)}` : '$0';
               
               return (
-                <Card
-                  key={plan.id}
-                  className="overflow-hidden hover-elevate transition-all"
-                  data-testid={`card-plan-${plan.id}`}
-                >
+                <HoverCard key={plan.id} openDelay={300} closeDelay={100}>
+                  <HoverCardTrigger asChild>
+                    <Card
+                      onClick={() => handlePreviewPlan(plan.id, plan.shareToken, plan.title || "")}
+                      className="overflow-hidden hover-elevate transition-all cursor-pointer"
+                      data-testid={`card-plan-${plan.id}`}
+                    >
                   {/* Hero Image */}
                   <div className="relative h-48 bg-gradient-to-br from-primary/20 to-primary/5">
                     {stockImage ? (
@@ -662,7 +666,10 @@ export default function CommunityPlansPage() {
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => likePlanMutation.mutate(plan.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        likePlanMutation.mutate(plan.id);
+                      }}
                       disabled={likePlanMutation.isPending}
                       data-testid={`button-like-${plan.id}`}
                     >
@@ -671,21 +678,68 @@ export default function CommunityPlansPage() {
                     <Button
                       variant="outline"
                       className="flex-1"
-                      onClick={() => handlePreviewPlan(plan.id, plan.shareToken, plan.title || "")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePreviewPlan(plan.id, plan.shareToken, plan.title || "");
+                      }}
                       data-testid={`button-preview-${plan.id}`}
                     >
                       Preview
                     </Button>
                     <Button
                       className="flex-1"
-                      onClick={() => handleUsePlan(plan.id, plan.shareToken, plan.title || "")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUsePlan(plan.id, plan.shareToken, plan.title || "");
+                      }}
                       disabled={copyPlanMutation.isPending || sharePlanToGroupMutation.isPending}
                       data-testid={`button-use-plan-${plan.id}`}
                     >
                       {(copyPlanMutation.isPending || sharePlanToGroupMutation.isPending) ? "Adding..." : "Add"}
                     </Button>
                   </CardFooter>
-                </Card>
+                    </Card>
+                  </HoverCardTrigger>
+                  
+                  <HoverCardContent className="w-80" side="top" data-testid={`hover-preview-${plan.id}`}>
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="font-semibold text-sm mb-1">{plan.title}</h4>
+                        <p className="text-xs text-muted-foreground line-clamp-3">
+                          {plan.description || plan.planSummary}
+                        </p>
+                      </div>
+                      
+                      {/* Budget Info */}
+                      {plan.budget !== undefined && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <DollarSign className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="font-medium">Budget:</span>
+                          <span className="text-muted-foreground">
+                            {budgetDisplay}
+                            {plan.budget === 0 && " (Free)"}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Quick Stats */}
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
+                        <div className="flex items-center gap-1">
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>{plan.viewCount && plan.viewCount >= 1000 ? `${(plan.viewCount / 1000).toFixed(1)}k` : plan.viewCount || 0} views</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Heart className="w-3.5 h-3.5 fill-red-500 text-red-500" />
+                          <span>{plan.likeCount && plan.likeCount >= 1000 ? `${(plan.likeCount / 1000).toFixed(1)}k` : plan.likeCount || 0} likes</span>
+                        </div>
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground italic">
+                        Hover to preview • Click "Preview" for full details
+                      </p>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
               );
             })}
           </div>
