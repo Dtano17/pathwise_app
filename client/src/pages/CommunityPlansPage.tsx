@@ -13,8 +13,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Eye, Search, Sparkles, ArrowLeft, Home, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus } from "lucide-react";
+import { Heart, Eye, Search, Sparkles, ArrowLeft, Home, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 import type { Activity } from "@shared/schema";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
@@ -529,26 +531,24 @@ export default function CommunityPlansPage() {
             </div>
           </div>
 
-          {/* Category Tabs - Horizontal Scrollable Carousel */}
+          {/* Category Tabs - Horizontal Scrollable */}
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-            <div className="relative">
-              <div className="w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory pr-8 md:pr-0">
-                <TabsList data-testid="tabs-categories" className="inline-flex gap-1 w-auto">
-                  {categories.map((cat) => (
-                    <TabsTrigger
-                      key={cat.value}
-                      value={cat.value}
-                      data-testid={`tab-${cat.value}`}
-                      className="flex-shrink-0 snap-start"
-                    >
-                      {cat.label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </div>
-              {/* Gradient fade indicator on mobile */}
-              <div className="absolute right-0 top-0 bottom-0 w-20 pointer-events-none bg-gradient-to-l from-background to-transparent md:hidden" />
-            </div>
+            <ScrollArea className="w-full">
+              <TabsList data-testid="tabs-categories" className="inline-flex gap-1 w-max">
+                {categories.map((cat) => (
+                  <TabsTrigger
+                    key={cat.value}
+                    value={cat.value}
+                    data-testid={`tab-${cat.value}`}
+                    className="flex-shrink-0"
+                    aria-label={`Filter by ${cat.label}`}
+                  >
+                    {cat.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <ScrollBar orientation="horizontal" className="h-2" />
+            </ScrollArea>
           </Tabs>
 
           {/* Budget Filter */}
@@ -822,36 +822,60 @@ export default function CommunityPlansPage() {
                 </p>
               </div>
 
-              {/* Budget Breakdown */}
+              {/* Budget - Collapsible */}
               {previewData.activity.budget && previewData.activity.budget > 0 && (
-                <div>
-                  <h3 className="font-semibold mb-3">Budget Breakdown</h3>
-                  <div className="space-y-2">
-                    {previewData.activity.budgetBreakdown?.map((item: any, index: number) => (
-                      <div key={index} className="flex justify-between items-start gap-4 text-sm">
-                        <div className="flex-1">
-                          <div className="font-medium">{item.category}</div>
-                          {item.notes && (
-                            <div className="text-xs text-muted-foreground mt-0.5">{item.notes}</div>
-                          )}
-                        </div>
-                        <div className="font-semibold whitespace-nowrap">
-                          ${(item.amount / 100).toFixed(2)}
-                        </div>
+                <Collapsible>
+                  <div className="space-y-3">
+                    {/* Total Budget - Always Visible */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-5 h-5 text-muted-foreground" />
+                        <h3 className="font-semibold">Total Budget</h3>
                       </div>
-                    ))}
-                    {previewData.activity.budgetBuffer > 0 && (
-                      <div className="flex justify-between items-center gap-4 text-sm border-t pt-2 mt-2">
-                        <div className="font-medium">Buffer (10%)</div>
-                        <div className="font-semibold">${(previewData.activity.budgetBuffer / 100).toFixed(2)}</div>
+                      <div className="text-lg font-bold">
+                        ${(previewData.activity.budget / 100).toFixed(2)}
                       </div>
-                    )}
-                    <div className="flex justify-between items-center gap-4 text-base font-bold border-t pt-2 mt-2">
-                      <div>Total Budget</div>
-                      <div>${(previewData.activity.budget / 100).toFixed(2)}</div>
                     </div>
+
+                    {/* Breakdown Toggle */}
+                    {(previewData.activity.budgetBreakdown && previewData.activity.budgetBreakdown.length > 0) && (
+                      <CollapsibleTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full justify-between group"
+                          data-testid="button-toggle-budget-breakdown"
+                        >
+                          <span className="text-sm">View breakdown</span>
+                          <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]:rotate-180" />
+                        </Button>
+                      </CollapsibleTrigger>
+                    )}
+
+                    {/* Breakdown Details */}
+                    <CollapsibleContent className="space-y-2">
+                      {previewData.activity.budgetBreakdown?.map((item: any, index: number) => (
+                        <div key={index} className="flex justify-between items-start gap-4 text-sm pl-7">
+                          <div className="flex-1">
+                            <div className="font-medium">{item.category}</div>
+                            {item.notes && (
+                              <div className="text-xs text-muted-foreground mt-0.5">{item.notes}</div>
+                            )}
+                          </div>
+                          <div className="font-semibold whitespace-nowrap">
+                            ${(item.amount / 100).toFixed(2)}
+                          </div>
+                        </div>
+                      ))}
+                      {previewData.activity.budgetBuffer > 0 && (
+                        <div className="flex justify-between items-center gap-4 text-sm border-t pt-2 mt-2 pl-7">
+                          <div className="font-medium">Buffer (10%)</div>
+                          <div className="font-semibold">${(previewData.activity.budgetBuffer / 100).toFixed(2)}</div>
+                        </div>
+                      )}
+                    </CollapsibleContent>
                   </div>
-                </div>
+                </Collapsible>
               )}
 
               {/* Tasks */}
