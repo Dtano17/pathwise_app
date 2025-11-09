@@ -40,6 +40,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { SharePreviewDialog } from '@/components/SharePreviewDialog';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ThemeToggle from '@/components/ThemeToggle';
 import NotificationManager from '@/components/NotificationManager';
 import SmartScheduler from '@/components/SmartScheduler';
@@ -1462,7 +1463,19 @@ export default function MainApp({
                       data-testid="button-date-planner"
                     >
                       <Heart className="w-4 h-4" />
-                      Plan a Date
+                      <span className="flex items-center gap-1.5">
+                        Plan a Date
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="secondary" className="text-xs" data-testid="badge-date-planner-beta">
+                              Beta
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Uses curated venue suggestions
+                          </TooltipContent>
+                        </Tooltip>
+                      </span>
                     </Button>
                   </div>
 
