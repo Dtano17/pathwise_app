@@ -979,12 +979,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     <title>${safePageTitle} - JournalMate</title>
     <meta name="description" content="${safePageDescription}" />
     
+    <!-- Facebook App ID (Required for Facebook Sharing Debugger) -->
+    <meta property="fb:app_id" content="1234567890" />
+    
     <!-- Open Graph / Facebook / WhatsApp -->
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content="article" />
     <meta property="og:url" content="${safeCurrentUrl}" />
     <meta property="og:title" content="${safePageTitle}" />
     <meta property="og:description" content="${safePageDescription}" />
     <meta property="og:image" content="${safeShareImage}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:site_name" content="JournalMate" />
     
     <!-- Twitter Card -->
