@@ -870,8 +870,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const tasks = await storage.getActivityTasks(activity.id, activity.userId);
       
-      // Construct base URL for absolute image paths
-      const baseUrl = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
+      // Construct base URL for absolute image paths (with host validation)
+      let baseUrl = process.env.PUBLIC_BASE_URL;
+      if (!baseUrl) {
+        const requestHost = (req.get('host') || '').toLowerCase();
+        
+        // Strip port to get clean hostname for validation
+        const hostname = requestHost.split(':')[0];
+        
+        // Validate host to prevent header spoofing - exact match or trusted domain suffix
+        const trustedDomains = ['replit.app', 'repl.co'];
+        const trustedExactHosts = ['localhost'];
+        
+        const isTrusted = 
+          trustedExactHosts.includes(hostname) ||
+          trustedDomains.some(domain => hostname === domain || hostname.endsWith('.' + domain));
+        
+        if (isTrusted) {
+          baseUrl = `${req.protocol}://${requestHost}`;
+        } else {
+          console.warn('[OG IMAGE] Suspicious host header, using localhost fallback:', requestHost);
+          baseUrl = 'http://localhost:5000';
+        }
+      }
       
       // Generate image
       const imageBuffer = await generateOGImage({
@@ -3481,8 +3502,29 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       // Import the OG image generator (dynamic import to avoid circular deps)
       const { generateOGImage } = await import('./services/ogImageGenerator');
 
-      // Construct base URL for absolute image paths
-      const baseUrl = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
+      // Construct base URL for absolute image paths (with host validation)
+      let baseUrl = process.env.PUBLIC_BASE_URL;
+      if (!baseUrl) {
+        const requestHost = (req.get('host') || '').toLowerCase();
+        
+        // Strip port to get clean hostname for validation
+        const hostname = requestHost.split(':')[0];
+        
+        // Validate host to prevent header spoofing - exact match or trusted domain suffix
+        const trustedDomains = ['replit.app', 'repl.co'];
+        const trustedExactHosts = ['localhost'];
+        
+        const isTrusted = 
+          trustedExactHosts.includes(hostname) ||
+          trustedDomains.some(domain => hostname === domain || hostname.endsWith('.' + domain));
+        
+        if (isTrusted) {
+          baseUrl = `${req.protocol}://${requestHost}`;
+        } else {
+          console.warn('[OG IMAGE] Suspicious host header, using localhost fallback:', requestHost);
+          baseUrl = 'http://localhost:5000';
+        }
+      }
 
       // Generate the OG image
       const imageBuffer = await generateOGImage({
@@ -8016,6 +8058,49 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     } catch (error) {
       console.error('Facebook data deletion callback error:', error);
       res.status(500).json({ error: 'Failed to process Facebook data deletion request' });
+    }
+  });
+
+  // ========== ADMIN: SEED COMMUNITY PLANS ==========
+  // Protected endpoint to seed community plans in production
+  // Requires ADMIN_SECRET environment variable for authorization
+  // Call this once after deployment to populate the Discover Plans section
+  app.post("/api/admin/seed-community-plans", async (req, res) => {
+    try {
+      const { adminSecret, force } = req.body;
+      
+      // Verify admin authorization using secret
+      const requiredSecret = process.env.ADMIN_SECRET;
+      
+      if (!requiredSecret) {
+        return res.status(500).json({ 
+          error: 'Admin functionality not configured. Set ADMIN_SECRET environment variable.' 
+        });
+      }
+      
+      if (!adminSecret || adminSecret !== requiredSecret) {
+        console.warn('[ADMIN] Unauthorized seed attempt');
+        return res.status(403).json({ 
+          error: 'Unauthorized. Admin secret required.' 
+        });
+      }
+      
+      console.log('[ADMIN] Authorized admin seeding community plans...');
+      console.log('[ADMIN] Force reseed:', force || false);
+      
+      await storage.seedCommunityPlans(force || false);
+      
+      res.json({ 
+        success: true, 
+        message: 'Community plans seeded successfully! Check the Discover Plans section.',
+        plansSeeded: 25
+      });
+    } catch (error) {
+      console.error('[ADMIN] Failed to seed community plans:', error);
+      res.status(500).json({ 
+        error: 'Failed to seed community plans',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
