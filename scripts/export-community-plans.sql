@@ -1,24 +1,20 @@
 -- Community Plans Export
--- Generated: 2025-11-09T14:05:44.978Z
+-- Generated: 2025-11-09T14:39:36.801Z
 -- Total Plans: 25
 --
 -- Instructions:
--- 1. Open your Production Database in Replit
--- 2. Copy this entire file
--- 3. Paste and execute in the SQL query panel
--- 4. Refresh your Discover Plans page
+-- 1. Open your Production Database in Replit SQL Console
+-- 2. Select ALL the SQL statements below (Ctrl/Cmd+A)
+-- 3. Run them - SQL Console will auto-wrap in a transaction
+-- 4. Refresh your Discover Plans page to see all 25 plans!
 --
 
--- Start transaction
-BEGIN;
-
--- Create community user if not exists
-INSERT INTO users (id, username, email, source, first_name, last_name)
+-- Create community user if not exists (production-compatible - no 'source' column)
+INSERT INTO users (id, username, email, first_name, last_name)
 VALUES (
   'community-plans-user',
   'community',
   'community@journalmate.demo',
-  'manual',
   'Community',
   'Creator'
 )
@@ -5224,14 +5220,11 @@ INSERT INTO activity_tasks (
 ON CONFLICT (id) DO NOTHING;
 
 
--- Commit transaction
-COMMIT;
-
--- Verify import
-SELECT 
-  COUNT(*) as total_plans,
-  COUNT(DISTINCT category) as categories
-FROM activities
-WHERE featured_in_community = true;
+-- Verify import (run this separately after the inserts complete)
+-- SELECT 
+--   COUNT(*) as total_plans,
+--   COUNT(DISTINCT category) as categories
+-- FROM activities
+-- WHERE featured_in_community = true;
 
 -- Done! Your community plans are now in production 🎉
