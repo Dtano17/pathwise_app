@@ -1422,16 +1422,14 @@ export class DatabaseStorage implements IStorage {
         eq(activities.featuredInCommunity, true)
       ));
 
-    // Apply category filter (map frontend categories to schema categories)
-    if (category && category !== 'trending') {
+    // Apply category filter
+    if (category && category !== 'trending' && category !== 'all') {
+      // Frontend categories match database categories exactly
       const categoryMap: Record<string, string> = {
         'travel': 'travel',
-        'fitness': 'health',
-        'productivity': 'work',
-        'events': 'personal',
+        'fitness': 'fitness',
         'career': 'career',
-        'home': 'home',
-        'learning': 'learning'
+        'personal': 'personal'
       };
       const dbCategory = categoryMap[category.toLowerCase()];
       if (dbCategory) {
