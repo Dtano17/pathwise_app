@@ -29,125 +29,46 @@ interface TutorialStep {
 const tutorialSteps: TutorialStep[] = [
   {
     title: "Welcome to JournalMate!",
-    description: "Your AI-powered social planning and adaptive journal. JournalMate only uses what you permit—you control what's shared and how personalized your experience is. Let's set you up for success!",
+    description: "Your AI-powered planning and journaling app. Everything flows together: Journal → AI Plans → Activities → Groups. You control what's shared and how personalized your experience is.",
     icon: Sparkles,
     tips: [
-      "This tutorial takes about 3 minutes to complete",
-      "You control your privacy and personalization level",
-      "The app only accesses what you explicitly allow",
-      "You can replay this tutorial anytime from the Tutorial badge"
+      "Quick 1-minute overview of core features",
+      "You control privacy and personalization at every step",
+      "Journal feeds AI planning, which creates activities for groups",
+      "Replay this tutorial anytime from the info icon"
     ]
   },
   {
-    title: "Start with Your Profile & Privacy",
-    description: "Your profile is the foundation. Set your priorities, define what makes you unique, and control what you share publicly. This drives how personalized your plans become.",
-    icon: UserCircle,
-    tips: [
-      "Profile tab: Add priorities like 'family time', 'career growth', 'health'",
-      "Set what defines you—the app uses this to personalize plans",
-      "Control what's public vs. private with the shield icon",
-      "Make it fun! Share what you want others to see about you",
-      "The app automatically factors your priorities into every plan"
-    ]
-  },
-  {
-    title: "Share & Collaborate—For Creators & Planners",
-    description: "Not just planning—collaborate in real-time! Plan group trips, customize share themes/backgrounds, control what's shared with gated access and customizable privacy shield. Perfect for travel agents, event planners, and lifestyle creators who want followers to instantly copy and own your plans.",
-    icon: Share2,
-    tips: [
-      "Plan group trips or adventures with real-time collaboration",
-      "Customize share preview: themes, backgrounds, tone—make it yours",
-      "Privacy Shield: Choose Public Creator (full details), Privacy-First (max protection), or Custom",
-      "AI automatically redacts names, locations, contact info, dates as you choose",
-      "Instant copy-and-own: Followers click your link and get their own editable copy",
-      "Travel agents, event planners, creators: Share openly. Others: Protect your privacy"
-    ]
-  },
-  {
-    title: "Discover & Use Community Plans",
-    description: "Browse 40+ curated plans with emoji-enhanced titles! Get inspired by FIFA World Cup ⚽, Santorini sunsets 🌅, NYC adventures 🗽, and more. One-click copy to your account, then customize to match your rhythm.",
-    icon: Globe,
-    tips: [
-      "40+ curated plans with eye-catching emoji titles (⚽ 🌅 💪 🗼 🏝️)",
-      "Filter by All, Travel, Fitness, Career, or Personal categories",
-      "Click 'Use This Plan' to instantly copy with all tasks and budget breakdown",
-      "Each plan includes 7-10 detailed tasks and realistic budget estimates",
-      "Customize any copied plan to match your priorities and style",
-      "Perfect for jumpstarting goals, trips, fitness challenges, and life events"
-    ]
-  },
-  {
-    title: "Smart Planning Agent with Live Updates",
-    description: "Our LangGraph agent creates priority-aware plans enriched with live updates. Plan a romantic date? It factors your profile, checks traffic/weather, alerts you about reservations, detects your mood, and lets you share with your date beforehand for alignment.",
+    title: "Profile & AI Planning",
+    description: "Set your priorities in Profile settings to personalize all AI plans. The AI creates smart plans with live updates (weather, traffic, reservations) and you can refine them in the same chatbox.",
     icon: Brain,
     tips: [
-      "Example: 'Plan a romantic date'—uses your profile preferences",
-      "Live updates: traffic conditions, weather forecast, venue busy-ness",
-      "Proactive alerts: 'You'll need reservations at this restaurant'",
-      "Mood detection sets the tone for success based on your style",
-      "Share with your date beforehand so you're both on the same page"
+      "Profile tab: Add priorities like 'family time' or 'fitness goals'",
+      "AI plans factor your profile and provide real-time updates",
+      "Iterate in the same chat—just describe what to change",
+      "AI automatically journals based on your task feedback"
     ]
   },
   {
-    title: "Create Action Plan (Same Chatbox Iteration)",
-    description: "Already have plan details? Use 'Create Action Plan' to instantly generate structured tasks. Then keep iterating in THE SAME chatbox—no new interface, just describe your changes and the AI refines it.",
-    icon: MessageSquare,
+    title: "Discover & Use Plans",
+    description: "Browse 40+ curated community plans (⚽ 🌅 💪 🗽) or create your own. One-click copy, then customize tasks and budgets to match your style.",
+    icon: Globe,
     tips: [
-      "Type or paste all your plan details at once",
-      "The AI generates a complete action plan with tasks",
-      "Iterate in THE SAME chatbox—just type what you want to change",
-      "When you receive a shared plan, edit it the same way",
-      "Every plan respects your profile priorities automatically"
+      "Filter by Travel, Fitness, Career, or Personal",
+      "Click 'Use This Plan' to copy with all tasks",
+      "Tag journal entries to capture preferences automatically",
+      "Plans include 7-10 tasks and realistic budgets"
     ]
   },
   {
-    title: "How It All Connects: The JournalMate Flow",
-    description: "Journal → AI Plans → Activities → Groups. Everything works together seamlessly. Your journal feeds AI planning, plans become activities with tasks, and groups let you collaborate on shared goals.",
-    icon: ArrowRight,
-    tips: [
-      "📔 Journal: Tag images with @restaurants, @travel, @music to capture preferences",
-      "🤖 AI Planning: AI uses your journal to create personalized plans",
-      "✅ Activities: Plans convert to activities with swipeable tasks",
-      "👥 Groups: Share activities with groups for collaborative planning",
-      "🔄 Full circle: Task feedback enriches your journal automatically",
-      "Example: Journal about loving chilantro → AI suggests Austin food tour → Share with 'Girls Trip' group"
-    ]
-  },
-  {
-    title: "Automatic AI Journaling",
-    description: "JournalMate does the journaling FOR YOU using AI. It learns from your task feedback (likes/dislikes), then you just tag images/videos and link activities. You choose when to add more details—let JournalMate do the rest.",
-    icon: BookOpen,
-    tips: [
-      "AI automatically journals based on your task feedback (thumbs up/down)",
-      "You just tag images/videos with @restaurants, @travel, @music, etc.",
-      "Link to activities—JournalMate enriches entries with AI",
-      "You choose when to add more details, AI handles the rest",
-      "Your journal builds over time with rich, AI-powered memories"
-    ]
-  },
-  {
-    title: "Collaborate in Groups",
-    description: "Create groups for shared goals like family trips, health challenges, or event planning. Every group requires a linked activity so everyone stays aligned on tasks and progress.",
+    title: "Share & Collaborate",
+    description: "Share activities publicly or create groups for collaborative planning. Customize share previews with Privacy Shield to control what's visible. Perfect for trip planning, events, or fitness challenges.",
     icon: Users,
     tips: [
-      "Each group MUST have a linked activity (the shared plan/goal)",
-      "Real-time activity feed shows who completed tasks and added items",
-      "Track group progress: see completed/total tasks across all members",
-      "Share community plans or personal activities to your groups",
-      "Perfect for: Girls Trip to Miami, Family Vacations, Workout Accountability",
-      "Example groups: 'Eat Healthier & Workout' with 18/25 tasks done"
-    ]
-  },
-  {
-    title: "Themes & LLM Integration",
-    description: "Set your mood or rhythm with theme customization. Integrate any LLM you prefer via copy/paste or backend integration—full flexibility for your workflow.",
-    icon: Palette,
-    tips: [
-      "Theme settings: Adjust mood, color schemes, and rhythm",
-      "Dark/Light mode toggle in the header",
-      "Integrate OpenAI, Claude, or any other LLM",
-      "Copy/paste approach or backend API integration",
-      "Customize the AI experience to match your style"
+      "Groups require a linked activity for alignment",
+      "Privacy Shield: choose what info to share publicly",
+      "Track group progress and see real-time activity feed",
+      "Followers can copy your shared plans instantly"
     ]
   }
 ];

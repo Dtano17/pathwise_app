@@ -1284,24 +1284,31 @@ export default function MainApp({
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-3">
-              {/* Tutorial/Demo Badge - Pulse for demo users who haven't seen it */}
-              <div className="relative">
-                {(user as any)?.id === 'demo-user' && !localStorage.getItem('demo-tutorial-completed') && (
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-purple-500"></span>
-                  </span>
-                )}
-                <Badge 
-                  variant="secondary" 
-                  className="gap-1 cursor-pointer hover-elevate active-elevate-2"
-                  onClick={() => setShowTutorial(true)}
-                  data-testid="button-tutorial"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  {isAuthenticated && (user as any)?.id !== 'demo-user' ? 'Tutorial' : 'Live Demo'}
-                </Badge>
-              </div>
+              {/* Help/Tutorial Icon - Pulse for demo users who haven't seen it */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="relative">
+                    {(user as any)?.id === 'demo-user' && !localStorage.getItem('demo-tutorial-completed') && (
+                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-purple-500"></span>
+                      </span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowTutorial(true)}
+                      data-testid="button-tutorial"
+                      aria-label={isAuthenticated && (user as any)?.id !== 'demo-user' ? 'Help & Tutorial' : 'Help & Live Demo'}
+                    >
+                      <Info className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isAuthenticated && (user as any)?.id !== 'demo-user' ? 'Help & Tutorial' : 'Help & Live Demo'}</p>
+                </TooltipContent>
+              </Tooltip>
               <ThemeToggle />
             </div>
           </div>
