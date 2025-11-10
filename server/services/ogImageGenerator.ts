@@ -155,6 +155,34 @@ function extractFirstEmoji(text: string): string | null {
 }
 
 /**
+ * Wrap text into multiple lines based on character limit
+ */
+function wrapText(text: string, maxCharsPerLine: number): string[] {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    
+    if (testLine.length <= maxCharsPerLine) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+      currentLine = word;
+    }
+  }
+  
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+
+/**
  * Create SVG text overlay with activity details
  */
 function createTextOverlay(
@@ -178,20 +206,39 @@ function createTextOverlay(
   // Remove emoji from title if it was extracted
   const titleWithoutEmoji = extractedEmoji ? title.replace(extractedEmoji, '').trim() : title;
   
-  // Truncate title if too long (max 50 chars for better display)
-  const displayTitle = titleWithoutEmoji.length > 50 ? titleWithoutEmoji.substring(0, 47) + '...' : titleWithoutEmoji;
+  // Wrap title to fit (max 2 lines, ~35 chars per line for 58px font)
+  const titleLines = wrapText(titleWithoutEmoji, 35);
+  const displayTitleLines = titleLines.slice(0, 2); // Max 2 lines for title
   
   // Create description with task summary
-  let displayDescription = '';
+  let fullDescription = '';
   if (description) {
-    const shortDesc = description.length > 60 ? description.substring(0, 57) + '...' : description;
-    displayDescription = `${shortDesc} • ${totalTasks} ${totalTasks === 1 ? 'task' : 'tasks'} • ${completedTasks} completed`;
+    fullDescription = `${description} • ${totalTasks} ${totalTasks === 1 ? 'task' : 'tasks'} • ${completedTasks} completed`;
   } else {
-    displayDescription = `${totalTasks} ${totalTasks === 1 ? 'task' : 'tasks'} • ${completedTasks} completed`;
+    fullDescription = `${totalTasks} ${totalTasks === 1 ? 'task' : 'tasks'} • ${completedTasks} completed`;
   }
+  
+  // Wrap description (max 2 lines, ~70 chars per line for 24px font)
+  const descriptionLines = wrapText(fullDescription, 70);
+  const displayDescriptionLines = descriptionLines.slice(0, 2); // Max 2 lines for description
 
   // Progress percentage text for prominent display
   const progressText = progressPercent === 100 ? `${progressPercent}% complete!` : `${progressPercent}% complete!`;
+
+  // Generate title tspans for multi-line text
+  const titleTspans = displayTitleLines.map((line, index) => 
+    `<tspan x="60" dy="${index === 0 ? '0' : '65'}">${escapeXml(line)}</tspan>`
+  ).join('');
+
+  // Generate description tspans for multi-line text
+  const descriptionTspans = displayDescriptionLines.map((line, index) => 
+    `<tspan x="60" dy="${index === 0 ? '0' : '32'}">${escapeXml(line)}</tspan>`
+  ).join('');
+
+  // Calculate vertical spacing based on number of lines
+  const titleHeight = 180 + (displayTitleLines.length - 1) * 65;
+  const descriptionY = titleHeight + 80;
+  const progressY = descriptionY + (displayDescriptionLines.length) * 32 + 60;
 
   return `
     <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
@@ -202,19 +249,6 @@ function createTextOverlay(
           <stop offset="40%" style="stop-color:rgba(0,0,0,0.65);stop-opacity:1" />
           <stop offset="100%" style="stop-color:rgba(0,0,0,0.80);stop-opacity:1" />
         </linearGradient>
-        
-        <!-- Multi-layer text shadow filter for maximum readability -->
-        <filter id="strongShadow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
-          <feOffset dx="2" dy="2" result="offsetblur"/>
-          <feComponentTransfer>
-            <feFuncA type="linear" slope="0.8"/>
-          </feComponentTransfer>
-          <feMerge>
-            <feMergeNode/>
-            <feMergeNode in="SourceGraphic"/>
-          </feMerge>
-        </filter>
       </defs>
 
       <!-- Overlay gradient -->
@@ -228,23 +262,24 @@ function createTextOverlay(
         Adaptive Planning Engine | Transform Dreams into Reality
       </text>
 
-      <!-- Main Content: Emoji and Title -->
+      <!-- Main Content: Emoji -->
       <text x="60" y="145" font-family="Arial, sans-serif" font-size="85" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.8);">
-        ${displayEmoji}
+        ${escapeXml(displayEmoji)}
       </text>
 
+      <!-- Title (multi-line with tspan) -->
       <text x="60" y="235" font-family="Arial, sans-serif" font-size="58" font-weight="bold" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5);">
-        ${displayTitle}
+        ${titleTspans}
       </text>
 
-      <!-- Description with task summary -->
-      <text x="60" y="285" font-family="Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.95)" font-weight="400" style="text-shadow: 0 3px 8px rgba(0,0,0,0.8), 0 1px 3px rgba(0,0,0,0.9);">
-        ${displayDescription}
+      <!-- Description with task summary (multi-line with tspan) -->
+      <text x="60" y="${descriptionY}" font-family="Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.95)" font-weight="400" style="text-shadow: 0 3px 8px rgba(0,0,0,0.8), 0 1px 3px rgba(0,0,0,0.9);">
+        ${descriptionTspans}
       </text>
 
       <!-- Prominent Progress Display -->
-      <text x="60" y="360" font-family="Arial, sans-serif" font-size="48" font-weight="700" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.8);">
-        ${progressText}
+      <text x="60" y="${progressY}" font-family="Arial, sans-serif" font-size="48" font-weight="700" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.8);">
+        ${escapeXml(progressText)}
       </text>
 
       <!-- Bottom Branding Bar with subtle gradient -->
@@ -259,6 +294,18 @@ function createTextOverlay(
       </text>
     </svg>
   `;
+}
+
+/**
+ * Escape XML special characters for SVG text content
+ */
+function escapeXml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 /**
@@ -350,11 +397,24 @@ async function createFallbackImage(activity: Activity, tasks: Task[]): Promise<B
   
   // Remove emoji from title if it was extracted
   const titleWithoutEmoji = extractedEmoji ? title.replace(extractedEmoji, '').trim() : title;
-  const displayTitle = titleWithoutEmoji.length > 50 ? titleWithoutEmoji.substring(0, 47) + '...' : titleWithoutEmoji;
+  
+  // Wrap title to fit (max 2 lines, ~35 chars per line for 58px font)
+  const titleLines = wrapText(titleWithoutEmoji, 35);
+  const displayTitleLines = titleLines.slice(0, 2);
 
   // Create description with task summary
   const taskSummary = `${totalTasks} ${totalTasks === 1 ? 'task' : 'tasks'} • ${completedTasks} completed`;
   const progressText = `${progressPercent}% complete!`;
+
+  // Generate title tspans for multi-line text
+  const titleTspans = displayTitleLines.map((line, index) => 
+    `<tspan x="60" dy="${index === 0 ? '0' : '65'}">${escapeXml(line)}</tspan>`
+  ).join('');
+
+  // Calculate vertical spacing
+  const titleHeight = 180 + (displayTitleLines.length - 1) * 65;
+  const taskSummaryY = titleHeight + 80;
+  const progressY = taskSummaryY + 75;
 
   const svg = `
     <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
@@ -377,19 +437,20 @@ async function createFallbackImage(activity: Activity, tasks: Task[]): Promise<B
 
       <!-- Main Content -->
       <text x="60" y="145" font-family="Arial, sans-serif" font-size="85" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.6);">
-        ${displayEmoji}
+        ${escapeXml(displayEmoji)}
       </text>
 
+      <!-- Title (multi-line with tspan) -->
       <text x="60" y="235" font-family="Arial, sans-serif" font-size="58" font-weight="bold" fill="white" style="text-shadow: 0 4px 12px rgba(0,0,0,0.6);">
-        ${displayTitle}
+        ${titleTspans}
       </text>
 
-      <text x="60" y="285" font-family="Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.95)" style="text-shadow: 0 3px 8px rgba(0,0,0,0.5);">
-        ${taskSummary}
+      <text x="60" y="${taskSummaryY}" font-family="Arial, sans-serif" font-size="24" fill="rgba(255,255,255,0.95)" style="text-shadow: 0 3px 8px rgba(0,0,0,0.5);">
+        ${escapeXml(taskSummary)}
       </text>
 
-      <text x="60" y="360" font-family="Arial, sans-serif" font-size="48" fill="white" font-weight="700" style="text-shadow: 0 4px 12px rgba(0,0,0,0.6);">
-        ${progressText}
+      <text x="60" y="${progressY}" font-family="Arial, sans-serif" font-size="48" fill="white" font-weight="700" style="text-shadow: 0 4px 12px rgba(0,0,0,0.6);">
+        ${escapeXml(progressText)}
       </text>
 
       <!-- Bottom Branding Bar -->
