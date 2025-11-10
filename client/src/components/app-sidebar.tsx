@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap, Moon, LineChart } from 'lucide-react';
+import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap, Moon, LineChart, Mail } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 import { Link } from 'wouter';
@@ -443,6 +443,19 @@ export function AppSidebar({
                       >
                         <Settings className="w-4 h-4" />
                         Settings
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        asChild
+                        className="w-full justify-start gap-2"
+                        data-testid="button-email-test"
+                      >
+                        <Link href="/email-test">
+                          <Mail className="w-4 h-4" />
+                          Test Welcome Email
+                        </Link>
                       </Button>
                     </div>
                     
