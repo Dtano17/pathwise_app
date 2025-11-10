@@ -69,8 +69,8 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
         border-radius: 0 !important;
       }
       .logo-img {
-        width: 80px !important;
-        height: 80px !important;
+        width: 60px !important;
+        height: 60px !important;
       }
       .header-padding {
         padding: 35px 20px !important;
@@ -120,7 +120,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
           <!-- Header -->
           <tr>
             <td class="header-padding" style="background-color: #8b5cf6; background-image: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #7c3aed 100%); padding: 50px 40px; text-align: center;">
-              ${logoURL ? `<img src="${logoURL}" alt="JournalMate Logo" class="logo-img" style="width: 100px; height: 100px; margin: 0 auto 20px; display: block; border-radius: 50%;" />` : ''}
+              ${logoURL ? `<img src="${logoURL}" alt="JournalMate Logo" class="logo-img" style="width: 80px; height: 80px; margin: 0 auto 20px; display: block;" />` : ''}
               <h1 style="margin: 0 0 12px; color: #ffffff; font-size: 36px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2;">Welcome to JournalMate</h1>
               <p style="margin: 0; color: #e9d5ff; font-size: 18px; font-weight: 500; line-height: 1.4;">Your personal planning companion that adapts to your rhythm</p>
             </td>
