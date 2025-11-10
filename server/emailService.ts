@@ -40,8 +40,20 @@ export async function getUncachableResendClient() {
   };
 }
 
+// Get base URL for email assets
+function getBaseURL(): string {
+  if (process.env.REPLIT_DEPLOYMENT === '1') {
+    const domains = process.env.REPLIT_DOMAINS?.split(',')[0];
+    return domains ? `https://${domains}` : '';
+  }
+  return process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : '';
+}
+
 // Welcome email template - Mobile Responsive
 export function getWelcomeEmailHTML(firstName: string = 'there') {
+  const baseURL = getBaseURL();
+  const logoURL = baseURL ? `${baseURL}/journalmate-logo-email.png` : '';
+  
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -55,6 +67,10 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
       .email-container {
         width: 100% !important;
         border-radius: 0 !important;
+      }
+      .logo-img {
+        width: 80px !important;
+        height: 80px !important;
       }
       .header-padding {
         padding: 35px 20px !important;
@@ -104,6 +120,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
           <!-- Header -->
           <tr>
             <td class="header-padding" style="background-color: #8b5cf6; background-image: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #7c3aed 100%); padding: 50px 40px; text-align: center;">
+              ${logoURL ? `<img src="${logoURL}" alt="JournalMate Logo" class="logo-img" style="width: 100px; height: 100px; margin: 0 auto 20px; display: block; border-radius: 50%;" />` : ''}
               <h1 style="margin: 0 0 12px; color: #ffffff; font-size: 36px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2;">Welcome to JournalMate</h1>
               <p style="margin: 0; color: #e9d5ff; font-size: 18px; font-weight: 500; line-height: 1.4;">Your personal planning companion that adapts to your rhythm</p>
             </td>
