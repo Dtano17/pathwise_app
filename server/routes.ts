@@ -4079,6 +4079,38 @@ ${emoji} ${progressLine}
     }
   });
 
+  // Test email endpoint - requires authentication
+  app.post("/api/test-email", async (req, res) => {
+    const userId = getUserId(req);
+    
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Authentication required',
+        message: 'You must be signed in to send test emails'
+      });
+    }
+    
+    try {
+      const { email, firstName } = req.body;
+      if (!email) {
+        return res.status(400).json({ success: false, error: 'Email is required' });
+      }
+      
+      console.log('[TEST EMAIL] Sending test welcome email to:', email, 'for user:', userId);
+      const result = await sendWelcomeEmail(email, firstName || 'there');
+      
+      if (result.success) {
+        res.json({ success: true, message: 'Test welcome email sent successfully!', emailId: result.emailId });
+      } else {
+        res.status(500).json({ success: false, error: result.error || 'Failed to send email' });
+      }
+    } catch (error: any) {
+      console.error('[TEST EMAIL] Error:', error);
+      res.status(500).json({ success: false, error: error.message || 'Failed to send test email' });
+    }
+  });
+
   // Increment activity views
   app.post("/api/activities/:activityId/increment-views", async (req, res) => {
     try {
