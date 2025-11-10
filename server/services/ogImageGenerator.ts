@@ -156,6 +156,7 @@ function extractFirstEmoji(text: string): string | null {
 
 /**
  * Wrap text into multiple lines based on character limit
+ * Handles long words by breaking them at the character limit
  */
 function wrapText(text: string, maxCharsPerLine: number): string[] {
   const words = text.split(' ');
@@ -163,6 +164,26 @@ function wrapText(text: string, maxCharsPerLine: number): string[] {
   let currentLine = '';
 
   for (const word of words) {
+    // If a single word is longer than the limit, break it up
+    if (word.length > maxCharsPerLine) {
+      // Push current line if it has content
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = '';
+      }
+      
+      // Break the long word into chunks
+      let remainingWord = word;
+      while (remainingWord.length > maxCharsPerLine) {
+        lines.push(remainingWord.substring(0, maxCharsPerLine));
+        remainingWord = remainingWord.substring(maxCharsPerLine);
+      }
+      
+      // Set the remaining part as the current line
+      currentLine = remainingWord;
+      continue;
+    }
+    
     const testLine = currentLine ? `${currentLine} ${word}` : word;
     
     if (testLine.length <= maxCharsPerLine) {
@@ -208,7 +229,13 @@ function createTextOverlay(
   
   // Wrap title to fit (max 2 lines, ~35 chars per line for 58px font)
   const titleLines = wrapText(titleWithoutEmoji, 35);
-  const displayTitleLines = titleLines.slice(0, 2); // Max 2 lines for title
+  let displayTitleLines = titleLines.slice(0, 2); // Max 2 lines for title
+  
+  // If title was truncated, add ellipsis to last line
+  if (titleLines.length > 2 && displayTitleLines.length === 2) {
+    const lastLine = displayTitleLines[1];
+    displayTitleLines[1] = lastLine.substring(0, Math.max(0, lastLine.length - 3)) + '...';
+  }
   
   // Create description with task summary
   let fullDescription = '';
@@ -220,7 +247,13 @@ function createTextOverlay(
   
   // Wrap description (max 2 lines, ~70 chars per line for 24px font)
   const descriptionLines = wrapText(fullDescription, 70);
-  const displayDescriptionLines = descriptionLines.slice(0, 2); // Max 2 lines for description
+  let displayDescriptionLines = descriptionLines.slice(0, 2); // Max 2 lines for description
+  
+  // If description was truncated, add ellipsis to last line
+  if (descriptionLines.length > 2 && displayDescriptionLines.length === 2) {
+    const lastLine = displayDescriptionLines[1];
+    displayDescriptionLines[1] = lastLine.substring(0, Math.max(0, lastLine.length - 3)) + '...';
+  }
 
   // Progress percentage text for prominent display
   const progressText = progressPercent === 100 ? `${progressPercent}% complete!` : `${progressPercent}% complete!`;
@@ -400,7 +433,13 @@ async function createFallbackImage(activity: Activity, tasks: Task[]): Promise<B
   
   // Wrap title to fit (max 2 lines, ~35 chars per line for 58px font)
   const titleLines = wrapText(titleWithoutEmoji, 35);
-  const displayTitleLines = titleLines.slice(0, 2);
+  let displayTitleLines = titleLines.slice(0, 2);
+  
+  // If title was truncated, add ellipsis to last line
+  if (titleLines.length > 2 && displayTitleLines.length === 2) {
+    const lastLine = displayTitleLines[1];
+    displayTitleLines[1] = lastLine.substring(0, Math.max(0, lastLine.length - 3)) + '...';
+  }
 
   // Create description with task summary
   const taskSummary = `${totalTasks} ${totalTasks === 1 ? 'task' : 'tasks'} • ${completedTasks} completed`;
