@@ -27,8 +27,26 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // Capacitor compatibility: use relative paths
+    base: './',
+    // Optimize for mobile
+    target: 'es2015',
+    minify: 'terser',
+    cssCodeSplit: true,
+    rollupOptions: {
+      output: {
+        // Improve caching with content hashing
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]',
+      },
+    },
   },
   server: {
+    // Allow access from mobile devices on local network
+    host: true,
+    port: 5173,
+    strictPort: false,
     fs: {
       strict: true,
       deny: ["**/.*"],

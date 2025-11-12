@@ -70,8 +70,8 @@ export default function SubscriptionCanceled() {
           <div className="text-center text-sm text-muted-foreground pt-4 border-t">
             <p>
               Questions? Contact us at{' '}
-              <a href="mailto:support@intentai.com" className="text-primary hover:underline">
-                support@intentai.com
+              <a href="mailto:support@journalmate.ai" className="text-primary hover:underline">
+                support@journalmate.ai
               </a>
             </p>
           </div>

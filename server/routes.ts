@@ -1762,7 +1762,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: DEMO_USER_ID,
         username: "demo_user",
         password: "demo_password",
-        email: "demo@journalmate.com",
+        email: "demo@journalmate.ai",
         firstName: "Demo",
         lastName: "User"
       });
@@ -7763,16 +7763,16 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         <h2>9. Contact Us</h2>
         <p>If you have any questions about this privacy policy or how we handle your data, please contact us:</p>
         <ul>
-            <li><strong>Email:</strong> privacy@journalmate.app</li>
-            <li><strong>Data Protection Officer:</strong> dpo@journalmate.app</li>
+            <li><strong>Email:</strong> support@journalmate.ai</li>
+            <li><strong>Data Protection Officer:</strong> support@journalmate.ai</li>
             <li><strong>Address:</strong> [Your Business Address]</li>
         </ul>
-        
+
         <p><strong>Data Deletion Requests:</strong> You can request deletion of your data by:</p>
         <ul>
             <li>Using the "Delete Account" option in your profile settings</li>
             <li>Visiting: <a href="${req.protocol}://${req.get('host')}/data-deletion">Data Deletion Request Form</a></li>
-            <li>Emailing us at: delete@journalmate.app</li>
+            <li>Emailing us at: support@journalmate.ai</li>
         </ul>
     </div>
     
@@ -7906,7 +7906,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     </form>
     
     <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #eee; text-align: center; color: #666;">
-        <p>Need help? Contact us at <a href="mailto:privacy@journalmate.app">privacy@journalmate.app</a></p>
+        <p>Need help? Contact us at <a href="mailto:support@journalmate.ai">support@journalmate.ai</a></p>
         <p><a href="/privacy-policy">Privacy Policy</a> | <a href="/">Back to JournalMate</a></p>
     </div>
     
@@ -7988,7 +7988,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       console.error('Data deletion request error:', error);
       res.status(500).json({ 
         error: 'Failed to process deletion request',
-        message: 'Please try again or contact support at privacy@journalmate.app'
+        message: 'Please try again or contact support at support@journalmate.ai'
       });
     }
   });

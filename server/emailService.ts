@@ -309,7 +309,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                   Need help or want to share feedback?
                 </p>
                 <p style="margin: 0; color: #6b7280; font-size: 15px; line-height: 1.5;">
-                  We're here for you: <a href="mailto:journamate@gmail.com" style="color: #8b5cf6; text-decoration: none; font-weight: 600;">journamate@gmail.com</a>
+                  We're here for you: <a href="mailto:support@journalmate.ai" style="color: #8b5cf6; text-decoration: none; font-weight: 600;">support@journalmate.ai</a>
                 </p>
               </div>
             </td>

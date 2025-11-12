@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, Sparkles, type LucideIcon } from 'lucide-react';
-import journalMateLogo from '@assets/Export_JournalMate_2_1760772138217.png';
+const journalMateLogo = '/journalmate-logo-transparent.png';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import {

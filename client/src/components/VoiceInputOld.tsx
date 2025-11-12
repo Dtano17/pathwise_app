@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import journalMateIcon from "@assets/journalmate-icon.png";
+const journalMateIcon = "/journalmate-icon.png";
 
 // TypeScript declarations for Speech Recognition API
 declare global {

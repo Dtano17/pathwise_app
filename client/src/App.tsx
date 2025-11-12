@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -19,6 +19,7 @@ import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
 import { useAuth } from "@/hooks/useAuth";
 import { UpgradeModal } from "@/components/UpgradeModal";
+import { initializeMobileFeatures } from "@/lib/mobile";
 
 function AppContent() {
   // Get authenticated user
@@ -133,6 +134,11 @@ function AppContent() {
 }
 
 function App() {
+  // Initialize mobile features on app startup
+  useEffect(() => {
+    initializeMobileFeatures().catch(console.error);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AppContent />
