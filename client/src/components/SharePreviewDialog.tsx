@@ -75,6 +75,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
   });
   const [redactedPreview, setRedactedPreview] = useState<{ title: string; tasks: { title: string }[] } | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
+  const [publishToCommunity, setPublishToCommunity] = useState(false);
   const [createGroup, setCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
@@ -86,6 +87,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
     setShareTitle(activity.shareTitle || activity.planSummary || activity.title);
     setBackdrop(activity.backdrop || '');
     setCustomBackdrop('');
+    setPublishToCommunity(false);
     setCreateGroup(false);
     setGroupName('');
     setGroupDescription('');
@@ -110,6 +112,28 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         backdrop: backdrop || null
       };
       await apiRequest('PUT', `/api/activities/${activity.id}`, updates);
+
+      // Publish to community if requested
+      let publishedToCommunity = false;
+      if (publishToCommunity) {
+        const publishResponse = await fetch(`/api/activities/${activity.id}/publish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            privacySettings,
+            privacyPreset
+          })
+        });
+        
+        if (!publishResponse.ok) {
+          const error = await publishResponse.json();
+          throw new Error(error.error || 'Failed to publish to community');
+        }
+        
+        const publishData = await publishResponse.json();
+        publishedToCommunity = publishData.publishedToCommunity || false;
+      }
 
       // Then trigger share with optional group creation
       const shareData: any = {
@@ -139,24 +163,27 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         throw new Error(data.error || 'Failed to share activity');
       }
 
-      return data;
+      return { ...data, publishedToCommunity };
     },
     onSuccess: async (data: any) => {
       // Wait for cache invalidation to complete
       await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/community-plans'] });
       
       // Show success message
-      if (data.groupCreated) {
-        toast({
-          title: 'Success!',
-          description: 'Activity shared and group created successfully!',
-        });
-      } else {
-        toast({
-          title: 'Success!',
-          description: 'Activity shared successfully!',
-        });
+      let description = 'Activity shared successfully!';
+      if (data.publishedToCommunity && data.groupCreated) {
+        description = 'Activity published to Community Discovery and group created!';
+      } else if (data.publishedToCommunity) {
+        description = 'Activity published to Community Discovery!';
+      } else if (data.groupCreated) {
+        description = 'Activity shared and group created successfully!';
       }
+      
+      toast({
+        title: 'Success!',
+        description,
+      });
       
       // Pass the updated values AND shareableLink to parent
       onConfirmShare({ shareTitle, backdrop, shareableLink: data.shareableLink, socialText: data.socialText });
@@ -581,6 +608,36 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
               )}
             </div>
           )}
+
+          {/* Publish to Community Discovery */}
+          <div className="space-y-3 border-t pt-4">
+            <div className="flex items-center gap-2">
+              <Checkbox 
+                id="publish-community"
+                checked={publishToCommunity}
+                onCheckedChange={(checked) => setPublishToCommunity(checked as boolean)}
+                data-testid="checkbox-publish-community"
+              />
+              <Label htmlFor="publish-community" className="flex items-center gap-2 cursor-pointer">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span className="font-medium">Publish to Community Discovery</span>
+              </Label>
+            </div>
+            
+            {publishToCommunity && (
+              <div className="pl-6 space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Your plan will be featured in the Community Discovery section for others to explore and use.
+                </p>
+                {privacyPreset === 'off' && (
+                  <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <ShieldCheck className="w-4 h-4" />
+                    Tip: Enable Privacy Shield above to protect personal details before publishing.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Group Creation Section */}
           <div className="space-y-3 border-t pt-4">

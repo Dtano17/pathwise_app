@@ -3289,6 +3289,115 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
     }
   });
 
+  // Publish activity to Community Discovery
+  app.post("/api/activities/:activityId/publish", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { privacySettings, privacyPreset } = req.body;
+
+      // Get activity and its tasks
+      const activity = await storage.getActivityById(activityId, userId);
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      const tasks = await storage.getTasksByActivity(activityId, userId);
+
+      // Get user info for creator display
+      const user = await storage.getUser(userId);
+      const creatorName = user?.username || 'Anonymous';
+      const creatorAvatar = user?.profileImage || null;
+
+      // Apply privacy redaction if needed
+      let publicTitle = activity.title;
+      let publicDescription = activity.description;
+      let publicPlanSummary = activity.planSummary;
+
+      if (privacyPreset && privacyPreset !== 'off' && privacySettings) {
+        // Build AI prompt for redaction
+        const redactionInstructions: string[] = [];
+        if (privacySettings.redactNames) {
+          redactionInstructions.push("Replace exact names with generic terms like 'Someone', 'Friend', 'A person'");
+        }
+        if (privacySettings.redactLocations) {
+          redactionInstructions.push("Replace exact addresses with city only or generic 'A location in [city]', 'A restaurant', 'A venue'");
+        }
+        if (privacySettings.redactContact) {
+          redactionInstructions.push("Remove or replace phone numbers and email addresses with [Contact Info]");
+        }
+        if (privacySettings.redactDates) {
+          redactionInstructions.push("Generalize specific dates/times to 'morning', 'afternoon', 'evening', 'this week', etc.");
+        }
+        if (privacySettings.redactContext) {
+          redactionInstructions.push("Remove or generalize personal context like family member names, medical information, personal relationships");
+        }
+
+        const prompt = `You are a privacy protection assistant. Review the following activity and redact sensitive information according to these rules:
+
+${redactionInstructions.map((rule, i) => `${i + 1}. ${rule}`).join('\n')}
+
+Activity Title: ${activity.title}
+Activity Description: ${activity.description || 'None'}
+Plan Summary: ${activity.planSummary || 'None'}
+
+Return a JSON object with redacted versions in this exact format:
+{
+  "title": "redacted title",
+  "description": "redacted description or null",
+  "planSummary": "redacted summary or null"
+}
+
+IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness of the content.`;
+
+        // Call LLM for redaction
+        const llmProvider = getLLMProvider('openai-mini');
+        const messages = [
+          { role: 'system' as const, content: 'You are a privacy protection assistant that redacts PII/PHI from content while preserving usefulness.' },
+          { role: 'user' as const, content: prompt }
+        ];
+
+        const response = await llmProvider.generateChatCompletion(messages, {
+          temperature: 0.3,
+          max_tokens: 2000
+        });
+
+        // Validate JSON response
+        try {
+          const redactedData = JSON.parse(response);
+          publicTitle = redactedData.title || activity.title;
+          publicDescription = redactedData.description || activity.description;
+          publicPlanSummary = redactedData.planSummary || activity.planSummary;
+        } catch (parseError) {
+          console.error('Publish redaction JSON parse error:', parseError);
+          // Fall back to original content if redaction fails
+        }
+      }
+
+      // Update activity to publish to community
+      const updatedActivity = await storage.updateActivity(activityId, {
+        featuredInCommunity: true,
+        creatorName,
+        creatorAvatar,
+        // Store privacy settings for reference
+        shareTitle: publicTitle !== activity.title ? publicTitle : activity.shareTitle,
+      }, userId);
+
+      if (!updatedActivity) {
+        return res.status(500).json({ error: 'Failed to publish activity' });
+      }
+
+      res.json({
+        success: true,
+        publishedToCommunity: true,
+        activity: updatedActivity
+      });
+    } catch (error) {
+      console.error('Publish activity error:', error);
+      res.status(500).json({ error: 'Failed to publish activity to community' });
+    }
+  });
+
   // DEPRECATED: This endpoint has been replaced with the unified endpoint below
   // that uses the inheritActivityToGroup helper function
   /*
@@ -3588,8 +3697,32 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
   app.post("/api/activities/:activityId/share", async (req, res) => {
     try {
       const { activityId } = req.params;
-      const { groupId, targetGroupId } = req.body;
+      const { groupId, targetGroupId, createGroup, groupName, groupDescription } = req.body;
       const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Check subscription tier if creating group
+      if (createGroup) {
+        const tierCheck = await checkSubscriptionTier(userId, 'family');
+        if (!tierCheck.allowed) {
+          return res.status(403).json({ 
+            error: 'Subscription required',
+            message: tierCheck.message,
+            requiredTier: 'family',
+            currentTier: tierCheck.tier
+          });
+        }
+        
+        // Validate group creation fields
+        if (!groupName || groupName.trim().length === 0) {
+          return res.status(400).json({ error: 'Group name is required' });
+        }
+        if (groupName.length > 100) {
+          return res.status(400).json({ error: 'Group name cannot exceed 100 characters' });
+        }
+        if (groupDescription && groupDescription.length > 500) {
+          return res.status(400).json({ error: 'Group description cannot exceed 500 characters' });
+        }
+      }
       
       // Check if activity exists
       const activity = await storage.getActivity(activityId, userId);
