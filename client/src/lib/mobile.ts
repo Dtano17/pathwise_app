@@ -5,8 +5,8 @@
  * Provides a single import for all native capabilities
  */
 
-// Platform detection
-export {
+// Import all platform detection functions
+import {
   isNative,
   isIOS,
   isAndroid,
@@ -20,8 +20,8 @@ export {
   isPluginAvailable,
 } from './platform';
 
-// Push Notifications
-export {
+// Import notifications
+import {
   requestNotificationPermission,
   checkNotificationPermission,
   initializePushNotifications,
@@ -32,8 +32,8 @@ export {
   unregisterDevice,
 } from './notifications';
 
-// Camera & Photos
-export {
+// Import camera functions
+import {
   capturePhoto,
   takePhoto,
   selectFromGallery,
@@ -43,8 +43,8 @@ export {
   requestCameraPermissions,
 } from './camera';
 
-// Social Sharing
-export {
+// Import sharing functions
+import {
   share,
   shareActivity,
   shareJournal,
@@ -59,8 +59,8 @@ export {
   SocialPlatforms,
 } from './sharing';
 
-// Contacts
-export {
+// Import contacts functions
+import {
   requestContactsPermission,
   checkContactsPermission,
   getContacts,
@@ -72,8 +72,8 @@ export {
   getContactsOnJournalMate,
 } from './contacts';
 
-// Storage & Offline
-export {
+// Import storage functions
+import {
   saveData,
   loadData,
   removeData,
@@ -92,8 +92,8 @@ export {
   getStorageInfo,
 } from './storage';
 
-// Haptic Feedback
-export {
+// Import haptics functions
+import {
   triggerHaptic,
   hapticsLight,
   hapticsMedium,
@@ -112,8 +112,8 @@ export {
   isHapticsSupported,
 } from './haptics';
 
-// Geolocation
-export {
+// Import geolocation functions
+import {
   requestLocationPermission,
   checkLocationPermission,
   getCurrentLocation,
@@ -128,6 +128,101 @@ export {
   openInMaps,
 } from './geolocation';
 
+// Re-export everything as named exports
+export {
+  isNative,
+  isIOS,
+  isAndroid,
+  isWeb,
+  isMobile,
+  isTablet,
+  getPlatform,
+  getPlatformName,
+  getPlatformConfig,
+  platformSwitch,
+  isPluginAvailable,
+  requestNotificationPermission,
+  checkNotificationPermission,
+  initializePushNotifications,
+  showLocalNotification,
+  scheduleReminder,
+  cancelNotification,
+  getPendingNotifications,
+  unregisterDevice,
+  capturePhoto,
+  takePhoto,
+  selectFromGallery,
+  selectMultiplePhotos,
+  compressPhoto,
+  isCameraAvailable,
+  requestCameraPermissions,
+  share,
+  shareActivity,
+  shareJournal,
+  shareAchievement,
+  shareAppInvite,
+  shareToSocialMedia,
+  shareViaMessage,
+  canShareContent,
+  generateActivityShareLink,
+  generateJournalShareLink,
+  copyToClipboard,
+  SocialPlatforms,
+  requestContactsPermission,
+  checkContactsPermission,
+  getContacts,
+  searchContacts,
+  getContactById,
+  pickContact,
+  inviteContacts,
+  syncContactsWithServer,
+  getContactsOnJournalMate,
+  saveData,
+  loadData,
+  removeData,
+  clearAllData,
+  saveFile,
+  readFile,
+  deleteFile,
+  fileExists,
+  cacheData,
+  getCachedData,
+  saveJournalOffline,
+  getOfflineJournals,
+  syncOfflineJournals,
+  saveImageToCache,
+  getImageFromCache,
+  getStorageInfo,
+  triggerHaptic,
+  hapticsLight,
+  hapticsMedium,
+  hapticsHeavy,
+  hapticsSuccess,
+  hapticsWarning,
+  hapticsError,
+  hapticsSelection,
+  hapticsButtonPress,
+  hapticsToggle,
+  hapticsTaskComplete,
+  hapticsDelete,
+  hapticsSwipe,
+  hapticsRefresh,
+  hapticsLongPress,
+  isHapticsSupported,
+  requestLocationPermission,
+  checkLocationPermission,
+  getCurrentLocation,
+  watchLocation,
+  clearLocationWatch,
+  calculateDistance,
+  formatDistance,
+  getAddressFromCoordinates,
+  getCurrentLocationWithAddress,
+  isNearLocation,
+  generateMapsLink,
+  openInMaps,
+};
+
 // Convenience re-exports of types
 export type { NotificationPermissionStatus } from './notifications';
 export type { CameraOptions, CapturedPhoto } from './camera';
@@ -141,13 +236,8 @@ export type { LocationCoords, LocationWithAddress } from './geolocation';
  * Initialize all mobile features on app startup
  */
 export async function initializeMobileFeatures() {
-  const { isNative } = await import('./platform');
-  const { initializePushNotifications } = await import('./notifications');
-
   if (isNative()) {
-    // Initialize push notifications
     initializePushNotifications();
-
     console.log('Mobile features initialized');
   }
 }
