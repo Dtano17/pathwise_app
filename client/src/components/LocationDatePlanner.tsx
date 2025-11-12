@@ -254,30 +254,32 @@ export default function LocationDatePlanner({ onPlanGenerated }: LocationDatePla
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
       <div className="text-center">
-        <h2 className="text-2xl font-bold mb-2 flex items-center justify-center gap-2">
-          <Heart className="w-6 h-6 text-pink-500" />
-          Perfect Date Night Planner
-          <Badge variant="secondary" className="gap-1">
-            <FlaskConical className="h-3 w-3" />
-            Beta
-          </Badge>
+        <h2 className="text-lg sm:text-2xl font-bold mb-2 flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
+          <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-pink-500" />
+          <span className="flex items-center gap-1.5 sm:gap-2">
+            Perfect Date Night Planner
+            <Badge variant="secondary" className="gap-1">
+              <FlaskConical className="h-3 w-3" />
+              Beta
+            </Badge>
+          </span>
         </h2>
-        <p className="text-muted-foreground">
+        <p className="text-sm sm:text-base text-muted-foreground px-2">
           Find amazing places nearby and create the perfect date itinerary. Now featuring real restaurants from your journal!
         </p>
       </div>
 
       {/* Location Access */}
       {locationStatus === 'idle' && (
-        <Card className="p-6 text-center">
-          <MapPin className="w-12 h-12 text-primary mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Find Perfect Places Nearby</h3>
-          <p className="text-muted-foreground mb-4">
+        <Card className="p-4 sm:p-6 text-center">
+          <MapPin className="w-10 h-10 sm:w-12 sm:h-12 text-primary mx-auto mb-3 sm:mb-4" />
+          <h3 className="text-base sm:text-lg font-semibold mb-2">Find Perfect Places Nearby</h3>
+          <p className="text-sm sm:text-base text-muted-foreground mb-3 sm:mb-4 px-2">
             Allow location access to discover the best date spots around you
           </p>
-          <Button onClick={requestLocation} className="gap-2" data-testid="button-request-location">
+          <Button onClick={requestLocation} className="gap-2 w-full sm:w-auto" data-testid="button-request-location">
             <Navigation className="w-4 h-4" />
             Find Places Near Me
           </Button>
@@ -294,21 +296,21 @@ export default function LocationDatePlanner({ onPlanGenerated }: LocationDatePla
       {(locationStatus === 'granted' || locationStatus === 'denied') && (
         <>
           {/* Theme Selection */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Choose Your Date Theme</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="space-y-3 sm:space-y-4">
+            <h3 className="text-base sm:text-lg font-semibold">Choose Your Date Theme</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
               {dateThemes.map((theme) => (
                 <Button
                   key={theme.id}
                   variant={selectedTheme === theme.id ? "default" : "outline"}
-                  className="h-auto p-4 flex-col gap-2"
+                  className="h-auto p-3 sm:p-4 flex-col gap-1.5 sm:gap-2"
                   onClick={() => setSelectedTheme(theme.id)}
                   data-testid={`button-theme-${theme.id}`}
                 >
-                  <theme.icon className="w-5 h-5" />
+                  <theme.icon className="w-4 h-4 sm:w-5 sm:h-5" />
                   <div className="text-center">
-                    <div className="font-medium">{theme.name}</div>
-                    <div className="text-xs text-muted-foreground">{theme.description}</div>
+                    <div className="text-sm sm:text-base font-medium">{theme.name}</div>
+                    <div className="text-[10px] sm:text-xs text-muted-foreground">{theme.description}</div>
                   </div>
                 </Button>
               ))}
@@ -320,10 +322,10 @@ export default function LocationDatePlanner({ onPlanGenerated }: LocationDatePla
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-4"
+              className="space-y-3 sm:space-y-4"
             >
-              <h3 className="text-lg font-semibold">Select Your Date Spots</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <h3 className="text-base sm:text-lg font-semibold">Select Your Date Spots</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 {getThemeVenues(selectedTheme).map((venue) => {
                   const VenueIcon = getVenueIcon(venue.type);
                   const isSelected = selectedVenues.find(v => v.id === venue.id);
@@ -331,35 +333,39 @@ export default function LocationDatePlanner({ onPlanGenerated }: LocationDatePla
                   return (
                     <Card
                       key={venue.id}
-                      className={`p-4 cursor-pointer transition-all duration-200 hover-elevate ${
+                      className={`p-3 sm:p-4 cursor-pointer transition-all duration-200 hover-elevate ${
                         isSelected ? 'ring-2 ring-primary shadow-lg bg-primary/5' : ''
                       }`}
                       onClick={() => toggleVenue(venue)}
                     >
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <VenueIcon className="w-5 h-5 text-primary" />
-                            <div>
-                              <h4 className="font-semibold">{venue.name}</h4>
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                      <div className="space-y-2 sm:space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                            <VenueIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-sm sm:text-base font-semibold truncate">{venue.name}</h4>
+                              <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground flex-wrap">
+                                <Star className="w-3 h-3 fill-yellow-400 text-yellow-400 flex-shrink-0" />
                                 <span>{venue.rating}</span>
-                                <span>•</span>
-                                <span>{venue.distance}</span>
+                                {venue.distance && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="truncate">{venue.distance}</span>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
-                          <Badge variant="outline">{venue.priceRange}</Badge>
+                          <Badge variant="outline" className="text-xs flex-shrink-0">{venue.priceRange}</Badge>
                         </div>
                         
-                        <p className="text-sm text-muted-foreground">{venue.description}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{venue.description}</p>
                         
-                        <div className="flex items-center justify-between text-xs">
-                          <Badge variant="secondary">{venue.atmosphere}</Badge>
+                        <div className="flex items-center justify-between text-xs flex-wrap gap-2">
+                          <Badge variant="secondary" className="text-[10px] sm:text-xs">{venue.atmosphere}</Badge>
                           <div className="flex items-center gap-1 text-muted-foreground">
-                            <Clock className="w-3 h-3" />
-                            <span>{venue.estimatedTime}</span>
+                            <Clock className="w-3 h-3 flex-shrink-0" />
+                            <span className="whitespace-nowrap">{venue.estimatedTime}</span>
                           </div>
                         </div>
                       </div>
@@ -375,21 +381,21 @@ export default function LocationDatePlanner({ onPlanGenerated }: LocationDatePla
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-4"
+              className="space-y-3 sm:space-y-4"
             >
-              <Card className="p-4 bg-gradient-to-br from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20">
-                <h4 className="font-semibold mb-2">Your Date Plan ({selectedVenues.length} stops)</h4>
-                <div className="flex items-center gap-2 mb-3">
+              <Card className="p-3 sm:p-4 bg-gradient-to-br from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20">
+                <h4 className="text-sm sm:text-base font-semibold mb-2">Your Date Plan ({selectedVenues.length} stop{selectedVenues.length > 1 ? 's' : ''})</h4>
+                <div className="flex items-center gap-1.5 sm:gap-2 mb-3 flex-wrap">
                   {selectedVenues.map((venue, idx) => (
-                    <div key={venue.id} className="flex items-center gap-1">
-                      <Badge variant="outline" className="text-xs">{venue.name}</Badge>
-                      {idx < selectedVenues.length - 1 && <span className="text-muted-foreground">→</span>}
+                    <div key={venue.id} className="flex items-center gap-1 sm:gap-1.5">
+                      <Badge variant="outline" className="text-[10px] sm:text-xs truncate max-w-[120px] sm:max-w-none">{venue.name}</Badge>
+                      {idx < selectedVenues.length - 1 && <span className="text-muted-foreground text-xs sm:text-sm">→</span>}
                     </div>
                   ))}
                 </div>
                 <Button 
                   onClick={generateDatePlan} 
-                  className="w-full gap-2"
+                  className="w-full gap-2 text-sm sm:text-base"
                   data-testid="button-generate-date-plan"
                 >
                   <Heart className="w-4 h-4" />

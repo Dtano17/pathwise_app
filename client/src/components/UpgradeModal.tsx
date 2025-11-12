@@ -116,45 +116,45 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl" data-testid="dialog-upgrade">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto px-4 sm:px-6" data-testid="dialog-upgrade">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-2xl">
-            <Sparkles className="w-6 h-6 text-purple-600" />
+          <DialogTitle className="flex items-center gap-2 text-xl sm:text-2xl">
+            <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
             {title}
           </DialogTitle>
-          <DialogDescription className="text-base">{description}</DialogDescription>
+          <DialogDescription className="text-sm sm:text-base">{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-2 gap-4 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           {/* Pro Plan */}
-          <div className="border rounded-lg p-6 space-y-4 hover-elevate transition-all" data-testid="card-pro-plan">
+          <div className="border rounded-lg p-4 sm:p-6 space-y-3 sm:space-y-4 hover-elevate transition-all" data-testid="card-pro-plan">
             <div>
-              <h3 className="font-bold text-xl">Pro</h3>
-              <p className="text-sm text-muted-foreground">Perfect for individuals</p>
+              <h3 className="font-bold text-lg sm:text-xl">Pro</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">Perfect for individuals</p>
             </div>
             
             <div>
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold">$6.99</span>
-                <span className="text-muted-foreground">/month</span>
+                <span className="text-2xl sm:text-3xl font-bold">$6.99</span>
+                <span className="text-sm sm:text-base text-muted-foreground">/month</span>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                 or $58.99/year <span className="text-green-600 font-medium">(save 30%)</span>
               </p>
             </div>
 
-            <ul className="space-y-2">
+            <ul className="space-y-1.5 sm:space-y-2">
               {['Unlimited AI plans', 'Smart favorites organization', 'Journal insights & analytics', 'Export all your data', 'Priority support', '7-day free trial'].map((feature) => (
                 <li key={feature} className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm">{feature}</span>
+                  <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-xs sm:text-sm">{feature}</span>
                 </li>
               ))}
             </ul>
 
             <div className="space-y-2 pt-2">
               <Button
-                className="w-full"
+                className="w-full text-sm sm:text-base"
                 onClick={() => handleCheckout(PRICE_IDS.pro_monthly, 'pro')}
                 disabled={loading}
                 data-testid="button-subscribe-pro-monthly"
@@ -163,7 +163,7 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
               </Button>
               <Button
                 variant="outline"
-                className="w-full"
+                className="w-full text-xs sm:text-sm"
                 onClick={() => handleCheckout(PRICE_IDS.pro_annual, 'pro')}
                 disabled={loading}
                 data-testid="button-subscribe-pro-annual"
@@ -174,38 +174,38 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
           </div>
 
           {/* Family & Friends Plan */}
-          <div className="border rounded-lg p-6 space-y-4 hover-elevate transition-all relative" data-testid="card-family-plan">
-            <div className="absolute -top-3 right-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1 rounded-full text-xs font-medium">
+          <div className="border rounded-lg p-4 sm:p-6 space-y-3 sm:space-y-4 hover-elevate transition-all relative" data-testid="card-family-plan">
+            <div className="absolute -top-3 right-2 sm:right-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium">
               Best Value
             </div>
             
             <div>
-              <h3 className="font-bold text-xl">Family & Friends</h3>
-              <p className="text-sm text-muted-foreground">For up to 5 users</p>
+              <h3 className="font-bold text-lg sm:text-xl">Family & Friends</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">For up to 5 users</p>
             </div>
             
             <div>
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold">$14.99</span>
-                <span className="text-muted-foreground">/month</span>
+                <span className="text-2xl sm:text-3xl font-bold">$14.99</span>
+                <span className="text-sm sm:text-base text-muted-foreground">/month</span>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                 or $125.99/year <span className="text-green-600 font-medium">(save 30%)</span>
               </p>
             </div>
 
-            <ul className="space-y-2">
+            <ul className="space-y-1.5 sm:space-y-2">
               {['Everything in Pro', 'Up to 5 family & friends', 'Shared plans & activities', 'Group progress tracking', 'Collaborative planning', '7-day free trial'].map((feature) => (
                 <li key={feature} className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
-                  <span className="text-sm">{feature}</span>
+                  <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-xs sm:text-sm">{feature}</span>
                 </li>
               ))}
             </ul>
 
             <div className="space-y-2 pt-2">
               <Button
-                className="w-full"
+                className="w-full text-sm sm:text-base"
                 onClick={() => handleCheckout(PRICE_IDS.family_monthly, 'family')}
                 disabled={loading}
                 data-testid="button-subscribe-family-monthly"
@@ -214,7 +214,7 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
               </Button>
               <Button
                 variant="outline"
-                className="w-full"
+                className="w-full text-xs sm:text-sm"
                 onClick={() => handleCheckout(PRICE_IDS.family_annual, 'family')}
                 disabled={loading}
                 data-testid="button-subscribe-family-annual"
@@ -225,7 +225,7 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
           </div>
         </div>
 
-        <p className="text-xs text-center text-muted-foreground mt-4">
+        <p className="text-[10px] sm:text-xs text-center text-muted-foreground mt-4">
           7-day free trial included with both plans. Cancel anytime.
         </p>
       </DialogContent>
