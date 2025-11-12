@@ -5434,31 +5434,71 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       });
     }
 
-    // Process with LangGraph planning agent in Quick mode (same as Smart Plan)
-    const langGraphResponse = await langGraphPlanningAgent.processMessage(
-      parseInt(userId),
-      message,
-      userProfile,
-      session.conversationHistory,
-      storage,
-      'quick' // Quick mode for faster planning
-    );
+    // Detect "show overview" type requests when plan is already ready
+    const quickAwaitingConfirmationPre = session.externalContext?.awaitingPlanConfirmation;
+    const showOverviewKeywords = ['show.*overview', 'see.*overview', 'display.*plan', 'view.*plan', 'show.*plan', 'what.*plan', 'plan details'];
+    const isShowOverviewRequest = quickAwaitingConfirmationPre && showOverviewKeywords.some(pattern => new RegExp(pattern, 'i').test(message));
+    
+    let response;
+    
+    if (isShowOverviewRequest && session.slots?._generatedPlan) {
+      // User wants to see the overview - return existing plan WITHOUT re-processing
+      console.log('[QUICK PLAN] Show overview request detected - returning existing plan without state reset');
+      
+      const existingPlan = session.slots._generatedPlan;
+      
+      // Format the plan overview message (extract from existing plan data)
+      const overviewMessage = existingPlan.message || `Here's your ${existingPlan.title || 'plan'}`;
+      
+      response = {
+        message: overviewMessage,
+        readyToGenerate: true, // KEEP state as ready
+        planReady: true,
+        updatedSlots: session.slots,
+        updatedConversationHistory: [
+          ...session.conversationHistory, 
+          { role: 'user', content: message }, 
+          { role: 'assistant', content: overviewMessage }
+        ],
+        updatedExternalContext: {
+          ...session.externalContext,
+          awaitingPlanConfirmation: true // MAINTAIN confirmation state
+        },
+        sessionState: 'confirming' as const, // KEEP in confirming state
+        generatedPlan: existingPlan,
+        createActivity: false,
+        progress: 100,
+        phase: 'confirming',
+        domain: existingPlan.domain || 'general',
+        skipConfirmationAppend: true // Don't append redundant confirmation prompt
+      };
+    } else {
+      // Normal flow - process with LangGraph planning agent
+      const langGraphResponse = await langGraphPlanningAgent.processMessage(
+        parseInt(userId),
+        message,
+        userProfile,
+        session.conversationHistory,
+        storage,
+        'quick' // Quick mode for faster planning
+      );
 
-    // Map LangGraph response to ConversationResponse format
-    const response = {
-      message: langGraphResponse.message,
-      readyToGenerate: langGraphResponse.readyToGenerate || false,
-      planReady: langGraphResponse.readyToGenerate || false,
-      updatedSlots: session.slots,
-      updatedConversationHistory: [...session.conversationHistory, { role: 'user', content: message }, { role: 'assistant', content: langGraphResponse.message }],
-      updatedExternalContext: session.externalContext,
-      sessionState: langGraphResponse.phase as 'gathering' | 'processing' | 'confirming' | 'completed',
-      generatedPlan: langGraphResponse.finalPlan,
-      createActivity: false,
-      progress: langGraphResponse.progress,
-      phase: langGraphResponse.phase,
-      domain: langGraphResponse.domain
-    };
+      // Map LangGraph response to ConversationResponse format
+      response = {
+        message: langGraphResponse.message,
+        readyToGenerate: langGraphResponse.readyToGenerate || false,
+        planReady: langGraphResponse.readyToGenerate || false,
+        updatedSlots: session.slots,
+        updatedConversationHistory: [...session.conversationHistory, { role: 'user', content: message }, { role: 'assistant', content: langGraphResponse.message }],
+        updatedExternalContext: session.externalContext,
+        sessionState: langGraphResponse.phase as 'gathering' | 'processing' | 'confirming' | 'completed',
+        generatedPlan: langGraphResponse.finalPlan,
+        createActivity: false,
+        progress: langGraphResponse.progress,
+        phase: langGraphResponse.phase,
+        domain: langGraphResponse.domain
+      };
+    }
 
     // SERVER-SIDE ACTIVITY TYPE DETECTION OVERRIDE (same as Smart Plan)
     const interviewKeywords = ['interview', 'job interview', 'interview prep', 'prepare for.*interview', 'interviewing'];
@@ -5542,9 +5582,12 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
                                          messageLower.includes("sound good") ||
                                          /ready to (proceed|generate|create)/.test(messageLower);
         
-        // First time plan is ready - ask for confirmation (only if AI didn't already ask)
+        // Skip confirmation append if this is a "show overview" replay
+        const shouldSkipAppend = (response as any).skipConfirmationAppend === true;
+        
+        // First time plan is ready - ask for confirmation (only if AI didn't already ask and not a replay)
         return res.json({
-          message: alreadyAskedConfirmation 
+          message: (alreadyAskedConfirmation || shouldSkipAppend)
             ? response.message 
             : response.message + "\n\n**Are you comfortable with this plan?** (Yes to proceed, or tell me what you'd like to add/change)",
           planReady: false, // Don't show button yet
