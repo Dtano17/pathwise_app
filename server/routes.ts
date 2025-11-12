@@ -3302,20 +3302,22 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         return res.status(404).json({ error: 'Activity not found' });
       }
 
-      const tasks = await storage.getTasksByActivity(activityId, userId);
+      // Get canonical tasks from storage (for reconciliation and group sharing)
+      const canonicalTasks = await storage.getTasksByActivity(activityId, userId);
 
       // Get user info for creator display
       const user = await storage.getUser(userId);
       const creatorName = user?.username || 'Anonymous';
       const creatorAvatar = user?.profileImage || null;
 
-      // Apply privacy redaction if needed
+      // Apply privacy redaction if needed (for Community Discovery ONLY)
       let publicTitle = activity.title;
       let publicDescription = activity.description;
       let publicPlanSummary = activity.planSummary;
+      let publicTasks = [...canonicalTasks]; // Start with canonical data
 
       if (privacyPreset && privacyPreset !== 'off' && privacySettings) {
-        // Build AI prompt for redaction
+        // Build AI prompt for redaction (including tasks)
         const redactionInstructions: string[] = [];
         if (privacySettings.redactNames) {
           redactionInstructions.push("Replace exact names with generic terms like 'Someone', 'Friend', 'A person'");
@@ -3333,7 +3335,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
           redactionInstructions.push("Remove or generalize personal context like family member names, medical information, personal relationships");
         }
 
-        const prompt = `You are a privacy protection assistant. Review the following activity and redact sensitive information according to these rules:
+        const prompt = `You are a privacy protection assistant. Review the following activity and tasks, and redact sensitive information according to these rules:
 
 ${redactionInstructions.map((rule, i) => `${i + 1}. ${rule}`).join('\n')}
 
@@ -3341,11 +3343,17 @@ Activity Title: ${activity.title}
 Activity Description: ${activity.description || 'None'}
 Plan Summary: ${activity.planSummary || 'None'}
 
+Tasks:
+${canonicalTasks.map((task, i) => `${i + 1}. ${task.title}${task.description ? ` - ${task.description}` : ''}`).join('\n')}
+
 Return a JSON object with redacted versions in this exact format:
 {
   "title": "redacted title",
   "description": "redacted description or null",
-  "planSummary": "redacted summary or null"
+  "planSummary": "redacted summary or null",
+  "tasks": [
+    {"title": "redacted task title", "description": "redacted task description or null"}
+  ]
 }
 
 IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness of the content.`;
@@ -3359,28 +3367,76 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
 
         const response = await llmProvider.generateChatCompletion(messages, {
           temperature: 0.3,
-          max_tokens: 2000
+          max_tokens: 3000
         });
 
         // Validate JSON response
         try {
           const redactedData = JSON.parse(response);
-          publicTitle = redactedData.title || activity.title;
-          publicDescription = redactedData.description || activity.description;
-          publicPlanSummary = redactedData.planSummary || activity.planSummary;
+          // Use redacted values or safe fallbacks (NOT originals, to prevent PII leaks)
+          publicTitle = redactedData.title || '[Private Plan]';
+          publicDescription = redactedData.description || null;
+          publicPlanSummary = redactedData.planSummary || null;
+          
+          // Apply task redactions - use safe fallbacks
+          if (Array.isArray(redactedData.tasks)) {
+            publicTasks = publicTasks.map((originalTask, index) => {
+              const redactedTask = redactedData.tasks[index];
+              return {
+                ...originalTask,
+                // Use redacted values or generic fallbacks (NEVER original PII)
+                title: redactedTask?.title || `Task ${index + 1}`,
+                description: redactedTask?.description || null
+              };
+            });
+          } else {
+            // If LLM didn't return tasks, use generic placeholders
+            publicTasks = publicTasks.map((task, index) => ({
+              ...task,
+              title: `Task ${index + 1}`,
+              description: null
+            }));
+          }
         } catch (parseError) {
           console.error('Publish redaction JSON parse error:', parseError);
-          // Fall back to original content if redaction fails
+          // On error, use safe generic fallbacks to prevent PII exposure
+          publicTitle = '[Private Plan]';
+          publicDescription = null;
+          publicPlanSummary = null;
+          publicTasks = publicTasks.map((task, index) => ({
+            ...task,
+            title: `Task ${index + 1}`,
+            description: null
+          }));
         }
       }
 
-      // Update activity to publish to community
+      // Store community snapshot with FULL task data for reconciliation
+      // This preserves ALL user data (timeline, highlights, etc.)
+      const communitySnapshot = {
+        title: publicTitle,
+        description: publicDescription,
+        planSummary: publicPlanSummary,
+        tasks: publicTasks.map(t => ({
+          id: t.id, // CRITICAL: Include ID for reconciliation
+          title: t.title,
+          description: t.description,
+          category: t.category,
+          priority: t.priority,
+          completed: t.completed, // Include completion state
+          order: t.order || 0
+        })),
+        privacyPreset: privacyPreset || 'off',
+        publishedAt: new Date().toISOString()
+      };
+
+      // Update activity to publish to community using dedicated communitySnapshot field
       const updatedActivity = await storage.updateActivity(activityId, {
         featuredInCommunity: true,
         creatorName,
         creatorAvatar,
-        // Store privacy settings for reference
-        shareTitle: publicTitle !== activity.title ? publicTitle : activity.shareTitle,
+        shareTitle: publicTitle, // Display redacted title in Discovery
+        communitySnapshot, // Dedicated field - no data loss
       }, userId);
 
       if (!updatedActivity) {
@@ -3755,6 +3811,56 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         }
       }
       
+      // Handle new group creation if requested
+      let newGroupId;
+      let newGroupShareToken;
+      if (createGroup && groupName) {
+        // Create the group
+        const group = await storage.createGroup({
+          name: groupName.trim(),
+          description: groupDescription?.trim() || null,
+          isPrivate: false,
+          inviteCode: null,
+          createdBy: userId
+        });
+
+        newGroupId = group.id;
+
+        // Add creator as admin
+        await storage.createGroupMembership({
+          groupId: group.id,
+          role: 'admin',
+          userId
+        });
+
+        // Get CANONICAL (original) tasks for group activity - NOT redacted ones
+        const canonicalTasks = await storage.getActivityTasks(activityId, userId);
+        
+        // Generate share token for group activity
+        const crypto = await import('crypto');
+        newGroupShareToken = crypto.randomBytes(16).toString('hex');
+        
+        // Create group activity with CANONICAL version (full task data)
+        await storage.createGroupActivity({
+          groupId: group.id,
+          activityId: activity.id,
+          canonicalVersion: {
+            title: activity.title, // Use original title, not redacted
+            description: activity.description || undefined,
+            tasks: canonicalTasks.map((task, index) => ({
+              id: task.id,
+              title: task.title, // Original task data
+              description: task.description || undefined,
+              category: task.category,
+              priority: task.priority,
+              order: index
+            }))
+          },
+          isPublic: true,
+          shareToken: newGroupShareToken
+        });
+      }
+      
       // Otherwise, generate shareable link
       // If targetGroupId is provided, verify user is a member and store it
       if (targetGroupId) {
@@ -3838,7 +3944,12 @@ ${emoji} ${progressLine}
       await storage.updateActivity(activityId, { socialText }, userId);
       
       const shareableLink = `${baseUrl}/share/${shareToken}`;
-      res.json({ shareableLink, socialText });
+      res.json({ 
+        shareableLink, 
+        socialText,
+        groupCreated: !!newGroupId,
+        groupId: newGroupId || undefined
+      });
     } catch (error) {
       console.error('Generate share link error:', error);
       res.status(500).json({ error: 'Failed to generate shareable link' });

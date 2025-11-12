@@ -828,6 +828,24 @@ export const activities = pgTable("activities", {
   feedback: text("feedback"),
   highlights: jsonb("highlights").$type<string[]>().default([]),
   
+  // Community snapshot (redacted version for Discovery)
+  communitySnapshot: jsonb("community_snapshot").$type<{
+    title: string;
+    description?: string;
+    planSummary?: string;
+    tasks: Array<{
+      id: string;
+      title: string;
+      description?: string;
+      category: string;
+      priority: string;
+      completed: boolean;
+      order: number;
+    }>;
+    privacyPreset: string;
+    publishedAt: string;
+  }>(),
+  
   // Status
   status: text("status").notNull().default("planning"), // 'planning' | 'active' | 'completed' | 'cancelled'
   completedAt: timestamp("completed_at"),
