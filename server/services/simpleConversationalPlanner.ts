@@ -1820,7 +1820,8 @@ export class SimpleConversationalPlanner {
     conversationHistory: ConversationMessage[],
     storage: IStorage,
     mode: 'quick' | 'smart' = 'quick',
-    onToken: (token: string) => void
+    onToken: (token: string) => void,
+    onProgress?: (phase: string, message: string) => void
   ): Promise<PlanningResponse> {
     console.log(`[SIMPLE_PLANNER] Processing message with streaming for user ${userId} in ${mode} mode`);
 

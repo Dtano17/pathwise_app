@@ -5614,8 +5614,80 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
             (token) => {
               // Stream each token to client
               sendEvent('token', { token });
+            },
+            (phase, msg) => {
+              // Stream progress updates during research
+              sendEvent('progress', { phase, message: msg });
             }
           );
+
+          // Check if user confirmed the plan (same logic as non-streaming)
+          const confirmationKeywords = ['yes', 'create the plan', 'sounds good', 'perfect', 'great', 'that works', 'confirm', 'proceed', 'go ahead', 'yes go ahead'];
+          const userConfirmed = confirmationKeywords.some(keyword => 
+            message.toLowerCase().includes(keyword.toLowerCase())
+          );
+
+          let activityData: any = null;
+
+          // If plan is ready and user confirmed, create activity/tasks
+          if (response.readyToGenerate && response.plan && userConfirmed) {
+            try {
+              sendEvent('progress', { phase: 'creating', message: 'Creating your activity and tasks...' });
+
+              // Check plan usage limits
+              const usageCheck = await checkAndIncrementPlanUsage(userId);
+              if (!usageCheck.allowed) {
+                sendEvent('complete', {
+                  message: `⚠️ **Plan Limit Reached**\n\nYou've used all ${usageCheck.planLimit} AI plans for this month on the free tier.\n\n**Upgrade to Pro ($6.99/month) for:**\n✅ **Unlimited AI plans**\n✅ Advanced favorites organization\n✅ Journal insights & analytics\n✅ Export all your data\n\nWould you like to upgrade now?`,
+                  planLimitReached: true,
+                  planCount: usageCheck.planCount,
+                  planLimit: usageCheck.planLimit
+                });
+                res.end();
+                return;
+              }
+
+              // Create activity from the structured plan
+              const activity = await storage.createActivity({
+                title: response.plan.title || `${mode === 'quick' ? 'Quick' : 'Smart'} Plan Activity`,
+                description: response.plan.summary || 'Generated plan',
+                category: response.plan.category || 'personal',
+                status: 'planning',
+                userId
+              });
+
+              // Create tasks and link them to the activity
+              const createdTasks = [];
+              if (response.plan.tasks && Array.isArray(response.plan.tasks)) {
+                for (let i = 0; i < response.plan.tasks.length; i++) {
+                  const taskData = response.plan.tasks[i];
+                  const task = await storage.createTask({
+                    title: taskData.title,
+                    description: taskData.description,
+                    category: taskData.category,
+                    priority: taskData.priority,
+                    timeEstimate: taskData.timeEstimate,
+                    userId
+                  });
+                  await storage.addTaskToActivity(activity.id, task.id, i);
+                  createdTasks.push(task);
+                }
+              }
+
+              activityData = {
+                activityCreated: true,
+                activity: {
+                  id: activity.id,
+                  title: activity.title
+                },
+                createdTasks
+              };
+
+              console.log(`[STREAM] Activity created: ${activity.id} with ${createdTasks.length} tasks`);
+            } catch (error) {
+              console.error('[STREAM] Error creating activity:', error);
+            }
+          }
 
           // Send final complete message with structured data
           sendEvent('complete', {
@@ -5624,7 +5696,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
             readyToGenerate: response.readyToGenerate,
             plan: response.plan,
             domain: response.domain,
-            contextChips: response.contextChips
+            contextChips: response.contextChips,
+            ...activityData // Include activity data if created
           });
           res.end();
         } else {
