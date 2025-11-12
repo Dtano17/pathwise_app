@@ -352,7 +352,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
             
             // Show toast with navigation option
             toast({
-              title: "Activity Created! 🎉",
+              title: "Activity Created Successfully",
               description: `"${finalData.activity.title}" is ready with ${finalData.createdTasks.length} tasks`,
               action: (
                 <Button 

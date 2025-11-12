@@ -287,11 +287,22 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
               value={shareTitle}
               onChange={(e) => setShareTitle(e.target.value)}
               placeholder="Enter a catchy title for sharing..."
+              maxLength={140}
               data-testid="input-share-title"
             />
-            <p className="text-xs text-muted-foreground">
-              This title will be displayed on your shared activity page
-            </p>
+            <div className="flex items-center justify-between text-xs">
+              <p className="text-muted-foreground">
+                This title will be displayed on your shared activity page
+              </p>
+              <span className={`font-medium ${shareTitle.length > 100 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                {shareTitle.length}/140
+              </span>
+            </div>
+            {shareTitle.length > 100 && (
+              <p className="text-xs text-amber-600">
+                Tip: Shorter titles (under 100 chars) display better on social media
+              </p>
+            )}
           </div>
 
           {/* Backdrop Selector */}
@@ -643,10 +654,15 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
                         (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3EInvalid Image%3C/text%3E%3C/svg%3E';
                       }}
                     />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-4">
-                      <h3 className="text-white text-xl md:text-2xl font-bold text-center drop-shadow-lg">
-                        {shareTitle}
-                      </h3>
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-4 sm:p-6">
+                      <div className="flex flex-col items-center justify-center max-w-[90%] sm:max-w-[80%]">
+                        <h3 
+                          className="text-white font-bold text-center drop-shadow-lg break-words leading-tight line-clamp-3 sm:line-clamp-2" 
+                          style={{ fontSize: 'clamp(1.125rem, 2vw + 0.5rem, 1.5rem)' }}
+                        >
+                          {shareTitle}
+                        </h3>
+                      </div>
                     </div>
                   </>
                 ) : (
