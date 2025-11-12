@@ -256,16 +256,16 @@ export default function LocationDatePlanner({ onPlanGenerated }: LocationDatePla
   return (
     <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
       <div className="text-center">
-        <h2 className="text-lg sm:text-2xl font-bold mb-2 flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
-          <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-pink-500" />
-          <span className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex flex-col items-center gap-2 mb-2">
+          <h2 className="text-lg sm:text-2xl font-bold flex items-center justify-center gap-1.5 sm:gap-2">
+            <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-pink-500" />
             Perfect Date Night Planner
-            <Badge variant="secondary" className="gap-1">
-              <FlaskConical className="h-3 w-3" />
-              Beta
-            </Badge>
-          </span>
-        </h2>
+          </h2>
+          <Badge variant="secondary" className="gap-1">
+            <FlaskConical className="h-3 w-3" />
+            Beta
+          </Badge>
+        </div>
         <p className="text-sm sm:text-base text-muted-foreground px-2">
           Find amazing places nearby and create the perfect date itinerary. Now featuring real restaurants from your journal!
         </p>
