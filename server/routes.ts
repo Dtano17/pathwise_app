@@ -1071,10 +1071,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create checkout session
-      // Use REPLIT_DOMAINS for the correct domain in Replit environment
-      const baseUrl = process.env.REPLIT_DOMAINS 
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-        : 'http://localhost:5000';
+      // Prioritize PRODUCTION_URL, then REPLIT_DOMAINS, then localhost
+      const baseUrl = process.env.PRODUCTION_URL 
+        || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : null)
+        || 'http://localhost:5000';
       
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
@@ -1111,9 +1111,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'No subscription found' });
       }
 
-      const baseUrl = process.env.REPLIT_DOMAINS 
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-        : 'http://localhost:5000';
+      // Prioritize PRODUCTION_URL, then REPLIT_DOMAINS, then localhost
+      const baseUrl = process.env.PRODUCTION_URL 
+        || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : null)
+        || 'http://localhost:5000';
       
       const session = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
