@@ -8,9 +8,10 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb, Calendar } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb, Calendar, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useKeywordDetection, getCategoryColor } from '@/hooks/useKeywordDetection';
+import { useLocation } from 'wouter';
 import TemplateSelector from './TemplateSelector';
 import JournalTimeline from './JournalTimeline';
 import JournalOnboarding from './JournalOnboarding';
@@ -62,6 +63,7 @@ interface ConversationalPlannerProps {
 
 export default function ConversationalPlanner({ onClose, initialMode, activityId, activityTitle }: ConversationalPlannerProps) {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [currentSession, setCurrentSession] = useState<PlannerSession | null>(null);
   const [message, setMessage] = useState('');
   const [contextChips, setContextChips] = useState<ContextChip[]>([]);
@@ -76,6 +78,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const [isParsingPaste, setIsParsingPaste] = useState(false);
   const [createdActivityId, setCreatedActivityId] = useState<string | null>(null);
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
+  const [messageActivities, setMessageActivities] = useState<Map<number, { activityId: string; activityTitle: string }>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Journal Mode State
@@ -334,6 +337,36 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
           queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
           queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+          
+          // Store activity metadata for this message
+          if (finalData.activity?.id && finalData.activity?.title) {
+            const messageIndex = finalHistory.length - 1; // Assistant message index
+            setMessageActivities(prev => {
+              const updated = new Map(prev);
+              updated.set(messageIndex, {
+                activityId: finalData.activity.id,
+                activityTitle: finalData.activity.title
+              });
+              return updated;
+            });
+            
+            // Show toast with navigation option
+            toast({
+              title: "Activity Created! 🎉",
+              description: `"${finalData.activity.title}" is ready with ${finalData.createdTasks.length} tasks`,
+              action: (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => setLocation(`/?tab=activities&activity=${finalData.activity.id}`)}
+                  data-testid="toast-view-activity"
+                >
+                  <ExternalLink className="w-3 h-3 mr-1" />
+                  View
+                </Button>
+              )
+            });
+          }
         }
       }
 
@@ -1671,28 +1704,49 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
               </div>
             ) : (
               <div className="space-y-4">
-                {currentSession.conversationHistory.map((msg, index) => (
-                  <div
-                    key={index}
-                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    data-testid={`message-${msg.role}-${index}`}
-                  >
-                    <div
-                      className={`max-w-[80%] p-4 rounded-xl ${
-                        msg.role === 'user'
-                          ? planningMode === 'quick'
-                            ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white'
-                            : 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
-                      <p className="text-xs opacity-70 mt-2">
-                        {new Date(msg.timestamp).toLocaleTimeString()}
-                      </p>
+                {currentSession.conversationHistory.map((msg, index) => {
+                  const activityMeta = messageActivities.get(index);
+                  
+                  return (
+                    <div key={index} className="space-y-2">
+                      <div
+                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        data-testid={`message-${msg.role}-${index}`}
+                      >
+                        <div
+                          className={`max-w-[80%] p-4 rounded-xl ${
+                            msg.role === 'user'
+                              ? planningMode === 'quick'
+                                ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white'
+                                : 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          <p className="text-xs opacity-70 mt-2">
+                            {new Date(msg.timestamp).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Activity shortcut button */}
+                      {msg.role === 'assistant' && activityMeta && (
+                        <div className="flex justify-start pl-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setLocation(`/?tab=activities&activity=${activityMeta.activityId}`)}
+                            className="gap-2 text-xs bg-white dark:bg-slate-800 hover-elevate"
+                            data-testid={`button-view-activity-${index}`}
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            View "{activityMeta.activityTitle}"
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 
                 {(sendMessageMutation.isPending || generatePlanMutation.isPending) && (
                   <div className="flex justify-start">
