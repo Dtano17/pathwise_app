@@ -1005,7 +1005,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     <meta name="description" content="${safePageDescription}" />
     
     <!-- Facebook App ID (Required for Facebook Sharing Debugger) -->
-    <meta property="fb:app_id" content="1234567890" />
+    <meta property="fb:app_id" content="1675001660123017" />
     
     <!-- Open Graph / Facebook / WhatsApp -->
     <meta property="og:type" content="article" />
