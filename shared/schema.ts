@@ -920,6 +920,18 @@ export const activityFeedback = pgTable("activity_feedback", {
   activityFeedbackIndex: index("activity_feedback_index").on(table.activityId, table.feedbackType),
 }));
 
+// Activity bookmarks for users to save favorite Discovery plans
+export const activityBookmarks = pgTable("activity_bookmarks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueUserActivityBookmark: uniqueIndex("unique_user_activity_bookmark").on(table.userId, table.activityId),
+  activityBookmarkIndex: index("activity_bookmark_index").on(table.activityId),
+  userBookmarkIndex: index("user_bookmark_index").on(table.userId, table.createdAt),
+}));
+
 // Task feedback for like/unlike tracking on individual tasks
 export const taskFeedback = pgTable("task_feedback", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -982,6 +994,11 @@ export const insertTaskFeedbackSchema = createInsertSchema(taskFeedback).omit({
   updatedAt: true,
 });
 
+export const insertActivityBookmarkSchema = createInsertSchema(activityBookmarks).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Add TypeScript types for new tables
 export type AuthIdentity = typeof authIdentities.$inferSelect;
 export type InsertAuthIdentity = z.infer<typeof insertAuthIdentitySchema>;
@@ -1003,6 +1020,9 @@ export type InsertActivityFeedback = z.infer<typeof insertActivityFeedbackSchema
 
 export type TaskFeedback = typeof taskFeedback.$inferSelect;
 export type InsertTaskFeedback = z.infer<typeof insertTaskFeedbackSchema>;
+
+export type ActivityBookmark = typeof activityBookmarks.$inferSelect;
+export type InsertActivityBookmark = z.infer<typeof insertActivityBookmarkSchema>;
 
 // Additional contact sync validation
 export const syncContactsSchema = z.object({

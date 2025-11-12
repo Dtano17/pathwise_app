@@ -49,6 +49,8 @@ import {
   type InsertActivityFeedback,
   type TaskFeedback,
   type InsertTaskFeedback,
+  type ActivityBookmark,
+  type InsertActivityBookmark,
   type Group,
   type InsertGroup,
   type GroupMembership,
@@ -79,6 +81,7 @@ import {
   userPreferences,
   activityFeedback,
   taskFeedback,
+  activityBookmarks,
   groups,
   groupMemberships,
   groupActivities,
@@ -152,6 +155,13 @@ export interface IStorage {
   getUserTaskFeedback(taskId: string, userId: string): Promise<TaskFeedback | undefined>;
   deleteTaskFeedback(taskId: string, userId: string): Promise<void>;
   getTaskFeedbackStats(taskId: string): Promise<{ likes: number; dislikes: number }>;
+
+  // Activity Bookmarks
+  createBookmark(activityId: string, userId: string): Promise<ActivityBookmark>;
+  deleteBookmark(activityId: string, userId: string): Promise<void>;
+  getUserBookmarks(userId: string): Promise<Activity[]>;
+  isBookmarked(activityId: string, userId: string): Promise<boolean>;
+  getBulkBookmarkStatus(activityIds: string[], userId: string): Promise<Map<string, boolean>>;
 
   // Journal Entries
   createJournalEntry(entry: InsertJournalEntry & { userId: string }): Promise<JournalEntry>;
@@ -816,6 +826,54 @@ export class DatabaseStorage implements IStorage {
     const dislikes = feedback.filter(f => f.feedbackType === 'dislike').length;
     
     return { likes, dislikes };
+  }
+
+  // Activity Bookmarks
+  async createBookmark(activityId: string, userId: string): Promise<ActivityBookmark> {
+    const result = await db.insert(activityBookmarks)
+      .values({ activityId, userId })
+      .returning();
+    return result[0];
+  }
+
+  async deleteBookmark(activityId: string, userId: string): Promise<void> {
+    await db.delete(activityBookmarks)
+      .where(and(eq(activityBookmarks.activityId, activityId), eq(activityBookmarks.userId, userId)));
+  }
+
+  async getUserBookmarks(userId: string): Promise<Activity[]> {
+    const bookmarks = await db.select({ activity: activities })
+      .from(activityBookmarks)
+      .innerJoin(activities, eq(activityBookmarks.activityId, activities.id))
+      .where(eq(activityBookmarks.userId, userId))
+      .orderBy(desc(activityBookmarks.createdAt));
+    
+    return bookmarks.map(b => b.activity);
+  }
+
+  async isBookmarked(activityId: string, userId: string): Promise<boolean> {
+    const result = await db.select().from(activityBookmarks)
+      .where(and(eq(activityBookmarks.activityId, activityId), eq(activityBookmarks.userId, userId)));
+    return result.length > 0;
+  }
+
+  async getBulkBookmarkStatus(activityIds: string[], userId: string): Promise<Map<string, boolean>> {
+    if (activityIds.length === 0) {
+      return new Map();
+    }
+
+    const bookmarks = await db.select()
+      .from(activityBookmarks)
+      .where(and(
+        inArray(activityBookmarks.activityId, activityIds),
+        eq(activityBookmarks.userId, userId)
+      ));
+
+    const bookmarkMap = new Map<string, boolean>();
+    activityIds.forEach(id => bookmarkMap.set(id, false));
+    bookmarks.forEach(bookmark => bookmarkMap.set(bookmark.activityId, true));
+    
+    return bookmarkMap;
   }
 
   // Journal Entries

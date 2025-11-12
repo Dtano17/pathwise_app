@@ -3003,6 +3003,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Toggle activity bookmark (bookmark/unbookmark)
+  app.post("/api/activities/:activityId/bookmark", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Check if already bookmarked
+      const isBookmarked = await storage.isBookmarked(activityId, userId);
+      
+      if (isBookmarked) {
+        // Remove bookmark
+        await storage.deleteBookmark(activityId, userId);
+        return res.json({ bookmarked: false });
+      } else {
+        // Create bookmark
+        await storage.createBookmark(activityId, userId);
+        return res.json({ bookmarked: true });
+      }
+    } catch (error) {
+      console.error('Bookmark toggle error:', error);
+      res.status(500).json({ error: 'Failed to toggle bookmark' });
+    }
+  });
+
+  // Get user's bookmarked activities
+  app.get("/api/bookmarks", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const bookmarkedActivities = await storage.getUserBookmarks(userId);
+      res.json(bookmarkedActivities);
+    } catch (error) {
+      console.error('Get bookmarks error:', error);
+      res.status(500).json({ error: 'Failed to fetch bookmarks' });
+    }
+  });
+
   // Archive task
   app.patch("/api/tasks/:taskId/archive", async (req: any, res) => {
     try {
