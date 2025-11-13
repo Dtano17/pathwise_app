@@ -2140,7 +2140,7 @@ export const demoCommunityPlans = [
       tags: ["ut-football", "tailgate", "watch-party", "texas-longhorns", "game-day", "sports", "austin"],
       viewCount: 8500,
       likeCount: 7800,
-      trendingScore: 16300,
+      trendingScore: 27000,
       featuredInCommunity: true,
       creatorName: "Longhorn Nation",
       creatorAvatar: null,

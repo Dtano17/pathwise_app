@@ -1801,9 +1801,9 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Apply trending filter if category is 'trending' (15000+ trending score)
+    // Apply trending filter if category is 'trending' (25000+ trending score)
     if (category === 'trending') {
-      results = results.filter(activity => (activity.trendingScore || 0) >= 15000);
+      results = results.filter(activity => (activity.trendingScore || 0) >= 25000);
     }
 
     // Map results to include userHasPinned

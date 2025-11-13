@@ -871,7 +871,8 @@ export default function DiscoverPlansView() {
             return (
               <Card 
                 key={plan.id} 
-                className="overflow-hidden flex flex-col group hover-elevate" 
+                className="overflow-hidden flex flex-col group hover-elevate cursor-pointer" 
+                onClick={() => handlePlanClick(plan)}
                 style={{ 
                   borderColor: planTypeBadge.borderColor,
                   borderWidth: '2px'
