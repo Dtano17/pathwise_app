@@ -890,6 +890,183 @@ export class DatabaseStorage implements IStorage {
     return bookmarkMap;
   }
 
+  // Engagement tracking - Explicit add/remove helpers
+  async setActivityLike(activityId: string, userId: string, shouldLike: boolean): Promise<{ liked: boolean; likeCount: number }> {
+    return await db.transaction(async (tx) => {
+      // Check current state
+      const existingFeedback = await tx.select()
+        .from(activityFeedback)
+        .where(and(
+          eq(activityFeedback.activityId, activityId),
+          eq(activityFeedback.userId, userId),
+          eq(activityFeedback.feedbackType, 'like')
+        ))
+        .limit(1);
+
+      const isCurrentlyLiked = existingFeedback.length > 0;
+
+      // If already in desired state, no-op (idempotent)
+      if (isCurrentlyLiked === shouldLike) {
+        const activity = await tx.select({ likeCount: activities.likeCount })
+          .from(activities)
+          .where(eq(activities.id, activityId))
+          .limit(1);
+        
+        return {
+          liked: isCurrentlyLiked,
+          likeCount: activity[0]?.likeCount || 0
+        };
+      }
+
+      const actionType = shouldLike ? 'like' : 'unlike';
+      const delta = shouldLike ? 1 : -1;
+
+      // Update state table
+      if (shouldLike) {
+        await tx.insert(activityFeedback)
+          .values({ activityId, userId, feedbackType: 'like' })
+          .onConflictDoUpdate({
+            target: [activityFeedback.activityId, activityFeedback.userId],
+            set: { feedbackType: 'like', updatedAt: new Date() }
+          });
+      } else {
+        await tx.delete(activityFeedback)
+          .where(and(
+            eq(activityFeedback.activityId, activityId),
+            eq(activityFeedback.userId, userId)
+          ));
+      }
+
+      // Update denormalized counter atomically
+      await tx.update(activities)
+        .set({ 
+          likeCount: sql`GREATEST(COALESCE(like_count, 0) + ${delta}, 0)` 
+        })
+        .where(eq(activities.id, activityId));
+
+      // Emit engagement event for analytics
+      await tx.insert(planEngagement)
+        .values({
+          activityId,
+          userId,
+          actionType,
+          metadata: {}
+        });
+
+      // Get updated count
+      const activity = await tx.select({ likeCount: activities.likeCount })
+        .from(activities)
+        .where(eq(activities.id, activityId))
+        .limit(1);
+
+      return {
+        liked: shouldLike,
+        likeCount: activity[0]?.likeCount || 0
+      };
+    });
+  }
+
+  // Legacy toggle helper for backward compatibility
+  async toggleActivityLike(activityId: string, userId: string): Promise<{ liked: boolean; likeCount: number }> {
+    // Check current state and flip it
+    const existingFeedback = await db.select()
+      .from(activityFeedback)
+      .where(and(
+        eq(activityFeedback.activityId, activityId),
+        eq(activityFeedback.userId, userId),
+        eq(activityFeedback.feedbackType, 'like')
+      ))
+      .limit(1);
+
+    const isCurrentlyLiked = existingFeedback.length > 0;
+    return this.setActivityLike(activityId, userId, !isCurrentlyLiked);
+  }
+
+  async setActivityBookmark(activityId: string, userId: string, shouldBookmark: boolean): Promise<{ bookmarked: boolean; bookmarkCount: number }> {
+    return await db.transaction(async (tx) => {
+      // Check current state
+      const existingBookmark = await tx.select()
+        .from(activityBookmarks)
+        .where(and(
+          eq(activityBookmarks.activityId, activityId),
+          eq(activityBookmarks.userId, userId)
+        ))
+        .limit(1);
+
+      const isCurrentlyBookmarked = existingBookmark.length > 0;
+
+      // If already in desired state, no-op (idempotent)
+      if (isCurrentlyBookmarked === shouldBookmark) {
+        const activity = await tx.select({ bookmarkCount: activities.bookmarkCount })
+          .from(activities)
+          .where(eq(activities.id, activityId))
+          .limit(1);
+        
+        return {
+          bookmarked: isCurrentlyBookmarked,
+          bookmarkCount: activity[0]?.bookmarkCount || 0
+        };
+      }
+
+      const actionType = shouldBookmark ? 'bookmark' : 'unbookmark';
+      const delta = shouldBookmark ? 1 : -1;
+
+      // Update state table
+      if (shouldBookmark) {
+        await tx.insert(activityBookmarks)
+          .values({ activityId, userId });
+      } else {
+        await tx.delete(activityBookmarks)
+          .where(and(
+            eq(activityBookmarks.activityId, activityId),
+            eq(activityBookmarks.userId, userId)
+          ));
+      }
+
+      // Update denormalized counter atomically
+      await tx.update(activities)
+        .set({ 
+          bookmarkCount: sql`GREATEST(COALESCE(bookmark_count, 0) + ${delta}, 0)` 
+        })
+        .where(eq(activities.id, activityId));
+
+      // Emit engagement event for analytics
+      await tx.insert(planEngagement)
+        .values({
+          activityId,
+          userId,
+          actionType,
+          metadata: {}
+        });
+
+      // Get updated count
+      const activity = await tx.select({ bookmarkCount: activities.bookmarkCount })
+        .from(activities)
+        .where(eq(activities.id, activityId))
+        .limit(1);
+
+      return {
+        bookmarked: shouldBookmark,
+        bookmarkCount: activity[0]?.bookmarkCount || 0
+      };
+    });
+  }
+
+  // Legacy toggle helper for backward compatibility
+  async toggleActivityBookmark(activityId: string, userId: string): Promise<{ bookmarked: boolean; bookmarkCount: number }> {
+    // Check current state and flip it
+    const existingBookmark = await db.select()
+      .from(activityBookmarks)
+      .where(and(
+        eq(activityBookmarks.activityId, activityId),
+        eq(activityBookmarks.userId, userId)
+      ))
+      .limit(1);
+
+    const isCurrentlyBookmarked = existingBookmark.length > 0;
+    return this.setActivityBookmark(activityId, userId, !isCurrentlyBookmarked);
+  }
+
   // Journal Entries
   async createJournalEntry(entry: InsertJournalEntry & { userId: string }): Promise<JournalEntry> {
     const result = await db.insert(journalEntries).values(entry).returning();

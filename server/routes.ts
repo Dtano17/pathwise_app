@@ -2953,7 +2953,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Activity feedback endpoints
+  // Like an activity (idempotent - adds like if not already liked)
+  app.post("/api/activities/:activityId/like", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      const result = await storage.setActivityLike(activityId, userId, true);
+      return res.json({ 
+        liked: result.liked,
+        likeCount: result.likeCount
+      });
+    } catch (error) {
+      console.error('Like activity error:', error);
+      res.status(500).json({ error: 'Failed to like activity' });
+    }
+  });
+
+  // Unlike an activity (idempotent - removes like if exists)
+  app.delete("/api/activities/:activityId/unlike", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      const result = await storage.setActivityLike(activityId, userId, false);
+      return res.json({ 
+        liked: result.liked,
+        likeCount: result.likeCount
+      });
+    } catch (error) {
+      console.error('Unlike activity error:', error);
+      res.status(500).json({ error: 'Failed to unlike activity' });
+    }
+  });
+
+  // Activity feedback endpoints (legacy - kept for backward compatibility)
   app.post("/api/activities/:activityId/feedback", async (req, res) => {
     try {
       const { activityId } = req.params;
@@ -2964,17 +2998,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid feedback type. Must be "like" or "dislike"' });
       }
 
-      // Check if removing feedback (same type clicked twice)
+      // Redirect "like" to new engagement tracking endpoint
+      if (feedbackType === 'like') {
+        const result = await storage.toggleActivityLike(activityId, userId);
+        return res.json({ 
+          feedback: result.liked ? { feedbackType: 'like' } : null,
+          stats: { likes: result.likeCount, dislikes: 0 }
+        });
+      }
+
+      // Legacy dislike handling (kept for backward compatibility)
       const existingFeedback = await storage.getUserActivityFeedback(activityId, userId);
       
       if (existingFeedback && existingFeedback.feedbackType === feedbackType) {
-        // Remove feedback
         await storage.deleteActivityFeedback(activityId, userId);
         const stats = await storage.getActivityFeedbackStats(activityId);
         return res.json({ feedback: null, stats });
       }
 
-      // Upsert feedback
       const feedback = await storage.upsertActivityFeedback(activityId, userId, feedbackType);
       const stats = await storage.getActivityFeedbackStats(activityId);
       
@@ -3003,27 +3044,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Toggle activity bookmark (bookmark/unbookmark)
+  // Bookmark an activity (idempotent - adds bookmark if not already bookmarked)
   app.post("/api/activities/:activityId/bookmark", async (req, res) => {
     try {
       const { activityId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
 
-      // Check if already bookmarked
-      const isBookmarked = await storage.isBookmarked(activityId, userId);
-      
-      if (isBookmarked) {
-        // Remove bookmark
-        await storage.deleteBookmark(activityId, userId);
-        return res.json({ bookmarked: false });
-      } else {
-        // Create bookmark
-        await storage.createBookmark(activityId, userId);
-        return res.json({ bookmarked: true });
-      }
+      const result = await storage.setActivityBookmark(activityId, userId, true);
+      return res.json({ 
+        bookmarked: result.bookmarked,
+        bookmarkCount: result.bookmarkCount
+      });
     } catch (error) {
-      console.error('Bookmark toggle error:', error);
-      res.status(500).json({ error: 'Failed to toggle bookmark' });
+      console.error('Bookmark activity error:', error);
+      res.status(500).json({ error: 'Failed to bookmark activity' });
+    }
+  });
+
+  // Unbookmark an activity (idempotent - removes bookmark if exists)
+  app.delete("/api/activities/:activityId/unbookmark", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      const result = await storage.setActivityBookmark(activityId, userId, false);
+      return res.json({ 
+        bookmarked: result.bookmarked,
+        bookmarkCount: result.bookmarkCount
+      });
+    } catch (error) {
+      console.error('Unbookmark activity error:', error);
+      res.status(500).json({ error: 'Failed to unbookmark activity' });
     }
   });
 
