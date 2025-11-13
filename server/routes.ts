@@ -3078,6 +3078,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Pin an activity (toggle user-specific pin)
+  app.post("/api/activities/:activityId/pin", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      const result = await storage.toggleUserPin(activityId, userId);
+      return res.json({ 
+        isPinned: result.isPinned
+      });
+    } catch (error) {
+      console.error('Pin activity error:', error);
+      res.status(500).json({ error: 'Failed to pin activity' });
+    }
+  });
+
   // Get user's bookmarked activities
   app.get("/api/bookmarks", async (req, res) => {
     try {
@@ -4458,7 +4474,7 @@ ${emoji} ${progressLine}
       const budgetRange = req.query.budgetRange as string | undefined;
       const limit = parseInt(req.query.limit as string) || 50;
       
-      const plans = await storage.getCommunityPlans(category, search, limit, budgetRange);
+      const plans = await storage.getCommunityPlans(userId, category, search, limit, budgetRange);
       
       // Get all feedback in bulk (single query)
       const activityIds = plans.map(p => p.id);

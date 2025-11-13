@@ -51,6 +51,8 @@ import {
   type InsertTaskFeedback,
   type ActivityBookmark,
   type InsertActivityBookmark,
+  type UserPin,
+  type InsertUserPin,
   type PlanEngagement,
   type InsertPlanEngagement,
   type PlannerProfile,
@@ -87,6 +89,7 @@ import {
   activityFeedback,
   taskFeedback,
   activityBookmarks,
+  userPins,
   planEngagement,
   groups,
   groupMemberships,
@@ -593,6 +596,36 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(activities.id, activityId), eq(activities.userId, userId)))
       .returning();
     return result[0];
+  }
+
+  async createUserPin(activityId: string, userId: string): Promise<UserPin> {
+    const result = await db.insert(userPins)
+      .values({ activityId, userId })
+      .returning();
+    return result[0];
+  }
+
+  async deleteUserPin(activityId: string, userId: string): Promise<void> {
+    await db.delete(userPins)
+      .where(and(eq(userPins.activityId, activityId), eq(userPins.userId, userId)));
+  }
+
+  async toggleUserPin(activityId: string, userId: string): Promise<{ isPinned: boolean }> {
+    // Check if pin exists
+    const existing = await db.select()
+      .from(userPins)
+      .where(and(eq(userPins.activityId, activityId), eq(userPins.userId, userId)))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      // Unpin
+      await this.deleteUserPin(activityId, userId);
+      return { isPinned: false };
+    } else {
+      // Pin
+      await this.createUserPin(activityId, userId);
+      return { isPinned: true };
+    }
   }
 
   async deleteActivity(activityId: string, userId: string): Promise<void> {
@@ -1698,7 +1731,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Community Plans
-  async getCommunityPlans(category?: string, search?: string, limit: number = 50, budgetRange?: string): Promise<Activity[]> {
+  async getCommunityPlans(userId: string, category?: string, search?: string, limit: number = 50, budgetRange?: string): Promise<Array<Activity & { userHasPinned: boolean }>> {
     let query = db.select().from(activities)
       .where(and(
         eq(activities.isPublic, true),
@@ -1726,6 +1759,12 @@ export class DatabaseStorage implements IStorage {
     }
 
     let results = await query;
+
+    // Get user's pinned activity IDs
+    const userPinRecords = await db.select()
+      .from(userPins)
+      .where(eq(userPins.userId, userId));
+    const pinnedActivityIds = new Set(userPinRecords.map(p => p.activityId));
 
     // Apply search filter if provided
     if (search && search.trim()) {
@@ -1767,14 +1806,21 @@ export class DatabaseStorage implements IStorage {
       results = results.filter(activity => (activity.trendingScore || 0) >= 15000);
     }
 
-    // Sort by trendingScore (trending tab) or just by creation date
-    if (!category || category === 'trending') {
-      results.sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0));
-    } else {
-      results.sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0));
-    }
+    // Map results to include userHasPinned
+    const resultsWithPins = results.map(activity => ({
+      ...activity,
+      userHasPinned: pinnedActivityIds.has(activity.id)
+    }));
 
-    return results.slice(0, limit);
+    // Sort by userHasPinned first, then by trendingScore descending
+    resultsWithPins.sort((a, b) => {
+      if (a.userHasPinned !== b.userHasPinned) {
+        return a.userHasPinned ? -1 : 1;
+      }
+      return (b.trendingScore ?? 0) - (a.trendingScore ?? 0);
+    });
+
+    return resultsWithPins.slice(0, limit);
   }
 
   async seedCommunityPlans(force: boolean = false): Promise<void> {

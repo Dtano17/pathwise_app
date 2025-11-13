@@ -972,6 +972,18 @@ export const activityBookmarks = pgTable("activity_bookmarks", {
   userBookmarkIndex: index("user_bookmark_index").on(table.userId, table.createdAt),
 }));
 
+// User-specific activity pins - Each user can pin community plans for quick access
+export const userPins = pgTable("user_pins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueUserActivityPin: uniqueIndex("unique_user_activity_pin").on(table.userId, table.activityId),
+  activityPinIndex: index("activity_pin_index").on(table.activityId),
+  userPinIndex: index("user_pin_index").on(table.userId, table.createdAt),
+}));
+
 // Plan engagement tracking - Append-only event log for analytics and trending calculations
 // Complements activityFeedback/activityBookmarks (which store current state) by tracking ALL engagement events
 // Event emission rules:
@@ -1073,6 +1085,11 @@ export const insertActivityBookmarkSchema = createInsertSchema(activityBookmarks
   createdAt: true,
 });
 
+export const insertUserPinSchema = createInsertSchema(userPins).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertPlannerProfileSchema = createInsertSchema(plannerProfiles).omit({
   id: true,
   createdAt: true,
@@ -1133,6 +1150,9 @@ export type InsertTaskFeedback = z.infer<typeof insertTaskFeedbackSchema>;
 
 export type ActivityBookmark = typeof activityBookmarks.$inferSelect;
 export type InsertActivityBookmark = z.infer<typeof insertActivityBookmarkSchema>;
+
+export type UserPin = typeof userPins.$inferSelect;
+export type InsertUserPin = z.infer<typeof insertUserPinSchema>;
 
 export type PlanEngagement = typeof planEngagement.$inferSelect;
 export type InsertPlanEngagement = z.infer<typeof insertPlanEngagementSchema>;

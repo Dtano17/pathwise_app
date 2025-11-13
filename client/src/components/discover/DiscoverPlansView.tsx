@@ -16,7 +16,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2 } from "lucide-react";
+import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2, Pin } from "lucide-react";
 import type { Activity } from "@shared/schema";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
 import { useDiscoverFilters } from "./useDiscoverFilters";
@@ -604,6 +604,46 @@ export default function DiscoverPlansView() {
     },
   });
 
+  // Pin plan mutation (toggle)
+  const pinPlanMutation = useMutation({
+    mutationFn: async (activityId: string) => {
+      const response = await fetch(`/api/activities/${activityId}/pin`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to pin plan");
+      return response.json();
+    },
+    onMutate: async (activityId: string) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/community-plans"] });
+      const previousPlans = queryClient.getQueryData(["/api/community-plans", filters.category, filters.search, filters.budget]);
+      
+      queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], (old: any) => {
+        if (!old) return old;
+        return old.map((plan: any) => 
+          plan.id === activityId 
+            ? { ...plan, userHasPinned: !plan.userHasPinned }
+            : plan
+        );
+      });
+      
+      return { previousPlans };
+    },
+    onError: (error: any, activityId, context) => {
+      if (context?.previousPlans) {
+        queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], context.previousPlans);
+      }
+      toast({
+        title: "Failed to pin plan",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/community-plans"] });
+    },
+  });
+
   // Toggle helpers for UI
   const handleToggleLike = (activityId: string, currentlyLiked: boolean) => {
     if (currentlyLiked) {
@@ -619,6 +659,10 @@ export default function DiscoverPlansView() {
     } else {
       bookmarkPlanMutation.mutate(activityId);
     }
+  };
+
+  const handleTogglePin = (activityId: string) => {
+    pinPlanMutation.mutate(activityId);
   };
 
   // Auto-seed on first load if needed
@@ -896,6 +940,17 @@ export default function DiscoverPlansView() {
                         aria-label={plan.userHasBookmarked ? "Remove bookmark" : "Bookmark plan"}
                       >
                         <Bookmark className={`w-4 h-4 ${plan.userHasBookmarked ? "fill-amber-500 text-amber-500" : "text-foreground"}`} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTogglePin(plan.id);
+                        }}
+                        className="p-2 rounded-full bg-background/80 backdrop-blur-sm hover-elevate active-elevate-2 transition-all"
+                        data-testid={`button-pin-${plan.id}`}
+                        aria-label={plan.userHasPinned ? "Unpin plan" : "Pin plan"}
+                      >
+                        <Pin className={`w-4 h-4 ${plan.userHasPinned ? "fill-purple-500 text-purple-500" : "text-foreground"}`} />
                       </button>
                     </div>
                   </div>
