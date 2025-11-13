@@ -116,7 +116,14 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
 
       // Validate social media links when publishToCommunity is true
       if (publishToCommunity) {
-        if (!twitterHandle && !instagramHandle && !threadsHandle && !websiteUrl) {
+        const hasValidLink = [
+          twitterHandle?.trim(),
+          instagramHandle?.trim(),
+          threadsHandle?.trim(),
+          websiteUrl?.trim()
+        ].some(link => link && link.length > 0);
+        
+        if (!hasValidLink) {
           throw new Error('At least one social media link is required when publishing to Community Discovery');
         }
       }
@@ -138,10 +145,10 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
           body: JSON.stringify({
             privacySettings,
             privacyPreset,
-            twitterHandle: twitterHandle || undefined,
-            instagramHandle: instagramHandle || undefined,
-            threadsHandle: threadsHandle || undefined,
-            websiteUrl: websiteUrl || undefined
+            twitterHandle: twitterHandle?.trim() || undefined,
+            instagramHandle: instagramHandle?.trim() || undefined,
+            threadsHandle: threadsHandle?.trim() || undefined,
+            websiteUrl: websiteUrl?.trim() || undefined
           })
         });
         

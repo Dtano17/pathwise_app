@@ -3332,10 +3332,15 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
     threadsHandle?: string;
     websiteUrl?: string;
   }): { valid: boolean; error?: string } {
-    const { twitterHandle, instagramHandle, threadsHandle, websiteUrl } = handles;
+    // Trim all inputs and reassign
+    const twitterHandle = handles.twitterHandle?.trim();
+    const instagramHandle = handles.instagramHandle?.trim();
+    const threadsHandle = handles.threadsHandle?.trim();
+    const websiteUrl = handles.websiteUrl?.trim();
     
-    // Require at least one handle
-    if (!twitterHandle && !instagramHandle && !threadsHandle && !websiteUrl) {
+    // Require at least one non-empty handle
+    const hasValidLink = [twitterHandle, instagramHandle, threadsHandle, websiteUrl].some(link => link && link.length > 0);
+    if (!hasValidLink) {
       return { valid: false, error: 'At least one social media link is required' };
     }
     
