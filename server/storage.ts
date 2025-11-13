@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import { eq, and, desc, isNull, or, lte, inArray, sql } from "drizzle-orm";
 import crypto from "crypto";
 import { 
@@ -94,8 +94,8 @@ import {
   groupActivityFeed
 } from "@shared/schema";
 
-const sqlClient = neon(process.env.DATABASE_URL!);
-export const db = drizzle(sqlClient);
+const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+export const db = drizzle(pool);
 
 export interface IStorage {
   // User operations
