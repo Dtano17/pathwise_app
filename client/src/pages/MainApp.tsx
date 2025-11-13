@@ -1266,8 +1266,8 @@ export default function MainApp({
 
   // Tab options for mobile dropdown
   const tabOptions = [
-    { value: "discover", label: "Discover", shortLabel: "Discover", icon: Globe2 },
     { value: "input", label: "Goal Input", shortLabel: "Input", icon: Mic },
+    { value: "discover", label: "Discover", shortLabel: "Discover", icon: Globe2 },
     { value: "activities", label: `Activities (${activities.length})`, shortLabel: "Activities", icon: CheckSquare },
     { value: "tasks", label: `All Tasks (${tasks.length})`, shortLabel: "Tasks", icon: Target },
     { value: "progress", label: "Progress", shortLabel: "Stats", icon: BarChart3 },
@@ -1372,13 +1372,13 @@ export default function MainApp({
             {/* Desktop Tab Navigation */}
             <div className="w-full overflow-x-auto">
               <TabsList className="hidden sm:inline-flex w-max min-w-full mb-4 sm:mb-8 bg-muted/30 p-1 h-12 flex-nowrap gap-2">
-                <TabsTrigger value="discover" className="gap-2 text-sm font-medium" data-testid="tab-discover">
-                  <Globe2 className="w-4 h-4" />
-                  <span>Discover</span>
-                </TabsTrigger>
                 <TabsTrigger value="input" className="gap-2 text-sm font-medium" data-testid="tab-input">
                   <Mic className="w-4 h-4" />
                   <span>Goal Input</span>
+                </TabsTrigger>
+                <TabsTrigger value="discover" className="gap-2 text-sm font-medium" data-testid="tab-discover">
+                  <Globe2 className="w-4 h-4" />
+                  <span>Discover</span>
                 </TabsTrigger>
                 <TabsTrigger value="activities" className="gap-2 text-sm font-medium" data-testid="tab-activities">
                   <CheckSquare className="w-4 h-4" />
