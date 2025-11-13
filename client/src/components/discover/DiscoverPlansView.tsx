@@ -116,6 +116,13 @@ const formatBudget = (budgetCents: number): string => {
   return `$${dollars.toFixed(0)}`;
 };
 
+// Precise budget formatting with two decimals for preview dialog
+const formatBudgetPrecise = (budgetCents: number): string => {
+  if (budgetCents === 0) return '$0.00';
+  const dollars = budgetCents / 100;
+  return `$${dollars.toFixed(2)}`;
+};
+
 // Plan type badge configuration (theme-aware)
 const getPlanTypeBadge = (planType: string | null | undefined, trendingScore?: number | null) => {
   // Auto-detect trending based on high trending score (15000+)
@@ -928,7 +935,7 @@ export default function DiscoverPlansView() {
                           <div className="group/verify relative inline-flex">
                             <CheckCircle2 
                               className={`w-3 h-3 cursor-help ${
-                                plan.planType === 'sponsored' 
+                                (plan.planType === 'sponsored' || plan.sourceType === 'brand_partnership')
                                   ? 'text-blue-500' 
                                   : 'text-green-500'
                               }`}
@@ -1013,30 +1020,34 @@ export default function DiscoverPlansView() {
             </div>
           ) : previewData ? (
             <div className="space-y-4 py-4">
+              {/* Description Section */}
               {previewData.description && (
                 <div>
-                  <h4 className="font-semibold mb-2">Description</h4>
-                  <p className="text-sm text-muted-foreground">{previewData.description}</p>
+                  <h4 className="font-semibold text-base mb-2">Description</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{previewData.description}</p>
                 </div>
               )}
-              {/* Budget Breakdown Section */}
+              
+              {/* Total Budget Section */}
               {previewData.budget !== null && previewData.budget !== undefined && (
                 <div className="border rounded-lg p-4 bg-muted/30">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold">Budget</h4>
-                    <span className="text-lg font-bold text-primary">
-                      {formatBudget(previewData.budget)}
+                    <h4 className="font-semibold text-base">Total Budget</h4>
+                    <span className="text-2xl font-bold text-primary" data-testid="text-preview-budget">
+                      {formatBudgetPrecise(previewData.budget)}
                     </span>
                   </div>
+                  
+                  {/* Budget Breakdown Collapsible */}
                   {previewData.budgetBreakdown && previewData.budgetBreakdown.length > 0 && (
                     <Collapsible>
-                      <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full">
+                      <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full" data-testid="button-budget-breakdown-toggle">
                         <span>View breakdown</span>
                         <ChevronDown className="w-4 h-4" />
                       </CollapsibleTrigger>
                       <CollapsibleContent className="mt-3 space-y-2">
                         {previewData.budgetBreakdown.map((item: any, index: number) => (
-                          <div key={index} className="flex items-start justify-between text-sm border-l-2 border-muted pl-3 py-1">
+                          <div key={index} className="flex items-start justify-between text-sm border-l-2 border-muted pl-3 py-1.5">
                             <div className="flex-1">
                               <p className="font-medium">{item.category}</p>
                               {item.notes && (
@@ -1051,9 +1062,11 @@ export default function DiscoverPlansView() {
                   )}
                 </div>
               )}
+              
+              {/* Tasks Section */}
               {previewData.tasks && previewData.tasks.length > 0 && (
                 <div>
-                  <h4 className="font-semibold mb-2">Tasks ({previewData.tasks.length})</h4>
+                  <h4 className="font-semibold text-base mb-3">Tasks ({previewData.tasks.length})</h4>
                   <div className="space-y-2">
                     {previewData.tasks.map((task: any, index: number) => (
                       <div key={index} className="flex items-start gap-2 p-2 rounded-md bg-muted/30">
@@ -1077,12 +1090,26 @@ export default function DiscoverPlansView() {
                   </div>
                 </div>
               )}
+              
+              {/* Likes/Views Stats Footer */}
+              <div className="flex items-center gap-4 pt-2 border-t text-sm text-muted-foreground">
+                <div className="flex items-center gap-1.5" data-testid="stat-preview-likes">
+                  <Heart className="w-4 h-4" />
+                  <span>{previewData.likeCount?.toLocaleString() || 0} likes</span>
+                </div>
+                <div className="flex items-center gap-1.5" data-testid="stat-preview-views">
+                  <Eye className="w-4 h-4" />
+                  <span>{previewData.viewCount?.toLocaleString() || 0} views</span>
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
               <div className="flex gap-2 pt-4">
-                <Button variant="outline" onClick={() => setPreviewDialogOpen(false)} className="flex-1">
+                <Button variant="outline" onClick={() => setPreviewDialogOpen(false)} className="flex-1" data-testid="button-preview-close">
                   Close
                 </Button>
-                <Button onClick={handleUsePlanFromPreview} className="flex-1">
-                  Use This Plan
+                <Button onClick={handleUsePlanFromPreview} className="flex-1" data-testid="button-add-plan">
+                  Add This Plan
                 </Button>
               </div>
             </div>

@@ -2249,7 +2249,7 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "🦃 Thanksgiving Feast: Family Gathering & Gratitude",
+      title: "Thanksgiving Feast: Family Gathering & Gratitude",
       description: "Host an unforgettable Thanksgiving with traditional turkey dinner, family activities, and heartfelt gratitude celebrations",
       category: "personal" as const,
       planSummary: "Complete Thanksgiving celebration guide with turkey prep, side dishes, family traditions, table decorations, and gratitude activities",
@@ -2264,15 +2264,15 @@ export const demoCommunityPlans = [
       creatorName: "Holiday Traditions",
       creatorAvatar: null,
       status: "planning" as const,
-      budget: 95000,
+      budget: 45000,
       budgetBreakdown: [
-        { category: "Turkey & main proteins", amount: 25000, notes: "20lb turkey, ham, or prime rib for 12 people" },
-        { category: "Side dishes & ingredients", amount: 30000, notes: "Stuffing, mashed potatoes, sweet potatoes, green beans, cranberry sauce" },
-        { category: "Pies & desserts", amount: 15000, notes: "Pumpkin pie, apple pie, pecan pie, whipped cream" },
-        { category: "Table decorations & centerpiece", amount: 12000, notes: "Fall leaves, candles, tablecloth, napkins, place settings" },
-        { category: "Drinks & appetizers", amount: 13000, notes: "Wine, cider, cheese board, charcuterie, appetizers" }
+        { category: "Turkey & main proteins", amount: 12000, notes: "20lb turkey, ham, or prime rib for 12 people" },
+        { category: "Side dishes & ingredients", amount: 15000, notes: "Stuffing, mashed potatoes, sweet potatoes, green beans, cranberry sauce" },
+        { category: "Pies & desserts", amount: 8000, notes: "Pumpkin pie, apple pie, pecan pie, whipped cream" },
+        { category: "Table decorations & centerpiece", amount: 5000, notes: "Fall leaves, candles, tablecloth, napkins, place settings" },
+        { category: "Drinks & appetizers", amount: 5000, notes: "Wine, cider, cheese board, charcuterie, appetizers" }
       ],
-      budgetBuffer: 9500,
+      budgetBuffer: 2000,
     },
     tasks: [
       { title: "Order fresh turkey (20+ lbs)", description: "Reserve turkey from butcher or grocery store, allow 1 lb per person", category: "personal", priority: "high" as const, timeEstimate: "30 min" },
