@@ -781,6 +781,24 @@ export const contactShares = pgTable("contact_shares", {
   sharedByIndex: index("shared_by_index").on(table.sharedBy, table.shareType),
 }));
 
+// Planner profiles for community plan verification
+export const plannerProfiles = pgTable("planner_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull().unique(),
+  twitterHandle: varchar("twitter_handle"),
+  instagramHandle: varchar("instagram_handle"),
+  threadsHandle: varchar("threads_handle"),
+  websiteUrl: varchar("website_url"),
+  verificationStatus: text("verification_status").notNull().default("unverified"), // 'unverified' | 'community_verified' | 'official'
+  approvedAt: timestamp("approved_at"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userProfileIndex: index("user_profile_index").on(table.userId),
+  verificationStatusIndex: index("verification_status_index").on(table.verificationStatus),
+}));
+
 // Activities table for social sharable experiences
 export const activities = pgTable("activities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -845,6 +863,11 @@ export const activities = pgTable("activities", {
     privacyPreset: string;
     publishedAt: string;
   }>(),
+  
+  // Verification and planner profile
+  sourceType: text("source_type").notNull().default("community_unverified"), // 'official_seed' | 'community_reviewed' | 'community_unverified'
+  plannerProfileId: varchar("planner_profile_id").references(() => plannerProfiles.id, { onDelete: "set null" }), // Link to planner profile for verification
+  verificationBadge: text("verification_badge"), // 'official' | 'community' | null - Display badge type
   
   // Status
   status: text("status").notNull().default("planning"), // 'planning' | 'active' | 'completed' | 'cancelled'
@@ -999,7 +1022,16 @@ export const insertActivityBookmarkSchema = createInsertSchema(activityBookmarks
   createdAt: true,
 });
 
+export const insertPlannerProfileSchema = createInsertSchema(plannerProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Add TypeScript types for new tables
+export type PlannerProfile = typeof plannerProfiles.$inferSelect;
+export type InsertPlannerProfile = z.infer<typeof insertPlannerProfileSchema>;
+
 export type AuthIdentity = typeof authIdentities.$inferSelect;
 export type InsertAuthIdentity = z.infer<typeof insertAuthIdentitySchema>;
 
