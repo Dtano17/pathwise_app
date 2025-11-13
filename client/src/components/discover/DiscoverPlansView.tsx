@@ -129,17 +129,7 @@ const getPlanTypeBadge = (planType: string | null | undefined, trendingScore?: n
   const isTrending = (trendingScore ?? 0) >= 15000;
   const type = planType ?? 'community';
   
-  // Trending overrides other types for visual presentation
-  if (isTrending) {
-    return { 
-      type: 'trending',
-      label: 'Trending', 
-      ariaLabel: 'Trending community plan with high engagement',
-      borderColor: 'var(--plan-trending-border)',
-      bgColor: 'rgba(52, 211, 153, 0.15)', // Green with transparency
-    };
-  }
-  
+  // Sponsored and Emergency plans have priority over trending for visual distinction
   switch (type) {
     case 'emergency':
       return { 
@@ -152,12 +142,22 @@ const getPlanTypeBadge = (planType: string | null | undefined, trendingScore?: n
     case 'sponsored':
       return { 
         type: 'sponsored',
-        label: 'Sponsored', 
+        label: 'SPONSORED', 
         ariaLabel: 'Sponsored content from brand partner',
         borderColor: 'var(--plan-sponsored-border)',
-        bgColor: 'rgba(0, 122, 255, 0.15)', // Blue with transparency
+        bgColor: 'rgba(245, 158, 11, 0.15)', // Gold with transparency
       };
     default:
+      // Show trending badge for non-sponsored, non-emergency plans
+      if (isTrending) {
+        return { 
+          type: 'trending',
+          label: 'Trending', 
+          ariaLabel: 'Trending community plan with high engagement',
+          borderColor: 'var(--plan-trending-border)',
+          bgColor: 'rgba(52, 211, 153, 0.15)', // Green with transparency
+        };
+      }
       return { 
         type: 'community',
         label: 'Community', 
@@ -871,7 +871,7 @@ export default function DiscoverPlansView() {
             return (
               <Card 
                 key={plan.id} 
-                className="overflow-hidden flex flex-col group hover-elevate cursor-pointer" 
+                className="flex flex-col group hover-elevate cursor-pointer" 
                 onClick={() => handlePreviewPlan(plan.id, plan.shareToken, plan.title)}
                 style={{ 
                   borderColor: planTypeBadge.borderColor,
