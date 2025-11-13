@@ -125,8 +125,11 @@
   --plan-emergency: 0 85% 55%;
   --plan-emergency-border: hsl(var(--plan-emergency));
   
-  --plan-sponsored: 35 100% 50%;
+  --plan-sponsored: 210 100% 50%;
   --plan-sponsored-border: hsl(var(--plan-sponsored));
+  
+  --plan-trending: 142 76% 45%;
+  --plan-trending-border: hsl(var(--plan-trending));
   
   --plan-community: var(--border);
   --plan-community-border: hsl(var(--border));
@@ -217,8 +220,11 @@
   --plan-emergency: 0 85% 60%;
   --plan-emergency-border: hsl(var(--plan-emergency));
   
-  --plan-sponsored: 35 100% 55%;
+  --plan-sponsored: 210 100% 55%;
   --plan-sponsored-border: hsl(var(--plan-sponsored));
+  
+  --plan-trending: 142 76% 50%;
+  --plan-trending-border: hsl(var(--plan-trending));
   
   --plan-community: var(--border);
   --plan-community-border: hsl(var(--border));
