@@ -105,6 +105,16 @@ const getCategoryColor = (category: string | null) => {
   return cat?.color || "bg-gray-500";
 };
 
+// Format budget as currency (cents to dollars)
+const formatBudget = (budgetCents: number): string => {
+  if (budgetCents === 0) return 'Free';
+  const dollars = budgetCents / 100;
+  if (dollars >= 1000) {
+    return `$${(dollars / 1000).toFixed(1)}k`;
+  }
+  return `$${dollars.toFixed(0)}`;
+};
+
 // Plan type badge configuration (theme-aware)
 const getPlanTypeBadge = (planType: string | null | undefined, trendingScore?: number | null) => {
   // Auto-detect trending based on high trending score (15000+)
@@ -841,9 +851,20 @@ export default function DiscoverPlansView() {
                     >
                       {planTypeBadge.type === 'emergency' && <ShieldAlert className="w-3 h-3" />}
                       {planTypeBadge.type === 'sponsored' && <Megaphone className="w-3 h-3" />}
+                      {planTypeBadge.type === 'trending' && <TrendingUp className="w-3 h-3" />}
                       {planTypeBadge.type === 'community' && <Users className="w-3 h-3" />}
                       {planTypeBadge.label}
                     </div>
+                    {/* Budget Badge */}
+                    {plan.budget !== null && plan.budget !== undefined && (
+                      <div 
+                        className="absolute bottom-3 left-3 px-2 py-1 rounded-md text-xs font-semibold text-white bg-black/60 backdrop-blur-sm border border-white/20"
+                        data-testid={`badge-budget-${plan.id}`}
+                        aria-label={`Budget: ${formatBudget(plan.budget)}`}
+                      >
+                        {formatBudget(plan.budget)}
+                      </div>
+                    )}
                     <div className="absolute top-3 right-3 flex gap-2">
                       <button
                         onClick={(e) => {
