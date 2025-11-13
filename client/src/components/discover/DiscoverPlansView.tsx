@@ -16,7 +16,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown } from "lucide-react";
+import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark } from "lucide-react";
 import type { Activity } from "@shared/schema";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
 import { useDiscoverFilters } from "./useDiscoverFilters";
@@ -140,7 +140,7 @@ export default function DiscoverPlansView() {
   }, [groups, pendingGroupId]);
 
   // Fetch community plans
-  const { data: plans = [], isLoading, refetch } = useQuery<Array<Activity & { userHasLiked?: boolean }>>({
+  const { data: plans = [], isLoading, refetch } = useQuery<Array<Activity & { userHasLiked?: boolean; userHasBookmarked?: boolean }>>({
     queryKey: ["/api/community-plans", filters.category, filters.search, filters.budget],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -343,25 +343,203 @@ export default function DiscoverPlansView() {
     },
   });
 
-  // Like/unlike plan mutation
+  // Like plan mutation (idempotent - adds like)
   const likePlanMutation = useMutation({
     mutationFn: async (activityId: string) => {
-      const response = await apiRequest("POST", `/api/activities/${activityId}/feedback`, {
-        feedbackType: "like"
+      const response = await fetch(`/api/activities/${activityId}/like`, {
+        method: "POST",
+        credentials: "include",
       });
+      if (!response.ok) throw new Error("Failed to like plan");
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/community-plans"], exact: false });
+    onMutate: async (activityId: string) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/community-plans"] });
+      
+      // Snapshot the previous value
+      const previousPlans = queryClient.getQueryData(["/api/community-plans", filters.category, filters.search, filters.budget]);
+      
+      // Optimistically update
+      queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], (old: any) => {
+        if (!old) return old;
+        return old.map((plan: any) => 
+          plan.id === activityId 
+            ? { 
+                ...plan, 
+                userHasLiked: true,
+                likeCount: (plan.likeCount || 0) + (plan.userHasLiked ? 0 : 1)
+              }
+            : plan
+        );
+      });
+      
+      return { previousPlans };
     },
-    onError: (error: any) => {
+    onError: (error: any, activityId, context) => {
+      // Rollback on error
+      if (context?.previousPlans) {
+        queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], context.previousPlans);
+      }
       toast({
         title: "Failed to like plan",
         description: error.message || "Please try again",
         variant: "destructive",
       });
     },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/community-plans"] });
+    },
   });
+
+  // Unlike plan mutation (idempotent - removes like)
+  const unlikePlanMutation = useMutation({
+    mutationFn: async (activityId: string) => {
+      const response = await fetch(`/api/activities/${activityId}/unlike`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to unlike plan");
+      return response.json();
+    },
+    onMutate: async (activityId: string) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/community-plans"] });
+      const previousPlans = queryClient.getQueryData(["/api/community-plans", filters.category, filters.search, filters.budget]);
+      
+      queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], (old: any) => {
+        if (!old) return old;
+        return old.map((plan: any) => 
+          plan.id === activityId 
+            ? { 
+                ...plan, 
+                userHasLiked: false,
+                likeCount: Math.max(0, (plan.likeCount || 0) - (plan.userHasLiked ? 1 : 0))
+              }
+            : plan
+        );
+      });
+      
+      return { previousPlans };
+    },
+    onError: (error: any, activityId, context) => {
+      if (context?.previousPlans) {
+        queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], context.previousPlans);
+      }
+      toast({
+        title: "Failed to unlike plan",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/community-plans"] });
+    },
+  });
+
+  // Bookmark plan mutation (idempotent - adds bookmark)
+  const bookmarkPlanMutation = useMutation({
+    mutationFn: async (activityId: string) => {
+      const response = await fetch(`/api/activities/${activityId}/bookmark`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to bookmark plan");
+      return response.json();
+    },
+    onMutate: async (activityId: string) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/community-plans"] });
+      const previousPlans = queryClient.getQueryData(["/api/community-plans", filters.category, filters.search, filters.budget]);
+      
+      queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], (old: any) => {
+        if (!old) return old;
+        return old.map((plan: any) => 
+          plan.id === activityId 
+            ? { 
+                ...plan, 
+                userHasBookmarked: true,
+                bookmarkCount: (plan.bookmarkCount || 0) + (plan.userHasBookmarked ? 0 : 1)
+              }
+            : plan
+        );
+      });
+      
+      return { previousPlans };
+    },
+    onError: (error: any, activityId, context) => {
+      if (context?.previousPlans) {
+        queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], context.previousPlans);
+      }
+      toast({
+        title: "Failed to bookmark plan",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/community-plans"] });
+    },
+  });
+
+  // Unbookmark plan mutation (idempotent - removes bookmark)
+  const unbookmarkPlanMutation = useMutation({
+    mutationFn: async (activityId: string) => {
+      const response = await fetch(`/api/activities/${activityId}/unbookmark`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to unbookmark plan");
+      return response.json();
+    },
+    onMutate: async (activityId: string) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/community-plans"] });
+      const previousPlans = queryClient.getQueryData(["/api/community-plans", filters.category, filters.search, filters.budget]);
+      
+      queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], (old: any) => {
+        if (!old) return old;
+        return old.map((plan: any) => 
+          plan.id === activityId 
+            ? { 
+                ...plan, 
+                userHasBookmarked: false,
+                bookmarkCount: Math.max(0, (plan.bookmarkCount || 0) - (plan.userHasBookmarked ? 1 : 0))
+              }
+            : plan
+        );
+      });
+      
+      return { previousPlans };
+    },
+    onError: (error: any, activityId, context) => {
+      if (context?.previousPlans) {
+        queryClient.setQueryData(["/api/community-plans", filters.category, filters.search, filters.budget], context.previousPlans);
+      }
+      toast({
+        title: "Failed to unbookmark plan",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/community-plans"] });
+    },
+  });
+
+  // Toggle helpers for UI
+  const handleToggleLike = (activityId: string, currentlyLiked: boolean) => {
+    if (currentlyLiked) {
+      unlikePlanMutation.mutate(activityId);
+    } else {
+      likePlanMutation.mutate(activityId);
+    }
+  };
+
+  const handleToggleBookmark = (activityId: string, currentlyBookmarked: boolean) => {
+    if (currentlyBookmarked) {
+      unbookmarkPlanMutation.mutate(activityId);
+    } else {
+      bookmarkPlanMutation.mutate(activityId);
+    }
+  };
 
   // Auto-seed on first load if needed
   useEffect(() => {
@@ -583,17 +761,30 @@ export default function DiscoverPlansView() {
                         {plan.category}
                       </Badge>
                     )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        likePlanMutation.mutate(plan.id);
-                      }}
-                      className="absolute top-3 right-3 p-2 rounded-full bg-background/80 backdrop-blur-sm hover-elevate active-elevate-2 transition-all"
-                      data-testid={`button-like-${plan.id}`}
-                      aria-label={plan.userHasLiked ? "Unlike plan" : "Like plan"}
-                    >
-                      <Heart className={`w-4 h-4 ${plan.userHasLiked ? "fill-red-500 text-red-500" : "text-foreground"}`} />
-                    </button>
+                    <div className="absolute top-3 right-3 flex gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleLike(plan.id, plan.userHasLiked || false);
+                        }}
+                        className="p-2 rounded-full bg-background/80 backdrop-blur-sm hover-elevate active-elevate-2 transition-all"
+                        data-testid={`button-like-${plan.id}`}
+                        aria-label={plan.userHasLiked ? "Unlike plan" : "Like plan"}
+                      >
+                        <Heart className={`w-4 h-4 ${plan.userHasLiked ? "fill-red-500 text-red-500" : "text-foreground"}`} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleBookmark(plan.id, plan.userHasBookmarked || false);
+                        }}
+                        className="p-2 rounded-full bg-background/80 backdrop-blur-sm hover-elevate active-elevate-2 transition-all"
+                        data-testid={`button-bookmark-${plan.id}`}
+                        aria-label={plan.userHasBookmarked ? "Remove bookmark" : "Bookmark plan"}
+                      >
+                        <Bookmark className={`w-4 h-4 ${plan.userHasBookmarked ? "fill-amber-500 text-amber-500" : "text-foreground"}`} />
+                      </button>
+                    </div>
                   </div>
                 )}
                 
@@ -641,6 +832,10 @@ export default function DiscoverPlansView() {
                     <div className="flex items-center gap-1" data-testid={`stat-likes-${plan.id}`}>
                       <Heart className="w-3 h-3" />
                       <span>{plan.likeCount || 0}</span>
+                    </div>
+                    <div className="flex items-center gap-1" data-testid={`stat-bookmarks-${plan.id}`}>
+                      <Bookmark className="w-3 h-3" />
+                      <span>{plan.bookmarkCount || 0}</span>
                     </div>
                     <div className="flex items-center gap-1" data-testid={`stat-views-${plan.id}`}>
                       <Eye className="w-3 h-3" />
