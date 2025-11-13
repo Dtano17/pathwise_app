@@ -935,7 +935,7 @@ export default function DiscoverPlansView() {
                           <div className="group/verify relative inline-flex">
                             <CheckCircle2 
                               className={`w-3 h-3 cursor-help ${
-                                (plan.planType === 'sponsored' || plan.sourceType === 'brand_partnership')
+                                plan.sourceType === 'brand_partnership'
                                   ? 'text-blue-500' 
                                   : 'text-green-500'
                               }`}
@@ -1021,32 +1021,32 @@ export default function DiscoverPlansView() {
           ) : previewData ? (
             <div className="space-y-4 py-4">
               {/* Description Section */}
-              {previewData.description && (
+              {previewData.activity?.description && (
                 <div>
                   <h4 className="font-semibold text-base mb-2">Description</h4>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{previewData.description}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{previewData.activity.description}</p>
                 </div>
               )}
               
               {/* Total Budget Section */}
-              {previewData.budget !== null && previewData.budget !== undefined && (
+              {previewData.activity?.budget !== null && previewData.activity?.budget !== undefined && (
                 <div className="border rounded-lg p-4 bg-muted/30">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold text-base">Total Budget</h4>
                     <span className="text-2xl font-bold text-primary" data-testid="text-preview-budget">
-                      {formatBudgetPrecise(previewData.budget)}
+                      {formatBudgetPrecise(previewData.activity.budget)}
                     </span>
                   </div>
                   
                   {/* Budget Breakdown Collapsible */}
-                  {previewData.budgetBreakdown && previewData.budgetBreakdown.length > 0 && (
+                  {previewData.activity?.budgetBreakdown && previewData.activity.budgetBreakdown.length > 0 && (
                     <Collapsible>
                       <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full" data-testid="button-budget-breakdown-toggle">
                         <span>View breakdown</span>
                         <ChevronDown className="w-4 h-4" />
                       </CollapsibleTrigger>
                       <CollapsibleContent className="mt-3 space-y-2">
-                        {previewData.budgetBreakdown.map((item: any, index: number) => (
+                        {previewData.activity.budgetBreakdown.map((item: any, index: number) => (
                           <div key={index} className="flex items-start justify-between text-sm border-l-2 border-muted pl-3 py-1.5">
                             <div className="flex-1">
                               <p className="font-medium">{item.category}</p>
@@ -1054,7 +1054,7 @@ export default function DiscoverPlansView() {
                                 <p className="text-xs text-muted-foreground mt-0.5">{item.notes}</p>
                               )}
                             </div>
-                            <span className="font-semibold ml-2">{formatBudget(item.amount)}</span>
+                            <span className="font-semibold ml-2">{formatBudgetPrecise(item.amount)}</span>
                           </div>
                         ))}
                       </CollapsibleContent>
@@ -1095,11 +1095,11 @@ export default function DiscoverPlansView() {
               <div className="flex items-center gap-4 pt-2 border-t text-sm text-muted-foreground">
                 <div className="flex items-center gap-1.5" data-testid="stat-preview-likes">
                   <Heart className="w-4 h-4" />
-                  <span>{previewData.likeCount?.toLocaleString() || 0} likes</span>
+                  <span>{previewData.activity?.likeCount?.toLocaleString() || 0} likes</span>
                 </div>
                 <div className="flex items-center gap-1.5" data-testid="stat-preview-views">
                   <Eye className="w-4 h-4" />
-                  <span>{previewData.viewCount?.toLocaleString() || 0} views</span>
+                  <span>{previewData.activity?.viewCount?.toLocaleString() || 0} views</span>
                 </div>
               </div>
               
