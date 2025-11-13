@@ -136,6 +136,7 @@ export interface IStorage {
   getUserActivities(userId: string): Promise<ActivityWithProgress[]>;
   getUserArchivedActivities(userId: string): Promise<ActivityWithProgress[]>;
   getActivity(activityId: string, userId: string): Promise<Activity | undefined>;
+  getActivityById(activityId: string): Promise<Activity | undefined>;
   getActivityByShareToken(shareToken: string): Promise<Activity | undefined>;
   getExistingCopyByShareToken(userId: string, shareToken: string): Promise<Activity | undefined>;
   updateActivity(activityId: string, updates: Partial<Activity>, userId: string): Promise<Activity | undefined>;
@@ -566,6 +567,12 @@ export class DatabaseStorage implements IStorage {
   async getActivity(activityId: string, userId: string): Promise<Activity | undefined> {
     const [result] = await db.select().from(activities)
       .where(and(eq(activities.id, activityId), eq(activities.userId, userId)));
+    return result;
+  }
+
+  async getActivityById(activityId: string): Promise<Activity | undefined> {
+    const [result] = await db.select().from(activities)
+      .where(eq(activities.id, activityId));
     return result;
   }
 
@@ -2188,8 +2195,8 @@ export class DatabaseStorage implements IStorage {
   // Get all groups a user is a member of
   async getUserGroups(userId: string): Promise<Array<Group & { memberCount: number; role: string; tasksCompleted?: number; tasksTotal?: number }>> {
     // Use raw SQL to avoid Drizzle ORM circular reference bug
-    const result = await sqlClient`
-      SELECT 
+    const result = await pool.query(
+      `SELECT 
         g.id,
         g.name,
         g.description,
@@ -2216,28 +2223,30 @@ export class DatabaseStorage implements IStorage {
         ), 0)::int as "tasksTotal"
       FROM groups g
       INNER JOIN group_memberships gm ON g.id = gm.group_id
-      WHERE gm.user_id = ${userId}
-    `;
+      WHERE gm.user_id = $1`,
+      [userId]
+    );
 
-    return result as any;
+    return result.rows as any;
   }
 
   // Get group details with members
   async getGroupById(groupId: string, userId: string): Promise<any> {
     // Use raw SQL to avoid Drizzle ORM circular reference bug
     // Check if user is a member
-    const membershipResult = await sqlClient`
-      SELECT role FROM group_memberships 
-      WHERE group_id = ${groupId} AND user_id = ${userId}
-    `;
+    const membershipResult = await pool.query(
+      `SELECT role FROM group_memberships 
+      WHERE group_id = $1 AND user_id = $2`,
+      [groupId, userId]
+    );
 
-    if (membershipResult.length === 0) {
+    if (membershipResult.rows.length === 0) {
       return null; // User not authorized
     }
 
     // Get group details
-    const groupResult = await sqlClient`
-      SELECT 
+    const groupResult = await pool.query(
+      `SELECT 
         id, name, description,
         created_by as "createdBy",
         is_private as "isPrivate",
@@ -2245,16 +2254,17 @@ export class DatabaseStorage implements IStorage {
         created_at as "createdAt",
         updated_at as "updatedAt"
       FROM groups 
-      WHERE id = ${groupId}
-    `;
+      WHERE id = $1`,
+      [groupId]
+    );
 
-    if (groupResult.length === 0) {
+    if (groupResult.rows.length === 0) {
       return null;
     }
 
     // Get all members
-    const members = await sqlClient`
-      SELECT 
+    const members = await pool.query(
+      `SELECT 
         u.id,
         u.username,
         u.email,
@@ -2265,13 +2275,14 @@ export class DatabaseStorage implements IStorage {
         gm.joined_at as "joinedAt"
       FROM group_memberships gm
       INNER JOIN users u ON gm.user_id = u.id
-      WHERE gm.group_id = ${groupId}
-    `;
+      WHERE gm.group_id = $1`,
+      [groupId]
+    );
 
     return {
-      ...groupResult[0],
-      members,
-      currentUserRole: membershipResult[0].role,
+      ...groupResult.rows[0],
+      members: members.rows,
+      currentUserRole: membershipResult.rows[0].role,
     };
   }
 
@@ -2451,8 +2462,8 @@ export class DatabaseStorage implements IStorage {
   // Get group activities
   async getGroupActivities(groupId: string): Promise<any[]> {
     // Use raw SQL to avoid Drizzle ORM circular reference bug and get task counts
-    const groupActivitiesData = await sqlClient`
-      SELECT 
+    const groupActivitiesData = await pool.query(
+      `SELECT 
         ga.id,
         ga.group_id as "groupId",
         ga.activity_id as "activityId",
@@ -2479,11 +2490,12 @@ export class DatabaseStorage implements IStorage {
         INNER JOIN tasks t ON at.task_id = t.id
         WHERE at.activity_id = ga.activity_id
       ) task_counts ON true
-      WHERE ga.group_id = ${groupId}
-      ORDER BY ga.created_at DESC
-    `;
+      WHERE ga.group_id = $1
+      ORDER BY ga.created_at DESC`,
+      [groupId]
+    );
 
-    return groupActivitiesData;
+    return groupActivitiesData.rows;
   }
 
   // Remove activity from group
@@ -2494,8 +2506,8 @@ export class DatabaseStorage implements IStorage {
   // Get activity change logs for a group
   async getGroupActivityChangeLogs(groupId: string): Promise<any[]> {
     // Use raw SQL to get activity change logs with user info
-    const logs = await sqlClient`
-      SELECT 
+    const logs = await pool.query(
+      `SELECT 
         acl.id,
         acl.user_id as "userId",
         acl.change_type as "changeType",
@@ -2507,12 +2519,13 @@ export class DatabaseStorage implements IStorage {
       FROM activity_change_logs acl
       INNER JOIN group_activities ga ON acl.group_activity_id = ga.id
       LEFT JOIN users u ON acl.user_id = u.id
-      WHERE ga.group_id = ${groupId}
+      WHERE ga.group_id = $1
       ORDER BY acl.timestamp DESC
-      LIMIT 50
-    `;
+      LIMIT 50`,
+      [groupId]
+    );
 
-    return logs.map((log: any) => ({
+    return logs.rows.map((log: any) => ({
       id: log.id,
       userId: log.userId,
       username: log.username || `${log.firstName || ''} ${log.lastName || ''}`.trim() || 'Someone',
@@ -2524,8 +2537,8 @@ export class DatabaseStorage implements IStorage {
 
   // Get group progress - calculate completion stats for each group activity
   async getGroupProgress(groupId: string): Promise<Array<{ groupActivityId: string; activityTitle: string; totalTasks: number; completedTasks: number }>> {
-    const progressData = await sqlClient`
-      SELECT 
+    const progressData = await pool.query(
+      `SELECT 
         ga.id as "groupActivityId",
         a.title as "activityTitle",
         COUNT(DISTINCT t.id) as "totalTasks",
@@ -2534,12 +2547,13 @@ export class DatabaseStorage implements IStorage {
       INNER JOIN activities a ON ga.activity_id = a.id
       INNER JOIN activity_tasks at ON at.activity_id = a.id
       INNER JOIN tasks t ON at.task_id = t.id
-      WHERE ga.group_id = ${groupId}
+      WHERE ga.group_id = $1
       GROUP BY ga.id, a.title
-      ORDER BY ga.created_at DESC
-    `;
+      ORDER BY ga.created_at DESC`,
+      [groupId]
+    );
 
-    return progressData.map((row: any) => ({
+    return progressData.rows.map((row: any) => ({
       groupActivityId: row.groupActivityId,
       activityTitle: row.activityTitle,
       totalTasks: Number(row.totalTasks),
@@ -2570,44 +2584,47 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGroupActivityByTaskId(taskId: string): Promise<GroupActivity | null> {
-    const result = await sqlClient`
-      SELECT ga.*
+    const result = await pool.query(
+      `SELECT ga.*
       FROM group_activities ga
       INNER JOIN activity_tasks at ON ga.activity_id = at.activity_id
-      WHERE at.task_id = ${taskId}
-      LIMIT 1
-    `;
+      WHERE at.task_id = $1
+      LIMIT 1`,
+      [taskId]
+    );
 
-    return result.length > 0 ? result[0] : null;
+    return result.rows.length > 0 ? result.rows[0] : null;
   }
 
   async logActivityChange(change: { groupActivityId: string; userId: string; changeType: string; changeDescription: string }): Promise<void> {
     // Get the group activity details to populate the feed
-    const groupActivityResult = await sqlClient`
-      SELECT ga.group_id, a.title as activity_title
+    const groupActivityResult = await pool.query(
+      `SELECT ga.group_id, a.title as activity_title
       FROM group_activities ga
       INNER JOIN activities a ON ga.activity_id = a.id
-      WHERE ga.id = ${change.groupActivityId}
-      LIMIT 1
-    `;
+      WHERE ga.id = $1
+      LIMIT 1`,
+      [change.groupActivityId]
+    );
 
-    if (groupActivityResult.length === 0) {
+    if (groupActivityResult.rows.length === 0) {
       console.error('Group activity not found for logging');
       return;
     }
 
-    const { group_id: groupId, activity_title: activityTitle } = groupActivityResult[0];
+    const { group_id: groupId, activity_title: activityTitle } = groupActivityResult.rows[0];
 
     // Get user info
-    const userResult = await sqlClient`
-      SELECT username, first_name, last_name
+    const userResult = await pool.query(
+      `SELECT username, first_name, last_name
       FROM users
-      WHERE id = ${change.userId}
-      LIMIT 1
-    `;
+      WHERE id = $1
+      LIMIT 1`,
+      [change.userId]
+    );
 
-    const userName = userResult.length > 0
-      ? userResult[0].username || `${userResult[0].first_name || ''} ${userResult[0].last_name || ''}`.trim() || 'Someone'
+    const userName = userResult.rows.length > 0
+      ? userResult.rows[0].username || `${userResult.rows[0].first_name || ''} ${userResult.rows[0].last_name || ''}`.trim() || 'Someone'
       : 'Someone';
 
     // Insert into groupActivityFeed with correct field names
@@ -2624,20 +2641,21 @@ export class DatabaseStorage implements IStorage {
 
   // Get groups for a user with member count and their role
   async getGroupsForUser(userId: string): Promise<Array<Group & { memberCount: number; role: string }>> {
-    const userGroups = await sqlClient`
-      SELECT 
+    const userGroups = await pool.query(
+      `SELECT 
         g.*,
         gm.role,
         COUNT(DISTINCT gm2.user_id) as "memberCount"
       FROM groups g
       INNER JOIN group_memberships gm ON g.id = gm.group_id
       LEFT JOIN group_memberships gm2 ON g.id = gm2.group_id
-      WHERE gm.user_id = ${userId}
+      WHERE gm.user_id = $1
       GROUP BY g.id, g.name, g.description, g.invite_code, g.created_by, g.created_at, gm.role
-      ORDER BY g.created_at DESC
-    `;
+      ORDER BY g.created_at DESC`,
+      [userId]
+    );
 
-    return userGroups.map((row: any) => ({
+    return userGroups.rows.map((row: any) => ({
       id: row.id,
       name: row.name,
       description: row.description,
@@ -2651,19 +2669,20 @@ export class DatabaseStorage implements IStorage {
 
   // Get all members of a group
   async getGroupMembers(groupId: string): Promise<Array<{ userId: string; userName: string; role: string; joinedAt: Date }>> {
-    const members = await sqlClient`
-      SELECT 
+    const members = await pool.query(
+      `SELECT 
         gm.user_id as "userId",
         COALESCE(u.username, CONCAT(u.first_name, ' ', u.last_name)) as "userName",
         gm.role,
         gm.joined_at as "joinedAt"
       FROM group_memberships gm
       LEFT JOIN users u ON gm.user_id = u.id
-      WHERE gm.group_id = ${groupId}
-      ORDER BY gm.joined_at ASC
-    `;
+      WHERE gm.group_id = $1
+      ORDER BY gm.joined_at ASC`,
+      [groupId]
+    );
 
-    return members.map((row: any) => ({
+    return members.rows.map((row: any) => ({
       userId: row.userId,
       userName: row.userName || 'Anonymous',
       role: row.role,
