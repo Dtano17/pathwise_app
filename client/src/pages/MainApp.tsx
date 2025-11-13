@@ -27,7 +27,8 @@ import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
 import ProgressReport from './ProgressReport';
 import { SocialLogin } from '@/components/SocialLogin';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2, Circle, UserPlus } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2, Circle, UserPlus, Globe2 } from 'lucide-react';
+import DiscoverPlansView from '@/components/discover/DiscoverPlansView';
 import { Link } from 'wouter';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
@@ -155,8 +156,25 @@ export default function MainApp({
       }
       // Clean up URL after setting state
       window.history.replaceState({}, '', '/');
+    } else if (tabParam) {
+      // Handle tab parameter without activity parameter
+      setActiveTab(tabParam);
     }
   }, []);
+
+  // Sync active tab to URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    
+    if (activeTab && activeTab !== "input") {
+      params.set("tab", activeTab);
+    } else {
+      params.delete("tab");
+    }
+    
+    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
+    window.history.replaceState({}, "", newUrl);
+  }, [activeTab]);
   
   // Task filtering state
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -1248,6 +1266,7 @@ export default function MainApp({
 
   // Tab options for mobile dropdown
   const tabOptions = [
+    { value: "discover", label: "Discover", shortLabel: "Discover", icon: Globe2 },
     { value: "input", label: "Goal Input", shortLabel: "Input", icon: Mic },
     { value: "activities", label: `Activities (${activities.length})`, shortLabel: "Activities", icon: CheckSquare },
     { value: "tasks", label: `All Tasks (${tasks.length})`, shortLabel: "Tasks", icon: Target },
@@ -1351,36 +1370,47 @@ export default function MainApp({
             </div>
 
             {/* Desktop Tab Navigation */}
-            <TabsList className="hidden sm:grid w-full grid-cols-7 mb-4 sm:mb-8 bg-muted/30 p-1 h-12">
-              <TabsTrigger value="input" className="gap-2 text-sm font-medium" data-testid="tab-input">
-                <Mic className="w-4 h-4" />
-                <span>Goal Input</span>
-              </TabsTrigger>
-              <TabsTrigger value="activities" className="gap-2 text-sm font-medium" data-testid="tab-activities">
-                <CheckSquare className="w-4 h-4" />
-                <span>Activities ({activities.length})</span>
-              </TabsTrigger>
-              <TabsTrigger value="tasks" className="gap-2 text-sm font-medium" data-testid="tab-all-tasks">
-                <Target className="w-4 h-4" />
-                <span>All Tasks ({tasks.length})</span>
-              </TabsTrigger>
-              <TabsTrigger value="progress" className="gap-2 text-sm font-medium" data-testid="tab-progress">
-                <BarChart3 className="w-4 h-4" />
-                <span>Progress</span>
-              </TabsTrigger>
-              <TabsTrigger value="groups" className="gap-2 text-sm font-medium" data-testid="tab-groups">
-                <Users className="w-4 h-4" />
-                <span>Groups</span>
-              </TabsTrigger>
-              <TabsTrigger value="sync" className="gap-2 text-sm font-medium" data-testid="tab-integrations">
-                <Plug className="w-4 h-4" />
-                <span>Integrations</span>
-              </TabsTrigger>
-              <TabsTrigger value="about" className="gap-2 text-sm font-medium" data-testid="tab-about">
-                <Info className="w-4 h-4" />
-                <span>About</span>
-              </TabsTrigger>
-            </TabsList>
+            <div className="w-full overflow-x-auto">
+              <TabsList className="hidden sm:inline-flex w-max min-w-full mb-4 sm:mb-8 bg-muted/30 p-1 h-12 flex-nowrap gap-2">
+                <TabsTrigger value="discover" className="gap-2 text-sm font-medium" data-testid="tab-discover">
+                  <Globe2 className="w-4 h-4" />
+                  <span>Discover</span>
+                </TabsTrigger>
+                <TabsTrigger value="input" className="gap-2 text-sm font-medium" data-testid="tab-input">
+                  <Mic className="w-4 h-4" />
+                  <span>Goal Input</span>
+                </TabsTrigger>
+                <TabsTrigger value="activities" className="gap-2 text-sm font-medium" data-testid="tab-activities">
+                  <CheckSquare className="w-4 h-4" />
+                  <span>Activities ({activities.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="tasks" className="gap-2 text-sm font-medium" data-testid="tab-all-tasks">
+                  <Target className="w-4 h-4" />
+                  <span>All Tasks ({tasks.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="progress" className="gap-2 text-sm font-medium" data-testid="tab-progress">
+                  <BarChart3 className="w-4 h-4" />
+                  <span>Progress</span>
+                </TabsTrigger>
+                <TabsTrigger value="groups" className="gap-2 text-sm font-medium" data-testid="tab-groups">
+                  <Users className="w-4 h-4" />
+                  <span>Groups</span>
+                </TabsTrigger>
+                <TabsTrigger value="sync" className="gap-2 text-sm font-medium" data-testid="tab-integrations">
+                  <Plug className="w-4 h-4" />
+                  <span>Integrations</span>
+                </TabsTrigger>
+                <TabsTrigger value="about" className="gap-2 text-sm font-medium" data-testid="tab-about">
+                  <Info className="w-4 h-4" />
+                  <span>About</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            {/* Discover Tab */}
+            <TabsContent value="discover" className="space-y-6 pb-20">
+              <DiscoverPlansView />
+            </TabsContent>
 
             {/* Goal Input Tab */}
             <TabsContent value="input" className="space-y-6 pb-20">
