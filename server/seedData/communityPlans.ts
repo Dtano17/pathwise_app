@@ -2246,5 +2246,44 @@ export const demoCommunityPlans = [
       { title: "Attend Christmas Eve church service", description: "Candlelight service, Christmas hymns, celebrate the season's meaning", category: "personal", priority: "medium" as const, timeEstimate: "2 hours" },
       { title: "Open presents Christmas morning", description: "Gather family, stockings first, then gifts - capture magical moments", category: "personal", priority: "high" as const, timeEstimate: "3 hours" },
     ]
+  },
+  {
+    activity: {
+      title: "🦃 Thanksgiving Feast: Family Gathering & Gratitude",
+      description: "Host an unforgettable Thanksgiving with traditional turkey dinner, family activities, and heartfelt gratitude celebrations",
+      category: "personal" as const,
+      planSummary: "Complete Thanksgiving celebration guide with turkey prep, side dishes, family traditions, table decorations, and gratitude activities",
+      isPublic: true,
+      shareTitle: "Thanksgiving Feast & Family Gathering",
+      backdrop: "/stock_images/thanksgiving_dinner__f3fdfa6c.jpg",
+      tags: ["thanksgiving", "holiday", "family", "cooking", "gratitude", "celebration", "turkey-day"],
+      viewCount: 18000,
+      likeCount: 16500,
+      trendingScore: 34500,
+      featuredInCommunity: true,
+      creatorName: "Holiday Traditions",
+      creatorAvatar: null,
+      status: "planning" as const,
+      budget: 95000,
+      budgetBreakdown: [
+        { category: "Turkey & main proteins", amount: 25000, notes: "20lb turkey, ham, or prime rib for 12 people" },
+        { category: "Side dishes & ingredients", amount: 30000, notes: "Stuffing, mashed potatoes, sweet potatoes, green beans, cranberry sauce" },
+        { category: "Pies & desserts", amount: 15000, notes: "Pumpkin pie, apple pie, pecan pie, whipped cream" },
+        { category: "Table decorations & centerpiece", amount: 12000, notes: "Fall leaves, candles, tablecloth, napkins, place settings" },
+        { category: "Drinks & appetizers", amount: 13000, notes: "Wine, cider, cheese board, charcuterie, appetizers" }
+      ],
+      budgetBuffer: 9500,
+    },
+    tasks: [
+      { title: "Order fresh turkey (20+ lbs)", description: "Reserve turkey from butcher or grocery store, allow 1 lb per person", category: "personal", priority: "high" as const, timeEstimate: "30 min" },
+      { title: "Plan Thanksgiving menu with family", description: "Turkey, stuffing, mashed potatoes, sweet potato casserole, green beans, cranberry sauce, rolls", category: "personal", priority: "high" as const, timeEstimate: "1 hour" },
+      { title: "Shop for all ingredients early", description: "Get groceries 2-3 days before, avoid last-minute rush", category: "personal", priority: "high" as const, timeEstimate: "3 hours" },
+      { title: "Prep side dishes day before", description: "Chop vegetables, make cranberry sauce, prepare casseroles - save time on Thanksgiving", category: "personal", priority: "high" as const, timeEstimate: "4 hours" },
+      { title: "Thaw turkey safely in refrigerator", description: "24 hours per 4-5 lbs - plan ahead for proper thawing", category: "personal", priority: "high" as const, timeEstimate: "ongoing" },
+      { title: "Set beautiful Thanksgiving table", description: "Fall centerpiece, candles, nice dishes, gratitude cards at each setting", category: "personal", priority: "medium" as const, timeEstimate: "1.5 hours" },
+      { title: "Roast turkey to perfection", description: "Season, roast at 325°F, baste regularly, use meat thermometer (165°F)", category: "personal", priority: "high" as const, timeEstimate: "4 hours" },
+      { title: "Bake pumpkin and apple pies", description: "Homemade or store-bought, warm with whipped cream", category: "personal", priority: "high" as const, timeEstimate: "2 hours" },
+      { title: "Share what you're grateful for", description: "Go around table, each person shares gratitude - cherish family moments", category: "personal", priority: "high" as const, timeEstimate: "30 min" },
+    ]
   }
 ];
