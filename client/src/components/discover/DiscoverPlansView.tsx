@@ -187,19 +187,19 @@ const getVerificationLabel = (sourceType: string | null | undefined, verificatio
   return null;
 };
 
-// Get platform-specific verification icon
-const getVerificationIcon = (verificationBadge: string | null | undefined, className: string = "w-3 h-3") => {
-  if (!verificationBadge) return <CheckCircle2 className={className} />;
+// Get platform-specific verification icon component
+const getVerificationIconComponent = (verificationBadge: string | null | undefined): typeof CheckCircle2 | typeof SiX | typeof SiInstagram | typeof SiLinkedin => {
+  if (!verificationBadge) return CheckCircle2;
   
   switch (verificationBadge) {
     case 'twitter':
-      return <SiX className={className} />;
+      return SiX;
     case 'instagram':
-      return <SiInstagram className={className} />;
+      return SiInstagram;
     case 'linkedin':
-      return <SiLinkedin className={className} />;
+      return SiLinkedin;
     default:
-      return <CheckCircle2 className={className} />;
+      return CheckCircle2;
   }
 };
 
@@ -1005,28 +1005,25 @@ export default function DiscoverPlansView() {
                         <p className="text-xs text-muted-foreground">
                           by {plan.creatorName || "Unknown"}
                         </p>
-                        {verificationLabel && (
-                          <div className="group/verify relative inline-flex">
-                            <div 
-                              className={`cursor-help ${
-                                plan.sourceType === 'brand_partnership'
-                                  ? 'text-blue-500' 
-                                  : 'text-green-500'
-                              }`}
-                              aria-label={verificationLabel}
-                              data-testid={`icon-verified-${plan.id}`}
-                            >
-                              {getVerificationIcon(plan.verificationBadge, `w-3 h-3 ${
-                                plan.sourceType === 'brand_partnership'
-                                  ? 'text-blue-500' 
-                                  : 'text-green-500'
-                              }`)}
+                        {verificationLabel && (() => {
+                          const IconComponent = getVerificationIconComponent(plan.verificationBadge);
+                          return (
+                            <div className="group/verify relative inline-flex">
+                              <IconComponent 
+                                className={`w-3 h-3 cursor-help ${
+                                  plan.sourceType === 'brand_partnership'
+                                    ? 'text-blue-500' 
+                                    : 'text-green-500'
+                                }`}
+                                aria-label={verificationLabel}
+                                data-testid={`icon-verified-${plan.id}`}
+                              />
+                              <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-100 dark:text-gray-900 rounded opacity-0 group-hover/verify:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                {verificationLabel}
+                              </span>
                             </div>
-                            <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-100 dark:text-gray-900 rounded opacity-0 group-hover/verify:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                              {verificationLabel}
-                            </span>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
