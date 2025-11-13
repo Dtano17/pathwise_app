@@ -51,6 +51,8 @@ import {
   type InsertTaskFeedback,
   type ActivityBookmark,
   type InsertActivityBookmark,
+  type PlanEngagement,
+  type InsertPlanEngagement,
   type PlannerProfile,
   type InsertPlannerProfile,
   type Group,
@@ -85,6 +87,7 @@ import {
   activityFeedback,
   taskFeedback,
   activityBookmarks,
+  planEngagement,
   groups,
   groupMemberships,
   groupActivities,
@@ -165,6 +168,10 @@ export interface IStorage {
   getUserBookmarks(userId: string): Promise<Activity[]>;
   isBookmarked(activityId: string, userId: string): Promise<boolean>;
   getBulkBookmarkStatus(activityIds: string[], userId: string): Promise<Map<string, boolean>>;
+  
+  // Engagement tracking (transactional helpers that update state + counts + emit events)
+  toggleActivityLike(activityId: string, userId: string): Promise<{ liked: boolean; likeCount: number }>;
+  toggleActivityBookmark(activityId: string, userId: string): Promise<{ bookmarked: boolean; bookmarkCount: number }>;
 
   // Journal Entries
   createJournalEntry(entry: InsertJournalEntry & { userId: string }): Promise<JournalEntry>;
