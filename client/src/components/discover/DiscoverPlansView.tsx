@@ -1013,6 +1013,38 @@ export default function DiscoverPlansView() {
                   <p className="text-sm text-muted-foreground">{previewData.description}</p>
                 </div>
               )}
+              {/* Budget Breakdown Section */}
+              {previewData.budget !== null && previewData.budget !== undefined && (
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold">Budget</h4>
+                    <span className="text-lg font-bold text-primary">
+                      {formatBudget(previewData.budget)}
+                    </span>
+                  </div>
+                  {previewData.budgetBreakdown && previewData.budgetBreakdown.length > 0 && (
+                    <Collapsible>
+                      <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full">
+                        <span>View breakdown</span>
+                        <ChevronDown className="w-4 h-4" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-3 space-y-2">
+                        {previewData.budgetBreakdown.map((item: any, index: number) => (
+                          <div key={index} className="flex items-start justify-between text-sm border-l-2 border-muted pl-3 py-1">
+                            <div className="flex-1">
+                              <p className="font-medium">{item.category}</p>
+                              {item.notes && (
+                                <p className="text-xs text-muted-foreground mt-0.5">{item.notes}</p>
+                              )}
+                            </div>
+                            <span className="font-semibold ml-2">{formatBudget(item.amount)}</span>
+                          </div>
+                        ))}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
+                </div>
+              )}
               {previewData.tasks && previewData.tasks.length > 0 && (
                 <div>
                   <h4 className="font-semibold mb-2">Tasks ({previewData.tasks.length})</h4>
