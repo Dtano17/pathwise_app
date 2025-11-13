@@ -1762,6 +1762,11 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Apply trending filter if category is 'trending' (15000+ trending score)
+    if (category === 'trending') {
+      results = results.filter(activity => (activity.trendingScore || 0) >= 15000);
+    }
+
     // Sort by trendingScore (trending tab) or just by creation date
     if (!category || category === 'trending') {
       results.sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0));

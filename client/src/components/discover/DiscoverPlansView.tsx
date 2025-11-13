@@ -84,6 +84,7 @@ const stockImageMap: Record<string, string> = {
 
 const categories = [
   { value: "all", label: "All", Icon: TrendingUp },
+  { value: "trending", label: "Trending", Icon: TrendingUp, color: "bg-emerald-500", isTrendingFilter: true },
   { value: "travel", label: "Travel", Icon: Plane, color: "bg-blue-500" },
   { value: "fitness", label: "Fitness", Icon: Dumbbell, color: "bg-green-500" },
   { value: "career", label: "Career", Icon: Briefcase, color: "bg-indigo-500" },
