@@ -167,6 +167,7 @@ const getVerificationLabel = (sourceType: string | null | undefined, verificatio
   if (!sourceType) return null;
   
   if (sourceType === 'official_seed') return 'Verified by IntentAI';
+  if (sourceType === 'brand_partnership') return 'Verified Brand Partner';
   if (sourceType === 'community_reviewed') {
     if (verificationBadge === 'twitter') return 'Verified on X/Twitter';
     if (verificationBadge === 'instagram') return 'Verified on Instagram';
@@ -926,7 +927,11 @@ export default function DiscoverPlansView() {
                         {verificationLabel && (
                           <div className="group/verify relative inline-flex">
                             <CheckCircle2 
-                              className="w-3 h-3 text-primary cursor-help" 
+                              className={`w-3 h-3 cursor-help ${
+                                plan.planType === 'sponsored' 
+                                  ? 'text-blue-500' 
+                                  : 'text-green-500'
+                              }`}
                               aria-label={verificationLabel}
                               data-testid={`icon-verified-${plan.id}`}
                             />
