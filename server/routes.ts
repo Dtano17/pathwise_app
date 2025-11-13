@@ -8513,7 +8513,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       res.json({ 
         success: true, 
         message: 'Community plans seeded successfully! Check the Discover Plans section.',
-        plansSeeded: 27
+        plansSeeded: 56
       });
     } catch (error) {
       console.error('[ADMIN] Failed to seed community plans:', error);
