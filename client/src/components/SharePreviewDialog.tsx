@@ -76,6 +76,10 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
   const [redactedPreview, setRedactedPreview] = useState<{ title: string; tasks: { title: string }[] } | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
   const [publishToCommunity, setPublishToCommunity] = useState(false);
+  const [twitterHandle, setTwitterHandle] = useState('');
+  const [instagramHandle, setInstagramHandle] = useState('');
+  const [threadsHandle, setThreadsHandle] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const [createGroup, setCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
@@ -88,6 +92,10 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
     setBackdrop(activity.backdrop || '');
     setCustomBackdrop('');
     setPublishToCommunity(false);
+    setTwitterHandle('');
+    setInstagramHandle('');
+    setThreadsHandle('');
+    setWebsiteUrl('');
     setCreateGroup(false);
     setGroupName('');
     setGroupDescription('');
@@ -106,6 +114,13 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         throw new Error('Group description cannot exceed 500 characters');
       }
 
+      // Validate social media links when publishToCommunity is true
+      if (publishToCommunity) {
+        if (!twitterHandle && !instagramHandle && !threadsHandle && !websiteUrl) {
+          throw new Error('At least one social media link is required when publishing to Community Discovery');
+        }
+      }
+
       // First update activity with shareTitle and backdrop
       const updates = {
         shareTitle: shareTitle || null,
@@ -122,7 +137,11 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
           credentials: 'include',
           body: JSON.stringify({
             privacySettings,
-            privacyPreset
+            privacyPreset,
+            twitterHandle: twitterHandle || undefined,
+            instagramHandle: instagramHandle || undefined,
+            threadsHandle: threadsHandle || undefined,
+            websiteUrl: websiteUrl || undefined
           })
         });
         
@@ -625,7 +644,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
             </div>
             
             {publishToCommunity && (
-              <div className="pl-6 space-y-2">
+              <div className="pl-6 space-y-4">
                 <p className="text-sm text-muted-foreground">
                   Your plan will be featured in the Community Discovery section for others to explore and use.
                 </p>
@@ -635,6 +654,70 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
                     Tip: Enable Privacy Shield above to protect personal details before publishing.
                   </p>
                 )}
+                
+                {/* Social Media Links Section */}
+                <div className="space-y-3 border-t pt-4">
+                  <p className="text-sm font-medium">
+                    Social Media Verification <span className="text-destructive">*</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    At least one social media link is required for community publishing
+                  </p>
+                  
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="twitter-handle" className="text-sm">
+                        Twitter/X Profile
+                      </Label>
+                      <Input
+                        id="twitter-handle"
+                        value={twitterHandle}
+                        onChange={(e) => setTwitterHandle(e.target.value)}
+                        placeholder="https://twitter.com/yourusername"
+                        data-testid="input-twitter-handle"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="instagram-handle" className="text-sm">
+                        Instagram Profile
+                      </Label>
+                      <Input
+                        id="instagram-handle"
+                        value={instagramHandle}
+                        onChange={(e) => setInstagramHandle(e.target.value)}
+                        placeholder="https://instagram.com/yourusername"
+                        data-testid="input-instagram-handle"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="threads-handle" className="text-sm">
+                        Threads Profile
+                      </Label>
+                      <Input
+                        id="threads-handle"
+                        value={threadsHandle}
+                        onChange={(e) => setThreadsHandle(e.target.value)}
+                        placeholder="https://threads.net/@yourusername"
+                        data-testid="input-threads-handle"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="website-url" className="text-sm">
+                        Website URL
+                      </Label>
+                      <Input
+                        id="website-url"
+                        value={websiteUrl}
+                        onChange={(e) => setWebsiteUrl(e.target.value)}
+                        placeholder="https://yourwebsite.com"
+                        data-testid="input-website-url"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

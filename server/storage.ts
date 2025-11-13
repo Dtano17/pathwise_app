@@ -51,6 +51,8 @@ import {
   type InsertTaskFeedback,
   type ActivityBookmark,
   type InsertActivityBookmark,
+  type PlannerProfile,
+  type InsertPlannerProfile,
   type Group,
   type InsertGroup,
   type GroupMembership,
@@ -79,6 +81,7 @@ import {
   lifestylePlannerSessions,
   userProfiles,
   userPreferences,
+  plannerProfiles,
   activityFeedback,
   taskFeedback,
   activityBookmarks,
@@ -248,6 +251,10 @@ export interface IStorage {
   getUserPreferences(userId: string): Promise<UserPreferences | undefined>;
   upsertUserPreferences(userId: string, preferences: InsertUserPreferences): Promise<UserPreferences>;
   deleteUserPreferences(userId: string): Promise<void>;
+  
+  // Planner Profiles (for community plan verification)
+  getPlannerProfile(userId: string): Promise<PlannerProfile | undefined>;
+  upsertPlannerProfile(userId: string, profile: InsertPlannerProfile): Promise<PlannerProfile>;
   
   // Personal Journal with Media
   addPersonalJournalEntry(userId: string, category: string, entry: {
@@ -1224,6 +1231,35 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUserPreferences(userId: string): Promise<void> {
     await db.delete(userPreferences).where(eq(userPreferences.userId, userId));
+  }
+
+  // Planner Profile operations (for community plan verification)
+  async getPlannerProfile(userId: string): Promise<PlannerProfile | undefined> {
+    const [profile] = await db.select().from(plannerProfiles).where(eq(plannerProfiles.userId, userId));
+    return profile;
+  }
+
+  async upsertPlannerProfile(userId: string, profile: InsertPlannerProfile): Promise<PlannerProfile> {
+    // Normalize handles: lowercase, remove trailing slashes
+    const normalizedProfile = {
+      ...profile,
+      twitterHandle: profile.twitterHandle?.toLowerCase().replace(/\/$/, ''),
+      instagramHandle: profile.instagramHandle?.toLowerCase().replace(/\/$/, ''),
+      threadsHandle: profile.threadsHandle?.toLowerCase().replace(/\/$/, ''),
+      websiteUrl: profile.websiteUrl?.toLowerCase().replace(/\/$/, ''),
+    };
+
+    // Use INSERT ... ON CONFLICT for idempotent upsert
+    const [upserted] = await db
+      .insert(plannerProfiles)
+      .values({ ...normalizedProfile, userId, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: plannerProfiles.userId,
+        set: { ...normalizedProfile, updatedAt: new Date() },
+      })
+      .returning();
+    
+    return upserted;
   }
 
   // Personal Journal with Media operations

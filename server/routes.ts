@@ -3325,12 +3325,77 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
     }
   });
 
+  // URL validation utility for social media handles
+  function validateSocialMediaHandles(handles: {
+    twitterHandle?: string;
+    instagramHandle?: string;
+    threadsHandle?: string;
+    websiteUrl?: string;
+  }): { valid: boolean; error?: string } {
+    const { twitterHandle, instagramHandle, threadsHandle, websiteUrl } = handles;
+    
+    // Require at least one handle
+    if (!twitterHandle && !instagramHandle && !threadsHandle && !websiteUrl) {
+      return { valid: false, error: 'At least one social media link is required' };
+    }
+    
+    // Domain whitelist
+    const allowedDomains = ['twitter.com', 'x.com', 'instagram.com', 'threads.net'];
+    
+    // Validate each provided handle
+    if (twitterHandle) {
+      try {
+        const url = new URL(twitterHandle.startsWith('http') ? twitterHandle : `https://${twitterHandle}`);
+        const domain = url.hostname.replace(/^www\./, '');
+        if (!['twitter.com', 'x.com'].includes(domain)) {
+          return { valid: false, error: 'Twitter/X handle must be from twitter.com or x.com' };
+        }
+      } catch {
+        return { valid: false, error: 'Invalid Twitter/X URL format' };
+      }
+    }
+    
+    if (instagramHandle) {
+      try {
+        const url = new URL(instagramHandle.startsWith('http') ? instagramHandle : `https://${instagramHandle}`);
+        const domain = url.hostname.replace(/^www\./, '');
+        if (domain !== 'instagram.com') {
+          return { valid: false, error: 'Instagram handle must be from instagram.com' };
+        }
+      } catch {
+        return { valid: false, error: 'Invalid Instagram URL format' };
+      }
+    }
+    
+    if (threadsHandle) {
+      try {
+        const url = new URL(threadsHandle.startsWith('http') ? threadsHandle : `https://${threadsHandle}`);
+        const domain = url.hostname.replace(/^www\./, '');
+        if (domain !== 'threads.net') {
+          return { valid: false, error: 'Threads handle must be from threads.net' };
+        }
+      } catch {
+        return { valid: false, error: 'Invalid Threads URL format' };
+      }
+    }
+    
+    if (websiteUrl) {
+      try {
+        new URL(websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`);
+      } catch {
+        return { valid: false, error: 'Invalid website URL format' };
+      }
+    }
+    
+    return { valid: true };
+  }
+
   // Publish activity to Community Discovery
   app.post("/api/activities/:activityId/publish", async (req, res) => {
     try {
       const { activityId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
-      const { privacySettings, privacyPreset } = req.body;
+      const { privacySettings, privacyPreset, twitterHandle, instagramHandle, threadsHandle, websiteUrl } = req.body;
 
       // Get activity and its tasks
       const activity = await storage.getActivityById(activityId, userId);
@@ -3447,6 +3512,30 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         }
       }
 
+      // Handle planner profile creation if social links provided
+      let plannerProfileId = null;
+      let verificationBadge = null;
+      if (twitterHandle || instagramHandle || threadsHandle || websiteUrl) {
+        // Validate
+        const validation = validateSocialMediaHandles({ twitterHandle, instagramHandle, threadsHandle, websiteUrl });
+        if (!validation.valid) {
+          return res.status(400).json({ error: validation.error });
+        }
+        
+        // Upsert planner profile
+        const profile = await storage.upsertPlannerProfile(userId, { 
+          twitterHandle: twitterHandle || null, 
+          instagramHandle: instagramHandle || null, 
+          threadsHandle: threadsHandle || null, 
+          websiteUrl: websiteUrl || null 
+        });
+        plannerProfileId = profile.id;
+        
+        // Determine badge: 'twitter'|'instagram'|'threads'|'multi'
+        const provided = [twitterHandle, instagramHandle, threadsHandle].filter(Boolean);
+        verificationBadge = provided.length > 1 ? 'multi' : (twitterHandle ? 'twitter' : instagramHandle ? 'instagram' : 'threads');
+      }
+
       // Store community snapshot with FULL task data for reconciliation
       // This preserves ALL user data (timeline, highlights, etc.)
       const communitySnapshot = {
@@ -3473,6 +3562,9 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         creatorAvatar,
         shareTitle: publicTitle, // Display redacted title in Discovery
         communitySnapshot, // Dedicated field - no data loss
+        sourceType: 'community_unverified',
+        plannerProfileId,
+        verificationBadge
       }, userId);
 
       if (!updatedActivity) {

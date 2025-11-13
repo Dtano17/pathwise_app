@@ -1032,6 +1032,16 @@ export const insertPlannerProfileSchema = createInsertSchema(plannerProfiles).om
 export type PlannerProfile = typeof plannerProfiles.$inferSelect;
 export type InsertPlannerProfile = z.infer<typeof insertPlannerProfileSchema>;
 
+// Verification badge enum for community plans
+export const VERIFICATION_BADGES = {
+  TWITTER: 'twitter',
+  INSTAGRAM: 'instagram',
+  THREADS: 'threads',
+  MULTI: 'multi',
+} as const;
+
+export type VerificationBadge = typeof VERIFICATION_BADGES[keyof typeof VERIFICATION_BADGES];
+
 export type AuthIdentity = typeof authIdentities.$inferSelect;
 export type InsertAuthIdentity = z.infer<typeof insertAuthIdentitySchema>;
 
