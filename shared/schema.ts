@@ -98,6 +98,10 @@ export const users = pgTable("users", {
   trialEndsAt: timestamp("trial_ends_at"), // 7-day trial end date
   subscriptionEndsAt: timestamp("subscription_ends_at"), // For canceled subscriptions
   
+  // User role for special plan publishing (emergency/sponsored)
+  userRole: varchar("user_role").default("standard"), // 'standard' | 'government' | 'sponsor' | 'admin'
+  organizationName: text("organization_name"), // Organization/agency name for government/sponsor users
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -867,7 +871,18 @@ export const activities = pgTable("activities", {
   // Verification and planner profile
   sourceType: text("source_type").notNull().default("community_unverified"), // 'official_seed' | 'community_reviewed' | 'community_unverified'
   plannerProfileId: varchar("planner_profile_id").references(() => plannerProfiles.id, { onDelete: "set null" }), // Link to planner profile for verification
-  verificationBadge: text("verification_badge"), // 'official' | 'community' | null - Display badge type
+  verificationBadge: text("verification_badge"), // 'twitter' | 'instagram' | 'threads' | 'multi' | null - Social media badge type
+  
+  // Plan type and enhanced metadata
+  planType: text("plan_type").notNull().default("community"), // 'community' | 'emergency' | 'sponsored'
+  isPinned: boolean("is_pinned").default(false), // Pin emergency/important plans to top
+  sponsorName: text("sponsor_name"), // Brand/organization name for sponsored plans
+  sponsorLogoUrl: text("sponsor_logo_url"), // Logo URL for sponsored plans
+  sponsorCtaText: text("sponsor_cta_text"), // Call-to-action button text (e.g., "Shop Now")
+  sponsorCtaUrl: text("sponsor_cta_url"), // CTA link URL
+  issuingAgency: text("issuing_agency"), // Government agency for emergency plans (e.g., "Austin Emergency Management")
+  expiresAt: timestamp("expires_at"), // Expiration date for emergency alerts
+  locationRadius: integer("location_radius"), // Geofencing radius in miles for emergency plans
   
   // Status
   status: text("status").notNull().default("planning"), // 'planning' | 'active' | 'completed' | 'cancelled'
@@ -1041,6 +1056,23 @@ export const VERIFICATION_BADGES = {
 } as const;
 
 export type VerificationBadge = typeof VERIFICATION_BADGES[keyof typeof VERIFICATION_BADGES];
+
+export const PLAN_TYPES = {
+  COMMUNITY: 'community',
+  EMERGENCY: 'emergency',
+  SPONSORED: 'sponsored',
+} as const;
+
+export type PlanType = typeof PLAN_TYPES[keyof typeof PLAN_TYPES];
+
+export const USER_ROLES = {
+  STANDARD: 'standard',
+  GOVERNMENT: 'government',
+  SPONSOR: 'sponsor',
+  ADMIN: 'admin',
+} as const;
+
+export type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES];
 
 export type AuthIdentity = typeof authIdentities.$inferSelect;
 export type InsertAuthIdentity = z.infer<typeof insertAuthIdentitySchema>;
