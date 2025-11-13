@@ -106,9 +106,22 @@ const getCategoryColor = (category: string | null) => {
 };
 
 // Plan type badge configuration (theme-aware)
-const getPlanTypeBadge = (planType: string | null | undefined) => {
-  // Default to 'community' for null or undefined
+const getPlanTypeBadge = (planType: string | null | undefined, trendingScore?: number | null) => {
+  // Auto-detect trending based on high trending score (15000+)
+  const isTrending = (trendingScore ?? 0) >= 15000;
   const type = planType ?? 'community';
+  
+  // Trending overrides other types for visual presentation
+  if (isTrending) {
+    return { 
+      type: 'trending',
+      label: 'Trending', 
+      ariaLabel: 'Trending community plan with high engagement',
+      borderColor: 'var(--plan-trending-border)',
+      bgColor: 'rgba(52, 211, 153, 0.15)', // Green with transparency
+    };
+  }
+  
   switch (type) {
     case 'emergency':
       return { 
@@ -124,7 +137,7 @@ const getPlanTypeBadge = (planType: string | null | undefined) => {
         label: 'Sponsored', 
         ariaLabel: 'Sponsored content from brand partner',
         borderColor: 'var(--plan-sponsored-border)',
-        bgColor: 'rgba(255, 149, 0, 0.15)', // Amber with transparency
+        bgColor: 'rgba(0, 122, 255, 0.15)', // Blue with transparency
       };
     default:
       return { 
@@ -789,7 +802,7 @@ export default function DiscoverPlansView() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {plans.map((plan) => {
             const stockImage = getStockImage(plan.backdrop);
-            const planTypeBadge = getPlanTypeBadge(plan.planType);
+            const planTypeBadge = getPlanTypeBadge(plan.planType, plan.trendingScore);
             const verificationLabel = getVerificationLabel(plan.sourceType, plan.verificationBadge);
             
             return (
