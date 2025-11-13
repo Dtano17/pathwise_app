@@ -840,10 +840,12 @@ export const activities = pgTable("activities", {
   // Community and popularity metrics
   viewCount: integer("view_count").default(0), // Total views for discovery
   likeCount: integer("like_count").default(0), // Total likes/uses
+  bookmarkCount: integer("bookmark_count").default(0), // Total bookmarks
   trendingScore: integer("trending_score").default(0), // Calculated trending score
   featuredInCommunity: boolean("featured_in_community").default(false), // Featured plans
   creatorName: text("creator_name"), // Display name of creator for discovery
   creatorAvatar: text("creator_avatar"), // Avatar URL for discovery cards
+  seasonalTags: jsonb("seasonal_tags").$type<string[]>().default([]), // 'summer' | 'winter' | 'spring' | 'fall' | 'holiday' | 'year-round'
   
   // Rating and feedback
   rating: integer("rating"), // 1-5 stars
@@ -970,6 +972,35 @@ export const activityBookmarks = pgTable("activity_bookmarks", {
   userBookmarkIndex: index("user_bookmark_index").on(table.userId, table.createdAt),
 }));
 
+// Plan engagement tracking - Append-only event log for analytics and trending calculations
+// Complements activityFeedback/activityBookmarks (which store current state) by tracking ALL engagement events
+// Event emission rules:
+//   - like/unlike: emit on state change (synced with activityFeedback)
+//   - bookmark/unbookmark: emit on state change (synced with activityBookmarks)
+//   - view: emit once per session per user
+//   - share/copy: emit on each occurrence
+export const planEngagement = pgTable("plan_engagement", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }), // Nullable for anonymous views/copies
+  actionType: text("action_type").notNull(), // 'like' | 'unlike' | 'bookmark' | 'unbookmark' | 'view' | 'share' | 'copy'
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  metadata: jsonb("metadata").$type<{
+    shareToken?: string;
+    platform?: string; // For shares: 'twitter' | 'facebook' | 'link'
+    sessionId?: string; // For view deduplication
+  }>(),
+}, (table) => ({
+  // Optimized for "likes in last 48h per plan" queries - equality columns first for better performance
+  trendingCalculationIndex: index("trending_calculation_index").on(table.actionType, table.activityId, table.timestamp.desc()),
+  // Per-plan recency queries
+  activityRecencyIndex: index("activity_recency_index").on(table.activityId, table.timestamp.desc()),
+  // User activity tracking
+  userEngagementIndex: index("user_engagement_index").on(table.userId, table.timestamp.desc()),
+  // Database-level CHECK constraint for actionType validation
+  actionTypeCheck: sql`CHECK (action_type IN ('like', 'unlike', 'bookmark', 'unbookmark', 'view', 'share', 'copy'))`,
+}));
+
 // Task feedback for like/unlike tracking on individual tasks
 export const taskFeedback = pgTable("task_feedback", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1030,6 +1061,11 @@ export const insertTaskFeedbackSchema = createInsertSchema(taskFeedback).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+});
+
+export const insertPlanEngagementSchema = createInsertSchema(planEngagement).omit({
+  id: true,
+  timestamp: true,
 });
 
 export const insertActivityBookmarkSchema = createInsertSchema(activityBookmarks).omit({
@@ -1097,6 +1133,9 @@ export type InsertTaskFeedback = z.infer<typeof insertTaskFeedbackSchema>;
 
 export type ActivityBookmark = typeof activityBookmarks.$inferSelect;
 export type InsertActivityBookmark = z.infer<typeof insertActivityBookmarkSchema>;
+
+export type PlanEngagement = typeof planEngagement.$inferSelect;
+export type InsertPlanEngagement = z.infer<typeof insertPlanEngagementSchema>;
 
 // Additional contact sync validation
 export const syncContactsSchema = z.object({
