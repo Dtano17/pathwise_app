@@ -94,7 +94,12 @@ import {
   groupActivityFeed
 } from "@shared/schema";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL!,
+  ssl: process.env.DATABASE_URL?.includes('neondb.io') || process.env.DATABASE_URL?.includes('neon.tech')
+    ? { rejectUnauthorized: false }
+    : undefined
+});
 export const db = drizzle(pool);
 
 export interface IStorage {

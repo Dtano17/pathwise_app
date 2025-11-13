@@ -16,7 +16,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark } from "lucide-react";
+import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2 } from "lucide-react";
 import type { Activity } from "@shared/schema";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
 import { useDiscoverFilters } from "./useDiscoverFilters";
@@ -103,6 +103,54 @@ const getCategoryColor = (category: string | null) => {
   if (!category) return "bg-gray-500";
   const cat = categories.find(c => c.value === category.toLowerCase());
   return cat?.color || "bg-gray-500";
+};
+
+// Plan type badge configuration (theme-aware)
+const getPlanTypeBadge = (planType: string | null | undefined) => {
+  // Default to 'community' for null or undefined
+  const type = planType ?? 'community';
+  switch (type) {
+    case 'emergency':
+      return { 
+        type: 'emergency',
+        label: 'Emergency Alert', 
+        ariaLabel: 'Emergency plan from government agency',
+        borderColor: 'var(--plan-emergency-border)',
+        bgColor: 'rgba(255, 59, 48, 0.15)', // Red with transparency
+      };
+    case 'sponsored':
+      return { 
+        type: 'sponsored',
+        label: 'Sponsored', 
+        ariaLabel: 'Sponsored content from brand partner',
+        borderColor: 'var(--plan-sponsored-border)',
+        bgColor: 'rgba(255, 149, 0, 0.15)', // Amber with transparency
+      };
+    default:
+      return { 
+        type: 'community',
+        label: 'Community', 
+        ariaLabel: 'Community-created plan',
+        borderColor: 'var(--plan-community-border)',
+        bgColor: 'transparent',
+      };
+  }
+};
+
+// Verification badge helper - returns null if inputs are falsy
+const getVerificationLabel = (sourceType: string | null | undefined, verificationBadge: string | null | undefined): string | null => {
+  // Bail early if sourceType is missing
+  if (!sourceType) return null;
+  
+  if (sourceType === 'official_seed') return 'Verified by IntentAI';
+  if (sourceType === 'community_reviewed') {
+    if (verificationBadge === 'twitter') return 'Verified on X/Twitter';
+    if (verificationBadge === 'instagram') return 'Verified on Instagram';
+    if (verificationBadge === 'threads') return 'Verified on Threads';
+    if (verificationBadge === 'multi') return 'Multi-platform Verified';
+    return 'Community Verified';
+  }
+  return null;
 };
 
 export default function DiscoverPlansView() {
@@ -741,9 +789,19 @@ export default function DiscoverPlansView() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {plans.map((plan) => {
             const stockImage = getStockImage(plan.backdrop);
+            const planTypeBadge = getPlanTypeBadge(plan.planType);
+            const verificationLabel = getVerificationLabel(plan.sourceType, plan.verificationBadge);
             
             return (
-              <Card key={plan.id} className="overflow-hidden flex flex-col group hover-elevate" data-testid={`card-plan-${plan.id}`}>
+              <Card 
+                key={plan.id} 
+                className="overflow-hidden flex flex-col group hover-elevate" 
+                style={{ 
+                  borderColor: planTypeBadge.borderColor,
+                  borderWidth: '2px'
+                }}
+                data-testid={`card-plan-${plan.id}`}
+              >
                 {stockImage && (
                   <div className="relative h-48 overflow-hidden">
                     <img
@@ -761,6 +819,18 @@ export default function DiscoverPlansView() {
                         {plan.category}
                       </Badge>
                     )}
+                    {/* Plan Type Badge */}
+                    <div 
+                      className={`absolute ${plan.category ? 'top-12' : 'top-3'} left-3 px-2 py-1 rounded-md text-xs font-medium text-white border flex items-center gap-1`}
+                      style={{ backgroundColor: planTypeBadge.bgColor, borderColor: planTypeBadge.borderColor }}
+                      data-testid={`badge-plan-type-${plan.id}`}
+                      aria-label={planTypeBadge.ariaLabel}
+                    >
+                      {planTypeBadge.type === 'emergency' && <ShieldAlert className="w-3 h-3" />}
+                      {planTypeBadge.type === 'sponsored' && <Megaphone className="w-3 h-3" />}
+                      {planTypeBadge.type === 'community' && <Users className="w-3 h-3" />}
+                      {planTypeBadge.label}
+                    </div>
                     <div className="absolute top-3 right-3 flex gap-2">
                       <button
                         onClick={(e) => {
@@ -814,9 +884,23 @@ export default function DiscoverPlansView() {
                       <h3 className="font-semibold text-lg leading-tight mb-1 line-clamp-2" data-testid={`text-plan-title-${plan.id}`}>
                         {plan.title}
                       </h3>
-                      <p className="text-xs text-muted-foreground">
-                        by {plan.creatorName || "Unknown"}
-                      </p>
+                      <div className="flex items-center gap-1">
+                        <p className="text-xs text-muted-foreground">
+                          by {plan.creatorName || "Unknown"}
+                        </p>
+                        {verificationLabel && (
+                          <div className="group/verify relative inline-flex">
+                            <CheckCircle2 
+                              className="w-3 h-3 text-primary cursor-help" 
+                              aria-label={verificationLabel}
+                              data-testid={`icon-verified-${plan.id}`}
+                            />
+                            <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-100 dark:text-gray-900 rounded opacity-0 group-hover/verify:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                              {verificationLabel}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
