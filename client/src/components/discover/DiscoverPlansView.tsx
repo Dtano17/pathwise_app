@@ -17,6 +17,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2, Pin } from "lucide-react";
+import { SiLinkedin, SiInstagram, SiX } from "react-icons/si";
 import type { Activity } from "@shared/schema";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
 import { useDiscoverFilters } from "./useDiscoverFilters";
@@ -179,10 +180,27 @@ const getVerificationLabel = (sourceType: string | null | undefined, verificatio
     if (verificationBadge === 'twitter') return 'Verified on X/Twitter';
     if (verificationBadge === 'instagram') return 'Verified on Instagram';
     if (verificationBadge === 'threads') return 'Verified on Threads';
+    if (verificationBadge === 'linkedin') return 'Verified on LinkedIn';
     if (verificationBadge === 'multi') return 'Multi-platform Verified';
     return 'Community Verified';
   }
   return null;
+};
+
+// Get platform-specific verification icon
+const getVerificationIcon = (verificationBadge: string | null | undefined, className: string = "w-3 h-3") => {
+  if (!verificationBadge) return <CheckCircle2 className={className} />;
+  
+  switch (verificationBadge) {
+    case 'twitter':
+      return <SiX className={className} />;
+    case 'instagram':
+      return <SiInstagram className={className} />;
+    case 'linkedin':
+      return <SiLinkedin className={className} />;
+    default:
+      return <CheckCircle2 className={className} />;
+  }
 };
 
 export default function DiscoverPlansView() {
@@ -989,15 +1007,21 @@ export default function DiscoverPlansView() {
                         </p>
                         {verificationLabel && (
                           <div className="group/verify relative inline-flex">
-                            <CheckCircle2 
-                              className={`w-3 h-3 cursor-help ${
+                            <div 
+                              className={`cursor-help ${
                                 plan.sourceType === 'brand_partnership'
                                   ? 'text-blue-500' 
                                   : 'text-green-500'
                               }`}
                               aria-label={verificationLabel}
                               data-testid={`icon-verified-${plan.id}`}
-                            />
+                            >
+                              {getVerificationIcon(plan.verificationBadge, `w-3 h-3 ${
+                                plan.sourceType === 'brand_partnership'
+                                  ? 'text-blue-500' 
+                                  : 'text-green-500'
+                              }`)}
+                            </div>
                             <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-100 dark:text-gray-900 rounded opacity-0 group-hover/verify:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
                               {verificationLabel}
                             </span>
