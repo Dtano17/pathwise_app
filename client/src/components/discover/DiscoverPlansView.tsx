@@ -872,7 +872,7 @@ export default function DiscoverPlansView() {
               <Card 
                 key={plan.id} 
                 className="overflow-hidden flex flex-col group hover-elevate cursor-pointer" 
-                onClick={() => handlePlanClick(plan)}
+                onClick={() => handlePreviewPlan(plan.id, plan.shareToken, plan.title)}
                 style={{ 
                   borderColor: planTypeBadge.borderColor,
                   borderWidth: '2px'
@@ -949,9 +949,9 @@ export default function DiscoverPlansView() {
                         }}
                         className="p-2 rounded-full bg-background/80 backdrop-blur-sm hover-elevate active-elevate-2 transition-all"
                         data-testid={`button-pin-${plan.id}`}
-                        aria-label={plan.userHasPinned ? "Unpin plan" : "Pin plan"}
+                        aria-label={(plan as any).userHasPinned ? "Unpin plan" : "Pin plan"}
                       >
-                        <Pin className={`w-4 h-4 ${plan.userHasPinned ? "fill-purple-500 text-purple-500" : "text-foreground"}`} />
+                        <Pin className={`w-4 h-4 ${(plan as any).userHasPinned ? "fill-purple-500 text-purple-500" : "text-foreground"}`} />
                       </button>
                     </div>
                   </div>
