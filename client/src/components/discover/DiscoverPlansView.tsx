@@ -16,11 +16,12 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2, Pin } from "lucide-react";
+import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2, Pin, MapPin } from "lucide-react";
 import { SiLinkedin, SiInstagram, SiX } from "react-icons/si";
 import type { Activity } from "@shared/schema";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
 import { useDiscoverFilters } from "./useDiscoverFilters";
+import { getCurrentLocation } from "@/lib/geolocation";
 
 // Stock image imports
 import romanticParisCityscape from "@assets/stock_images/romantic_paris_citys_dfc7c798.jpg";
@@ -233,7 +234,7 @@ function VerificationIcon({
 }
 
 export default function DiscoverPlansView() {
-  const { filters, updateFilter } = useDiscoverFilters();
+  const { filters, updateFilter, setLocationData, toggleLocation } = useDiscoverFilters();
   const [hasSeedAttempted, setHasSeedAttempted] = useState(false);
   const [adoptDialogOpen, setAdoptDialogOpen] = useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
@@ -247,7 +248,47 @@ export default function DiscoverPlansView() {
   } | null>(null);
   const [createGroupDialogOpen, setCreateGroupDialogOpen] = useState(false);
   const [pendingGroupId, setPendingGroupId] = useState<string | null>(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const { toast } = useToast();
+
+  // Handle location toggle
+  const handleLocationToggle = async () => {
+    if (filters.locationEnabled) {
+      // Disable location filtering
+      setLocationData(null);
+    } else {
+      // Enable location filtering - request permission and get coordinates
+      setIsLoadingLocation(true);
+      try {
+        const location = await getCurrentLocation();
+        if (location) {
+          setLocationData({
+            lat: location.latitude,
+            lon: location.longitude
+          });
+          toast({
+            title: "Location enabled",
+            description: "Showing plans near your location",
+          });
+        } else {
+          toast({
+            title: "Location permission denied",
+            description: "Enable location permissions to filter by location",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Location error:', error);
+        toast({
+          title: "Location error",
+          description: "Could not access your location",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingLocation(false);
+      }
+    }
+  };
 
   // Fetch user's groups
   const { data: groupsData } = useQuery<{ groups: Array<{ id: string; name: string }> }>({
@@ -268,7 +309,7 @@ export default function DiscoverPlansView() {
 
   // Fetch community plans
   const { data: plans = [], isLoading, refetch } = useQuery<Array<Activity & { userHasLiked?: boolean; userHasBookmarked?: boolean }>>({
-    queryKey: ["/api/community-plans", filters.category, filters.search, filters.budget],
+    queryKey: ["/api/community-plans", filters.category, filters.search, filters.budget, filters.locationEnabled, filters.userCoords],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters.category !== "all") {
@@ -280,6 +321,14 @@ export default function DiscoverPlansView() {
       if (filters.budget !== "all") {
         params.set("budgetRange", filters.budget);
       }
+      
+      // Add location parameters if enabled
+      if (filters.locationEnabled && filters.userCoords) {
+        params.set("lat", filters.userCoords.lat.toString());
+        params.set("lon", filters.userCoords.lon.toString());
+        params.set("radius", filters.radius.toString());
+      }
+      
       params.set("limit", "50");
       
       const response = await fetch(`/api/community-plans?${params}`);
@@ -880,6 +929,19 @@ export default function DiscoverPlansView() {
             </Select>
           </div>
         </div>
+
+        {/* Location Filter Toggle */}
+        <Button
+          variant={filters.locationEnabled ? "default" : "outline"}
+          size="default"
+          onClick={handleLocationToggle}
+          disabled={isLoadingLocation}
+          data-testid="button-location-toggle"
+          className="gap-2"
+        >
+          <MapPin className="w-4 h-4" />
+          {isLoadingLocation ? "Loading..." : filters.locationEnabled ? "Near Me" : "Location"}
+        </Button>
       </div>
 
       {/* Plans Grid */}

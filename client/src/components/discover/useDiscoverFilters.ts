@@ -5,6 +5,9 @@ export interface DiscoverFilters {
   category: string;
   budget: string;
   sortBy: string;
+  locationEnabled: boolean;
+  userCoords: { lat: number; lon: number } | null;
+  radius: number;
 }
 
 export function useDiscoverFilters() {
@@ -16,6 +19,9 @@ export function useDiscoverFilters() {
       category: params.get("category") || "all",
       budget: params.get("budget") || "all",
       sortBy: params.get("sortBy") || "trending",
+      locationEnabled: false,
+      userCoords: null,
+      radius: 50, // Default 50km radius
     };
   };
 
@@ -56,8 +62,26 @@ export function useDiscoverFilters() {
   }, [filters]);
 
   // Update a single filter
-  const updateFilter = useCallback((key: keyof DiscoverFilters, value: string) => {
+  const updateFilter = useCallback((key: keyof DiscoverFilters, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  // Set location data
+  const setLocationData = useCallback((coords: { lat: number; lon: number } | null) => {
+    setFilters((prev) => ({ 
+      ...prev, 
+      userCoords: coords,
+      locationEnabled: coords !== null 
+    }));
+  }, []);
+
+  // Toggle location filtering
+  const toggleLocation = useCallback(() => {
+    setFilters((prev) => ({
+      ...prev,
+      locationEnabled: !prev.locationEnabled,
+      userCoords: !prev.locationEnabled ? prev.userCoords : null
+    }));
   }, []);
 
   // Clear all filters back to defaults
@@ -67,12 +91,17 @@ export function useDiscoverFilters() {
       category: "all",
       budget: "all",
       sortBy: "trending",
+      locationEnabled: false,
+      userCoords: null,
+      radius: 50,
     });
   }, []);
 
   return {
     filters,
     updateFilter,
+    setLocationData,
+    toggleLocation,
     clearFilters,
   };
 }

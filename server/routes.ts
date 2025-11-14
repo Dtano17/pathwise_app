@@ -4474,7 +4474,22 @@ ${emoji} ${progressLine}
       const budgetRange = req.query.budgetRange as string | undefined;
       const limit = parseInt(req.query.limit as string) || 50;
       
-      const plans = await storage.getCommunityPlans(userId, category, search, limit, budgetRange);
+      // Optional location-based filtering
+      let locationFilter: { lat: number; lon: number; radiusKm?: number } | undefined;
+      if (req.query.lat && req.query.lon) {
+        const lat = parseFloat(req.query.lat as string);
+        const lon = parseFloat(req.query.lon as string);
+        const radiusKm = req.query.radius ? parseFloat(req.query.radius as string) : 50;
+        
+        // Validate coordinates
+        if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+          // Clamp radius to 5-500 km
+          const clampedRadius = Math.max(5, Math.min(500, radiusKm));
+          locationFilter = { lat, lon, radiusKm: clampedRadius };
+        }
+      }
+      
+      const plans = await storage.getCommunityPlans(userId, category, search, limit, budgetRange, locationFilter);
       
       // Get all feedback in bulk (single query)
       const activityIds = plans.map(p => p.id);

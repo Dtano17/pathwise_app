@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, jsonb, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, jsonb, boolean, index, uniqueIndex, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -897,6 +897,8 @@ export const activities = pgTable("activities", {
   
   // Location and context
   location: text("location"),
+  latitude: real("latitude"), // Latitude coordinate for location-based discovery (nullable)
+  longitude: real("longitude"), // Longitude coordinate for location-based discovery (nullable)
   budget: integer("budget").notNull().default(0), // Budget in cents (0 for free activities)
   budgetBreakdown: jsonb("budget_breakdown").$type<Array<{
     category: string;

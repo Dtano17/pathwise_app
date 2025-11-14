@@ -298,7 +298,14 @@ export interface IStorage {
   deleteLifestylePlannerSession(sessionId: string, userId: string): Promise<void>;
 
   // Community Plans
-  getCommunityPlans(category?: string, search?: string, limit?: number, budgetRange?: string): Promise<Activity[]>;
+  getCommunityPlans(
+    userId: string,
+    category?: string, 
+    search?: string, 
+    limit?: number, 
+    budgetRange?: string,
+    locationFilter?: { lat: number; lon: number; radiusKm?: number }
+  ): Promise<Array<Activity & { distanceKm?: number }>>;
   seedCommunityPlans(force?: boolean): Promise<void>;
   incrementActivityViews(activityId: string): Promise<void>;
 
@@ -1738,16 +1745,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Community Plans
-  async getCommunityPlans(userId: string, category?: string, search?: string, limit: number = 50, budgetRange?: string): Promise<Array<Activity & { userHasPinned: boolean }>> {
-    let query = db.select().from(activities)
-      .where(and(
-        eq(activities.isPublic, true),
-        eq(activities.featuredInCommunity, true)
-      ));
+  async getCommunityPlans(
+    userId: string, 
+    category?: string, 
+    search?: string, 
+    limit: number = 50, 
+    budgetRange?: string,
+    locationFilter?: { lat: number; lon: number; radiusKm?: number }
+  ): Promise<Array<Activity & { userHasPinned: boolean; distanceKm?: number }>> {
+    const radiusKm = locationFilter?.radiusKm ?? 50; // Default 50km radius
+    
+    // Build the base query with optional distance calculation
+    let queryConditions = and(
+      eq(activities.isPublic, true),
+      eq(activities.featuredInCommunity, true)
+    );
 
     // Apply category filter
     if (category && category !== 'trending' && category !== 'all') {
-      // Frontend categories match database categories exactly
       const categoryMap: Record<string, string> = {
         'travel': 'travel',
         'fitness': 'fitness',
@@ -1756,16 +1771,65 @@ export class DatabaseStorage implements IStorage {
       };
       const dbCategory = categoryMap[category.toLowerCase()];
       if (dbCategory) {
-        query = db.select().from(activities)
-          .where(and(
-            eq(activities.isPublic, true),
-            eq(activities.featuredInCommunity, true),
-            eq(activities.category, dbCategory)
-          ));
+        queryConditions = and(
+          eq(activities.isPublic, true),
+          eq(activities.featuredInCommunity, true),
+          eq(activities.category, dbCategory)
+        );
       }
     }
 
-    let results = await query;
+    // If location filter is enabled, add distance-based filtering
+    if (locationFilter) {
+      const { lat, lon } = locationFilter;
+      
+      // Haversine formula: distance = 6371 * acos(cos(lat1) * cos(lat2) * cos(lon2-lon1) + sin(lat1) * sin(lat2))
+      // Only include activities with coordinates within radius
+      const distanceFormula = sql<number>`
+        6371 * acos(
+          cos(radians(${lat})) * cos(radians(${activities.latitude})) * 
+          cos(radians(${activities.longitude}) - radians(${lon})) + 
+          sin(radians(${lat})) * sin(radians(${activities.latitude}))
+        )
+      `;
+      
+      queryConditions = and(
+        queryConditions,
+        sql`${activities.latitude} IS NOT NULL`,
+        sql`${activities.longitude} IS NOT NULL`,
+        sql`${distanceFormula} <= ${radiusKm}`
+      );
+      
+      // Query with distance calculation
+      const resultsWithDistance = await db
+        .select({
+          activity: activities,
+          distanceKm: distanceFormula
+        })
+        .from(activities)
+        .where(queryConditions);
+      
+      const results = resultsWithDistance.map(r => ({
+        ...r.activity,
+        distanceKm: r.distanceKm
+      }));
+      
+      return this.applyFiltersAndSort(results, userId, search, budgetRange, category, limit);
+    }
+
+    // No location filter - standard query
+    const results = await db.select().from(activities).where(queryConditions);
+    return this.applyFiltersAndSort(results, userId, search, budgetRange, category, limit);
+  }
+
+  private async applyFiltersAndSort(
+    results: Activity[], 
+    userId: string, 
+    search?: string, 
+    budgetRange?: string, 
+    category?: string,
+    limit: number = 50
+  ): Promise<Array<Activity & { userHasPinned: boolean; distanceKm?: number }>> {
 
     // Get user's pinned activity IDs
     const userPinRecords = await db.select()
