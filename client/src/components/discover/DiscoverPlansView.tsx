@@ -883,9 +883,9 @@ export default function DiscoverPlansView() {
 
       {/* Filters Section - Mobile Responsive */}
       <div className="flex flex-col gap-4">
-        {/* Search Bar */}
-        <div className="w-full sm:max-w-md">
-          <div className="relative">
+        {/* Search Bar with Icons */}
+        <div className="flex items-center gap-3 w-full">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search plans..."
@@ -893,6 +893,25 @@ export default function DiscoverPlansView() {
               onChange={(e) => updateFilter("search", e.target.value)}
               className="pl-10 w-full"
               data-testid="input-search"
+            />
+          </div>
+          
+          {/* Location & Settings Icons */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              variant={filters.locationEnabled ? "default" : "outline"}
+              size="icon"
+              onClick={handleLocationToggle}
+              disabled={isLoadingLocation}
+              data-testid="button-location-toggle"
+              className="flex-shrink-0"
+            >
+              <MapPin className="w-4 h-4" />
+            </Button>
+            <CardDisplaySettings 
+              preferences={displayPrefs} 
+              onUpdatePreference={updatePreference} 
+              onResetPreferences={resetPreferences} 
             />
           </div>
         </div>
@@ -935,25 +954,6 @@ export default function DiscoverPlansView() {
               </SelectContent>
             </Select>
           </div>
-        </div>
-
-        {/* Location & Settings Icons */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant={filters.locationEnabled ? "default" : "outline"}
-            size="icon"
-            onClick={handleLocationToggle}
-            disabled={isLoadingLocation}
-            data-testid="button-location-toggle"
-            className="flex-shrink-0"
-          >
-            <MapPin className="w-4 h-4" />
-          </Button>
-          <CardDisplaySettings 
-            preferences={displayPrefs} 
-            onUpdatePreference={updatePreference} 
-            onResetPreferences={resetPreferences} 
-          />
         </div>
       </div>
 
