@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Architecture Flowchart - Community Plan Discovery</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 40px;
+            background: white;
+            font-family: Arial, sans-serif;
+        }
+        .flowchart {
+            width: 1200px;
+            height: 800px;
+            position: relative;
+        }
+        .box {
+            position: absolute;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+        }
+        .box.input { background: #e3f2fd; border-color: #1976d2; }
+        .box.process { background: #fff3e0; border-color: #f57c00; }
+        .box.decision { background: #f3e5f5; border-color: #7b1fa2; transform: rotate(45deg); }
+        .box.decision-text { transform: rotate(-45deg); }
+        .box.output { background: #e8f5e9; border-color: #388e3c; }
+        .box.database { background: #fce4ec; border-color: #c2185b; }
+        
+        .arrow {
+            position: absolute;
+            stroke: #333;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+        
+        .label {
+            position: absolute;
+            font-size: 12px;
+            color: #666;
+            background: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="title">System Architecture: AI-Powered Community Plan Discovery & Monetization</div>
+    <div class="subtitle">Patent Filing Diagram - System Flow and Components</div>
+    
+    <svg width="1200" height="800" style="position: absolute; pointer-events: none;">
+        <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                <polygon points="0 0, 10 3, 0 6" fill="#333" />
+            </marker>
+        </defs>
+        
+        <!-- User Input to Discovery Engine -->
+        <line x1="150" y1="80" x2="150" y2="140" class="arrow" />
+        
+        <!-- Discovery Engine to multiple paths -->
+        <line x1="150" y1="200" x2="150" y2="260" class="arrow" />
+        <line x1="210" y1="170" x2="380" y2="170" class="arrow" />
+        <line x1="210" y1="170" x2="580" y1="170" x2="580" y2="260" class="arrow" />
+        
+        <!-- Location Services to Ranking -->
+        <line x1="150" y1="320" x2="350" y2="400" class="arrow" />
+        
+        <!-- Verification to Ranking -->
+        <line x1="450" y1="200" x2="450" y2="400" class="arrow" />
+        
+        <!-- Real-time Data to Ranking -->
+        <line x1="580" y1="320" x2="500" y2="400" class="arrow" />
+        
+        <!-- Ranking to Badge Classification -->
+        <line x1="450" y1="490" x2="450" y2="550" class="arrow" />
+        
+        <!-- Badge to Display -->
+        <line x1="380" y1="590" x2="250" y2="590" class="arrow" />
+        
+        <!-- Display to User Actions -->
+        <line x1="150" y1="640" x2="150" y2="700" class="arrow" />
+        
+        <!-- User Actions branches -->
+        <line x1="210" y1="730" x2="350" y2="730" class="arrow" />
+        <line x1="210" y1="730" x2="580" y2="730" class="arrow" />
+        
+        <!-- Sponsored Path -->
+        <line x1="800" y1="80" x2="800" y2="140" class="arrow" />
+        <line x1="800" y1="200" x2="600" y2="445" class="arrow" />
+        
+        <!-- Database connections -->
+        <line x1="950" y1="300" x2="850" y2="590" class="arrow" stroke-dasharray="5,5" />
+        <line x1="950" y1="360" x2="650" y2="445" class="arrow" stroke-dasharray="5,5" />
+    </svg>
+    
+    <div class="flowchart">
+        <!-- User Input -->
+        <div class="box input" style="left: 50px; top: 20px; width: 200px;">
+            User Search/Browse<br>
+            <small style="font-weight: normal;">Category, Budget, Location</small>
+        </div>
+        
+        <!-- Discovery Engine -->
+        <div class="box process" style="left: 50px; top: 140px; width: 200px; height: 60px;">
+            Discovery Engine<br>
+            <small style="font-weight: normal;">Filter & Query System</small>
+        </div>
+        
+        <!-- Location Services -->
+        <div class="box process" style="left: 50px; top: 260px; width: 200px;">
+            Location Services<br>
+            <small style="font-weight: normal;">Geographic Filtering</small>
+        </div>
+        
+        <!-- Verification System -->
+        <div class="box process" style="left: 350px; top: 140px; width: 200px;">
+            Verification System<br>
+            <small style="font-weight: normal;">Social Media APIs</small>
+        </div>
+        
+        <!-- Real-time Data -->
+        <div class="box process" style="left: 480px; top: 260px; width: 200px;">
+            Real-time Data<br>
+            <small style="font-weight: normal;">Trending, Views, Likes</small>
+        </div>
+        
+        <!-- Ranking Algorithm -->
+        <div class="box process" style="left: 300px; top: 400px; width: 300px; height: 90px; background: #fff3e0; border: 3px solid #f57c00;">
+            <strong style="font-size: 16px;">AI Ranking Algorithm</strong><br>
+            <small style="font-weight: normal;">
+                • Trending Score Calculation<br>
+                • Engagement Metrics<br>
+                • Source Authority Weighting
+            </small>
+        </div>
+        
+        <!-- Badge Classification -->
+        <div class="box decision" style="left: 380px; top: 550px; width: 140px; height: 140px;">
+            <div class="decision-text">
+                Badge<br>Classification
+            </div>
+        </div>
+        
+        <!-- Plan Display -->
+        <div class="box output" style="left: 50px; top: 560px; width: 200px; height: 80px;">
+            Plan Display<br>
+            <small style="font-weight: normal;">
+                Emergency | Sponsored<br>
+                Trending | Community
+            </small>
+        </div>
+        
+        <!-- User Actions -->
+        <div class="box decision" style="left: 80px; top: 700px; width: 140px; height: 140px;">
+            <div class="decision-text">
+                User<br>Action
+            </div>
+        </div>
+        
+        <!-- Preview -->
+        <div class="box output" style="left: 280px; top: 700px; width: 150px;">
+            Preview Plan<br>
+            <small style="font-weight: normal;">Hover Summary</small>
+        </div>
+        
+        <!-- Adopt -->
+        <div class="box output" style="left: 480px; top: 700px; width: 200px;">
+            Adopt Plan<br>
+            <small style="font-weight: normal;">Copy to Personal Collection</small>
+        </div>
+        
+        <!-- Sponsored Plans -->
+        <div class="box input" style="left: 700px; top: 20px; width: 200px;">
+            Brand Partners<br>
+            <small style="font-weight: normal;">Sponsored Content</small>
+        </div>
+        
+        <!-- Monetization -->
+        <div class="box process" style="left: 700px; top: 140px; width: 200px; height: 60px;">
+            Monetization Engine<br>
+            <small style="font-weight: normal;">Ad Placement Logic</small>
+        </div>
+        
+        <!-- Database -->
+        <div class="box database" style="left: 850px; top: 250px; width: 200px; height: 120px;">
+            <strong>PostgreSQL Database</strong><br>
+            <small style="font-weight: normal;">
+                • Community Plans<br>
+                • User Preferences<br>
+                • Engagement Metrics<br>
+                • Verification Status
+            </small>
+        </div>
+        
+        <!-- Legend -->
+        <div style="position: absolute; left: 850px; top: 450px; border: 1px solid #ccc; padding: 15px; background: white; border-radius: 8px;">
+            <strong style="font-size: 14px;">System Components:</strong><br>
+            <div style="margin-top: 10px; font-size: 12px;">
+                <div style="margin: 5px 0;"><span style="display: inline-block; width: 15px; height: 15px; background: #e3f2fd; border: 1px solid #1976d2;"></span> User Input</div>
+                <div style="margin: 5px 0;"><span style="display: inline-block; width: 15px; height: 15px; background: #fff3e0; border: 1px solid #f57c00;"></span> Processing</div>
+                <div style="margin: 5px 0;"><span style="display: inline-block; width: 15px; height: 15px; background: #f3e5f5; border: 1px solid #7b1fa2;"></span> Decision Point</div>
+                <div style="margin: 5px 0;"><span style="display: inline-block; width: 15px; height: 15px; background: #e8f5e9; border: 1px solid #388e3c;"></span> Output</div>
+                <div style="margin: 5px 0;"><span style="display: inline-block; width: 15px; height: 15px; background: #fce4ec; border: 1px solid #c2185b;"></span> Data Storage</div>
+            </div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 20px; text-align: center; color: #999; font-size: 11px;">
+        IntentAI - Provisional Patent Application Materials - Confidential
+    </div>
+</body>
+</html>
