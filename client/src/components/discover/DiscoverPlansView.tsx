@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,12 +18,15 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2, Pin, MapPin } from "lucide-react";
+import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2, Pin, MapPin, Settings } from "lucide-react";
 import { SiLinkedin, SiInstagram, SiX } from "react-icons/si";
 import type { Activity } from "@shared/schema";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
 import { useDiscoverFilters } from "./useDiscoverFilters";
 import { getCurrentLocation } from "@/lib/geolocation";
+import { CardDisplaySettings } from "./CardDisplaySettings";
+import { useCardDisplayPreferences } from "./useCardDisplayPreferences";
+import { useAuth } from "@/hooks/useAuth";
 
 // Stock image imports
 import romanticParisCityscape from "@assets/stock_images/romantic_paris_citys_dfc7c798.jpg";
@@ -235,6 +240,8 @@ function VerificationIcon({
 
 export default function DiscoverPlansView() {
   const { filters, updateFilter, setLocationData, toggleLocation } = useDiscoverFilters();
+  const { user } = useAuth();
+  const { preferences: displayPrefs, updatePreference, resetPreferences } = useCardDisplayPreferences(user?.id || null);
   const [hasSeedAttempted, setHasSeedAttempted] = useState(false);
   const [adoptDialogOpen, setAdoptDialogOpen] = useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
@@ -930,18 +937,24 @@ export default function DiscoverPlansView() {
           </div>
         </div>
 
-        {/* Location Filter Toggle */}
-        <Button
-          variant={filters.locationEnabled ? "default" : "outline"}
-          size="default"
-          onClick={handleLocationToggle}
-          disabled={isLoadingLocation}
-          data-testid="button-location-toggle"
-          className="gap-2"
-        >
-          <MapPin className="w-4 h-4" />
-          {isLoadingLocation ? "Loading..." : filters.locationEnabled ? "Near Me" : "Location"}
-        </Button>
+        {/* Location & Settings Icons */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant={filters.locationEnabled ? "default" : "outline"}
+            size="icon"
+            onClick={handleLocationToggle}
+            disabled={isLoadingLocation}
+            data-testid="button-location-toggle"
+            className="flex-shrink-0"
+          >
+            <MapPin className="w-4 h-4" />
+          </Button>
+          <CardDisplaySettings 
+            preferences={displayPrefs} 
+            onUpdatePreference={updatePreference} 
+            onResetPreferences={resetPreferences} 
+          />
+        </div>
       </div>
 
       {/* Plans Grid */}
@@ -1020,7 +1033,7 @@ export default function DiscoverPlansView() {
                       {planTypeBadge.label}
                     </div>
                     {/* Budget Badge */}
-                    {plan.budget !== null && plan.budget !== undefined && (
+                    {displayPrefs.showBudget && plan.budget !== null && plan.budget !== undefined && (
                       <div 
                         className="absolute bottom-3 left-3 px-2 py-1 rounded-md text-xs font-semibold text-white bg-black/60 backdrop-blur-sm border border-white/20"
                         data-testid={`badge-budget-${plan.id}`}
@@ -1069,41 +1082,45 @@ export default function DiscoverPlansView() {
                 
                 <CardHeader className="pb-3">
                   <div className="flex items-start gap-3">
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <Avatar className="w-10 h-10 cursor-pointer" data-testid={`avatar-creator-${plan.id}`}>
-                          <AvatarImage src={plan.creatorAvatar || undefined} alt={plan.creatorName || "User"} />
-                          <AvatarFallback>{getInitials(plan.creatorName || "User")}</AvatarFallback>
-                        </Avatar>
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-64">
-                        <div className="flex gap-3">
-                          <Avatar className="w-12 h-12">
+                    {displayPrefs.showOwner && (
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Avatar className="w-10 h-10 cursor-pointer" data-testid={`avatar-creator-${plan.id}`}>
                             <AvatarImage src={plan.creatorAvatar || undefined} alt={plan.creatorName || "User"} />
                             <AvatarFallback>{getInitials(plan.creatorName || "User")}</AvatarFallback>
                           </Avatar>
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-sm">{plan.creatorName || "Unknown User"}</h4>
-                            <p className="text-xs text-muted-foreground">Plan Creator</p>
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-64">
+                          <div className="flex gap-3">
+                            <Avatar className="w-12 h-12">
+                              <AvatarImage src={plan.creatorAvatar || undefined} alt={plan.creatorName || "User"} />
+                              <AvatarFallback>{getInitials(plan.creatorName || "User")}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-sm">{plan.creatorName || "Unknown User"}</h4>
+                              <p className="text-xs text-muted-foreground">Plan Creator</p>
+                            </div>
                           </div>
-                        </div>
-                      </HoverCardContent>
-                    </HoverCard>
+                        </HoverCardContent>
+                      </HoverCard>
+                    )}
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-lg leading-tight mb-1 line-clamp-2" data-testid={`text-plan-title-${plan.id}`}>
                         {plan.title}
                       </h3>
-                      <div className="flex items-center gap-1">
-                        <p className="text-xs text-muted-foreground">
-                          by {plan.creatorName || "Unknown"}
-                        </p>
-                        {verificationLabel && <VerificationIcon 
-                          verificationBadge={plan.verificationBadge}
-                          sourceType={plan.sourceType}
-                          label={verificationLabel}
-                          planId={plan.id}
-                        />}
-                      </div>
+                      {displayPrefs.showOwner && (
+                        <div className="flex items-center gap-1">
+                          <p className="text-xs text-muted-foreground">
+                            by {plan.creatorName || "Unknown"}
+                          </p>
+                          {verificationLabel && <VerificationIcon 
+                            verificationBadge={plan.verificationBadge}
+                            sourceType={plan.sourceType}
+                            label={verificationLabel}
+                            planId={plan.id}
+                          />}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
@@ -1116,14 +1133,18 @@ export default function DiscoverPlansView() {
                   )}
                   
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1" data-testid={`stat-likes-${plan.id}`}>
-                      <Heart className="w-3 h-3" />
-                      <span>{plan.likeCount || 0}</span>
-                    </div>
-                    <div className="flex items-center gap-1" data-testid={`stat-bookmarks-${plan.id}`}>
-                      <Bookmark className="w-3 h-3" />
-                      <span>{plan.bookmarkCount || 0}</span>
-                    </div>
+                    {displayPrefs.showLikes && (
+                      <div className="flex items-center gap-1" data-testid={`stat-likes-${plan.id}`}>
+                        <Heart className="w-3 h-3" />
+                        <span>{plan.likeCount || 0}</span>
+                      </div>
+                    )}
+                    {displayPrefs.showBookmarks && (
+                      <div className="flex items-center gap-1" data-testid={`stat-bookmarks-${plan.id}`}>
+                        <Bookmark className="w-3 h-3" />
+                        <span>{plan.bookmarkCount || 0}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-1" data-testid={`stat-views-${plan.id}`}>
                       <Eye className="w-3 h-3" />
                       <span>{plan.viewCount || 0}</span>
@@ -1161,7 +1182,7 @@ export default function DiscoverPlansView() {
                   <p className="text-xs text-muted-foreground line-clamp-3">{plan.description}</p>
                 )}
                 <div className="flex items-center gap-4 text-xs">
-                  {plan.budget !== null && plan.budget !== undefined && (
+                  {displayPrefs.showBudget && plan.budget !== null && plan.budget !== undefined && (
                     <div className="flex items-center gap-1">
                       <DollarSign className="w-3 h-3 text-muted-foreground" />
                       <span className="font-medium">{formatBudget(plan.budget)}</span>
