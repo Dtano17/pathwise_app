@@ -203,6 +203,35 @@ const getVerificationIconComponent = (verificationBadge: string | null | undefin
   }
 };
 
+// Verification icon component
+function VerificationIcon({ 
+  verificationBadge, 
+  sourceType, 
+  label, 
+  planId 
+}: { 
+  verificationBadge: string | null | undefined; 
+  sourceType: string | null | undefined; 
+  label: string; 
+  planId: string;
+}) {
+  const IconComponent = getVerificationIconComponent(verificationBadge);
+  const iconColor = sourceType === 'brand_partnership' ? 'text-blue-500' : 'text-green-500';
+  
+  return (
+    <div className="group/verify relative inline-flex">
+      <IconComponent 
+        className={`w-3 h-3 cursor-help ${iconColor}`}
+        aria-label={label}
+        data-testid={`icon-verified-${planId}`}
+      />
+      <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-100 dark:text-gray-900 rounded opacity-0 group-hover/verify:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        {label}
+      </span>
+    </div>
+  );
+}
+
 export default function DiscoverPlansView() {
   const { filters, updateFilter } = useDiscoverFilters();
   const [hasSeedAttempted, setHasSeedAttempted] = useState(false);
@@ -1005,25 +1034,12 @@ export default function DiscoverPlansView() {
                         <p className="text-xs text-muted-foreground">
                           by {plan.creatorName || "Unknown"}
                         </p>
-                        {verificationLabel && (() => {
-                          const IconComponent = getVerificationIconComponent(plan.verificationBadge);
-                          return (
-                            <div className="group/verify relative inline-flex">
-                              <IconComponent 
-                                className={`w-3 h-3 cursor-help ${
-                                  plan.sourceType === 'brand_partnership'
-                                    ? 'text-blue-500' 
-                                    : 'text-green-500'
-                                }`}
-                                aria-label={verificationLabel}
-                                data-testid={`icon-verified-${plan.id}`}
-                              />
-                              <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-100 dark:text-gray-900 rounded opacity-0 group-hover/verify:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                {verificationLabel}
-                              </span>
-                            </div>
-                          );
-                        })()}
+                        {verificationLabel && <VerificationIcon 
+                          verificationBadge={plan.verificationBadge}
+                          sourceType={plan.sourceType}
+                          label={verificationLabel}
+                          planId={plan.id}
+                        />}
                       </div>
                     </div>
                   </div>
