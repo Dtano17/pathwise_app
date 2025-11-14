@@ -2219,13 +2219,13 @@ export const demoCommunityPlans = [
   },
   {
     activity: {
-      title: "Thanksgiving Feast: Family Gathering & Gratitude",
+      title: "🍂 Thanksgiving Feast: Family Gathering & Gratitude",
       description: "Host an unforgettable Thanksgiving dinner for 10-12 family members with traditional turkey feast, meaningful traditions, and heartfelt gratitude celebrations that bring everyone together",
       category: "personal" as const,
       planSummary: "Complete family Thanksgiving celebration with turkey prep, classic side dishes, family traditions, gratitude activities, and quality time together",
       isPublic: true,
       shareTitle: "Thanksgiving Family Feast & Traditions",
-      backdrop: "/stock_images/thanksgiving_turkey__c97c166c.jpg",
+      backdrop: "/stock_images/thanksgiving_family__a8d73f87.jpg",
       tags: ["thanksgiving", "holiday", "family", "cooking", "gratitude", "celebration", "turkey-day", "family-gathering"],
       viewCount: 18000,
       likeCount: 16500,

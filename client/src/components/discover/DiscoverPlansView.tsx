@@ -916,16 +916,17 @@ export default function DiscoverPlansView() {
             const verificationLabel = getVerificationLabel(plan.sourceType, plan.verificationBadge);
             
             return (
-              <Card 
-                key={plan.id} 
-                className="flex flex-col group hover-elevate cursor-pointer" 
-                onClick={() => handlePreviewPlan(plan.id, plan.shareToken, plan.title)}
-                style={{ 
-                  borderColor: planTypeBadge.borderColor,
-                  borderWidth: '2px'
-                }}
-                data-testid={`card-plan-${plan.id}`}
-              >
+              <HoverCard key={plan.id} openDelay={300} closeDelay={200}>
+                <HoverCardTrigger asChild>
+                  <Card 
+                    className="flex flex-col group hover-elevate cursor-pointer" 
+                    onClick={() => handlePreviewPlan(plan.id, plan.shareToken, plan.title)}
+                    style={{ 
+                      borderColor: planTypeBadge.borderColor,
+                      borderWidth: '2px'
+                    }}
+                    data-testid={`card-plan-${plan.id}`}
+                  >
                 {stockImage && (
                   <div className="relative h-48 overflow-hidden">
                     <img
@@ -1090,6 +1091,31 @@ export default function DiscoverPlansView() {
                   </Button>
                 </CardFooter>
               </Card>
+            </HoverCardTrigger>
+            <HoverCardContent className="w-80" side="top" align="center">
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm line-clamp-2">{plan.title}</h4>
+                {plan.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-3">{plan.description}</p>
+                )}
+                <div className="flex items-center gap-4 text-xs">
+                  {plan.budget !== null && plan.budget !== undefined && (
+                    <div className="flex items-center gap-1">
+                      <DollarSign className="w-3 h-3 text-muted-foreground" />
+                      <span className="font-medium">{formatBudget(plan.budget)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1">
+                    <Eye className="w-3 h-3 text-muted-foreground" />
+                    <span>{plan.viewCount || 0} views</span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground italic border-t pt-2">
+                  Hover to preview • Click "Preview" for full details
+                </p>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
             );
           })}
         </div>
