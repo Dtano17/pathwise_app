@@ -181,7 +181,7 @@ const getVerificationLabel = (sourceType: string | null | undefined, verificatio
   // Bail early if sourceType is missing
   if (!sourceType) return null;
   
-  if (sourceType === 'official_seed') return 'Verified by IntentAI';
+  if (sourceType === 'official_seed') return 'Verified by JournalMate';
   if (sourceType === 'brand_partnership') return 'Verified Brand Partner';
   if (sourceType === 'community_reviewed') {
     if (verificationBadge === 'twitter') return 'Verified on X/Twitter';
