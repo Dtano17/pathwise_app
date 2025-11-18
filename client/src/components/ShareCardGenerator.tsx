@@ -35,6 +35,12 @@ interface ShareCardGeneratorProps {
   creatorSocial?: { platform: string; handle: string; postUrl?: string };
   planSummary?: string;
   tasks?: Task[];
+  // Controlled mode props (optional)
+  controlledPlatform?: string;
+  controlledFormat?: 'png' | 'jpg' | 'pdf';
+  onPlatformChange?: (platform: string) => void;
+  onFormatChange?: (format: 'png' | 'jpg' | 'pdf') => void;
+  hideControls?: boolean; // Hide platform/format selectors and buttons when in controlled mode
 }
 
 export interface ShareCardGeneratorRef {
@@ -50,15 +56,42 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
   creatorSocial,
   planSummary,
   tasks = [],
+  controlledPlatform,
+  controlledFormat,
+  onPlatformChange,
+  onFormatChange,
+  hideControls = false,
 }, ref) => {
   const cardRef = useRef<HTMLDivElement>(null);
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('instagram_story');
-  const [selectedFormat, setSelectedFormat] = useState<'png' | 'jpg' | 'pdf'>('png');
+  const [internalPlatform, setInternalPlatform] = useState<string>('instagram_story');
+  const [internalFormat, setInternalFormat] = useState<'png' | 'jpg' | 'pdf'>('png');
   const [isGenerating, setIsGenerating] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number } | null>(null);
   const { toast } = useToast();
 
+  // Use controlled props if provided, otherwise use internal state
+  const selectedPlatform = controlledPlatform ?? internalPlatform;
+  const selectedFormat = controlledFormat ?? internalFormat;
+
   const platform = PLATFORM_TEMPLATES[selectedPlatform];
+
+  // Handle platform change
+  const handlePlatformChange = (newPlatform: string) => {
+    if (onPlatformChange) {
+      onPlatformChange(newPlatform);
+    } else {
+      setInternalPlatform(newPlatform);
+    }
+  };
+
+  // Handle format change
+  const handleFormatChange = (newFormat: 'png' | 'jpg' | 'pdf') => {
+    if (onFormatChange) {
+      onFormatChange(newFormat);
+    } else {
+      setInternalFormat(newFormat);
+    }
+  };
 
   // Expose generateShareCard method via ref
   useImperativeHandle(ref, () => ({
@@ -444,96 +477,100 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Info Banner */}
-      <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
-        💡 Files download individually to your Downloads folder - no virus warnings!
-      </div>
+      {!hideControls && (
+        <>
+          {/* Info Banner */}
+          <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
+            💡 Files download individually to your Downloads folder - no virus warnings!
+          </div>
 
-      {/* Platform Selector */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium">Choose Platform</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          {Object.values(PLATFORM_TEMPLATES).map(template => {
-            const IconComponent = getPlatformIcon(template.id);
-            return (
-              <Button
-                key={template.id}
-                variant={selectedPlatform === template.id ? 'default' : 'outline'}
-                onClick={() => {
-                  setSelectedPlatform(template.id);
-                  setSelectedFormat(getRecommendedFormat(template.id));
-                }}
-                className="justify-start gap-2 h-auto py-3 min-h-[44px]"
-                data-testid={`button-platform-${template.id}`}
-                aria-label={`Select ${template.name} format`}
-                title={template.name}
+          {/* Platform Selector */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">Choose Platform</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              {Object.values(PLATFORM_TEMPLATES).map(template => {
+                const IconComponent = getPlatformIcon(template.id);
+                return (
+                  <Button
+                    key={template.id}
+                    variant={selectedPlatform === template.id ? 'default' : 'outline'}
+                    onClick={() => {
+                      handlePlatformChange(template.id);
+                      handleFormatChange(getRecommendedFormat(template.id));
+                    }}
+                    className="justify-start gap-2 h-auto py-3 min-h-[44px]"
+                    data-testid={`button-platform-${template.id}`}
+                    aria-label={`Select ${template.name} format`}
+                    title={template.name}
+                  >
+                    <IconComponent className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                    <span className="text-sm font-medium text-left line-clamp-1">{template.name}</span>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Format Selector & Actions */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+            <div className="flex-1">
+              <label className="text-sm font-medium">Export Format</label>
+              <Select value={selectedFormat} onValueChange={(val: any) => handleFormatChange(val)}>
+                <SelectTrigger className="mt-1 min-h-[44px]" data-testid="select-format">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {platform?.exportFormats.map(format => (
+                    <SelectItem key={format} value={format}>
+                      {format.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-2 sm:pt-6 flex-wrap">
+              <Button 
+                onClick={handleDownloadSingle} 
+                disabled={isGenerating}
+                className="flex-1 sm:flex-none min-h-[44px]"
+                data-testid="button-download-single"
               >
-                <IconComponent className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span className="text-sm font-medium text-left line-clamp-1">{template.name}</span>
+                {isGenerating && !downloadProgress ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                Download
               </Button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Format Selector & Actions */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-        <div className="flex-1">
-          <label className="text-sm font-medium">Export Format</label>
-          <Select value={selectedFormat} onValueChange={(val: any) => setSelectedFormat(val)}>
-            <SelectTrigger className="mt-1 min-h-[44px]" data-testid="select-format">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {platform?.exportFormats.map(format => (
-                <SelectItem key={format} value={format}>
-                  {format.toUpperCase()}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex gap-2 sm:pt-6 flex-wrap">
-          <Button 
-            onClick={handleDownloadSingle} 
-            disabled={isGenerating}
-            className="flex-1 sm:flex-none min-h-[44px]"
-            data-testid="button-download-single"
-          >
-            {isGenerating && !downloadProgress ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            ) : (
-              <Download className="w-4 h-4 mr-2" />
-            )}
-            Download
-          </Button>
-          <Button 
-            variant="default"
-            onClick={handleShareImage} 
-            disabled={isGenerating || selectedFormat === 'pdf'}
-            className="flex-1 sm:flex-none min-h-[44px]"
-            data-testid="button-share-image"
-          >
-            {isGenerating ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            ) : (
-              <Share2 className="w-4 h-4 mr-2" />
-            )}
-            Share
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleCopyCaption}
-            className="flex-1 sm:flex-none min-h-[44px]"
-            data-testid="button-copy-caption"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            <span className="hidden sm:inline">Copy Caption</span>
-            <span className="sm:hidden">Caption</span>
-          </Button>
-        </div>
-      </div>
+              <Button 
+                variant="default"
+                onClick={handleShareImage} 
+                disabled={isGenerating || selectedFormat === 'pdf'}
+                className="flex-1 sm:flex-none min-h-[44px]"
+                data-testid="button-share-image"
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Share2 className="w-4 h-4 mr-2" />
+                )}
+                Share
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleCopyCaption}
+                className="flex-1 sm:flex-none min-h-[44px]"
+                data-testid="button-copy-caption"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Copy Caption</span>
+                <span className="sm:hidden">Caption</span>
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Download Progress */}
       {downloadProgress && (
