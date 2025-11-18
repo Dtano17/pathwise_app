@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { toPng, toJpeg } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { Download, Loader2, Image as ImageIcon, FileText, Check, Circle } from 'lucide-react';
@@ -37,7 +37,11 @@ interface ShareCardGeneratorProps {
   tasks?: Task[];
 }
 
-export function ShareCardGenerator({
+export interface ShareCardGeneratorRef {
+  generateShareCard: (platformId: string, format: 'png' | 'jpg' | 'pdf') => Promise<Blob | null>;
+}
+
+export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGeneratorProps>(({
   activityId,
   activityTitle,
   activityCategory,
@@ -46,7 +50,7 @@ export function ShareCardGenerator({
   creatorSocial,
   planSummary,
   tasks = [],
-}: ShareCardGeneratorProps) {
+}, ref) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [selectedPlatform, setSelectedPlatform] = useState<string>('instagram_story');
   const [selectedFormat, setSelectedFormat] = useState<'png' | 'jpg' | 'pdf'>('png');
@@ -55,6 +59,11 @@ export function ShareCardGenerator({
   const { toast } = useToast();
 
   const platform = PLATFORM_TEMPLATES[selectedPlatform];
+
+  // Expose generateShareCard method via ref
+  useImperativeHandle(ref, () => ({
+    generateShareCard,
+  }));
 
   // Get platform icon component
   const getPlatformIcon = (platformId: string) => {
@@ -588,4 +597,6 @@ export function ShareCardGenerator({
       </div>
     </div>
   );
-}
+});
+
+ShareCardGenerator.displayName = 'ShareCardGenerator';

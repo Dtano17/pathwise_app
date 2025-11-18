@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,11 +12,14 @@ import {
   MessageSquare, 
   MoreHorizontal,
   Copy,
-  Code
+  Code,
+  Image as ImageIcon
 } from 'lucide-react';
 import { SiWhatsapp, SiFacebook, SiX, SiMessenger } from 'react-icons/si';
 import { useToast } from '@/hooks/use-toast';
 import { getContextualEmoji, generatePlatformCaption } from '@/lib/shareCardTemplates';
+import { ShareCardCanvas, type ShareCardCanvasRef } from './ShareCardCanvas';
+import { useQuery } from '@tanstack/react-query';
 
 interface ShareDialogProps {
   open: boolean;
@@ -28,6 +31,7 @@ interface ShareDialogProps {
   progressPercent?: number;
   activityId?: string;
   planSummary?: string;
+  backdrop?: string;
 }
 
 export default function ShareDialog({
@@ -39,9 +43,34 @@ export default function ShareDialog({
   category = 'other',
   progressPercent,
   activityId,
-  planSummary
+  planSummary,
+  backdrop
 }: ShareDialogProps) {
   const { toast } = useToast();
+  const [isSharing, setIsSharing] = useState(false);
+  const shareCardCanvasRef = useRef<ShareCardCanvasRef>(null);
+
+  // Fetch activity tasks for share card
+  const { data: activityTasks = [], isLoading: isLoadingTasks, isError: isTasksError } = useQuery({
+    queryKey: ['/api/activities', activityId, 'tasks'],
+    queryFn: async () => {
+      if (!activityId) return [];
+      const response = await fetch(`/api/activities/${activityId}/tasks`, {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to load tasks');
+      const data = await response.json();
+      return data.map((task: any) => ({
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        priority: task.priority,
+        completed: task.completed || false,
+      }));
+    },
+    enabled: open && !!activityId,
+  });
   
   // If no URL provided, construct the share URL from activityId
   const shareUrl = url || (activityId ? `https://journalmate.ai/shared/${activityId}` : window.location.href);
@@ -78,7 +107,74 @@ export default function ShareDialog({
     : title;
   const twitterShareText = `${contextualEmoji} ${truncatedTitle}\n\n${twitterStaticText}`;
 
+  // Share Image function
+  const handleShareImage = async () => {
+    if (!activityId || !shareCardCanvasRef.current) {
+      toast({
+        title: 'Cannot Share Image',
+        description: 'Image sharing is only available for saved activities with a backdrop.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsSharing(true);
+    try {
+      // Generate the share card image
+      const blob = await shareCardCanvasRef.current.generateImage('jpg');
+      
+      if (!blob) {
+        throw new Error('Failed to generate image');
+      }
+
+      // Create a File object from the blob
+      const file = new File([blob], `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_share.jpg`, { type: 'image/jpeg' });
+
+      // Check if Web Share API with files is supported
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: formattedTitle,
+          text: `${contextualEmoji} Customize this plan: ${shareUrl}`,
+          files: [file],
+        });
+        
+        toast({ title: 'Shared Successfully!' });
+        onOpenChange(false);
+      } else {
+        // Fallback: Download the image
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_share.jpg`;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        toast({ 
+          title: 'Image Downloaded',
+          description: 'Image sharing not supported on this device. Image has been downloaded instead.'
+        });
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        toast({
+          title: 'Share Failed',
+          description: error.message || 'Could not share image. Please try again.',
+          variant: 'destructive'
+        });
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   const shareOptions = [
+    {
+      name: 'Share Image',
+      icon: ImageIcon,
+      action: handleShareImage,
+      testId: 'share-image',
+      disabled: !activityId || !backdrop || isSharing || isLoadingTasks || isTasksError
+    },
     {
       name: 'Copy Link',
       icon: Copy,
@@ -211,12 +307,29 @@ export default function ShareDialog({
               className="h-auto py-4 flex flex-col gap-2 hover-elevate"
               onClick={option.action}
               data-testid={option.testId}
+              disabled={'disabled' in option ? option.disabled : false}
             >
               <option.icon className="w-5 h-5" />
               <span className="text-sm">{option.name}</span>
             </Button>
           ))}
         </div>
+
+        {/* Hidden ShareCardCanvas for image generation - positioned off-screen */}
+        {activityId && backdrop && (
+          <div className="fixed top-0 left-[-10000px] opacity-0 pointer-events-none z-[-1]" aria-hidden="true">
+            <ShareCardCanvas
+              ref={shareCardCanvasRef}
+              activityId={activityId}
+              activityTitle={title}
+              activityCategory={category}
+              backdrop={backdrop}
+              planSummary={planSummary}
+              tasks={activityTasks}
+              platformId="instagram_feed"
+            />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
