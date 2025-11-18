@@ -67,7 +67,27 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
   const [internalFormat, setInternalFormat] = useState<'png' | 'jpg' | 'pdf'>('png');
   const [isGenerating, setIsGenerating] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [canShareFiles, setCanShareFiles] = useState(false);
   const { toast } = useToast();
+
+  // Check if Web Share API with files is supported
+  useEffect(() => {
+    const checkShareSupport = async () => {
+      if (navigator.canShare) {
+        try {
+          // Create a dummy file to test
+          const testFile = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
+          const canShare = navigator.canShare({ files: [testFile] });
+          setCanShareFiles(canShare);
+        } catch {
+          setCanShareFiles(false);
+        }
+      } else {
+        setCanShareFiles(false);
+      }
+    };
+    checkShareSupport();
+  }, []);
 
   // Use controlled props if provided, otherwise use internal state
   const selectedPlatform = controlledPlatform ?? internalPlatform;
@@ -549,13 +569,14 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
                 disabled={isGenerating || selectedFormat === 'pdf'}
                 className="flex-1 sm:flex-none min-h-[44px]"
                 data-testid="button-share-image"
+                title={canShareFiles ? 'Share via native share menu' : 'Download image and caption for manual sharing'}
               >
                 {isGenerating ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : (
                   <Share2 className="w-4 h-4 mr-2" />
                 )}
-                Share
+                {canShareFiles ? 'Share' : 'Share (Download)'}
               </Button>
               <Button 
                 variant="outline" 
