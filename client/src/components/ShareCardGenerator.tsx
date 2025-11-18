@@ -485,6 +485,59 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
     }
   };
 
+  /**
+   * Share to Twitter with pre-filled tweet
+   */
+  const handleShareToTwitter = () => {
+    const { fullText } = generatePlatformCaption(
+      activityTitle,
+      activityCategory,
+      'twitter', // Always use Twitter format for optimal character limit
+      creatorName,
+      creatorSocial?.handle,
+      planSummary,
+      activityId
+    );
+
+    // Twitter intent URL with pre-filled text
+    const shareUrl = activityId ? `https://journalmate.ai/shared/${activityId}` : '';
+    const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullText)}${shareUrl ? `&url=${encodeURIComponent(shareUrl)}` : ''}`;
+    
+    // Open in new window
+    window.open(twitterIntentUrl, '_blank', 'width=600,height=400,noopener,noreferrer');
+
+    toast({
+      title: 'Opening Twitter',
+      description: 'Your tweet is ready to post!',
+    });
+  };
+
+  /**
+   * Share to WhatsApp with pre-filled message
+   */
+  const handleShareToWhatsApp = () => {
+    const { fullText } = generatePlatformCaption(
+      activityTitle,
+      activityCategory,
+      'whatsapp', // Use WhatsApp format for optimized messaging
+      creatorName,
+      creatorSocial?.handle,
+      planSummary,
+      activityId
+    );
+
+    // WhatsApp share URL with pre-filled message
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(fullText)}`;
+    
+    // Open in new window
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+
+    toast({
+      title: 'Opening WhatsApp',
+      description: 'Your message is ready to send!',
+    });
+  };
+
   const { caption, hashtags } = generatePlatformCaption(
     activityTitle,
     activityCategory,
@@ -584,6 +637,28 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
                 <span className="sm:hidden">Caption</span>
               </Button>
             </div>
+          </div>
+
+          {/* Quick Share Buttons */}
+          <div className="flex gap-2 flex-wrap">
+            <Button 
+              variant="outline"
+              onClick={handleShareToTwitter}
+              className="flex-1 sm:flex-none min-h-[44px] gap-2"
+              data-testid="button-share-twitter"
+            >
+              <SiX className="w-4 h-4" />
+              <span>Share to Twitter</span>
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={handleShareToWhatsApp}
+              className="flex-1 sm:flex-none min-h-[44px] gap-2"
+              data-testid="button-share-whatsapp"
+            >
+              <SiWhatsapp className="w-4 h-4" />
+              <span>Share to WhatsApp</span>
+            </Button>
           </div>
         </>
       )}
