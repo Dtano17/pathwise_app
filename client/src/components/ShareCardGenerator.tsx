@@ -448,7 +448,7 @@ export function ShareCardGenerator({
                 {/* Header - Brand & Verification */}
                 <div className="flex justify-between items-start">
                   <Badge className="bg-primary text-primary-foreground px-4 py-1.5 text-sm font-semibold">
-                    JournalMate
+                    JournalMate.ai
                   </Badge>
                   {creatorSocial && (
                     <Badge variant="secondary" className="bg-white/20 text-white backdrop-blur-sm px-3 py-1">

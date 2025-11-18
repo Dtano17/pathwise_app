@@ -450,9 +450,8 @@ export function generatePlatformCaption(
 
   // For WhatsApp, add shareable link with contextual emoji
   if (platform === 'whatsapp' && activityId) {
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://journalmate.ai';
     const emoji = getContextualEmoji(activityTitle, category);
-    caption += `\n${emoji} Customize this plan: ${baseUrl}/shared/${activityId}\n`;
+    caption += `\n${emoji} Customize this plan: https://journalmate.ai/shared/${activityId}\n`;
   }
 
   // Add hashtags for platforms that use them

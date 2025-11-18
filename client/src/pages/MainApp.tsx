@@ -3730,6 +3730,9 @@ Assistant: For nutrition, I recommend..."
             if (!activity) return;
             
             try {
+              // Import getContextualEmoji dynamically
+              const { getContextualEmoji } = await import('@/lib/shareCardTemplates');
+              
               // Use the shareableLink from SharePreviewDialog (already generated)
               const shareUrl = shareData.shareableLink;
               
@@ -3738,19 +3741,22 @@ Assistant: For nutrition, I recommend..."
               }
               
               const displayTitle = shareData.shareTitle || activity.planSummary || activity.title;
-              const shareText = shareData.socialText || `Check out my activity: ${displayTitle}!`;
+              const contextualEmoji = getContextualEmoji(activity.title, activity.category);
+              
+              // Enhanced share text with contextual emoji and JournalMate.ai branding
+              const shareText = `${contextualEmoji} ${displayTitle}\n\n${activity.planSummary || activity.description}\n\n${contextualEmoji} Customize this plan: ${shareUrl}\n\n✨ Plan your next adventure with JournalMate.ai`;
               
               if (navigator.share) {
                 await navigator.share({
-                  title: displayTitle,
+                  title: `${contextualEmoji} ${displayTitle}`,
                   text: shareText,
                   url: shareUrl
                 });
               } else {
-                await navigator.clipboard.writeText(`${shareText}\n\n${shareUrl}`);
+                await navigator.clipboard.writeText(shareText);
                 toast({
                   title: 'Link Copied!',
-                  description: 'Share link has been copied to clipboard',
+                  description: 'Enhanced share text copied to clipboard',
                 });
               }
             } catch (error) {
