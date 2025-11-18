@@ -64,10 +64,19 @@ interface PrivacySettings {
 }
 
 export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShare }: SharePreviewDialogProps) {
+  // Tab state (temporarily kept for compatibility)
   const [activeTab, setActiveTab] = useState('quick-share');
+  
+  // Share card preview state
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('instagram_feed');
+  const [selectedFormat, setSelectedFormat] = useState<'png' | 'jpg' | 'pdf'>('jpg');
+  
+  // Share configuration state
   const [shareTitle, setShareTitle] = useState(activity.shareTitle || activity.planSummary || activity.title);
   const [backdrop, setBackdrop] = useState(activity.backdrop || '');
   const [customBackdrop, setCustomBackdrop] = useState('');
+  
+  // Privacy & Publishing state
   const [privacyPreset, setPrivacyPreset] = useState<PrivacyPreset>('off');
   const [showPrivacySettings, setShowPrivacySettings] = useState(false);
   const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({
@@ -80,20 +89,25 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
   const [redactedPreview, setRedactedPreview] = useState<{ title: string; tasks: { title: string }[] } | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
   const [publishToCommunity, setPublishToCommunity] = useState(false);
+  
+  // Social media state
   const [twitterHandle, setTwitterHandle] = useState('');
   const [instagramHandle, setInstagramHandle] = useState('');
   const [threadsHandle, setThreadsHandle] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [socialLinks, setSocialLinks] = useState<SocialMediaLinks>({});
+  
+  // Group creation state
   const [createGroup, setCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch activity tasks for share card
-  const { data: activityTasks = [] } = useQuery({
+  // Fetch activity tasks for share card preview - load immediately when dialog opens
+  const { data: activityTasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['/api/activities', activity.id, 'tasks'],
     queryFn: async () => {
       const response = await fetch(`/api/activities/${activity.id}/tasks`, {
@@ -110,7 +124,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         completed: task.completed || false,
       }));
     },
-    enabled: open && activeTab === 'download-cards',
+    enabled: open, // Fetch as soon as dialog opens
   });
 
   useEffect(() => {
