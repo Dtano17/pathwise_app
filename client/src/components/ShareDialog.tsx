@@ -32,6 +32,7 @@ interface ShareDialogProps {
   activityId?: string;
   planSummary?: string;
   backdrop?: string;
+  onOpenSharePreview?: () => void;
 }
 
 export default function ShareDialog({
@@ -44,7 +45,8 @@ export default function ShareDialog({
   progressPercent,
   activityId,
   planSummary,
-  backdrop
+  backdrop,
+  onOpenSharePreview
 }: ShareDialogProps) {
   const { toast } = useToast();
   const [isSharing, setIsSharing] = useState(false);
@@ -107,7 +109,7 @@ export default function ShareDialog({
     : title;
   const twitterShareText = `${contextualEmoji} ${truncatedTitle}\n\n${twitterStaticText}`;
 
-  // Share Image function
+  // Share Image function - uses SharePreviewDialog when available, falls back to inline share
   const handleShareImage = async () => {
     if (!activityId || !shareCardGeneratorRef.current) {
       toast({
@@ -118,6 +120,14 @@ export default function ShareDialog({
       return;
     }
 
+    // If we have the callback and backdrop, open SharePreviewDialog for full preview/download/share experience
+    if (onOpenSharePreview && backdrop) {
+      onOpenChange(false);
+      onOpenSharePreview();
+      return;
+    }
+
+    // Fallback: inline share (for cases where SharePreviewDialog isn't available)
     setIsSharing(true);
     try {
       // Generate the share card image using the same format as downloads
@@ -183,7 +193,7 @@ export default function ShareDialog({
         toast({
           title: 'Share Failed',
           description: error.message || 'Could not share image. Please try again.',
-          variant: 'destructive'
+          variant: 'destructive',
         });
       }
     } finally {

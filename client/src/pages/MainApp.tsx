@@ -1661,6 +1661,14 @@ export default function MainApp({
                         description: "This plan is now your focus theme for today. (Feature coming soon!)",
                       });
                     }}
+                    onOpenSharePreview={async (activityId: string) => {
+                      // Fetch full activity data and open SharePreviewDialog
+                      const activity = activities?.find(a => a.id === activityId);
+                      if (activity) {
+                        setSharePreviewDialog({ open: true, activity });
+                      }
+                    }}
+                    backdrop={activities?.find(a => a.id === currentPlanOutput.activityId)?.backdrop}
                     showConfetti={true}
                   />
                   

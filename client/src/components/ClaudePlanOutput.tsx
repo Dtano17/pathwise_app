@@ -29,9 +29,11 @@ interface ClaudePlanOutputProps {
   onCompleteTask: (taskId: string) => void;
   onCreateActivity?: (planData: { title: string; description: string; tasks: Task[]; mode?: 'create' | 'update'; activityId?: string }) => void;
   onSetAsTheme?: () => void;
+  onOpenSharePreview?: (activityId: string) => void;
   showConfetti?: boolean;
   activityId?: string;
   isCreating?: boolean;
+  backdrop?: string;
 }
 
 export default function ClaudePlanOutput({
@@ -43,9 +45,11 @@ export default function ClaudePlanOutput({
   onCompleteTask,
   onCreateActivity,
   onSetAsTheme,
+  onOpenSharePreview,
   showConfetti = false,
   activityId,
-  isCreating = false
+  isCreating = false,
+  backdrop
 }: ClaudePlanOutputProps) {
   const { toast } = useToast();
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
@@ -446,6 +450,10 @@ export default function ClaudePlanOutput({
         url={shareUrl}
         category={category}
         progressPercent={Math.round((completedTasks.size / tasks.length) * 100)}
+        activityId={activityId}
+        planSummary={summary}
+        backdrop={backdrop}
+        onOpenSharePreview={activityId ? () => onOpenSharePreview?.(activityId) : undefined}
       />
     </motion.div>
   );
