@@ -1,7 +1,7 @@
-# IntentAI - AI-Powered Journaling Application
+# JournalMate - AI-Powered Journaling Application
 
 ### Overview
-IntentAI is an AI-powered journaling application designed to transform user intentions into actionable plans. It provides a mobile-first experience with features like swipeable task management, celebratory feedback, and comprehensive authentication. The application aims to be a lifestyle planner that guides users through setting, executing, and celebrating their goals, integrating advanced AI for intelligent planning and personalized journaling.
+JournalMate (journalmate.ai) is an AI-powered journaling application designed to transform user intentions into actionable plans. It provides a mobile-first experience with features like swipeable task management, celebratory feedback, and comprehensive authentication. The application aims to be a lifestyle planner that guides users through setting, executing, and celebrating their goals, integrating advanced AI for intelligent planning and personalized journaling.
 
 ### User Preferences
 - Wants fully functional authentication with Facebook support

@@ -224,7 +224,7 @@ export function ShareCardGenerator({
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
-          link.download = `planmate-${platformId}.${format}`;
+          link.download = `journalmate-${platformId}.${format}`;
           link.setAttribute('aria-label', `Download ${platformId} share card`);
           document.body.appendChild(link);
           link.click();
@@ -443,7 +443,7 @@ export function ShareCardGenerator({
                 {/* Header - Brand & Verification */}
                 <div className="flex justify-between items-start">
                   <Badge className="bg-primary text-primary-foreground px-4 py-1.5 text-sm font-semibold">
-                    PlanMate360
+                    JournalMate
                   </Badge>
                   {creatorSocial && (
                     <Badge variant="secondary" className="bg-white/20 text-white backdrop-blur-sm px-3 py-1">
