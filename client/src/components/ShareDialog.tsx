@@ -18,7 +18,7 @@ import {
 import { SiWhatsapp, SiFacebook, SiX, SiMessenger } from 'react-icons/si';
 import { useToast } from '@/hooks/use-toast';
 import { getContextualEmoji, generatePlatformCaption } from '@/lib/shareCardTemplates';
-import { ShareCardCanvas, type ShareCardCanvasRef } from './ShareCardCanvas';
+import { ShareCardGenerator, type ShareCardGeneratorRef } from './ShareCardGenerator';
 import { useQuery } from '@tanstack/react-query';
 
 interface ShareDialogProps {
@@ -48,7 +48,7 @@ export default function ShareDialog({
 }: ShareDialogProps) {
   const { toast } = useToast();
   const [isSharing, setIsSharing] = useState(false);
-  const shareCardCanvasRef = useRef<ShareCardCanvasRef>(null);
+  const shareCardGeneratorRef = useRef<ShareCardGeneratorRef>(null);
 
   // Fetch activity tasks for share card
   const { data: activityTasks = [], isLoading: isLoadingTasks, isError: isTasksError } = useQuery({
@@ -109,7 +109,7 @@ export default function ShareDialog({
 
   // Share Image function
   const handleShareImage = async () => {
-    if (!activityId || !shareCardCanvasRef.current) {
+    if (!activityId || !shareCardGeneratorRef.current) {
       toast({
         title: 'Cannot Share Image',
         description: 'Image sharing is only available for saved activities with a backdrop.',
@@ -120,8 +120,8 @@ export default function ShareDialog({
 
     setIsSharing(true);
     try {
-      // Generate the share card image
-      const blob = await shareCardCanvasRef.current.generateImage('jpg');
+      // Generate the share card image using the same format as downloads
+      const blob = await shareCardGeneratorRef.current.generateShareCard('instagram_feed', 'jpg');
       
       if (!blob) {
         throw new Error('Failed to generate image');
@@ -130,18 +130,33 @@ export default function ShareDialog({
       // Create a File object from the blob
       const file = new File([blob], `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_share.jpg`, { type: 'image/jpeg' });
 
+      // Prepare the caption text
+      const shareCaption = `${contextualEmoji} Customize this plan: ${shareUrl}\n\n✨ Plan your next adventure with JournalMate.ai`;
+
       // Check if Web Share API with files is supported
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        // iOS Safari requires us to omit text/url when sharing files
+        // So we'll copy the caption to clipboard for the user to paste
+        try {
+          await navigator.clipboard.writeText(shareCaption);
+          toast({ 
+            title: 'Caption Copied!',
+            description: 'Share link copied to clipboard - paste it when sharing the image',
+            duration: 3000
+          });
+        } catch (clipboardError) {
+          console.warn('Could not copy to clipboard:', clipboardError);
+        }
+
+        // Share only the file (no text/url to ensure image shows on iOS)
         await navigator.share({
-          title: formattedTitle,
-          text: `${contextualEmoji} Customize this plan: ${shareUrl}`,
           files: [file],
         });
         
         toast({ title: 'Shared Successfully!' });
         onOpenChange(false);
       } else {
-        // Fallback: Download the image
+        // Fallback: Download the image and copy caption
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -149,10 +164,19 @@ export default function ShareDialog({
         link.click();
         URL.revokeObjectURL(url);
         
-        toast({ 
-          title: 'Image Downloaded',
-          description: 'Image sharing not supported on this device. Image has been downloaded instead.'
-        });
+        try {
+          await navigator.clipboard.writeText(shareCaption);
+          toast({ 
+            title: 'Image Downloaded',
+            description: 'Share link copied to clipboard. Image sharing not supported on this device.',
+            duration: 3000
+          });
+        } catch {
+          toast({ 
+            title: 'Image Downloaded',
+            description: 'Image sharing not supported on this device. Image has been downloaded instead.'
+          });
+        }
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {
@@ -315,18 +339,17 @@ export default function ShareDialog({
           ))}
         </div>
 
-        {/* Hidden ShareCardCanvas for image generation - positioned off-screen */}
+        {/* Hidden ShareCardGenerator for image generation - positioned off-screen with proper dimensions */}
         {activityId && backdrop && (
-          <div className="fixed top-0 left-[-10000px] opacity-0 pointer-events-none z-[-1]" aria-hidden="true">
-            <ShareCardCanvas
-              ref={shareCardCanvasRef}
+          <div className="fixed top-0 left-[-10000px] opacity-0 pointer-events-none z-[-1] w-[1080px] h-[1080px]" aria-hidden="true">
+            <ShareCardGenerator
+              ref={shareCardGeneratorRef}
               activityId={activityId}
               activityTitle={title}
               activityCategory={category}
               backdrop={backdrop}
               planSummary={planSummary}
               tasks={activityTasks}
-              platformId="instagram_feed"
             />
           </div>
         )}
