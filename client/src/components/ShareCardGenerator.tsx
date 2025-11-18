@@ -499,11 +499,6 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
     <div className="space-y-4 sm:space-y-6">
       {!hideControls && (
         <>
-          {/* Info Banner */}
-          <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
-            💡 Files download individually to your Downloads folder - no virus warnings!
-          </div>
-
           {/* Platform Selector */}
           <div className="space-y-3">
             <h3 className="text-sm font-medium">Choose Platform</h3>
