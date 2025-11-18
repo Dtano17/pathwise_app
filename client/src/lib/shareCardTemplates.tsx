@@ -433,11 +433,14 @@ export function generatePlatformCaption(
     template.recommendedHashtags
   );
 
-  let caption = `${activityTitle}\n\n`;
+  let caption = '';
 
-  // For WhatsApp, include detailed summary and link
+  // For WhatsApp, use plan summary as the main content (it already includes the title context)
   if (platform === 'whatsapp' && planSummary) {
-    caption += `${planSummary}\n\n`;
+    caption = `${planSummary}\n\n`;
+  } else {
+    // For other platforms or when no summary, use the title
+    caption = `${activityTitle}\n\n`;
   }
 
   // Add creator attribution if available

@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { toPng, toJpeg } from 'html-to-image';
 import jsPDF from 'jspdf';
-import { Download, Loader2, Image as ImageIcon, FileText, Check, Circle } from 'lucide-react';
+import { Download, Loader2, Image as ImageIcon, FileText, Check, Circle, Share2 } from 'lucide-react';
 import { SiInstagram, SiTiktok, SiX, SiFacebook, SiLinkedin, SiPinterest, SiWhatsapp } from 'react-icons/si';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -188,6 +188,103 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
         description: error.message || 'Failed to generate share card',
         variant: 'destructive',
       });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  /**
+   * Share single share card using native share API
+   */
+  const handleShareImage = async () => {
+    setIsGenerating(true);
+
+    try {
+      // Only allow JPG/PNG for sharing (not PDF)
+      const shareFormat = selectedFormat === 'pdf' ? 'jpg' : selectedFormat;
+      const blob = await generateShareCard(selectedPlatform, shareFormat);
+
+      if (!blob) {
+        throw new Error('Failed to generate share card');
+      }
+
+      // Create a File object from the blob
+      const file = new File([blob], `journalmate-${selectedPlatform}.${shareFormat}`, { 
+        type: shareFormat === 'jpg' ? 'image/jpeg' : 'image/png' 
+      });
+
+      // Get the platform-specific caption
+      const captionData = generatePlatformCaption(
+        activityTitle,
+        activityCategory,
+        selectedPlatform,
+        creatorName,
+        creatorSocial?.handle,
+        planSummary,
+        activityId
+      );
+
+      // Check if Web Share API with files is supported
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        // Copy caption to clipboard first (iOS requires this)
+        try {
+          await navigator.clipboard.writeText(captionData.fullText);
+          toast({ 
+            title: 'Caption Copied!',
+            description: 'Share link copied to clipboard - paste it when sharing the image',
+            duration: 3000
+          });
+        } catch (clipboardError) {
+          console.warn('Could not copy to clipboard:', clipboardError);
+        }
+
+        // Share only the file (no text/url to ensure image shows on iOS)
+        await navigator.share({
+          files: [file],
+        });
+
+        // Track share count
+        await fetch(`/api/activities/${activityId}/track-share`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ platform: selectedPlatform }),
+        });
+        
+        toast({ title: 'Shared Successfully!' });
+      } else {
+        // Fallback: Download the image and copy caption
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `journalmate-${selectedPlatform}.${shareFormat}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        try {
+          await navigator.clipboard.writeText(captionData.fullText);
+          toast({ 
+            title: 'Image Downloaded',
+            description: 'Share link copied to clipboard. Image sharing not supported on this device.',
+            duration: 3000
+          });
+        } catch {
+          toast({ 
+            title: 'Image Downloaded',
+            description: 'Image sharing not supported on this device. Image has been downloaded instead.'
+          });
+        }
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        toast({
+          title: 'Share Failed',
+          description: error.message || 'Could not share image. Please try again.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -387,7 +484,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
           </Select>
         </div>
 
-        <div className="flex gap-2 sm:pt-6">
+        <div className="flex gap-2 sm:pt-6 flex-wrap">
           <Button 
             onClick={handleDownloadSingle} 
             disabled={isGenerating}
@@ -400,6 +497,20 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
               <Download className="w-4 h-4 mr-2" />
             )}
             Download
+          </Button>
+          <Button 
+            variant="default"
+            onClick={handleShareImage} 
+            disabled={isGenerating || selectedFormat === 'pdf'}
+            className="flex-1 sm:flex-none min-h-[44px]"
+            data-testid="button-share-image"
+          >
+            {isGenerating ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <Share2 className="w-4 h-4 mr-2" />
+            )}
+            Share
           </Button>
           <Button 
             variant="outline" 
