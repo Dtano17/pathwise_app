@@ -18,10 +18,11 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2, Pin, MapPin, Settings } from "lucide-react";
+import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2, Pin, MapPin, Settings, Flag } from "lucide-react";
 import { SiLinkedin, SiInstagram, SiX } from "react-icons/si";
 import type { Activity } from "@shared/schema";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
+import { ReportDialog } from "@/components/ReportDialog";
 import { useDiscoverFilters } from "./useDiscoverFilters";
 import { getCurrentLocation } from "@/lib/geolocation";
 import { CardDisplaySettings } from "./CardDisplaySettings";
@@ -209,30 +210,101 @@ const getVerificationIconComponent = (verificationBadge: string | null | undefin
   }
 };
 
-// Verification icon component
-function VerificationIcon({ 
-  verificationBadge, 
-  sourceType, 
-  label, 
-  planId 
-}: { 
-  verificationBadge: string | null | undefined; 
-  sourceType: string | null | undefined; 
-  label: string; 
+// Verification icon component with clickable social links
+function VerificationIcon({
+  verificationBadge,
+  sourceType,
+  label,
+  planId,
+  plannerProfileId,
+}: {
+  verificationBadge: string | null | undefined;
+  sourceType: string | null | undefined;
+  label: string;
   planId: string;
+  plannerProfileId?: string | null;
 }) {
+  const [socialLinks, setSocialLinks] = useState<{
+    twitterPostUrl?: string;
+    instagramPostUrl?: string;
+    threadsPostUrl?: string;
+    linkedinPostUrl?: string;
+  } | null>(null);
+  const [isLoadingLinks, setIsLoadingLinks] = useState(false);
+
   const IconComponent = getVerificationIconComponent(verificationBadge);
   const iconColor = sourceType === 'brand_partnership' ? 'text-blue-500' : 'text-green-500';
-  
+
+  // Fetch social links when hovering over badge
+  const handleMouseEnter = async () => {
+    if (!plannerProfileId || socialLinks || isLoadingLinks) return;
+
+    setIsLoadingLinks(true);
+    try {
+      const response = await fetch(`/api/planner-profiles/${plannerProfileId}/social-links`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSocialLinks(data);
+      }
+    } catch (error) {
+      console.error('[VerificationIcon] Failed to fetch social links:', error);
+    } finally {
+      setIsLoadingLinks(false);
+    }
+  };
+
+  // Get the appropriate social link based on verification badge
+  const getSocialLink = (): string | null => {
+    if (!socialLinks) return null;
+
+    switch (verificationBadge) {
+      case 'twitter':
+        return socialLinks.twitterPostUrl || null;
+      case 'instagram':
+        return socialLinks.instagramPostUrl || null;
+      case 'threads':
+        return socialLinks.threadsPostUrl || null;
+      case 'linkedin':
+        return socialLinks.linkedinPostUrl || null;
+      case 'multi':
+        // Return first available link
+        return socialLinks.twitterPostUrl || socialLinks.instagramPostUrl || socialLinks.threadsPostUrl || socialLinks.linkedinPostUrl || null;
+      default:
+        return null;
+    }
+  };
+
+  const socialLink = getSocialLink();
+  const isClickable = !!plannerProfileId && !!socialLink;
+
   return (
-    <div className="group/verify relative inline-flex">
-      <IconComponent 
-        className={`w-3 h-3 cursor-help ${iconColor}`}
-        aria-label={label}
-        data-testid={`icon-verified-${planId}`}
-      />
+    <div className="group/verify relative inline-flex" onMouseEnter={handleMouseEnter}>
+      {isClickable ? (
+        <a
+          href={socialLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`inline-flex hover:scale-110 transition-transform ${iconColor}`}
+          onClick={(e) => e.stopPropagation()}
+          title={`View creator's post on ${label.split(' ').pop()}`}
+        >
+          <IconComponent
+            className="w-3 h-3"
+            aria-label={label}
+            data-testid={`icon-verified-${planId}`}
+          />
+        </a>
+      ) : (
+        <IconComponent
+          className={`w-3 h-3 cursor-help ${iconColor}`}
+          aria-label={label}
+          data-testid={`icon-verified-${planId}`}
+        />
+      )}
       <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-100 dark:text-gray-900 rounded opacity-0 group-hover/verify:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-        {label}
+        {isClickable ? `View post on ${label.split(' ').pop()} →` : label}
       </span>
     </div>
   );
@@ -256,6 +328,8 @@ export default function DiscoverPlansView() {
   const [createGroupDialogOpen, setCreateGroupDialogOpen] = useState(false);
   const [pendingGroupId, setPendingGroupId] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportingPlan, setReportingPlan] = useState<{ id: string; title: string } | null>(null);
   const { toast } = useToast();
 
   // Handle location toggle
@@ -790,6 +864,12 @@ export default function DiscoverPlansView() {
     setPreviewDialogOpen(true);
   };
 
+  const handleReportPlan = (activityId: string, title: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    setReportingPlan({ id: activityId, title });
+    setReportDialogOpen(true);
+  };
+
   const handleUsePlanFromPreview = () => {
     setPreviewDialogOpen(false);
     setAdoptDialogOpen(true);
@@ -1113,11 +1193,12 @@ export default function DiscoverPlansView() {
                           <p className="text-xs text-muted-foreground">
                             by {plan.creatorName || "Unknown"}
                           </p>
-                          {verificationLabel && <VerificationIcon 
+                          {verificationLabel && <VerificationIcon
                             verificationBadge={plan.verificationBadge}
                             sourceType={plan.sourceType}
                             label={verificationLabel}
                             planId={plan.id}
+                            plannerProfileId={plan.plannerProfileId}
                           />}
                         </div>
                       )}
@@ -1171,6 +1252,16 @@ export default function DiscoverPlansView() {
                   >
                     <Plus className="w-4 h-4 mr-1" />
                     Use Plan
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={(e) => handleReportPlan(plan.id, plan.title, e)}
+                    title="Report plan"
+                    data-testid={`button-report-${plan.id}`}
+                  >
+                    <Flag className="w-4 h-4 text-muted-foreground" />
                   </Button>
                 </CardFooter>
               </Card>
@@ -1448,6 +1539,16 @@ export default function DiscoverPlansView() {
           setPendingGroupId(group.id);
         }}
       />
+
+      {/* Report Dialog */}
+      {reportingPlan && (
+        <ReportDialog
+          open={reportDialogOpen}
+          onOpenChange={setReportDialogOpen}
+          activityId={reportingPlan.id}
+          activityTitle={reportingPlan.title}
+        />
+      )}
     </div>
   );
 }

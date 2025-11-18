@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'ai.planmate360.app',
-  appName: 'PlanMate360',
+  appId: 'ai.journalmate.app',
+  appName: 'JournalMate.ai',
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',

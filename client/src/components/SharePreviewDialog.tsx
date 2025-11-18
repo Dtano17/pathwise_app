@@ -5,11 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown, Users } from 'lucide-react';
+import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown, Users, Download, Share2, BadgeCheck } from 'lucide-react';
 import { Card, CardHeader, CardContent, CardDescription } from '@/components/ui/card';
+import { ShareCardGenerator } from './ShareCardGenerator';
+import { SocialVerificationTab, type SocialMediaLinks } from './SocialVerificationTab';
 
 interface Activity {
   id: string;
@@ -61,6 +64,7 @@ interface PrivacySettings {
 }
 
 export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShare }: SharePreviewDialogProps) {
+  const [activeTab, setActiveTab] = useState('quick-share');
   const [shareTitle, setShareTitle] = useState(activity.shareTitle || activity.planSummary || activity.title);
   const [backdrop, setBackdrop] = useState(activity.backdrop || '');
   const [customBackdrop, setCustomBackdrop] = useState('');
@@ -80,6 +84,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
   const [instagramHandle, setInstagramHandle] = useState('');
   const [threadsHandle, setThreadsHandle] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
+  const [socialLinks, setSocialLinks] = useState<SocialMediaLinks>({});
   const [createGroup, setCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
@@ -320,18 +325,35 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            Customize Your Shared Activity
+            Share & Customize Your Activity
           </DialogTitle>
           <DialogDescription>
-            Edit how your activity appears when shared with others
+            Quick share, download cards, or verify with social media
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="quick-share" className="flex items-center gap-2">
+              <Share2 className="w-4 h-4" />
+              Quick Share
+            </TabsTrigger>
+            <TabsTrigger value="download-cards" className="flex items-center gap-2">
+              <Download className="w-4 h-4" />
+              Download Cards
+            </TabsTrigger>
+            <TabsTrigger value="social-verify" className="flex items-center gap-2">
+              <BadgeCheck className="w-4 h-4" />
+              Social Verification
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab 1: Quick Share (existing functionality) */}
+          <TabsContent value="quick-share" className="space-y-6 py-4">
           {/* Share Title */}
           <div className="space-y-2">
             <Label htmlFor="share-title">Share Title</Label>
@@ -843,7 +865,28 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
               {updateMutation.isPending ? 'Saving...' : 'Save & Share'}
             </Button>
           </div>
-        </div>
+          </TabsContent>
+
+          {/* Tab 2: Download Cards */}
+          <TabsContent value="download-cards" className="py-4">
+            <ShareCardGenerator
+              activityId={activity.id}
+              activityTitle={shareTitle}
+              activityCategory={activity.category}
+              backdrop={backdrop || ''}
+              planSummary={activity.planSummary || undefined}
+            />
+          </TabsContent>
+
+          {/* Tab 3: Social Verification */}
+          <TabsContent value="social-verify" className="py-4">
+            <SocialVerificationTab
+              activityId={activity.id}
+              existingLinks={socialLinks}
+              onLinksUpdated={(links) => setSocialLinks(links)}
+            />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

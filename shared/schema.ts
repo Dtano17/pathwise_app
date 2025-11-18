@@ -793,6 +793,11 @@ export const plannerProfiles = pgTable("planner_profiles", {
   instagramHandle: varchar("instagram_handle"),
   threadsHandle: varchar("threads_handle"),
   websiteUrl: varchar("website_url"),
+  // Social media post URLs for verification
+  twitterPostUrl: varchar("twitter_post_url"),
+  instagramPostUrl: varchar("instagram_post_url"),
+  threadsPostUrl: varchar("threads_post_url"),
+  linkedinPostUrl: varchar("linkedin_post_url"),
   verificationStatus: text("verification_status").notNull().default("unverified"), // 'unverified' | 'community_verified' | 'official'
   approvedAt: timestamp("approved_at"),
   reviewedBy: varchar("reviewed_by").references(() => users.id),
@@ -846,6 +851,11 @@ export const activities = pgTable("activities", {
   creatorName: text("creator_name"), // Display name of creator for discovery
   creatorAvatar: text("creator_avatar"), // Avatar URL for discovery cards
   seasonalTags: jsonb("seasonal_tags").$type<string[]>().default([]), // 'summer' | 'winter' | 'spring' | 'fall' | 'holiday' | 'year-round'
+
+  // Share-to-earn metrics
+  shareCount: integer("share_count").default(0), // Total shares (downloads of share cards)
+  adoptionCount: integer("adoption_count").default(0), // Total times plan was copied/adopted
+  completionCount: integer("completion_count").default(0), // Total times adopted plan was completed
   
   // Rating and feedback
   rating: integer("rating"), // 1-5 stars
@@ -1409,3 +1419,81 @@ export type ActivityWithProgress = Activity & {
   completedTasks: number;
   progressPercent: number;
 };
+
+// User Credits table for share-to-earn rewards system
+export const userCredits = pgTable("user_credits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull().unique(),
+  balance: integer("balance").notNull().default(0),
+  lifetimeEarned: integer("lifetime_earned").notNull().default(0), // Track total credits ever earned
+  lifetimeSpent: integer("lifetime_spent").notNull().default(0), // Track total credits ever spent
+  lastReset: timestamp("last_reset").defaultNow(), // For monthly allowance tracking
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("user_credits_user_id_index").on(table.userId),
+}));
+
+// Credit Transactions table for tracking all credit movements
+export const creditTransactions = pgTable("credit_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  amount: integer("amount").notNull(), // Positive for earn, negative for spend
+  type: text("type").notNull(), // 'earn_publish' | 'earn_adoption' | 'earn_completion' | 'earn_shares' | 'spend_plan' | 'bonus' | 'adjustment'
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "set null" }), // Related activity if applicable
+  description: text("description"), // Human-readable description
+  metadata: jsonb("metadata").$type<Record<string, any>>(), // Additional data (e.g., adopter userId, share count milestone)
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("credit_transactions_user_id_index").on(table.userId),
+  typeIndex: index("credit_transactions_type_index").on(table.type),
+  activityIdIndex: index("credit_transactions_activity_id_index").on(table.activityId),
+  createdAtIndex: index("credit_transactions_created_at_index").on(table.createdAt),
+}));
+
+// Type exports for credits
+export const insertUserCreditsSchema = createInsertSchema(userCredits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCreditTransactionSchema = createInsertSchema(creditTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type UserCredit = typeof userCredits.$inferSelect;
+export type InsertUserCredit = z.infer<typeof insertUserCreditsSchema>;
+
+export type CreditTransaction = typeof creditTransactions.$inferSelect;
+export type InsertCreditTransaction = z.infer<typeof insertCreditTransactionSchema>;
+
+// Activity Reports table for spam/fraud reporting
+export const activityReports = pgTable("activity_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "cascade" }).notNull(),
+  reportedBy: varchar("reported_by").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  reason: text("reason").notNull(), // 'spam' | 'fraud' | 'inappropriate' | 'copyright' | 'other'
+  details: text("details"), // Additional context from reporter
+  status: text("status").notNull().default("pending"), // 'pending' | 'reviewed' | 'resolved' | 'dismissed'
+  reviewedBy: varchar("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewed_at"),
+  resolution: text("resolution"), // Admin notes on resolution
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  activityIdIndex: index("activity_reports_activity_id_index").on(table.activityId),
+  reportedByIndex: index("activity_reports_reported_by_index").on(table.reportedBy),
+  statusIndex: index("activity_reports_status_index").on(table.status),
+  createdAtIndex: index("activity_reports_created_at_index").on(table.createdAt),
+}));
+
+// Type exports for activity reports
+export const insertActivityReportSchema = createInsertSchema(activityReports).omit({
+  id: true,
+  createdAt: true,
+  reviewedAt: true,
+});
+
+export type ActivityReport = typeof activityReports.$inferSelect;
+export type InsertActivityReport = z.infer<typeof insertActivityReportSchema>;

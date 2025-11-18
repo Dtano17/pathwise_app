@@ -9,12 +9,12 @@ import { langGraphPlanningAgent } from "./services/langgraphPlanningAgent";
 import { simpleConversationalPlanner } from "./services/simpleConversationalPlanner";
 import { enrichJournalEntry } from "./services/journalEnrichmentService";
 import { contactSyncService } from "./contactSync";
-import { 
+import {
   insertGoalSchema,
   syncContactsSchema,
-  addContactSchema, 
-  insertTaskSchema, 
-  insertJournalEntrySchema, 
+  addContactSchema,
+  insertTaskSchema,
+  insertJournalEntrySchema,
   insertChatImportSchema,
   insertPrioritySchema,
   insertNotificationPreferencesSchema,
@@ -31,6 +31,9 @@ import {
   insertGroupSchema,
   tasks as tasksTable,
   userNotifications,
+  activities,
+  plannerProfiles,
+  activityReports,
   type Task,
   type Activity,
   type ActivityTask,
@@ -39,7 +42,7 @@ import {
   type ProfileCompletion,
   type LifestylePlannerSession
 } from "@shared/schema";
-import { eq, and, or, isNull } from "drizzle-orm";
+import { eq, and, or, isNull, sql } from "drizzle-orm";
 import bcrypt from 'bcrypt';
 import { z } from "zod";
 import crypto from 'crypto';
@@ -4580,6 +4583,177 @@ ${emoji} ${progressLine}
     } catch (error) {
       console.error('Increment views error:', error);
       res.status(500).json({ error: 'Failed to increment views' });
+    }
+  });
+
+  // Track share card downloads for credit system
+  app.post("/api/activities/:activityId/track-share", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const { platform, count = 1 } = req.body;
+
+      // Increment share count
+      await db
+        .update(activities)
+        .set({ shareCount: sql`${activities.shareCount} + ${count}` })
+        .where(eq(activities.id, activityId));
+
+      // Award milestone credits if applicable
+      const [activity] = await db.select().from(activities).where(eq(activities.id, activityId)).limit(1);
+      if (activity) {
+        const newShareCount = (activity.shareCount || 0) + count;
+
+        // Check for milestones (100, 500, 1000)
+        if ([100, 500, 1000].includes(newShareCount)) {
+          const { CreditService } = await import('./services/creditService.js');
+          await CreditService.awardShareMilestoneCredits(activity.userId, activityId, newShareCount);
+        }
+      }
+
+      res.json({ success: true, platform });
+    } catch (error) {
+      console.error('[track-share] Error:', error);
+      res.status(500).json({ error: 'Failed to track share' });
+    }
+  });
+
+  // Save social media post URLs for activity verification
+  app.post("/api/activities/:activityId/social-links", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req);
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Verify user owns the activity
+      const [activity] = await db.select().from(activities).where(eq(activities.id, activityId)).limit(1);
+      if (!activity || activity.userId !== userId) {
+        return res.status(403).json({ error: 'Not authorized' });
+      }
+
+      const { twitterPostUrl, instagramPostUrl, threadsPostUrl, linkedinPostUrl } = req.body;
+
+      // Upsert planner profile with social links
+      const [plannerProfile] = await db
+        .insert(plannerProfiles)
+        .values({
+          userId,
+          twitterPostUrl: twitterPostUrl || null,
+          instagramPostUrl: instagramPostUrl || null,
+          threadsPostUrl: threadsPostUrl || null,
+          linkedinPostUrl: linkedinPostUrl || null,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: plannerProfiles.userId,
+          set: {
+            twitterPostUrl: twitterPostUrl || null,
+            instagramPostUrl: instagramPostUrl || null,
+            threadsPostUrl: threadsPostUrl || null,
+            linkedinPostUrl: linkedinPostUrl || null,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+
+      // Link plannerProfileId to activity if not already linked
+      if (plannerProfile && (!activity.plannerProfileId || activity.plannerProfileId !== plannerProfile.id)) {
+        await db
+          .update(activities)
+          .set({ plannerProfileId: plannerProfile.id })
+          .where(eq(activities.id, activityId));
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[social-links] Error:', error);
+      res.status(500).json({ error: 'Failed to save social links' });
+    }
+  });
+
+  // Get social media post URLs for a planner profile (public endpoint)
+  app.get("/api/planner-profiles/:profileId/social-links", async (req, res) => {
+    try {
+      const { profileId } = req.params;
+
+      const [profile] = await db
+        .select({
+          twitterPostUrl: plannerProfiles.twitterPostUrl,
+          instagramPostUrl: plannerProfiles.instagramPostUrl,
+          threadsPostUrl: plannerProfiles.threadsPostUrl,
+          linkedinPostUrl: plannerProfiles.linkedinPostUrl,
+        })
+        .from(plannerProfiles)
+        .where(eq(plannerProfiles.id, profileId))
+        .limit(1);
+
+      if (!profile) {
+        return res.status(404).json({ error: 'Profile not found' });
+      }
+
+      res.json(profile);
+    } catch (error) {
+      console.error('[planner-profile-social-links] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch social links' });
+    }
+  });
+
+  // Report an activity for spam/fraud
+  app.post("/api/activities/:activityId/report", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req);
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { reason, details } = req.body;
+
+      // Validate reason
+      const validReasons = ['spam', 'fraud', 'inappropriate', 'copyright', 'other'];
+      if (!reason || !validReasons.includes(reason)) {
+        return res.status(400).json({ error: 'Invalid report reason' });
+      }
+
+      // Check if activity exists
+      const [activity] = await db.select().from(activities).where(eq(activities.id, activityId)).limit(1);
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      // Check if user already reported this activity
+      const [existingReport] = await db
+        .select()
+        .from(activityReports)
+        .where(
+          and(
+            eq(activityReports.activityId, activityId),
+            eq(activityReports.reportedBy, userId),
+            sql`${activityReports.status} != 'dismissed'`
+          )
+        )
+        .limit(1);
+
+      if (existingReport) {
+        return res.status(400).json({ error: 'You have already reported this activity' });
+      }
+
+      // Create report
+      await db.insert(activityReports).values({
+        activityId,
+        reportedBy: userId,
+        reason,
+        details: details || null,
+        status: 'pending',
+      });
+
+      res.json({ success: true, message: 'Report submitted successfully' });
+    } catch (error) {
+      console.error('[report-activity] Error:', error);
+      res.status(500).json({ error: 'Failed to submit report' });
     }
   });
 

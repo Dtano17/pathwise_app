@@ -1,7 +1,7 @@
 {
-  "name": "JournalMate - AI Lifestyle Planner",
-  "short_name": "JournalMate",
-  "description": "AI-powered journaling and lifestyle planning application",
+  "name": "JournalMate.ai - AI Lifestyle Planner",
+  "short_name": "JournalMate.ai",
+  "description": "AI-powered Journaling and lifestyle planning app",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f0f23",
