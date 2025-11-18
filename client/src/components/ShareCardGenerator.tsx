@@ -224,36 +224,46 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
         activityId
       );
 
-      // Check if Web Share API with files is supported
+      // Try to use Web Share API if supported
+      let shareSuccessful = false;
+      
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        // Copy caption to clipboard first (iOS requires this)
         try {
-          await navigator.clipboard.writeText(captionData.fullText);
-          toast({ 
-            title: 'Caption Copied!',
-            description: 'Share link copied to clipboard - paste it when sharing the image',
-            duration: 3000
+          // Copy caption to clipboard first (iOS requires this)
+          try {
+            await navigator.clipboard.writeText(captionData.fullText);
+            toast({ 
+              title: 'Caption Copied!',
+              description: 'Share link copied to clipboard - paste it when sharing the image',
+              duration: 3000
+            });
+          } catch (clipboardError) {
+            console.warn('Could not copy to clipboard:', clipboardError);
+          }
+
+          // Share only the file (no text/url to ensure image shows on iOS)
+          await navigator.share({
+            files: [file],
           });
-        } catch (clipboardError) {
-          console.warn('Could not copy to clipboard:', clipboardError);
+
+          // Track share count
+          await fetch(`/api/activities/${activityId}/track-share`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ platform: selectedPlatform }),
+          });
+          
+          toast({ title: 'Shared Successfully!' });
+          shareSuccessful = true;
+        } catch (shareError: any) {
+          // If share fails due to user gesture requirement, fall back to download
+          console.warn('Share API failed, falling back to download:', shareError);
         }
-
-        // Share only the file (no text/url to ensure image shows on iOS)
-        await navigator.share({
-          files: [file],
-        });
-
-        // Track share count
-        await fetch(`/api/activities/${activityId}/track-share`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ platform: selectedPlatform }),
-        });
-        
-        toast({ title: 'Shared Successfully!' });
-      } else {
-        // Fallback: Download the image and copy caption
+      }
+      
+      // Fallback: Download the image and copy caption if share didn't work
+      if (!shareSuccessful) {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -267,13 +277,13 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
           await navigator.clipboard.writeText(captionData.fullText);
           toast({ 
             title: 'Image Downloaded',
-            description: 'Share link copied to clipboard. Image sharing not supported on this device.',
+            description: 'Caption copied to clipboard. Image has been downloaded - share it manually.',
             duration: 3000
           });
         } catch {
           toast({ 
             title: 'Image Downloaded',
-            description: 'Image sharing not supported on this device. Image has been downloaded instead.'
+            description: 'Image has been downloaded. Share it manually from your downloads folder.'
           });
         }
       }
