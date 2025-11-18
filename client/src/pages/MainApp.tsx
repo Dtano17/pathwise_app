@@ -39,7 +39,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { SharePreviewDialog } from '@/components/SharePreviewDialog';
+import UnifiedShareDialog from '@/components/UnifiedShareDialog';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -3727,55 +3727,12 @@ Assistant: For nutrition, I recommend..."
         />
       )}
 
-      {/* Share Preview Dialog */}
+      {/* Unified Share/Download Dialog */}
       {sharePreviewDialog.activity && (
-        <SharePreviewDialog
+        <UnifiedShareDialog
           open={sharePreviewDialog.open}
-          onOpenChange={(open) => setSharePreviewDialog({ open, activity: null })}
+          onOpenChange={(open: boolean) => setSharePreviewDialog({ open, activity: null })}
           activity={sharePreviewDialog.activity}
-          onConfirmShare={async (shareData) => {
-            const activity = sharePreviewDialog.activity;
-            if (!activity) return;
-            
-            try {
-              // Import getContextualEmoji dynamically
-              const { getContextualEmoji } = await import('@/lib/shareCardTemplates');
-              
-              // Use the shareableLink from SharePreviewDialog (already generated)
-              const shareUrl = shareData.shareableLink;
-              
-              if (!shareUrl) {
-                throw new Error('No share link generated');
-              }
-              
-              const displayTitle = shareData.shareTitle || activity.planSummary || activity.title;
-              const contextualEmoji = getContextualEmoji(activity.title, activity.category);
-              
-              // Enhanced share text with contextual emoji and JournalMate.ai branding
-              const shareText = `${contextualEmoji} ${displayTitle}\n\n${activity.planSummary || activity.description}\n\n${contextualEmoji} Customize this plan: ${shareUrl}\n\n✨ Plan your next adventure with JournalMate.ai`;
-              
-              if (navigator.share) {
-                await navigator.share({
-                  title: `${contextualEmoji} ${displayTitle}`,
-                  text: shareText,
-                  url: shareUrl
-                });
-              } else {
-                await navigator.clipboard.writeText(shareText);
-                toast({
-                  title: 'Link Copied!',
-                  description: 'Enhanced share text copied to clipboard',
-                });
-              }
-            } catch (error) {
-              console.error('Share error:', error);
-              toast({
-                title: "Share Failed",
-                description: "Unable to copy share link. Please try again.",
-                variant: "destructive"
-              });
-            }
-          }}
         />
       )}
 
