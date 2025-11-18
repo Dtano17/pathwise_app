@@ -111,10 +111,10 @@ export default function ShareDialog({
 
   // Share Image function - uses SharePreviewDialog when available, falls back to inline share
   const handleShareImage = async () => {
-    if (!activityId || !shareCardGeneratorRef.current) {
+    if (!activityId) {
       toast({
         title: 'Cannot Share Image',
-        description: 'Image sharing is only available for saved activities with a backdrop.',
+        description: 'Image sharing is only available for saved activities.',
         variant: 'destructive'
       });
       return;
@@ -128,6 +128,15 @@ export default function ShareDialog({
     }
 
     // Fallback: inline share (for cases where SharePreviewDialog isn't available)
+    if (!shareCardGeneratorRef.current) {
+      toast({
+        title: 'Share Image Not Ready',
+        description: 'Please wait a moment and try again.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setIsSharing(true);
     try {
       // Generate the share card image using the same format as downloads
@@ -207,7 +216,7 @@ export default function ShareDialog({
       icon: ImageIcon,
       action: handleShareImage,
       testId: 'share-image',
-      disabled: !activityId || !backdrop || isSharing || isLoadingTasks || isTasksError
+      disabled: !activityId || isSharing || isLoadingTasks || isTasksError
     },
     {
       name: 'Copy Link',
@@ -350,14 +359,14 @@ export default function ShareDialog({
         </div>
 
         {/* Hidden ShareCardGenerator for image generation - positioned off-screen with proper dimensions */}
-        {activityId && backdrop && (
+        {activityId && (
           <div className="fixed top-0 left-[-10000px] opacity-0 pointer-events-none z-[-1] w-[1080px] h-[1080px]" aria-hidden="true">
             <ShareCardGenerator
               ref={shareCardGeneratorRef}
               activityId={activityId}
               activityTitle={title}
               activityCategory={category}
-              backdrop={backdrop}
+              backdrop={backdrop || 'https://images.unsplash.com/photo-1534430480872-3498386e7856?w=1600&q=80'}
               planSummary={planSummary}
               tasks={activityTasks}
             />
