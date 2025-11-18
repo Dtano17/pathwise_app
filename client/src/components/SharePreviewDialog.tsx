@@ -907,14 +907,18 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
 
           {/* Tab 2: Download Cards */}
           <TabsContent value="download-cards" className="py-4">
-            <ShareCardGenerator
-              activityId={activity.id}
-              activityTitle={shareTitle}
-              activityCategory={activity.category}
-              backdrop={backdrop || ''}
-              planSummary={activity.planSummary || undefined}
-              tasks={activityTasks}
-            />
+            <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="min-w-[320px]">
+                <ShareCardGenerator
+                  activityId={activity.id}
+                  activityTitle={shareTitle}
+                  activityCategory={activity.category}
+                  backdrop={backdrop || ''}
+                  planSummary={activity.planSummary || undefined}
+                  tasks={activityTasks}
+                />
+              </div>
+            </div>
           </TabsContent>
 
           {/* Tab 3: Social Verification */}

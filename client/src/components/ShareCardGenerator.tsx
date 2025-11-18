@@ -609,18 +609,20 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
       <Card className="overflow-hidden">
         <CardContent className="p-3 sm:p-6">
           <p className="text-sm text-muted-foreground mb-3">Preview:</p>
-          <div className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4 overflow-x-auto">
-            {/* Share Card Template */}
-            <div
-              ref={cardRef}
-              style={{
-                width: `${platform?.width || 1080}px`,
-                height: `${platform?.height || 1080}px`,
-                maxWidth: '100%',
-                aspectRatio: `${platform?.width}/${platform?.height}`,
-              }}
-              className="relative overflow-hidden rounded-lg shadow-xl bg-white flex-shrink-0"
-            >
+          <div className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4">
+            {/* Mobile-responsive preview wrapper */}
+            <div className="w-full max-w-full overflow-x-auto flex justify-center">
+              {/* Share Card Template */}
+              <div
+                ref={cardRef}
+                style={{
+                  width: `${platform?.width || 1080}px`,
+                  height: `${platform?.height || 1080}px`,
+                  maxWidth: '100%',
+                  aspectRatio: `${platform?.width}/${platform?.height}`,
+                }}
+                className="relative overflow-hidden rounded-lg shadow-xl bg-white flex-shrink-0"
+              >
               {/* Backdrop Image */}
               <img
                 src={backdrop}
@@ -723,6 +725,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
                   )}
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </CardContent>
