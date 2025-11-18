@@ -294,6 +294,120 @@ export const CATEGORY_HASHTAGS: Record<string, string[]> = {
 };
 
 /**
+ * Smart emoji detection based on activity title content
+ * Returns contextual emoji that best represents the activity
+ */
+export function getContextualEmoji(activityTitle: string, category: string): string {
+  const title = activityTitle.toLowerCase();
+  
+  // Sports & Events
+  if (title.includes('fifa') || title.includes('world cup') || title.includes('soccer') || title.includes('football')) return '⚽';
+  if (title.includes('basketball') || title.includes('nba')) return '🏀';
+  if (title.includes('tennis')) return '🎾';
+  if (title.includes('baseball')) return '⚾';
+  if (title.includes('golf')) return '⛳';
+  if (title.includes('volleyball')) return '🏐';
+  if (title.includes('hockey')) return '🏒';
+  if (title.includes('cricket')) return '🏏';
+  if (title.includes('rugby')) return '🏉';
+  if (title.includes('swimming') || title.includes('pool')) return '🏊';
+  if (title.includes('running') || title.includes('marathon') || title.includes('race')) return '🏃';
+  if (title.includes('cycling') || title.includes('bike')) return '🚴';
+  if (title.includes('skiing') || title.includes('snowboard')) return '⛷️';
+  if (title.includes('surfing')) return '🏄';
+  if (title.includes('climbing') || title.includes('mountain')) return '🧗';
+  
+  // Music & Entertainment
+  if (title.includes('concert') || title.includes('music') || title.includes('festival') || title.includes('show')) return '🎵';
+  if (title.includes('movie') || title.includes('cinema') || title.includes('film')) return '🎬';
+  if (title.includes('theater') || title.includes('theatre') || title.includes('play')) return '🎭';
+  if (title.includes('comedy') || title.includes('standup')) return '🎤';
+  if (title.includes('game') || title.includes('gaming') || title.includes('esports')) return '🎮';
+  
+  // Food & Dining
+  if (title.includes('restaurant') || title.includes('dining') || title.includes('dinner')) return '🍽️';
+  if (title.includes('pizza')) return '🍕';
+  if (title.includes('burger')) return '🍔';
+  if (title.includes('sushi') || title.includes('japanese')) return '🍣';
+  if (title.includes('coffee') || title.includes('cafe')) return '☕';
+  if (title.includes('wine') || title.includes('vineyard')) return '🍷';
+  if (title.includes('beer') || title.includes('brewery')) return '🍺';
+  if (title.includes('cake') || title.includes('dessert') || title.includes('bakery')) return '🍰';
+  if (title.includes('breakfast') || title.includes('brunch')) return '🥐';
+  if (title.includes('bbq') || title.includes('barbecue') || title.includes('grill')) return '🍖';
+  
+  // Travel & Places
+  if (title.includes('beach') || title.includes('ocean') || title.includes('sea')) return '🏖️';
+  if (title.includes('paris') || title.includes('eiffel')) return '🗼';
+  if (title.includes('new york') || title.includes('nyc')) return '🗽';
+  if (title.includes('tokyo') || title.includes('japan')) return '🗾';
+  if (title.includes('london') || title.includes('uk')) return '🇬🇧';
+  if (title.includes('rome') || title.includes('italy')) return '🇮🇹';
+  if (title.includes('camping') || title.includes('camp')) return '⛺';
+  if (title.includes('hotel') || title.includes('resort')) return '🏨';
+  if (title.includes('castle')) return '🏰';
+  if (title.includes('museum')) return '🏛️';
+  if (title.includes('park') || title.includes('nature')) return '🌳';
+  if (title.includes('desert') || title.includes('safari')) return '🏜️';
+  if (title.includes('cruise') || title.includes('ship')) return '🚢';
+  if (title.includes('flight') || title.includes('airport')) return '✈️';
+  if (title.includes('train') || title.includes('rail')) return '🚂';
+  if (title.includes('road trip') || title.includes('drive')) return '🚗';
+  
+  // Celebrations & Events
+  if (title.includes('wedding')) return '💒';
+  if (title.includes('birthday') || title.includes('bday')) return '🎂';
+  if (title.includes('graduation')) return '🎓';
+  if (title.includes('anniversary')) return '💝';
+  if (title.includes('party') || title.includes('celebration')) return '🎉';
+  if (title.includes('christmas') || title.includes('xmas')) return '🎄';
+  if (title.includes('halloween')) return '🎃';
+  if (title.includes('valentine')) return '💕';
+  if (title.includes('new year')) return '🎊';
+  
+  // Learning & Work
+  if (title.includes('conference') || title.includes('summit')) return '💼';
+  if (title.includes('workshop') || title.includes('seminar')) return '📊';
+  if (title.includes('study') || title.includes('exam') || title.includes('test')) return '📚';
+  if (title.includes('coding') || title.includes('programming') || title.includes('hackathon')) return '💻';
+  if (title.includes('writing') || title.includes('journal')) return '✍️';
+  if (title.includes('meeting')) return '🤝';
+  
+  // Health & Wellness
+  if (title.includes('yoga')) return '🧘';
+  if (title.includes('meditation')) return '🧘';
+  if (title.includes('spa') || title.includes('massage')) return '💆';
+  if (title.includes('doctor') || title.includes('hospital') || title.includes('appointment')) return '🏥';
+  if (title.includes('gym') || title.includes('workout') || title.includes('fitness')) return '💪';
+  
+  // Hobbies & Activities
+  if (title.includes('photography') || title.includes('photo')) return '📸';
+  if (title.includes('art') || title.includes('paint') || title.includes('drawing')) return '🎨';
+  if (title.includes('shopping')) return '🛍️';
+  if (title.includes('garden')) return '🌻';
+  if (title.includes('cooking') || title.includes('recipe')) return '👨‍🍳';
+  if (title.includes('reading') || title.includes('book')) return '📖';
+  
+  // Fall back to category-based emojis
+  const categoryEmojis: Record<string, string> = {
+    travel: '✈️',
+    fitness: '💪',
+    health: '🏥',
+    career: '💼',
+    learning: '📚',
+    finance: '💰',
+    relationships: '❤️',
+    creativity: '🎨',
+    home: '🏠',
+    personal: '⭐',
+    food: '🍽️',
+    other: '📋'
+  };
+  
+  return categoryEmojis[category] || '📋';
+}
+
+/**
  * Generate platform-specific caption with character limit
  */
 export function generatePlatformCaption(
@@ -334,10 +448,11 @@ export function generatePlatformCaption(
   // Add call-to-action
   caption += `✨ Plan your next adventure with JournalMate.ai\n`;
 
-  // For WhatsApp, add shareable link
+  // For WhatsApp, add shareable link with contextual emoji
   if (platform === 'whatsapp' && activityId) {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://journalmate.ai';
-    caption += `\n🔗 View this plan: ${baseUrl}/shared/${activityId}\n`;
+    const emoji = getContextualEmoji(activityTitle, category);
+    caption += `\n${emoji} Customize this plan: ${baseUrl}/shared/${activityId}\n`;
   }
 
   // Add hashtags for platforms that use them
