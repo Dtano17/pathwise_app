@@ -27,7 +27,7 @@ import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
 import ProgressReport from './ProgressReport';
 import { SocialLogin } from '@/components/SocialLogin';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2, Circle, UserPlus, Globe2 } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2, Circle, UserPlus, Globe2, Link2 } from 'lucide-react';
 import DiscoverPlansView from '@/components/discover/DiscoverPlansView';
 import { Link } from 'wouter';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
@@ -1888,6 +1888,33 @@ export default function MainApp({
                                     : 'text-muted-foreground group-hover:drop-shadow-[0_0_4px_rgba(147,51,234,0.3)] group-hover:scale-105'
                                 }`} />
                               </Button>
+                              {activity.isPublic && activity.shareableLink && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await navigator.clipboard.writeText(activity.shareableLink!);
+                                      toast({
+                                        title: "🔗 Link Copied!",
+                                        description: "Share link copied to clipboard"
+                                      });
+                                    } catch (error) {
+                                      toast({
+                                        title: "Copy Failed",
+                                        description: "Unable to copy link to clipboard",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  }}
+                                  data-testid={`button-copy-link-${activity.id}`}
+                                  title="Copy shareable link"
+                                  className="group"
+                                >
+                                  <Link2 className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"

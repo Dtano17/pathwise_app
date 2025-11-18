@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown, Users, Download, Share2, BadgeCheck } from 'lucide-react';
@@ -91,6 +91,27 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch activity tasks for share card
+  const { data: activityTasks = [] } = useQuery({
+    queryKey: ['/api/activities', activity.id, 'tasks'],
+    queryFn: async () => {
+      const response = await fetch(`/api/activities/${activity.id}/tasks`, {
+        credentials: 'include'
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.map((task: any) => ({
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        priority: task.priority,
+        completed: task.completed || false,
+      }));
+    },
+    enabled: open && activeTab === 'download-cards',
+  });
 
   useEffect(() => {
     setShareTitle(activity.shareTitle || activity.planSummary || activity.title);
@@ -325,30 +346,33 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            Share & Customize Your Activity
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full p-4 sm:p-6">
+        <DialogHeader className="space-y-2">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+            <Sparkles className="w-5 h-5 text-primary flex-shrink-0" />
+            <span className="truncate">Share & Customize Your Activity</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm">
             Quick share, download cards, or verify with social media
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="quick-share" className="flex items-center gap-2">
-              <Share2 className="w-4 h-4" />
-              Quick Share
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
+          <TabsList className="grid w-full grid-cols-3 h-auto">
+            <TabsTrigger value="quick-share" className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm">
+              <Share2 className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Quick Share</span>
+              <span className="sm:hidden">Share</span>
             </TabsTrigger>
-            <TabsTrigger value="download-cards" className="flex items-center gap-2">
-              <Download className="w-4 h-4" />
-              Download Cards
+            <TabsTrigger value="download-cards" className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm">
+              <Download className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Download Cards</span>
+              <span className="sm:hidden">Cards</span>
             </TabsTrigger>
-            <TabsTrigger value="social-verify" className="flex items-center gap-2">
-              <BadgeCheck className="w-4 h-4" />
-              Social Verification
+            <TabsTrigger value="social-verify" className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm">
+              <BadgeCheck className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Social Verification</span>
+              <span className="sm:hidden">Verify</span>
             </TabsTrigger>
           </TabsList>
 
@@ -875,6 +899,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
               activityCategory={activity.category}
               backdrop={backdrop || ''}
               planSummary={activity.planSummary || undefined}
+              tasks={activityTasks}
             />
           </TabsContent>
 
