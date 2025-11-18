@@ -16,6 +16,7 @@ import {
   getContextualEmoji,
   type PlatformTemplate,
 } from '@/lib/shareCardTemplates';
+import { ShareCardCanvas } from './ShareCardCanvas';
 
 interface Task {
   id: string;
@@ -35,10 +36,15 @@ interface ShareCardGeneratorProps {
   creatorSocial?: { platform: string; handle: string; postUrl?: string };
   planSummary?: string;
   tasks?: Task[];
+  controlledPlatform?: string;
+  controlledFormat?: 'png' | 'jpg' | 'pdf';
+  previewOnly?: boolean;
 }
 
 export interface ShareCardGeneratorRef {
   generateShareCard: (platformId: string, format: 'png' | 'jpg' | 'pdf') => Promise<Blob | null>;
+  getCurrentPlatform: () => string;
+  getCurrentFormat: () => 'png' | 'jpg' | 'pdf';
 }
 
 export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGeneratorProps>(({
@@ -50,6 +56,9 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
   creatorSocial,
   planSummary,
   tasks = [],
+  controlledPlatform,
+  controlledFormat,
+  previewOnly = false,
 }, ref) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [selectedPlatform, setSelectedPlatform] = useState<string>('instagram_story');
@@ -58,11 +67,16 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
   const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number } | null>(null);
   const { toast } = useToast();
 
-  const platform = PLATFORM_TEMPLATES[selectedPlatform];
+  // Use controlled props if provided, otherwise use internal state
+  const activePlatform = controlledPlatform || selectedPlatform;
+  const activeFormat = controlledFormat || selectedFormat;
+  const platform = PLATFORM_TEMPLATES[activePlatform];
 
-  // Expose generateShareCard method via ref
+  // Expose methods via ref
   useImperativeHandle(ref, () => ({
     generateShareCard,
+    getCurrentPlatform: () => activePlatform,
+    getCurrentFormat: () => activeFormat,
   }));
 
   // Get platform icon component
@@ -154,7 +168,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
     setIsGenerating(true);
 
     try {
-      const blob = await generateShareCard(selectedPlatform, selectedFormat);
+      const blob = await generateShareCard(activePlatform, activeFormat);
 
       if (!blob) {
         throw new Error('Failed to generate share card');
@@ -164,7 +178,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `journalmate-${activityId}-${selectedPlatform}.${selectedFormat}`;
+      link.download = `journalmate-${activityId}-${activePlatform}.${activeFormat}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -175,12 +189,12 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ platform: selectedPlatform }),
+        body: JSON.stringify({ platform: activePlatform }),
       });
 
       toast({
         title: 'Download Complete!',
-        description: `Share card saved as ${selectedPlatform}.${selectedFormat}`,
+        description: `Share card saved as ${activePlatform}.${activeFormat}`,
       });
     } catch (error: any) {
       toast({
@@ -201,15 +215,15 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
 
     try {
       // Only allow JPG/PNG for sharing (not PDF)
-      const shareFormat = selectedFormat === 'pdf' ? 'jpg' : selectedFormat;
-      const blob = await generateShareCard(selectedPlatform, shareFormat);
+      const shareFormat = activeFormat === 'pdf' ? 'jpg' : activeFormat;
+      const blob = await generateShareCard(activePlatform, shareFormat);
 
       if (!blob) {
         throw new Error('Failed to generate share card');
       }
 
       // Create a File object from the blob
-      const file = new File([blob], `journalmate-${selectedPlatform}.${shareFormat}`, { 
+      const file = new File([blob], `journalmate-${activePlatform}.${shareFormat}`, { 
         type: shareFormat === 'jpg' ? 'image/jpeg' : 'image/png' 
       });
 
@@ -217,7 +231,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
       const captionData = generatePlatformCaption(
         activityTitle,
         activityCategory,
-        selectedPlatform,
+        activePlatform,
         creatorName,
         creatorSocial?.handle,
         planSummary,
@@ -425,12 +439,127 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
   const { caption, hashtags } = generatePlatformCaption(
     activityTitle,
     activityCategory,
-    selectedPlatform,
+    activePlatform,
     creatorName,
     creatorSocial?.handle,
     planSummary,
     activityId
   );
+
+  // If previewOnly mode, just render the card element for controlled external use
+  if (previewOnly) {
+    return (
+      <div
+        ref={cardRef}
+        style={{
+          width: `${platform?.width || 1080}px`,
+          height: `${platform?.height || 1080}px`,
+        }}
+        className="relative overflow-hidden rounded-lg shadow-xl bg-white flex-shrink-0"
+      >
+        {/* Backdrop Image */}
+        <img
+          src={backdrop}
+          alt="backdrop"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/80" />
+
+        {/* Content */}
+        <div className="absolute inset-0 flex flex-col justify-between p-8" style={{ padding: platform?.width > 1200 ? '3rem' : '2rem' }}>
+          {/* Header - Brand & Verification */}
+          <div className="flex justify-between items-start">
+            <Badge className="bg-primary text-primary-foreground px-4 py-1.5 text-sm font-semibold">
+              JournalMate.ai
+            </Badge>
+            {creatorSocial && (
+              <Badge variant="secondary" className="bg-white/20 text-white backdrop-blur-sm px-3 py-1">
+                ✓ Verified
+              </Badge>
+            )}
+          </div>
+
+          {/* Main Content */}
+          <div className="space-y-4" style={{ marginTop: 'auto', marginBottom: 'auto' }}>
+            <h1
+              className="text-white font-bold drop-shadow-lg leading-tight"
+              style={{
+                fontSize: platform?.width > 1200 ? '3.5rem' : platform?.width > 800 ? '2.5rem' : '2rem',
+              }}
+            >
+              {getContextualEmoji(activityTitle, activityCategory)} {activityTitle}
+            </h1>
+
+            {planSummary && (
+              <p 
+                className="text-white/95 drop-shadow-md" 
+                style={{ 
+                  fontSize: platform?.width > 1200 ? '1.5rem' : platform?.width > 800 ? '1.25rem' : '1rem',
+                  lineHeight: '1.4'
+                }}
+              >
+                {planSummary}
+              </p>
+            )}
+
+            {/* Tasks List - Instagram Story Style */}
+            {tasks && tasks.length > 0 && (
+              <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 space-y-2.5">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="h-px flex-1 bg-white/30" />
+                  <span className="text-white/90 text-sm font-semibold uppercase tracking-wider">
+                    {tasks.length} Tasks
+                  </span>
+                  <div className="h-px flex-1 bg-white/30" />
+                </div>
+                {tasks.slice(0, 5).map((task) => (
+                  <div
+                    key={task.id}
+                    className="flex items-start gap-3 text-white/95 group"
+                  >
+                    <div className="flex-shrink-0 mt-0.5">
+                      {task.completed ? (
+                        <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      ) : (
+                        <Circle className="w-5 h-5 text-white/60" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p 
+                        className={`text-sm font-medium leading-snug ${task.completed ? 'line-through text-white/70' : ''}`}
+                        style={{ fontSize: platform?.width > 1200 ? '1.1rem' : '0.95rem' }}
+                      >
+                        {task.title}
+                      </p>
+                      {task.priority === 'high' && !task.completed && (
+                        <span className="inline-block mt-1 px-2 py-0.5 bg-red-500/80 text-white text-xs rounded-full">
+                          High Priority
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {creatorName && (
+              <div className="flex items-center gap-2 text-white/90 pt-2">
+                <span className="text-sm">Created by</span>
+                <span className="font-semibold">{creatorName}</span>
+                {creatorSocial && (
+                  <span className="text-sm">• {creatorSocial.handle}</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -440,37 +569,40 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
       </div>
 
       {/* Platform Selector */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium">Choose Platform</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          {Object.values(PLATFORM_TEMPLATES).map(template => {
-            const IconComponent = getPlatformIcon(template.id);
-            return (
-              <Button
-                key={template.id}
-                variant={selectedPlatform === template.id ? 'default' : 'outline'}
-                onClick={() => {
-                  setSelectedPlatform(template.id);
-                  setSelectedFormat(getRecommendedFormat(template.id));
-                }}
-                className="justify-start gap-2 h-auto py-3 min-h-[44px]"
-                data-testid={`button-platform-${template.id}`}
-                aria-label={`Select ${template.name} format`}
-                title={template.name}
-              >
-                <IconComponent className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span className="text-sm font-medium text-left line-clamp-1">{template.name}</span>
-              </Button>
-            );
-          })}
+      {!controlledPlatform && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium">Choose Platform</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {Object.values(PLATFORM_TEMPLATES).map(template => {
+              const IconComponent = getPlatformIcon(template.id);
+              return (
+                <Button
+                  key={template.id}
+                  variant={selectedPlatform === template.id ? 'default' : 'outline'}
+                  onClick={() => {
+                    setSelectedPlatform(template.id);
+                    setSelectedFormat(getRecommendedFormat(template.id));
+                  }}
+                  className="justify-start gap-2 h-auto py-3 min-h-[44px]"
+                  data-testid={`button-platform-${template.id}`}
+                  aria-label={`Select ${template.name} format`}
+                  title={template.name}
+                >
+                  <IconComponent className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                  <span className="text-sm font-medium text-left line-clamp-1">{template.name}</span>
+                </Button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Format Selector & Actions */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-        <div className="flex-1">
-          <label className="text-sm font-medium">Export Format</label>
-          <Select value={selectedFormat} onValueChange={(val: any) => setSelectedFormat(val)}>
+      {!controlledFormat && (
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+          <div className="flex-1">
+            <label className="text-sm font-medium">Export Format</label>
+            <Select value={selectedFormat} onValueChange={(val: any) => setSelectedFormat(val)}>
             <SelectTrigger className="mt-1 min-h-[44px]" data-testid="select-format">
               <SelectValue />
             </SelectTrigger>
@@ -501,7 +633,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
           <Button 
             variant="default"
             onClick={handleShareImage} 
-            disabled={isGenerating || selectedFormat === 'pdf'}
+            disabled={isGenerating || activeFormat === 'pdf'}
             className="flex-1 sm:flex-none min-h-[44px]"
             data-testid="button-share-image"
           >
@@ -523,7 +655,8 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
             <span className="sm:hidden">Caption</span>
           </Button>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Download Progress */}
       {downloadProgress && (
