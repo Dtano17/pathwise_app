@@ -295,7 +295,9 @@ export function ShareCardGenerator({
       activityCategory,
       selectedPlatform,
       creatorName,
-      creatorSocial?.handle
+      creatorSocial?.handle,
+      planSummary,
+      activityId
     );
 
     try {
@@ -318,7 +320,9 @@ export function ShareCardGenerator({
     activityCategory,
     selectedPlatform,
     creatorName,
-    creatorSocial?.handle
+    creatorSocial?.handle,
+    planSummary,
+    activityId
   );
 
   return (
@@ -479,10 +483,6 @@ export function ShareCardGenerator({
                   {tasks && tasks.length > 0 && (
                     <div 
                       className="bg-white/10 backdrop-blur-md rounded-xl p-4 space-y-2.5"
-                      style={{
-                        maxHeight: platform?.width > 1200 ? '600px' : '400px',
-                        overflowY: 'auto'
-                      }}
                     >
                       <div className="flex items-center gap-2 mb-3">
                         <div className="h-px flex-1 bg-white/30" />
@@ -491,7 +491,7 @@ export function ShareCardGenerator({
                         </span>
                         <div className="h-px flex-1 bg-white/30" />
                       </div>
-                      {tasks.slice(0, 8).map((task, idx) => (
+                      {tasks.map((task, idx) => (
                         <div
                           key={task.id}
                           className="flex items-start gap-3 text-white/95 group"
@@ -520,11 +520,6 @@ export function ShareCardGenerator({
                           </div>
                         </div>
                       ))}
-                      {tasks.length > 8 && (
-                        <p className="text-white/60 text-sm text-center pt-2">
-                          +{tasks.length - 8} more tasks...
-                        </p>
-                      )}
                     </div>
                   )}
 
@@ -568,12 +563,6 @@ export function ShareCardGenerator({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {Object.entries(PLATFORM_PACKS).map(([packId, pack]) => {
-            const packEmojis: Record<string, string> = {
-              instagram_pack: '📸',
-              tiktok_pack: '🎵',
-              professional_pack: '💼',
-              creator_bundle: '🌟',
-            };
             return (
               <Button
                 key={packId}
@@ -584,9 +573,8 @@ export function ShareCardGenerator({
                 data-testid={`button-pack-${packId}`}
               >
                 <div className="flex items-center gap-3 w-full">
-                  <span className="text-2xl flex-shrink-0">{packEmojis[packId] || '📦'}</span>
                   <div className="text-left flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{pack.name}</div>
+                    <div className="font-medium text-sm">{pack.name}</div>
                     <div className="text-xs text-muted-foreground">
                       {pack.platforms.length} files • Downloads separately
                     </div>

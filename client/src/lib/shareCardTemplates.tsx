@@ -174,19 +174,19 @@ export const PLATFORM_TEMPLATES: Record<string, PlatformTemplate> = {
  */
 export const PLATFORM_PACKS = {
   instagram_pack: {
-    name: 'Instagram Pack',
+    name: '📸 Social Media Pack',
     platforms: ['instagram_story', 'instagram_feed', 'instagram_portrait'],
   },
   tiktok_pack: {
-    name: 'TikTok Pack',
+    name: '🎵 Short Video Pack',
     platforms: ['tiktok', 'instagram_story'], // Same dimensions
   },
   professional_pack: {
-    name: 'Professional Pack',
+    name: '💼 Professional Pack',
     platforms: ['linkedin', 'twitter', 'facebook'],
   },
   creator_bundle: {
-    name: 'Creator Bundle (All Platforms)',
+    name: '⚡ All Platforms Bundle',
     platforms: Object.keys(PLATFORM_TEMPLATES),
   },
 };
@@ -301,7 +301,9 @@ export function generatePlatformCaption(
   category: string,
   platform: string,
   creatorName?: string,
-  creatorSocial?: string
+  creatorSocial?: string,
+  planSummary?: string,
+  activityId?: string
 ): {
   caption: string;
   hashtags: string[];
@@ -319,13 +321,24 @@ export function generatePlatformCaption(
 
   let caption = `${activityTitle}\n\n`;
 
+  // For WhatsApp, include detailed summary and link
+  if (platform === 'whatsapp' && planSummary) {
+    caption += `${planSummary}\n\n`;
+  }
+
   // Add creator attribution if available
   if (creatorName && creatorSocial) {
     caption += `Created by ${creatorName} (${creatorSocial})\n\n`;
   }
 
   // Add call-to-action
-  caption += `Plan your next adventure with JournalMate.ai\n`;
+  caption += `✨ Plan your next adventure with JournalMate.ai\n`;
+
+  // For WhatsApp, add shareable link
+  if (platform === 'whatsapp' && activityId) {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://journalmate.ai';
+    caption += `\n🔗 View this plan: ${baseUrl}/shared/${activityId}\n`;
+  }
 
   // Add hashtags for platforms that use them
   const hashtagText = hashtags.length > 0 ? `\n${hashtags.join(' ')}` : '';
