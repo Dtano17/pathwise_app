@@ -13,6 +13,7 @@ import {
   PLATFORM_PACKS,
   generatePlatformCaption,
   getRecommendedFormat,
+  getContextualEmoji,
   type PlatformTemplate,
 } from '@/lib/shareCardTemplates';
 
@@ -464,7 +465,7 @@ export function ShareCardGenerator({
                       fontSize: platform?.width > 1200 ? '3.5rem' : platform?.width > 800 ? '2.5rem' : '2rem',
                     }}
                   >
-                    {activityTitle}
+                    {getContextualEmoji(activityTitle, activityCategory)} {activityTitle}
                   </h1>
 
                   {planSummary && (
