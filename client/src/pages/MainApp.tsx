@@ -1243,7 +1243,7 @@ export default function MainApp({
     const updated = new Set(promptedActivities);
     updated.add(activityId);
     setPromptedActivities(updated);
-    localStorage.setItem('journalmate_prompted_activities', JSON.stringify([...updated]));
+    localStorage.setItem('journalmate_prompted_activities', JSON.stringify(Array.from(updated)));
   };
 
   const handleSkipJournalPrompt = () => {
@@ -1252,7 +1252,7 @@ export default function MainApp({
       const updated = new Set(promptedActivities);
       updated.add(postActivityPrompt.activity.id);
       setPromptedActivities(updated);
-      localStorage.setItem('journalmate_prompted_activities', JSON.stringify([...updated]));
+      localStorage.setItem('journalmate_prompted_activities', JSON.stringify(Array.from(updated)));
     }
   };
 
@@ -1668,7 +1668,7 @@ export default function MainApp({
                         setSharePreviewDialog({ open: true, activity });
                       }
                     }}
-                    backdrop={activities?.find(a => a.id === currentPlanOutput.activityId)?.backdrop}
+                    backdrop={activities?.find(a => a.id === currentPlanOutput.activityId)?.backdrop ?? undefined}
                     showConfetti={true}
                   />
                   
@@ -1795,7 +1795,6 @@ export default function MainApp({
                                   try {
                                     const currentState = activity.isPublic;
                                     const newIsPublic = !currentState;
-                                    console.log('[PRIVACY TOGGLE DEBUG] Before toggle:', { activityId: activity.id, currentState, newIsPublic });
                                     
                                     const response = await fetch(`/api/activities/${activity.id}`, {
                                       method: 'PATCH',
@@ -1807,15 +1806,10 @@ export default function MainApp({
                                       throw new Error('Failed to update privacy');
                                     }
                                     
-                                    const updatedActivity = await response.json();
-                                    console.log('[PRIVACY TOGGLE DEBUG] Response from server:', { isPublic: updatedActivity.isPublic });
+                                    await response.json();
                                     
                                     // Refetch activities to get the latest data
                                     await queryClient.refetchQueries({ queryKey: ['/api/activities'] });
-                                    
-                                    // Log activities after refetch
-                                    const cachedData = queryClient.getQueryData(['/api/activities']);
-                                    console.log('[PRIVACY TOGGLE DEBUG] After refetch, cached activities:', cachedData);
                                     
                                     toast({ 
                                       title: newIsPublic ? "Made Public" : "Made Private", 
