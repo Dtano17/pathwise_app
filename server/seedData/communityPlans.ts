@@ -2225,7 +2225,7 @@ export const demoCommunityPlans = [
       planSummary: "Complete Christmas planning guide with decorations, gift lists, holiday meals, baking, events, and creating magical memories",
       isPublic: true,
       shareTitle: "Christmas Holiday Celebration",
-      backdrop: "/attached_assets/christmas_plans_1763076989313.jpg",
+      backdrop: "/community-backdrops/christmas-celebration.jpg",
       tags: ["christmas", "holidays", "winter", "family", "traditions", "celebration", "seasonal"],
       viewCount: 15000,
       likeCount: 13500,

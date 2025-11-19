@@ -3625,6 +3625,21 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       const provided = [twitterHandle, instagramHandle, threadsHandle].filter(Boolean);
       const verificationBadge = provided.length > 1 ? 'multi' : (twitterHandle ? 'twitter' : instagramHandle ? 'instagram' : 'threads');
 
+      // Generate unique share token if not already present
+      const crypto = await import('crypto');
+      const existingActivity = await storage.getActivityById(activityId, userId);
+      const shareToken = existingActivity?.shareToken || crypto.randomBytes(16).toString('hex');
+      
+      // Determine base URL for share links
+      let baseUrl = 'http://localhost:5000';
+      if (process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production') {
+        baseUrl = 'https://journalmate.ai';
+      } else if (process.env.REPLIT_DOMAINS) {
+        const domains = process.env.REPLIT_DOMAINS.split(',').map(d => d.trim());
+        baseUrl = `https://${domains[0]}`;
+      }
+      const shareableLink = `${baseUrl}/share/${shareToken}`;
+
       // Store community snapshot with FULL task data for reconciliation
       // This preserves ALL user data (timeline, highlights, etc.)
       const communitySnapshot = {
@@ -3654,7 +3669,9 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         communitySnapshot, // Dedicated field - no data loss
         sourceType: 'community_reviewed', // User provided social media verification
         plannerProfileId,
-        verificationBadge
+        verificationBadge,
+        shareToken,
+        shareableLink
       }, userId);
 
       if (!updatedActivity) {
@@ -3664,6 +3681,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       res.json({
         success: true,
         publishedToCommunity: true,
+        shareableLink,
         activity: updatedActivity
       });
     } catch (error) {
