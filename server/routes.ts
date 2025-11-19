@@ -9,6 +9,7 @@ import { langGraphPlanningAgent } from "./services/langgraphPlanningAgent";
 import { simpleConversationalPlanner } from "./services/simpleConversationalPlanner";
 import { enrichJournalEntry } from "./services/journalEnrichmentService";
 import { contactSyncService } from "./contactSync";
+import { getProvider } from "./services/llmProvider";
 import {
   insertGoalSchema,
   syncContactsSchema,
@@ -3341,7 +3342,11 @@ Return a JSON object with redacted versions in this exact format:
 IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness of the content.`;
 
       // Call LLM for redaction
-      const llmProvider = getLLMProvider('openai-mini');
+      const llmProvider = getProvider('openai-mini');
+      if (!llmProvider) {
+        return res.status(503).json({ error: 'AI service unavailable - OpenAI provider not configured' });
+      }
+
       const messages = [
         { role: 'system' as const, content: 'You are a privacy protection assistant that redacts PII/PHI from content while preserving usefulness.' },
         { role: 'user' as const, content: prompt }
