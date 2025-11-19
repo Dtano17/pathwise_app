@@ -846,41 +846,37 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
           </div>
 
           <div className="space-y-3">
-            {/* Backdrop Preview */}
+            {/* Share Card Preview - Rich preview with backdrop and tasks */}
             <div className="space-y-2">
-              <p className="text-sm font-medium">Backdrop Preview:</p>
-              <div className="relative aspect-video rounded-md overflow-hidden border bg-muted">
-                {backdrop ? (
-                  <>
-                    <img 
-                      key={backdrop}
-                      src={backdrop} 
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3EInvalid Image%3C/text%3E%3C/svg%3E';
-                      }}
+              <p className="text-sm font-medium">Share Card Preview:</p>
+              {backdrop ? (
+                <div className="w-full overflow-x-auto">
+                  <div className="min-w-[320px] max-w-[600px] mx-auto">
+                    <ShareCardGenerator
+                      activityId={activity.id}
+                      activityTitle={shareTitle}
+                      activityCategory={activity.category}
+                      backdrop={backdrop}
+                      planSummary={activity.planSummary || undefined}
+                      tasks={activityTasks}
+                      controlledPlatform={selectedPlatform}
+                      controlledFormat={selectedFormat}
+                      onPlatformChange={setSelectedPlatform}
+                      onFormatChange={setSelectedFormat}
+                      hideControls={true}
                     />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-4 sm:p-6">
-                      <div className="flex flex-col items-center justify-center max-w-[90%] sm:max-w-[80%]">
-                        <h3 
-                          className="text-white font-bold text-center drop-shadow-lg break-words leading-tight line-clamp-3 sm:line-clamp-2" 
-                          style={{ fontSize: 'clamp(1.125rem, 2vw + 0.5rem, 1.5rem)' }}
-                        >
-                          {shareTitle}
-                        </h3>
-                      </div>
-                    </div>
-                  </>
-                ) : (
+                  </div>
+                </div>
+              ) : (
+                <div className="relative aspect-video rounded-md overflow-hidden border bg-muted">
                   <div className="absolute inset-0 flex items-center justify-center p-4">
                     <div className="text-center text-muted-foreground">
                       <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">Select or upload a backdrop to preview</p>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
 
