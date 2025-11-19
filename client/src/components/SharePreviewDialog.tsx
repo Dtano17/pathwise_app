@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown, Users, Download, Share2, BadgeCheck } from 'lucide-react';
+import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown, Users, Download, Share2, BadgeCheck, AlertTriangle } from 'lucide-react';
 import { Card, CardHeader, CardContent, CardDescription } from '@/components/ui/card';
 import { ShareCardGenerator } from './ShareCardGenerator';
 import { SocialVerificationTab, type SocialMediaLinks } from './SocialVerificationTab';
@@ -102,6 +103,11 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
   
+  // Duplicate detection state
+  const [duplicateDetected, setDuplicateDetected] = useState(false);
+  const [duplicateMessage, setDuplicateMessage] = useState('');
+  const [forceDuplicate, setForceDuplicate] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -189,7 +195,8 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
             twitterHandle: twitterHandle?.trim() || undefined,
             instagramHandle: instagramHandle?.trim() || undefined,
             threadsHandle: threadsHandle?.trim() || undefined,
-            websiteUrl: websiteUrl?.trim() || undefined
+            websiteUrl: websiteUrl?.trim() || undefined,
+            forceDuplicate
           })
         });
         
@@ -200,7 +207,16 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
           if (publishResponse.status === 409) {
             const duplicateMsg = error.message || 
               `You've already published a similar plan. Please use a different title or update your existing plan.`;
-            throw new Error(duplicateMsg);
+            
+            // Set duplicate state first, then throw
+            // The setTimeout ensures state is set before mutation enters error state
+            setTimeout(() => {
+              setDuplicateMessage(duplicateMsg);
+              setDuplicateDetected(true);
+            }, 0);
+            
+            // Stop the mutation flow - user must acknowledge duplicate
+            throw new Error('DUPLICATE_PLAN_DETECTED');
           }
           
           throw new Error(error.error || 'Failed to publish to community');
@@ -254,6 +270,11 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
       return data;
     },
     onSuccess: async (data: any) => {
+      // Reset all duplicate-related state on success
+      setForceDuplicate(false);
+      setDuplicateDetected(false);
+      setDuplicateMessage('');
+      
       // Wait for cache invalidation to complete
       await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       await queryClient.invalidateQueries({ queryKey: ['/api/community-plans'] });
@@ -283,6 +304,11 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
       onOpenChange(false);
     },
     onError: (error: Error) => {
+      // Don't show toast for duplicate detection - handled by dialog
+      if (error.message === 'DUPLICATE_PLAN_DETECTED') {
+        return;
+      }
+      
       toast({
         title: 'Update Failed',
         description: error.message || 'Failed to update share settings',
@@ -386,6 +412,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
   }, [privacyPreset, privacySettings, open]);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full p-4 sm:p-6">
         <DialogHeader className="space-y-2">
@@ -955,5 +982,49 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         </Tabs>
       </DialogContent>
     </Dialog>
+
+    {/* Duplicate Plan Detection Dialog */}
+    <AlertDialog open={duplicateDetected} onOpenChange={setDuplicateDetected}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-500" />
+            <AlertDialogTitle>Similar Plan Detected</AlertDialogTitle>
+          </div>
+          <AlertDialogDescription className="pt-2">
+            {duplicateMessage}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => {
+            setDuplicateDetected(false);
+            setDuplicateMessage('');
+            setForceDuplicate(false);
+            setPublishToCommunity(false);
+            toast({
+              title: 'Cancelled',
+              description: 'Publishing to Community Discovery cancelled. Try changing your plan title to make it unique.',
+            });
+          }}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={() => {
+            // Close dialog and reset duplicate state
+            setDuplicateDetected(false);
+            setDuplicateMessage('');
+            // Set force flag
+            setForceDuplicate(true);
+            // Reset mutation state to clear error, then retry with force flag
+            updateMutation.reset();
+            setTimeout(() => {
+              updateMutation.mutate();
+            }, 50);
+          }}>
+            Publish Anyway
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

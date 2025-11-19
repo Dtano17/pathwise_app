@@ -3475,7 +3475,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
     try {
       const { activityId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
-      const { privacySettings, privacyPreset, twitterHandle, instagramHandle, threadsHandle, websiteUrl } = req.body;
+      const { privacySettings, privacyPreset, twitterHandle, instagramHandle, threadsHandle, websiteUrl, forceDuplicate } = req.body;
 
       // Get activity and its tasks
       const activity = await storage.getActivityById(activityId, userId);
@@ -3484,8 +3484,8 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       }
 
       // Check for duplicate community plans by same user (similarity check)
-      // Only check if this activity is not already published
-      if (!activity.featuredInCommunity) {
+      // Only check if this activity is not already published AND user hasn't forced override
+      if (!activity.featuredInCommunity && !forceDuplicate) {
         const existingPlans = await storage.getCommunityPlans();
         const userPublishedPlans = existingPlans.filter(plan => 
           plan.userId === userId && plan.id !== activityId
