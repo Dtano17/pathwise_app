@@ -1193,7 +1193,7 @@ export default function DiscoverPlansView() {
                           <p className="text-xs text-muted-foreground">
                             by {plan.creatorName || "Unknown"}
                           </p>
-                          {verificationLabel && <VerificationIcon
+                          {displayPrefs.showVerificationBadge && verificationLabel && <VerificationIcon
                             verificationBadge={plan.verificationBadge}
                             sourceType={plan.sourceType}
                             label={verificationLabel}
