@@ -205,7 +205,10 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
       // When only publishing to Community Discovery, skip the share endpoint
       const shouldShare = createGroup || !publishToCommunity;
       
-      let data: any = { publishedToCommunity };
+      let data: any = { 
+        publishedToCommunity,
+        shareableLink: publishToCommunity ? publishData?.shareableLink : undefined
+      };
       
       if (shouldShare) {
         // Then trigger share with optional group creation
