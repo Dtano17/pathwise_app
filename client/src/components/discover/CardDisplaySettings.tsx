@@ -100,6 +100,17 @@ export function CardDisplaySettings({ preferences, onUpdatePreference, onResetPr
                   data-testid="switch-show-owner"
                 />
               </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="show-verification" className="text-sm font-normal cursor-pointer">
+                  Show verification badges
+                </Label>
+                <Switch
+                  id="show-verification"
+                  checked={preferences.showVerificationBadge}
+                  onCheckedChange={(checked) => onUpdatePreference("showVerificationBadge", checked)}
+                  data-testid="switch-show-verification"
+                />
+              </div>
             </div>
           </div>
 
