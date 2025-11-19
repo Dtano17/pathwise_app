@@ -15,7 +15,7 @@ import {
   Code,
   Image as ImageIcon
 } from 'lucide-react';
-import { SiWhatsapp, SiFacebook, SiX, SiMessenger } from 'react-icons/si';
+import { SiWhatsapp, SiFacebook, SiX, SiMessenger, SiInstagram, SiLinkedin, SiTelegram } from 'react-icons/si';
 import { useToast } from '@/hooks/use-toast';
 import { getContextualEmoji, generatePlatformCaption } from '@/lib/shareCardTemplates';
 import { ShareCardGenerator, type ShareCardGeneratorRef } from './ShareCardGenerator';
@@ -109,6 +109,87 @@ export default function ShareDialog({
     : title;
   const twitterShareText = `${contextualEmoji} ${truncatedTitle}\n\n${twitterStaticText}`;
 
+  // Helper function to share image with platform-specific optimizations
+  const shareImageWithPlatform = async (platformId: string, platformName: string, captionText: string) => {
+    if (!activityId || !shareCardGeneratorRef.current) {
+      toast({
+        title: 'Cannot Share Image',
+        description: 'Image sharing is only available for saved activities.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsSharing(true);
+    try {
+      // Generate sharecard optimized for the platform
+      const blob = await shareCardGeneratorRef.current.generateShareCard(platformId, 'jpg');
+      
+      if (!blob) {
+        throw new Error('Failed to generate image');
+      }
+
+      const fileName = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${platformName.toLowerCase()}.jpg`;
+      const file = new File([blob], fileName, { type: 'image/jpeg' });
+
+      // Check if Web Share API with files is supported
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        // Copy caption to clipboard for easy pasting
+        try {
+          await navigator.clipboard.writeText(captionText);
+          toast({ 
+            title: 'Caption Copied!',
+            description: `Caption copied to clipboard - paste it when sharing to ${platformName}`,
+            duration: 3000
+          });
+        } catch (clipboardError) {
+          console.warn('Could not copy to clipboard:', clipboardError);
+        }
+
+        // Share the file using native share sheet
+        await navigator.share({ files: [file] });
+        
+        toast({ 
+          title: 'Shared Successfully!',
+          description: `Choose ${platformName} from the share menu`
+        });
+        onOpenChange(false);
+      } else {
+        // Fallback: Download the image and copy caption
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        try {
+          await navigator.clipboard.writeText(captionText);
+          toast({ 
+            title: 'Image Downloaded',
+            description: `Caption copied! Upload the image to ${platformName} and paste the caption.`,
+            duration: 4000
+          });
+        } catch {
+          toast({ 
+            title: 'Image Downloaded',
+            description: `Upload the downloaded image to ${platformName}.`
+          });
+        }
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        toast({
+          title: 'Share Failed',
+          description: error.message || 'Could not share image. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   // Share Image function - uses SharePreviewDialog when available, falls back to inline share
   const handleShareImage = async () => {
     if (!activityId) {
@@ -127,87 +208,9 @@ export default function ShareDialog({
       return;
     }
 
-    // Fallback: inline share (for cases where SharePreviewDialog isn't available)
-    if (!shareCardGeneratorRef.current) {
-      toast({
-        title: 'Share Image Not Ready',
-        description: 'Please wait a moment and try again.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    setIsSharing(true);
-    try {
-      // Generate the share card image using the same format as downloads
-      const blob = await shareCardGeneratorRef.current.generateShareCard('instagram_feed', 'jpg');
-      
-      if (!blob) {
-        throw new Error('Failed to generate image');
-      }
-
-      // Create a File object from the blob
-      const file = new File([blob], `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_share.jpg`, { type: 'image/jpeg' });
-
-      // Prepare the caption text
-      const shareCaption = `${contextualEmoji} Customize this plan: ${shareUrl}\n\n✨ Plan your next adventure with JournalMate.ai`;
-
-      // Check if Web Share API with files is supported
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        // iOS Safari requires us to omit text/url when sharing files
-        // So we'll copy the caption to clipboard for the user to paste
-        try {
-          await navigator.clipboard.writeText(shareCaption);
-          toast({ 
-            title: 'Caption Copied!',
-            description: 'Share link copied to clipboard - paste it when sharing the image',
-            duration: 3000
-          });
-        } catch (clipboardError) {
-          console.warn('Could not copy to clipboard:', clipboardError);
-        }
-
-        // Share only the file (no text/url to ensure image shows on iOS)
-        await navigator.share({
-          files: [file],
-        });
-        
-        toast({ title: 'Shared Successfully!' });
-        onOpenChange(false);
-      } else {
-        // Fallback: Download the image and copy caption
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_share.jpg`;
-        link.click();
-        URL.revokeObjectURL(url);
-        
-        try {
-          await navigator.clipboard.writeText(shareCaption);
-          toast({ 
-            title: 'Image Downloaded',
-            description: 'Share link copied to clipboard. Image sharing not supported on this device.',
-            duration: 3000
-          });
-        } catch {
-          toast({ 
-            title: 'Image Downloaded',
-            description: 'Image sharing not supported on this device. Image has been downloaded instead.'
-          });
-        }
-      }
-    } catch (error: any) {
-      if (error.name !== 'AbortError') {
-        toast({
-          title: 'Share Failed',
-          description: error.message || 'Could not share image. Please try again.',
-          variant: 'destructive',
-        });
-      }
-    } finally {
-      setIsSharing(false);
-    }
+    // Fallback: use generic sharecard
+    const shareCaption = `${contextualEmoji} Customize this plan: ${shareUrl}\n\n✨ Plan your next adventure with JournalMate.ai`;
+    await shareImageWithPlatform('instagram_feed', 'Share', shareCaption);
   };
 
   const shareOptions = [
@@ -250,11 +253,12 @@ export default function ShareDialog({
     {
       name: 'WhatsApp',
       icon: SiWhatsapp,
-      action: () => {
-        const text = encodeURIComponent(whatsappCaption);
-        window.open(`https://wa.me/?text=${text}`, '_blank');
+      action: async () => {
+        // Share with WhatsApp-optimized landscape sharecard
+        await shareImageWithPlatform('whatsapp', 'WhatsApp', whatsappCaption);
       },
-      testId: 'share-whatsapp'
+      testId: 'share-whatsapp',
+      disabled: !activityId || isSharing || isLoadingTasks || isTasksError
     },
     {
       name: 'Messenger',
@@ -282,21 +286,90 @@ export default function ShareDialog({
       testId: 'share-messenger'
     },
     {
+      name: 'Instagram',
+      icon: SiInstagram,
+      action: async () => {
+        // Share with Instagram-optimized square sharecard
+        const instagramCaption = generatePlatformCaption(
+          title,
+          category,
+          'instagram',
+          undefined,
+          undefined,
+          planSummary,
+          activityId
+        ).fullText;
+        await shareImageWithPlatform('instagram_feed', 'Instagram', instagramCaption);
+      },
+      testId: 'share-instagram',
+      disabled: !activityId || isSharing || isLoadingTasks || isTasksError
+    },
+    {
       name: 'Facebook',
       icon: SiFacebook,
-      action: () => {
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(standardShareText)}`, '_blank');
+      action: async () => {
+        // Share with Facebook-optimized landscape sharecard
+        const facebookCaption = generatePlatformCaption(
+          title,
+          category,
+          'facebook',
+          undefined,
+          undefined,
+          planSummary,
+          activityId
+        ).fullText;
+        await shareImageWithPlatform('facebook', 'Facebook', facebookCaption);
       },
-      testId: 'share-facebook'
+      testId: 'share-facebook',
+      disabled: !activityId || isSharing || isLoadingTasks || isTasksError
     },
     {
       name: 'Twitter',
       icon: SiX,
-      action: () => {
-        const text = encodeURIComponent(twitterShareText);
-        window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+      action: async () => {
+        // Share with Twitter-optimized landscape sharecard
+        await shareImageWithPlatform('twitter', 'Twitter', twitterShareText);
       },
-      testId: 'share-twitter'
+      testId: 'share-twitter',
+      disabled: !activityId || isSharing || isLoadingTasks || isTasksError
+    },
+    {
+      name: 'LinkedIn',
+      icon: SiLinkedin,
+      action: async () => {
+        // Share with LinkedIn-optimized landscape sharecard
+        const linkedinCaption = generatePlatformCaption(
+          title,
+          category,
+          'linkedin',
+          undefined,
+          undefined,
+          planSummary,
+          activityId
+        ).fullText;
+        await shareImageWithPlatform('linkedin', 'LinkedIn', linkedinCaption);
+      },
+      testId: 'share-linkedin',
+      disabled: !activityId || isSharing || isLoadingTasks || isTasksError
+    },
+    {
+      name: 'Telegram',
+      icon: SiTelegram,
+      action: async () => {
+        // Share with Telegram-optimized square sharecard
+        const telegramCaption = generatePlatformCaption(
+          title,
+          category,
+          'telegram',
+          undefined,
+          undefined,
+          planSummary,
+          activityId
+        ).fullText;
+        await shareImageWithPlatform('telegram', 'Telegram', telegramCaption);
+      },
+      testId: 'share-telegram',
+      disabled: !activityId || isSharing || isLoadingTasks || isTasksError
     },
     {
       name: 'Embed',

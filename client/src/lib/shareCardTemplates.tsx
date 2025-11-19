@@ -140,6 +140,20 @@ export const PLATFORM_TEMPLATES: Record<string, PlatformTemplate> = {
     exportFormats: ['png', 'jpg'],
   },
 
+  // Telegram
+  telegram: {
+    id: 'telegram',
+    name: 'Telegram',
+    icon: 'SiTelegram',
+    width: 1280,
+    height: 1280,
+    aspectRatio: '1:1',
+    captionLimit: 4096,
+    recommendedHashtags: 5,
+    description: 'Square format for Telegram posts',
+    exportFormats: ['png', 'jpg'],
+  },
+
   // Print/PDF
   print: {
     id: 'print',
