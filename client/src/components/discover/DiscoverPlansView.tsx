@@ -24,7 +24,7 @@ import type { Activity } from "@shared/schema";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
 import { ReportDialog } from "@/components/ReportDialog";
 import { useDiscoverFilters } from "./useDiscoverFilters";
-import { getCurrentLocation } from "@/lib/geolocation";
+import { getCurrentLocation, calculateDistance, formatDistance } from "@/lib/geolocation";
 import { CardDisplaySettings } from "./CardDisplaySettings";
 import { useCardDisplayPreferences } from "./useCardDisplayPreferences";
 import { useAuth } from "@/hooks/useAuth";
@@ -1070,6 +1070,18 @@ export default function DiscoverPlansView() {
             const planTypeBadge = getPlanTypeBadge(plan.planType, plan.trendingScore);
             const verificationLabel = getVerificationLabel(plan.sourceType, plan.verificationBadge);
             
+            // Calculate distance if user location is available and plan has coordinates
+            let distance: string | null = null;
+            if (filters.userCoords && plan.latitude && plan.longitude) {
+              const distanceMeters = calculateDistance(
+                filters.userCoords.lat,
+                filters.userCoords.lon,
+                plan.latitude,
+                plan.longitude
+              );
+              distance = formatDistance(distanceMeters);
+            }
+            
             return (
               <HoverCard key={plan.id} openDelay={300} closeDelay={200}>
                 <HoverCardTrigger asChild>
@@ -1112,16 +1124,28 @@ export default function DiscoverPlansView() {
                       {planTypeBadge.type === 'community' && <Users className="w-3 h-3" />}
                       {planTypeBadge.label}
                     </div>
-                    {/* Budget Badge */}
-                    {displayPrefs.showBudget && plan.budget !== null && plan.budget !== undefined && (
-                      <div 
-                        className="absolute bottom-3 left-3 px-2 py-1 rounded-md text-xs font-semibold text-white bg-black/60 backdrop-blur-sm border border-white/20"
-                        data-testid={`badge-budget-${plan.id}`}
-                        aria-label={`Budget: ${formatBudget(plan.budget)}`}
-                      >
-                        {formatBudget(plan.budget)}
-                      </div>
-                    )}
+                    {/* Budget and Distance Badges */}
+                    <div className="absolute bottom-3 left-3 flex gap-2">
+                      {displayPrefs.showBudget && plan.budget !== null && plan.budget !== undefined && (
+                        <div 
+                          className="px-2 py-1 rounded-md text-xs font-semibold text-white bg-black/60 backdrop-blur-sm border border-white/20"
+                          data-testid={`badge-budget-${plan.id}`}
+                          aria-label={`Budget: ${formatBudget(plan.budget)}`}
+                        >
+                          {formatBudget(plan.budget)}
+                        </div>
+                      )}
+                      {displayPrefs.showDistance && distance && (
+                        <div 
+                          className="px-2 py-1 rounded-md text-xs font-semibold text-white bg-black/60 backdrop-blur-sm border border-white/20 flex items-center gap-1"
+                          data-testid={`badge-distance-${plan.id}`}
+                          aria-label={`Distance: ${distance}`}
+                        >
+                          <MapPin className="w-3 h-3" />
+                          {distance}
+                        </div>
+                      )}
+                    </div>
                     <div className="absolute top-3 right-3 flex gap-2">
                       <button
                         onClick={(e) => {
