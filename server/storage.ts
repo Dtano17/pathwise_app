@@ -1955,7 +1955,24 @@ export class DatabaseStorage implements IStorage {
     // If force, delete existing community plans
     if (force && existingPlans.length > 0) {
       console.log('[SEED] Force reseeding - deleting existing community plans...');
-      await db.delete(activities).where(eq(activities.featuredInCommunity, true));
+      
+      // Get all community plan activity IDs
+      const communityActivities = await db.select({ id: activities.id })
+        .from(activities)
+        .where(eq(activities.featuredInCommunity, true));
+      
+      const activityIds = communityActivities.map(a => a.id);
+      
+      if (activityIds.length > 0) {
+        // Delete activity_tasks associations first
+        await db.delete(activityTasks)
+          .where(inArray(activityTasks.activityId, activityIds));
+        
+        // Then delete the activities
+        await db.delete(activities).where(eq(activities.featuredInCommunity, true));
+        
+        console.log(`[SEED] Deleted ${activityIds.length} existing community plans`);
+      }
     }
 
     console.log('[SEED] Seeding community plans...');
