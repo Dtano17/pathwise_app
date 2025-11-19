@@ -195,6 +195,14 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         
         if (!publishResponse.ok) {
           const error = await publishResponse.json();
+          
+          // Handle duplicate plan detection (409 Conflict)
+          if (publishResponse.status === 409) {
+            const duplicateMsg = error.message || 
+              `You've already published a similar plan. Please use a different title or update your existing plan.`;
+            throw new Error(duplicateMsg);
+          }
+          
           throw new Error(error.error || 'Failed to publish to community');
         }
         
