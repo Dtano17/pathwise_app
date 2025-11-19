@@ -177,6 +177,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
 
       // Publish to community if requested
       let publishedToCommunity = false;
+      let publishData: any = null; // Declare outside the if block
       if (publishToCommunity) {
         const publishResponse = await fetch(`/api/activities/${activity.id}/publish`, {
           method: 'POST',
@@ -197,7 +198,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
           throw new Error(error.error || 'Failed to publish to community');
         }
         
-        const publishData = await publishResponse.json();
+        publishData = await publishResponse.json();
         publishedToCommunity = publishData.publishedToCommunity || false;
       }
 
@@ -207,7 +208,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
       
       let data: any = { 
         publishedToCommunity,
-        shareableLink: publishToCommunity ? publishData?.shareableLink : undefined
+        shareableLink: publishData?.shareableLink || undefined
       };
       
       if (shouldShare) {
