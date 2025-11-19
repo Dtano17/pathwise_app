@@ -1217,13 +1217,15 @@ export default function DiscoverPlansView() {
                           <p className="text-xs text-muted-foreground">
                             by {plan.creatorName || "Unknown"}
                           </p>
-                          {displayPrefs.showVerificationBadge && verificationLabel && <VerificationIcon
-                            verificationBadge={plan.verificationBadge}
-                            sourceType={plan.sourceType}
-                            label={verificationLabel}
-                            planId={plan.id}
-                            plannerProfileId={plan.plannerProfileId}
-                          />}
+                          {displayPrefs.showVerificationBadge && verificationLabel && (
+                            <VerificationIcon
+                              verificationBadge={plan.verificationBadge}
+                              sourceType={plan.sourceType}
+                              label={verificationLabel}
+                              planId={plan.id}
+                              plannerProfileId={plan.plannerProfileId}
+                            />
+                          )}
                         </div>
                       )}
                     </div>

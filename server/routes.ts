@@ -3611,11 +3611,12 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         return res.status(400).json({ error: validation.error });
       }
       
-      // Upsert planner profile with social links
+      // Upsert planner profile with social POST URLs (not handles)
+      // Note: Despite variable names, these are actually POST URLs from the request body
       const profile = await storage.upsertPlannerProfile(userId, { 
-        twitterHandle: twitterHandle || null, 
-        instagramHandle: instagramHandle || null, 
-        threadsHandle: threadsHandle || null, 
+        twitterPostUrl: twitterHandle || null, 
+        instagramPostUrl: instagramHandle || null, 
+        threadsPostUrl: threadsHandle || null, 
         websiteUrl: websiteUrl || null 
       });
       const plannerProfileId = profile.id;
