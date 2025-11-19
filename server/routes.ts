@@ -3671,6 +3671,60 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       res.status(500).json({ error: 'Failed to publish activity to community' });
     }
   });
+  
+  // Unpublish an activity from community discovery
+  app.patch("/api/activities/:activityId/unpublish", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const activity = await storage.unpublishActivity(activityId, userId);
+      
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found or you do not have permission to unpublish it' });
+      }
+      
+      res.json({
+        success: true,
+        message: 'Activity unpublished from community',
+        activity
+      });
+    } catch (error) {
+      console.error('Unpublish activity error:', error);
+      res.status(500).json({ error: 'Failed to unpublish activity' });
+    }
+  });
+  
+  // Republish an activity to community discovery
+  app.patch("/api/activities/:activityId/republish", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const activity = await storage.republishActivity(activityId, userId);
+      
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found or you do not have permission to republish it' });
+      }
+      
+      res.json({
+        success: true,
+        message: 'Activity republished to community',
+        activity
+      });
+    } catch (error) {
+      console.error('Republish activity error:', error);
+      res.status(500).json({ error: 'Failed to republish activity' });
+    }
+  });
 
   // DEPRECATED: This endpoint has been replaced with the unified endpoint below
   // that uses the inheritActivityToGroup helper function
@@ -4715,7 +4769,9 @@ ${emoji} ${progressLine}
     }
   });
 
-  // Report an activity for spam/fraud
+  // Report an activity for spam/fraud (with rate limiting)
+  const reportRateLimiter = new Map<string, { count: number; resetAt: number }>();
+  
   app.post("/api/activities/:activityId/report", async (req, res) => {
     try {
       const { activityId } = req.params;
@@ -4723,6 +4779,30 @@ ${emoji} ${progressLine}
 
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Rate limiting: 5 reports per hour per user
+      const now = Date.now();
+      const rateLimitKey = `report:${userId}`;
+      const rateLimitData = reportRateLimiter.get(rateLimitKey);
+      
+      if (rateLimitData) {
+        if (now < rateLimitData.resetAt) {
+          if (rateLimitData.count >= 5) {
+            const minutesRemaining = Math.ceil((rateLimitData.resetAt - now) / 60000);
+            return res.status(429).json({ 
+              error: 'Rate limit exceeded',
+              message: `You can submit up to 5 reports per hour. Please try again in ${minutesRemaining} minute${minutesRemaining === 1 ? '' : 's'}.`
+            });
+          }
+          rateLimitData.count++;
+        } else {
+          // Reset window expired
+          reportRateLimiter.set(rateLimitKey, { count: 1, resetAt: now + 3600000 });
+        }
+      } else {
+        // First report
+        reportRateLimiter.set(rateLimitKey, { count: 1, resetAt: now + 3600000 });
       }
 
       const { reason, details } = req.body;
@@ -4733,39 +4813,35 @@ ${emoji} ${progressLine}
         return res.status(400).json({ error: 'Invalid report reason' });
       }
 
-      // Check if activity exists
+      // Check if activity exists (use public access - users can report any public activity)
       const [activity] = await db.select().from(activities).where(eq(activities.id, activityId)).limit(1);
       if (!activity) {
         return res.status(404).json({ error: 'Activity not found' });
       }
+      
+      // Only allow reporting public/featured activities
+      if (!activity.isPublic && !activity.featuredInCommunity) {
+        return res.status(403).json({ error: 'You can only report public community plans' });
+      }
 
-      // Check if user already reported this activity
-      const [existingReport] = await db
-        .select()
-        .from(activityReports)
-        .where(
-          and(
-            eq(activityReports.activityId, activityId),
-            eq(activityReports.reportedBy, userId),
-            sql`${activityReports.status} != 'dismissed'`
-          )
-        )
-        .limit(1);
-
-      if (existingReport) {
+      // Check if user already reported this activity (prevents duplicate reports)
+      const existingReport = await storage.checkDuplicateReport(activityId, userId);
+      if (existingReport && existingReport.status !== 'dismissed') {
         return res.status(400).json({ error: 'You have already reported this activity' });
       }
 
-      // Create report
-      await db.insert(activityReports).values({
+      // Create report using storage interface
+      await storage.createActivityReport({
         activityId,
         reportedBy: userId,
         reason,
         details: details || null,
-        status: 'pending',
+        reviewedBy: null,
+        reviewedAt: null,
+        resolution: null
       });
 
-      res.json({ success: true, message: 'Report submitted successfully' });
+      res.json({ success: true, message: 'Report submitted successfully. Thank you for helping keep our community safe.' });
     } catch (error) {
       console.error('[report-activity] Error:', error);
       res.status(500).json({ error: 'Failed to submit report' });

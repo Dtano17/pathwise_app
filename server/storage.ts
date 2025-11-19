@@ -65,6 +65,8 @@ import {
   type InsertGroupActivity,
   type GroupActivityFeedItem,
   type InsertGroupActivityFeedItem,
+  type ActivityReport,
+  type InsertActivityReport,
   users,
   goals,
   tasks,
@@ -94,7 +96,8 @@ import {
   groups,
   groupMemberships,
   groupActivities,
-  groupActivityFeed
+  groupActivityFeed,
+  activityReports
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -309,6 +312,16 @@ export interface IStorage {
   ): Promise<Array<Activity & { distanceKm?: number }>>;
   seedCommunityPlans(force?: boolean): Promise<void>;
   incrementActivityViews(activityId: string): Promise<void>;
+  
+  // Activity Reports (Community Moderation)
+  createActivityReport(report: InsertActivityReport): Promise<ActivityReport>;
+  getActivityReports(activityId: string): Promise<ActivityReport[]>;
+  getUserReports(userId: string): Promise<ActivityReport[]>;
+  checkDuplicateReport(activityId: string, reportedBy: string): Promise<ActivityReport | undefined>;
+  
+  // Publication Management
+  unpublishActivity(activityId: string, userId: string): Promise<Activity | undefined>;
+  republishActivity(activityId: string, userId: string): Promise<Activity | undefined>;
 
   // Groups
   createGroup(group: InsertGroup & { createdBy: string }): Promise<Group>;
@@ -1761,9 +1774,11 @@ export class DatabaseStorage implements IStorage {
     const radiusKm = locationFilter?.radiusKm ?? 50; // Default 50km radius
     
     // Build the base query with optional distance calculation
+    // Only show live, published community plans
     let queryConditions = and(
       eq(activities.isPublic, true),
-      eq(activities.featuredInCommunity, true)
+      eq(activities.featuredInCommunity, true),
+      eq(activities.communityStatus, 'live')
     );
 
     // Apply category filter
@@ -1779,6 +1794,7 @@ export class DatabaseStorage implements IStorage {
         queryConditions = and(
           eq(activities.isPublic, true),
           eq(activities.featuredInCommunity, true),
+          eq(activities.communityStatus, 'live'),
           eq(activities.category, dbCategory)
         );
       }
@@ -1991,6 +2007,124 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .where(eq(activities.id, activityId));
+  }
+  
+  // Activity Reports (Community Moderation)
+  async createActivityReport(report: InsertActivityReport): Promise<ActivityReport> {
+    const [newReport] = await db.insert(activityReports).values({
+      ...report,
+      status: 'pending'
+    }).returning();
+    return newReport;
+  }
+  
+  async getActivityReports(activityId: string): Promise<ActivityReport[]> {
+    const reports = await db.select()
+      .from(activityReports)
+      .where(eq(activityReports.activityId, activityId))
+      .orderBy(desc(activityReports.createdAt));
+    return reports;
+  }
+  
+  async getUserReports(userId: string): Promise<ActivityReport[]> {
+    const reports = await db.select()
+      .from(activityReports)
+      .where(eq(activityReports.reportedBy, userId))
+      .orderBy(desc(activityReports.createdAt));
+    return reports;
+  }
+  
+  async checkDuplicateReport(activityId: string, reportedBy: string): Promise<ActivityReport | undefined> {
+    const [report] = await db.select()
+      .from(activityReports)
+      .where(and(
+        eq(activityReports.activityId, activityId),
+        eq(activityReports.reportedBy, reportedBy)
+      ))
+      .limit(1);
+    return report;
+  }
+  
+  // Publication Management
+  async unpublishActivity(activityId: string, userId: string): Promise<Activity | undefined> {
+    // First verify ownership and current status
+    const [existing] = await db.select()
+      .from(activities)
+      .where(and(
+        eq(activities.id, activityId),
+        eq(activities.userId, userId)
+      ))
+      .limit(1);
+    
+    if (!existing) {
+      return undefined; // Not found or not owned
+    }
+    
+    // Only unpublish if currently live
+    if (existing.communityStatus !== 'live' && !existing.isPublic) {
+      return existing; // Already unpublished, return as-is
+    }
+    
+    const [activity] = await db.update(activities)
+      .set({
+        isPublic: false,
+        featuredInCommunity: false,
+        communityStatus: 'offline',
+        unpublishedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(activities.id, activityId),
+        eq(activities.userId, userId)
+      ))
+      .returning();
+    return activity;
+  }
+  
+  async republishActivity(activityId: string, userId: string): Promise<Activity | undefined> {
+    // First verify ownership and current status
+    const [existing] = await db.select()
+      .from(activities)
+      .where(and(
+        eq(activities.id, activityId),
+        eq(activities.userId, userId)
+      ))
+      .limit(1);
+    
+    if (!existing) {
+      return undefined; // Not found or not owned
+    }
+    
+    // Only republish if currently offline or pending changes
+    if (existing.communityStatus === 'live' && existing.isPublic) {
+      return existing; // Already live, return as-is
+    }
+    
+    // Calculate content hash for change detection
+    const crypto = await import('crypto');
+    const contentToHash = JSON.stringify({
+      title: existing.title,
+      description: existing.description,
+      planSummary: existing.planSummary,
+      category: existing.category
+    });
+    const contentHash = crypto.createHash('sha256').update(contentToHash).digest('hex');
+    
+    const [activity] = await db.update(activities)
+      .set({
+        isPublic: true,
+        featuredInCommunity: existing.featuredInCommunity || false, // Preserve featured status
+        communityStatus: 'live',
+        publishedAt: existing.publishedAt || new Date(), // Keep original publish date if exists
+        lastPublishedHash: contentHash,
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(activities.id, activityId),
+        eq(activities.userId, userId)
+      ))
+      .returning();
+    return activity;
   }
 
   // NEW METHODS FOR SIDEBAR FEATURES

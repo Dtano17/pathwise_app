@@ -80,7 +80,7 @@ export function useDiscoverFilters() {
     setFilters((prev) => ({
       ...prev,
       locationEnabled: !prev.locationEnabled,
-      userCoords: !prev.locationEnabled ? prev.userCoords : null
+      // Keep userCoords even when toggling off - we still need it for distance display
     }));
   }, []);
 

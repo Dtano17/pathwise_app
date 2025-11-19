@@ -848,6 +848,10 @@ export const activities = pgTable("activities", {
   bookmarkCount: integer("bookmark_count").default(0), // Total bookmarks
   trendingScore: integer("trending_score").default(0), // Calculated trending score
   featuredInCommunity: boolean("featured_in_community").default(false), // Featured plans
+  communityStatus: text("community_status").default("draft"), // 'draft' | 'live' | 'pending_changes' | 'offline' - Publication status
+  publishedAt: timestamp("published_at"), // Timestamp when first published to community
+  unpublishedAt: timestamp("unpublished_at"), // Timestamp when unpublished
+  lastPublishedHash: text("last_published_hash"), // Hash of content when last published (for change detection)
   creatorName: text("creator_name"), // Display name of creator for discovery
   creatorAvatar: text("creator_avatar"), // Avatar URL for discovery cards
   seasonalTags: jsonb("seasonal_tags").$type<string[]>().default([]), // 'summer' | 'winter' | 'spring' | 'fall' | 'holiday' | 'year-round'
