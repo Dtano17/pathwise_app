@@ -6,6 +6,7 @@ export interface CardDisplayPreferences {
   showBudget: boolean;
   showDistance: boolean;
   showOwner: boolean;
+  showVerificationBadge: boolean;
 }
 
 const DEFAULT_PREFERENCES: CardDisplayPreferences = {
@@ -14,6 +15,7 @@ const DEFAULT_PREFERENCES: CardDisplayPreferences = {
   showBudget: true,
   showDistance: false,
   showOwner: true,
+  showVerificationBadge: true,
 };
 
 export function useCardDisplayPreferences(userId: string | null) {
