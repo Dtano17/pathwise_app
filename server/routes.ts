@@ -48,6 +48,7 @@ import bcrypt from 'bcrypt';
 import { z } from "zod";
 import crypto from 'crypto';
 import { sendWelcomeEmail } from "./emailService";
+import { generateContentHash } from "./utils/contentHash";
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -3483,52 +3484,62 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         return res.status(404).json({ error: 'Activity not found' });
       }
 
-      // Check for duplicate community plans by same user (similarity check)
-      // Only check if this activity is not already published AND user hasn't forced override
-      if (!activity.featuredInCommunity && !forceDuplicate) {
-        const existingPlans = await storage.getCommunityPlans();
-        const userPublishedPlans = existingPlans.filter(plan => 
-          plan.userId === userId && plan.id !== activityId
-        );
-        
-        // Simple title similarity check (normalize and compare)
-        const normalizeTitle = (title: string) => 
-          title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-        
-        const currentTitle = normalizeTitle(activity.shareTitle || activity.title);
-        
-        for (const plan of userPublishedPlans) {
-          const planTitle = normalizeTitle(plan.shareTitle || plan.title);
-          
-          // Check for exact match or very high similarity
-          if (planTitle === currentTitle) {
-            return res.status(409).json({ 
+      // Get canonical tasks from storage first (needed for hash generation)
+      const canonicalTasks = await storage.getTasksByActivity(activityId, userId);
+      
+      // Generate content hash from activity tasks for duplicate detection
+      // Hash is based on task titles, order, and count - same content = same hash
+      const contentHash = generateContentHash(canonicalTasks);
+      
+      // Store content hash on activity BEFORE duplicate check to engage unique constraint
+      // This prevents race conditions where concurrent publishes of identical content both succeed
+      // Skip if forceDuplicate is true (allows intentional duplicate publishes)
+      if (!forceDuplicate) {
+        try {
+          await db
+            .update(activities)
+            .set({ contentHash })
+            .where(eq(activities.id, activityId));
+        } catch (error: any) {
+          // Unique constraint violation means duplicate content
+          if (error.code === '23505') {
+            return res.status(409).json({
               error: 'Duplicate plan detected',
-              message: `You've already published a similar plan: "${plan.shareTitle || plan.title}". Please update your existing plan or use a different title.`,
-              duplicatePlanId: plan.id,
-              duplicatePlanTitle: plan.shareTitle || plan.title
+              message: 'You have already published an identical plan. Please update your existing plan instead.',
             });
           }
-          
-          // Check for high similarity (contains same words)
-          const currentWords = new Set(currentTitle.split(/\s+/).filter(w => w.length > 3));
-          const planWords = new Set(planTitle.split(/\s+/).filter(w => w.length > 3));
-          const intersection = new Set([...currentWords].filter(x => planWords.has(x)));
-          const similarity = intersection.size / Math.max(currentWords.size, planWords.size);
-          
-          if (similarity > 0.7) {
-            return res.status(409).json({ 
-              error: 'Similar plan detected',
-              message: `You've already published a similar plan: "${plan.shareTitle || plan.title}". Consider updating that plan instead.`,
-              duplicatePlanId: plan.id,
-              duplicatePlanTitle: plan.shareTitle || plan.title
-            });
-          }
+          // Re-throw other errors
+          throw error;
         }
       }
-
-      // Get canonical tasks from storage (for reconciliation and group sharing)
-      const canonicalTasks = await storage.getTasksByActivity(activityId, userId);
+      
+      // Check for duplicate community plans by content hash (FAST - single indexed DB query)
+      // Only check if this activity is not already published AND user hasn't forced override
+      if (!activity.featuredInCommunity && !forceDuplicate) {
+        // Query database for existing plan with same content hash by this user
+        // This is O(log n) thanks to the contentHash index, vs O(n*m) for title similarity
+        const [existingPlan] = await db
+          .select()
+          .from(activities)
+          .where(
+            and(
+              eq(activities.userId, userId),
+              eq(activities.contentHash, contentHash),
+              eq(activities.featuredInCommunity, true),
+              sql`${activities.id} != ${activityId}` // Exclude current activity
+            )
+          )
+          .limit(1);
+        
+        if (existingPlan) {
+          return res.status(409).json({ 
+            error: 'Duplicate plan detected',
+            message: `You've already published an identical plan: "${existingPlan.shareTitle || existingPlan.title}". Please update your existing plan instead of creating a duplicate.`,
+            duplicatePlanId: existingPlan.id,
+            duplicatePlanTitle: existingPlan.shareTitle || existingPlan.title
+          });
+        }
+      }
 
       // Get user info for creator display
       const user = await storage.getUser(userId);
@@ -3704,9 +3715,11 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       };
 
       // Update activity to publish to community using dedicated communitySnapshot field
-      const updatedActivity = await storage.updateActivity(activityId, {
+      // Only set contentHash if NOT forcing duplicate (to allow intentional duplicates)
+      const updateData: any = {
         isPublic: true, // CRITICAL: Must be true for Discovery to show the plan
         featuredInCommunity: true,
+        communityStatus: 'live', // CRITICAL: Required for Community Discovery query
         creatorName,
         creatorAvatar,
         shareTitle: publicTitle, // Display redacted title in Discovery
@@ -3716,7 +3729,14 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         verificationBadge,
         shareToken,
         shareableLink
-      }, userId);
+      };
+      
+      // Only include contentHash if not forcing duplicate (allows intentional duplicates to bypass unique constraint)
+      if (!forceDuplicate) {
+        updateData.contentHash = contentHash;
+      }
+      
+      const updatedActivity = await storage.updateActivity(activityId, updateData, userId);
 
       if (!updatedActivity) {
         return res.status(500).json({ error: 'Failed to publish activity' });
@@ -9109,6 +9129,92 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       console.error('[ADMIN] Failed to update official plan verification:', error);
       res.status(500).json({ 
         error: 'Failed to update official plan verification',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // ========== ADMIN: BACKFILL CONTENT HASHES ==========
+  // Protected endpoint to generate and backfill content hashes for existing activities
+  // This enables fast duplicate detection for all published community plans
+  app.post("/api/admin/backfill-content-hashes", async (req, res) => {
+    try {
+      const { adminSecret } = req.body;
+      
+      // Verify admin authorization using secret
+      const requiredSecret = process.env.ADMIN_SECRET;
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      
+      if (!requiredSecret && !isDevelopment) {
+        return res.status(500).json({ 
+          error: 'Admin functionality not configured. Set ADMIN_SECRET environment variable.' 
+        });
+      }
+      
+      if (!isDevelopment && (!adminSecret || adminSecret !== requiredSecret)) {
+        console.warn('[ADMIN] Unauthorized content hash backfill attempt');
+        return res.status(403).json({ 
+          error: 'Unauthorized. Admin secret required.' 
+        });
+      }
+      
+      console.log('[ADMIN] Starting content hash backfill for all activities...');
+      
+      // Get all activities that need content hashes
+      const allActivities = await db
+        .select({ id: activities.id, userId: activities.userId })
+        .from(activities)
+        .where(isNull(activities.contentHash));
+      
+      console.log(`[ADMIN] Found ${allActivities.length} activities without content hashes`);
+      
+      let updatedCount = 0;
+      let errorCount = 0;
+      
+      // Process each activity
+      for (const activity of allActivities) {
+        try {
+          // Get tasks for this activity
+          const tasks = await storage.getTasksByActivity(activity.id, activity.userId);
+          
+          if (tasks.length === 0) {
+            console.log(`[ADMIN] Skipping activity ${activity.id} - no tasks`);
+            continue;
+          }
+          
+          // Generate content hash
+          const hash = generateContentHash(tasks);
+          
+          // Update activity with content hash
+          await db
+            .update(activities)
+            .set({ contentHash: hash })
+            .where(eq(activities.id, activity.id));
+          
+          updatedCount++;
+          
+          if (updatedCount % 10 === 0) {
+            console.log(`[ADMIN] Processed ${updatedCount}/${allActivities.length} activities...`);
+          }
+        } catch (error) {
+          console.error(`[ADMIN] Error processing activity ${activity.id}:`, error);
+          errorCount++;
+        }
+      }
+      
+      console.log(`[ADMIN] Content hash backfill complete: ${updatedCount} updated, ${errorCount} errors`);
+      
+      res.json({ 
+        success: true, 
+        message: 'Content hash backfill completed successfully',
+        activitiesProcessed: allActivities.length,
+        activitiesUpdated: updatedCount,
+        errors: errorCount
+      });
+    } catch (error) {
+      console.error('[ADMIN] Failed to backfill content hashes:', error);
+      res.status(500).json({ 
+        error: 'Failed to backfill content hashes',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }

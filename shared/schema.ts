@@ -852,6 +852,7 @@ export const activities = pgTable("activities", {
   publishedAt: timestamp("published_at"), // Timestamp when first published to community
   unpublishedAt: timestamp("unpublished_at"), // Timestamp when unpublished
   lastPublishedHash: text("last_published_hash"), // Hash of content when last published (for change detection)
+  contentHash: varchar("content_hash", { length: 64 }), // SHA-256 hash of activity tasks for fast duplicate detection
   creatorName: text("creator_name"), // Display name of creator for discovery
   creatorAvatar: text("creator_avatar"), // Avatar URL for discovery cards
   seasonalTags: jsonb("seasonal_tags").$type<string[]>().default([]), // 'summer' | 'winter' | 'spring' | 'fall' | 'holiday' | 'year-round'
@@ -931,6 +932,7 @@ export const activities = pgTable("activities", {
 }, (table) => ({
   userStatusIndex: index("activities_user_status_index").on(table.userId, table.status),
   publicActivitiesIndex: index("public_activities_index").on(table.isPublic, table.createdAt),
+  userContentHashUnique: uniqueIndex("user_content_hash_unique").on(table.userId, table.contentHash),
 }));
 
 // Link tasks to activities (many-to-many relationship)
