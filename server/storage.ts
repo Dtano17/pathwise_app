@@ -1993,11 +1993,13 @@ export class DatabaseStorage implements IStorage {
       // Generate a unique share token for the activity
       const shareToken = crypto.randomBytes(16).toString('hex');
       
-      // Create the activity with shareToken
+      // Create the activity with shareToken and set as live for community discovery
       const activity = await this.createActivity({
         ...plan.activity,
         userId: demoUser.id,
-        shareToken
+        shareToken,
+        communityStatus: 'live',
+        publishedAt: new Date()
       });
 
       // Create and associate tasks
