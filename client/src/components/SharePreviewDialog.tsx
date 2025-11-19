@@ -201,35 +201,45 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         publishedToCommunity = publishData.publishedToCommunity || false;
       }
 
-      // Then trigger share with optional group creation
-      const shareData: any = {
-        createGroup,
-      };
+      // Smart share logic: Only trigger share if creating a group or if NOT publishing
+      // When only publishing to Community Discovery, skip the share endpoint
+      const shouldShare = createGroup || !publishToCommunity;
       
-      if (createGroup) {
-        shareData.groupName = groupName.trim();
-        shareData.groupDescription = groupDescription.trim() || null;
-      }
-
-      // Use fetch to properly handle error responses
-      const response = await fetch(`/api/activities/${activity.id}/share`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(shareData)
-      });
-
-      const data = await response.json();
-
-      // Check for subscription tier error
-      if (!response.ok) {
-        if (response.status === 403 && data.message) {
-          throw new Error(data.message);
+      let data: any = { publishedToCommunity };
+      
+      if (shouldShare) {
+        // Then trigger share with optional group creation
+        const shareData: any = {
+          createGroup,
+        };
+        
+        if (createGroup) {
+          shareData.groupName = groupName.trim();
+          shareData.groupDescription = groupDescription.trim() || null;
         }
-        throw new Error(data.error || 'Failed to share activity');
+
+        // Use fetch to properly handle error responses
+        const response = await fetch(`/api/activities/${activity.id}/share`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(shareData)
+        });
+
+        data = await response.json();
+
+        // Check for subscription tier error
+        if (!response.ok) {
+          if (response.status === 403 && data.message) {
+            throw new Error(data.message);
+          }
+          throw new Error(data.error || 'Failed to share activity');
+        }
+        
+        data.publishedToCommunity = publishedToCommunity;
       }
 
-      return { ...data, publishedToCommunity };
+      return data;
     },
     onSuccess: async (data: any) => {
       // Wait for cache invalidation to complete
@@ -251,8 +261,13 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         description,
       });
       
-      // Pass the updated values AND shareableLink to parent
-      onConfirmShare({ shareTitle, backdrop, shareableLink: data.shareableLink, socialText: data.socialText });
+      // Pass the updated values AND shareableLink to parent (if share was triggered)
+      onConfirmShare({ 
+        shareTitle, 
+        backdrop, 
+        shareableLink: data.shareableLink || undefined, 
+        socialText: data.socialText || undefined 
+      });
       onOpenChange(false);
     },
     onError: (error: Error) => {

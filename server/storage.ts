@@ -1805,25 +1805,49 @@ export class DatabaseStorage implements IStorage {
         sql`${distanceFormula} <= ${radiusKm}`
       );
       
-      // Query with distance calculation
+      // Query with distance calculation and planner profile data
       const resultsWithDistance = await db
         .select({
           activity: activities,
-          distanceKm: distanceFormula
+          distanceKm: distanceFormula,
+          plannerProfile: plannerProfiles
         })
         .from(activities)
+        .leftJoin(plannerProfiles, eq(activities.plannerProfileId, plannerProfiles.id))
         .where(queryConditions);
       
       const results = resultsWithDistance.map(r => ({
         ...r.activity,
-        distanceKm: r.distanceKm
+        distanceKm: r.distanceKm,
+        // Include planner profile social media URLs for verification badges
+        twitterPostUrl: r.plannerProfile?.twitterPostUrl || null,
+        instagramPostUrl: r.plannerProfile?.instagramPostUrl || null,
+        threadsPostUrl: r.plannerProfile?.threadsPostUrl || null,
+        linkedinPostUrl: r.plannerProfile?.linkedinPostUrl || null
       }));
       
       return this.applyFiltersAndSort(results, userId, search, budgetRange, category, limit);
     }
 
-    // No location filter - standard query
-    const results = await db.select().from(activities).where(queryConditions);
+    // No location filter - standard query with planner profile data
+    const resultsWithProfiles = await db
+      .select({
+        activity: activities,
+        plannerProfile: plannerProfiles
+      })
+      .from(activities)
+      .leftJoin(plannerProfiles, eq(activities.plannerProfileId, plannerProfiles.id))
+      .where(queryConditions);
+    
+    const results = resultsWithProfiles.map(r => ({
+      ...r.activity,
+      // Include planner profile social media URLs for verification badges
+      twitterPostUrl: r.plannerProfile?.twitterPostUrl || null,
+      instagramPostUrl: r.plannerProfile?.instagramPostUrl || null,
+      threadsPostUrl: r.plannerProfile?.threadsPostUrl || null,
+      linkedinPostUrl: r.plannerProfile?.linkedinPostUrl || null
+    }));
+    
     return this.applyFiltersAndSort(results, userId, search, budgetRange, category, limit);
   }
 

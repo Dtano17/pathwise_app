@@ -217,70 +217,48 @@ function VerificationIcon({
   label,
   planId,
   plannerProfileId,
+  twitterPostUrl,
+  instagramPostUrl,
+  threadsPostUrl,
+  linkedinPostUrl
 }: {
   verificationBadge: string | null | undefined;
   sourceType: string | null | undefined;
   label: string;
   planId: string;
   plannerProfileId?: string | null;
+  twitterPostUrl?: string | null;
+  instagramPostUrl?: string | null;
+  threadsPostUrl?: string | null;
+  linkedinPostUrl?: string | null;
 }) {
-  const [socialLinks, setSocialLinks] = useState<{
-    twitterPostUrl?: string;
-    instagramPostUrl?: string;
-    threadsPostUrl?: string;
-    linkedinPostUrl?: string;
-  } | null>(null);
-  const [isLoadingLinks, setIsLoadingLinks] = useState(false);
-
   const IconComponent = getVerificationIconComponent(verificationBadge);
   const iconColor = sourceType === 'brand_partnership' ? 'text-blue-500' : 'text-green-500';
 
-  // Fetch social links when hovering over badge
-  const handleMouseEnter = async () => {
-    if (!plannerProfileId || socialLinks || isLoadingLinks) return;
-
-    setIsLoadingLinks(true);
-    try {
-      const response = await fetch(`/api/planner-profiles/${plannerProfileId}/social-links`, {
-        credentials: 'include',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setSocialLinks(data);
-      }
-    } catch (error) {
-      console.error('[VerificationIcon] Failed to fetch social links:', error);
-    } finally {
-      setIsLoadingLinks(false);
-    }
-  };
-
   // Get the appropriate social link based on verification badge
   const getSocialLink = (): string | null => {
-    if (!socialLinks) return null;
-
     switch (verificationBadge) {
       case 'twitter':
-        return socialLinks.twitterPostUrl || null;
+        return twitterPostUrl || null;
       case 'instagram':
-        return socialLinks.instagramPostUrl || null;
+        return instagramPostUrl || null;
       case 'threads':
-        return socialLinks.threadsPostUrl || null;
+        return threadsPostUrl || null;
       case 'linkedin':
-        return socialLinks.linkedinPostUrl || null;
+        return linkedinPostUrl || null;
       case 'multi':
         // Return first available link
-        return socialLinks.twitterPostUrl || socialLinks.instagramPostUrl || socialLinks.threadsPostUrl || socialLinks.linkedinPostUrl || null;
+        return twitterPostUrl || instagramPostUrl || threadsPostUrl || linkedinPostUrl || null;
       default:
         return null;
     }
   };
 
   const socialLink = getSocialLink();
-  const isClickable = !!plannerProfileId && !!socialLink;
+  const isClickable = !!socialLink;
 
   return (
-    <div className="group/verify relative inline-flex" onMouseEnter={handleMouseEnter}>
+    <div className="group/verify relative inline-flex">
       {isClickable ? (
         <a
           href={socialLink}
@@ -1224,6 +1202,10 @@ export default function DiscoverPlansView() {
                               label={verificationLabel}
                               planId={plan.id}
                               plannerProfileId={plan.plannerProfileId}
+                              twitterPostUrl={plan.twitterPostUrl}
+                              instagramPostUrl={plan.instagramPostUrl}
+                              threadsPostUrl={plan.threadsPostUrl}
+                              linkedinPostUrl={plan.linkedinPostUrl}
                             />
                           )}
                         </div>

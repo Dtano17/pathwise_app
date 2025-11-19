@@ -3652,7 +3652,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         creatorAvatar,
         shareTitle: publicTitle, // Display redacted title in Discovery
         communitySnapshot, // Dedicated field - no data loss
-        sourceType: 'community_unverified',
+        sourceType: 'community_reviewed', // User provided social media verification
         plannerProfileId,
         verificationBadge
       }, userId);
