@@ -3596,29 +3596,33 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         }
       }
 
-      // Handle planner profile creation if social links provided
-      let plannerProfileId = null;
-      let verificationBadge = null;
-      if (twitterHandle || instagramHandle || threadsHandle || websiteUrl) {
-        // Validate
-        const validation = validateSocialMediaHandles({ twitterHandle, instagramHandle, threadsHandle, websiteUrl });
-        if (!validation.valid) {
-          return res.status(400).json({ error: validation.error });
-        }
-        
-        // Upsert planner profile
-        const profile = await storage.upsertPlannerProfile(userId, { 
-          twitterHandle: twitterHandle || null, 
-          instagramHandle: instagramHandle || null, 
-          threadsHandle: threadsHandle || null, 
-          websiteUrl: websiteUrl || null 
+      // REQUIRED: Social media verification for community publishing
+      // At least one social media link must be provided for community verification
+      if (!twitterHandle && !instagramHandle && !threadsHandle) {
+        return res.status(400).json({ 
+          error: 'Social media verification required',
+          message: 'Please provide at least one social media link (Twitter/X, Instagram, or Threads) to verify your plan. This helps other users verify the authenticity of community plans.'
         });
-        plannerProfileId = profile.id;
-        
-        // Determine badge: 'twitter'|'instagram'|'threads'|'multi'
-        const provided = [twitterHandle, instagramHandle, threadsHandle].filter(Boolean);
-        verificationBadge = provided.length > 1 ? 'multi' : (twitterHandle ? 'twitter' : instagramHandle ? 'instagram' : 'threads');
       }
+
+      // Validate social media handles
+      const validation = validateSocialMediaHandles({ twitterHandle, instagramHandle, threadsHandle, websiteUrl });
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.error });
+      }
+      
+      // Upsert planner profile with social links
+      const profile = await storage.upsertPlannerProfile(userId, { 
+        twitterHandle: twitterHandle || null, 
+        instagramHandle: instagramHandle || null, 
+        threadsHandle: threadsHandle || null, 
+        websiteUrl: websiteUrl || null 
+      });
+      const plannerProfileId = profile.id;
+      
+      // Determine badge: 'twitter'|'instagram'|'threads'|'linkedin'|'multi'
+      const provided = [twitterHandle, instagramHandle, threadsHandle].filter(Boolean);
+      const verificationBadge = provided.length > 1 ? 'multi' : (twitterHandle ? 'twitter' : instagramHandle ? 'instagram' : 'threads');
 
       // Store community snapshot with FULL task data for reconciliation
       // This preserves ALL user data (timeline, highlights, etc.)
