@@ -148,6 +148,7 @@ export interface IStorage {
   // Activity Tasks
   addTaskToActivity(activityId: string, taskId: string, order?: number): Promise<ActivityTask>;
   getActivityTasks(activityId: string, userId: string): Promise<Task[]>;
+  getTasksByActivity(activityId: string, userId: string): Promise<Task[]>; // Alias for getActivityTasks
   removeTaskFromActivity(activityId: string, taskId: string): Promise<void>;
   updateActivityTaskOrder(activityId: string, taskId: string, order: number): Promise<void>;
 
@@ -727,6 +728,10 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(activityTasks.activityId, activityId), eq(tasks.userId, userId)))
       .orderBy(activityTasks.order, tasks.createdAt);
     return result;
+  }
+
+  async getTasksByActivity(activityId: string, userId: string): Promise<Task[]> {
+    return this.getActivityTasks(activityId, userId);
   }
 
   async removeTaskFromActivity(activityId: string, taskId: string): Promise<void> {
