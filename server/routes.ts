@@ -3483,6 +3483,50 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         return res.status(404).json({ error: 'Activity not found' });
       }
 
+      // Check for duplicate community plans by same user (similarity check)
+      // Only check if this activity is not already published
+      if (!activity.featuredInCommunity) {
+        const existingPlans = await storage.getCommunityPlans();
+        const userPublishedPlans = existingPlans.filter(plan => 
+          plan.userId === userId && plan.id !== activityId
+        );
+        
+        // Simple title similarity check (normalize and compare)
+        const normalizeTitle = (title: string) => 
+          title.toLowerCase().replace(/[^\w\s]/g, '').trim();
+        
+        const currentTitle = normalizeTitle(activity.shareTitle || activity.title);
+        
+        for (const plan of userPublishedPlans) {
+          const planTitle = normalizeTitle(plan.shareTitle || plan.title);
+          
+          // Check for exact match or very high similarity
+          if (planTitle === currentTitle) {
+            return res.status(409).json({ 
+              error: 'Duplicate plan detected',
+              message: `You've already published a similar plan: "${plan.shareTitle || plan.title}". Please update your existing plan or use a different title.`,
+              duplicatePlanId: plan.id,
+              duplicatePlanTitle: plan.shareTitle || plan.title
+            });
+          }
+          
+          // Check for high similarity (contains same words)
+          const currentWords = new Set(currentTitle.split(/\s+/).filter(w => w.length > 3));
+          const planWords = new Set(planTitle.split(/\s+/).filter(w => w.length > 3));
+          const intersection = new Set([...currentWords].filter(x => planWords.has(x)));
+          const similarity = intersection.size / Math.max(currentWords.size, planWords.size);
+          
+          if (similarity > 0.7) {
+            return res.status(409).json({ 
+              error: 'Similar plan detected',
+              message: `You've already published a similar plan: "${plan.shareTitle || plan.title}". Consider updating that plan instead.`,
+              duplicatePlanId: plan.id,
+              duplicatePlanTitle: plan.shareTitle || plan.title
+            });
+          }
+        }
+      }
+
       // Get canonical tasks from storage (for reconciliation and group sharing)
       const canonicalTasks = await storage.getTasksByActivity(activityId, userId);
 
