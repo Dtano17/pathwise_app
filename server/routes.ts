@@ -3646,6 +3646,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
 
       // Update activity to publish to community using dedicated communitySnapshot field
       const updatedActivity = await storage.updateActivity(activityId, {
+        isPublic: true, // CRITICAL: Must be true for Discovery to show the plan
         featuredInCommunity: true,
         creatorName,
         creatorAvatar,
