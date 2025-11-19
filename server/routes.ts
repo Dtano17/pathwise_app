@@ -8890,6 +8890,90 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
+  // ========== ADMIN: UPDATE OFFICIAL PLANS WITH VERIFICATION ==========
+  // Protected endpoint to add Instagram verification to all official seeded plans
+  app.post("/api/admin/update-official-verification", async (req, res) => {
+    try {
+      const { adminSecret, instagramHandle } = req.body;
+      
+      // Verify admin authorization using secret
+      const requiredSecret = process.env.ADMIN_SECRET;
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      
+      if (!requiredSecret && !isDevelopment) {
+        return res.status(500).json({ 
+          error: 'Admin functionality not configured. Set ADMIN_SECRET environment variable.' 
+        });
+      }
+      
+      if (!isDevelopment && (!adminSecret || adminSecret !== requiredSecret)) {
+        console.warn('[ADMIN] Unauthorized verification update attempt');
+        return res.status(403).json({ 
+          error: 'Unauthorized. Admin secret required.' 
+        });
+      }
+      
+      console.log('[ADMIN] Authorized admin updating official plan verification...');
+      console.log('[ADMIN] Instagram handle:', instagramHandle || 'https://www.instagram.com/cartertano/');
+      
+      // Use provided Instagram handle or default to cartertano
+      const adminInstagramHandle = instagramHandle || 'https://www.instagram.com/cartertano/';
+      
+      // Get or create admin user (demo-user is typically the admin for seeded content)
+      const adminUserId = DEMO_USER_ID;
+      
+      // Create or update planner profile for admin with Instagram verification
+      const [plannerProfile] = await db
+        .insert(plannerProfiles)
+        .values({
+          userId: adminUserId,
+          instagramHandle: adminInstagramHandle,
+          verificationStatus: 'official',
+          approvedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: plannerProfiles.userId,
+          set: {
+            instagramHandle: adminInstagramHandle,
+            verificationStatus: 'official',
+            approvedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+      
+      console.log('[ADMIN] Created/updated planner profile:', plannerProfile.id);
+      
+      // Update all activities with sourceType='official_seed' to include verification
+      const updateResult = await db
+        .update(activities)
+        .set({
+          plannerProfileId: plannerProfile.id,
+          verificationBadge: 'instagram',
+          updatedAt: new Date(),
+        })
+        .where(eq(activities.sourceType, 'official_seed'))
+        .returning({ id: activities.id });
+      
+      console.log('[ADMIN] Updated official plans count:', updateResult.length);
+      
+      res.json({ 
+        success: true, 
+        message: `Successfully updated ${updateResult.length} official plans with Instagram verification`,
+        plansUpdated: updateResult.length,
+        instagramHandle: adminInstagramHandle,
+        plannerProfileId: plannerProfile.id
+      });
+    } catch (error) {
+      console.error('[ADMIN] Failed to update official plan verification:', error);
+      res.status(500).json({ 
+        error: 'Failed to update official plan verification',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
