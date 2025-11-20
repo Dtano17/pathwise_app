@@ -345,8 +345,13 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
 
         const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
         
+        // Construct full URL for activity link
+        const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
+        const host = req.get('host') || 'journalmate.replit.app';
+        const activityUrl = `${protocol}://${host}/activities/${activity.id}`;
+        
         return res.json({
-          message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](/activities/${activity.id})`,
+          message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](${activityUrl})`,
           activityCreated: true,
           activity,
           planComplete: true,
@@ -5776,10 +5781,15 @@ ${emoji} ${progressLine}
           }
         }, userId);
 
+        // Construct full URL for activity link
+        const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
+        const host = req.get('host') || 'journalmate.replit.app';
+        const activityUrl = `${protocol}://${host}/activities/${activity.id}`;
+
         return res.json({
           message: isUpdate 
-            ? `♻️ **Activity "${activity.title}" updated!**\n\n📋 I've updated the plan with ${createdTasks.length} new tasks!\n\n→ [View Your Plan](/activities/${activity.id})`
-            : `✨ **Activity "${activity.title}" created!**\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](/activities/${activity.id})`,
+            ? `♻️ **Activity "${activity.title}" updated!**\n\n📋 I've updated the plan with ${createdTasks.length} new tasks!\n\n→ [View Your Plan](${activityUrl})`
+            : `✨ **Activity "${activity.title}" created!**\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](${activityUrl})`,
           activityCreated: !isUpdate,
           activityUpdated: isUpdate,
           activity,
@@ -6009,8 +6019,13 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
 
         const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
         
+        // Construct full URL for activity link
+        const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
+        const host = req.get('host') || 'journalmate.replit.app';
+        const activityUrl = `${protocol}://${host}/activities/${activity.id}`;
+        
         return res.json({
-          message: `⚡ **Boom!** Activity "${activity.title}" created instantly!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](/activities/${activity.id})`,
+          message: `⚡ **Boom!** Activity "${activity.title}" created instantly!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](${activityUrl})`,
           activityCreated: true,
           activity,
           planComplete: true,

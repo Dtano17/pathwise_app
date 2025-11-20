@@ -176,17 +176,79 @@ const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
         listType = null;
       }
       
-      // Process text with bold formatting
-      const processedText = line.split(/(\*\*.*?\*\*)/).map((part, partIndex) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return (
-            <strong key={`bold-${index}-${partIndex}`} className="font-semibold text-foreground">
-              {part.slice(2, -2)}
-            </strong>
-          );
+      // Process text with bold formatting and markdown links
+      const processTextWithMarkdown = (text: string) => {
+        const parts: React.ReactNode[] = [];
+        let remaining = text;
+        let partIndex = 0;
+        
+        while (remaining) {
+          // Try to match markdown link [text](url)
+          const linkMatch = remaining.match(/\[([^\]]+)\]\(([^)]+)\)/);
+          if (linkMatch) {
+            const beforeLink = remaining.substring(0, linkMatch.index);
+            const linkText = linkMatch[1];
+            const linkUrl = linkMatch[2];
+            
+            // Process text before the link (may contain bold)
+            if (beforeLink) {
+              beforeLink.split(/(\*\*.*?\*\*)/).forEach((segment, segIndex) => {
+                if (segment.startsWith('**') && segment.endsWith('**')) {
+                  parts.push(
+                    <strong key={`bold-${index}-${partIndex}-${segIndex}`} className="font-semibold text-foreground">
+                      {segment.slice(2, -2)}
+                    </strong>
+                  );
+                } else if (segment) {
+                  parts.push(segment);
+                }
+              });
+            }
+            
+            // Add the link (sanitize URL to only allow safe protocols)
+            const isSafeUrl = linkUrl.startsWith('http://') || 
+                             linkUrl.startsWith('https://') || 
+                             linkUrl.startsWith('/');
+            
+            if (isSafeUrl) {
+              parts.push(
+                <a 
+                  key={`link-${index}-${partIndex}`} 
+                  href={linkUrl}
+                  className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 underline font-medium"
+                  data-testid="link-activity"
+                >
+                  {linkText}
+                </a>
+              );
+            } else {
+              // Unsafe URL - render as plain text
+              parts.push(`[${linkText}](${linkUrl})`);
+            }
+            
+            remaining = remaining.substring((linkMatch.index || 0) + linkMatch[0].length);
+            partIndex++;
+          } else {
+            // No more links, process remaining text for bold
+            remaining.split(/(\*\*.*?\*\*)/).forEach((segment, segIndex) => {
+              if (segment.startsWith('**') && segment.endsWith('**')) {
+                parts.push(
+                  <strong key={`bold-${index}-${partIndex}-${segIndex}`} className="font-semibold text-foreground">
+                    {segment.slice(2, -2)}
+                  </strong>
+                );
+              } else if (segment) {
+                parts.push(segment);
+              }
+            });
+            break;
+          }
         }
-        return part;
-      });
+        
+        return parts;
+      };
+      
+      const processedText = processTextWithMarkdown(line);
       
       formatted.push(
         <p key={`text-${index}`} className="text-muted-foreground leading-relaxed mb-3">
