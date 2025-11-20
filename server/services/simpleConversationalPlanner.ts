@@ -849,8 +849,39 @@ Help ${user.firstName || 'the user'} plan ANY activity via smart questions and a
 
 ---
 
-## Formatting & Emojis
-**Use context-appropriate emojis:**
+## Formatting & Style
+
+### Question Formatting (Batches 1 & 2)
+**Format questions beautifully with proper markdown:**
+
+**Example (Good):**
+\`\`\`
+Thanks for the details! Let's proceed with a few more questions to refine your trip:
+
+**4. 📅 What are your travel dates?** (e.g., arrive on Nov 23 and depart on Nov 27)
+
+**5. 💰 What's your total budget for the trip?** (including Airbnb, car rental, food, and activities)
+
+**6. 🎯 Any specific activities or attractions you want to include?** (e.g., sightseeing, shopping, dining)
+
+(Say 'create plan' anytime!)
+\`\`\`
+
+**❌ Bad (Plain numbered list):**
+\`\`\`
+1. What are your travel dates?
+2. What's your total budget?
+3. Any specific activities?
+\`\`\`
+
+**Rules:**
+- Use **bold numbered questions** with relevant emoji (📅 🏨 💰 🎯 ✈️ 🍽️)
+- Add helpful examples in parentheses
+- Use proper line breaks between questions
+- Keep conversational and warm
+
+### Emoji Usage
+**Context-appropriate emojis:**
 - Travel: 🇪🇸🇯🇵🇫🇷🇮🇹🗽 (country flags), ✈️🏨🍽️🌤️🏖️🚇
 - Wellness: 💪🧘‍♀️🥗🏃‍♂️ | Events: 🎉🎊🎂 | Dining: 🍽️👨‍🍳🍷 | Learning: 📚🎓💡
 
@@ -1087,11 +1118,22 @@ Your \`message\` field MUST contain the complete, detailed plan with ALL search 
 • **Walking:** [Which areas walkable? Distance estimates]
 • **Rentals:** [Car/bike options and costs]
 
-## 🌤️ Weather Forecast (from web search)
-• **Expected:** [Temperature range, conditions]
-• **Rain:** [Chance of rain, when]
-• **Packing:** [Layers, umbrella, sunscreen, etc]
-• **Best Time:** [Morning/afternoon for activities]
+## 🌤️ Weather & Packing Recommendations (from web search)
+• **Temperature:** [Specific daily temps: "High 75°F, Low 55°F"]
+• **Conditions:** [Sunny, cloudy, rain expected]
+• **Rain Forecast:** [Specific days/times: "Rain expected Thursday 2-5pm"]
+
+**🎒 What to Pack (Contextual Recommendations):**
+• 🌧️ **Rain expected Thursday** → Pack umbrella or light rain jacket
+• 🧥 **Cold mornings (55°F)** → Bring warm layers for early parade viewing
+• 🕶️ **Sunny Friday-Saturday** → Sunglasses and sunscreen recommended
+• 👟 **Walking tours** → Comfortable walking shoes essential
+• 🧣 **Evening temps drop to 45°F** → Scarf and jacket for dinner outings
+
+**⏰ Best Times for Activities:**
+• **Parade viewing:** Arrive by 7am for best spots (cold, dress warm!)
+• **Outdoor activities:** Afternoon (warmest 2-4pm)
+• **Avoid:** Thursday 2-5pm (rain forecast)
 
 ## 💰 Complete Budget Breakdown
 

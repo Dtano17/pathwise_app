@@ -346,7 +346,7 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
         const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
         
         return res.json({
-          message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 **You can find it in:**\n• **Home screen** - Check your recent activities\n• **Activities pane** - View all details and progress\n• **Tasks section** - See the ${createdTasks.length} individual tasks I created\n\nAll tasks are ready for you to start working on! 🚀`,
+          message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](/activities/${activity.id})`,
           activityCreated: true,
           activity,
           planComplete: true,
@@ -425,7 +425,7 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
           const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
           
           return res.json({
-            message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 **You can find it in:**\n• **Home screen** - Check your recent activities\n• **Activities pane** - View all details and progress\n• **Tasks section** - See the ${createdTasks.length} individual tasks I created\n\nAll tasks are ready for you to start working on! 🚀`,
+            message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](/activities/${activity.id})`,
             activityCreated: true,
             activity,
             planComplete: true,
@@ -580,7 +580,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
       
       return res.json({
-        message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 **You can find it in:**\n• **Home screen** - Check your recent activities\n• **Activities pane** - View all details and progress\n• **Tasks section** - See the ${createdTasks.length} individual tasks I created\n\nAll tasks are ready for you to start working on! 🚀`,
+        message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](/activities/${activity.id})`,
         activityCreated: true,
         activity,
         planComplete: true,
@@ -781,7 +781,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
       
       return res.json({
-        message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 **You can find it in:**\n• **Home screen** - Check your recent activities\n• **Activities pane** - View all details and progress\n• **Tasks section** - See the ${createdTasks.length} individual tasks I created\n\nAll tasks are ready for you to start working on! 🚀`,
+        message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](/activities/${activity.id})`,
         activityCreated: true,
         activity,
         planComplete: true,
@@ -5778,8 +5778,8 @@ ${emoji} ${progressLine}
 
         return res.json({
           message: isUpdate 
-            ? `♻️ **Activity "${activity.title}" updated!**\n\n📋 I've updated the plan with ${createdTasks.length} new tasks!`
-            : `✨ **Activity "${activity.title}" created!**\n\n📋 I've created ${createdTasks.length} tasks for you. Check your activities to get started!`,
+            ? `♻️ **Activity "${activity.title}" updated!**\n\n📋 I've updated the plan with ${createdTasks.length} new tasks!\n\n→ [View Your Plan](/activities/${activity.id})`
+            : `✨ **Activity "${activity.title}" created!**\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](/activities/${activity.id})`,
           activityCreated: !isUpdate,
           activityUpdated: isUpdate,
           activity,
@@ -6010,7 +6010,7 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
         const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
         
         return res.json({
-          message: `⚡ **Boom!** Activity "${activity.title}" created instantly!\n\n📋 **Find it on:**\n• **Home screen** - Your recent activities\n• **Activities pane** - Full details\n• **Tasks section** - ${createdTasks.length} tasks ready to go\n\nLet's make it happen! 🚀`,
+          message: `⚡ **Boom!** Activity "${activity.title}" created instantly!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](/activities/${activity.id})`,
           activityCreated: true,
           activity,
           planComplete: true,
