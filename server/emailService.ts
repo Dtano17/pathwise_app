@@ -72,12 +72,22 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
       @media only screen and (max-width: 600px) {
         .header-padding { padding: 30px 20px !important; }
         .content-padding { padding: 25px 20px !important; }
-        .section-padding { padding: 25px 20px !important; }
+        .section-padding { padding: 30px 20px !important; }
         .support-padding { padding: 0 20px 30px !important; }
-        .trending-card { width: 100% !important; display: block !important; margin-bottom: 15px !important; }
-        h1 { font-size: 24px !important; }
+        .trending-card { 
+          width: 100% !important; 
+          display: block !important; 
+          margin-right: 0 !important; 
+          margin-bottom: 16px !important; 
+        }
+        .trending-card:last-child { margin-bottom: 0 !important; }
+        h1 { font-size: 24px !important; line-height: 1.3 !important; }
         h2 { font-size: 20px !important; }
-        h3 { font-size: 18px !important; }
+        h3 { font-size: 22px !important; line-height: 1.3 !important; }
+        .cta-button { 
+          padding: 14px 32px !important; 
+          font-size: 16px !important; 
+        }
       }
     </style>
   </head>
@@ -117,48 +127,62 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
 
                 <!-- NEW FEATURES Highlight -->
                 <tr>
-                  <td class="section-padding" style="padding:35px 40px;background:linear-gradient(135deg,#FEF3C7 0%,#FCD34D 20%,#FEF3C7 100%)">
-                    <div style="text-align:center;margin-bottom:20px">
-                      <span style="background:#F59E0B;color:#ffffff;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:0.5px">🔥 NEW FEATURES</span>
+                  <td class="section-padding" style="padding:40px;background:linear-gradient(135deg,rgba(124,58,237,0.08) 0%,rgba(20,184,166,0.08) 100%)">
+                    <div style="text-align:center;margin-bottom:24px">
+                      <span style="background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%);color:#ffffff;padding:8px 20px;border-radius:24px;font-size:13px;font-weight:700;letter-spacing:0.8px;box-shadow:0 4px 12px rgba(124,58,237,0.25)">✨ NEW FEATURES</span>
                     </div>
-                    <h3 style="margin:0 0 16px;padding:0;font-size:24px;line-height:1.08em;padding-top:0.389em;font-weight:700;color:#111827;text-align:center">🌍 Discover Trending Plans Near You</h3>
-                    <p style="margin:0 0 24px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6;text-align:center">See what's happening around you in real-time! From <strong>chasing the Aurora Borealis</strong> to <strong>weather alerts</strong> like incoming storms, JournalMate keeps you connected to what matters NOW.</p>
+                    <h3 style="margin:0 0 16px;padding:0;font-size:26px;line-height:1.2;font-weight:700;color:#111827;text-align:center">🌍 Discover Trending Plans Near You</h3>
+                    <p style="margin:0 0 32px;padding:0;font-size:16px;color:#374151;line-height:1.7;text-align:center;max-width:500px;margin-left:auto;margin-right:auto">See what's happening around you in real-time! From <strong style="color:#7C3AED">chasing the Aurora Borealis</strong> to <strong style="color:#14B8A6">weather alerts</strong> like incoming storms, JournalMate keeps you connected to what matters NOW.</p>
                     
-                    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:20px">
+                    <!-- Alert Cards with Gradient Borders -->
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:24px">
                       <tbody>
                         <tr>
-                          <td class="trending-card" style="padding:20px;width:48%;display:inline-block;vertical-align:top;background-color:#ffffff;border-radius:12px;margin-right:4%;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-                            <div style="font-size:32px;margin-bottom:8px;text-align:center">🌌</div>
-                            <h4 style="margin:0 0 6px;padding:0;color:#111827;font-size:16px;font-weight:700;text-align:center">Aurora Alert</h4>
-                            <p style="margin:0;padding:0;font-size:14px;padding-top:0.5em;padding-bottom:0.5em;color:#6b7280;line-height:1.4;text-align:center">Northern Lights visible tonight in Iceland &amp; Alaska</p>
+                          <td class="trending-card" style="padding:2px;width:48%;display:inline-block;vertical-align:top;margin-right:4%;border-radius:14px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%)">
+                            <div style="padding:20px;background-color:#ffffff;border-radius:12px;height:100%">
+                              <div style="font-size:36px;margin-bottom:10px;text-align:center">🌌</div>
+                              <h4 style="margin:0 0 8px;padding:0;color:#111827;font-size:17px;font-weight:700;text-align:center">Aurora Alert</h4>
+                              <p style="margin:0;padding:0;font-size:14px;color:#6b7280;line-height:1.5;text-align:center">Northern Lights visible tonight in Iceland &amp; Alaska</p>
+                            </div>
                           </td>
-                          <td class="trending-card" style="padding:20px;width:48%;display:inline-block;vertical-align:top;background-color:#ffffff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-                            <div style="font-size:32px;margin-bottom:8px;text-align:center">⚠️</div>
-                            <h4 style="margin:0 0 6px;padding:0;color:#111827;font-size:16px;font-weight:700;text-align:center">Storm Warning</h4>
-                            <p style="margin:0;padding:0;font-size:14px;padding-top:0.5em;padding-bottom:0.5em;color:#6b7280;line-height:1.4;text-align:center">Ice storm expected in Northeast - plan indoor activities</p>
+                          <td class="trending-card" style="padding:2px;width:48%;display:inline-block;vertical-align:top;border-radius:14px;background:linear-gradient(135deg,#14B8A6 0%,#7C3AED 100%)">
+                            <div style="padding:20px;background-color:#ffffff;border-radius:12px;height:100%">
+                              <div style="font-size:36px;margin-bottom:10px;text-align:center">⚠️</div>
+                              <h4 style="margin:0 0 8px;padding:0;color:#111827;font-size:17px;font-weight:700;text-align:center">Storm Warning</h4>
+                              <p style="margin:0;padding:0;font-size:14px;color:#6b7280;line-height:1.5;text-align:center">Ice storm expected in Northeast - plan indoor activities</p>
+                            </div>
                           </td>
                         </tr>
                       </tbody>
                     </table>
 
-                    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:20px">
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:30px">
                       <tbody>
                         <tr>
-                          <td class="trending-card" style="padding:20px;width:48%;display:inline-block;vertical-align:top;background-color:#ffffff;border-radius:12px;margin-right:4%;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-                            <div style="font-size:32px;margin-bottom:8px;text-align:center">🎪</div>
-                            <h4 style="margin:0 0 6px;padding:0;color:#111827;font-size:16px;font-weight:700;text-align:center">Festival Alert</h4>
-                            <p style="margin:0;padding:0;font-size:14px;padding-top:0.5em;padding-bottom:0.5em;color:#6b7280;line-height:1.4;text-align:center">Coachella tickets on sale this Friday</p>
+                          <td class="trending-card" style="padding:2px;width:48%;display:inline-block;vertical-align:top;margin-right:4%;border-radius:14px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%)">
+                            <div style="padding:20px;background-color:#ffffff;border-radius:12px;height:100%">
+                              <div style="font-size:36px;margin-bottom:10px;text-align:center">🎪</div>
+                              <h4 style="margin:0 0 8px;padding:0;color:#111827;font-size:17px;font-weight:700;text-align:center">Festival Alert</h4>
+                              <p style="margin:0;padding:0;font-size:14px;color:#6b7280;line-height:1.5;text-align:center">Coachella tickets on sale this Friday</p>
+                            </div>
                           </td>
-                          <td class="trending-card" style="padding:20px;width:48%;display:inline-block;vertical-align:top;background-color:#ffffff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-                            <div style="font-size:32px;margin-bottom:8px;text-align:center">🎉</div>
-                            <h4 style="margin:0 0 6px;padding:0;color:#111827;font-size:16px;font-weight:700;text-align:center">Local Event</h4>
-                            <p style="margin:0;padding:0;font-size:14px;padding-top:0.5em;padding-bottom:0.5em;color:#6b7280;line-height:1.4;text-align:center">Saturday farmers market - fresh produce &amp; live music</p>
+                          <td class="trending-card" style="padding:2px;width:48%;display:inline-block;vertical-align:top;border-radius:14px;background:linear-gradient(135deg,#14B8A6 0%,#7C3AED 100%)">
+                            <div style="padding:20px;background-color:#ffffff;border-radius:12px;height:100%">
+                              <div style="font-size:36px;margin-bottom:10px;text-align:center">🎉</div>
+                              <h4 style="margin:0 0 8px;padding:0;color:#111827;font-size:17px;font-weight:700;text-align:center">Local Event</h4>
+                              <p style="margin:0;padding:0;font-size:14px;color:#6b7280;line-height:1.5;text-align:center">Saturday farmers market - fresh produce &amp; live music</p>
+                            </div>
                           </td>
                         </tr>
                       </tbody>
                     </table>
 
-                    <p style="margin:0;padding:0;font-size:15px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6;text-align:center">Plus: <strong>Every activity comes with a clickable link</strong> 🔗 so you can jump directly to your plans, share them instantly, and track progress from anywhere!</p>
+                    <!-- Prominent Discover Button -->
+                    <div style="text-align:center;margin-bottom:16px">
+                      <a href="${appURL}/discover" class="cta-button" style="color:#ffffff;text-decoration:none;display:inline-block;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%);padding:16px 40px;border-radius:14px;font-size:17px;font-weight:700;box-shadow:0 6px 20px rgba(124,58,237,0.35);letter-spacing:0.3px">🌟 Discover Community Plans</a>
+                    </div>
+                    
+                    <p style="margin:0;padding:0;font-size:15px;color:#6b7280;line-height:1.6;text-align:center">Plus: <strong style="color:#111827">Every activity comes with a clickable link</strong> 🔗 so you can jump directly to your plans, share them instantly, and track progress from anywhere!</p>
                   </td>
                 </tr>
 
