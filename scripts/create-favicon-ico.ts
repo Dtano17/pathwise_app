@@ -1,22 +1,23 @@
-import sharp from 'sharp';
+import toIco from 'to-ico';
 import fs from 'fs';
 
 async function createFaviconIco() {
-  // For .ico file, we'll use the 32x32 as it's the most common size
-  // and convert it to a format that browsers will accept
-  const source = 'client/public/favicon-32x32.png';
-  const output = 'client/public/favicon.ico';
+  // Read the PNG files
+  const files = [
+    fs.readFileSync('client/public/favicon-16x16.png'),
+    fs.readFileSync('client/public/favicon-32x32.png'),
+    fs.readFileSync('client/public/favicon-48x48.png'),
+  ];
   
-  console.log('Creating favicon.ico from:', source);
+  console.log('Creating multi-resolution favicon.ico...');
   
-  // Sharp doesn't directly create .ico files, but we can create a 32x32 PNG
-  // and save it as .ico (browsers will accept it)
-  await sharp(source)
-    .resize(32, 32)
-    .png()
-    .toFile(output);
+  // Create ICO file with multiple resolutions
+  const icoBuffer = await toIco(files);
   
-  console.log('✓ Created favicon.ico');
+  // Write to file
+  fs.writeFileSync('client/public/favicon.ico', icoBuffer);
+  
+  console.log('✓ Created favicon.ico with 16x16, 32x32, and 48x48 resolutions');
   console.log('\n✅ Favicon.ico created successfully!');
 }
 
