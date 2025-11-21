@@ -42,7 +42,7 @@ const ICON_SPECS = {
     { size: 16, name: 'favicon-16x16.png', transparent: true },
     { size: 32, name: 'favicon-32x32.png', transparent: true },
     { size: 48, name: 'favicon-48x48.png', transparent: true },
-    { size: 180, name: 'apple-touch-icon.png', transparent: false },
+    { size: 180, name: 'apple-touch-icon.png', transparent: false, padding: 0 }, // Apple icons look better full bleed
     { size: 192, name: 'android-chrome-192x192.png', transparent: true },
     { size: 512, name: 'android-chrome-512x512.png', transparent: true },
   ],
@@ -56,6 +56,9 @@ const ICON_SPECS = {
     { size: 192, name: 'icon-192x192.png', transparent: true },
     { size: 384, name: 'icon-384x384.png', transparent: true },
     { size: 512, name: 'icon-512x512.png', transparent: true },
+    // Maskable icons (solid background, no padding for max size)
+    { size: 192, name: 'icon-maskable-192x192.png', transparent: false, padding: 0.15 }, // Slight padding for maskable to avoid cutting logo
+    { size: 512, name: 'icon-maskable-512x512.png', transparent: false, padding: 0.15 },
   ],
 
   // iOS Icons (no transparency)
@@ -190,7 +193,9 @@ async function createGradientBackground(width, height) {
  */
 async function generateSquareIcon(sourceBuffer, spec, outputPath) {
   const size = spec.size;
-  const iconPadding = Math.floor(size * 0.1); // 10% padding
+  // Use spec-specific padding if defined, otherwise default to 10%
+  const paddingFactor = spec.padding !== undefined ? spec.padding : 0.1;
+  const iconPadding = Math.floor(size * paddingFactor);
   const iconSize = size - (iconPadding * 2);
 
   let pipeline = sharp(sourceBuffer)
