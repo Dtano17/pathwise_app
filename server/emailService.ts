@@ -119,10 +119,10 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
           
           <!-- Header -->
           <tr>
-            <td class="header-padding" style="background-color: #8b5cf6; background-image: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #7c3aed 100%); padding: 50px 40px; text-align: center;">
-              ${logoURL ? `<img src="${logoURL}" alt="JournalMate Logo" class="logo-img" style="width: 80px; height: 80px; margin: 0 auto 20px; display: block;" />` : ''}
+            <td class="header-padding" style="background: linear-gradient(135deg, #7C3AED 0%, #14B8A6 100%); padding: 50px 40px; text-align: center; border-radius: 20px 20px 0 0;">
+              ${logoURL ? `<img src="${logoURL}" alt="JournalMate Logo" class="logo-img" style="width: 80px; height: 80px; margin: 0 auto 20px; display: block; border-radius: 8px;" />` : ''}
               <h1 style="margin: 0 0 12px; color: #ffffff; font-size: 36px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2;">Welcome to JournalMate</h1>
-              <p style="margin: 0; color: #e9d5ff; font-size: 18px; font-weight: 500; line-height: 1.4;">Your personal planning companion that adapts to your rhythm</p>
+              <p style="margin: 0; color: rgba(255, 255, 255, 0.95); font-size: 18px; font-weight: 500; line-height: 1.4;">Plan Together. Discover Together. Grow Together.</p>
             </td>
           </tr>
 
@@ -142,6 +142,45 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
               <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.7; font-weight: 500;">
                 Our rhythm-aware planning engine learns your patterns, adapts in real-time, and turns every goal into an actionable journey.
               </p>
+            </td>
+          </tr>
+
+          <!-- NEW FEATURES Highlight Section -->
+          <tr>
+            <td style="padding: 0 40px 20px;">
+              <div style="background: linear-gradient(135deg, #FEF3C7 0%, #FCD34D 20%, #FEF3C7 100%); border-radius: 16px; padding: 30px; text-align: center; border-left: 4px solid #F59E0B;">
+                <div style="background: #F59E0B; color: #ffffff; display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; margin-bottom: 16px; letter-spacing: 0.5px;">
+                  🔥 NEW FEATURES
+                </div>
+                <h3 style="margin: 0 0 16px; color: #111827; font-size: 24px; font-weight: 700; line-height: 1.3;">🌍 Discover Trending Plans Near You</h3>
+                <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.6;">
+                  See what's happening around you in real-time! From <strong>chasing the Aurora Borealis</strong> to <strong>weather alerts</strong> like incoming storms, JournalMate keeps you connected to what matters NOW.
+                </p>
+                <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 20px;">
+                  <tr>
+                    <td width="48%" style="padding: 15px; background-color: #ffffff; border-radius: 12px; vertical-align: top; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);">
+                      <div style="font-size: 32px; margin-bottom: 8px;">🌌</div>
+                      <h4 style="margin: 0 0 6px; color: #111827; font-size: 16px; font-weight: 700;">Aurora Alert</h4>
+                      <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.4;">Northern Lights visible tonight in Iceland & Alaska</p>
+                    </td>
+                    <td width="4%"></td>
+                    <td width="48%" style="padding: 15px; background-color: #ffffff; border-radius: 12px; vertical-align: top; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);">
+                      <div style="font-size: 32px; margin-bottom: 8px;">⚠️</div>
+                      <h4 style="margin: 0 0 6px; color: #111827; font-size: 16px; font-weight: 700;">Storm Warning</h4>
+                      <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.4;">Ice storm expected in Northeast - plan indoor activities</p>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin: 0; color: #374151; font-size: 15px; line-height: 1.6;">
+                  Plus: <strong>Every activity comes with a clickable link</strong> 🔗 so you can jump directly to your plans, share them instantly, and track progress from anywhere!
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- The Complete Cycle Section -->
+          <tr>
+            <td class="content-padding" style="padding: 30px 40px;">
               
               <!-- The Complete Cycle: Visual Flow Diagram -->
               <div style="margin: 30px 0;">
@@ -317,13 +356,40 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
 
           <!-- Footer -->
           <tr>
-            <td style="background-color: #f9fafb; padding: 35px 40px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <td style="background-color: #f9fafb; padding: 35px 40px; text-align: center; border-top: 1px solid #e5e7eb; border-radius: 0 0 20px 20px;">
               <p style="margin: 0 0 8px; color: #111827; font-size: 18px; font-weight: 600; letter-spacing: 0.5px; line-height: 1.4;">
                 Welcome to the rhythm. 💫
               </p>
-              <p style="margin: 0 0 16px; color: #6b7280; font-size: 15px; line-height: 1.5;">
-                Welcome to <strong>JournalMate</strong>.
+              <p style="margin: 0 0 20px; color: #6b7280; font-size: 15px; line-height: 1.5;">
+                Made with ❤️ by <strong>JournalMate</strong>
               </p>
+              
+              <!-- Social Media Icons -->
+              <table align="center" cellpadding="0" cellspacing="0" style="margin: 0 auto 20px;">
+                <tr>
+                  <td style="padding: 0 8px;">
+                    <a href="https://twitter.com/journalmate_ai" target="_blank" style="text-decoration: none;">
+                      <img src="https://img.icons8.com/color/48/twitter--v1.png" alt="Twitter/X" style="width: 32px; height: 32px; display: block; border-radius: 8px;" width="32" height="32" />
+                    </a>
+                  </td>
+                  <td style="padding: 0 8px;">
+                    <a href="https://www.facebook.com/profile.php?id=61583966435460" target="_blank" style="text-decoration: none;">
+                      <img src="https://img.icons8.com/color/48/facebook-new.png" alt="Facebook" style="width: 32px; height: 32px; display: block; border-radius: 8px;" width="32" height="32" />
+                    </a>
+                  </td>
+                  <td style="padding: 0 8px;">
+                    <a href="https://www.instagram.com/journalmate.ai/" target="_blank" style="text-decoration: none;">
+                      <img src="https://img.icons8.com/color/48/instagram-new--v1.png" alt="Instagram" style="width: 32px; height: 32px; display: block; border-radius: 8px;" width="32" height="32" />
+                    </a>
+                  </td>
+                  <td style="padding: 0 8px;">
+                    <a href="https://www.tiktok.com/@dtanaruno" target="_blank" style="text-decoration: none;">
+                      <img src="https://img.icons8.com/color/48/tiktok--v1.png" alt="TikTok" style="width: 32px; height: 32px; display: block; border-radius: 8px;" width="32" height="32" />
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              
               <p style="margin: 0; color: #9ca3af; font-size: 13px; line-height: 1.5;">
                 © 2025 JournalMate. All rights reserved.
               </p>
