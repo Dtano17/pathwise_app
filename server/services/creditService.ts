@@ -1,4 +1,4 @@
-import { db } from '../db/index.js';
+import { db } from '../storage.js';
 import { userCredits, creditTransactions, users } from '../../shared/schema.js';
 import { eq, desc, and, gte, sql } from 'drizzle-orm';
 
