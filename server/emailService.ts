@@ -49,357 +49,215 @@ function getBaseURL(): string {
   return process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : '';
 }
 
-// Welcome email template - Mobile Responsive
+// Welcome email template - Elegant HTML with Community Discovery
 export function getWelcomeEmailHTML(firstName: string = 'there') {
   const baseURL = getBaseURL();
-  const logoURL = baseURL ? `${baseURL}/journalmate-logo-email.png` : '';
+  const logoURL = 'https://resend-attachments.s3.amazonaws.com/nx67BKRdxXaeFoH';
+  const appURL = baseURL || 'https://journalmate.ai';
   
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>Welcome to JournalMate!</title>
-  <style type="text/css">
-    /* Mobile-first responsive styles */
-    @media only screen and (max-width: 600px) {
-      .email-container {
-        width: 100% !important;
-        border-radius: 0 !important;
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html dir="ltr" lang="en">
+  <head>
+    <meta content="width=device-width" name="viewport" />
+    <link rel="preload" as="image" href="${logoURL}" />
+    <link rel="preload" as="image" href="https://img.icons8.com/color/48/twitter--v1.png" />
+    <link rel="preload" as="image" href="https://img.icons8.com/color/48/facebook-new.png" />
+    <link rel="preload" as="image" href="https://img.icons8.com/color/48/instagram-new--v1.png" />
+    <link rel="preload" as="image" href="https://img.icons8.com/color/48/tiktok--v1.png" />
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta content="IE=edge" http-equiv="X-UA-Compatible" />
+    <meta content="telephone=no,address=no,email=no,date=no,url=no" name="format-detection" />
+    <style type="text/css">
+      @media only screen and (max-width: 600px) {
+        .header-padding { padding: 30px 20px !important; }
+        .content-padding { padding: 25px 20px !important; }
+        .section-padding { padding: 25px 20px !important; }
+        .support-padding { padding: 0 20px 30px !important; }
+        .trending-card { width: 100% !important; display: block !important; margin-bottom: 15px !important; }
+        h1 { font-size: 24px !important; }
+        h2 { font-size: 20px !important; }
+        h3 { font-size: 18px !important; }
       }
-      .logo-img {
-        width: 60px !important;
-        height: 60px !important;
-      }
-      .header-padding {
-        padding: 35px 20px !important;
-      }
-      .content-padding {
-        padding: 30px 20px !important;
-      }
-      .section-padding {
-        padding: 25px 20px !important;
-      }
-      .cta-padding {
-        padding: 15px 20px 35px !important;
-      }
-      .support-padding {
-        padding: 0 20px 35px !important;
-      }
-      h1 {
-        font-size: 28px !important;
-      }
-      h2 {
-        font-size: 22px !important;
-      }
-      h3 {
-        font-size: 20px !important;
-      }
-      h4 {
-        font-size: 16px !important;
-      }
-      .feature-item {
-        margin-bottom: 20px !important;
-      }
-      .cta-box {
-        padding: 25px 20px !important;
-      }
-      .support-box {
-        padding: 20px !important;
-      }
-    }
-  </style>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 20px 10px;">
-    <tr>
-      <td align="center">
-        <table class="email-container" width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 20px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08); overflow: hidden; max-width: 600px;">
-          
-          <!-- Header -->
-          <tr>
-            <td class="header-padding" style="background: linear-gradient(135deg, #7C3AED 0%, #14B8A6 100%); padding: 50px 40px; text-align: center; border-radius: 20px 20px 0 0;">
-              ${logoURL ? `<img src="${logoURL}" alt="JournalMate Logo" class="logo-img" style="width: 80px; height: 80px; margin: 0 auto 20px; display: block; border-radius: 8px;" />` : ''}
-              <h1 style="margin: 0 0 12px; color: #ffffff; font-size: 36px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2;">Welcome to JournalMate</h1>
-              <p style="margin: 0; color: rgba(255, 255, 255, 0.95); font-size: 18px; font-weight: 500; line-height: 1.4;">Plan Together. Discover Together. Grow Together.</p>
-            </td>
-          </tr>
-
-          <!-- Personal Message -->
-          <tr>
-            <td class="content-padding" style="padding: 45px 40px 30px;">
-              <h2 style="margin: 0 0 20px; color: #111827; font-size: 26px; font-weight: 600; line-height: 1.3;">Hey ${firstName}! 👋</h2>
-              <p style="margin: 0 0 16px; color: #8b5cf6; font-size: 18px; font-weight: 700; line-height: 1.7;">
-                Plan together. Reflect together. Grow together.
-              </p>
-              <p style="margin: 0 0 16px; color: #374151; font-size: 16px; line-height: 1.7;">
-                Welcome to <strong>JournalMate</strong>—where <strong>adaptive planning</strong>, <strong>emotional intelligence</strong>, and <strong>rhythm-aware journaling</strong> transform your dreams into reality.
-              </p>
-              <p style="margin: 0 0 16px; color: #374151; font-size: 16px; line-height: 1.7;">
-                Unlike traditional journals that start with blank pages, JournalMate helps you <strong>PLAN first, then REFLECT</strong>.
-              </p>
-              <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.7; font-weight: 500;">
-                Our rhythm-aware planning engine learns your patterns, adapts in real-time, and turns every goal into an actionable journey.
-              </p>
-            </td>
-          </tr>
-
-          <!-- NEW FEATURES Highlight Section -->
-          <tr>
-            <td style="padding: 0 40px 20px;">
-              <div style="background: linear-gradient(135deg, #FEF3C7 0%, #FCD34D 20%, #FEF3C7 100%); border-radius: 16px; padding: 30px; text-align: center; border-left: 4px solid #F59E0B;">
-                <div style="background: #F59E0B; color: #ffffff; display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; margin-bottom: 16px; letter-spacing: 0.5px;">
-                  🔥 NEW FEATURES
-                </div>
-                <h3 style="margin: 0 0 16px; color: #111827; font-size: 24px; font-weight: 700; line-height: 1.3;">🌍 Discover Trending Plans Near You</h3>
-                <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.6;">
-                  See what's happening around you in real-time! From <strong>chasing the Aurora Borealis</strong> to <strong>weather alerts</strong> like incoming storms, JournalMate keeps you connected to what matters NOW.
-                </p>
-                <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 20px;">
-                  <tr>
-                    <td width="48%" style="padding: 15px; background-color: #ffffff; border-radius: 12px; vertical-align: top; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);">
-                      <div style="font-size: 32px; margin-bottom: 8px;">🌌</div>
-                      <h4 style="margin: 0 0 6px; color: #111827; font-size: 16px; font-weight: 700;">Aurora Alert</h4>
-                      <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.4;">Northern Lights visible tonight in Iceland & Alaska</p>
-                    </td>
-                    <td width="4%"></td>
-                    <td width="48%" style="padding: 15px; background-color: #ffffff; border-radius: 12px; vertical-align: top; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);">
-                      <div style="font-size: 32px; margin-bottom: 8px;">⚠️</div>
-                      <h4 style="margin: 0 0 6px; color: #111827; font-size: 16px; font-weight: 700;">Storm Warning</h4>
-                      <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.4;">Ice storm expected in Northeast - plan indoor activities</p>
-                    </td>
-                  </tr>
-                </table>
-                <p style="margin: 0; color: #374151; font-size: 15px; line-height: 1.6;">
-                  Plus: <strong>Every activity comes with a clickable link</strong> 🔗 so you can jump directly to your plans, share them instantly, and track progress from anywhere!
-                </p>
-              </div>
-            </td>
-          </tr>
-
-          <!-- The Complete Cycle Section -->
-          <tr>
-            <td class="content-padding" style="padding: 30px 40px;">
-              
-              <!-- The Complete Cycle: Visual Flow Diagram -->
-              <div style="margin: 30px 0;">
-                <h3 style="margin: 0 0 20px; color: #8b5cf6; font-size: 20px; font-weight: 700; text-align: center; line-height: 1.3;">✨ The Complete Cycle</h3>
-                <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
-                  <tr>
-                    <!-- Step 1: Plan -->
-                    <td align="center" style="padding: 0 4px 12px;">
-                      <div style="background-color: #8b5cf6; background-image: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: #ffffff; padding: 16px 12px; border-radius: 12px; text-align: center; min-height: 100px;">
-                        <div style="font-size: 28px; margin-bottom: 8px;">🎯</div>
-                        <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px;">PLAN</div>
-                        <div style="font-size: 13px; line-height: 1.4;">AI creates personalized tasks</div>
-                      </div>
-                    </td>
-                    <td align="center" width="30" style="color: #8b5cf6; font-size: 24px; font-weight: 700; padding-bottom: 12px;">→</td>
-                    <!-- Step 2: Execute -->
-                    <td align="center" style="padding: 0 4px 12px;">
-                      <div style="background-color: #10b981; background-image: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; padding: 16px 12px; border-radius: 12px; text-align: center; min-height: 100px;">
-                        <div style="font-size: 28px; margin-bottom: 8px;">✅</div>
-                        <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px;">EXECUTE</div>
-                        <div style="font-size: 13px; line-height: 1.4;">Swipe & complete activities</div>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <!-- Step 3: Reflect -->
-                    <td align="center" style="padding: 0 4px 12px;">
-                      <div style="background-color: #3b82f6; background-image: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: #ffffff; padding: 16px 12px; border-radius: 12px; text-align: center; min-height: 100px;">
-                        <div style="font-size: 28px; margin-bottom: 8px;">📸</div>
-                        <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px;">REFLECT</div>
-                        <div style="font-size: 13px; line-height: 1.4;">Tag photos, give feedback</div>
-                      </div>
-                    </td>
-                    <td align="center" width="30" style="color: #8b5cf6; font-size: 24px; font-weight: 700; padding-bottom: 12px;">→</td>
-                    <!-- Step 4: Auto-Journal -->
-                    <td align="center" style="padding: 0 4px 12px;">
-                      <div style="background-color: #ec4899; background-image: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: #ffffff; padding: 16px 12px; border-radius: 12px; text-align: center; min-height: 100px;">
-                        <div style="font-size: 28px; margin-bottom: 8px;">📓</div>
-                        <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px;">AUTO-JOURNAL</div>
-                        <div style="font-size: 13px; line-height: 1.4;">Built automatically for you</div>
-                      </div>
-                    </td>
-                  </tr>
-                </table>
-                <p style="text-align: center; margin: 16px 0 0; color: #8b5cf6; font-size: 14px; font-weight: 600; line-height: 1.5;">
-                  🔄 Complete the cycle = JournalMate journals FOR YOU (no manual writing!)
-                </p>
-              </div>
-              
-              <!-- Privacy & Control Box -->
-              <div style="background-color: #f3e8ff; background-image: linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%); border-left: 4px solid #8b5cf6; border-radius: 12px; padding: 20px; margin-top: 24px;">
-                <p style="margin: 0 0 12px; color: #6b21a8; font-size: 15px; font-weight: 700; line-height: 1.5;">
-                  🔒 You're in Control
-                </p>
-                <p style="margin: 0; color: #5b21b6; font-size: 15px; line-height: 1.6;">
-                  <strong>JournalMate only uses what you permit.</strong> You control what's shared publicly, how personalized your plans become, and what information the app can access. Set your priorities and privacy preferences in your Profile—it's the foundation of your experience.
-                </p>
-              </div>
-            </td>
-          </tr>
-
-          <!-- Divider -->
-          <tr>
-            <td style="padding: 0 40px;">
-              <div style="height: 2px; background-color: #e5e7eb; background-image: linear-gradient(90deg, transparent, #e5e7eb, transparent);"></div>
-            </td>
-          </tr>
-
-          <!-- Features Section -->
-          <tr>
-            <td class="section-padding" style="padding: 35px 40px 20px;">
-              <h3 style="margin: 0 0 28px; color: #8b5cf6; font-size: 22px; font-weight: 700; text-align: center; line-height: 1.3;">✨ What Makes JournalMate Different</h3>
-              
-              <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">👤 Your Profile is the Foundation</h4>
-                <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  Start by setting your priorities (like 'family time', 'career growth', 'health') in your Profile. Define what makes you unique—the app uses this to personalize every plan. Control what's public vs. private with the shield icon. Make it fun and share what you want others to see about you. <strong>The app automatically factors your priorities into every plan</strong> it creates.
-                </p>
-              </div>
-              
-              <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🚀 Built for Creators, Planners &amp; Professionals</h4>
-                <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  Travel agents, event planners, lifestyle creators—this is your platform. <strong>Plan group trips with real-time collaboration</strong>, customize share previews with custom themes and backgrounds, and use the <strong>Privacy Shield</strong> to control what's shared. Choose Public Creator mode (share full details), Privacy-First mode (max protection), or Custom settings—AI automatically redacts names, locations, contact info, and dates as you choose. Your followers can <strong>instantly copy and own your plans</strong> with one click, making it theirs to track and customize.
-                </p>
-              </div>
-
-              <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🤖 Smart Planning with Live Updates</h4>
-                <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  Our LangGraph planning agent (not just prompt feeding!) creates personalized plans enriched with <strong>live updates</strong>: traffic conditions, weather forecasts, venue busy-ness, reservation alerts. Planning a romantic date? It factors your profile preferences, detects your mood, sets the tone for success, and lets you share with your date beforehand for perfect alignment. Choose <strong>Smart Plan</strong> for deep personalization with follow-up questions, or <strong>Quick Plan</strong> for fast plans when you need speed.
-                </p>
-              </div>
-              
-              <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">💬 Create Action Plans with Same-Chatbox Iteration</h4>
-                <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  Already have plan details? Use 'Create Action Plan' to instantly generate structured tasks. Then keep iterating <strong>in THE SAME chatbox</strong>—no new interface, just describe your changes and the AI refines it. When you receive a shared plan, edit it the same way. Every plan respects your profile priorities automatically.
-                </p>
-              </div>
-
-              <div class="feature-item" style="margin-bottom: 24px; background-color: #fef3c7; background-image: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b; border-radius: 12px; padding: 20px;">
-                <h4 style="margin: 0 0 12px; color: #92400e; font-size: 18px; font-weight: 700; line-height: 1.4;">🔄 AUTO-JOURNAL: The Magic Happens Automatically</h4>
-                <p style="margin: 0 0 12px; color: #78350f; font-size: 16px; font-weight: 600; line-height: 1.6;">
-                  <strong>Here's the secret: As long as you PLAN, EXECUTE, and REFLECT with JournalMate, the app journals FOR YOU.</strong>
-                </p>
-                <p style="margin: 0 0 12px; color: #78350f; font-size: 15px; line-height: 1.6;">
-                  No manual diary writing. No blank pages. Just complete the full cycle:
-                </p>
-                <ul style="margin: 0 0 12px; padding-left: 20px; color: #78350f; font-size: 15px; line-height: 1.7;">
-                  <li style="margin-bottom: 8px;"><strong>PLAN:</strong> AI creates your personalized tasks</li>
-                  <li style="margin-bottom: 8px;"><strong>EXECUTE:</strong> Swipe to complete activities, mark progress</li>
-                  <li style="margin-bottom: 8px;"><strong>REFLECT:</strong> Tag photos with @keywords (@restaurants, @travel), give thumbs up/down feedback</li>
-                  <li><strong>AUTO-JOURNAL:</strong> JournalMate builds your journal automatically from your completions, photos, and feedback</li>
-                </ul>
-                <p style="margin: 0; color: #92400e; font-size: 15px; font-weight: 600; line-height: 1.6; font-style: italic;">
-                  The journal writes itself as you live your life. That's the complete loop. 🔄
-                </p>
-              </div>
-              
-              <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🎨 Theme &amp; LLM Integration</h4>
-                <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  Set your mood or rhythm with theme customization. Adjust color schemes, dark/light mode, and emotional tone. Integrate <strong>any LLM you prefer</strong>—OpenAI, Claude, or others—via copy/paste or backend API integration. Full flexibility to customize the AI experience to match your style and workflow.
-                </p>
-              </div>
-
-              <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🎯 Instant Copy-and-Own for Followers</h4>
-                <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  Share your plans with custom visuals, NYC-themed backdrops, or your own media. When friends or followers click your link and sign in, the plan <strong>instantly copies to their account</strong>—they own it, can edit it, and track their own progress. Duplicate detection prevents losing progress when updating existing plans. Perfect for building your following as a creator, planner, or coach.
-                </p>
-              </div>
-
-              <div class="feature-item" style="margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">🌍 Browse & Use Community Plans</h4>
-                <p style="margin: 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  Get inspired by <strong>thousands of plans created by others</strong>. Browse trending plans, filter by Travel, Fitness, Events, Career, or Home categories. Found a plan you love? Click <strong>"Use This Plan"</strong> to instantly copy it to your account with all tasks—then customize it to match your rhythm. Perfect for jumpstarting your goals or discovering new ideas from creators, planners, and fellow JournalMate users.
-                </p>
-              </div>
-            </td>
-          </tr>
-
-          <!-- Getting Started CTA -->
-          <tr>
-            <td class="cta-padding" style="padding: 20px 40px 45px;">
-              <div class="cta-box" style="background-color: #8b5cf6; background-image: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); padding: 35px 30px; border-radius: 16px; text-align: center; box-shadow: 0 6px 20px rgba(139, 92, 246, 0.25);">
-                <h3 style="margin: 0 0 18px; color: #ffffff; font-size: 24px; font-weight: 700; line-height: 1.3;">🚀 Getting Started Is Easy</h3>
-                <div style="text-align: left; margin: 0 auto; max-width: 450px;">
-                  <p style="margin: 0 0 14px; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">1️⃣</strong> Tap <strong>New Plan</strong> → Try Quick or Smart</p>
-                  <p style="margin: 0 0 14px; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">2️⃣</strong> Browse <strong>Community Plans</strong> for instant inspiration</p>
-                  <p style="margin: 0 0 14px; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">3️⃣</strong> Journal with <strong>@keywords</strong>, photos, or voice</p>
-                  <p style="margin: 0 0 14px; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">4️⃣</strong> Swipe to complete, skip, or reflect</p>
-                  <p style="margin: 0; color: #ffffff; font-size: 15px; line-height: 1.6;"><strong style="color: #fde047;">5️⃣</strong> Share your rhythm with friends or groups</p>
-                </div>
-              </div>
-            </td>
-          </tr>
-
-          <!-- Support Section -->
-          <tr>
-            <td class="support-padding" style="padding: 0 40px 45px;">
-              <div class="support-box" style="background-color: #f9fafb; padding: 28px; border-radius: 12px; border: 2px solid #e5e7eb; text-align: center;">
-                <p style="margin: 0 0 10px; color: #374151; font-size: 16px; font-weight: 600; line-height: 1.4;">
-                  Need help or want to share feedback?
-                </p>
-                <p style="margin: 0; color: #6b7280; font-size: 15px; line-height: 1.5;">
-                  We're here for you: <a href="mailto:support@journalmate.ai" style="color: #8b5cf6; text-decoration: none; font-weight: 600;">support@journalmate.ai</a>
-                </p>
-              </div>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f9fafb; padding: 35px 40px; text-align: center; border-top: 1px solid #e5e7eb; border-radius: 0 0 20px 20px;">
-              <p style="margin: 0 0 8px; color: #111827; font-size: 18px; font-weight: 600; letter-spacing: 0.5px; line-height: 1.4;">
-                Welcome to the rhythm. 💫
-              </p>
-              <p style="margin: 0 0 20px; color: #6b7280; font-size: 15px; line-height: 1.5;">
-                Made with ❤️ by <strong>JournalMate</strong>
-              </p>
-              
-              <!-- Social Media Icons -->
-              <table align="center" cellpadding="0" cellspacing="0" style="margin: 0 auto 20px;">
+    </style>
+  </head>
+  <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','Ubuntu','Cantarell','Fira Sans','Droid Sans','Helvetica Neue',sans-serif;background-color:#f3f4f6">
+    <table border="0" width="100%" cellpadding="0" cellspacing="0" role="presentation" align="center" style="background-color:#f3f4f6;padding:30px 15px">
+      <tbody>
+        <tr>
+          <td align="center">
+            <table class="email-container" width="600" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:20px;box-shadow:0 10px 25px rgba(0,0,0,0.08)">
+              <tbody>
+                <!-- Header -->
                 <tr>
-                  <td style="padding: 0 8px;">
-                    <a href="https://twitter.com/journalmate_ai" target="_blank" style="text-decoration: none;">
-                      <img src="https://img.icons8.com/color/48/twitter--v1.png" alt="Twitter/X" style="width: 32px; height: 32px; display: block; border-radius: 8px;" width="32" height="32" />
-                    </a>
-                  </td>
-                  <td style="padding: 0 8px;">
-                    <a href="https://www.facebook.com/profile.php?id=61583966435460" target="_blank" style="text-decoration: none;">
-                      <img src="https://img.icons8.com/color/48/facebook-new.png" alt="Facebook" style="width: 32px; height: 32px; display: block; border-radius: 8px;" width="32" height="32" />
-                    </a>
-                  </td>
-                  <td style="padding: 0 8px;">
-                    <a href="https://www.instagram.com/journalmate.ai/" target="_blank" style="text-decoration: none;">
-                      <img src="https://img.icons8.com/color/48/instagram-new--v1.png" alt="Instagram" style="width: 32px; height: 32px; display: block; border-radius: 8px;" width="32" height="32" />
-                    </a>
-                  </td>
-                  <td style="padding: 0 8px;">
-                    <a href="https://www.tiktok.com/@dtanaruno" target="_blank" style="text-decoration: none;">
-                      <img src="https://img.icons8.com/color/48/tiktok--v1.png" alt="TikTok" style="width: 32px; height: 32px; display: block; border-radius: 8px;" width="32" height="32" />
-                    </a>
+                  <td class="header-padding" align="center" style="padding:40px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%);text-align:center;border-radius:20px 20px 0 0">
+                    <img alt="JournalMate Logo" height="80" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:8px;margin:0 auto 15px" width="80" />
+                    <h1 style="margin:0;padding:0;font-size:28px;line-height:1.44em;padding-top:0.389em;font-weight:700;color:#ffffff;letter-spacing:0.5px">Welcome to JournalMate</h1>
+                    <p style="margin:8px 0 0;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:rgba(255,255,255,0.95);line-height:1.4">Plan Together. Discover Together. Grow Together.</p>
                   </td>
                 </tr>
-              </table>
-              
-              <p style="margin: 0; color: #9ca3af; font-size: 13px; line-height: 1.5;">
-                © 2025 JournalMate. All rights reserved.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
+
+                <!-- Personal Greeting -->
+                <tr>
+                  <td style="padding:0">
+                    <p style="margin:0;padding:0;font-size:1em;padding-top:0.5em;padding-bottom:0.5em"><br /></p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 40px">
+                    <h2 style="margin:0 0 16px;padding:0;font-size:24px;line-height:1.3;padding-top:0.389em;font-weight:700;color:#111827">Hey ${firstName}! 👋</h2>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="content-padding" style="padding:0 40px 20px">
+                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6"><strong>You're now part of a community that plans smarter, grows together, and never misses life's special moments.</strong></p>
+                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6">Welcome to JournalMate—where adaptive planning, emotional intelligence, and rhythm-aware journaling transform your dreams into reality. But that's not all...</p>
+                  </td>
+                </tr>
+
+                <!-- NEW FEATURES Highlight -->
+                <tr>
+                  <td class="section-padding" style="padding:35px 40px;background:linear-gradient(135deg,#FEF3C7 0%,#FCD34D 20%,#FEF3C7 100%)">
+                    <div style="text-align:center;margin-bottom:20px">
+                      <span style="background:#F59E0B;color:#ffffff;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:0.5px">🔥 NEW FEATURES</span>
+                    </div>
+                    <h3 style="margin:0 0 16px;padding:0;font-size:24px;line-height:1.08em;padding-top:0.389em;font-weight:700;color:#111827;text-align:center">🌍 Discover Trending Plans Near You</h3>
+                    <p style="margin:0 0 24px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6;text-align:center">See what's happening around you in real-time! From <strong>chasing the Aurora Borealis</strong> to <strong>weather alerts</strong> like incoming storms, JournalMate keeps you connected to what matters NOW.</p>
+                    
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:20px">
+                      <tbody>
+                        <tr>
+                          <td class="trending-card" style="padding:20px;width:48%;display:inline-block;vertical-align:top;background-color:#ffffff;border-radius:12px;margin-right:4%;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+                            <div style="font-size:32px;margin-bottom:8px;text-align:center">🌌</div>
+                            <h4 style="margin:0 0 6px;padding:0;color:#111827;font-size:16px;font-weight:700;text-align:center">Aurora Alert</h4>
+                            <p style="margin:0;padding:0;font-size:14px;padding-top:0.5em;padding-bottom:0.5em;color:#6b7280;line-height:1.4;text-align:center">Northern Lights visible tonight in Iceland &amp; Alaska</p>
+                          </td>
+                          <td class="trending-card" style="padding:20px;width:48%;display:inline-block;vertical-align:top;background-color:#ffffff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+                            <div style="font-size:32px;margin-bottom:8px;text-align:center">⚠️</div>
+                            <h4 style="margin:0 0 6px;padding:0;color:#111827;font-size:16px;font-weight:700;text-align:center">Storm Warning</h4>
+                            <p style="margin:0;padding:0;font-size:14px;padding-top:0.5em;padding-bottom:0.5em;color:#6b7280;line-height:1.4;text-align:center">Ice storm expected in Northeast - plan indoor activities</p>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:20px">
+                      <tbody>
+                        <tr>
+                          <td class="trending-card" style="padding:20px;width:48%;display:inline-block;vertical-align:top;background-color:#ffffff;border-radius:12px;margin-right:4%;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+                            <div style="font-size:32px;margin-bottom:8px;text-align:center">🎪</div>
+                            <h4 style="margin:0 0 6px;padding:0;color:#111827;font-size:16px;font-weight:700;text-align:center">Festival Alert</h4>
+                            <p style="margin:0;padding:0;font-size:14px;padding-top:0.5em;padding-bottom:0.5em;color:#6b7280;line-height:1.4;text-align:center">Coachella tickets on sale this Friday</p>
+                          </td>
+                          <td class="trending-card" style="padding:20px;width:48%;display:inline-block;vertical-align:top;background-color:#ffffff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+                            <div style="font-size:32px;margin-bottom:8px;text-align:center">🎉</div>
+                            <h4 style="margin:0 0 6px;padding:0;color:#111827;font-size:16px;font-weight:700;text-align:center">Local Event</h4>
+                            <p style="margin:0;padding:0;font-size:14px;padding-top:0.5em;padding-bottom:0.5em;color:#6b7280;line-height:1.4;text-align:center">Saturday farmers market - fresh produce &amp; live music</p>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <p style="margin:0;padding:0;font-size:15px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6;text-align:center">Plus: <strong>Every activity comes with a clickable link</strong> 🔗 so you can jump directly to your plans, share them instantly, and track progress from anywhere!</p>
+                  </td>
+                </tr>
+
+                <!-- Getting Started CTA -->
+                <tr>
+                  <td class="section-padding" style="padding:40px;background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)">
+                    <h3 style="margin:0 0 20px;padding:0;font-size:24px;line-height:1.08em;padding-top:0.389em;font-weight:700;color:#ffffff;text-align:center">🚀 Getting Started Is Easy</h3>
+                    <ol style="margin:0;padding:0;padding-left:25px;color:#ffffff;font-size:15px;line-height:1.8">
+                      <li style="margin:0 0 10px"><strong>Create Your First Plan</strong> → Try Quick Plan or Smart Plan</li>
+                      <li style="margin:0 0 10px"><strong>Explore Trending Plans</strong> near you for instant inspiration</li>
+                      <li style="margin:0 0 10px"><strong>Browse Community Plans</strong> and copy ones you love</li>
+                      <li style="margin:0 0 10px"><strong>Journal with @keywords</strong>, photos, or voice notes</li>
+                      <li style="margin:0 0 10px"><strong>Share your rhythm</strong> with friends or groups</li>
+                      <li style="margin:0"><strong>Swipe to complete</strong>, skip, or reflect on activities</li>
+                    </ol>
+                    <div style="padding:15px 0;text-align:center">
+                      <a href="${appURL}/dashboard" style="color:#ffffff;text-decoration:none;display:inline-block;background:linear-gradient(135deg,#14B8A6 0%,#0D9488 100%);padding:16px 36px;border-radius:12px;font-size:17px;font-weight:700;box-shadow:0 4px 12px rgba(20,184,166,0.3)">Start Planning with JournalMate</a>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Community Stats -->
+                <tr>
+                  <td class="section-padding" style="padding:25px 40px;background:linear-gradient(135deg,#F3F4F6 0%,#E5E7EB 100%)">
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+                      <tbody>
+                        <tr>
+                          <td align="center" style="padding:15px;width:33%;text-align:center">
+                            <div style="font-size:32px;font-weight:700;color:#7C3AED;margin-bottom:5px">10K+</div>
+                            <div style="font-size:14px;color:#6b7280;font-weight:600">Active Planners</div>
+                          </td>
+                          <td align="center" style="padding:15px;width:33%;text-align:center;border-left:2px solid #D1D5DB;border-right:2px solid #D1D5DB">
+                            <div style="font-size:32px;font-weight:700;color:#14B8A6;margin-bottom:5px">50K+</div>
+                            <div style="font-size:14px;color:#6b7280;font-weight:600">Community Plans</div>
+                          </td>
+                          <td align="center" style="padding:15px;width:33%;text-align:center">
+                            <div style="font-size:32px;font-weight:700;color:#F59E0B;margin-bottom:5px">98%</div>
+                            <div style="font-size:14px;color:#6b7280;font-weight:600">Satisfaction Rate</div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Support Box -->
+                <tr>
+                  <td class="support-padding" style="padding:0 40px 40px">
+                    <div style="padding:28px;background-color:#f9fafb;border-radius:12px;border:2px solid #e5e7eb;text-align:center">
+                      <p style="margin:0 0 10px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;font-weight:600;line-height:1.4">Need help or want to share feedback?</p>
+                      <p style="margin:0;padding:0;font-size:15px;padding-top:0.5em;padding-bottom:0.5em;color:#6b7280;line-height:1.5">We're here for you: <a href="mailto:support@journalmate.ai" style="color:#8b5cf6;text-decoration:none;font-weight:600">support@journalmate.ai</a></p>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Footer with Social Media -->
+                <tr>
+                  <td align="center" style="padding:35px 40px;background-color:#f9fafb;text-align:center;border-top:1px solid #e5e7eb;border-radius:0 0 20px 20px">
+                    <p style="margin:0 0 8px;padding:0;font-size:18px;padding-top:0.5em;padding-bottom:0.5em;color:#111827;font-weight:600;letter-spacing:0.5px;line-height:1.4">Welcome to the rhythm. 💫</p>
+                    <p style="margin:0 0 16px;padding:0;font-size:15px;padding-top:0.5em;padding-bottom:0.5em;color:#6b7280;line-height:1.5">Made with ❤️ by <strong>JournalMate</strong></p>
+                    
+                    <!-- Social Media Icons - CLICKABLE -->
+                    <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto 16px">
+                      <tbody>
+                        <tr>
+                          <td style="padding:0 8px">
+                            <a href="https://twitter.com/journalmate_ai" target="_blank" style="text-decoration:none">
+                              <img alt="Twitter" src="https://img.icons8.com/color/48/twitter--v1.png" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:8px;width:32px;height:32px" width="32" height="32" />
+                            </a>
+                          </td>
+                          <td style="padding:0 8px">
+                            <a href="https://www.facebook.com/profile.php?id=61583966435460" target="_blank" style="text-decoration:none">
+                              <img alt="Facebook" src="https://img.icons8.com/color/48/facebook-new.png" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:8px;width:32px;height:32px" width="32" height="32" />
+                            </a>
+                          </td>
+                          <td style="padding:0 8px">
+                            <a href="https://www.instagram.com/journalmate.ai/" target="_blank" style="text-decoration:none">
+                              <img alt="Instagram" src="https://img.icons8.com/color/48/instagram-new--v1.png" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:8px;width:32px;height:32px" width="32" height="32" />
+                            </a>
+                          </td>
+                          <td style="padding:0 8px">
+                            <a href="https://www.tiktok.com/@dtanaruno" target="_blank" style="text-decoration:none">
+                              <img alt="TikTok" src="https://img.icons8.com/color/48/tiktok--v1.png" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:8px;width:32px;height:32px" width="32" height="32" />
+                            </a>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <p style="margin:0;padding:0;font-size:13px;padding-top:0.5em;padding-bottom:0.5em;color:#9ca3af;line-height:1.5">© 2025 JournalMate. All rights reserved.</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
 </html>`;
 }
 
@@ -411,7 +269,7 @@ export async function sendWelcomeEmail(email: string, firstName: string = 'there
     const { data, error } = await client.emails.send({
       from: fromEmail,
       to: [email],
-      subject: `Welcome to JournalMate, ${firstName}! 🎯 Plan Your Next Adventure with Adaptive AI`,
+      subject: `Welcome to JournalMate, ${firstName}! 🌍 Discover What's Trending Near You`,
       html: getWelcomeEmailHTML(firstName),
     });
 
