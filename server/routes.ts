@@ -1258,6 +1258,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           break;
         }
+
+        case 'invoice.payment_succeeded': {
+          const invoice = event.data.object as any;
+          const subscriptionId = invoice.subscription;
+          const billingReason = invoice.billing_reason; // 'subscription_create' or 'subscription_cycle'
+          
+          console.log('[WEBHOOK] invoice.payment_succeeded:', {
+            subscriptionId,
+            billingReason,
+            amount: invoice.amount_paid,
+            currency: invoice.currency
+          });
+          
+          if (subscriptionId) {
+            try {
+              // Find user by subscription ID
+              const users = await (storage as any).getAllUsers?.() || [];
+              const user = users.find((u: any) => u.stripeSubscriptionId === subscriptionId);
+              
+              if (user) {
+                // Update subscription status to active
+                await storage.updateUserField(user.id, 'subscriptionStatus', 'active');
+                
+                // If this is a renewal (subscription_cycle), reset monthly plan count
+                if (billingReason === 'subscription_cycle') {
+                  console.log('[WEBHOOK] Resetting plan count for renewal user:', user.id);
+                  await storage.updateUserField(user.id, 'planCount', 0);
+                  
+                  // Set next reset date to one month from now
+                  const nextResetDate = new Date();
+                  nextResetDate.setMonth(nextResetDate.getMonth() + 1);
+                  await storage.updateUserField(user.id, 'planCountResetDate', nextResetDate);
+                }
+                
+                // Clear trial end date on first payment
+                if (billingReason === 'subscription_create') {
+                  await storage.updateUserField(user.id, 'trialEndsAt', null);
+                }
+                
+                console.log('[WEBHOOK] Successfully processed payment for user:', user.id);
+              } else {
+                console.warn('[WEBHOOK] No user found for subscription:', subscriptionId);
+              }
+            } catch (err) {
+              console.error('[WEBHOOK] Error processing invoice.payment_succeeded:', err);
+              // Don't throw - continue processing other events
+            }
+          }
+          break;
+        }
+
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object as any;
+          const subscriptionId = invoice.subscription;
+          const reason = invoice.last_payment_error?.message || 'Unknown payment failure';
+          
+          console.log('[WEBHOOK] invoice.payment_failed:', {
+            subscriptionId,
+            reason,
+            attemptsRemaining: invoice.attempt_count
+          });
+          
+          if (subscriptionId) {
+            try {
+              // Find user by subscription ID
+              const users = await (storage as any).getAllUsers?.() || [];
+              const user = users.find((u: any) => u.stripeSubscriptionId === subscriptionId);
+              
+              if (user) {
+                // Update subscription status to past_due
+                await storage.updateUserField(user.id, 'subscriptionStatus', 'past_due');
+                
+                console.log('[WEBHOOK] Payment failed for user:', user.id, 'Reason:', reason);
+                
+                // In a full implementation, you would:
+                // 1. Send email notification to user
+                // 2. Store failure details for admin review
+                // 3. Implement grace period logic (allow limited access while resolving)
+                // 4. Trigger retries via Stripe's built-in retry logic
+              } else {
+                console.warn('[WEBHOOK] No user found for failed payment subscription:', subscriptionId);
+              }
+            } catch (err) {
+              console.error('[WEBHOOK] Error processing invoice.payment_failed:', err);
+              // Don't throw - continue processing other events
+            }
+          }
+          break;
+        }
       }
 
       res.json({ received: true });
