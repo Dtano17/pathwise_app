@@ -1090,7 +1090,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateUserField(userId, 'stripeCustomerId', customerId);
       }
 
-      // Create checkout session
       // Use production domain (journalmate.ai) for production, or dev domain for development
       const isProduction = process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production';
       const baseUrl = isProduction 
@@ -1102,25 +1101,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? 'https://journalmate.ai/icons/email/email-logo-512.png'
         : `${baseUrl}/icons/email/email-logo-512.png`;
       
-      const session = await stripe.checkout.sessions.create({
-        customer: customerId,
-        mode: 'subscription',
-        payment_method_types: ['card'],
-        line_items: [{ price: priceId, quantity: 1 }],
-        success_url: `${baseUrl}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/subscription/canceled`,
-        metadata: { userId, tier },
-        subscription_data: {
-          trial_period_days: 7,
-          metadata: { userId, tier }
-        },
-        // Add JournalMate branding with HD logo
-        custom_text: {
-          submit: {
-            message: 'Start your 7-day free trial and unlock unlimited AI-powered planning!'
+      // Try to create checkout session, but if customer doesn't exist (old test mode customer in live mode),
+      // create a new customer and try again
+      let session;
+      try {
+        session = await stripe.checkout.sessions.create({
+          customer: customerId,
+          mode: 'subscription',
+          payment_method_types: ['card'],
+          line_items: [{ price: priceId, quantity: 1 }],
+          success_url: `${baseUrl}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${baseUrl}/subscription/canceled`,
+          metadata: { userId, tier },
+          subscription_data: {
+            trial_period_days: 7,
+            metadata: { userId, tier }
+          },
+          // Add JournalMate branding with HD logo
+          custom_text: {
+            submit: {
+              message: 'Start your 7-day free trial and unlock unlimited AI-powered planning!'
+            }
           }
+        });
+      } catch (checkoutError: any) {
+        // If customer doesn't exist (likely from test mode → live mode migration), create new customer
+        if (checkoutError.code === 'resource_missing' && checkoutError.param === 'customer') {
+          console.log('[CHECKOUT] Customer not found in live mode, creating new customer');
+          const newCustomer = await stripe.customers.create({
+            email: user.email || undefined,
+            name: user.username,
+            metadata: { userId }
+          });
+          customerId = newCustomer.id;
+          await storage.updateUserField(userId, 'stripeCustomerId', customerId);
+          
+          // Retry with new customer
+          session = await stripe.checkout.sessions.create({
+            customer: customerId,
+            mode: 'subscription',
+            payment_method_types: ['card'],
+            line_items: [{ price: priceId, quantity: 1 }],
+            success_url: `${baseUrl}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${baseUrl}/subscription/canceled`,
+            metadata: { userId, tier },
+            subscription_data: {
+              trial_period_days: 7,
+              metadata: { userId, tier }
+            },
+            custom_text: {
+              submit: {
+                message: 'Start your 7-day free trial and unlock unlimited AI-powered planning!'
+              }
+            }
+          });
+        } else {
+          throw checkoutError;
         }
-      });
+      }
 
       res.json({ sessionId: session.id, url: session.url });
     } catch (error: any) {
@@ -1149,10 +1187,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? 'https://journalmate.ai'
         : (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000');
       
-      const session = await stripe.billingPortal.sessions.create({
-        customer: user.stripeCustomerId,
-        return_url: `${baseUrl}/settings`
-      });
+      let session;
+      try {
+        session = await stripe.billingPortal.sessions.create({
+          customer: user.stripeCustomerId,
+          return_url: `${baseUrl}/settings`
+        });
+      } catch (portalError: any) {
+        // If customer doesn't exist (old test mode customer), return error
+        if (portalError.code === 'resource_missing') {
+          return res.status(400).json({ error: 'Please create a subscription first' });
+        }
+        throw portalError;
+      }
 
       res.json({ url: session.url });
     } catch (error: any) {
