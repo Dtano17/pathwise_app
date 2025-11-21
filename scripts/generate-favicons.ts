@@ -2,7 +2,8 @@ import sharp from 'sharp';
 import path from 'path';
 
 async function generateFavicons() {
-  const sourceIcon = 'client/public/icons/pwa/icon-128x128.png';
+  // Use the tightly-cropped email logo (no padding) for crisp favicons
+  const sourceIcon = 'client/public/icons/email/email-logo-512.png';
   const outputDir = 'client/public';
   
   console.log('Generating favicons from:', sourceIcon);
