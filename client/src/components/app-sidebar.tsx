@@ -444,19 +444,6 @@ export function AppSidebar({
                         <Settings className="w-4 h-4" />
                         Settings
                       </Button>
-                      
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        asChild
-                        className="w-full justify-start gap-2"
-                        data-testid="button-email-test"
-                      >
-                        <Link href="/email-test">
-                          <Mail className="w-4 h-4" />
-                          Test Welcome Email
-                        </Link>
-                      </Button>
                     </div>
                     
                     {/* Sign Out Button */}

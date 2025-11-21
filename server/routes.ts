@@ -1081,10 +1081,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create checkout session
-      // Prioritize PRODUCTION_URL, then REPLIT_DOMAINS, then localhost
-      const baseUrl = process.env.PRODUCTION_URL 
-        || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : null)
-        || 'http://localhost:5000';
+      // Use production domain (journalmate.ai) for production, or dev domain for development
+      const isProduction = process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production';
+      const baseUrl = isProduction 
+        ? 'https://journalmate.ai'
+        : (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000');
+      
+      // Logo URL - use journalmate.ai for production (deployed static assets)
+      const logoUrl = isProduction
+        ? 'https://journalmate.ai/icons/email/email-logo-512.png'
+        : `${baseUrl}/icons/email/email-logo-512.png`;
       
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
@@ -1097,6 +1103,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subscription_data: {
           trial_period_days: 7,
           metadata: { userId, tier }
+        },
+        // Add JournalMate branding with HD logo
+        custom_text: {
+          submit: {
+            message: 'Start your 7-day free trial and unlock unlimited AI-powered planning!'
+          }
         }
       });
 
@@ -1121,10 +1133,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'No subscription found' });
       }
 
-      // Prioritize PRODUCTION_URL, then REPLIT_DOMAINS, then localhost
-      const baseUrl = process.env.PRODUCTION_URL 
-        || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : null)
-        || 'http://localhost:5000';
+      // Use production domain (journalmate.ai) for production, or dev domain for development
+      const isProduction = process.env.REPLIT_DEPLOYMENT === '1' || process.env.NODE_ENV === 'production';
+      const baseUrl = isProduction 
+        ? 'https://journalmate.ai'
+        : (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000');
       
       const session = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
