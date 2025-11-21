@@ -52,7 +52,7 @@ function getBaseURL(): string {
 // Welcome email template - Elegant HTML with Community Discovery
 export function getWelcomeEmailHTML(firstName: string = 'there') {
   const baseURL = getBaseURL();
-  const logoURL = 'https://resend-attachments.s3.amazonaws.com/nx67BKRdxXaeFoH';
+  const logoURL = baseURL ? `${baseURL}/icons/email/email-logo-512.png` : 'https://resend-attachments.s3.amazonaws.com/nx67BKRdxXaeFoH';
   const appURL = baseURL || 'https://journalmate.ai';
   
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
