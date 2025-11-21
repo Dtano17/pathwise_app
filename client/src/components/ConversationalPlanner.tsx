@@ -59,9 +59,11 @@ interface ConversationalPlannerProps {
   initialMode?: PlanningMode;
   activityId?: string;
   activityTitle?: string;
+  user?: any;
+  onSignInRequired?: () => void;
 }
 
-export default function ConversationalPlanner({ onClose, initialMode, activityId, activityTitle }: ConversationalPlannerProps) {
+export default function ConversationalPlanner({ onClose, initialMode, activityId, activityTitle, user, onSignInRequired }: ConversationalPlannerProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [currentSession, setCurrentSession] = useState<PlannerSession | null>(null);
@@ -497,6 +499,14 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
 
   const handleConfirmPlan = () => {
     if (!currentSession) return;
+    
+    // Check authentication before creating plan
+    const isAuthenticated = user && user.id !== 'demo-user';
+    if (!isAuthenticated && onSignInRequired) {
+      onSignInRequired();
+      return;
+    }
+    
     setIsGenerating(true);
     generatePlanMutation.mutate(currentSession.id);
   };

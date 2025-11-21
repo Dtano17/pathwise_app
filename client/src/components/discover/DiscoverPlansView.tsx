@@ -288,7 +288,11 @@ function VerificationIcon({
   );
 }
 
-export default function DiscoverPlansView() {
+interface DiscoverPlansViewProps {
+  onSignInRequired?: () => void;
+}
+
+export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansViewProps = {}) {
   const { filters, updateFilter, setLocationData, toggleLocation } = useDiscoverFilters();
   const { user } = useAuth();
   const { preferences: displayPrefs, updatePreference, resetPreferences } = useCardDisplayPreferences(user?.id || null);
@@ -849,11 +853,26 @@ export default function DiscoverPlansView() {
   };
 
   const handleUsePlanFromPreview = () => {
+    // Check authentication - demo users cannot use plans
+    const isAuthenticated = user && user.id !== 'demo-user';
+    if (!isAuthenticated && onSignInRequired) {
+      setPreviewDialogOpen(false);
+      onSignInRequired();
+      return;
+    }
+    
     setPreviewDialogOpen(false);
     setAdoptDialogOpen(true);
   };
 
   const handleUsePlan = (activityId: string, shareToken: string | null, title: string) => {
+    // Check authentication - demo users cannot use plans
+    const isAuthenticated = user && user.id !== 'demo-user';
+    if (!isAuthenticated && onSignInRequired) {
+      onSignInRequired();
+      return;
+    }
+    
     if (!shareToken) {
       toast({
         title: "Cannot use plan",

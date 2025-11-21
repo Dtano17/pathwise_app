@@ -297,6 +297,16 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
       const generatedPlan = session.slots?._generatedPlan;
       
       if (generatedPlan) {
+        // SECURITY: Block demo users from creating activities/tasks
+        if (isDemoUser(userId)) {
+          return res.status(403).json({
+            error: 'Demo users cannot create activities. Please sign in to save your plan.',
+            requiresAuth: true,
+            message: '🔒 **Sign In Required**\n\nDemo users can chat with the AI and see plan previews, but you need to sign in to save plans and create tasks.\n\nSign in to unlock:\n✅ Save plans and tasks\n✅ Track your progress\n✅ Collaborate with others',
+            session
+          });
+        }
+        
         // Check plan usage limits
         const usageCheck = await checkAndIncrementPlanUsage(userId);
         if (!usageCheck.allowed) {
@@ -1777,6 +1787,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Temporary user ID for demo - in real app this would come from authentication
   const DEMO_USER_ID = "demo-user";
+  
+  // Helper function to check if a user is a demo user
+  const isDemoUser = (userId: string | undefined): boolean => {
+    return userId === DEMO_USER_ID || userId === 'demo-user';
+  };
 
   // Create demo user if not exists (for backwards compatibility)
   const existingUser = await storage.getUser(DEMO_USER_ID);
@@ -4345,10 +4360,20 @@ ${emoji} ${progressLine}
         hasUser: !!req.user
       });
       
-      // Allow demo users to copy community plans
-      // If no user ID, use demo-user for community plan discovery
+      // SECURITY: Block demo users from copying activities
+      // If no user ID, use demo-user for viewing but block copying
       const userId = currentUserId || 'demo-user';
       console.log('[COPY ACTIVITY] Using userId:', userId, currentUserId ? '(authenticated)' : '(demo user)');
+      
+      // Demo users cannot copy/save activities
+      if (isDemoUser(userId)) {
+        console.log('[COPY ACTIVITY] Blocked - demo user cannot copy activities');
+        return res.status(403).json({ 
+          error: 'Demo users cannot copy activities. Please sign in to save this plan.',
+          requiresAuth: true,
+          message: 'Sign in to save and track this plan!'
+        });
+      }
       
       // Get the activity by share token
       const sharedActivity = await storage.getActivityByShareToken(shareToken);
@@ -5453,6 +5478,15 @@ ${emoji} ${progressLine}
   app.post("/api/journal", async (req, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // SECURITY: Block demo users from creating journal entries
+      if (isDemoUser(userId)) {
+        return res.status(403).json({
+          error: 'Demo users cannot create journal entries. Please sign in to start journaling.',
+          requiresAuth: true
+        });
+      }
+      
       const entryData = insertJournalEntrySchema.parse(req.body);
       const entry = await storage.createJournalEntry({
         ...entryData,
@@ -5469,6 +5503,15 @@ ${emoji} ${progressLine}
     try {
       const { entryId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // SECURITY: Block demo users from updating journal entries
+      if (isDemoUser(userId)) {
+        return res.status(403).json({
+          error: 'Demo users cannot update journal entries. Please sign in to continue.',
+          requiresAuth: true
+        });
+      }
+      
       const updates = req.body;
       const entry = await storage.updateJournalEntry(entryId, updates, userId);
       
@@ -6922,6 +6965,15 @@ You can find these tasks in your task list and start working on them right away!
   app.post("/api/journal/upload", upload.array('media', 5), async (req: any, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // SECURITY: Block demo users from uploading media
+      if (isDemoUser(userId)) {
+        return res.status(403).json({
+          error: 'Demo users cannot upload media. Please sign in to continue.',
+          requiresAuth: true
+        });
+      }
+      
       const files = req.files as Express.Multer.File[];
       
       if (!files || files.length === 0) {
@@ -6945,6 +6997,15 @@ You can find these tasks in your task list and start working on them right away!
   app.post("/api/journal/smart-entry", async (req: any, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // SECURITY: Block demo users from creating smart journal entries
+      if (isDemoUser(userId)) {
+        return res.status(403).json({
+          error: 'Demo users cannot create journal entries. Please sign in to start journaling.',
+          requiresAuth: true
+        });
+      }
+      
       const { text, media, keywords, activityId, linkedActivityTitle, mood } = req.body;
 
       if (!text) {
@@ -7082,6 +7143,15 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     try {
       const { entryId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // SECURITY: Block demo users from updating journal entries
+      if (isDemoUser(userId)) {
+        return res.status(403).json({
+          error: 'Demo users cannot update journal entries. Please sign in to continue.',
+          requiresAuth: true
+        });
+      }
+      
       const { activityId, linkedActivityTitle } = req.body;
       
       // Get current preferences
@@ -8170,6 +8240,15 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
 
       if (!userInput || typeof userInput !== 'string') {
         return res.status(400).json({ error: 'User input is required' });
+      }
+      
+      // SECURITY: Block demo users from creating activities/tasks
+      if (isDemoUser(userId)) {
+        return res.status(403).json({
+          error: 'Demo users cannot create activities. Please sign in to save your plan.',
+          requiresAuth: true,
+          message: 'Sign in to save your plan and track your progress!'
+        });
       }
 
       const user = await storage.getUser(userId);

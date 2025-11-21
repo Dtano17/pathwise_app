@@ -27,6 +27,7 @@ import ChatHistory from './ChatHistory';
 import RecentGoals from './RecentGoals';
 import ProgressReport from './ProgressReport';
 import { SocialLogin } from '@/components/SocialLogin';
+import { SignInPromptModal } from '@/components/SignInPromptModal';
 import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2, Circle, UserPlus, Globe2, Link2 } from 'lucide-react';
 import DiscoverPlansView from '@/components/discover/DiscoverPlansView';
 import { Link } from 'wouter';
@@ -419,6 +420,11 @@ export default function MainApp({
   
   // Sign-in dialog state
   const [showSignInDialog, setShowSignInDialog] = useState(false);
+  
+  // Sign-in prompt states for different contexts
+  const [showPlannerSignIn, setShowPlannerSignIn] = useState(false);
+  const [showJournalSignIn, setShowJournalSignIn] = useState(false);
+  const [showDiscoverSignIn, setShowDiscoverSignIn] = useState(false);
 
   // Check if user has completed tutorial (show on first login/visit)
   useEffect(() => {
@@ -1409,7 +1415,9 @@ export default function MainApp({
 
             {/* Discover Tab */}
             <TabsContent value="discover" className="space-y-6 pb-20">
-              <DiscoverPlansView />
+              <DiscoverPlansView 
+                onSignInRequired={() => setShowDiscoverSignIn(true)}
+              />
             </TabsContent>
 
             {/* Goal Input Tab */}
@@ -1474,7 +1482,7 @@ export default function MainApp({
                         if (isAuthenticated) {
                           onShowLifestylePlanner(true);
                         } else {
-                          setShowSignInDialog(true);
+                          setShowJournalSignIn(true);
                         }
                       }}
                       variant="outline"
@@ -3638,6 +3646,8 @@ Assistant: For nutrition, I recommend..."
             }}
             activityId={journalActivityContext?.activityId}
             activityTitle={journalActivityContext?.title}
+            user={user}
+            onSignInRequired={() => setShowPlannerSignIn(true)}
           />
         </DialogContent>
       </Dialog>
@@ -3849,6 +3859,28 @@ Assistant: For nutrition, I recommend..."
           refetchActivities();
           refetchGroups();
         }}
+      />
+
+      {/* Sign-In Prompt Modals */}
+      <SignInPromptModal
+        open={showPlannerSignIn}
+        onOpenChange={setShowPlannerSignIn}
+        title="Sign In to Save Your Plan"
+        description="Sign in to save this plan, create tasks, and collaborate with others"
+      />
+      
+      <SignInPromptModal
+        open={showJournalSignIn}
+        onOpenChange={setShowJournalSignIn}
+        title="Sign In to Access Journal"
+        description="Sign in to create personal journal entries and track your memories"
+      />
+      
+      <SignInPromptModal
+        open={showDiscoverSignIn}
+        onOpenChange={setShowDiscoverSignIn}
+        title="Sign In to Use This Plan"
+        description="Sign in to use this plan and track your progress"
       />
 
     </div>
