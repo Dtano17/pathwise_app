@@ -16,7 +16,8 @@ import {
   Contact,
   CheckCircle,
   Clock,
-  UserX
+  UserX,
+  Smartphone
 } from "lucide-react";
 import {
   Dialog,
@@ -26,6 +27,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { isNative } from "@/lib/platform";
+import { getContacts, syncContactsWithServer, type SimpleContact } from "@/lib/contacts";
 
 interface Contact {
   id: string;
@@ -58,23 +61,21 @@ export default function Contacts() {
   });
 
   // Get user's contacts
-  const { data: contacts = [], isLoading } = useQuery({
+  const { data: contacts = [], isLoading } = useQuery<Contact[]>({
     queryKey: ['/api/contacts']
   });
 
   // Sync phone contacts mutation
   const syncContactsMutation = useMutation({
     mutationFn: async (phoneContacts: PhoneContact[]) => {
-      return apiRequest('/api/contacts/sync', {
-        method: 'POST',
-        body: JSON.stringify({ contacts: phoneContacts })
-      });
+      const response = await apiRequest('POST', '/api/contacts/sync', { contacts: phoneContacts });
+      return await response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/contacts'] });
       toast({
         title: "Contacts Synced!",
-        description: `Successfully synced ${data.syncedCount} contacts from your phone.`,
+        description: `Successfully synced ${data.syncedCount || 0} contacts from your phone.`,
       });
     },
     onError: (error: any) => {
@@ -89,10 +90,8 @@ export default function Contacts() {
   // Add manual contact mutation
   const addContactMutation = useMutation({
     mutationFn: async (contactData: typeof newContact) => {
-      return apiRequest('/api/contacts', {
-        method: 'POST',
-        body: JSON.stringify(contactData)
-      });
+      const response = await apiRequest('POST', '/api/contacts', contactData);
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contacts'] });
@@ -114,41 +113,42 @@ export default function Contacts() {
 
   // Handle phone contact picker
   const handleSyncPhoneContacts = async () => {
-    if (!('contacts' in navigator)) {
+    // Check if on mobile app
+    if (!isNative()) {
       toast({
-        title: "Not Supported",
-        description: "Contact picker is not supported in your browser. Please add contacts manually.",
+        title: "Mobile Feature",
+        description: "Contact import is available on our mobile app. Download from the App Store or Play Store, or add contacts manually.",
         variant: "destructive",
       });
       return;
     }
-
+    
     try {
-      const contacts = await (navigator as any).contacts.select(['name', 'email', 'tel'], { multiple: true });
+      // Get contacts from device using Capacitor
+      const phoneContacts = await getContacts();
       
-      if (contacts && contacts.length > 0) {
-        const phoneContacts: PhoneContact[] = contacts.map((contact: any) => ({
-          name: contact.name?.[0] || 'Unknown Contact',
-          emails: contact.email || [],
-          tel: contact.tel || []
-        }));
-
-        syncContactsMutation.mutate(phoneContacts);
-      } else {
+      if (phoneContacts.length === 0) {
         toast({
-          title: "No Contacts Selected",
-          description: "Please select contacts to sync.",
+          title: "No Contacts Found",
+          description: "No contacts found on your device or permission was denied.",
+          variant: "destructive",
         });
-      }
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        // User cancelled, do nothing
         return;
       }
       
+      // Sync with server
+      await syncContactsWithServer(phoneContacts);
+      queryClient.invalidateQueries({ queryKey: ['/api/contacts'] });
+      
       toast({
-        title: "Contact Access Failed",
-        description: "Unable to access phone contacts. Please add contacts manually.",
+        title: "Contacts Imported!",
+        description: `Successfully imported ${phoneContacts.length} contacts from your device.`,
+      });
+    } catch (error: any) {
+      console.error('Contact sync error:', error);
+      toast({
+        title: "Import Failed",
+        description: error.message || "Failed to import contacts. Please try again.",
         variant: "destructive",
       });
     }

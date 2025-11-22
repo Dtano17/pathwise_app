@@ -5,8 +5,23 @@
  * information for collaborative activities
  */
 
-import { Contacts, type Contact, type GetContactsResult } from '@capacitor-community/contacts';
+import { Contacts, type GetContactsResult } from '@capacitor-community/contacts';
 import { isNative } from './platform';
+
+// Define Contact type locally to match Capacitor ContactPayload
+interface Contact {
+  contactId: string;
+  name?: {
+    display?: string | null;
+    given?: string | null;
+    family?: string | null;
+  };
+  phones?: Array<{ number?: string | null }>;
+  emails?: Array<{ address?: string | null }>;
+  image?: {
+    base64String?: string | null;
+  };
+}
 
 export interface SimpleContact {
   id: string;
@@ -207,8 +222,8 @@ function transformContact(contact: Contact): SimpleContact | null {
       `${contact.name?.given || ''} ${contact.name?.family || ''}`.trim() ||
       'Unknown';
 
-    const phoneNumbers = contact.phones?.map((p) => p.number || '').filter(Boolean) || [];
-    const emails = contact.emails?.map((e) => e.address || '').filter(Boolean) || [];
+    const phoneNumbers = contact.phones?.map((p: { number?: string | null }) => p.number || '').filter(Boolean) || [];
+    const emails = contact.emails?.map((e: { address?: string | null }) => e.address || '').filter(Boolean) || [];
     const photoUrl = contact.image?.base64String
       ? `data:image/jpeg;base64,${contact.image.base64String}`
       : undefined;

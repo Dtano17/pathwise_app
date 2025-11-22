@@ -13,15 +13,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap, Moon, LineChart, Mail } from 'lucide-react';
+import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap, Moon, LineChart, Mail, CheckSquare, Globe2, Plug, SettingsIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SocialLogin } from '@/components/SocialLogin';
 import ProfileSettingsModal from '@/components/ProfileSettingsModal';
 import NotificationManager from '@/components/NotificationManager';
 import SmartScheduler from '@/components/SmartScheduler';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 const themes = [
   { id: 'work', name: 'Work Focus', icon: Briefcase, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
@@ -31,6 +35,26 @@ const themes = [
   { id: 'adventure', name: 'Adventure', icon: Mountain, color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
   { id: 'wellness', name: 'Health & Wellness', icon: Activity, color: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200' }
 ];
+
+// Available Quick Actions that users can customize
+interface QuickAction {
+  id: string;
+  name: string;
+  icon: any;
+  action?: () => void;
+  href?: string;
+  testId: string;
+}
+
+const AVAILABLE_QUICK_ACTIONS: Record<string, Omit<QuickAction, 'action'>> = {
+  goalInput: { id: 'goalInput', name: 'Goal Input', icon: Target, testId: 'button-goal-input-quick' },
+  discover: { id: 'discover', name: 'Discover', icon: Globe2, href: '/discover', testId: 'button-discover-quick' },
+  activities: { id: 'activities', name: 'Activities', icon: Activity, testId: 'button-activities-quick' },
+  allTasks: { id: 'allTasks', name: 'All Tasks', icon: CheckSquare, testId: 'button-all-tasks-quick' },
+  progress: { id: 'progress', name: 'Progress', icon: BarChart3, testId: 'button-progress-quick' },
+  groups: { id: 'groups', name: 'Groups', icon: Users, href: '/groups', testId: 'button-groups-quick' },
+  integrations: { id: 'integrations', name: 'Integrations', icon: Plug, testId: 'button-integrations-quick' },
+};
 
 interface AppSidebarProps {
   selectedTheme?: string;
@@ -45,6 +69,9 @@ interface AppSidebarProps {
   onShowEndOfDayReview?: () => void;
   onShowInsightsDashboard?: () => void;
   onOpenUpgradeModal?: (trigger: 'planLimit' | 'favorites' | 'export' | 'insights') => void;
+  onShowActivities?: () => void;
+  onShowAllTasks?: () => void;
+  onShowIntegrations?: () => void;
 }
 
 export function AppSidebar({
@@ -58,9 +85,13 @@ export function AppSidebar({
   onShowRecentGoals,
   onShowProgressReport,
   onShowEndOfDayReview,
-  onOpenUpgradeModal
+  onOpenUpgradeModal,
+  onShowActivities,
+  onShowAllTasks,
+  onShowIntegrations
 }: AppSidebarProps) {
   const { user, isAuthenticated, isLoading, login, logout, isLoggingOut } = useAuth();
+  const { toast } = useToast();
   const selectedThemeData = selectedTheme ? themes.find(t => t.id === selectedTheme) : null;
   const [isProfileExpanded, setIsProfileExpanded] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -69,14 +100,162 @@ export function AppSidebar({
   // Collapsible section states
   const [isThemeExpanded, setIsThemeExpanded] = useState(false);
   const [isJournalExpanded, setIsJournalExpanded] = useState(false);
-  const [isQuickActionsExpanded, setIsQuickActionsExpanded] = useState(false);
+  const [isQuickActionsExpanded, setIsQuickActionsExpanded] = useState(true); // Default open
   const [isFriendsExpanded, setIsFriendsExpanded] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [isNotificationsExpanded, setIsNotificationsExpanded] = useState(false);
   const [isSchedulerExpanded, setIsSchedulerExpanded] = useState(false);
 
+  // Compute which quick actions are actually available based on callback presence
+  const getAvailableActions = (): Set<string> => {
+    const available = new Set<string>();
+    
+    // Actions with href always work (route-based navigation)
+    Object.entries(AVAILABLE_QUICK_ACTIONS).forEach(([id, action]) => {
+      if (action.href) {
+        available.add(id);
+      }
+    });
+    
+    // Actions requiring callbacks - only add if callback exists
+    if (onShowThemeSelector) available.add('goalInput');
+    if (onShowActivities) available.add('activities');
+    if (onShowAllTasks) available.add('allTasks');
+    if (onShowProgressReport) available.add('progress');
+    if (onShowIntegrations) available.add('integrations');
+    
+    return available;
+  };
+
+  // Quick Actions customization
+  const [isQuickActionsDialogOpen, setIsQuickActionsDialogOpen] = useState(false);
+  const DEFAULT_QUICK_ACTIONS = ['goalInput', 'discover', 'progress'];
+  const [enabledQuickActions, setEnabledQuickActions] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('quickActionsEnabled');
+      if (!saved) return DEFAULT_QUICK_ACTIONS;
+      
+      const parsed = JSON.parse(saved);
+      // Sanitize: only keep valid action IDs that exist in AVAILABLE_QUICK_ACTIONS
+      const validActions = parsed.filter((id: string) => 
+        Object.keys(AVAILABLE_QUICK_ACTIONS).includes(id)
+      );
+      
+      // If no valid actions remain, reset to defaults
+      return validActions.length > 0 ? validActions : DEFAULT_QUICK_ACTIONS;
+    } catch (error) {
+      console.error('Failed to load quick actions from localStorage:', error);
+      toast({
+        title: "Quick Actions Load Failed",
+        description: "Using default quick actions. Your customizations could not be restored.",
+        variant: "destructive",
+      });
+      return DEFAULT_QUICK_ACTIONS;
+    }
+  });
+
+  // Save to localStorage when changed, and purge unavailable IDs
+  useEffect(() => {
+    try {
+      // Clean up: remove any unavailable actions from persisted state
+      const availableActions = getAvailableActions();
+      const cleanedActions = enabledQuickActions.filter(id => availableActions.has(id));
+      
+      // Only update if we actually removed unavailable actions
+      if (cleanedActions.length !== enabledQuickActions.length && cleanedActions.length > 0) {
+        setEnabledQuickActions(cleanedActions);
+        return; // Will trigger this effect again with cleaned data
+      }
+      
+      localStorage.setItem('quickActionsEnabled', JSON.stringify(enabledQuickActions));
+    } catch (error) {
+      console.error('Failed to save quick actions to localStorage:', error);
+      toast({
+        title: "Save Failed",
+        description: "Could not save Quick Actions settings. Changes may not persist.",
+        variant: "destructive",
+      });
+    }
+  }, [enabledQuickActions, toast]);
+
+  const toggleQuickAction = (actionId: string) => {
+    const availableActions = getAvailableActions();
+    
+    // Check if action is actually available (has handler or href)
+    if (!availableActions.has(actionId) && !enabledQuickActions.includes(actionId)) {
+      toast({
+        title: "Action Unavailable",
+        description: "This quick action is not currently available in your setup.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      setEnabledQuickActions(prev => {
+        const newActions = prev.includes(actionId) 
+          ? prev.filter(id => id !== actionId)
+          : [...prev, actionId];
+        
+        // Ensure at least one action remains enabled
+        return newActions.length > 0 ? newActions : prev;
+      });
+    } catch (error) {
+      console.error('Failed to toggle quick action:', error);
+      toast({
+        title: "Toggle Failed",
+        description: "Could not update Quick Actions. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleThemeSelect = (themeId: string) => {
     onThemeSelect?.(themeId);
+  };
+
+  // Map quick action IDs to their handlers with guaranteed fallbacks
+  const getQuickActionHandler = (actionId: string): (() => void) | undefined => {
+    const handlers: Record<string, () => void> = {
+      goalInput: () => {
+        if (onShowThemeSelector) {
+          onShowThemeSelector();
+        } else {
+          // Fallback: show error toast if callback not provided
+          console.warn('Goal Input action clicked but onShowThemeSelector callback not provided');
+        }
+      },
+      activities: () => {
+        if (onShowActivities) {
+          onShowActivities();
+        } else {
+          // No callback provided - this action shouldn't be enabled without it
+          console.warn('Activities action clicked but onShowActivities callback not provided');
+        }
+      },
+      allTasks: () => {
+        if (onShowAllTasks) {
+          onShowAllTasks();
+        } else {
+          console.warn('All Tasks action clicked but onShowAllTasks callback not provided');
+        }
+      },
+      progress: () => {
+        if (onShowProgressReport) {
+          onShowProgressReport();
+        } else {
+          console.warn('Progress action clicked but onShowProgressReport callback not provided');
+        }
+      },
+      integrations: () => {
+        if (onShowIntegrations) {
+          onShowIntegrations();
+        } else {
+          console.warn('Integrations action clicked but onShowIntegrations callback not provided');
+        }
+      },
+    };
+    return handlers[actionId];
   };
 
   return (
@@ -178,7 +357,7 @@ export function AppSidebar({
           </SidebarGroup>
         </Collapsible>
 
-        {/* Quick Actions Section */}
+        {/* Quick Actions Section - Customizable Docking Station */}
         <Collapsible open={isQuickActionsExpanded} onOpenChange={setIsQuickActionsExpanded}>
           <SidebarGroup>
             <CollapsibleTrigger asChild>
@@ -187,35 +366,73 @@ export function AppSidebar({
                   <Zap className="w-4 h-4" />
                   Quick Actions
                 </div>
-                {isQuickActionsExpanded ? (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                )}
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsQuickActionsDialogOpen(true);
+                    }}
+                    data-testid="button-customize-quick-actions"
+                  >
+                    <SettingsIcon className="w-3 h-3" />
+                  </Button>
+                  {isQuickActionsExpanded ? (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </div>
               </SidebarGroupLabel>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  onClick={onShowDatePlanner}
-                  data-testid="button-date-planner-sidebar"
-                >
-                  <Heart className="w-4 h-4" />
-                  <span>Plan a Date</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  onClick={onShowThemeSelector}
-                  data-testid="button-full-theme-selector-sidebar"
-                >
-                  <Target className="w-4 h-4" />
-                  <span>Browse All Themes</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
+                <SidebarMenu>
+                  {enabledQuickActions
+                    .filter(actionId => {
+                      // Only show actions that are both enabled AND available (have handlers)
+                      const availableActions = getAvailableActions();
+                      return availableActions.has(actionId);
+                    })
+                    .map(actionId => {
+                      const action = AVAILABLE_QUICK_ACTIONS[actionId];
+                      if (!action) return null;
+                      const Icon = action.icon;
+                      const handler = getQuickActionHandler(actionId);
+
+                      if (action.href) {
+                        return (
+                          <SidebarMenuItem key={actionId}>
+                            <SidebarMenuButton asChild data-testid={action.testId}>
+                              <Link href={action.href}>
+                                <Icon className="w-4 h-4" />
+                                <span>{action.name}</span>
+                              </Link>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        );
+                      }
+
+                      return (
+                        <SidebarMenuItem key={actionId}>
+                          <SidebarMenuButton 
+                            onClick={handler}
+                            data-testid={action.testId}
+                          >
+                            <Icon className="w-4 h-4" />
+                            <span>{action.name}</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  {enabledQuickActions.filter(id => getAvailableActions().has(id)).length === 0 && (
+                    <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                      No quick actions enabled. Click the settings icon to customize.
+                    </div>
+                  )}
+                </SidebarMenu>
               </SidebarGroupContent>
             </CollapsibleContent>
           </SidebarGroup>
@@ -239,25 +456,17 @@ export function AppSidebar({
             </CollapsibleTrigger>
             <CollapsibleContent>
               <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  onClick={onShowContacts}
-                  data-testid="button-contacts-sidebar"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>Manage Contacts</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild data-testid="button-groups-sidebar">
-                  <Link href="/groups">
-                    <Users className="w-4 h-4" />
-                    <span>Groups</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={onShowContacts}
+                      data-testid="button-contacts-sidebar"
+                    >
+                      <Users className="w-4 h-4" />
+                      <span>Manage Contacts</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
               </SidebarGroupContent>
             </CollapsibleContent>
           </SidebarGroup>
@@ -498,6 +707,60 @@ export function AppSidebar({
         defaultTab={modalTab}
         onOpenUpgradeModal={onOpenUpgradeModal}
       />
+
+      {/* Quick Actions Customization Dialog */}
+      <Dialog open={isQuickActionsDialogOpen} onOpenChange={setIsQuickActionsDialogOpen}>
+        <DialogContent className="max-w-md" data-testid="dialog-customize-quick-actions">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5" />
+              Customize Quick Actions
+            </DialogTitle>
+            <DialogDescription>
+              Select which features appear in your Quick Actions docking station for fast access
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            {Object.values(AVAILABLE_QUICK_ACTIONS).map(action => {
+              const Icon = action.icon;
+              const isEnabled = enabledQuickActions.includes(action.id);
+              const availableActions = getAvailableActions();
+              const isAvailable = availableActions.has(action.id);
+              
+              return (
+                <div key={action.id} className="flex items-center justify-between gap-3 p-2 rounded-md hover-elevate">
+                  <div className="flex items-center gap-3 flex-1">
+                    <Icon className={`w-5 h-5 ${isAvailable ? 'text-muted-foreground' : 'text-muted-foreground/40'}`} />
+                    <div className="flex flex-col">
+                      <Label 
+                        htmlFor={`qa-${action.id}`} 
+                        className={`cursor-pointer font-normal ${!isAvailable ? 'opacity-50' : ''}`}
+                      >
+                        {action.name}
+                      </Label>
+                      {!isAvailable && (
+                        <span className="text-xs text-muted-foreground">
+                          Unavailable in current context
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Switch
+                    id={`qa-${action.id}`}
+                    checked={isEnabled}
+                    onCheckedChange={() => toggleQuickAction(action.id)}
+                    disabled={!isAvailable}
+                    data-testid={`switch-${action.id}`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Tip: You can reorder enabled items by toggling them off and on in your preferred sequence
+          </div>
+        </DialogContent>
+      </Dialog>
     </Sidebar>
   );
 }
