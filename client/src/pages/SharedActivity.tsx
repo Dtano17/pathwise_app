@@ -386,56 +386,17 @@ export default function SharedActivity() {
   const handleCopyLink = async () => {
     if (!data?.activity) return;
     const url = window.location.href;
-    const activityTitle = data.activity.shareTitle || data.activity.planSummary || data.activity.title;
-    const activityDescription = data.activity.description || '';
-    const category = data.activity.category || 'other';
-
-    // Calculate progress if tasks exist
-    const progressText = totalTasks > 0 ? `${progressPercent}% complete` : 'Just started';
-
-    // Get category emoji
-    const categoryEmojis: Record<string, string> = {
-      fitness: '💪',
-      health: '🏥',
-      career: '💼',
-      learning: '📚',
-      finance: '💰',
-      relationships: '❤️',
-      creativity: '🎨',
-      travel: '✈️',
-      home: '🏠',
-      personal: '⭐',
-      other: '📋'
-    };
-    const emoji = categoryEmojis[category.toLowerCase()] || '✨';
-
-    // Get first 3 tasks to show in preview
-    const topTasks = data.tasks.slice(0, 3);
-    const taskList = topTasks.map((task, i) => {
-      const icon = task.completed ? '✅' : '▢';
-      return `${icon} ${task.title}`;
-    }).join('\n');
-
-    const moreTasksText = totalTasks > 3 ? `\n...and ${totalTasks - 3} more tasks` : '';
-
-    // Rich WhatsApp-formatted message
-    const shareText = `${emoji} *${activityTitle}* ${emoji}
-
-${activityDescription ? `${activityDescription}\n\n` : ''}📊 *Progress:* ${progressText}
-📝 *Tasks:* ${completedTasks} of ${totalTasks} completed
-
-${topTasks.length > 0 ? `*Task Highlights:*\n${taskList}${moreTasksText}\n\n` : ''}✨ *JournalMate* - Own, Edit & Share Your Plans
-Track your goals, manage tasks, and collaborate with others!
-
-👉 View this plan and start your own:
-${url}`;
+    
+    // Simple share text - WhatsApp will show rich preview from OG tags automatically
+    // This avoids duplication between message text and preview card
+    const shareText = `✨ Plan your next adventure with JournalMate.ai\n\nCustomize this plan:\n${url}`;
 
     try {
       await navigator.clipboard.writeText(shareText);
       setCopyingLink(true);
       toast({
         title: 'Link Copied!',
-        description: 'Share link with rich formatting copied to clipboard',
+        description: 'Share link copied to clipboard - WhatsApp will show a rich preview automatically',
       });
       setTimeout(() => setCopyingLink(false), 2000);
     } catch (err) {

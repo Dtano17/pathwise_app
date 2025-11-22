@@ -951,7 +951,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const activity = await storage.getActivityByShareToken(token);
       
-      if (!activity || !activity.isPublic) {
+      // Share links remain valid until activity is deleted or share token is explicitly revoked
+      // Do NOT check isPublic - privacy toggles should not break existing share links
+      if (!activity) {
         // Fall through to normal SPA handling which will show error
         return next();
       }
@@ -4125,8 +4127,10 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       // Get activity and its tasks
       const activity = await storage.getActivityByShareToken(shareToken);
       
-      if (!activity || !activity.isPublic) {
-        return res.status(404).json({ error: 'Shared activity not found' });
+      // Share links remain valid until activity is deleted or share token is explicitly revoked
+      // Do NOT check isPublic - privacy toggles should not break existing share links
+      if (!activity) {
+        return res.status(404).json({ error: 'Shared activity not found or has been deleted' });
       }
 
       // Get tasks for this activity
@@ -4181,8 +4185,10 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       // Get activity and its tasks
       const activity = await storage.getActivityByShareToken(shareToken);
 
-      if (!activity || !activity.isPublic) {
-        return res.status(404).json({ error: 'Shared activity not found' });
+      // Share links remain valid until activity is deleted or share token is explicitly revoked
+      // Do NOT check isPublic - privacy toggles should not break existing share links
+      if (!activity) {
+        return res.status(404).json({ error: 'Shared activity not found or has been deleted' });
       }
 
       // Get tasks for this activity
