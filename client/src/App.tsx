@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -34,6 +34,9 @@ function AppContent() {
   const [showRecentGoals, setShowRecentGoals] = useState(false);
   const [showProgressReport, setShowProgressReport] = useState(false);
   const [showEndOfDayReview, setShowEndOfDayReview] = useState(false);
+  
+  // Track current tab to sync between AppSidebar and MainApp
+  const mainAppTabRef = useRef<(tab: string) => void>(() => {});
 
   // Upgrade modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -89,13 +92,13 @@ function AppContent() {
                   setUpgradeTrigger(trigger);
                   setShowUpgradeModal(true);
                 }}
-                onShowGoalInput={() => window.location.href = '/?tab=input'}
-                onShowDiscover={() => window.location.href = '/?tab=discover'}
-                onShowActivities={() => window.location.href = '/?tab=activities'}
-                onShowAllTasks={() => window.location.href = '/?tab=tasks'}
-                onShowProgress={() => window.location.href = '/?tab=progress'}
-                onShowGroups={() => window.location.href = '/?tab=groups'}
-                onShowIntegrations={() => window.location.href = '/?tab=sync'}
+                onShowGoalInput={() => mainAppTabRef.current('input')}
+                onShowDiscover={() => mainAppTabRef.current('discover')}
+                onShowActivities={() => mainAppTabRef.current('activities')}
+                onShowAllTasks={() => mainAppTabRef.current('tasks')}
+                onShowProgress={() => mainAppTabRef.current('progress')}
+                onShowGroups={() => mainAppTabRef.current('groups')}
+                onShowIntegrations={() => mainAppTabRef.current('sync')}
               />
               <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
                 <MainApp
@@ -117,6 +120,9 @@ function AppContent() {
                   onShowProgressReport={setShowProgressReport}
                   showEndOfDayReview={showEndOfDayReview}
                   onShowEndOfDayReview={setShowEndOfDayReview}
+                  onTabChange={(setter) => {
+                    mainAppTabRef.current = setter;
+                  }}
                 />
               </div>
             </div>

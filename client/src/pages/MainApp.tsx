@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
@@ -82,6 +82,7 @@ interface MainAppProps {
   onShowProgressReport: (show: boolean) => void;
   showEndOfDayReview: boolean;
   onShowEndOfDayReview: (show: boolean) => void;
+  onTabChange?: (setter: (tab: string) => void) => void;
 }
 
 export default function MainApp({
@@ -102,10 +103,16 @@ export default function MainApp({
   showProgressReport,
   onShowProgressReport,
   showEndOfDayReview,
-  onShowEndOfDayReview
+  onShowEndOfDayReview,
+  onTabChange
 }: MainAppProps) {
   const [activeTab, setActiveTab] = useState("input"); // Start with Goal Input as the landing page
   const [location] = useLocation();
+  
+  // Expose setActiveTab to parent via callback
+  useEffect(() => {
+    onTabChange?.(setActiveTab);
+  }, [onTabChange]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { open, isMobile } = useSidebar();
