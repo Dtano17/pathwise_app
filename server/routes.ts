@@ -8723,12 +8723,13 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
-  // Add manual contact (secured)
-  app.post("/api/contacts", isAuthenticated, async (req, res) => {
+  // Add manual contact (demo user & authenticated)
+  app.post("/api/contacts", async (req, res) => {
     try {
-      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub;
+      // Support both authenticated users and demo users
+      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || getDemoUserId();
       if (!userId) {
-        return res.status(401).json({ error: 'Authentication required' });
+        return res.status(401).json({ error: 'Unable to identify user' });
       }
       
       // Validate request body using Zod
@@ -8757,12 +8758,13 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
-  // Get user's contacts with JournalMate status (secured)
-  app.get("/api/contacts", isAuthenticated, async (req, res) => {
+  // Get user's contacts with JournalMate status (demo user & authenticated)
+  app.get("/api/contacts", async (req, res) => {
     try {
-      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub;
+      // Support both authenticated users and demo users
+      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || getDemoUserId();
       if (!userId) {
-        return res.status(401).json({ error: 'Authentication required' });
+        return res.status(401).json({ error: 'Unable to identify user' });
       }
       
       const contacts = await contactSyncService.getUserContactsWithStatus(userId);
