@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -104,6 +105,7 @@ export default function MainApp({
   onShowEndOfDayReview
 }: MainAppProps) {
   const [activeTab, setActiveTab] = useState("input"); // Start with Goal Input as the landing page
+  const [location] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { open, isMobile } = useSidebar();
@@ -144,7 +146,7 @@ export default function MainApp({
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
-  // Handle URL query parameters for activity selection from shared links
+  // Handle URL query parameters for activity selection from shared links and tab navigation
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const activityParam = params.get('activity');
@@ -161,7 +163,7 @@ export default function MainApp({
       // Handle tab parameter without activity parameter
       setActiveTab(tabParam);
     }
-  }, []);
+  }, [location]);
 
   // Sync active tab to URL
   useEffect(() => {

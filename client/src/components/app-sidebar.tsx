@@ -48,11 +48,11 @@ interface QuickAction {
 
 const AVAILABLE_QUICK_ACTIONS: Record<string, Omit<QuickAction, 'action'>> = {
   goalInput: { id: 'goalInput', name: 'Goal Input', icon: Target, href: '/?tab=input', testId: 'button-goal-input-quick' },
-  discover: { id: 'discover', name: 'Discover', icon: Globe2, href: '/discover', testId: 'button-discover-quick' },
+  discover: { id: 'discover', name: 'Discover', icon: Globe2, href: '/?tab=discover', testId: 'button-discover-quick' },
   activities: { id: 'activities', name: 'Activities', icon: Activity, href: '/?tab=activities', testId: 'button-activities-quick' },
   allTasks: { id: 'allTasks', name: 'All Tasks', icon: CheckSquare, href: '/?tab=tasks', testId: 'button-all-tasks-quick' },
   progress: { id: 'progress', name: 'Progress', icon: BarChart3, href: '/?tab=progress', testId: 'button-progress-quick' },
-  groups: { id: 'groups', name: 'Groups', icon: Users, href: '/groups', testId: 'button-groups-quick' },
+  groups: { id: 'groups', name: 'Groups', icon: Users, href: '/?tab=groups', testId: 'button-groups-quick' },
   integrations: { id: 'integrations', name: 'Integrations', icon: Plug, href: '/?tab=sync', testId: 'button-integrations-quick' },
 };
 
