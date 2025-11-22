@@ -52,7 +52,12 @@ The application employs a mobile-first responsive design featuring a clean, card
   - Annual plans available with 30% discount. Plan usage tracking with automatic monthly reset.
 - **Task Management**: Swipeable task cards, YouTube-style feedback, real-time progress dashboard with streaks and analytics, search/filter, and automatic activity/task creation upon plan confirmation.
 - **Personal Journal**: Interface with 9 categories, auto-save, and backend persistence. Includes a "Journal Mode" for smart capture of text and media (photos/videos), with AI-driven categorization and enrichment.
-- **Social Sharing & Activity Management**: Customizable share previews, NYC-themed backdrops, custom images, and an AI-powered "Privacy Shield" for PII/PHI redaction. Includes automatic activity copying for visitors, duplicate detection with an update system, and activity history/archiving.
+- **Social Sharing & Activity Management**: 
+  - Customizable share previews with beautiful JPG images (1200x630px)
+  - Server-side OG meta tag injection for social media crawlers (WhatsApp, Facebook, Twitter, LinkedIn) - ensures rich link previews without JavaScript
+  - NYC-themed backdrops, custom images, and an AI-powered "Privacy Shield" for PII/PHI redaction
+  - Automatic activity copying for visitors, duplicate detection with an update system, and activity history/archiving
+  - When users share links on WhatsApp/social platforms, recipients see: activity image + title + description + task progress
 - **Community Plans Discovery**: Users can browse and copy plans from others, featuring trending algorithms, category filters, and one-click "Use This Plan" functionality.
 - **Groups & Collaborative Planning**: Comprehensive group features including:
   - Group creation, viewing, and member management

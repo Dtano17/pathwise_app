@@ -992,7 +992,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Use dynamically generated OG image with activity details
       const baseUrl = req.protocol + '://' + req.get('host');
-      const shareImage = `${baseUrl}/api/og-image/${token}`;
+      const shareImage = `${baseUrl}/api/share/${token}/og-image`;
       const currentUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
       
       // Read client template (works in both dev and production)
@@ -1037,7 +1037,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     <meta property="og:image" content="${safeShareImage}" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:site_name" content="JournalMate" />
     
     <!-- Twitter Card -->
