@@ -51,7 +51,7 @@ const tutorialSteps: TutorialStep[] = [
   },
   {
     title: "Discover & Use Plans",
-    description: "Browse 40+ curated community plans (⚽ 🌅 💪 🗽) or create your own. One-click copy, then customize tasks and budgets to match your style.",
+    description: "Get inspired by our growing collection of community plans or create your own. One-click copy, then customize tasks and budgets to match your style.",
     icon: Globe,
     tips: [
       "Filter by Travel, Fitness, Career, or Personal",

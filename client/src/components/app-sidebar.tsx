@@ -479,7 +479,6 @@ export function AppSidebar({
                           <SocialLogin 
                             title="Sign in to continue"
                             description="Access your goals, tasks, and personalized features"
-                            showReplitAuth={true}
                           />
                         </div>
                       </div>
