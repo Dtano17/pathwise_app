@@ -18,6 +18,7 @@ import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
 import { useAuth } from "@/hooks/useAuth";
 import { UpgradeModal } from "@/components/UpgradeModal";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { initializeMobileFeatures } from "@/lib/mobile";
 
 function AppContent() {
@@ -131,6 +132,9 @@ function AppContent() {
       </Switch>
       {user?.id && <NotificationService userId={user.id} />}
       <Toaster />
+      
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
       
       {/* Global Upgrade Modal */}
       <UpgradeModal
