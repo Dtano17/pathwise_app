@@ -72,6 +72,10 @@ interface AppSidebarProps {
   onShowActivities?: () => void;
   onShowAllTasks?: () => void;
   onShowIntegrations?: () => void;
+  onShowGoalInput?: () => void;
+  onShowDiscover?: () => void;
+  onShowProgress?: () => void;
+  onShowGroups?: () => void;
 }
 
 export function AppSidebar({
@@ -84,6 +88,10 @@ export function AppSidebar({
   onShowLifestylePlanner,
   onShowRecentGoals,
   onShowProgressReport,
+  onShowGoalInput,
+  onShowDiscover,
+  onShowProgress,
+  onShowGroups,
   onShowEndOfDayReview,
   onOpenUpgradeModal,
   onShowActivities,
@@ -206,7 +214,19 @@ export function AppSidebar({
     onThemeSelect?.(themeId);
   };
 
-  // No longer need handler mapping - all actions use href navigation
+  // Map quick action IDs to their handlers
+  const getQuickActionHandler = (actionId: string): (() => void) | undefined => {
+    const handlers: Record<string, () => void> = {
+      goalInput: onShowGoalInput || (() => {}),
+      discover: onShowDiscover || (() => {}),
+      activities: onShowActivities || (() => {}),
+      allTasks: onShowAllTasks || (() => {}),
+      progress: onShowProgress || (() => {}),
+      groups: onShowGroups || (() => {}),
+      integrations: onShowIntegrations || (() => {}),
+    };
+    return handlers[actionId];
+  };
 
   return (
     <Sidebar>
@@ -342,22 +362,24 @@ export function AppSidebar({
                 <SidebarMenu>
                   {enabledQuickActions
                     .filter(actionId => {
-                      // Only show actions that are enabled (all are now available via href)
+                      // Only show actions that are enabled
                       return AVAILABLE_QUICK_ACTIONS[actionId] !== undefined;
                     })
                     .map(actionId => {
                       const action = AVAILABLE_QUICK_ACTIONS[actionId];
                       if (!action) return null;
                       const Icon = action.icon;
+                      const handler = getQuickActionHandler(actionId);
 
-                      // All actions now use href-based navigation
+                      // Use callback-based navigation
                       return (
                         <SidebarMenuItem key={actionId}>
-                          <SidebarMenuButton asChild data-testid={action.testId}>
-                            <Link href={action.href!}>
-                              <Icon className="w-4 h-4" />
-                              <span>{action.name}</span>
-                            </Link>
+                          <SidebarMenuButton 
+                            onClick={handler}
+                            data-testid={action.testId}
+                          >
+                            <Icon className="w-4 h-4" />
+                            <span>{action.name}</span>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       );

@@ -89,6 +89,13 @@ function AppContent() {
                   setUpgradeTrigger(trigger);
                   setShowUpgradeModal(true);
                 }}
+                onShowGoalInput={() => window.location.href = '/?tab=input'}
+                onShowDiscover={() => window.location.href = '/?tab=discover'}
+                onShowActivities={() => window.location.href = '/?tab=activities'}
+                onShowAllTasks={() => window.location.href = '/?tab=tasks'}
+                onShowProgress={() => window.location.href = '/?tab=progress'}
+                onShowGroups={() => window.location.href = '/?tab=groups'}
+                onShowIntegrations={() => window.location.href = '/?tab=sync'}
               />
               <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
                 <MainApp
