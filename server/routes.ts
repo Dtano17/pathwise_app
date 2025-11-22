@@ -8691,12 +8691,13 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
 
   // Contact Syncing and Sharing Routes
   
-  // Sync phone contacts (secured)
-  app.post("/api/contacts/sync", isAuthenticated, async (req, res) => {
+  // Sync phone contacts (demo user & authenticated)
+  app.post("/api/contacts/sync", async (req, res) => {
     try {
-      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub;
+      // Support both authenticated users and demo users
+      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || getDemoUserId();
       if (!userId) {
-        return res.status(401).json({ error: 'Authentication required' });
+        return res.status(401).json({ error: 'Unable to identify user' });
       }
       
       // Validate request body using Zod
