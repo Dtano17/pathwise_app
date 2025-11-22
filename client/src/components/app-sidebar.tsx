@@ -47,13 +47,13 @@ interface QuickAction {
 }
 
 const AVAILABLE_QUICK_ACTIONS: Record<string, Omit<QuickAction, 'action'>> = {
-  goalInput: { id: 'goalInput', name: 'Goal Input', icon: Target, testId: 'button-goal-input-quick' },
+  goalInput: { id: 'goalInput', name: 'Goal Input', icon: Target, href: '/?tab=input', testId: 'button-goal-input-quick' },
   discover: { id: 'discover', name: 'Discover', icon: Globe2, href: '/discover', testId: 'button-discover-quick' },
-  activities: { id: 'activities', name: 'Activities', icon: Activity, testId: 'button-activities-quick' },
-  allTasks: { id: 'allTasks', name: 'All Tasks', icon: CheckSquare, testId: 'button-all-tasks-quick' },
-  progress: { id: 'progress', name: 'Progress', icon: BarChart3, testId: 'button-progress-quick' },
+  activities: { id: 'activities', name: 'Activities', icon: Activity, href: '/?tab=activities', testId: 'button-activities-quick' },
+  allTasks: { id: 'allTasks', name: 'All Tasks', icon: CheckSquare, href: '/?tab=tasks', testId: 'button-all-tasks-quick' },
+  progress: { id: 'progress', name: 'Progress', icon: BarChart3, href: '/?tab=progress', testId: 'button-progress-quick' },
   groups: { id: 'groups', name: 'Groups', icon: Users, href: '/groups', testId: 'button-groups-quick' },
-  integrations: { id: 'integrations', name: 'Integrations', icon: Plug, testId: 'button-integrations-quick' },
+  integrations: { id: 'integrations', name: 'Integrations', icon: Plug, href: '/?tab=sync', testId: 'button-integrations-quick' },
 };
 
 interface AppSidebarProps {
@@ -106,23 +106,15 @@ export function AppSidebar({
   const [isNotificationsExpanded, setIsNotificationsExpanded] = useState(false);
   const [isSchedulerExpanded, setIsSchedulerExpanded] = useState(false);
 
-  // Compute which quick actions are actually available based on callback presence
+  // Compute which quick actions are actually available
+  // All actions now use href-based navigation, so all are always available
   const getAvailableActions = (): Set<string> => {
     const available = new Set<string>();
     
-    // Actions with href always work (route-based navigation)
-    Object.entries(AVAILABLE_QUICK_ACTIONS).forEach(([id, action]) => {
-      if (action.href) {
-        available.add(id);
-      }
+    // All actions use href navigation now, so all are available
+    Object.keys(AVAILABLE_QUICK_ACTIONS).forEach(id => {
+      available.add(id);
     });
-    
-    // Actions requiring callbacks - only add if callback exists
-    if (onShowThemeSelector) available.add('goalInput');
-    if (onShowActivities) available.add('activities');
-    if (onShowAllTasks) available.add('allTasks');
-    if (onShowProgressReport) available.add('progress');
-    if (onShowIntegrations) available.add('integrations');
     
     return available;
   };
@@ -214,49 +206,7 @@ export function AppSidebar({
     onThemeSelect?.(themeId);
   };
 
-  // Map quick action IDs to their handlers with guaranteed fallbacks
-  const getQuickActionHandler = (actionId: string): (() => void) | undefined => {
-    const handlers: Record<string, () => void> = {
-      goalInput: () => {
-        if (onShowThemeSelector) {
-          onShowThemeSelector();
-        } else {
-          // Fallback: show error toast if callback not provided
-          console.warn('Goal Input action clicked but onShowThemeSelector callback not provided');
-        }
-      },
-      activities: () => {
-        if (onShowActivities) {
-          onShowActivities();
-        } else {
-          // No callback provided - this action shouldn't be enabled without it
-          console.warn('Activities action clicked but onShowActivities callback not provided');
-        }
-      },
-      allTasks: () => {
-        if (onShowAllTasks) {
-          onShowAllTasks();
-        } else {
-          console.warn('All Tasks action clicked but onShowAllTasks callback not provided');
-        }
-      },
-      progress: () => {
-        if (onShowProgressReport) {
-          onShowProgressReport();
-        } else {
-          console.warn('Progress action clicked but onShowProgressReport callback not provided');
-        }
-      },
-      integrations: () => {
-        if (onShowIntegrations) {
-          onShowIntegrations();
-        } else {
-          console.warn('Integrations action clicked but onShowIntegrations callback not provided');
-        }
-      },
-    };
-    return handlers[actionId];
-  };
+  // No longer need handler mapping - all actions use href navigation
 
   return (
     <Sidebar>
@@ -392,37 +342,22 @@ export function AppSidebar({
                 <SidebarMenu>
                   {enabledQuickActions
                     .filter(actionId => {
-                      // Only show actions that are both enabled AND available (have handlers)
-                      const availableActions = getAvailableActions();
-                      return availableActions.has(actionId);
+                      // Only show actions that are enabled (all are now available via href)
+                      return AVAILABLE_QUICK_ACTIONS[actionId] !== undefined;
                     })
                     .map(actionId => {
                       const action = AVAILABLE_QUICK_ACTIONS[actionId];
                       if (!action) return null;
                       const Icon = action.icon;
-                      const handler = getQuickActionHandler(actionId);
 
-                      if (action.href) {
-                        return (
-                          <SidebarMenuItem key={actionId}>
-                            <SidebarMenuButton asChild data-testid={action.testId}>
-                              <Link href={action.href}>
-                                <Icon className="w-4 h-4" />
-                                <span>{action.name}</span>
-                              </Link>
-                            </SidebarMenuButton>
-                          </SidebarMenuItem>
-                        );
-                      }
-
+                      // All actions now use href-based navigation
                       return (
                         <SidebarMenuItem key={actionId}>
-                          <SidebarMenuButton 
-                            onClick={handler}
-                            data-testid={action.testId}
-                          >
-                            <Icon className="w-4 h-4" />
-                            <span>{action.name}</span>
+                          <SidebarMenuButton asChild data-testid={action.testId}>
+                            <Link href={action.href!}>
+                              <Icon className="w-4 h-4" />
+                              <span>{action.name}</span>
+                            </Link>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       );
