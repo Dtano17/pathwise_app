@@ -38,7 +38,7 @@ The application employs a mobile-first responsive design featuring a clean, card
 - **AI Integration**: OpenAI and Claude API with automatic provider switching and cost optimization.
 - **Authentication**: Dual system with Replit Auth (Google, X/Twitter, Apple, Email) and Supabase (Facebook OAuth), unified via Passport.js.
 - **Animations**: React Confetti, React Spring, Framer Motion.
-- **Mobile Application**: React Native/Expo app for iOS and Android, located in the `mobile/` folder.
+- **Mobile Application**: Capacitor-based native app wrapping the React web app for iOS and Android, with PWA support for Chrome install prompts.
 
 **Core Features:**
 - **AI-Powered Planning**: 
@@ -68,6 +68,7 @@ The application employs a mobile-first responsive design featuring a clean, card
   - Future features: contributor change proposals, admin approval queues, real-time change logs, and personal vs. canonical versions with conflict resolution.
 - **Authentication & User Management**: Unified authentication, functional profile management (Priorities & Settings), and access control.
 - **UI/UX**: Mobile-first, responsive, dark/light theme toggle, adaptive layouts, and accessibility.
+- **PWA Features**: Service worker for offline functionality, install prompts in Chrome, app-like experience on mobile browsers.
 - **SEO**: About tab optimized with relevant keywords.
 
 ### External Dependencies
@@ -120,4 +121,4 @@ To deploy to production:
      ```
    - Verify in the Discover Plans section - you should see 25 community plans with backdrop images
 
-See **PRODUCTION_DEPLOYMENT.md** for deployment instructions and **REVENUE_SYSTEM.md** for monetization setup.
+See **PRODUCTION_DEPLOYMENT.md** for deployment instructions, **REVENUE_SYSTEM.md** for monetization setup, and **ANDROID_BUILD_GUIDE.md** for building the Android app.
