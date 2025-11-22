@@ -39,12 +39,12 @@ const BRAND_COLORS = {
 const ICON_SPECS = {
   // Web & PWA Icons
   web: [
-    { size: 16, name: 'favicon-16x16.png', transparent: true },
-    { size: 32, name: 'favicon-32x32.png', transparent: true },
-    { size: 48, name: 'favicon-48x48.png', transparent: true },
+    { size: 16, name: 'favicon-16x16.png', transparent: true, padding: 0 },
+    { size: 32, name: 'favicon-32x32.png', transparent: true, padding: 0 },
+    { size: 48, name: 'favicon-48x48.png', transparent: true, padding: 0 },
     { size: 180, name: 'apple-touch-icon.png', transparent: false, padding: 0 }, // Apple icons look better full bleed
-    { size: 192, name: 'android-chrome-192x192.png', transparent: true },
-    { size: 512, name: 'android-chrome-512x512.png', transparent: true },
+    { size: 192, name: 'android-chrome-192x192.png', transparent: true, padding: 0 },
+    { size: 512, name: 'android-chrome-512x512.png', transparent: true, padding: 0 },
   ],
 
   pwa: [
@@ -354,7 +354,85 @@ async function generateAllIcons() {
     console.log(`✓ Source icon found: ${SOURCE_ICON}\n`);
 
     // Load source image
-    const sourceBuffer = await fs.readFile(SOURCE_ICON);
+    const rawImage = sharp(SOURCE_ICON);
+    const { width, height } = await rawImage.metadata();
+
+    // Manually find bounding box to crop (since sharp.trim() was failing on this image)
+    const rawBuffer = await rawImage.ensureAlpha().raw().toBuffer();
+    let minX = width, minY = height, maxX = 0, maxY = 0;
+    let hasPixels = false;
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        const alpha = rawBuffer[idx + 3];
+        if (alpha > 100) { // Threshold increased to ignore faint shadows/noise
+          hasPixels = true;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    let sourceBuffer;
+    if (hasPixels) {
+      const cropWidth = maxX - minX + 1;
+      const cropHeight = maxY - minY + 1;
+      let finalCropWidth = cropWidth;
+      let finalCropHeight = cropHeight;
+
+      // Check for wide logo (Icon + Text)
+      if (cropWidth > cropHeight * 1.2) {
+        console.log(`⚠️  Wide logo detected (${cropWidth}x${cropHeight}). Assuming Icon + Text.`);
+        console.log(`✂️  Cropping to leftmost square for icons...`);
+        finalCropWidth = cropHeight; // Take a square from the left
+      }
+
+      // 1. Extract the leftmost square (or full content if not wide)
+      let squareBuffer = await sharp(SOURCE_ICON)
+        .extract({ left: minX, top: minY, width: finalCropWidth, height: finalCropHeight })
+        .toBuffer();
+
+      // 2. Now find the tight bounding box of the content *within* this square
+      // This handles cases where the icon mark itself has padding inside the logo layout
+      const squareImage = sharp(squareBuffer);
+      const squareMeta = await squareImage.metadata();
+      const squareRaw = await squareImage.ensureAlpha().raw().toBuffer();
+
+      let sqMinX = squareMeta.width, sqMinY = squareMeta.height, sqMaxX = 0, sqMaxY = 0;
+      let sqHasPixels = false;
+
+      for (let y = 0; y < squareMeta.height; y++) {
+        for (let x = 0; x < squareMeta.width; x++) {
+          const idx = (y * squareMeta.width + x) * 4;
+          const alpha = squareRaw[idx + 3];
+          if (alpha > 100) { // High threshold for noise
+            sqHasPixels = true;
+            if (x < sqMinX) sqMinX = x;
+            if (x > sqMaxX) sqMaxX = x;
+            if (y < sqMinY) sqMinY = y;
+            if (y > sqMaxY) sqMaxY = y;
+          }
+        }
+      }
+
+      if (sqHasPixels) {
+        const tightWidth = sqMaxX - sqMinX + 1;
+        const tightHeight = sqMaxY - sqMinY + 1;
+        console.log(`✂️  Tightening crop: ${tightWidth}x${tightHeight} (from ${finalCropWidth}x${finalCropHeight})`);
+
+        sourceBuffer = await squareImage
+          .extract({ left: sqMinX, top: sqMinY, width: tightWidth, height: tightHeight })
+          .toBuffer();
+      } else {
+        sourceBuffer = squareBuffer;
+      }
+    } else {
+      console.warn('⚠️  Source image appears empty! Using original.');
+      sourceBuffer = await sharp(SOURCE_ICON).toBuffer();
+    }
 
     // Create output directory structure
     const dirs = ['web', 'pwa', 'ios', 'android', 'social', 'email', 'windows', 'macos', 'banners'];
