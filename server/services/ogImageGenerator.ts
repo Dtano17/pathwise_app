@@ -505,6 +505,6 @@ async function createFallbackImage(activity: Activity, tasks: Task[]): Promise<B
   `;
 
   return sharp(Buffer.from(svg))
-    .png()
+    .jpeg({ quality: 85, progressive: true })
     .toBuffer();
 }

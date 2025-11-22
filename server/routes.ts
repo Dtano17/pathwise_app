@@ -4229,7 +4229,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       });
 
       // Set appropriate cache headers (24 hours)
-      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Content-Type', 'image/jpeg');
       res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
       res.setHeader('Content-Length', imageBuffer.length);
 

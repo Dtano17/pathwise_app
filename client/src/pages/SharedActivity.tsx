@@ -209,10 +209,9 @@ export default function SharedActivity() {
       // Create rich, emoji-enhanced title and description for social sharing
       const baseTitle = shareTitle || planSummary || title || 'Shared Activity';
       const pageTitle = `${emoji} ${baseTitle}${progressText}`;
-      const taskInfo = totalTasks > 0 ? ` • ${totalTasks} tasks • ${completedTasks} completed` : '';
       const pageDescription = description 
-        ? `${description}${taskInfo}` 
-        : `Join this ${category} plan on JournalMate${taskInfo}`;
+        ? description
+        : `Join this ${category} plan on JournalMate`;
       
       // Use OG image endpoint for rich social media previews
       // This generates an image with the activity backdrop + details overlay
@@ -245,7 +244,7 @@ export default function SharedActivity() {
       setMetaTag('meta[property="og:image"]', 'content', ogImageUrl);
       setMetaTag('meta[property="og:image:width"]', 'content', '1200');
       setMetaTag('meta[property="og:image:height"]', 'content', '630');
-      setMetaTag('meta[property="og:image:type"]', 'content', 'image/png');
+      setMetaTag('meta[property="og:image:type"]', 'content', 'image/jpeg');
       setMetaTag('meta[property="og:url"]', 'content', currentUrl);
       setMetaTag('meta[property="og:type"]', 'content', 'website');
       setMetaTag('meta[property="og:site_name"]', 'content', 'JournalMate');
