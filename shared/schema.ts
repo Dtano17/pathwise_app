@@ -26,6 +26,9 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   
+  // Authentication type
+  authenticationType: text("authentication_type").default("local"),
+  
   // Enhanced profile fields for personalization
   age: integer("age"),
   occupation: text("occupation"),
@@ -637,6 +640,9 @@ export const lifestylePlannerSessions = pgTable("lifestyle_planner_sessions", {
     mood?: string;
     energyLevel?: 'high' | 'medium' | 'low';
     constraints?: string[];
+    
+    // Internal generated plan storage
+    _generatedPlan?: any;
   }>().default({}),
   
   // External context gathered from APIs
@@ -661,6 +667,10 @@ export const lifestylePlannerSessions = pgTable("lifestyle_planner_sessions", {
       quick: number;
     };
     currentMode?: 'smart' | 'quick';
+    
+    // Plan confirmation state
+    planConfirmed?: boolean;
+    awaitingPlanConfirmation?: boolean;
   }>().default({}),
   
   // Conversation history
