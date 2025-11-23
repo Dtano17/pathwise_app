@@ -131,4 +131,15 @@ To deploy to production:
    - This will send welcome emails to all OAuth users (Google, Facebook, X/Twitter, Apple) who have email addresses
    - Note: New OAuth users automatically receive welcome emails upon signup
 
+### Admin Endpoints
+The following admin endpoints are available for testing and maintenance (require `ADMIN_SECRET` authentication):
+
+- **Delete User Account** (for testing welcome emails):
+  ```bash
+  curl -X DELETE https://your-app.replit.app/api/admin/delete-user \
+    -H "Content-Type: application/json" \
+    -d '{"adminSecret": "YOUR_ADMIN_SECRET_VALUE", "email": "user@example.com"}'
+  ```
+  Completely removes a user and all associated data (auth identities, activities, tasks, journal entries, etc.). Useful for testing welcome email functionality.
+
 See **PRODUCTION_DEPLOYMENT.md** for deployment instructions, **REVENUE_SYSTEM.md** for monetization setup, and **ANDROID_BUILD_GUIDE.md** for building the Android app.

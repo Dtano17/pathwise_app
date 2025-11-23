@@ -4929,6 +4929,46 @@ ${emoji} ${progressLine}
     }
   });
 
+  // Delete complete user account (for testing purposes)
+  app.delete("/api/admin/delete-user", async (req, res) => {
+    try {
+      const { adminSecret, email, userId } = req.body;
+      
+      // Verify admin secret
+      if (adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(403).json({ error: 'Invalid admin secret' });
+      }
+
+      if (!email && !userId) {
+        return res.status(400).json({ error: 'Either email or userId must be provided' });
+      }
+
+      console.log('[ADMIN] Deleting user account:', email || userId);
+      
+      if (email) {
+        await storage.deleteCompleteUserByEmail(email);
+        console.log('[ADMIN] User deleted successfully by email:', email);
+        res.json({
+          success: true,
+          message: `User account with email ${email} has been completely deleted`,
+        });
+      } else {
+        await storage.deleteCompleteUser(userId);
+        console.log('[ADMIN] User deleted successfully by ID:', userId);
+        res.json({
+          success: true,
+          message: `User account with ID ${userId} has been completely deleted`,
+        });
+      }
+    } catch (error: any) {
+      console.error('[ADMIN] Delete user error:', error);
+      if (error.message.includes('not found')) {
+        return res.status(404).json({ error: error.message });
+      }
+      res.status(500).json({ error: 'Failed to delete user account', details: error.message });
+    }
+  });
+
   // Test welcome email endpoint (temporary - for development only)
   app.post("/api/admin/test-welcome-email", async (req, res) => {
     // Only allow in development mode
@@ -5904,6 +5944,69 @@ ${emoji} ${progressLine}
     } catch (error) {
       console.error('Error updating notification preferences:', error);
       res.status(500).json({ error: 'Failed to update notification preferences' });
+    }
+  });
+
+  // Device Token Management (for push notifications)
+  app.post("/api/notifications/register-device", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { token, platform, deviceInfo } = req.body;
+      
+      if (!token || !platform) {
+        return res.status(400).json({ error: 'Token and platform are required' });
+      }
+
+      console.log(`[PUSH] Registering device token for user ${userId}, platform: ${platform}`);
+      
+      const deviceToken = await storage.upsertDeviceToken(userId, {
+        token,
+        platform,
+        deviceInfo,
+      });
+      
+      res.json({ 
+        success: true, 
+        message: 'Device registered for push notifications',
+        deviceId: deviceToken.id 
+      });
+    } catch (error) {
+      console.error('Error registering device token:', error);
+      res.status(500).json({ error: 'Failed to register device for push notifications' });
+    }
+  });
+
+  app.post("/api/notifications/unregister-device", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { token } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ error: 'Token is required' });
+      }
+
+      console.log(`[PUSH] Unregistering device token for user ${userId}`);
+      
+      await storage.deleteDeviceToken(token, userId);
+      
+      res.json({ 
+        success: true, 
+        message: 'Device unregistered from push notifications' 
+      });
+    } catch (error) {
+      console.error('Error unregistering device token:', error);
+      res.status(500).json({ error: 'Failed to unregister device from push notifications' });
+    }
+  });
+
+  app.get("/api/notifications/devices", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const devices = await storage.getUserDeviceTokens(userId);
+      res.json({ devices });
+    } catch (error) {
+      console.error('Error fetching user devices:', error);
+      res.status(500).json({ error: 'Failed to fetch registered devices' });
     }
   });
 

@@ -502,6 +502,25 @@ export const userNotifications = pgTable("user_notifications", {
   userIdReadAtIndex: index("user_notifications_user_id_read_at_index").on(table.userId, table.readAt),
 }));
 
+// Device tokens for push notifications (FCM/APNs)
+export const deviceTokens = pgTable("device_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  token: text("token").notNull().unique(), // FCM/APNs device token
+  platform: text("platform").notNull(), // 'ios' | 'android' | 'web'
+  deviceInfo: jsonb("device_info").$type<{
+    model?: string;
+    osVersion?: string;
+    appVersion?: string;
+  }>(),
+  isActive: boolean("is_active").default(true),
+  lastUsedAt: timestamp("last_used_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("device_tokens_user_id_index").on(table.userId),
+  tokenIndex: index("device_tokens_token_index").on(table.token),
+}));
+
 // Smart scheduling suggestions
 export const schedulingSuggestions = pgTable("scheduling_suggestions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -541,6 +560,13 @@ export const insertUserNotificationSchema = createInsertSchema(userNotifications
   id: true,
   createdAt: true,
   readAt: true,
+});
+
+export const insertDeviceTokenSchema = createInsertSchema(deviceTokens).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  lastUsedAt: true,
 });
 
 export const insertSchedulingSuggestionSchema = createInsertSchema(schedulingSuggestions).omit({
@@ -611,6 +637,9 @@ export type InsertTaskReminder = z.infer<typeof insertTaskReminderSchema>;
 
 export type UserNotification = typeof userNotifications.$inferSelect;
 export type InsertUserNotification = z.infer<typeof insertUserNotificationSchema>;
+
+export type DeviceToken = typeof deviceTokens.$inferSelect;
+export type InsertDeviceToken = z.infer<typeof insertDeviceTokenSchema>;
 
 export type SchedulingSuggestion = typeof schedulingSuggestions.$inferSelect;
 export type InsertSchedulingSuggestion = z.infer<typeof insertSchedulingSuggestionSchema>;

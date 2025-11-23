@@ -22,6 +22,8 @@ import {
   type InsertNotificationPreferences,
   type TaskReminder,
   type InsertTaskReminder,
+  type DeviceToken,
+  type InsertDeviceToken,
   type SchedulingSuggestion,
   type InsertSchedulingSuggestion,
   type AuthIdentity,
@@ -76,6 +78,7 @@ import {
   priorities,
   notificationPreferences,
   taskReminders,
+  deviceTokens,
   schedulingSuggestions,
   authIdentities,
   externalOAuthTokens,
@@ -220,6 +223,14 @@ export interface IStorage {
   markReminderSent(reminderId: string): Promise<void>;
   deleteTaskReminder(reminderId: string, userId: string): Promise<void>;
 
+  // Device Tokens (for push notifications)
+  upsertDeviceToken(userId: string, token: InsertDeviceToken): Promise<DeviceToken>;
+  getUserDeviceTokens(userId: string): Promise<DeviceToken[]>;
+  getDeviceTokenByToken(token: string): Promise<DeviceToken | undefined>;
+  deleteDeviceToken(token: string, userId: string): Promise<void>;
+  deactivateDeviceToken(token: string): Promise<void>;
+  updateDeviceTokenActivity(token: string): Promise<void>;
+
   // Scheduling Suggestions
   createSchedulingSuggestion(suggestion: InsertSchedulingSuggestion & { userId: string }): Promise<SchedulingSuggestion>;
   getUserSchedulingSuggestions(userId: string, date?: string): Promise<SchedulingSuggestion[]>;
@@ -271,6 +282,10 @@ export interface IStorage {
   getUserPreferences(userId: string): Promise<UserPreferences | undefined>;
   upsertUserPreferences(userId: string, preferences: InsertUserPreferences): Promise<UserPreferences>;
   deleteUserPreferences(userId: string): Promise<void>;
+  
+  // Complete User Deletion (Admin only)
+  deleteCompleteUser(userId: string): Promise<void>;
+  deleteCompleteUserByEmail(email: string): Promise<void>;
   
   // Planner Profiles (for community plan verification)
   getPlannerProfile(userId: string): Promise<PlannerProfile | undefined>;
@@ -1282,6 +1297,58 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(taskReminders.id, reminderId), eq(taskReminders.userId, userId)));
   }
 
+  // Device Tokens (for push notifications)
+  async upsertDeviceToken(userId: string, token: InsertDeviceToken): Promise<DeviceToken> {
+    // Check if token already exists
+    const [existing] = await db.select().from(deviceTokens).where(eq(deviceTokens.token, token.token));
+    
+    if (existing) {
+      // Update existing token (refresh last used time, update device info, reactivate if inactive)
+      const [updated] = await db.update(deviceTokens)
+        .set({
+          userId,
+          deviceInfo: token.deviceInfo,
+          isActive: true,
+          lastUsedAt: new Date(),
+        })
+        .where(eq(deviceTokens.token, token.token))
+        .returning();
+      return updated;
+    } else {
+      // Create new token
+      const [created] = await db.insert(deviceTokens).values({ ...token, userId }).returning();
+      return created;
+    }
+  }
+
+  async getUserDeviceTokens(userId: string): Promise<DeviceToken[]> {
+    return await db.select()
+      .from(deviceTokens)
+      .where(and(eq(deviceTokens.userId, userId), eq(deviceTokens.isActive, true)));
+  }
+
+  async getDeviceTokenByToken(token: string): Promise<DeviceToken | undefined> {
+    const [result] = await db.select().from(deviceTokens).where(eq(deviceTokens.token, token));
+    return result;
+  }
+
+  async deleteDeviceToken(token: string, userId: string): Promise<void> {
+    await db.delete(deviceTokens)
+      .where(and(eq(deviceTokens.token, token), eq(deviceTokens.userId, userId)));
+  }
+
+  async deactivateDeviceToken(token: string): Promise<void> {
+    await db.update(deviceTokens)
+      .set({ isActive: false })
+      .where(eq(deviceTokens.token, token));
+  }
+
+  async updateDeviceTokenActivity(token: string): Promise<void> {
+    await db.update(deviceTokens)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(deviceTokens.token, token));
+  }
+
   // Scheduling Suggestions
   async createSchedulingSuggestion(suggestion: InsertSchedulingSuggestion & { userId: string }): Promise<SchedulingSuggestion> {
     const result = await db.insert(schedulingSuggestions).values([suggestion]).returning();
@@ -1485,6 +1552,153 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUserPreferences(userId: string): Promise<void> {
     await db.delete(userPreferences).where(eq(userPreferences.userId, userId));
+  }
+
+  // Complete User Deletion (Admin only)
+  async deleteCompleteUser(userId: string): Promise<void> {
+    console.log(`[STORAGE] Deleting complete user account: ${userId}`);
+    
+    // Delete all user-related data in the correct order (respecting foreign key constraints)
+    // Note: Many tables have ON DELETE CASCADE, but we'll be explicit for clarity
+    
+    // 1. Delete auth identities
+    await db.delete(authIdentities).where(eq(authIdentities.userId, userId));
+    console.log(`  - Deleted auth identities`);
+    
+    // 2. Delete OAuth tokens
+    await db.delete(externalOAuthTokens).where(eq(externalOAuthTokens.userId, userId));
+    console.log(`  - Deleted OAuth tokens`);
+    
+    // 3. Delete contacts
+    await db.delete(contacts).where(eq(contacts.ownerUserId, userId));
+    console.log(`  - Deleted contacts`);
+    
+    // 4. Delete contact shares
+    await db.delete(contactShares).where(eq(contactShares.sharedBy, userId));
+    console.log(`  - Deleted contact shares`);
+    
+    // 5. Delete user preferences
+    await db.delete(userPreferences).where(eq(userPreferences.userId, userId));
+    console.log(`  - Deleted user preferences`);
+    
+    // 6. Delete user profile
+    await db.delete(userProfiles).where(eq(userProfiles.userId, userId));
+    console.log(`  - Deleted user profile`);
+    
+    // 7. Delete planner profile
+    await db.delete(plannerProfiles).where(eq(plannerProfiles.userId, userId));
+    console.log(`  - Deleted planner profile`);
+    
+    // 8. Delete notification preferences
+    await db.delete(notificationPreferences).where(eq(notificationPreferences.userId, userId));
+    console.log(`  - Deleted notification preferences`);
+    
+    // 9. Delete task reminders
+    await db.delete(taskReminders).where(eq(taskReminders.userId, userId));
+    console.log(`  - Deleted task reminders`);
+    
+    // 10. Delete device tokens
+    await db.delete(deviceTokens).where(eq(deviceTokens.userId, userId));
+    console.log(`  - Deleted device tokens`);
+    
+    // 11. Delete scheduling suggestions
+    await db.delete(schedulingSuggestions).where(eq(schedulingSuggestions.userId, userId));
+    console.log(`  - Deleted scheduling suggestions`);
+    
+    // 11. Delete priorities
+    await db.delete(priorities).where(eq(priorities.userId, userId));
+    console.log(`  - Deleted priorities`);
+    
+    // 12. Delete chat imports
+    await db.delete(chatImports).where(eq(chatImports.userId, userId));
+    console.log(`  - Deleted chat imports`);
+    
+    // 13. Delete lifestyle planner sessions
+    await db.delete(lifestylePlannerSessions).where(eq(lifestylePlannerSessions.userId, userId));
+    console.log(`  - Deleted lifestyle planner sessions`);
+    
+    // 14. Delete activity feedback
+    await db.delete(activityFeedback).where(eq(activityFeedback.userId, userId));
+    console.log(`  - Deleted activity feedback`);
+    
+    // 15. Delete task feedback
+    await db.delete(taskFeedback).where(eq(taskFeedback.userId, userId));
+    console.log(`  - Deleted task feedback`);
+    
+    // 16. Delete activity bookmarks
+    await db.delete(activityBookmarks).where(eq(activityBookmarks.userId, userId));
+    console.log(`  - Deleted activity bookmarks`);
+    
+    // 17. Delete user pins
+    await db.delete(userPins).where(eq(userPins.userId, userId));
+    console.log(`  - Deleted user pins`);
+    
+    // 18. Delete plan engagement
+    await db.delete(planEngagement).where(eq(planEngagement.userId, userId));
+    console.log(`  - Deleted plan engagement`);
+    
+    // 19. Delete activity reports (reported by user)
+    await db.delete(activityReports).where(eq(activityReports.reportedBy, userId));
+    console.log(`  - Deleted activity reports`);
+    
+    // 20. Delete permission requests
+    await db.delete(activityPermissionRequests).where(
+      or(
+        eq(activityPermissionRequests.requestedBy, userId),
+        eq(activityPermissionRequests.ownerId, userId)
+      )
+    );
+    console.log(`  - Deleted activity permission requests`);
+    
+    // 21. Delete group memberships
+    await db.delete(groupMemberships).where(eq(groupMemberships.userId, userId));
+    console.log(`  - Deleted group memberships`);
+    
+    // 22. Delete group activities shared by user
+    await db.delete(groupActivities).where(eq(groupActivities.sharedBy, userId));
+    console.log(`  - Deleted group activities`);
+    
+    // 23. Delete group activity feed items
+    await db.delete(groupActivityFeed).where(eq(groupActivityFeed.actorUserId, userId));
+    console.log(`  - Deleted group activity feed items`);
+    
+    // 24. Delete groups created by user
+    await db.delete(groups).where(eq(groups.createdBy, userId));
+    console.log(`  - Deleted groups`);
+    
+    // 25. Delete tasks (will cascade delete activity_tasks)
+    await db.delete(tasks).where(eq(tasks.userId, userId));
+    console.log(`  - Deleted tasks`);
+    
+    // 26. Delete goals
+    await db.delete(goals).where(eq(goals.userId, userId));
+    console.log(`  - Deleted goals`);
+    
+    // 27. Delete activities (and their associated activity_tasks via cascade)
+    await db.delete(activities).where(eq(activities.userId, userId));
+    console.log(`  - Deleted activities`);
+    
+    // 28. Delete journal entries
+    await db.delete(journalEntries).where(eq(journalEntries.userId, userId));
+    console.log(`  - Deleted journal entries`);
+    
+    // 29. Delete progress stats
+    await db.delete(progressStats).where(eq(progressStats.userId, userId));
+    console.log(`  - Deleted progress stats`);
+    
+    // 30. Finally, delete the user record itself
+    await db.delete(users).where(eq(users.id, userId));
+    console.log(`  - Deleted user record`);
+    
+    console.log(`[STORAGE] Complete user deletion finished for: ${userId}`);
+  }
+
+  async deleteCompleteUserByEmail(email: string): Promise<void> {
+    const user = await this.getUserByEmail(email);
+    if (!user) {
+      throw new Error(`User with email ${email} not found`);
+    }
+    await this.deleteCompleteUser(user.id);
   }
 
   // Planner Profile operations (for community plan verification)
