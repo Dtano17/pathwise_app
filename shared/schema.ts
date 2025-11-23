@@ -459,6 +459,8 @@ export const notificationPreferences = pgTable("notification_preferences", {
   enableTaskReminders: boolean("enable_task_reminders").default(true),
   enableDeadlineWarnings: boolean("enable_deadline_warnings").default(true),
   enableDailyPlanning: boolean("enable_daily_planning").default(false),
+  enableGroupNotifications: boolean("enable_group_notifications").default(true), // Group activity updates
+  notifyAdminOnChanges: boolean("notify_admin_on_changes").default(true), // When user makes changes to group activities
   reminderLeadTime: integer("reminder_lead_time").default(30), // minutes before task
   dailyPlanningTime: text("daily_planning_time").default("09:00"), // HH:MM format
   quietHoursStart: text("quiet_hours_start").default("22:00"), // HH:MM format

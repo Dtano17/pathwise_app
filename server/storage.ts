@@ -215,6 +215,12 @@ export interface IStorage {
   getUserNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
   createNotificationPreferences(prefs: InsertNotificationPreferences & { userId: string }): Promise<NotificationPreferences>;
   updateNotificationPreferences(userId: string, updates: Partial<NotificationPreferences>): Promise<NotificationPreferences | undefined>;
+  getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>; // Alias for getUserNotificationPreferences
+  
+  // User Notifications (in-app notifications)
+  createUserNotification(notification: { userId: string; sourceGroupId: string | null; actorUserId: string | null; type: string; title: string; body: string | null; metadata: any }): Promise<any>;
+  getUserNotifications(userId: string, limit?: number): Promise<any[]>;
+  markNotificationRead(notificationId: string, userId: string): Promise<void>;
 
   // Task Reminders
   createTaskReminder(reminder: InsertTaskReminder & { userId: string }): Promise<TaskReminder>;
@@ -1262,6 +1268,30 @@ export class DatabaseStorage implements IStorage {
       .where(eq(notificationPreferences.userId, userId))
       .returning();
     return result[0];
+  }
+
+  async getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined> {
+    return this.getUserNotificationPreferences(userId);
+  }
+
+  // User Notifications (in-app notifications)
+  async createUserNotification(notification: { userId: string; sourceGroupId: string | null; actorUserId: string | null; type: string; title: string; body: string | null; metadata: any }): Promise<any> {
+    const [result] = await db.insert(userNotifications).values(notification).returning();
+    return result;
+  }
+
+  async getUserNotifications(userId: string, limit: number = 50): Promise<any[]> {
+    return await db.select()
+      .from(userNotifications)
+      .where(eq(userNotifications.userId, userId))
+      .orderBy(desc(userNotifications.createdAt))
+      .limit(limit);
+  }
+
+  async markNotificationRead(notificationId: string, userId: string): Promise<void> {
+    await db.update(userNotifications)
+      .set({ readAt: new Date() })
+      .where(and(eq(userNotifications.id, notificationId), eq(userNotifications.userId, userId)));
   }
 
   // Task Reminders
