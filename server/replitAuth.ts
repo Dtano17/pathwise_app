@@ -8,6 +8,7 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { sendWelcomeEmail } from "./emailService";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -69,6 +70,10 @@ async function upsertUser(
   
   const userId = claims["sub"];
   
+  // Check if user already exists (to determine if this is a new user)
+  const existingUser = await storage.getUser(userId);
+  const isNewUser = !existingUser;
+  
   // Create or update user
   await storage.upsertUser({
     id: userId,
@@ -94,6 +99,19 @@ async function upsertUser(
         push: true,
         sms: false
       }
+    });
+  }
+
+  // Send welcome email for new users (don't wait for it)
+  if (isNewUser && email) {
+    sendWelcomeEmail(email, claims["first_name"] || 'there').then(result => {
+      if (result.success) {
+        console.log('[Replit Auth] Welcome email sent to:', email);
+      } else {
+        console.error('[Replit Auth] Failed to send welcome email:', result.error);
+      }
+    }).catch(error => {
+      console.error('[Replit Auth] Welcome email error:', error);
     });
   }
 }
