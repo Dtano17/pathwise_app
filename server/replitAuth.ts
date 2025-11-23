@@ -89,7 +89,6 @@ async function upsertUser(
   const existingProfile = await storage.getUserProfile(userId);
   if (!existingProfile) {
     await storage.upsertUserProfile(userId, {
-      userId: userId,
       bio: '',
       location: '',
       phone: '',
