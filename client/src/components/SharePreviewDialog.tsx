@@ -421,7 +421,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
       <DialogContent 
         className={`overflow-y-auto ${
           isMobile 
-            ? 'fixed inset-0 w-screen h-screen max-w-none rounded-none max-h-none m-0 p-4 flex flex-col bottom-0 left-0 right-0 top-0'
+            ? 'w-full max-w-none h-screen rounded-none max-h-screen p-4'
             : 'max-w-4xl max-h-[90vh] w-[95vw] sm:w-full p-4 sm:p-6'
         }`}
       >
