@@ -40,6 +40,20 @@ The application employs a mobile-first responsive design featuring a clean, card
 - **Animations**: React Confetti, React Spring, Framer Motion.
 - **Mobile Application**: Capacitor-based native app wrapping the React web app for iOS and Android, with PWA support for Chrome install prompts.
 
+**Native Mobile Features:**
+- **Home Screen Widgets**: Display today's tasks and streak count directly on device home screen
+  - Android: Kotlin widget provider with live task updates
+  - iOS: SwiftUI widget extension with App Groups data sharing
+  - Widget API endpoint: `GET /api/tasks/widget`
+  - Auto-refresh every 15-30 minutes
+  - Quick deep-links to journal creation
+- **Calendar Sync & Reminders**: Add tasks/activities to device calendar with multiple reminders
+- **Biometric Authentication**: Face ID, Touch ID, or fingerprint unlock
+- **Voice-to-Text Input**: Speech recognition for quick journal entries
+- **Android Inbound Share**: Receive shares from other apps (texts, images, URLs)
+- **Push Notifications**: Backend infrastructure with device token management
+- **Haptic Feedback**: Task-specific haptic patterns
+
 **Core Features:**
 - **AI-Powered Planning**: 
   - **Quick Plan (5-question flow)**: Streamlined planning in 3 turns - Batch 1 asks 3 questions (origin, destination, duration), Batch 2 asks 2 more (budget, occasion), then shows preview with real-time data. Features automatic safety checks for travel (hurricanes, advisories), strict override detection to prevent accidental skips, and user can override at any point by saying "create plan".

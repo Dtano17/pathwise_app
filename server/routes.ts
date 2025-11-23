@@ -2218,6 +2218,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Widget API: Get compact task data for home screen widgets
+  app.get("/api/tasks/widget", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const allTasks = await storage.getUserTasks(userId);
+      
+      // Filter incomplete tasks and take first 3
+      const upcomingTasks = allTasks
+        .filter((task: any) => !task.completed && !task.skipped)
+        .slice(0, 3)
+        .map((task: any) => ({
+          id: task.id,
+          title: task.title,
+          completed: task.completed || false
+        }));
+      
+      // Calculate streak count from progress
+      let streakCount = 0;
+      try {
+        const progress = await storage.calculateProgress(userId);
+        if (progress && progress.dailyStreaks) {
+          streakCount = progress.dailyStreaks.current || 0;
+        }
+      } catch (error) {
+        console.error('Failed to calculate streak for widget:', error);
+        streakCount = 0;
+      }
+      
+      res.json({
+        tasks: upcomingTasks,
+        streakCount,
+        totalTasksToday: allTasks.filter((t: any) => !t.completed && !t.skipped).length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Widget data error:', error);
+      res.status(500).json({ error: 'Failed to fetch widget data' });
+    }
+  });
+
   // Complete a task (swipe right)
   app.post("/api/tasks/:taskId/complete", async (req, res) => {
     try {
