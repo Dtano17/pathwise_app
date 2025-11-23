@@ -55,6 +55,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import Stripe from 'stripe';
+import { sendGroupNotification } from './services/notificationService';
 
 // Helper function to format plan preview for Smart mode
 function formatPlanPreview(plan: any): string {
@@ -2269,7 +2270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Task not found' });
       }
 
-      // Check if this task belongs to a group activity and log completion
+      // Check if this task belongs to a group activity and log completion + notify
       try {
         const groupActivity = await storage.getGroupActivityByTaskId(taskId);
         if (groupActivity) {
@@ -2278,6 +2279,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userId,
             changeType: 'task_completed',
             changeDescription: `completed "${task.title}"`,
+          });
+          
+          // Send notification to group members
+          const completingUser = await storage.getUser(userId);
+          const activity = await storage.getActivity(groupActivity.activityId, userId);
+          
+          await sendGroupNotification(storage, {
+            groupId: groupActivity.groupId,
+            actorUserId: userId,
+            excludeUserIds: [userId], // Don't notify the person who completed the task
+            notificationType: 'task_completed',
+            payload: {
+              title: `Task completed in ${activity?.title || 'group activity'}`,
+              body: `${completingUser?.username || 'Someone'} completed "${task.title}"`,
+              data: { groupId: groupActivity.groupId, groupActivityId: groupActivity.id, taskId },
+              route: `/groups/${groupActivity.groupId}`,
+            },
           });
         }
       } catch (logError) {
@@ -2809,6 +2827,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const newMembership = await storage.addGroupMember(groupId, memberId, role || 'member');
 
+      // Send notification to new member and existing members
+      try {
+        const group = await storage.getGroupById(groupId, userId);
+        const addedUser = await storage.getUser(memberId);
+        
+        // Notify the new member
+        await sendGroupNotification(storage, {
+          groupId,
+          actorUserId: userId,
+          excludeUserIds: [userId], // Don't notify the admin who added
+          notificationType: 'member_added',
+          payload: {
+            title: `Welcome to ${group?.name || 'the group'}!`,
+            body: `You've been added to ${group?.name || 'a group'}`,
+            data: { groupId, groupName: group?.name },
+            route: `/groups/${groupId}`,
+          },
+        });
+        
+        // Notify existing members
+        await sendGroupNotification(storage, {
+          groupId,
+          actorUserId: userId,
+          excludeUserIds: [userId, memberId], // Don't notify admin or new member
+          notificationType: 'member_added',
+          payload: {
+            title: `New member joined`,
+            body: `${addedUser?.username || 'Someone'} joined ${group?.name || 'your group'}`,
+            data: { groupId, groupName: group?.name, newMemberId: memberId },
+            route: `/groups/${groupId}`,
+          },
+        });
+      } catch (notifError) {
+        console.error('Failed to send member added notification:', notifError);
+      }
+
       res.json({
         membership: newMembership,
         message: 'Member added successfully'
@@ -2917,6 +2971,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const groupActivity = await storage.shareActivityToGroup(activityId, groupId, userId);
+
+      // Send notification to group members
+      try {
+        const activity = await storage.getActivity(activityId, userId);
+        const group = await storage.getGroupById(groupId, userId);
+        const sharingUser = await storage.getUser(userId);
+        
+        await sendGroupNotification(storage, {
+          groupId,
+          actorUserId: userId,
+          excludeUserIds: [userId], // Don't notify the person who shared
+          notificationType: 'activity_shared',
+          payload: {
+            title: `New activity shared`,
+            body: `${sharingUser?.username || 'Someone'} shared "${activity?.title}" in ${group?.name || 'your group'}`,
+            data: { groupId, activityId, groupActivityId: groupActivity.id },
+            route: `/groups/${groupId}`,
+          },
+        });
+      } catch (notifError) {
+        console.error('Failed to send activity shared notification:', notifError);
+      }
 
       res.json({
         groupActivity,
@@ -3046,6 +3122,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Remove activity error:', error);
       res.status(500).json({ error: 'Failed to remove activity' });
+    }
+  });
+
+  // Copy group activity to personal library ("Copy to My Plans")
+  app.post("/api/groups/:groupId/activities/:groupActivityId/copy", async (req, res) => {
+    try {
+      const { groupId, groupActivityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Check if user is member
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      // Get the group activity
+      const groupActivity = await storage.getGroupActivityById(groupActivityId);
+      if (!groupActivity || groupActivity.groupId !== groupId) {
+        return res.status(404).json({ error: 'Group activity not found' });
+      }
+
+      // Get the original activity and its tasks
+      const originalActivity = await storage.getActivity(groupActivity.activityId, userId);
+      if (!originalActivity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      const tasks = await storage.getActivityTasks(groupActivity.activityId);
+
+      // Create a copy in user's personal library
+      const copiedActivity = await storage.createActivity({
+        userId,
+        title: `${originalActivity.title} (Copy)`,
+        planSummary: originalActivity.planSummary,
+        category: originalActivity.category,
+        notes: originalActivity.notes || null,
+        backdrop: originalActivity.backdrop,
+        shareTitle: originalActivity.shareTitle,
+        isPublic: false, // Personal copy is private by default
+      });
+
+      // Copy all tasks
+      for (const task of tasks) {
+        await storage.createActivityTask({
+          activityId: copiedActivity.id,
+          title: task.title,
+          description: task.description,
+          category: task.category,
+          priority: task.priority,
+          duration: task.duration,
+          notes: task.notes,
+          order: task.order,
+        });
+      }
+
+      res.json({
+        activity: copiedActivity,
+        message: 'Activity copied to your personal library successfully'
+      });
+    } catch (error) {
+      console.error('Copy activity error:', error);
+      res.status(500).json({ error: 'Failed to copy activity' });
     }
   });
 

@@ -359,6 +359,7 @@ export interface IStorage {
   getGroupActivityFeed(groupId: string, limit?: number): Promise<GroupActivityFeedItem[]>;
   logGroupActivity(feedItem: InsertGroupActivityFeedItem): Promise<GroupActivityFeedItem>;
   getGroupActivityByTaskId(taskId: string): Promise<GroupActivity | null>;
+  getGroupActivityById(groupActivityId: string): Promise<GroupActivity | null>;
   logActivityChange(change: { groupActivityId: string; userId: string; changeType: string; changeDescription: string }): Promise<void>;
 }
 
@@ -3084,6 +3085,16 @@ export class DatabaseStorage implements IStorage {
     );
 
     return result.rows.length > 0 ? result.rows[0] : null;
+  }
+
+  async getGroupActivityById(groupActivityId: string): Promise<GroupActivity | null> {
+    const [result] = await db
+      .select()
+      .from(groupActivities)
+      .where(eq(groupActivities.id, groupActivityId))
+      .limit(1);
+    
+    return result || null;
   }
 
   async logActivityChange(change: { groupActivityId: string; userId: string; changeType: string; changeDescription: string }): Promise<void> {
