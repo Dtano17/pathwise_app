@@ -35,6 +35,8 @@ import {
   activities,
   plannerProfiles,
   activityReports,
+  users,
+  authIdentities,
   type Task,
   type Activity,
   type ActivityTask,
@@ -43,7 +45,7 @@ import {
   type ProfileCompletion,
   type LifestylePlannerSession
 } from "@shared/schema";
-import { eq, and, or, isNull, sql } from "drizzle-orm";
+import { eq, and, or, isNull, isNotNull, ne, sql } from "drizzle-orm";
 import bcrypt from 'bcrypt';
 import { z } from "zod";
 import crypto from 'crypto';
@@ -4848,6 +4850,82 @@ ${emoji} ${progressLine}
     } catch (error) {
       console.error('Get community plans error:', error);
       res.status(500).json({ error: 'Failed to fetch community plans' });
+    }
+  });
+
+  // Send retroactive welcome emails to existing OAuth users
+  app.post("/api/admin/send-oauth-welcome-emails", async (req, res) => {
+    try {
+      const { adminSecret } = req.body;
+      
+      // Verify admin secret
+      if (adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(403).json({ error: 'Invalid admin secret' });
+      }
+
+      console.log('[ADMIN] Starting retroactive welcome email send for OAuth users...');
+      
+      // Get all users with OAuth identities who have emails
+      const oauthUsers = await db
+        .select({
+          userId: authIdentities.userId,
+          email: users.email,
+          firstName: users.firstName,
+          provider: authIdentities.provider,
+        })
+        .from(authIdentities)
+        .innerJoin(users, eq(authIdentities.userId, users.id))
+        .where(
+          and(
+            isNotNull(users.email),
+            ne(users.email, '')
+          )
+        )
+        .execute();
+
+      console.log(`[ADMIN] Found ${oauthUsers.length} OAuth users with emails`);
+
+      let successCount = 0;
+      let failedCount = 0;
+      const errors: any[] = [];
+
+      // Send emails in batches to avoid rate limiting
+      for (const user of oauthUsers) {
+        try {
+          const result = await sendWelcomeEmail(user.email!, user.firstName || 'there');
+          if (result.success) {
+            successCount++;
+            console.log(`[ADMIN] Welcome email sent to ${user.email} (${user.provider})`);
+          } else {
+            failedCount++;
+            errors.push({ email: user.email, error: result.error });
+            console.error(`[ADMIN] Failed to send to ${user.email}:`, result.error);
+          }
+          
+          // Small delay between emails to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error: any) {
+          failedCount++;
+          errors.push({ email: user.email, error: error.message });
+          console.error(`[ADMIN] Error sending to ${user.email}:`, error);
+        }
+      }
+
+      console.log(`[ADMIN] Retroactive welcome emails complete: ${successCount} sent, ${failedCount} failed`);
+      
+      res.json({
+        success: true,
+        message: 'Retroactive welcome emails sent',
+        stats: {
+          total: oauthUsers.length,
+          sent: successCount,
+          failed: failedCount,
+        },
+        errors: errors.length > 0 ? errors.slice(0, 10) : undefined, // Only return first 10 errors
+      });
+    } catch (error: any) {
+      console.error('[ADMIN] Retroactive email error:', error);
+      res.status(500).json({ error: 'Failed to send retroactive welcome emails', details: error.message });
     }
   });
 
