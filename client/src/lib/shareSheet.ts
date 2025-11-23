@@ -6,7 +6,7 @@
  */
 
 import { Share, ShareResult } from '@capacitor/share';
-import { isNative } from './platform';
+import { isNative, isIOS } from './platform';
 
 export interface ShareData {
   title?: string;
