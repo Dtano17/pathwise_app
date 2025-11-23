@@ -231,21 +231,37 @@ export function initIncomingShareListener(): void {
     }
   }
 
-  // Android: Listen for share intents
-  if ((window as any).plugins?.intentShim) {
-    (window as any).plugins.intentShim.onIntent((intent: any) => {
-      handleIncomingIntent(intent);
-    });
+  // Android: Check for cold start share data
+  if (!isIOS() && (window as any).Capacitor?.Plugins?.SharePlugin) {
+    (window as any).Capacitor.Plugins.SharePlugin.getPendingShare()
+      .then((result: any) => {
+        if (result.hasData && result.data) {
+          try {
+            const shareData = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
+            console.log('[SHARE ANDROID] Retrieved cold start share:', shareData);
+            setPendingShareData(shareData);
+          } catch (error) {
+            console.error('[SHARE ANDROID] Failed to parse cold start share:', error);
+          }
+        }
+      })
+      .catch((error: any) => {
+        console.error('[SHARE ANDROID] Failed to get pending share:', error);
+      });
   }
 
-  // Check for initial share intent (app launched via share)
-  if ((window as any).plugins?.intentShim) {
-    (window as any).plugins.intentShim.getIntent((intent: any) => {
-      if (intent) {
-        handleIncomingIntent(intent);
-      }
-    });
-  }
+  // Android: Listen for 'incomingShare' events from MainActivity (hot start)
+  window.addEventListener('incomingShare', (event: any) => {
+    try {
+      // MainActivity sends JSON string via CustomEvent - must parse it
+      const rawData = event.detail || event;
+      const shareData = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+      console.log('[SHARE ANDROID] Received hot start share:', shareData);
+      setPendingShareData(shareData);
+    } catch (error) {
+      console.error('[SHARE ANDROID] Failed to parse hot start share:', error);
+    }
+  });
 
   console.log('[SHARE] Incoming share listener initialized');
 }
