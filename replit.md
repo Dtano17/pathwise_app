@@ -121,4 +121,14 @@ To deploy to production:
      ```
    - Verify in the Discover Plans section - you should see 25 community plans with backdrop images
 
+6. **Send Retroactive Welcome Emails** (Optional - for existing OAuth users):
+   - If you have existing OAuth users who signed up before welcome emails were implemented, send them retroactive welcome emails:
+     ```bash
+     curl -X POST https://your-app.replit.app/api/admin/send-oauth-welcome-emails \
+       -H "Content-Type: application/json" \
+       -d '{"adminSecret": "YOUR_ADMIN_SECRET_VALUE"}'
+     ```
+   - This will send welcome emails to all OAuth users (Google, Facebook, X/Twitter, Apple) who have email addresses
+   - Note: New OAuth users automatically receive welcome emails upon signup
+
 See **PRODUCTION_DEPLOYMENT.md** for deployment instructions, **REVENUE_SYSTEM.md** for monetization setup, and **ANDROID_BUILD_GUIDE.md** for building the Android app.
