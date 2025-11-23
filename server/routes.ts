@@ -4902,8 +4902,8 @@ ${emoji} ${progressLine}
             console.error(`[ADMIN] Failed to send to ${user.email}:`, result.error);
           }
           
-          // Small delay between emails to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Delay between emails to respect rate limit (2 emails/second = 500ms minimum)
+          await new Promise(resolve => setTimeout(resolve, 600));
         } catch (error: any) {
           failedCount++;
           errors.push({ email: user.email, error: error.message });
