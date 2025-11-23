@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown, Users, Download, Share2, BadgeCheck, AlertTriangle, X } from 'lucide-react';
 import { Card, CardHeader, CardContent, CardDescription } from '@/components/ui/card';
 import { ShareCardGenerator } from './ShareCardGenerator';
@@ -66,9 +65,6 @@ interface PrivacySettings {
 }
 
 export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShare }: SharePreviewDialogProps) {
-  // Responsive hook
-  const isMobile = useIsMobile();
-  
   // Tab state (temporarily kept for compatibility)
   const [activeTab, setActiveTab] = useState('quick-share');
   
@@ -418,28 +414,20 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
-        className={`overflow-y-auto ${
-          isMobile 
-            ? 'w-full max-w-none h-screen rounded-none max-h-screen p-4'
-            : 'max-w-4xl max-h-[90vh] w-[95vw] sm:w-full p-4 sm:p-6'
-        }`}
-      >
-        <DialogHeader className={`space-y-2 ${isMobile ? 'relative pb-4' : ''}`}>
+      <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] sm:w-full p-4 sm:p-6 overflow-y-auto">
+        <DialogHeader className="space-y-2">
           <div className="flex items-start justify-between gap-2">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl flex-1">
               <Sparkles className="w-5 h-5 text-primary flex-shrink-0" />
               <span className="truncate">Share & Customize Your Activity</span>
             </DialogTitle>
-            {isMobile && (
-              <button
-                onClick={() => onOpenChange(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors p-1"
-                data-testid="button-close-share-preview"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
+            <button
+              onClick={() => onOpenChange(false)}
+              className="hidden sm:inline text-muted-foreground hover:text-foreground transition-colors p-1"
+              data-testid="button-close-share-preview"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
           <DialogDescription className="text-sm">
             Quick share, download cards, or verify with social media
