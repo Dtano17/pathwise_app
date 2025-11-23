@@ -6,6 +6,7 @@ import { Strategy as InstagramStrategy } from "passport-instagram";
 import { type Express } from "express";
 import { storage } from "./storage";
 import { type AuthIdentity } from "@shared/schema";
+import { sendWelcomeEmail } from "./emailService";
 
 // OAuth configuration interfaces
 interface GoogleProfile {
@@ -139,6 +140,19 @@ export async function setupMultiProviderAuth(app: Express) {
             scope: 'profile email',
           });
 
+          // Send welcome email for new users (don't wait for it)
+          if (isNewUser && user.email) {
+            sendWelcomeEmail(user.email, user.firstName || 'there').then(result => {
+              if (result.success) {
+                console.log('[Google OAuth] Welcome email sent to:', user.email);
+              } else {
+                console.error('[Google OAuth] Failed to send welcome email:', result.error);
+              }
+            }).catch(error => {
+              console.error('[Google OAuth] Welcome email error:', error);
+            });
+          }
+
           const oauthUser: OAuthUser = {
             id: user.id,
             provider: 'google',
@@ -229,6 +243,19 @@ export async function setupMultiProviderAuth(app: Express) {
             scope: 'email public_profile',
           });
 
+          // Send welcome email for new users (don't wait for it)
+          if (isNewUser && user.email) {
+            sendWelcomeEmail(user.email, user.firstName || 'there').then(result => {
+              if (result.success) {
+                console.log('[Facebook OAuth] Welcome email sent to:', user.email);
+              } else {
+                console.error('[Facebook OAuth] Failed to send welcome email:', result.error);
+              }
+            }).catch(error => {
+              console.error('[Facebook OAuth] Welcome email error:', error);
+            });
+          }
+
           const oauthUser: OAuthUser = {
             id: user.id,
             provider: 'facebook',
@@ -272,6 +299,7 @@ export async function setupMultiProviderAuth(app: Express) {
         let authIdentity = await storage.getAuthIdentity('apple', profile.id);
         
         let user;
+        let isNewUser = false;
         if (authIdentity) {
           // User already exists with this Apple account
           user = await storage.getUser(authIdentity.userId);
@@ -297,6 +325,7 @@ export async function setupMultiProviderAuth(app: Express) {
               lastName: lastName || undefined,
               profileImageUrl: undefined, // Apple doesn't provide profile images
             });
+            isNewUser = true;
           }
 
           // Link Apple account to user
@@ -319,6 +348,19 @@ export async function setupMultiProviderAuth(app: Express) {
             scope: 'name email',
           });
 
+          // Send welcome email for new users (don't wait for it)
+          if (isNewUser && user.email) {
+            sendWelcomeEmail(user.email, user.firstName || 'there').then(result => {
+              if (result.success) {
+                console.log('[Apple OAuth] Welcome email sent to:', user.email);
+              } else {
+                console.error('[Apple OAuth] Failed to send welcome email:', result.error);
+              }
+            }).catch(error => {
+              console.error('[Apple OAuth] Welcome email error:', error);
+            });
+          }
+
           const oauthUser: OAuthUser = {
             id: user.id,
             provider: 'apple',
@@ -327,6 +369,7 @@ export async function setupMultiProviderAuth(app: Express) {
             firstName: user.firstName || undefined,
             lastName: user.lastName || undefined,
             profileImageUrl: user.profileImageUrl || undefined,
+            isNewUser
           };
 
           return done(null, oauthUser);
