@@ -6,6 +6,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupMultiProviderAuth } from "./multiProviderAuth";
 import { initializeLLMProviders } from "./services/llmProviders";
+import { handleStripeWebhook } from "./stripeWebhook";
 
 // Validate critical environment variables
 function validateEnvironment() {
@@ -58,6 +59,11 @@ const app = express();
 
 // Disable ETags globally to prevent 304 Not Modified responses
 app.set('etag', false);
+
+// ⚠️ CRITICAL: Stripe webhook MUST be registered BEFORE express.json()
+// Stripe signature verification requires the RAW request body as a Buffer
+// express.json() would parse it into an object, breaking verification
+app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), handleStripeWebhook);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
