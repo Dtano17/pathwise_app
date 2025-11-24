@@ -4629,16 +4629,18 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
 
       let groupId;
       if (createGroup && groupName) {
-        // Create the group
+        // Create the group with generated invite code
+        const inviteCode = generateInviteCode();
         const group = await storage.createGroup({
           name: groupName.trim(),
           description: groupDescription?.trim() || null,
           isPrivate: false,
-          inviteCode: null,
+          inviteCode,
           createdBy: userId
         });
 
         groupId = group.id;
+        console.log('[SHARE] Created new group with invite code:', inviteCode);
 
         // Add creator as admin
         await storage.createGroupMembership({
@@ -4990,16 +4992,18 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       let newGroupId;
       let newGroupShareToken;
       if (createGroup && groupName) {
-        // Create the group
+        // Create the group with generated invite code
+        const inviteCode = generateInviteCode();
         const group = await storage.createGroup({
           name: groupName.trim(),
           description: groupDescription?.trim() || null,
           isPrivate: false,
-          inviteCode: null,
+          inviteCode,
           createdBy: userId
         });
 
         newGroupId = group.id;
+        console.log('[SHARE] Created new group with invite code:', inviteCode);
 
         // Add creator as admin
         await storage.createGroupMembership({
