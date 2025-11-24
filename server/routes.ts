@@ -3035,6 +3035,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send notification to admin and existing members
       try {
+        console.log(`[JOIN GROUP] Sending notification for user ${userId} joining group ${result.group.id}`);
         await sendGroupNotification(storage, {
           groupId: result.group.id,
           actorUserId: userId,
@@ -3047,6 +3048,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             route: `/groups/${result.group.id}`,
           },
         });
+        console.log(`[JOIN GROUP] Notification sent successfully`);
 
         // If this user was invited via email/phone, send special notification to inviter
         if (inviterUserId) {
@@ -6826,6 +6828,37 @@ ${emoji} ${progressLine}
     } catch (error) {
       console.error('Error fetching user devices:', error);
       res.status(500).json({ error: 'Failed to fetch registered devices' });
+    }
+  });
+
+  // Get user notifications
+  app.get("/api/user/notifications", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+      const notifications = await storage.getUserNotifications(userId, limit);
+      res.json({ notifications });
+    } catch (error) {
+      console.error('Error fetching user notifications:', error);
+      res.status(500).json({ error: 'Failed to fetch notifications' });
+    }
+  });
+
+  // Mark notification as read
+  app.patch("/api/user/notifications/:notificationId/read", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { notificationId } = req.params;
+      
+      if (!notificationId) {
+        return res.status(400).json({ error: 'Notification ID is required' });
+      }
+
+      await storage.markNotificationRead(notificationId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      res.status(500).json({ error: 'Failed to mark notification as read' });
     }
   });
 

@@ -43,27 +43,11 @@ export async function sendGroupNotification(
       return;
     }
 
-    // Get notification preferences and device tokens for all target users
+    // Create in-app notification records for all target users
     const notificationPromises = targetUserIds.map(async (userId) => {
       try {
-        // Check user's notification preferences
-        const prefs = await storage.getNotificationPreferences(userId);
-        
-        if (!prefs?.enableGroupNotifications) {
-          console.log(`[NOTIFICATION] User ${userId} has group notifications disabled`);
-          return;
-        }
-
-        // Get active device tokens
-        const devices = await storage.getUserDeviceTokens(userId);
-        const activeDevices = devices.filter(d => d.isActive);
-
-        if (activeDevices.length === 0) {
-          console.log(`[NOTIFICATION] No active devices for user ${userId}`);
-          return;
-        }
-
-        // Create in-app notification record
+        // Create in-app notification record in database
+        // This will be fetched and displayed by the frontend
         await storage.createUserNotification({
           userId,
           sourceGroupId: groupId,
@@ -74,23 +58,25 @@ export async function sendGroupNotification(
           metadata: payload.data || {},
         });
 
-        // TODO: Send actual push notifications via FCM/APNs
-        // This requires Firebase Admin SDK or APNs setup
-        // For now, we're just creating the notification record
-        console.log(`[NOTIFICATION] Would send to user ${userId}:`, {
+        console.log(`[NOTIFICATION] Created in-app notification for user ${userId}:`, {
           title: payload.title,
           body: payload.body,
-          devices: activeDevices.length,
+          type: notificationType,
         });
 
+        // TODO: Send actual push notifications via FCM/APNs (desktop/mobile)
+        // This requires Firebase Admin SDK or APNs setup
+        // For now, we're just creating the database notification record
+        // which the frontend will fetch and display
+
       } catch (error) {
-        console.error(`[NOTIFICATION] Failed to notify user ${userId}:`, error);
+        console.error(`[NOTIFICATION] Failed to create notification for user ${userId}:`, error);
       }
     });
 
     await Promise.all(notificationPromises);
     
-    console.log(`[NOTIFICATION] Group notification sent to ${targetUserIds.length} members`);
+    console.log(`[NOTIFICATION] Group notification created for ${targetUserIds.length} members`);
   } catch (error) {
     console.error('[NOTIFICATION] Failed to send group notification:', error);
     throw error;

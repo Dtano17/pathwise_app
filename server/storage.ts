@@ -69,6 +69,7 @@ import {
   type InsertGroupActivityFeedItem,
   type ActivityReport,
   type InsertActivityReport,
+  type UserNotification,
   users,
   goals,
   tasks,
@@ -100,7 +101,8 @@ import {
   groupMemberships,
   groupActivities,
   groupActivityFeed,
-  activityReports
+  activityReports,
+  userNotifications
 } from "@shared/schema";
 
 const pool = new Pool({
