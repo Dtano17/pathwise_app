@@ -37,6 +37,7 @@ import {
   activityReports,
   users,
   authIdentities,
+  contactShares,
   type Task,
   type Activity,
   type ActivityTask,
