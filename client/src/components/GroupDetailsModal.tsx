@@ -287,94 +287,95 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <DialogTitle className="text-xl flex items-center gap-2">
+        <DialogContent className="max-w-sm sm:max-w-md md:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col p-3 sm:p-6">
+          <DialogHeader className="space-y-3 sm:space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="text-lg sm:text-xl flex flex-wrap items-center gap-2 break-words">
                   {groupDetails.name}
                   {isAdmin && (
-                    <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20">
-                      <Crown className="w-3 h-3 mr-1" />
+                    <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 text-xs sm:text-sm">
+                      <Crown className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
                       Admin
                     </Badge>
                   )}
                 </DialogTitle>
                 {groupDetails.description && (
-                  <DialogDescription className="mt-1">
+                  <DialogDescription className="mt-1 text-xs sm:text-sm line-clamp-2">
                     {groupDetails.description}
                   </DialogDescription>
                 )}
               </div>
             </div>
 
-            {/* Group Stats */}
-            <div className="flex items-center gap-4 pt-2 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <Users className="w-4 h-4" />
-                <span>{groupDetails.members?.length || 0} members</span>
+            {/* Group Stats - Responsive Grid */}
+            <div className="grid grid-cols-3 sm:grid-cols-3 md:flex md:items-center md:gap-4 gap-2 pt-2 text-xs sm:text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1.5 items-start gap-1">
+                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                <span className="truncate">{groupDetails.members?.length || 0} members</span>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1.5 items-start gap-1">
                 {groupDetails.isPrivate ? (
                   <>
-                    <Lock className="w-4 h-4" />
+                    <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                     <span>Private</span>
                   </>
                 ) : (
                   <>
-                    <Globe className="w-4 h-4" />
+                    <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                     <span>Public</span>
                   </>
                 )}
               </div>
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-4 h-4" />
-                <span>Created {groupDetails.createdAt ? format(new Date(groupDetails.createdAt), 'MMM d, yyyy') : 'Recently'}</span>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1.5 items-start gap-1">
+                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                <span className="truncate">{groupDetails.createdAt ? format(new Date(groupDetails.createdAt), 'MMM d, yy') : 'Recent'}</span>
               </div>
             </div>
           </DialogHeader>
 
           <Tabs defaultValue="members" className="flex-1 overflow-hidden flex flex-col">
-            <TabsList className="w-full">
-              <TabsTrigger value="members" className="flex-1">Members</TabsTrigger>
-              <TabsTrigger value="activities" className="flex-1">Activities</TabsTrigger>
-              <TabsTrigger value="settings" className="flex-1">Settings</TabsTrigger>
+            <TabsList className="w-full grid grid-cols-3 h-auto p-1">
+              <TabsTrigger value="members" className="text-xs sm:text-sm py-2">Members</TabsTrigger>
+              <TabsTrigger value="activities" className="text-xs sm:text-sm py-2">Activities</TabsTrigger>
+              <TabsTrigger value="settings" className="text-xs sm:text-sm py-2">Settings</TabsTrigger>
             </TabsList>
 
             {/* Members Tab */}
-            <TabsContent value="members" className="flex-1 overflow-y-auto mt-4 space-y-3">
+            <TabsContent value="members" className="flex-1 overflow-y-auto mt-3 sm:mt-4 space-y-2 sm:space-y-3 px-0.5">
               {isAdmin && (
                 <Button
                   onClick={() => setShowInviteDialog(true)}
-                  className="w-full mb-4"
+                  className="w-full mb-2 sm:mb-4 text-xs sm:text-sm h-auto py-2 sm:py-2.5"
                   variant="outline"
                 >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Invite Members via Phone/Email
+                  <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 shrink-0" />
+                  <span className="hidden xs:inline">Invite Members via Phone/Email</span>
+                  <span className="xs:hidden">Invite Members</span>
                 </Button>
               )}
 
               {groupDetails.members?.map((member) => (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarFallback>{getInitials(member.username)}</AvatarFallback>
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                    <Avatar className="w-8 h-8 sm:w-10 sm:h-10 shrink-0">
+                      <AvatarFallback className="text-xs sm:text-sm">{getInitials(member.username)}</AvatarFallback>
                     </Avatar>
-                    <div>
-                      <p className="font-medium flex items-center gap-2">
-                        {member.username || 'Unknown User'}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm sm:text-base flex flex-wrap items-center gap-1 sm:gap-2 truncate">
+                        <span className="truncate">{member.username || 'Unknown User'}</span>
                         {member.role === 'admin' && (
-                          <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20">
-                            <Crown className="w-3 h-3 mr-1" />
+                          <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 text-xs flex-shrink-0">
+                            <Crown className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
                             Admin
                           </Badge>
                         )}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Joined {member.joinedAt ? format(new Date(member.joinedAt), 'MMM d, yyyy') : 'Unknown'}
+                        Joined {member.joinedAt ? format(new Date(member.joinedAt), 'MMM d, yy') : 'Unknown'}
                       </p>
                     </div>
                   </div>
@@ -384,8 +385,10 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
                       variant="ghost"
                       size="sm"
                       onClick={() => setRemoveMemberId(member.id)}
+                      className="w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
                     >
-                      <UserMinus className="w-4 h-4" />
+                      <UserMinus className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1.5" />
+                      <span className="hidden sm:inline">Remove</span>
                     </Button>
                   )}
                 </div>
@@ -393,12 +396,12 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
             </TabsContent>
 
             {/* Activities Tab */}
-            <TabsContent value="activities" className="flex-1 overflow-y-auto mt-4 space-y-3">
+            <TabsContent value="activities" className="flex-1 overflow-y-auto mt-3 sm:mt-4 space-y-2 sm:space-y-3 px-0.5">
               {activities.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Share2 className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>No activities shared yet</p>
-                  <p className="text-sm">Share activities to plan together with your group</p>
+                <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                  <Share2 className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 opacity-50" />
+                  <p className="text-sm sm:text-base font-medium">No activities shared yet</p>
+                  <p className="text-xs sm:text-sm">Share activities to plan together with your group</p>
                 </div>
               ) : (
                 activities.map((activity) => {
@@ -409,16 +412,16 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
                   return (
                     <div
                       key={activity.id}
-                      className="p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                      className="p-2.5 sm:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors space-y-2"
                     >
-                      <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-medium truncate">{activity.title}</h4>
+                          <h4 className="font-medium text-sm sm:text-base truncate">{activity.title}</h4>
                           {activity.description && (
-                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{activity.description}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 line-clamp-2">{activity.description}</p>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-wrap sm:flex-nowrap">
                           {activity.category && (
                             <Badge variant="secondary" className="text-xs">
                               {activity.category}
@@ -430,36 +433,37 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
                             onClick={() => handleCopyButtonClick(activity)}
                             disabled={isCopying && copyingActivityId === activity.id}
                             data-testid={`button-copy-activity-${activity.id}`}
+                            className="text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
                           >
                             {isCopying && copyingActivityId === activity.id ? (
                               <Loader2 className="w-3 h-3 animate-spin" />
                             ) : (
-                              <Download className="w-3 h-3 mr-1.5" />
+                              <Download className="w-3 h-3 sm:mr-1.5 mr-1" />
                             )}
-                            Copy
+                            <span className="hidden sm:inline">Copy</span>
                           </Button>
                         </div>
                       </div>
 
                       {/* Progress Bar */}
-                      <div className="space-y-2 mt-3">
-                        <div className="flex justify-between text-sm">
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs sm:text-sm">
                           <span className="text-muted-foreground">Progress</span>
-                          <span className="font-medium">
-                            {activity.completedTasks}/{activity.totalTasks} tasks
+                          <span className="font-medium text-xs sm:text-sm">
+                            {activity.completedTasks}/{activity.totalTasks}
                           </span>
                         </div>
-                        <div className="w-full bg-muted rounded-full h-2">
+                        <div className="w-full bg-muted rounded-full h-1.5 sm:h-2">
                           <div 
-                            className="bg-primary h-2 rounded-full transition-all duration-300" 
+                            className="bg-primary h-1.5 sm:h-2 rounded-full transition-all duration-300" 
                             style={{ width: `${progressPercentage}%` }}
                           />
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
-                        <span>Shared by {activity.sharedBy || 'Unknown'}</span>
-                        <span>{activity.sharedAt ? format(new Date(activity.sharedAt), 'MMM d, yyyy') : 'Recently'}</span>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground gap-1">
+                        <span className="truncate">by {activity.sharedBy || '?'}</span>
+                        <span className="shrink-0">{activity.sharedAt ? format(new Date(activity.sharedAt), 'MMM d, yy') : 'Recent'}</span>
                       </div>
                     </div>
                   );
@@ -468,42 +472,47 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
             </TabsContent>
 
             {/* Settings Tab */}
-            <TabsContent value="settings" className="flex-1 overflow-y-auto mt-4 space-y-4">
+            <TabsContent value="settings" className="flex-1 overflow-y-auto mt-3 sm:mt-4 space-y-3 sm:space-y-4 px-0.5">
               {/* Invite Code */}
               <div className="space-y-2">
-                <h4 className="text-sm font-medium">Invite Code</h4>
-                <div className="flex gap-2">
-                  <div className="flex-1 flex items-center justify-center bg-muted rounded-lg p-3 border">
-                    <span className="text-xl font-mono font-bold tracking-wider">
+                <h4 className="text-xs sm:text-sm font-medium">Invite Code</h4>
+                <div className="flex gap-1.5 sm:gap-2">
+                  <div className="flex-1 flex items-center justify-center bg-muted rounded-lg p-2 sm:p-3 border">
+                    <span className="text-base sm:text-xl font-mono font-bold tracking-wider text-center">
                       {groupDetails.inviteCode}
                     </span>
                   </div>
-                  <Button variant="outline" size="icon" onClick={handleCopyCode}>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleCopyCode}
+                    className="h-9 sm:h-auto px-2 sm:px-3"
+                  >
                     {codeCopied ? (
-                      <Check className="w-4 h-4 text-green-500" />
+                      <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500" />
                     ) : (
-                      <Copy className="w-4 h-4" />
+                      <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     )}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Share this code with people you want to invite
+                  Share this code to invite people
                 </p>
               </div>
 
               <Separator />
 
               {/* Danger Zone */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium text-destructive">Danger Zone</h4>
+              <div className="space-y-2 sm:space-y-3">
+                <h4 className="text-xs sm:text-sm font-medium text-destructive">Danger Zone</h4>
 
                 {!isAdmin && (
                   <Button
                     variant="outline"
-                    className="w-full justify-start text-destructive hover:text-destructive"
+                    className="w-full justify-start text-destructive hover:text-destructive text-xs sm:text-sm h-8 sm:h-auto py-2 sm:py-2.5"
                     onClick={() => setLeaveDialogOpen(true)}
                   >
-                    <UserMinus className="w-4 h-4 mr-2" />
+                    <UserMinus className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 shrink-0" />
                     Leave Group
                   </Button>
                 )}
@@ -511,10 +520,10 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
                 {isAdmin && (
                   <Button
                     variant="outline"
-                    className="w-full justify-start text-destructive hover:text-destructive"
+                    className="w-full justify-start text-destructive hover:text-destructive text-xs sm:text-sm h-8 sm:h-auto py-2 sm:py-2.5"
                     onClick={() => setDeleteDialogOpen(true)}
                   >
-                    <Trash2 className="w-4 h-4 mr-2" />
+                    <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 shrink-0" />
                     Delete Group
                   </Button>
                 )}
