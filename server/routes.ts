@@ -5099,7 +5099,7 @@ ${emoji} ${progressLine}
   app.post("/api/activities/copy/:shareToken", async (req, res) => {
     try {
       const { shareToken } = req.params;
-      const { forceUpdate, joinGroup } = req.body; // Client can request an update and opt into joining group
+      const { forceUpdate, joinGroup, shareProgress } = req.body; // Client can request an update, opt into joining group, and enable progress sharing
       const currentUserId = getUserId(req);
       
       console.log('[COPY ACTIVITY] Copy request received:', {
@@ -5180,7 +5180,8 @@ ${emoji} ${progressLine}
       }
       
       // Create a copy of the activity for the current user
-      const copiedActivity = await storage.createActivity({
+      // If shareProgress is enabled and activity has a targetGroupId, link to the group activity
+      const activityData: any = {
         userId: userId,
         title: sharedActivity.title,
         description: sharedActivity.description,
@@ -5192,7 +5193,16 @@ ${emoji} ${progressLine}
         endDate: sharedActivity.endDate,
         copiedFromShareToken: shareToken, // Track where it came from
         backdrop: sharedActivity.backdrop, // Preserve the stock image/backdrop
-      });
+      };
+      
+      // Enable progress sharing if requested and activity is part of a group
+      if (shareProgress && sharedActivity.targetGroupId) {
+        activityData.sharesProgressWithGroup = true;
+        activityData.linkedGroupActivityId = sharedActivity.id; // Link to the original group activity
+        console.log('[COPY ACTIVITY] Enabling progress sharing with group activity:', sharedActivity.id);
+      }
+      
+      const copiedActivity = await storage.createActivity(activityData);
       console.log('[COPY ACTIVITY] Activity copied successfully:', {
         newActivityId: copiedActivity.id,
         userId: userId
@@ -5368,6 +5378,34 @@ ${emoji} ${progressLine}
       const planSummary = activity.socialText || 
         `${activity.title} - A ${activity.category} plan with ${activityTasks.length} tasks`;
       
+      // Check if this is a group activity and include group info
+      let groupInfo = undefined;
+      let isGroupMember = false;
+      
+      if (activity.targetGroupId && currentUserId) {
+        try {
+          // Get group information
+          const group = await storage.getGroup(activity.targetGroupId);
+          if (group) {
+            // Get member count
+            const members = await storage.getGroupMembers(activity.targetGroupId);
+            
+            // Check if current user is a member
+            isGroupMember = members.some(m => m.userId === currentUserId);
+            
+            groupInfo = {
+              id: group.id,
+              name: group.name,
+              description: group.description,
+              memberCount: members.length,
+              isUserMember: isGroupMember
+            };
+          }
+        } catch (groupErr) {
+          console.error('Failed to get group info:', groupErr);
+        }
+      }
+      
       res.json({
         activity: {
           ...activity,
@@ -5375,7 +5413,8 @@ ${emoji} ${progressLine}
         },
         tasks: activityTasks,
         requiresAuth,
-        sharedBy
+        sharedBy,
+        groupInfo
       });
     } catch (error) {
       console.error('Get shared activity error:', error);

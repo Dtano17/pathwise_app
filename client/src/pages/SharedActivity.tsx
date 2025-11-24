@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Checkbox } from '@/components/ui/checkbox';
 import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, Sparkles, Users, Loader2, type LucideIcon } from 'lucide-react';
 const journalMateLogo = '/journalmate-logo-transparent.png';
 import { motion } from 'framer-motion';
@@ -60,6 +61,7 @@ interface SharedActivityData {
     name: string;
     description: string | null;
     memberCount: number;
+    isUserMember: boolean;
   };
 }
 
@@ -142,6 +144,7 @@ export default function SharedActivity() {
   const [confirmationData, setConfirmationData] = useState<any>(null);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [pendingCopy, setPendingCopy] = useState<{ forceUpdate: boolean } | null>(null);
+  const [shareProgress, setShareProgress] = useState(true); // Default to sharing progress
   
   // Initialize theme from localStorage or default to dark
   const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>(() => {
@@ -274,12 +277,12 @@ export default function SharedActivity() {
   };
 
   const copyActivityMutation = useMutation({
-    mutationFn: async ({ forceUpdate = false, joinGroup = false }: { forceUpdate?: boolean; joinGroup?: boolean }) => {
+    mutationFn: async ({ forceUpdate = false, joinGroup = false, shareProgress: shareProgressParam = false }: { forceUpdate?: boolean; joinGroup?: boolean; shareProgress?: boolean }) => {
       if (!token) throw new Error('Share token not found');
       const response = await fetch(`/api/activities/copy/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ forceUpdate, joinGroup }),
+        body: JSON.stringify({ forceUpdate, joinGroup, shareProgress: shareProgressParam }),
       });
       
       // Parse JSON response
@@ -519,7 +522,8 @@ export default function SharedActivity() {
     if (pendingCopy) {
       copyActivityMutation.mutate({ 
         forceUpdate: pendingCopy.forceUpdate, 
-        joinGroup 
+        joinGroup,
+        shareProgress: shareProgress // Use the checkbox state
       });
       setPendingCopy(null);
     }
@@ -1169,6 +1173,27 @@ export default function SharedActivity() {
               <p className="text-sm">
                 <strong>Just Copy:</strong> Get a private copy without joining the group
               </p>
+              
+              {/* Progress Sharing Checkbox */}
+              <div className="flex items-start space-x-2 pt-2 border-t">
+                <Checkbox
+                  id="share-progress"
+                  checked={shareProgress}
+                  onCheckedChange={(checked) => setShareProgress(checked === true)}
+                  data-testid="checkbox-share-progress"
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="share-progress"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Share my progress with the group
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Group admins can see your task completion progress
+                  </p>
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

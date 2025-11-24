@@ -651,7 +651,8 @@ function ActivityCard({ activity, groupId, onCopy, isCopying }: ActivityCardProp
     ? Math.round((activity.completedTasks / activity.totalTasks) * 100) 
     : 0;
 
-  const members = memberProgress?.memberProgress || [];
+  // API returns { memberProgress: [...] } where memberProgress is the array
+  const members = (memberProgress as any)?.memberProgress || [];
   const hasSharingMembers = members.length > 0;
 
   return (
