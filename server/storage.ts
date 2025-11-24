@@ -2791,11 +2791,21 @@ export class DatabaseStorage implements IStorage {
 
   // Join group by invite code
   async joinGroupByInviteCode(inviteCode: string, userId: string): Promise<any> {
-    // Find group by invite code
-    const [group] = await db
+    // Normalize invite code - remove dashes for comparison
+    const normalizedCode = inviteCode.toUpperCase().replace(/-/g, '');
+    
+    // Find group by invite code - need to find the code that matches with or without dashes
+    // Query all groups and filter manually since DB stores with dashes
+    const allGroups = await db
       .select()
-      .from(groups)
-      .where(eq(groups.inviteCode, inviteCode));
+      .from(groups);
+    
+    const group = allGroups.find(g => {
+      if (!g.inviteCode) return false;
+      // Normalize both for comparison
+      const dbCode = g.inviteCode.toUpperCase().replace(/-/g, '');
+      return dbCode === normalizedCode;
+    });
 
     if (!group) {
       return null;
