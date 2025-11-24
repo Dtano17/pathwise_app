@@ -810,19 +810,26 @@ export const contacts = pgTable("contacts", {
 // Contact shares for tracking app invitations and shared activities
 export const contactShares = pgTable("contact_shares", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: "cascade" }).notNull(),
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: "cascade" }), // Nullable for external invites
+  invitedBy: varchar("invited_by").references(() => users.id, { onDelete: "cascade" }), // For group invites
   sharedBy: varchar("shared_by").references(() => users.id, { onDelete: "cascade" }).notNull(),
   shareType: text("share_type").notNull(), // 'app_invitation' | 'activity' | 'group'
+  
+  // External contact fields (for inviting non-users)
+  contactType: text("contact_type"), // 'email' | 'phone' - for external invites
+  contactValue: text("contact_value"), // Email address or phone number
+  
   activityId: varchar("activity_id").references(() => activities.id, { onDelete: "cascade" }), // Optional: specific activity shared
   groupId: varchar("group_id").references(() => groups.id, { onDelete: "cascade" }), // Optional: specific group shared
   status: text("status").notNull().default("pending"), // 'pending' | 'accepted' | 'declined' | 'expired'
   invitationMessage: text("invitation_message"),
+  inviteMessage: text("invite_message"), // Custom message for group invites
   sharedAt: timestamp("shared_at").defaultNow(),
   respondedAt: timestamp("responded_at"),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
-  contactShareIndex: index("contact_share_index").on(table.contactId, table.status),
+  contactValueIndex: index("contact_value_index").on(table.contactValue, table.status),
   sharedByIndex: index("shared_by_index").on(table.sharedBy, table.shareType),
 }));
 
