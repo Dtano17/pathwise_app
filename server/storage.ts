@@ -3206,6 +3206,8 @@ export class DatabaseStorage implements IStorage {
       .values({
         groupId: data.groupId,
         invitedBy: data.invitedBy,
+        sharedBy: data.invitedBy, // Same as invitedBy for group invites
+        shareType: 'group',
         contactType: data.contactType,
         contactValue: data.contactValue,
         inviteMessage: data.inviteMessage || null,
