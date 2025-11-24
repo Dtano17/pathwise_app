@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
+import { sql as drizzleSql } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupMultiProviderAuth, isAuthenticatedGeneric } from "./multiProviderAuth";
 import { aiService } from "./services/aiService";
@@ -4742,8 +4743,43 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
             };
           }
         } catch (error) {
-          console.error('[SHARE] Error fetching group info:', error);
+          console.error('[SHARE] Error fetching group info from targetGroupId:', error);
           // Don't fail the request if group fetch fails
+        }
+      }
+      
+      // If no targetGroupId, check if this activity is shared to any groups (in group_activities table)
+      if (!groupInfo) {
+        console.log('[SHARE] Checking group_activities table for activity:', activity.id);
+        try {
+          const groupActivitiesResult: any = await db.execute(drizzleSql.raw(`
+            SELECT ga.group_id, g.name, g.description
+            FROM group_activities ga
+            INNER JOIN groups g ON ga.group_id = g.id
+            WHERE ga.activity_id = '${activity.id}'
+            LIMIT 1
+          `));
+          
+          console.log('[SHARE] group_activities query result:', {
+            hasRows: !!groupActivitiesResult.rows,
+            rowCount: groupActivitiesResult.rows?.length || 0,
+            firstRow: groupActivitiesResult.rows?.[0]
+          });
+          
+          if (groupActivitiesResult.rows && groupActivitiesResult.rows.length > 0) {
+            const groupRow = groupActivitiesResult.rows[0];
+            const members = await storage.getGroupMembers(groupRow.group_id);
+            
+            groupInfo = {
+              id: groupRow.group_id,
+              name: groupRow.name,
+              description: groupRow.description || null,
+              memberCount: members.length
+            };
+            console.log('[SHARE] Built groupInfo from group_activities:', groupInfo);
+          }
+        } catch (groupErr) {
+          console.error('[SHARE] Failed to get group info from group_activities:', groupErr);
         }
       }
 
@@ -5195,8 +5231,24 @@ ${emoji} ${progressLine}
         backdrop: sharedActivity.backdrop, // Preserve the stock image/backdrop
       };
       
+      // Check if activity belongs to any group (for progress sharing)
+      let activityGroupId = sharedActivity.targetGroupId;
+      if (!activityGroupId) {
+        try {
+          const groupCheckResult = await pool.query(
+            `SELECT group_id FROM group_activities WHERE activity_id = $1 LIMIT 1`,
+            [sharedActivity.id]
+          );
+          if (groupCheckResult.rows.length > 0) {
+            activityGroupId = groupCheckResult.rows[0].group_id;
+          }
+        } catch (err) {
+          console.error('[COPY ACTIVITY] Error checking group for progress sharing:', err);
+        }
+      }
+      
       // Enable progress sharing if requested and activity is part of a group
-      if (shareProgress && sharedActivity.targetGroupId) {
+      if (shareProgress && activityGroupId) {
         activityData.sharesProgressWithGroup = true;
         activityData.linkedGroupActivityId = sharedActivity.id; // Link to the original group activity
         console.log('[COPY ACTIVITY] Enabling progress sharing with group activity:', sharedActivity.id);
@@ -5251,31 +5303,49 @@ ${emoji} ${progressLine}
       // Count preserved progress
       const preservedCompletions = copiedTasks.filter(t => t.completed).length;
       
-      // Join group if activity has targetGroupId and user opted in (joinGroup=true)
+      // Find the group ID - either from targetGroupId or from group_activities table
+      let groupIdToJoin = sharedActivity.targetGroupId;
+      
+      if (!groupIdToJoin) {
+        // Check if activity is in any group
+        try {
+          const groupActivitiesResult = await pool.query(
+            `SELECT group_id FROM group_activities WHERE activity_id = $1 LIMIT 1`,
+            [sharedActivity.id]
+          );
+          if (groupActivitiesResult.rows.length > 0) {
+            groupIdToJoin = groupActivitiesResult.rows[0].group_id;
+          }
+        } catch (err) {
+          console.error('[COPY ACTIVITY] Error checking group_activities:', err);
+        }
+      }
+      
+      // Join group if user opted in (joinGroup=true) and we found a group
       let joinedGroup = null;
-      if (sharedActivity.targetGroupId && currentUserId && joinGroup) {
+      if (groupIdToJoin && currentUserId && joinGroup) {
         try {
           // Check if user is already a member
           const userGroups = await storage.getGroupsForUser(currentUserId);
-          const alreadyMember = userGroups.some(g => g.id === sharedActivity.targetGroupId);
+          const alreadyMember = userGroups.some(g => g.id === groupIdToJoin);
           
           if (!alreadyMember) {
             // Add user to the group
             await storage.addGroupMember(
-              sharedActivity.targetGroupId,
+              groupIdToJoin,
               currentUserId,
               'member'
             );
             
             // Get user and group info
             const user = await storage.getUser(currentUserId);
-            const group = await storage.getGroup(sharedActivity.targetGroupId);
+            const group = await storage.getGroup(groupIdToJoin);
             joinedGroup = group;
             
             // Send notification to admin and members using proper notification service
             try {
               await sendGroupNotification(storage, {
-                groupId: sharedActivity.targetGroupId,
+                groupId: groupIdToJoin,
                 actorUserId: currentUserId,
                 excludeUserIds: [currentUserId], // Don't notify the person who joined
                 notificationType: 'member_added',
@@ -5283,12 +5353,12 @@ ${emoji} ${progressLine}
                   title: 'New member joined',
                   body: `${user?.username || 'Someone'} joined "${group?.name || 'your group'}" via shared activity`,
                   data: { 
-                    groupId: sharedActivity.targetGroupId, 
+                    groupId: groupIdToJoin, 
                     newMemberId: currentUserId,
                     activityTitle: sharedActivity.title,
                     viaShareLink: true
                   },
-                  route: `/groups/${sharedActivity.targetGroupId}`,
+                  route: `/groups/${groupIdToJoin}`,
                 },
               });
               console.log('[COPY ACTIVITY] Sent group join notifications');
@@ -5297,9 +5367,11 @@ ${emoji} ${progressLine}
               // Don't fail the operation if notification fails
             }
             
-            console.log('[COPY ACTIVITY] User joined group:', sharedActivity.targetGroupId);
+            console.log('[COPY ACTIVITY] User joined group:', groupIdToJoin);
           } else {
-            console.log('[COPY ACTIVITY] User already member of group:', sharedActivity.targetGroupId);
+            console.log('[COPY ACTIVITY] User already member of group:', groupIdToJoin);
+            // Still set joinedGroup so we can show appropriate message
+            joinedGroup = await storage.getGroup(groupIdToJoin);
           }
         } catch (error) {
           console.error('[COPY ACTIVITY] Error joining group:', error);
@@ -5378,19 +5450,16 @@ ${emoji} ${progressLine}
       const planSummary = activity.socialText || 
         `${activity.title} - A ${activity.category} plan with ${activityTasks.length} tasks`;
       
-      // Check if this is a group activity and include group info
+      // Check if this activity is shared to any group
       let groupInfo = undefined;
       let isGroupMember = false;
       
+      // First check if activity has targetGroupId (for personal copies linked to groups)
       if (activity.targetGroupId && currentUserId) {
         try {
-          // Get group information
           const group = await storage.getGroup(activity.targetGroupId);
           if (group) {
-            // Get member count
             const members = await storage.getGroupMembers(activity.targetGroupId);
-            
-            // Check if current user is a member
             isGroupMember = members.some(m => m.userId === currentUserId);
             
             groupInfo = {
@@ -5402,7 +5471,48 @@ ${emoji} ${progressLine}
             };
           }
         } catch (groupErr) {
-          console.error('Failed to get group info:', groupErr);
+          console.error('Failed to get group info from targetGroupId:', groupErr);
+        }
+      }
+      
+      // If no targetGroupId, check if this activity is shared to any groups (in group_activities table)
+      if (!groupInfo) {
+        console.log('[SHARE] Checking group_activities table for activity:', activity.id);
+        try {
+          const groupActivitiesResult: any = await db.execute(drizzleSql.raw(`
+            SELECT ga.group_id, g.name, g.description
+            FROM group_activities ga
+            INNER JOIN groups g ON ga.group_id = g.id
+            WHERE ga.activity_id = '${activity.id}'
+            LIMIT 1
+          `));
+          
+          console.log('[SHARE] group_activities query result:', {
+            hasRows: !!groupActivitiesResult.rows,
+            rowCount: groupActivitiesResult.rows?.length || 0,
+            firstRow: groupActivitiesResult.rows?.[0]
+          });
+          
+          if (groupActivitiesResult.rows && groupActivitiesResult.rows.length > 0) {
+            const groupRow = groupActivitiesResult.rows[0];
+            const members = await storage.getGroupMembers(groupRow.group_id);
+            
+            // Check membership only if user is authenticated
+            if (currentUserId) {
+              isGroupMember = members.some(m => m.userId === currentUserId);
+            }
+            
+            groupInfo = {
+              id: groupRow.group_id,
+              name: groupRow.name,
+              description: groupRow.description || null,
+              memberCount: members.length,
+              isUserMember: isGroupMember
+            };
+            console.log('[SHARE] Built groupInfo:', groupInfo);
+          }
+        } catch (groupErr) {
+          console.error('[SHARE] Failed to get group info from group_activities:', groupErr);
         }
       }
       
