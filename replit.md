@@ -112,10 +112,16 @@ The application employs a mobile-first responsive design featuring a clean, card
   - Uses atomic database updates (`storage.updateUser()`) to prevent race conditions
   - Fixes critical bug where Pro users appeared as "Free" due to missing tier updates
   - **New:** `/api/admin/backfill-stripe-ids` endpoint repairs broken Pro users:
-    - Queries ALL Stripe subscriptions and matches by email (handles family plans with multiple users)
-    - Smart matching: existing subscription ID → customer ID → first active subscription
+    - Queries ALL Stripe subscriptions and matches by email
+    - Smart matching: existing subscription ID → customer ID → first active subscription (if exactly 1)
     - Updates stale/missing stripeCustomerId and stripeSubscriptionId
     - Fixes users showing as Pro but can't access Stripe portal
+    - **Safety features**: Only processes Pro/Family users, skips accounts with complete IDs, requires 1-to-1 subscription match
+    - **Known limitations**: 
+      - Multiple subscriptions per email flagged for manual review (common in family plans or personal+family scenarios)
+      - Email whitespace differences may prevent matches (store `trim()+toLowerCase()` for both sides)
+      - Only matches `active` or `trialing` subscriptions (excludes `past_due`, `incomplete` which may need portal access)
+      - Production usage: Run after deployment, review warnings in response, manually fix ambiguous cases
 - ✅ **Profile image upload fix** for OAuth users:
   - Upload button now always shows (was hidden if image already existed)
   - Button text dynamically changes: "Upload" when empty, "Change" when image exists
