@@ -1294,6 +1294,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ? (event.data as any).previous_attributes?.status 
               : null;
             
+            // Derive tier from Stripe price ID if metadata tier is missing
+            let tier = subscription.metadata?.tier;
+            if (!tier && subscription.items?.data?.[0]?.price?.id) {
+              const priceId = subscription.items.data[0].price.id;
+              const proMonthly = process.env.VITE_STRIPE_PRICE_PRO_MONTHLY;
+              const proAnnual = process.env.VITE_STRIPE_PRICE_PRO_ANNUAL;
+              const familyMonthly = process.env.VITE_STRIPE_PRICE_FAMILY_MONTHLY;
+              const familyAnnual = process.env.VITE_STRIPE_PRICE_FAMILY_ANNUAL;
+              
+              if (priceId === proMonthly || priceId === proAnnual) {
+                tier = 'pro';
+              } else if (priceId === familyMonthly || priceId === familyAnnual) {
+                tier = 'family';
+              }
+              
+              console.log('[WEBHOOK] Derived tier from price ID:', { priceId, tier });
+            }
+            
+            // Update subscription tier if we have it
+            if (tier) {
+              await storage.updateUserField(userId, 'subscriptionTier', tier);
+              console.log('[WEBHOOK] Updated subscription tier:', { userId, tier });
+            }
+            
             await storage.updateUserField(userId, 'subscriptionStatus', subscription.status);
             
             if (subscription.status === 'active') {
@@ -5283,6 +5307,100 @@ ${emoji} ${progressLine}
         return res.status(404).json({ error: error.message });
       }
       res.status(500).json({ error: 'Failed to delete user account', details: error.message });
+    }
+  });
+
+  // Sync subscription tiers from Stripe (for existing Pro users stuck as "free")
+  app.post("/api/admin/sync-stripe-subscriptions", async (req, res) => {
+    try {
+      const { adminSecret } = req.body;
+      
+      // Verify admin secret
+      if (adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(403).json({ error: 'Invalid admin secret' });
+      }
+
+      if (!stripe) {
+        return res.status(500).json({ error: 'Stripe not configured' });
+      }
+
+      console.log('[ADMIN] Starting Stripe subscription sync...');
+      
+      // Get all users with stripe subscription IDs
+      const users = await (storage as any).getAllUsers?.() || [];
+      const usersWithSubscriptions = users.filter((u: any) => u.stripeSubscriptionId);
+      
+      console.log(`[ADMIN] Found ${usersWithSubscriptions.length} users with Stripe subscriptions`);
+      
+      let syncedCount = 0;
+      let errorCount = 0;
+      const syncResults: any[] = [];
+      
+      // Check each user's subscription status in Stripe
+      for (const user of usersWithSubscriptions) {
+        try {
+          const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+          
+          // Derive tier from price ID
+          let tier = null;
+          if (subscription.items?.data?.[0]?.price?.id) {
+            const priceId = subscription.items.data[0].price.id;
+            const proMonthly = process.env.VITE_STRIPE_PRICE_PRO_MONTHLY;
+            const proAnnual = process.env.VITE_STRIPE_PRICE_PRO_ANNUAL;
+            const familyMonthly = process.env.VITE_STRIPE_PRICE_FAMILY_MONTHLY;
+            const familyAnnual = process.env.VITE_STRIPE_PRICE_FAMILY_ANNUAL;
+            
+            if (priceId === proMonthly || priceId === proAnnual) {
+              tier = 'pro';
+            } else if (priceId === familyMonthly || priceId === familyAnnual) {
+              tier = 'family';
+            }
+          }
+          
+          // Update user if we found a tier and it's different from current
+          if (tier && tier !== user.subscriptionTier) {
+            await storage.updateUserField(user.id, 'subscriptionTier', tier);
+            await storage.updateUserField(user.id, 'subscriptionStatus', subscription.status);
+            syncedCount++;
+            syncResults.push({
+              email: user.email,
+              userId: user.id,
+              oldTier: user.subscriptionTier,
+              newTier: tier,
+              status: subscription.status
+            });
+            console.log(`[ADMIN] Synced ${user.email}: ${user.subscriptionTier} -> ${tier}`);
+          } else if (tier) {
+            console.log(`[ADMIN] No change needed for ${user.email}: already ${tier}`);
+          } else {
+            console.warn(`[ADMIN] Could not determine tier for ${user.email}`);
+          }
+        } catch (error: any) {
+          errorCount++;
+          console.error(`[ADMIN] Error syncing ${user.email}:`, error.message);
+          syncResults.push({
+            email: user.email,
+            userId: user.id,
+            error: error.message
+          });
+        }
+      }
+      
+      console.log(`[ADMIN] Sync complete: ${syncedCount} synced, ${errorCount} errors`);
+      
+      res.json({
+        success: true,
+        message: 'Stripe subscription sync complete',
+        stats: {
+          totalChecked: usersWithSubscriptions.length,
+          synced: syncedCount,
+          errors: errorCount
+        },
+        results: syncResults
+      });
+    } catch (error: any) {
+      console.error('[ADMIN] Sync error:', error);
+      res.status(500).json({ error: 'Failed to sync subscriptions', details: error.message });
     }
   });
 
