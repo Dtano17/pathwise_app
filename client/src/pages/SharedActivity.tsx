@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, Sparkles, type LucideIcon } from 'lucide-react';
+import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, Sparkles, Users, Loader2, type LucideIcon } from 'lucide-react';
 const journalMateLogo = '/journalmate-logo-transparent.png';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -37,6 +37,7 @@ interface SharedActivityData {
     backdrop?: string;
     createdAt: string;
     updatedAt: string;
+    targetGroupId?: string;
   };
   tasks: Array<{
     id: string;
@@ -53,6 +54,12 @@ interface SharedActivityData {
   sharedBy?: {
     name?: string;
     email?: string;
+  };
+  groupInfo?: {
+    id: string;
+    name: string;
+    description: string | null;
+    memberCount: number;
   };
 }
 
@@ -133,6 +140,8 @@ export default function SharedActivity() {
   const [copyingLink, setCopyingLink] = useState(false);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [confirmationData, setConfirmationData] = useState<any>(null);
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [pendingCopy, setPendingCopy] = useState<{ forceUpdate: boolean } | null>(null);
   
   // Initialize theme from localStorage or default to dark
   const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>(() => {
@@ -265,12 +274,12 @@ export default function SharedActivity() {
   };
 
   const copyActivityMutation = useMutation({
-    mutationFn: async (forceUpdate: boolean = false) => {
+    mutationFn: async ({ forceUpdate = false, joinGroup = false }: { forceUpdate?: boolean; joinGroup?: boolean }) => {
       if (!token) throw new Error('Share token not found');
       const response = await fetch(`/api/activities/copy/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ forceUpdate }),
+        body: JSON.stringify({ forceUpdate, joinGroup }),
       });
       
       // Parse JSON response
@@ -375,7 +384,13 @@ export default function SharedActivity() {
       console.log('[SHARED ACTIVITY] User:', (user as any).username || (user as any).email);
       
       // Automatically trigger copy (forceUpdate = false for initial copy)
-      copyActivityMutation.mutate(false);
+      // For auto-copy, check if it's a group activity and show join dialog
+      if (data.groupInfo) {
+        setPendingCopy({ forceUpdate: false });
+        setShowJoinDialog(true);
+      } else {
+        copyActivityMutation.mutate({ forceUpdate: false, joinGroup: false });
+      }
       
       // Clean up URL params after triggering copy
       window.history.replaceState({}, '', window.location.pathname);
@@ -484,6 +499,30 @@ export default function SharedActivity() {
     const titleWithEmoji = `${emoji} ${activityTitle}${progressText}`;
     const summary = `Check out my activity: ${titleWithEmoji}\n${activityDescription}\n\n${url}`;
     window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(titleWithEmoji)}&summary=${encodeURIComponent(summary)}`, '_blank');
+  };
+
+  // Handle copy button click - check if join dialog should be shown for group activities
+  const handleCopyClick = (forceUpdate: boolean = false) => {
+    // If activity is part of a group, show join dialog first
+    if (data?.groupInfo) {
+      setPendingCopy({ forceUpdate });
+      setShowJoinDialog(true);
+    } else {
+      // Regular activity, just copy
+      copyActivityMutation.mutate({ forceUpdate, joinGroup: false });
+    }
+  };
+
+  // Handle join dialog response
+  const handleJoinResponse = (joinGroup: boolean) => {
+    setShowJoinDialog(false);
+    if (pendingCopy) {
+      copyActivityMutation.mutate({ 
+        forceUpdate: pendingCopy.forceUpdate, 
+        joinGroup 
+      });
+      setPendingCopy(null);
+    }
   };
 
   const queryClient = useQueryClient();
@@ -1037,7 +1076,7 @@ export default function SharedActivity() {
                 This activity will be added to your dashboard and you can edit it however you like
               </p>
               <Button 
-                onClick={() => copyActivityMutation.mutate()}
+                onClick={() => handleCopyClick(false)}
                 disabled={copyActivityMutation.isPending}
                 className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto"
                 data-testid="button-copy-activity"
@@ -1093,11 +1132,67 @@ export default function SharedActivity() {
               data-testid="button-confirm-update"
               onClick={() => {
                 setShowUpdateDialog(false);
-                copyActivityMutation.mutate(true); // forceUpdate = true
+                handleCopyClick(true); // forceUpdate = true
               }}
               className="bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700"
             >
               Update Plan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Join Group Dialog */}
+      <AlertDialog open={showJoinDialog} onOpenChange={setShowJoinDialog}>
+        <AlertDialogContent data-testid="dialog-join-group">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Join "{data?.groupInfo?.name}"?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                This activity is part of a group. Would you like to join the group when copying this activity?
+              </p>
+              <div className="bg-muted p-3 rounded-lg space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium">{data?.groupInfo?.memberCount || 0} members</span>
+                </div>
+                {data?.groupInfo?.description && (
+                  <p className="text-sm text-muted-foreground">{data.groupInfo.description}</p>
+                )}
+              </div>
+              <p className="text-sm">
+                <strong>Join Group:</strong> Collaborate with members and share updates
+              </p>
+              <p className="text-sm">
+                <strong>Just Copy:</strong> Get a private copy without joining the group
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => handleJoinResponse(false)}
+              disabled={copyActivityMutation.isPending}
+              data-testid="button-copy-without-join"
+            >
+              No, Just Copy
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleJoinResponse(true)}
+              disabled={copyActivityMutation.isPending}
+              data-testid="button-join-and-copy"
+              className="bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700"
+            >
+              {copyActivityMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Joining...
+                </>
+              ) : (
+                "Yes, Join Group"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

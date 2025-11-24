@@ -445,3 +445,20 @@ body, html {
     padding-right: 1.5rem;
   }
 }
+
+/* Pro Badge LED Shimmer Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@layer utilities {
+  .animate-shimmer {
+    animation: shimmer 3s linear infinite;
+    background-size: 200% 100%;
+  }
+}

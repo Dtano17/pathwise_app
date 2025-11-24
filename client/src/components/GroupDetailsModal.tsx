@@ -7,11 +7,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
   Users, Crown, Copy, Check, Settings, UserMinus, Trash2,
-  Lock, Globe, Calendar, Share2, Loader2, AlertTriangle, UserPlus
+  Lock, Globe, Calendar, Share2, Loader2, AlertTriangle, UserPlus, Download
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import AddMembersDialog from '@/components/AddMembersDialog';
 import {
   AlertDialog,
@@ -73,6 +73,8 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [removeMemberId, setRemoveMemberId] = useState<string | null>(null);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [copyingActivityId, setCopyingActivityId] = useState<string | null>(null);
+  const [isCopying, setIsCopying] = useState(false);
 
   useEffect(() => {
     if (open && groupId) {
@@ -205,6 +207,58 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
         variant: "destructive"
       });
     }
+  };
+
+  const handleCopyActivity = async (activity: GroupActivity, joinGroup: boolean) => {
+    if (!groupId) return;
+
+    try {
+      setIsCopying(true);
+      setCopyingActivityId(activity.id);
+
+      const response = await apiRequest('POST', `/api/groups/${groupId}/activities/${activity.id}/copy`, {
+        joinGroup
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to copy activity');
+      }
+
+      const data = await response.json();
+
+      // Invalidate activities cache to show the newly copied activity
+      queryClient.invalidateQueries({ queryKey: ['/api/activities/recent'] });
+
+      toast({
+        title: joinGroup ? "Joined group and copied activity!" : "Activity copied!",
+        description: joinGroup 
+          ? `You're now a member of "${groupDetails?.name}". Activity has been added to your plans.`
+          : "Activity has been added to your personal plans.",
+      });
+
+      // Reload group details to show updated membership if user joined
+      if (joinGroup) {
+        loadGroupDetails();
+      }
+
+    } catch (error: any) {
+      console.error('Copy activity error:', error);
+      toast({
+        title: "Failed to copy activity",
+        description: error.message || "Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCopying(false);
+      setCopyingActivityId(null);
+    }
+  };
+
+  const handleCopyButtonClick = (activity: GroupActivity) => {
+    // Only members can access this modal, so just copy the activity
+    // Non-members should use share links to copy group activities
+    handleCopyActivity(activity, false);
   };
 
   const getInitials = (username: string | null) => {
@@ -364,11 +418,27 @@ export default function GroupDetailsModal({ groupId, open, onOpenChange, onGroup
                             <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{activity.description}</p>
                           )}
                         </div>
-                        {activity.category && (
-                          <Badge variant="secondary" className="shrink-0 text-xs">
-                            {activity.category}
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {activity.category && (
+                            <Badge variant="secondary" className="text-xs">
+                              {activity.category}
+                            </Badge>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopyButtonClick(activity)}
+                            disabled={isCopying && copyingActivityId === activity.id}
+                            data-testid={`button-copy-activity-${activity.id}`}
+                          >
+                            {isCopying && copyingActivityId === activity.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Download className="w-3 h-3 mr-1.5" />
+                            )}
+                            Copy
+                          </Button>
+                        </div>
                       </div>
 
                       {/* Progress Bar */}

@@ -2820,6 +2820,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Invalid invite code or group not found' });
       }
 
+      // Send notification to admin and existing members
+      try {
+        const joiningUser = await storage.getUser(userId);
+        
+        await sendGroupNotification(storage, {
+          groupId: result.group.id,
+          actorUserId: userId,
+          excludeUserIds: [userId], // Don't notify the person who joined
+          notificationType: 'member_joined',
+          payload: {
+            title: 'New member joined',
+            body: `${joiningUser?.username || 'Someone'} joined "${result.group.name}" via invite code`,
+            data: { groupId: result.group.id, newMemberId: userId },
+            route: `/groups/${result.group.id}`,
+          },
+        });
+      } catch (notifError) {
+        console.error('Failed to send join notification:', notifError);
+        // Don't fail the operation if notification fails
+      }
+
       res.json({
         group: result.group,
         membership: result.membership,
@@ -3039,7 +3060,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { groupId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
 
-      // Check if user is member
+      // Check if user is member (restore privacy check)
       const membership = await storage.getGroupMembership(groupId, userId);
       if (!membership) {
         return res.status(403).json({ error: 'Access denied' });
@@ -3156,11 +3177,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { groupId, groupActivityId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
+      const { joinGroup } = req.body;
 
-      // Check if user is member
-      const membership = await storage.getGroupMembership(groupId, userId);
-      if (!membership) {
-        return res.status(403).json({ error: 'Access denied' });
+      // Get group details first
+      const group = await storage.getGroup(groupId);
+      if (!group) {
+        return res.status(404).json({ error: 'Group not found' });
+      }
+
+      // Check if user is already a member
+      const existingMembership = await storage.getGroupMembership(groupId, userId);
+      
+      // SECURITY: Non-members must either join the group or use share links
+      // This endpoint is only for members and users opting to join
+      if (!existingMembership && !joinGroup) {
+        return res.status(403).json({ 
+          error: 'You must be a member of this group to copy activities. Use the share link to copy publicly shared activities.',
+          requiresMembership: true
+        });
+      }
+      
+      // If joinGroup is true and user is not a member, add them
+      let newMembership = null;
+      if (joinGroup && !existingMembership) {
+        newMembership = await storage.addGroupMember({
+          groupId,
+          userId,
+          role: 'member'
+        });
+
+        // Get user info for notification
+        const joiningUser = await storage.getUser(userId);
+        
+        // Send notification to admin and existing members
+        try {
+          await sendGroupNotification(storage, {
+            groupId,
+            actorUserId: userId,
+            excludeUserIds: [userId], // Don't notify the person who joined
+            notificationType: 'member_joined',
+            payload: {
+              title: 'New member joined',
+              body: `${joiningUser?.username || 'Someone'} joined "${group.name}" by copying an activity`,
+              data: { groupId, newMemberId: userId },
+              route: `/groups/${groupId}`,
+            },
+          });
+        } catch (notifError) {
+          console.error('Failed to send join notification:', notifError);
+          // Don't fail the operation if notification fails
+        }
       }
 
       // Get the group activity
@@ -3169,8 +3235,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Group activity not found' });
       }
 
-      // Get the original activity and its tasks
-      const originalActivity = await storage.getActivity(groupActivity.activityId, userId);
+      // Get the original activity and its tasks (use getActivityById to allow access regardless of ownership)
+      const originalActivity = await storage.getActivityById(groupActivity.activityId);
       if (!originalActivity) {
         return res.status(404).json({ error: 'Activity not found' });
       }
@@ -3205,7 +3271,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         activity: copiedActivity,
-        message: 'Activity copied to your personal library successfully'
+        membership: newMembership || existingMembership,
+        message: joinGroup && newMembership 
+          ? `Joined "${group.name}" and copied activity successfully!`
+          : 'Activity copied to your personal library successfully'
       });
     } catch (error) {
       console.error('Copy activity error:', error);
@@ -4345,6 +4414,26 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       // Get owner info (without sensitive data)
       const owner = await storage.getUser(activity.userId);
       
+      // If activity is part of a group, include group info for join prompt
+      let groupInfo = null;
+      if (activity.targetGroupId) {
+        try {
+          const group = await storage.getGroup(activity.targetGroupId);
+          if (group) {
+            const members = await storage.getGroupMembers(activity.targetGroupId);
+            groupInfo = {
+              id: group.id,
+              name: group.name,
+              description: group.description,
+              memberCount: members.length
+            };
+          }
+        } catch (error) {
+          console.error('[SHARE] Error fetching group info:', error);
+          // Don't fail the request if group fetch fails
+        }
+      }
+
       res.json({
         activity: {
           id: activity.id,
@@ -4360,6 +4449,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
           status: activity.status,
           createdAt: activity.createdAt,
           updatedAt: activity.updatedAt,
+          targetGroupId: activity.targetGroupId,
         },
         tasks: tasks.map(task => ({
           id: task.id,
@@ -4375,7 +4465,8 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         requiresAuth: false,
         sharedBy: {
           name: owner?.firstName || owner?.username || 'Anonymous'
-        }
+        },
+        groupInfo
       });
     } catch (error) {
       console.error('Get shared activity error:', error);
@@ -4695,7 +4786,7 @@ ${emoji} ${progressLine}
   app.post("/api/activities/copy/:shareToken", async (req, res) => {
     try {
       const { shareToken } = req.params;
-      const { forceUpdate } = req.body; // Client can request an update
+      const { forceUpdate, joinGroup } = req.body; // Client can request an update and opt into joining group
       const currentUserId = getUserId(req);
       
       console.log('[COPY ACTIVITY] Copy request received:', {
@@ -4837,9 +4928,9 @@ ${emoji} ${progressLine}
       // Count preserved progress
       const preservedCompletions = copiedTasks.filter(t => t.completed).length;
       
-      // Auto-join group if activity has targetGroupId (and user is authenticated)
+      // Join group if activity has targetGroupId and user opted in (joinGroup=true)
       let joinedGroup = null;
-      if (sharedActivity.targetGroupId && currentUserId) {
+      if (sharedActivity.targetGroupId && currentUserId && joinGroup) {
         try {
           // Check if user is already a member
           const userGroups = await storage.getGroupsForUser(currentUserId);
@@ -4853,61 +4944,42 @@ ${emoji} ${progressLine}
               'member'
             );
             
-            // Get user info for activity feed
+            // Get user and group info
             const user = await storage.getUser(currentUserId);
-            const userName = user 
-              ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || 'Someone'
-              : 'Someone';
-            
-            // Log the activity in the group feed
-            await storage.logGroupActivity({
-              groupId: sharedActivity.targetGroupId,
-              userId: currentUserId,
-              userName,
-              activityType: 'member_joined',
-              activityTitle: sharedActivity.title,
-              taskTitle: `Joined via share link`
-            });
-            
-            // Get group info for response
             const group = await storage.getGroup(sharedActivity.targetGroupId);
             joinedGroup = group;
             
-            // Notify all group admins
+            // Send notification to admin and members using proper notification service
             try {
-              const groupMembers = await storage.getGroupMembers(sharedActivity.targetGroupId);
-              const admins = groupMembers.filter(m => m.role === 'admin');
-              
-              // Create notification for each admin
-              for (const admin of admins) {
-                // Skip notification if admin is the one who joined
-                if (admin.userId === currentUserId) continue;
-                
-                await db.insert(userNotifications).values({
-                  userId: admin.userId,
-                  sourceGroupId: sharedActivity.targetGroupId,
-                  actorUserId: currentUserId,
-                  type: 'group_member_joined',
-                  title: `New member joined ${group?.name || 'your group'}`,
-                  body: `${userName} joined via a shared activity link`,
-                  metadata: {
+              await sendGroupNotification(storage, {
+                groupId: sharedActivity.targetGroupId,
+                actorUserId: currentUserId,
+                excludeUserIds: [currentUserId], // Don't notify the person who joined
+                notificationType: 'member_joined',
+                payload: {
+                  title: 'New member joined',
+                  body: `${user?.username || 'Someone'} joined "${group?.name || 'your group'}" via shared activity`,
+                  data: { 
+                    groupId: sharedActivity.targetGroupId, 
+                    newMemberId: currentUserId,
                     activityTitle: sharedActivity.title,
-                    viaShareLink: true,
-                    groupName: group?.name || '',
-                  }
-                });
-              }
-              
-              console.log('[COPY ACTIVITY] Created notifications for', admins.length, 'admins');
+                    viaShareLink: true
+                  },
+                  route: `/groups/${sharedActivity.targetGroupId}`,
+                },
+              });
+              console.log('[COPY ACTIVITY] Sent group join notifications');
             } catch (notifError) {
-              console.error('[COPY ACTIVITY] Error creating admin notifications:', notifError);
-              // Don't fail the operation if notification creation fails
+              console.error('[COPY ACTIVITY] Error sending group notifications:', notifError);
+              // Don't fail the operation if notification fails
             }
             
-            console.log('[COPY ACTIVITY] User auto-joined group:', sharedActivity.targetGroupId);
+            console.log('[COPY ACTIVITY] User joined group:', sharedActivity.targetGroupId);
+          } else {
+            console.log('[COPY ACTIVITY] User already member of group:', sharedActivity.targetGroupId);
           }
         } catch (error) {
-          console.error('[COPY ACTIVITY] Error auto-joining group:', error);
+          console.error('[COPY ACTIVITY] Error joining group:', error);
           // Don't fail the whole copy operation if group join fails
         }
       }
