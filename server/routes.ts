@@ -3033,6 +3033,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Continue even if this fails
       }
 
+      // Create activity feed entry for member joining
+      try {
+        console.log(`[JOIN GROUP] Creating activity feed entry for ${joiningUser?.username || 'Someone'} joining group ${result.group.id}`);
+        await storage.logGroupActivity({
+          groupId: result.group.id,
+          userId,
+          userName: joiningUser?.username || 'Someone',
+          activityType: 'member_joined',
+          activityTitle: `${joiningUser?.username || 'Someone'} joined the group`,
+          taskTitle: null,
+          groupActivityId: null,
+        });
+        console.log(`[JOIN GROUP] Activity feed entry created`);
+      } catch (feedError) {
+        console.error('Error creating activity feed entry:', feedError);
+        // Don't fail the operation if feed logging fails
+      }
+
       // Send notification to admin and existing members
       try {
         console.log(`[JOIN GROUP] Sending notification for user ${userId} joining group ${result.group.id}`);
