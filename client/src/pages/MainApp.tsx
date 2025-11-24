@@ -1418,7 +1418,7 @@ export default function MainApp({
                 </TabsTrigger>
                 <TabsTrigger value="groups" className="gap-2 text-sm font-medium" data-testid="tab-groups">
                   <Users className="w-4 h-4" />
-                  <span>Groups</span>
+                  <span>Groups ({groups.length})</span>
                 </TabsTrigger>
                 <TabsTrigger value="sync" className="gap-2 text-sm font-medium" data-testid="tab-integrations">
                   <Plug className="w-4 h-4" />

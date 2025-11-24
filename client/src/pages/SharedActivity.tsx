@@ -326,6 +326,12 @@ export default function SharedActivity() {
       }
       
       if (result?.activity?.id) {
+        // Invalidate groups query if user joined a group
+        if (result.joinedGroup) {
+          queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+          console.log('[SHARED ACTIVITY] Invalidated groups query after joining:', result.joinedGroup.name);
+        }
+        
         const message = result.message || `"${result.activity.title}" has been added to your account with ${result.tasks?.length || 0} tasks.`;
         toast({
           title: result.isUpdate ? 'Plan Updated!' : 'Plan Copied!',
