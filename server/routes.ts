@@ -5138,10 +5138,13 @@ ${emoji} ${progressLine}
       const { forceUpdate, joinGroup, shareProgress } = req.body; // Client can request an update, opt into joining group, and enable progress sharing
       const currentUserId = getUserId(req);
       
-      console.log('[COPY ACTIVITY] Copy request received:', {
+      console.log('[COPY ACTIVITY] 📥 Copy request received:', {
         shareToken,
         currentUserId,
+        requestBody: req.body,
         forceUpdate,
+        joinGroup,
+        shareProgress,
         isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
         sessionID: req.sessionID,
         hasSession: !!req.session,
@@ -5305,9 +5308,16 @@ ${emoji} ${progressLine}
       
       // Find the group ID - either from targetGroupId or from group_activities table
       let groupIdToJoin = sharedActivity.targetGroupId;
+      console.log('[COPY ACTIVITY] 🔍 Group join attempt - Initial check:', {
+        targetGroupId: sharedActivity.targetGroupId,
+        joinGroupFlag: joinGroup,
+        currentUserId,
+        shareToken
+      });
       
       if (!groupIdToJoin) {
         // Check if activity is in any group
+        console.log('[COPY ACTIVITY] 🔍 No targetGroupId, checking group_activities table...');
         try {
           const groupActivitiesResult = await pool.query(
             `SELECT group_id FROM group_activities WHERE activity_id = $1 LIMIT 1`,
@@ -5315,35 +5325,62 @@ ${emoji} ${progressLine}
           );
           if (groupActivitiesResult.rows.length > 0) {
             groupIdToJoin = groupActivitiesResult.rows[0].group_id;
+            console.log('[COPY ACTIVITY] ✅ Found group from group_activities:', groupIdToJoin);
+          } else {
+            console.log('[COPY ACTIVITY] ❌ No group found in group_activities table');
           }
         } catch (err) {
-          console.error('[COPY ACTIVITY] Error checking group_activities:', err);
+          console.error('[COPY ACTIVITY] ❌ Error checking group_activities:', err);
         }
+      } else {
+        console.log('[COPY ACTIVITY] ✅ Group found from targetGroupId:', groupIdToJoin);
       }
       
       // Join group if user opted in (joinGroup=true) and we found a group
       let joinedGroup = null;
+      console.log('[COPY ACTIVITY] 🔍 Group join decision point:', {
+        hasGroupId: !!groupIdToJoin,
+        hasCurrentUserId: !!currentUserId,
+        joinGroupFlag: joinGroup,
+        willAttemptJoin: !!(groupIdToJoin && currentUserId && joinGroup)
+      });
+      
       if (groupIdToJoin && currentUserId && joinGroup) {
+        console.log('[COPY ACTIVITY] ✅ Attempting to join group:', groupIdToJoin);
         try {
           // Check if user is already a member
           const userGroups = await storage.getGroupsForUser(currentUserId);
           const alreadyMember = userGroups.some(g => g.id === groupIdToJoin);
+          console.log('[COPY ACTIVITY] 🔍 Membership check:', {
+            userId: currentUserId,
+            groupId: groupIdToJoin,
+            userGroupsCount: userGroups.length,
+            alreadyMember
+          });
           
           if (!alreadyMember) {
+            console.log('[COPY ACTIVITY] 🚀 Adding user to group...');
             // Add user to the group
             await storage.addGroupMember(
               groupIdToJoin,
               currentUserId,
               'member'
             );
+            console.log('[COPY ACTIVITY] ✅ User added to group successfully');
             
             // Get user and group info
             const user = await storage.getUser(currentUserId);
             const group = await storage.getGroup(groupIdToJoin);
             joinedGroup = group;
+            console.log('[COPY ACTIVITY] 📊 Join details:', {
+              userName: user?.username || user?.email,
+              groupName: group?.name,
+              groupId: group?.id
+            });
             
             // Send notification to admin and members using proper notification service
             try {
+              console.log('[COPY ACTIVITY] 🔔 Sending group join notifications...');
               await sendGroupNotification(storage, {
                 groupId: groupIdToJoin,
                 actorUserId: currentUserId,
@@ -5361,23 +5398,36 @@ ${emoji} ${progressLine}
                   route: `/groups/${groupIdToJoin}`,
                 },
               });
-              console.log('[COPY ACTIVITY] Sent group join notifications');
+              console.log('[COPY ACTIVITY] ✅ Group join notifications sent successfully');
             } catch (notifError) {
-              console.error('[COPY ACTIVITY] Error sending group notifications:', notifError);
+              console.error('[COPY ACTIVITY] ❌ Error sending group notifications:', notifError);
               // Don't fail the operation if notification fails
             }
             
-            console.log('[COPY ACTIVITY] User joined group:', groupIdToJoin);
+            console.log('[COPY ACTIVITY] ✅ User joined group successfully:', groupIdToJoin);
           } else {
-            console.log('[COPY ACTIVITY] User already member of group:', groupIdToJoin);
+            console.log('[COPY ACTIVITY] ℹ️ User already member of group:', groupIdToJoin);
             // Still set joinedGroup so we can show appropriate message
             joinedGroup = await storage.getGroup(groupIdToJoin);
           }
         } catch (error) {
-          console.error('[COPY ACTIVITY] Error joining group:', error);
+          console.error('[COPY ACTIVITY] ❌ CRITICAL ERROR joining group:', error);
+          console.error('[COPY ACTIVITY] Error stack:', (error as Error).stack);
           // Don't fail the whole copy operation if group join fails
         }
+      } else {
+        console.log('[COPY ACTIVITY] ⏭️ Skipping group join:', {
+          reason: !groupIdToJoin ? 'No group ID' : !currentUserId ? 'No user ID' : 'joinGroup flag is false',
+          groupIdToJoin,
+          currentUserId,
+          joinGroup
+        });
       }
+      
+      console.log('[COPY ACTIVITY] 📝 Final result:', {
+        joinedGroup: joinedGroup ? { id: joinedGroup.id, name: joinedGroup.name } : null,
+        willReturnJoinInfo: !!joinedGroup
+      });
       
       res.json({
         activity: copiedActivity,

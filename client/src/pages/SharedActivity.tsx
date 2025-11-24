@@ -391,13 +391,19 @@ export default function SharedActivity() {
       console.log('[SHARED ACTIVITY] ✅ Auto-copying activity for newly authenticated user');
       console.log('[SHARED ACTIVITY] Activity:', data.activity.title);
       console.log('[SHARED ACTIVITY] User:', (user as any).username || (user as any).email);
+      console.log('[SHARED ACTIVITY] Has groupInfo:', !!data.groupInfo);
+      if (data.groupInfo) {
+        console.log('[SHARED ACTIVITY] Group:', data.groupInfo.name, 'Members:', data.groupInfo.memberCount);
+      }
       
       // Automatically trigger copy (forceUpdate = false for initial copy)
       // For auto-copy, check if it's a group activity and show join dialog
       if (data.groupInfo) {
+        console.log('[SHARED ACTIVITY] 🚀 Showing join dialog for group:', data.groupInfo.name);
         setPendingCopy({ forceUpdate: false });
         setShowJoinDialog(true);
       } else {
+        console.log('[SHARED ACTIVITY] ℹ️ No group info, copying without join dialog');
         copyActivityMutation.mutate({ forceUpdate: false, joinGroup: false });
       }
       
@@ -524,8 +530,19 @@ export default function SharedActivity() {
 
   // Handle join dialog response
   const handleJoinResponse = (joinGroup: boolean) => {
+    console.log('[SHARED ACTIVITY] 🔔 Join dialog response:', {
+      joinGroup,
+      shareProgress,
+      pendingCopy,
+      groupInfo: data?.groupInfo
+    });
     setShowJoinDialog(false);
     if (pendingCopy) {
+      console.log('[SHARED ACTIVITY] 📤 Sending copy request with:', {
+        forceUpdate: pendingCopy.forceUpdate,
+        joinGroup,
+        shareProgress
+      });
       copyActivityMutation.mutate({ 
         forceUpdate: pendingCopy.forceUpdate, 
         joinGroup,
