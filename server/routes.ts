@@ -2820,10 +2820,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Invalid invite code or group not found' });
       }
 
+      const joiningUser = await storage.getUser(userId);
+
+      // Check if user was invited via email/phone and mark invite as accepted
+      let inviterUserId: string | null = null;
+      try {
+        if (joiningUser?.email) {
+          const pendingInvite = await storage.findPendingInvite(joiningUser.email);
+          if (pendingInvite && pendingInvite.groupId === result.group.id) {
+            // Mark invite as accepted
+            await db.update(contactShares)
+              .set({
+                status: 'accepted',
+                respondedAt: new Date()
+              })
+              .where(eq(contactShares.id, pendingInvite.id));
+            
+            inviterUserId = pendingInvite.invitedBy;
+          }
+        }
+      } catch (inviteError) {
+        console.error('Error checking pending invites:', inviteError);
+        // Continue even if this fails
+      }
+
       // Send notification to admin and existing members
       try {
-        const joiningUser = await storage.getUser(userId);
-        
         await sendGroupNotification(storage, {
           groupId: result.group.id,
           actorUserId: userId,
@@ -2836,6 +2858,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             route: `/groups/${result.group.id}`,
           },
         });
+
+        // If this user was invited via email/phone, send special notification to inviter
+        if (inviterUserId) {
+          await storage.createNotification({
+            userId: inviterUserId,
+            type: 'group_invite_accepted',
+            title: 'Invite accepted!',
+            body: `${joiningUser?.username || 'Someone'} accepted your invite and joined "${result.group.name}"`,
+            data: { groupId: result.group.id, newMemberId: userId },
+            route: `/groups/${result.group.id}`
+          });
+        }
       } catch (notifError) {
         console.error('Failed to send join notification:', notifError);
         // Don't fail the operation if notification fails
