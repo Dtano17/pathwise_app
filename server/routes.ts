@@ -1206,11 +1206,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return_url: `${baseUrl}/settings`
         });
       } catch (portalError: any) {
-        // If customer doesn't exist (old test mode customer), return error
+        // If customer doesn't exist (stale/invalid customer ID), try to auto-recover
         if (portalError.code === 'resource_missing') {
-          return res.status(400).json({ error: 'Please create a subscription first' });
+          console.error(`[PORTAL] Customer ${user.stripeCustomerId} not found in Stripe for user ${user.email} - attempting auto-recovery`);
+          
+          // Try to find the user's customer in Stripe by email
+          try {
+            const customers = await stripe.customers.search({
+              query: `email:'${user.email}'`,
+              limit: 5
+            });
+            
+            if (customers.data.length === 0) {
+              console.error(`[PORTAL] No Stripe customer found for email ${user.email}`);
+              return res.status(400).json({ 
+                error: 'Unable to access subscription portal',
+                details: 'No subscription found for your email. Please contact support.',
+                userEmail: user.email
+              });
+            }
+            
+            // Get the first customer (should only be one per email)
+            const customer = customers.data[0];
+            
+            // Get their active subscriptions
+            const subscriptions = await stripe.subscriptions.list({
+              customer: customer.id,
+              status: 'active',
+              limit: 5
+            });
+            
+            // Also check for trialing subscriptions
+            const trialingSubscriptions = await stripe.subscriptions.list({
+              customer: customer.id,
+              status: 'trialing',
+              limit: 5
+            });
+            
+            const allSubscriptions = [...subscriptions.data, ...trialingSubscriptions.data];
+            const userSubscription = allSubscriptions[0]; // Take first active/trialing subscription
+            
+            if (userSubscription) {
+              const customerId = typeof userSubscription.customer === 'string' 
+                ? userSubscription.customer 
+                : userSubscription.customer.id;
+              
+              console.log(`[PORTAL] Found matching subscription for ${user.email}, updating customer ID to ${customerId}`);
+              
+              // Update user with correct IDs
+              await storage.updateUser(user.id, {
+                stripeCustomerId: customerId,
+                stripeSubscriptionId: userSubscription.id
+              });
+              
+              // Retry portal session with correct customer ID
+              session = await stripe.billingPortal.sessions.create({
+                customer: customerId,
+                return_url: `${baseUrl}/settings`
+              });
+              
+              console.log(`[PORTAL] Auto-recovery successful for ${user.email}`);
+            } else {
+              console.error(`[PORTAL] No active subscription found for ${user.email}`);
+              return res.status(400).json({ 
+                error: 'Unable to access subscription portal',
+                details: 'Your subscription data is out of sync. Please contact support to resolve this issue.',
+                userEmail: user.email,
+                userTier: user.subscriptionTier
+              });
+            }
+          } catch (recoveryError: any) {
+            console.error(`[PORTAL] Auto-recovery failed for ${user.email}:`, recoveryError.message);
+            return res.status(400).json({ 
+              error: 'Unable to access subscription portal',
+              details: 'Could not locate your subscription. Please contact support.',
+              userEmail: user.email
+            });
+          }
+        } else {
+          throw portalError;
         }
-        throw portalError;
       }
 
       res.json({ url: session.url });
