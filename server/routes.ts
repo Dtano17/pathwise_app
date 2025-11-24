@@ -1184,7 +1184,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUserById(userId);
       
       if (!user?.stripeCustomerId) {
-        return res.status(400).json({ error: 'No subscription found' });
+        console.error(`[PORTAL] User ${user?.email} missing stripeCustomerId - tier: ${user?.subscriptionTier}`);
+        return res.status(400).json({ 
+          error: 'Subscription data missing', 
+          details: 'Your subscription information is incomplete. Please contact support to resolve this issue.',
+          userEmail: user?.email,
+          userTier: user?.subscriptionTier
+        });
       }
 
       // Use production domain (journalmate.ai) for production, or dev domain for development
@@ -5484,6 +5490,226 @@ ${emoji} ${progressLine}
     } catch (error: any) {
       console.error('[ADMIN] Sync error:', error);
       res.status(500).json({ error: 'Failed to sync subscriptions', details: error.message });
+    }
+  });
+
+  // Backfill missing Stripe IDs by querying Stripe API directly
+  // This fixes users who have tier='pro' but NULL stripeCustomerId/stripeSubscriptionId
+  app.post("/api/admin/backfill-stripe-ids", async (req, res) => {
+    try {
+      const { adminSecret } = req.body;
+      
+      // Verify admin secret
+      if (adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(403).json({ error: 'Invalid admin secret' });
+      }
+
+      if (!stripe) {
+        return res.status(500).json({ error: 'Stripe not configured' });
+      }
+
+      console.log('[ADMIN] Starting Stripe ID backfill...');
+      
+      // Get ALL users (not just ones with Stripe IDs)
+      const users = await (storage as any).getAllUsers?.() || [];
+      console.log(`[ADMIN] Found ${users.length} total users in database`);
+      
+      let backfilledCount = 0;
+      let errorCount = 0;
+      const backfillResults: any[] = [];
+      
+      // Query Stripe for ALL subscriptions
+      const stripeSubscriptions = [];
+      let hasMore = true;
+      let startingAfter = undefined;
+      
+      while (hasMore) {
+        const result = await stripe.subscriptions.list({
+          limit: 100,
+          starting_after: startingAfter,
+          expand: ['data.customer']
+        });
+        
+        stripeSubscriptions.push(...result.data);
+        hasMore = result.has_more;
+        if (result.data.length > 0) {
+          startingAfter = result.data[result.data.length - 1].id;
+        }
+      }
+      
+      console.log(`[ADMIN] Found ${stripeSubscriptions.length} subscriptions in Stripe`);
+      
+      // Build a map of email -> Array of Stripe subscriptions (handles family plans with multiple users)
+      const emailToStripeData = new Map<string, Array<any>>();
+      for (const sub of stripeSubscriptions) {
+        const customer = sub.customer as any;
+        const email = customer?.email?.toLowerCase();
+        if (email) {
+          const data = {
+            subscriptionId: sub.id,
+            customerId: typeof customer === 'string' ? customer : customer.id,
+            status: sub.status,
+            priceId: sub.items?.data?.[0]?.price?.id
+          };
+          
+          if (!emailToStripeData.has(email)) {
+            emailToStripeData.set(email, []);
+          }
+          emailToStripeData.get(email)!.push(data);
+        }
+      }
+      
+      // Match users to Stripe data by email
+      // SAFETY: Only process users already marked as Pro/Family to avoid incorrect promotions
+      const proFamilyUsers = users.filter(u => u.subscriptionTier === 'pro' || u.subscriptionTier === 'family');
+      console.log(`[ADMIN] Found ${proFamilyUsers.length} Pro/Family users to check for missing Stripe IDs`);
+      
+      for (const user of proFamilyUsers) {
+        if (!user.email) continue;
+        
+        // SAFETY: Skip users who already have BOTH IDs - they're fine
+        if (user.stripeSubscriptionId && user.stripeCustomerId) {
+          console.log(`[ADMIN] Skipping ${user.email} - already has complete Stripe IDs`);
+          continue;
+        }
+        
+        const stripeSubs = emailToStripeData.get(user.email.toLowerCase());
+        if (!stripeSubs || stripeSubs.length === 0) {
+          console.warn(`[ADMIN] Pro/Family user ${user.email} has no Stripe subscriptions - manual review needed`);
+          backfillResults.push({
+            email: user.email,
+            userId: user.id,
+            warning: 'No Stripe subscription found for Pro/Family user - manual review required'
+          });
+          continue;
+        }
+        
+        try {
+          // Find the right subscription for this user
+          // Priority: 1) Match existing stripeSubscriptionId, 2) Match existing stripeCustomerId, 3) Use ONLY active subscription
+          let stripeData = null;
+          
+          if (user.stripeSubscriptionId) {
+            // Try to match existing subscription ID
+            stripeData = stripeSubs.find(s => s.subscriptionId === user.stripeSubscriptionId);
+          }
+          
+          if (!stripeData && user.stripeCustomerId) {
+            // Try to match existing customer ID
+            stripeData = stripeSubs.find(s => s.customerId === user.stripeCustomerId);
+          }
+          
+          if (!stripeData) {
+            // SAFETY: Only use active/trialing subscriptions for new matches
+            const activeSubs = stripeSubs.filter(s => s.status === 'active' || s.status === 'trialing');
+            if (activeSubs.length === 1) {
+              // Only auto-match if there's exactly ONE active subscription
+              stripeData = activeSubs[0];
+            } else if (activeSubs.length > 1) {
+              console.warn(`[ADMIN] User ${user.email} has ${activeSubs.length} active subscriptions - manual review needed`);
+              backfillResults.push({
+                email: user.email,
+                userId: user.id,
+                warning: `${activeSubs.length} active subscriptions found - manual disambiguation required`
+              });
+              continue;
+            } else {
+              console.warn(`[ADMIN] User ${user.email} has no active subscriptions - manual review needed`);
+              backfillResults.push({
+                email: user.email,
+                userId: user.id,
+                warning: 'No active Stripe subscription - manual review required'
+              });
+              continue;
+            }
+          }
+          
+          if (!stripeData) continue;
+          
+          // Derive tier from price ID
+          let tier = null;
+          if (stripeData.priceId) {
+            const proMonthly = process.env.VITE_STRIPE_PRICE_PRO_MONTHLY;
+            const proAnnual = process.env.VITE_STRIPE_PRICE_PRO_ANNUAL;
+            const familyMonthly = process.env.VITE_STRIPE_PRICE_FAMILY_MONTHLY;
+            const familyAnnual = process.env.VITE_STRIPE_PRICE_FAMILY_ANNUAL;
+            
+            if (stripeData.priceId === proMonthly || stripeData.priceId === proAnnual) {
+              tier = 'pro';
+            } else if (stripeData.priceId === familyMonthly || stripeData.priceId === familyAnnual) {
+              tier = 'family';
+            }
+          }
+          
+          // Build update object - always update IDs to fix stale data
+          const updates: any = {};
+          let needsUpdate = false;
+          
+          // Update subscription ID if missing or different
+          if (user.stripeSubscriptionId !== stripeData.subscriptionId) {
+            updates.stripeSubscriptionId = stripeData.subscriptionId;
+            needsUpdate = true;
+          }
+          
+          // Update customer ID if missing or different
+          if (user.stripeCustomerId !== stripeData.customerId) {
+            updates.stripeCustomerId = stripeData.customerId;
+            needsUpdate = true;
+          }
+          
+          // Update tier if we derived one and it's different
+          if (tier && user.subscriptionTier !== tier) {
+            updates.subscriptionTier = tier;
+            needsUpdate = true;
+          }
+          
+          // Update status if different
+          if (user.subscriptionStatus !== stripeData.status) {
+            updates.subscriptionStatus = stripeData.status;
+            needsUpdate = true;
+          }
+          
+          // Update if needed
+          if (needsUpdate) {
+            await storage.updateUser(user.id, updates);
+            backfilledCount++;
+            backfillResults.push({
+              email: user.email,
+              userId: user.id,
+              matchedBy: user.stripeSubscriptionId ? 'subscriptionId' : (user.stripeCustomerId ? 'customerId' : 'newMatch'),
+              updates: updates
+            });
+            console.log(`[ADMIN] Backfilled ${user.email}:`, updates);
+          }
+        } catch (error: any) {
+          errorCount++;
+          console.error(`[ADMIN] Error backfilling ${user.email}:`, error.message);
+          backfillResults.push({
+            email: user.email,
+            userId: user.id,
+            error: error.message
+          });
+        }
+      }
+      
+      console.log(`[ADMIN] Backfill complete: ${backfilledCount} updated, ${errorCount} errors`);
+      
+      res.json({
+        success: true,
+        message: 'Stripe ID backfill complete',
+        stats: {
+          totalUsers: users.length,
+          proFamilyUsers: proFamilyUsers.length,
+          totalStripeSubscriptions: stripeSubscriptions.length,
+          backfilled: backfilledCount,
+          errors: errorCount,
+          warnings: backfillResults.filter(r => r.warning).length
+        },
+        results: backfillResults
+      });
+    } catch (error: any) {
+      console.error('[ADMIN] Backfill error:', error);
+      res.status(500).json({ error: 'Failed to backfill Stripe IDs', details: error.message });
     }
   });
 

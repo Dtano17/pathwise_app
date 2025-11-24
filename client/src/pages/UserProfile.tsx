@@ -260,25 +260,23 @@ export default function UserProfile() {
                     {(profile.nickname || profile.firstName || profile.username)?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                {!profile.profileImageUrl && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="absolute -bottom-2 left-1/2 -translate-x-1/2 h-8 px-3 gap-1"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadImageMutation.isPending}
-                    data-testid="button-upload-image"
-                  >
-                    {uploadImageMutation.isPending ? (
-                      <span className="text-xs">Uploading...</span>
-                    ) : (
-                      <>
-                        <Camera className="w-3 h-3" />
-                        <span className="text-xs">Upload</span>
-                      </>
-                    )}
-                  </Button>
-                )}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="absolute -bottom-2 left-1/2 -translate-x-1/2 h-8 px-3 gap-1"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadImageMutation.isPending}
+                  data-testid="button-upload-image"
+                >
+                  {uploadImageMutation.isPending ? (
+                    <span className="text-xs">Uploading...</span>
+                  ) : (
+                    <>
+                      <Camera className="w-3 h-3" />
+                      <span className="text-xs">{profile.profileImageUrl ? 'Change' : 'Upload'}</span>
+                    </>
+                  )}
+                </Button>
                 <input
                   ref={fileInputRef}
                   type="file"

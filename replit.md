@@ -104,14 +104,22 @@ The application employs a mobile-first responsive design featuring a clean, card
 - ✅ Fixed invite code display issue - all groups now show proper invite codes (NYC-TGV-PLAN, etc.)
 - ✅ Enhanced email system - modified admin endpoint to support excluding specific users
 - ✅ Sent welcome emails to 2 OAuth users (excluded: tanarunodennis@gmail.com, dennistanaruno@gmail.com)
-- ✅ **CRITICAL Stripe webhook fixes** for production-ready deployment:
+- ✅ **CRITICAL Stripe webhook & backfill fixes** for production-ready deployment:
   - Added `getUserByStripeSubscriptionId()` and `getUserByStripeCustomerId()` storage methods with indexed queries
   - Webhooks now work even when Stripe metadata is missing - fallback to subscription/customer ID lookups
   - All checkout/subscription events store BOTH stripeSubscriptionId AND stripeCustomerId atomically
   - Derives subscription tier from price IDs (VITE_STRIPE_PRICE_PRO_MONTHLY, etc.) when metadata is absent
-  - Uses atomic database updates to prevent race conditions
+  - Uses atomic database updates (`storage.updateUser()`) to prevent race conditions
   - Fixes critical bug where Pro users appeared as "Free" due to missing tier updates
-  - Admin endpoint `/api/admin/sync-stripe-subscriptions` can retroactively fix existing Pro users
+  - **New:** `/api/admin/backfill-stripe-ids` endpoint repairs broken Pro users:
+    - Queries ALL Stripe subscriptions and matches by email (handles family plans with multiple users)
+    - Smart matching: existing subscription ID → customer ID → first active subscription
+    - Updates stale/missing stripeCustomerId and stripeSubscriptionId
+    - Fixes users showing as Pro but can't access Stripe portal
+- ✅ **Profile image upload fix** for OAuth users:
+  - Upload button now always shows (was hidden if image already existed)
+  - Button text dynamically changes: "Upload" when empty, "Change" when image exists
+  - OAuth users (Google, Facebook, X/Twitter, Apple) can now change their auto-populated profile images
 - ✅ App verified production-ready: All 160+ API endpoints operational, authentication active, database connected
 
 ### Production Deployment
