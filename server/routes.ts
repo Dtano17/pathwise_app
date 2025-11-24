@@ -1289,10 +1289,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const userId = subscription.metadata?.userId;
           
           if (userId) {
+            const previousStatus = event.type === 'customer.subscription.updated' 
+              ? (event.data as any).previous_attributes?.status 
+              : null;
+            
             await storage.updateUserField(userId, 'subscriptionStatus', subscription.status);
             
             if (subscription.status === 'active') {
               await storage.updateUserField(userId, 'trialEndsAt', null);
+              
+              // Send Pro welcome email when subscription FIRST becomes active
+              // This handles both new subscriptions and trial-to-active transitions
+              const isNewlyActive = event.type === 'customer.subscription.created' || 
+                                  (event.type === 'customer.subscription.updated' && previousStatus !== 'active');
+              
+              if (isNewlyActive) {
+                try {
+                  const user = await storage.getUser(userId);
+                  if (user && user.email && (user.subscriptionTier === 'pro' || user.subscriptionTier === 'family')) {
+                    const { sendProWelcomeEmail } = await import('./emailService.js');
+                    await sendProWelcomeEmail(
+                      user.email,
+                      user.firstName || user.username || 'there'
+                    );
+                    console.log('[WEBHOOK] Pro welcome email sent to:', user.email);
+                  }
+                } catch (emailError) {
+                  console.error('[WEBHOOK] Failed to send Pro welcome email:', emailError);
+                  // Don't fail the webhook - email is non-critical
+                }
+              }
             }
           }
           break;
@@ -2650,13 +2676,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
       
-      // Check subscription tier
-      const tierCheck = await checkSubscriptionTier(userId, 'family');
+      // Check subscription tier - Pro or Family required for Groups
+      const tierCheck = await checkSubscriptionTier(userId, 'pro');
       if (!tierCheck.allowed) {
         return res.status(403).json({ 
           error: 'Subscription required',
-          message: tierCheck.message,
-          requiredTier: 'family',
+          message: 'This feature requires a Pro subscription ($6.99/month) or higher. Upgrade for Groups, unlimited AI plans, and more!',
+          requiredTier: 'pro',
           currentTier: tierCheck.tier
         });
       }
@@ -4465,14 +4491,14 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       const { groupId, targetGroupId, createGroup, groupName, groupDescription } = req.body;
       const userId = getUserId(req) || DEMO_USER_ID;
       
-      // Check subscription tier if creating group
+      // Check subscription tier if creating group - Pro or Family required
       if (createGroup) {
-        const tierCheck = await checkSubscriptionTier(userId, 'family');
+        const tierCheck = await checkSubscriptionTier(userId, 'pro');
         if (!tierCheck.allowed) {
           return res.status(403).json({ 
             error: 'Subscription required',
-            message: tierCheck.message,
-            requiredTier: 'family',
+            message: 'This feature requires a Pro subscription ($6.99/month) or higher. Upgrade for Groups, unlimited AI plans, and more!',
+            requiredTier: 'pro',
             currentTier: tierCheck.tier
           });
         }

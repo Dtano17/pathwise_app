@@ -11,6 +11,8 @@ interface User {
   authenticated?: boolean;
   isGuest?: boolean;
   username?: string;
+  subscriptionTier?: 'free' | 'pro' | 'family';
+  subscriptionStatus?: 'active' | 'canceled' | 'past_due' | 'trialing';
 }
 
 export function useAuth() {

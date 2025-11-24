@@ -548,9 +548,20 @@ export function AppSidebar({
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium truncate">
+                            {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email}
+                          </p>
+                          {(user.subscriptionTier === 'pro' || user.subscriptionTier === 'family') && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-[10px] px-1.5 py-0 h-4 bg-gradient-to-r from-purple-500/10 to-teal-500/10 border-purple-500/30"
+                              data-testid="badge-pro-member"
+                            >
+                              PRO
+                            </Badge>
+                          )}
+                        </div>
                         {user.firstName && user.email && (
                           <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                         )}
