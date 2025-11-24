@@ -1318,7 +1318,7 @@ export default function MainApp({
                       {currentPlanOutput ? "AI Action Plan Active" : "Transform Goals into Reality"}
                     </p>
                   </div>
-                  {(user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'family') && (
+                  {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
                     <div className="hidden sm:block">
                       <ProBadge size="lg" variant="full" />
                     </div>
