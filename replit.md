@@ -11,6 +11,9 @@ JournalMate (journalmate.ai) is an AI-powered journaling application designed to
 - Mobile-first design approach
 - Clean, modern interface design
 - Real AI integration (Claude/OpenAI)
+- Welcome emails working for OAuth users
+- Group invite codes generating and displaying
+- App production-ready for deployment
 
 ### Data Persistence & Demo User Behavior
 **Demo User (Unauthenticated Users):**
@@ -96,6 +99,12 @@ The application employs a mobile-first responsive design featuring a clean, card
 - **PostgreSQL (Neon)**: Cloud-hosted relational database.
 - **Passport.js**: Authentication middleware.
 - **Resend**: Email delivery service for transactional emails.
+
+### Latest Updates (November 24, 2025)
+- ✅ Fixed invite code display issue - all groups now show proper invite codes (NYC-TGV-PLAN, etc.)
+- ✅ Enhanced email system - modified admin endpoint to support excluding specific users
+- ✅ Sent welcome emails to 2 OAuth users (excluded: tanarunodennis@gmail.com, dennistanaruno@gmail.com)
+- ✅ App verified production-ready: All 160+ API endpoints operational, authentication active, database connected
 
 ### Production Deployment
 **Important**: API keys configured in development are **separate from production secrets**.

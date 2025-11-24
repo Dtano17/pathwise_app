@@ -5168,7 +5168,7 @@ ${emoji} ${progressLine}
   // Send retroactive welcome emails to existing OAuth users
   app.post("/api/admin/send-oauth-welcome-emails", async (req, res) => {
     try {
-      const { adminSecret } = req.body;
+      const { adminSecret, excludeEmails } = req.body;
       
       // Verify admin secret
       if (adminSecret !== process.env.ADMIN_SECRET) {
@@ -5195,14 +5195,18 @@ ${emoji} ${progressLine}
         )
         .execute();
 
-      console.log(`[ADMIN] Found ${oauthUsers.length} OAuth users with emails`);
+      // Filter out excluded emails
+      const excludeSet = new Set((excludeEmails || []).map((e: string) => e.toLowerCase()));
+      const filteredUsers = oauthUsers.filter(u => !excludeSet.has(u.email!.toLowerCase()));
+
+      console.log(`[ADMIN] Found ${oauthUsers.length} OAuth users with emails, ${filteredUsers.length} after filtering`);
 
       let successCount = 0;
       let failedCount = 0;
       const errors: any[] = [];
 
       // Send emails in batches to avoid rate limiting
-      for (const user of oauthUsers) {
+      for (const user of filteredUsers) {
         try {
           const result = await sendWelcomeEmail(user.email!, user.firstName || 'there');
           if (result.success) {
@@ -5230,6 +5234,7 @@ ${emoji} ${progressLine}
         message: 'Retroactive welcome emails sent',
         stats: {
           total: oauthUsers.length,
+          filtered: filteredUsers.length,
           sent: successCount,
           failed: failedCount,
         },
