@@ -110,3 +110,9 @@ args = "cd mobile && npx expo start --tunnel --clear"
 
 [agent]
 integrations = ["javascript_websocket:1.0.0", "javascript_openai:1.0.0", "outlook:1.0.0", "javascript_anthropic:1.0.0", "javascript_log_in_with_replit:1.0.0", "spotify:1.0.0", "resend:1.0.0", "javascript_stripe:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+TESTING_VITE_STRIPE_PUBLIC_KEY = "pk_test_51SN68rHt0lAkroZ3Aygm1LWRhP83ntiyIioGZg3CZPnJHMxrn4rF6fKbJW9FSJAJQw6OfWRxR3NyZzSh8gzhRMyk00UwDuZtmR"
+TESTING_STRIPE_SECRET_KEY = "sk_test_51SN68rHt0lAkroZ3IWcwi75Nwi8XQYrTtXBXQan0kJi2r9nLylAbBfho4CSa0hnr7IWSEJNGIQZCpFntvbiv4ucB00nnYqauOG"

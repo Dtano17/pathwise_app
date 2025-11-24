@@ -1265,21 +1265,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const userId = session.metadata?.userId;
           const tier = session.metadata?.tier;
           
-          if (userId && tier) {
-            await storage.updateUserField(userId, 'subscriptionTier', tier);
-            await storage.updateUserField(userId, 'subscriptionStatus', 'trialing');
-            await storage.updateUserField(userId, 'stripeSubscriptionId', session.subscription);
+          if (userId) {
+            // CRITICAL: ALWAYS store Stripe IDs first, regardless of tier - this ensures future webhooks can find the user
+            const updates: any = {};
             
-            // Set trial end date (7 days from now)
-            const trialEnd = new Date();
-            trialEnd.setDate(trialEnd.getDate() + 7);
-            await storage.updateUserField(userId, 'trialEndsAt', trialEnd);
+            if (session.subscription) {
+              updates.stripeSubscriptionId = session.subscription;
+            }
+            if (session.customer) {
+              updates.stripeCustomerId = session.customer;
+            }
             
-            // Reset plan count
-            await storage.updateUserField(userId, 'planCount', 0);
-            const resetDate = new Date();
-            resetDate.setMonth(resetDate.getMonth() + 1);
-            await storage.updateUserField(userId, 'planCountResetDate', resetDate);
+            // Only set tier/status if we have tier metadata
+            if (tier) {
+              updates.subscriptionTier = tier;
+              updates.subscriptionStatus = 'trialing';
+              
+              // Set trial end date (7 days from now)
+              const trialEnd = new Date();
+              trialEnd.setDate(trialEnd.getDate() + 7);
+              updates.trialEndsAt = trialEnd;
+              
+              // Reset plan count
+              updates.planCount = 0;
+              const resetDate = new Date();
+              resetDate.setMonth(resetDate.getMonth() + 1);
+              updates.planCountResetDate = resetDate;
+            }
+            
+            // Atomic update of all fields
+            await storage.updateUser(userId, updates);
+            
+            console.log('[WEBHOOK] Checkout completed - stored Stripe IDs:', { 
+              userId, 
+              subscriptionId: session.subscription, 
+              customerId: session.customer,
+              tier 
+            });
           }
           break;
         }
@@ -1287,12 +1309,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         case 'customer.subscription.updated':
         case 'customer.subscription.created': {
           const subscription = event.data.object as any;
-          const userId = subscription.metadata?.userId;
+          let userId = subscription.metadata?.userId;
+          
+          // FALLBACK: If metadata.userId is missing, look up user by subscription ID or customer ID
+          if (!userId && subscription.id) {
+            try {
+              let user = await storage.getUserByStripeSubscriptionId(subscription.id);
+              if (user) {
+                userId = user.id;
+                console.log('[WEBHOOK] Found user by subscription ID:', { subscriptionId: subscription.id, userId });
+              } else if (subscription.customer) {
+                // Try looking up by customer ID as a second fallback
+                user = await storage.getUserByStripeCustomerId(subscription.customer);
+                if (user) {
+                  userId = user.id;
+                  console.log('[WEBHOOK] Found user by customer ID:', { customerId: subscription.customer, userId });
+                } else {
+                  console.warn('[WEBHOOK] No user found for subscription:', { subscriptionId: subscription.id, customerId: subscription.customer });
+                }
+              }
+            } catch (err) {
+              console.error('[WEBHOOK] Error looking up user by Stripe IDs:', err);
+            }
+          }
           
           if (userId) {
             const previousStatus = event.type === 'customer.subscription.updated' 
               ? (event.data as any).previous_attributes?.status 
               : null;
+            
+            // Build atomic update object
+            const updates: any = {
+              subscriptionStatus: subscription.status
+            };
+            
+            // ALWAYS store/update Stripe IDs for future webhook lookups
+            if (subscription.id) {
+              updates.stripeSubscriptionId = subscription.id;
+            }
+            if (subscription.customer) {
+              updates.stripeCustomerId = subscription.customer;
+            }
             
             // Derive tier from Stripe price ID if metadata tier is missing
             let tier = subscription.metadata?.tier;
@@ -1314,21 +1371,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Update subscription tier if we have it
             if (tier) {
-              await storage.updateUserField(userId, 'subscriptionTier', tier);
+              updates.subscriptionTier = tier;
               console.log('[WEBHOOK] Updated subscription tier:', { userId, tier });
             }
             
-            await storage.updateUserField(userId, 'subscriptionStatus', subscription.status);
-            
             if (subscription.status === 'active') {
-              await storage.updateUserField(userId, 'trialEndsAt', null);
-              
-              // Send Pro welcome email when subscription FIRST becomes active
-              // This handles both new subscriptions and trial-to-active transitions
+              updates.trialEndsAt = null;
+            }
+            
+            // Atomic update of all fields
+            await storage.updateUser(userId, updates);
+            console.log('[WEBHOOK] Subscription updated:', { userId, updates });
+            
+            // Send Pro welcome email when subscription FIRST becomes active (after update)
+            if (subscription.status === 'active') {
               const isNewlyActive = event.type === 'customer.subscription.created' || 
                                   (event.type === 'customer.subscription.updated' && previousStatus !== 'active');
               
-              if (isNewlyActive) {
+              if (isNewlyActive && tier) {
                 try {
                   const user = await storage.getUser(userId);
                   if (user && user.email && (user.subscriptionTier === 'pro' || user.subscriptionTier === 'family')) {
@@ -1351,13 +1411,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         case 'customer.subscription.deleted': {
           const subscription = event.data.object as any;
-          const userId = subscription.metadata?.userId;
+          let userId = subscription.metadata?.userId;
+          
+          // FALLBACK: If metadata.userId is missing, look up user by subscription ID or customer ID
+          if (!userId && subscription.id) {
+            try {
+              let user = await storage.getUserByStripeSubscriptionId(subscription.id);
+              if (user) {
+                userId = user.id;
+                console.log('[WEBHOOK] Found user by subscription ID for deletion:', { subscriptionId: subscription.id, userId });
+              } else if (subscription.customer) {
+                user = await storage.getUserByStripeCustomerId(subscription.customer);
+                if (user) {
+                  userId = user.id;
+                  console.log('[WEBHOOK] Found user by customer ID for deletion:', { customerId: subscription.customer, userId });
+                }
+              }
+            } catch (err) {
+              console.error('[WEBHOOK] Error looking up user by Stripe IDs:', err);
+            }
+          }
           
           if (userId) {
-            await storage.updateUserField(userId, 'subscriptionTier', 'free');
-            await storage.updateUserField(userId, 'subscriptionStatus', 'canceled');
-            await storage.updateUserField(userId, 'subscriptionEndsAt', new Date());
-            await storage.updateUserField(userId, 'planCount', 0);
+            // Atomic update when subscription is deleted
+            await storage.updateUser(userId, {
+              subscriptionTier: 'free',
+              subscriptionStatus: 'canceled',
+              subscriptionEndsAt: new Date(),
+              planCount: 0
+            });
+            console.log('[WEBHOOK] Subscription deleted - user downgraded to free:', userId);
           }
           break;
         }
