@@ -4437,11 +4437,17 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
           const group = await storage.getGroup(activity.targetGroupId);
           if (group) {
             const members = await storage.getGroupMembers(activity.targetGroupId);
+            
+            // Check if current user (if authenticated) is already a member
+            const currentUserId = getUserId(req);
+            const isUserMember = currentUserId ? members.some(m => m.userId === currentUserId) : false;
+            
             groupInfo = {
               id: group.id,
               name: group.name,
               description: group.description,
-              memberCount: members.length
+              memberCount: members.length,
+              isUserMember
             };
           }
         } catch (error) {
@@ -4472,11 +4478,16 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
             const groupRow = groupActivitiesResult.rows[0];
             const members = await storage.getGroupMembers(groupRow.group_id);
             
+            // Check if current user (if authenticated) is already a member
+            const currentUserId = getUserId(req);
+            const isUserMember = currentUserId ? members.some(m => m.userId === currentUserId) : false;
+            
             groupInfo = {
               id: groupRow.group_id,
               name: groupRow.name,
               description: groupRow.description || null,
-              memberCount: members.length
+              memberCount: members.length,
+              isUserMember
             };
             console.log('[SHARE] Built groupInfo from group_activities:', groupInfo);
           }
