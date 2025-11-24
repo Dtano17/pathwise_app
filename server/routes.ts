@@ -3039,7 +3039,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           groupId: result.group.id,
           actorUserId: userId,
           excludeUserIds: [userId], // Don't notify the person who joined
-          notificationType: 'member_joined',
+          notificationType: 'member_added',
           payload: {
             title: 'New member joined',
             body: `${joiningUser?.username || 'Someone'} joined "${result.group.name}" via invite code`,
@@ -3439,7 +3439,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             groupId,
             actorUserId: userId,
             excludeUserIds: [userId], // Don't notify the person who joined
-            notificationType: 'member_joined',
+            notificationType: 'member_added',
             payload: {
               title: 'New member joined',
               body: `${joiningUser?.username || 'Someone'} joined "${group.name}" by copying an activity`,
@@ -5179,7 +5179,7 @@ ${emoji} ${progressLine}
                 groupId: sharedActivity.targetGroupId,
                 actorUserId: currentUserId,
                 excludeUserIds: [currentUserId], // Don't notify the person who joined
-                notificationType: 'member_joined',
+                notificationType: 'member_added',
                 payload: {
                   title: 'New member joined',
                   body: `${user?.username || 'Someone'} joined "${group?.name || 'your group'}" via shared activity`,
