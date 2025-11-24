@@ -2518,6 +2518,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Don't fail the request if logging fails
       }
 
+      // ALSO check if this task belongs to a PERSONAL activity that shares progress with a group
+      try {
+        // Get all activities this task belongs to
+        const activityTasks = await storage.getActivityTasksForTask(taskId);
+        
+        for (const at of activityTasks) {
+          const activity = await storage.getActivityById(at.activityId);
+          
+          // If this activity shares progress with a group, log it to the group feed
+          if (activity && activity.sharesProgressWithGroup && activity.linkedGroupActivityId) {
+            const completingUser = await storage.getUser(userId);
+            const groupActivity = await storage.getGroupActivityById(activity.linkedGroupActivityId);
+            
+            if (groupActivity) {
+              // Log to group activity feed
+              await storage.logGroupActivity({
+                groupId: groupActivity.groupId,
+                userId,
+                userName: completingUser?.username || 'Someone',
+                activityType: 'task_completed',
+                activityTitle: activity.title,
+                taskTitle: task.title,
+                groupActivityId: groupActivity.id,
+              });
+
+              // Send notification to group members
+              await sendGroupNotification(storage, {
+                groupId: groupActivity.groupId,
+                actorUserId: userId,
+                excludeUserIds: [userId], // Don't notify the person who completed the task
+                notificationType: 'task_completed',
+                payload: {
+                  title: `Member progress update`,
+                  body: `${completingUser?.username || 'Someone'} completed "${task.title}" in ${activity.title}`,
+                  data: { groupId: groupActivity.groupId, groupActivityId: groupActivity.id, taskId, userId },
+                  route: `/groups/${groupActivity.groupId}`,
+                },
+              });
+            }
+          }
+        }
+      } catch (shareError) {
+        console.error('Failed to sync progress sharing:', shareError);
+        // Don't fail the request if sharing fails
+      }
+
       res.json({ 
         task, 
         message: 'Task completed! 🎉',
@@ -3319,6 +3365,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get member progress for a specific group activity
+  app.get("/api/groups/:groupId/activities/:groupActivityId/member-progress", async (req, res) => {
+    try {
+      const { groupId, groupActivityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Check if user is member
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const memberProgress = await storage.getMemberProgressForGroupActivity(groupActivityId);
+
+      res.json({ memberProgress });
+    } catch (error) {
+      console.error('Get member progress error:', error);
+      res.status(500).json({ error: 'Failed to fetch member progress' });
+    }
+  });
+
   // Get group progress - task completion stats
   app.get("/api/groups/:groupId/progress", async (req, res) => {
     try {
@@ -3421,7 +3488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { groupId, groupActivityId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
-      const { joinGroup } = req.body;
+      const { joinGroup, shareProgress } = req.body; // Add shareProgress parameter
 
       // Get group details first
       const group = await storage.getGroup(groupId);
@@ -3497,6 +3564,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         backdrop: originalActivity.backdrop,
         shareTitle: originalActivity.shareTitle,
         isPublic: false, // Personal copy is private by default
+        sharesProgressWithGroup: shareProgress === true, // Track progress sharing preference
+        linkedGroupActivityId: shareProgress === true ? groupActivityId : null, // Link to group activity if sharing
       });
 
       // Copy all tasks

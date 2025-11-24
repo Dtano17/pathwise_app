@@ -958,6 +958,10 @@ export const activities = pgTable("activities", {
   copiedFromShareToken: varchar("copied_from_share_token"), // Track which share link this was copied from
   isArchived: boolean("is_archived").default(false), // Separate archive flag for history
   
+  // Progress sharing with group
+  sharesProgressWithGroup: boolean("shares_progress_with_group").default(false), // Whether to share task completions back to the group
+  linkedGroupActivityId: varchar("linked_group_activity_id").references(() => groupActivities.id, { onDelete: "set null" }), // Link to group activity if sharing progress
+  
   // Location and context
   location: text("location"),
   latitude: real("latitude"), // Latitude coordinate for location-based discovery (nullable)

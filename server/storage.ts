@@ -159,6 +159,7 @@ export interface IStorage {
   addTaskToActivity(activityId: string, taskId: string, order?: number): Promise<ActivityTask>;
   getActivityTasks(activityId: string, userId: string): Promise<Task[]>;
   getTasksByActivity(activityId: string, userId: string): Promise<Task[]>; // Alias for getActivityTasks
+  getActivityTasksForTask(taskId: string): Promise<ActivityTask[]>; // Get all activity-task links for a given task
   removeTaskFromActivity(activityId: string, taskId: string): Promise<void>;
   updateActivityTaskOrder(activityId: string, taskId: string, order: number): Promise<void>;
 
@@ -365,6 +366,7 @@ export interface IStorage {
   getGroupActivityByTaskId(taskId: string): Promise<GroupActivity | null>;
   getGroupActivityById(groupActivityId: string): Promise<GroupActivity | null>;
   logActivityChange(change: { groupActivityId: string; userId: string; changeType: string; changeDescription: string }): Promise<void>;
+  getMemberProgressForGroupActivity(groupActivityId: string): Promise<Array<{ userId: string; username: string; totalTasks: number; completedTasks: number }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -793,6 +795,11 @@ export class DatabaseStorage implements IStorage {
     await db.update(activityTasks)
       .set({ order })
       .where(and(eq(activityTasks.activityId, activityId), eq(activityTasks.taskId, taskId)));
+  }
+
+  async getActivityTasksForTask(taskId: string): Promise<ActivityTask[]> {
+    return await db.select().from(activityTasks)
+      .where(eq(activityTasks.taskId, taskId));
   }
 
   // Activity Permission Requests
@@ -3162,6 +3169,42 @@ export class DatabaseStorage implements IStorage {
       taskTitle: change.changeDescription, // The task name
       groupActivityId: change.groupActivityId,
     });
+  }
+
+  async getMemberProgressForGroupActivity(groupActivityId: string): Promise<Array<{ userId: string; username: string; totalTasks: number; completedTasks: number }>> {
+    // Query all activities that are linked to this group activity with sharing enabled
+    const result = await pool.query(
+      `SELECT 
+        a.user_id as "userId",
+        u.username,
+        a.id as "activityId"
+      FROM activities a
+      INNER JOIN users u ON a.user_id = u.id
+      WHERE a.linked_group_activity_id = $1
+        AND a.shares_progress_with_group = true`,
+      [groupActivityId]
+    );
+
+    if (result.rows.length === 0) {
+      return [];
+    }
+
+    // For each linked activity, get task progress
+    const memberProgress = await Promise.all(
+      result.rows.map(async (row: any) => {
+        const tasks = await this.getActivityTasks(row.activityId, row.userId);
+        const completedTasks = tasks.filter(t => t.completed).length;
+
+        return {
+          userId: row.userId,
+          username: row.username || 'Unknown User',
+          totalTasks: tasks.length,
+          completedTasks,
+        };
+      })
+    );
+
+    return memberProgress;
   }
 
   // Get groups for a user with member count and their role
