@@ -50,7 +50,9 @@ import SmartScheduler from '@/components/SmartScheduler';
 import CelebrationModal from '@/components/CelebrationModal';
 import OnboardingTutorial from '@/components/OnboardingTutorial';
 import { UpgradeModal } from '@/components/UpgradeModal';
+import { ProBadge } from '@/components/ProBadge';
 import Confetti from 'react-confetti';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ProgressData {
   completedToday: number;
@@ -1309,11 +1311,18 @@ export default function MainApp({
                 <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center hover-elevate rounded-md">
                   <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
                 </div>
-                <div>
-                  <h1 className="text-lg sm:text-2xl font-bold text-foreground">JournalMate</h1>
-                  <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                    {currentPlanOutput ? "AI Action Plan Active" : "Transform Goals into Reality"}
-                  </p>
+                <div className="flex items-center gap-2">
+                  <div>
+                    <h1 className="text-lg sm:text-2xl font-bold text-foreground">JournalMate</h1>
+                    <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
+                      {currentPlanOutput ? "AI Action Plan Active" : "Transform Goals into Reality"}
+                    </p>
+                  </div>
+                  {(user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'family') && (
+                    <div className="hidden sm:block">
+                      <ProBadge size="lg" variant="full" />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

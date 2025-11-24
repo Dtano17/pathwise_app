@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ProBadge } from '@/components/ProBadge';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { 
@@ -288,9 +289,14 @@ export default function UserProfile() {
                 />
               </div>
               
-              <h2 className="text-xl font-bold mb-1" data-testid="text-profile-name">
-                {profile.nickname || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.username}
-              </h2>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <h2 className="text-xl font-bold" data-testid="text-profile-name">
+                  {profile.nickname || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.username}
+                </h2>
+                {(user?.subscriptionTier === 'pro' || user?.subscriptionTier === 'family') && (
+                  <ProBadge size="md" />
+                )}
+              </div>
               
               {profile.username && (profile.nickname || profile.firstName) && (
                 <p className="text-muted-foreground text-sm mb-2">@{profile.username}</p>

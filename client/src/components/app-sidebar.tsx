@@ -22,6 +22,7 @@ import { SocialLogin } from '@/components/SocialLogin';
 import ProfileSettingsModal from '@/components/ProfileSettingsModal';
 import NotificationManager from '@/components/NotificationManager';
 import SmartScheduler from '@/components/SmartScheduler';
+import { ProBadge } from '@/components/ProBadge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -553,38 +554,7 @@ export function AppSidebar({
                             {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email}
                           </p>
                           {(user.subscriptionTier === 'pro' || user.subscriptionTier === 'family') && (
-                            <div 
-                              className="relative px-2 py-0.5 rounded-md overflow-visible"
-                              style={{
-                                background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.2) 0%, rgba(59, 130, 246, 0.2) 50%, rgba(16, 185, 129, 0.2) 100%)',
-                                animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-                              }}
-                              data-testid="badge-pro-member"
-                            >
-                              {/* Animated glowing border effect */}
-                              <div 
-                                className="absolute inset-0 rounded-md"
-                                style={{
-                                  background: 'linear-gradient(135deg, #9333ea 0%, #3b82f6 50%, #10b981 100%)',
-                                  padding: '1px',
-                                  WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-                                  WebkitMaskComposite: 'xor',
-                                  maskComposite: 'exclude',
-                                  animation: 'shimmer 3s linear infinite',
-                                }}
-                              />
-                              {/* Glow effect */}
-                              <div 
-                                className="absolute inset-0 rounded-md blur-sm opacity-60"
-                                style={{
-                                  background: 'linear-gradient(135deg, #9333ea 0%, #3b82f6 50%, #10b981 100%)',
-                                  animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-                                }}
-                              />
-                              <span className="relative text-[10px] font-bold tracking-wider bg-gradient-to-r from-purple-400 via-blue-400 to-emerald-400 bg-clip-text text-transparent">
-                                PRO
-                              </span>
-                            </div>
+                            <ProBadge size="sm" />
                           )}
                         </div>
                         {user.firstName && user.email && (
