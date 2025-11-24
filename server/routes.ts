@@ -2862,13 +2862,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // If this user was invited via email/phone, send special notification to inviter
         if (inviterUserId) {
-          await storage.createNotification({
+          await storage.createUserNotification({
             userId: inviterUserId,
+            sourceGroupId: result.group.id,
+            actorUserId: userId,
             type: 'group_invite_accepted',
             title: 'Invite accepted!',
             body: `${joiningUser?.username || 'Someone'} accepted your invite and joined "${result.group.name}"`,
-            data: { groupId: result.group.id, newMemberId: userId },
-            route: `/groups/${result.group.id}`
+            metadata: { groupId: result.group.id, newMemberId: userId, route: `/groups/${result.group.id}` }
           });
         }
       } catch (notifError) {
