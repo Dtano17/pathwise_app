@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JournalMate</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <div class="header">
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="8" fill="url(#logo-gradient)"/>
+          <path d="M10 12h12M10 16h12M10 20h8" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="logo-gradient" x1="0" y1="0" x2="32" y2="32">
+              <stop stop-color="#7c3aed"/>
+              <stop offset="1" stop-color="#5b21b6"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="logo-text">
+          <h1>JournalMate</h1>
+          <span class="tagline">AI Plan Importer</span>
+        </div>
+      </div>
+    </div>
+    
+    <div id="auth-status" class="status-section">
+      <div class="loading">
+        <div class="spinner"></div>
+        <span>Checking connection...</span>
+      </div>
+    </div>
+    
+    <div id="connected-view" class="view hidden">
+      <div class="connected-status">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" fill="#10b981"/>
+          <path d="M8 12l2.5 2.5L16 9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Connected to JournalMate</span>
+      </div>
+      
+      <div class="instructions">
+        <h3>How to use:</h3>
+        <ol>
+          <li>Open ChatGPT, Claude, or another AI assistant</li>
+          <li>Ask the AI to create a plan for you</li>
+          <li>Click the floating <strong>"Send to JournalMate"</strong> button</li>
+          <li>Your plan will be parsed and saved as tasks!</li>
+        </ol>
+      </div>
+      
+      <div class="supported-platforms">
+        <h3>Supported platforms:</h3>
+        <div class="platforms-grid">
+          <div class="platform">
+            <span class="platform-icon">🤖</span>
+            <span>ChatGPT</span>
+          </div>
+          <div class="platform">
+            <span class="platform-icon">🧠</span>
+            <span>Claude</span>
+          </div>
+          <div class="platform">
+            <span class="platform-icon">✨</span>
+            <span>Gemini</span>
+          </div>
+          <div class="platform">
+            <span class="platform-icon">💬</span>
+            <span>Copilot</span>
+          </div>
+          <div class="platform">
+            <span class="platform-icon">🔍</span>
+            <span>Perplexity</span>
+          </div>
+        </div>
+      </div>
+      
+      <button id="disconnect-btn" class="btn btn-secondary">
+        Disconnect Account
+      </button>
+    </div>
+    
+    <div id="disconnected-view" class="view hidden">
+      <div class="disconnected-status">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="#94a3b8" stroke-width="2"/>
+          <path d="M8 8L16 16M16 8L8 16" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <p>Connect your JournalMate account to start importing AI plans</p>
+      </div>
+      
+      <button id="connect-btn" class="btn btn-primary">
+        Connect Account
+      </button>
+      
+      <p class="help-text">
+        Don't have an account? 
+        <a href="https://journalmate.ai" target="_blank">Sign up for free</a>
+      </p>
+    </div>
+    
+    <div class="footer">
+      <a href="https://journalmate.ai/help" target="_blank">Help</a>
+      <span class="divider">•</span>
+      <a href="https://journalmate.ai/privacy" target="_blank">Privacy</a>
+      <span class="divider">•</span>
+      <span class="version">v1.0.0</span>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

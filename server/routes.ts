@@ -45,7 +45,8 @@ import {
   type NotificationPreferences,
   type SignupUser,
   type ProfileCompletion,
-  type LifestylePlannerSession
+  type LifestylePlannerSession,
+  type User
 } from "@shared/schema";
 import { eq, and, or, isNull, isNotNull, ne, sql } from "drizzle-orm";
 import bcrypt from 'bcrypt';
@@ -11597,6 +11598,289 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     } catch (error) {
       console.error('[EXTENSION] Error fetching usage:', error);
       res.status(500).json({ error: "Failed to fetch usage stats" });
+    }
+  });
+
+  // Extension Authentication Flow
+  // Step 1: User opens this page from extension popup to authenticate
+  app.get("/extension-auth", async (req, res) => {
+    try {
+      const state = req.query.state as string;
+      
+      if (!state || state.length < 32) {
+        return res.status(400).send("Invalid state parameter");
+      }
+      
+      // Store state in session for verification
+      if (req.session) {
+        (req.session as any).extensionAuthState = state;
+      }
+      
+      // Render a page that asks user to login if not authenticated
+      // or proceed to create token if authenticated
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Connect JournalMate Extension</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+              }
+              .container {
+                background: white;
+                border-radius: 20px;
+                padding: 40px;
+                max-width: 400px;
+                width: 100%;
+                text-align: center;
+                box-shadow: 0 10px 40px rgba(124, 58, 237, 0.15);
+              }
+              .logo {
+                width: 64px;
+                height: 64px;
+                background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+                border-radius: 16px;
+                margin: 0 auto 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              }
+              .logo svg { width: 32px; height: 32px; }
+              h1 { color: #1e293b; font-size: 24px; margin-bottom: 12px; }
+              p { color: #64748b; font-size: 16px; margin-bottom: 32px; line-height: 1.5; }
+              .btn {
+                display: inline-block;
+                padding: 14px 32px;
+                background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+                color: white;
+                text-decoration: none;
+                border-radius: 12px;
+                font-weight: 600;
+                font-size: 16px;
+                transition: transform 0.2s, box-shadow 0.2s;
+              }
+              .btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
+              }
+              .status { margin-top: 24px; color: #94a3b8; font-size: 14px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                  <path d="M6 8h12M6 12h12M6 16h8" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <h1>Connect Browser Extension</h1>
+              <p>Link your JournalMate account to the browser extension for one-click AI plan imports.</p>
+              <a href="/extension-auth/connect?state=${encodeURIComponent(state)}" class="btn">
+                Connect Account
+              </a>
+              <p class="status">You may be asked to log in first.</p>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error('[EXTENSION AUTH] Error:', error);
+      res.status(500).send("An error occurred");
+    }
+  });
+
+  // Step 2: Verify user is authenticated and create extension token
+  app.get("/extension-auth/connect", isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const state = req.query.state as string;
+      const user = req.user as User;
+      
+      if (!state || !user) {
+        return res.redirect("/extension-auth?error=invalid_state");
+      }
+      
+      // Generate a secure token for the extension
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
+      
+      // Store the token in database
+      await storage.createExtensionToken({
+        userId: user.id,
+        token,
+        name: 'Browser Extension',
+        platform: 'chrome',
+        expiresAt
+      });
+      
+      // Calculate expires_in in seconds
+      const expiresInSeconds = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
+      
+      // Redirect to callback page that extension is listening for
+      res.redirect(`/extension-auth/callback?token=${token}&state=${state}&expires_in=${expiresInSeconds}`);
+    } catch (error) {
+      console.error('[EXTENSION AUTH] Error creating token:', error);
+      res.status(500).send("Failed to create extension token");
+    }
+  });
+
+  // Step 3: Callback page that the extension popup intercepts
+  app.get("/extension-auth/callback", async (req, res) => {
+    const token = req.query.token as string;
+    const state = req.query.state as string;
+    
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Extension Connected!</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+              background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding: 20px;
+            }
+            .container {
+              background: white;
+              border-radius: 20px;
+              padding: 40px;
+              max-width: 400px;
+              width: 100%;
+              text-align: center;
+              box-shadow: 0 10px 40px rgba(16, 185, 129, 0.15);
+            }
+            .success-icon {
+              width: 80px;
+              height: 80px;
+              background: #10b981;
+              border-radius: 50%;
+              margin: 0 auto 24px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .success-icon svg { width: 40px; height: 40px; }
+            h1 { color: #166534; font-size: 24px; margin-bottom: 12px; }
+            p { color: #4b5563; font-size: 16px; line-height: 1.5; }
+            .note { margin-top: 24px; color: #94a3b8; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="success-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+                <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <h1>Extension Connected!</h1>
+            <p>Your JournalMate account is now linked to the browser extension.</p>
+            <p class="note">You can close this tab and start importing AI plans.</p>
+          </div>
+          <script>
+            // Notify extension if in popup context
+            try {
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'JOURNALMATE_AUTH_SUCCESS',
+                  token: '${token}',
+                  state: '${state}'
+                }, '*');
+              }
+            } catch (e) {}
+          </script>
+        </body>
+      </html>
+    `);
+  });
+
+  // Revoke extension token
+  app.post("/api/extensions/revoke-token", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: "No token provided" });
+      }
+      
+      const token = authHeader.substring(7);
+      const tokenRecord = await storage.getExtensionTokenByToken(token);
+      
+      if (!tokenRecord) {
+        return res.status(404).json({ error: "Token not found" });
+      }
+      
+      await storage.deactivateExtensionToken(token);
+      
+      res.json({ success: true, message: "Token revoked" });
+    } catch (error) {
+      console.error('[EXTENSION] Error revoking token:', error);
+      res.status(500).json({ error: "Failed to revoke token" });
+    }
+  });
+
+  // List user's active extension tokens
+  app.get("/api/extensions/tokens", isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const tokens = await storage.getUserExtensionTokens(user.id);
+      
+      res.json({
+        tokens: tokens.map(t => ({
+          id: t.id,
+          name: t.name,
+          platform: t.platform,
+          createdAt: t.createdAt,
+          lastUsedAt: t.lastUsedAt,
+          expiresAt: t.expiresAt,
+          isActive: t.isActive
+        }))
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error listing tokens:', error);
+      res.status(500).json({ error: "Failed to list tokens" });
+    }
+  });
+
+  // Delete/deactivate an extension token
+  app.delete("/api/extensions/tokens/:tokenId", isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const tokenId = req.params.tokenId;
+      const tokens = await storage.getUserExtensionTokens(user.id);
+      const token = tokens.find(t => t.id === tokenId);
+      
+      if (!token) {
+        return res.status(404).json({ error: "Token not found" });
+      }
+      
+      await storage.deactivateExtensionToken(token.token);
+      
+      res.json({ success: true, message: "Token deleted" });
+    } catch (error) {
+      console.error('[EXTENSION] Error deleting token:', error);
+      res.status(500).json({ error: "Failed to delete token" });
     }
   });
 
