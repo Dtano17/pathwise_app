@@ -94,25 +94,59 @@ function EmptyState({ onPasteClick }: { onPasteClick: () => void }) {
   );
 }
 
-function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
+function ErrorState({ 
+  error, 
+  onRetry, 
+  upgradeRequired,
+  onUpgrade 
+}: { 
+  error: string; 
+  onRetry: () => void;
+  upgradeRequired?: boolean;
+  onUpgrade?: () => void;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       className="flex flex-col items-center justify-center py-12 px-6"
     >
-      <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
-        <AlertCircle className="w-8 h-8 text-red-500" />
+      <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
+        upgradeRequired 
+          ? 'bg-amber-100 dark:bg-amber-900/30' 
+          : 'bg-red-100 dark:bg-red-900/30'
+      }`}>
+        {upgradeRequired ? (
+          <Sparkles className="w-8 h-8 text-amber-500" />
+        ) : (
+          <AlertCircle className="w-8 h-8 text-red-500" />
+        )}
       </div>
       <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">
-        Import Failed
+        {upgradeRequired ? 'Upgrade to Pro' : 'Import Failed'}
       </h3>
       <p className="text-slate-500 dark:text-slate-400 text-center max-w-xs mb-6">
         {error}
       </p>
-      <Button onClick={onRetry} variant="outline" data-testid="button-retry">
-        Try Again
-      </Button>
+      {upgradeRequired ? (
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <Button 
+            onClick={onUpgrade}
+            className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white"
+            data-testid="button-upgrade-pro"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            Upgrade to Pro
+          </Button>
+          <Button onClick={onRetry} variant="outline" data-testid="button-retry">
+            Go Back
+          </Button>
+        </div>
+      ) : (
+        <Button onClick={onRetry} variant="outline" data-testid="button-retry">
+          Try Again
+        </Button>
+      )}
     </motion.div>
   );
 }
@@ -392,7 +426,13 @@ export default function ImportPlan() {
             )}
 
             {isError && state.error && (
-              <ErrorState key="error" error={state.error} onRetry={reset} />
+              <ErrorState 
+                key="error" 
+                error={state.error} 
+                onRetry={reset}
+                upgradeRequired={state.upgradeRequired}
+                onUpgrade={() => setLocation('/settings/subscription')}
+              />
             )}
 
             {isSuccess && (

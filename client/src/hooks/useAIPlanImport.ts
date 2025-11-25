@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { onIncomingShare, consumePendingShareData, hasPendingShareData, type IncomingShareData } from '@/lib/shareSheet';
+import { 
+  onIncomingShare, 
+  consumePendingShareData, 
+  hasPendingShareData,
+  initIncomingShareListener,
+  type IncomingShareData 
+} from '@/lib/shareSheet';
 import { useLocation } from 'wouter';
 
 export interface ParsedTask {
@@ -26,8 +32,10 @@ export interface ImportState {
   status: 'idle' | 'loading' | 'parsed' | 'saving' | 'success' | 'error';
   rawText?: string;
   parsedPlan?: ParsedPlan;
+  importId?: string;
   error?: string;
   source?: string;
+  upgradeRequired?: boolean;
 }
 
 export interface ImportLimits {
@@ -41,14 +49,31 @@ export function useAIPlanImport() {
   const [, setLocation] = useLocation();
   const [state, setState] = useState<ImportState>({ status: 'idle' });
   const [limits, setLimits] = useState<ImportLimits | null>(null);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (!initialized) {
+      initIncomingShareListener();
+      setInitialized(true);
+    }
+  }, [initialized]);
 
   const parsePlanMutation = useMutation({
-    mutationFn: async ({ text, source }: { text: string; source: string }) => {
+    mutationFn: async ({ text, source, sourceDevice }: { text: string; source: string; sourceDevice: string }) => {
       const response = await apiRequest('POST', '/api/extensions/import-plan', {
-        rawText: text,
+        text,
         source,
-        sourceDevice: 'mobile_share'
+        sourceDevice
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.upgrade) {
+          throw new Error('UPGRADE_REQUIRED');
+        }
+        throw new Error(errorData.error || 'Failed to parse plan');
+      }
+      
       return response.json();
     },
     onSuccess: (data) => {
@@ -56,10 +81,11 @@ export function useAIPlanImport() {
         setState(prev => ({
           ...prev,
           status: 'parsed',
+          importId: data.import?.id,
           parsedPlan: {
             title: data.parsed.title,
             description: data.parsed.description,
-            tasks: data.parsed.tasks.map((t: any, i: number) => ({
+            tasks: (data.parsed.tasks || []).map((t: any, i: number) => ({
               ...t,
               order: i
             })),
@@ -67,57 +93,61 @@ export function useAIPlanImport() {
             source: data.import?.source || prev.source || 'share'
           }
         }));
+        
         if (data.limits) {
+          const limit = data.limits.limit;
           setLimits({
             used: data.limits.used,
-            limit: data.limits.limit,
-            remaining: data.limits.remaining,
-            tier: data.limits.tier || 'free'
+            limit: limit,
+            remaining: limit !== null ? Math.max(0, limit - data.limits.used) : null,
+            tier: limit !== null ? 'free' : 'pro'
           });
         }
       }
     },
     onError: (error: Error) => {
+      const isUpgradeRequired = error.message === 'UPGRADE_REQUIRED';
       setState(prev => ({
         ...prev,
         status: 'error',
-        error: error.message || 'Failed to parse plan'
+        error: isUpgradeRequired 
+          ? 'You\'ve reached your monthly import limit. Upgrade to Pro for unlimited imports!' 
+          : (error.message || 'Failed to parse plan'),
+        upgradeRequired: isUpgradeRequired
       }));
     }
   });
 
   const confirmImportMutation = useMutation({
-    mutationFn: async (plan: ParsedPlan) => {
-      const response = await apiRequest('POST', '/api/activities', {
+    mutationFn: async ({ importId, plan }: { importId: string; plan: ParsedPlan }) => {
+      const response = await apiRequest('POST', `/api/extensions/imports/${importId}/confirm`, {
         title: plan.title,
         description: plan.description,
-        status: 'planning',
-        source: `ai_import_${plan.source}`,
-        category: 'general'
+        tasks: plan.tasks.map(t => ({
+          title: t.title,
+          description: t.description,
+          category: t.category || 'personal',
+          priority: t.priority || 'medium'
+        }))
       });
-      const activity = await response.json();
       
-      for (const task of plan.tasks) {
-        await apiRequest('POST', '/api/tasks', {
-          title: task.title,
-          description: task.description,
-          category: task.category || 'general',
-          priority: task.priority || 'medium',
-          activityId: activity.id,
-          timeEstimate: task.timeEstimate
-        });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save plan');
       }
       
-      return activity;
+      return response.json();
     },
-    onSuccess: (activity) => {
+    onSuccess: (data) => {
       setState({ status: 'success' });
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       
-      setTimeout(() => {
-        setLocation(`/activities/${activity.id}`);
-      }, 1500);
+      if (data.activity?.id) {
+        setTimeout(() => {
+          setLocation(`/activities/${data.activity.id}`);
+        }, 1500);
+      }
     },
     onError: (error: Error) => {
       setState(prev => ({
@@ -128,11 +158,26 @@ export function useAIPlanImport() {
     }
   });
 
+  const getSourceDevice = useCallback((source: string): string => {
+    switch (source) {
+      case 'mobile_share':
+      case 'share_sheet':
+        return 'mobile_share';
+      case 'extension':
+      case 'browser_extension':
+        return 'extension';
+      case 'clipboard':
+        return 'clipboard';
+      default:
+        return 'web';
+    }
+  }, []);
+
   const startImport = useCallback((text: string, source: string = 'share') => {
     if (!text || text.trim().length < 20) {
       setState({
         status: 'error',
-        error: 'Text is too short to parse as a plan'
+        error: 'Text is too short to parse as a plan. Please provide at least 20 characters.'
       });
       return;
     }
@@ -143,8 +188,12 @@ export function useAIPlanImport() {
       source
     });
 
-    parsePlanMutation.mutate({ text: text.trim(), source });
-  }, [parsePlanMutation]);
+    parsePlanMutation.mutate({ 
+      text: text.trim(), 
+      source,
+      sourceDevice: getSourceDevice(source)
+    });
+  }, [parsePlanMutation, getSourceDevice]);
 
   const updateParsedPlan = useCallback((updates: Partial<ParsedPlan>) => {
     setState(prev => {
@@ -206,15 +255,26 @@ export function useAIPlanImport() {
   }, []);
 
   const confirmImport = useCallback(() => {
-    if (!state.parsedPlan) return;
+    if (!state.parsedPlan || !state.importId) {
+      setState(prev => ({
+        ...prev,
+        status: 'error',
+        error: 'No import to confirm'
+      }));
+      return;
+    }
     
     setState(prev => ({ ...prev, status: 'saving' }));
-    confirmImportMutation.mutate(state.parsedPlan);
-  }, [state.parsedPlan, confirmImportMutation]);
+    confirmImportMutation.mutate({
+      importId: state.importId,
+      plan: state.parsedPlan
+    });
+  }, [state.parsedPlan, state.importId, confirmImportMutation]);
 
   const cancel = useCallback(() => {
     setState({ status: 'idle' });
-  }, []);
+    setLocation('/');
+  }, [setLocation]);
 
   const reset = useCallback(() => {
     setState({ status: 'idle' });
