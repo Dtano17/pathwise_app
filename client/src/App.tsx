@@ -154,11 +154,11 @@ function App() {
   }, []);
 
   return (
-    <KonstaApp>
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <KonstaApp>
         <AppContent />
-      </QueryClientProvider>
-    </KonstaApp>
+      </KonstaApp>
+    </QueryClientProvider>
   );
 }
 
