@@ -7968,30 +7968,41 @@ You can find these tasks in your task list and start working on them right away!
       const userId = getUserId(req) || DEMO_USER_ID;
       console.log('Fetching profile for user:', userId);
       
+      // Get user data for OAuth profile image
+      const user = await storage.getUser(userId);
+      
       // Try to get existing profile
       let profile = await storage.getUserProfile(userId);
       console.log('Existing profile:', profile);
       
-      // If no profile exists for authenticated user, create one from user data
-      if (!profile && userId !== DEMO_USER_ID) {
-        const user = await storage.getUser(userId);
+      // If no profile exists for authenticated user, create one
+      if (!profile && userId !== DEMO_USER_ID && user) {
         console.log('User data for profile creation:', user);
-        if (user) {
-          profile = await storage.upsertUserProfile(userId, {
-            firstName: user.firstName || '',
-            lastName: user.lastName || '',
-            email: user.email || '',
-            profileImageUrl: user.profileImageUrl || undefined
-          });
-          console.log('Created new profile:', profile);
-        }
+        // Note: We don't set profileImageUrlOverride here - that's only for user uploads
+        // The OAuth profile image is stored on the users table (profileImageUrl)
+        profile = await storage.upsertUserProfile(userId, {});
+        console.log('Created new profile:', profile);
       }
       
       // Also fetch user preferences for journal data
       const preferences = await storage.getUserPreferences(userId);
       
-      console.log('Returning profile with preferences:', { profile, preferences });
-      res.json({ ...profile, preferences: preferences?.preferences });
+      // Compute the effective profileImageUrl:
+      // - Use profileImageUrlOverride if user uploaded a custom image
+      // - Otherwise fall back to user's OAuth profile image
+      const profileImageUrl = profile?.profileImageUrlOverride || user?.profileImageUrl || null;
+      
+      console.log('Returning profile with computed image:', { 
+        hasOverride: !!profile?.profileImageUrlOverride, 
+        hasUserImage: !!user?.profileImageUrl,
+        imageLength: profileImageUrl?.length || 0
+      });
+      
+      res.json({ 
+        ...profile, 
+        profileImageUrl, // Add computed field for frontend compatibility
+        preferences: preferences?.preferences 
+      });
     } catch (error) {
       console.error('Error fetching user profile:', error);
       res.status(500).json({ error: 'Failed to fetch user profile' });
@@ -8016,23 +8027,30 @@ You can find these tasks in your task list and start working on them right away!
       const userId = getUserId(req) || DEMO_USER_ID;
       const { imageData } = req.body;
       
+      console.log(`[PROFILE IMAGE] Upload request for user: ${userId}, data length: ${imageData?.length || 0}`);
+      
       if (!imageData || typeof imageData !== 'string') {
+        console.log('[PROFILE IMAGE] Error: Invalid image data - not a string');
         return res.status(400).json({ error: 'Invalid image data' });
       }
 
       // Validate it's a data URL
       if (!imageData.startsWith('data:image/')) {
+        console.log('[PROFILE IMAGE] Error: Invalid image format - not a data URL');
         return res.status(400).json({ error: 'Invalid image format' });
       }
 
-      // Update profile with the new image
+      // Update user_profiles table with the override image
+      // Note: profileImageUrlOverride is used to override OAuth profile images
+      console.log('[PROFILE IMAGE] Saving to userProfiles.profileImageUrlOverride...');
       const profile = await storage.upsertUserProfile(userId, {
-        profileImageUrl: imageData
+        profileImageUrlOverride: imageData
       });
+      console.log(`[PROFILE IMAGE] Saved successfully, profile ID: ${profile?.id}`);
 
       res.json({ success: true, profileImageUrl: imageData });
     } catch (error) {
-      console.error('Error uploading profile image:', error);
+      console.error('[PROFILE IMAGE] Error uploading profile image:', error);
       res.status(500).json({ error: 'Failed to upload profile image' });
     }
   });
