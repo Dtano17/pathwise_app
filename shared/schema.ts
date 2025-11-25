@@ -1555,3 +1555,29 @@ export const insertActivityReportSchema = createInsertSchema(activityReports).om
 
 export type ActivityReport = typeof activityReports.$inferSelect;
 export type InsertActivityReport = z.infer<typeof insertActivityReportSchema>;
+
+// Journal Templates for customizable journal entries
+export const journalTemplates = pgTable("journal_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(), // e.g., "Morning Pages", "Evening Reflection"
+  description: text("description"),
+  prompts: jsonb("prompts").$type<string[]>().default([]), // Array of prompts to answer
+  isDefault: boolean("is_default").default(false), // Whether this is the default template
+  category: text("category").notNull().default("general"), // 'general' | 'morning' | 'evening' | 'weekly' | 'custom'
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("journal_templates_user_id_index").on(table.userId),
+  categoryIndex: index("journal_templates_category_index").on(table.category),
+}));
+
+// Type exports for journal templates
+export const insertJournalTemplateSchema = createInsertSchema(journalTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type JournalTemplate = typeof journalTemplates.$inferSelect;
+export type InsertJournalTemplate = z.infer<typeof insertJournalTemplateSchema>;

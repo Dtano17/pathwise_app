@@ -70,6 +70,8 @@ import {
   type ActivityReport,
   type InsertActivityReport,
   type UserNotification,
+  type JournalTemplate,
+  type InsertJournalTemplate,
   users,
   goals,
   tasks,
@@ -102,7 +104,8 @@ import {
   groupActivities,
   groupActivityFeed,
   activityReports,
-  userNotifications
+  userNotifications,
+  journalTemplates
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -367,6 +370,12 @@ export interface IStorage {
   getGroupActivityById(groupActivityId: string): Promise<GroupActivity | null>;
   logActivityChange(change: { groupActivityId: string; userId: string; changeType: string; changeDescription: string }): Promise<void>;
   getMemberProgressForGroupActivity(groupActivityId: string): Promise<Array<{ userId: string; username: string; totalTasks: number; completedTasks: number }>>;
+
+  // Journal Templates
+  getUserJournalTemplates(userId: string): Promise<JournalTemplate[]>;
+  createJournalTemplate(template: InsertJournalTemplate): Promise<JournalTemplate>;
+  updateJournalTemplate(templateId: string, userId: string, updates: Partial<InsertJournalTemplate>): Promise<JournalTemplate | undefined>;
+  deleteJournalTemplate(templateId: string, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3318,6 +3327,44 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
 
     return invite || null;
+  }
+
+  // Journal Templates
+  async getUserJournalTemplates(userId: string): Promise<JournalTemplate[]> {
+    return await db
+      .select()
+      .from(journalTemplates)
+      .where(eq(journalTemplates.userId, userId))
+      .orderBy(desc(journalTemplates.createdAt));
+  }
+
+  async createJournalTemplate(template: InsertJournalTemplate): Promise<JournalTemplate> {
+    const [created] = await db
+      .insert(journalTemplates)
+      .values(template)
+      .returning();
+    return created;
+  }
+
+  async updateJournalTemplate(templateId: string, userId: string, updates: Partial<InsertJournalTemplate>): Promise<JournalTemplate | undefined> {
+    const [updated] = await db
+      .update(journalTemplates)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(
+        eq(journalTemplates.id, templateId),
+        eq(journalTemplates.userId, userId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deleteJournalTemplate(templateId: string, userId: string): Promise<void> {
+    await db
+      .delete(journalTemplates)
+      .where(and(
+        eq(journalTemplates.id, templateId),
+        eq(journalTemplates.userId, userId)
+      ));
   }
 }
 

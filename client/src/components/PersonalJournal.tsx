@@ -7,14 +7,19 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { 
   BookOpen, Coffee, Film, Music, MapPin, Heart, Star, 
   Save, Plus, X, Utensils, Palette, Book, Sparkles,
-  Plane, Home, ShoppingBag, Gamepad2, Folder
+  Plane, Home, ShoppingBag, Gamepad2, Folder, Wand2,
+  Package, BarChart3, FileText, Target, Cloud, Users,
+  Loader2, TrendingUp, PenTool, Copy, Check
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
 
 interface RichJournalEntry {
   id: string;
@@ -41,8 +46,56 @@ interface PersonalJournalProps {
   onClose?: () => void;
 }
 
+// Types for new features
+interface JournalPack {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  prompts: string[];
+}
+
+interface JournalTemplate {
+  id: string;
+  userId: string | null;
+  name: string;
+  description: string;
+  prompts: string[];
+  isDefault: boolean;
+  category: string;
+}
+
+interface JournalStats {
+  stats: {
+    totalEntries: number;
+    totalCategories: number;
+    journalingStreak: number;
+    completionRate: number;
+    totalActivities: number;
+    completedTasks: number;
+    pendingTasks: number;
+  };
+  charts: {
+    entriesByCategory: Array<{ name: string; value: number }>;
+    activityProgress: Array<{ name: string; progress: number; completed: number; total: number }>;
+    last7Days: Array<{ date: string; entries: number; tasks: number }>;
+  };
+}
+
+interface JournalSummary {
+  summary: {
+    totalEntries: number;
+    themes: string[];
+    emotions: Array<{ emotion: string; count: number }>;
+    insights: string;
+    recommendations: string[];
+  };
+}
+
 export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<string>('journal');
   const [activeCategory, setActiveCategory] = useState<string>('restaurants');
   const [newItem, setNewItem] = useState('');
   const [journalData, setJournalData] = useState<Record<string, JournalItem[]>>({});
@@ -50,6 +103,15 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [selectedColor, setSelectedColor] = useState('from-teal-500 to-cyan-500');
+  
+  // New feature states
+  const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
+  const [selectedPack, setSelectedPack] = useState<JournalPack | null>(null);
+  const [selectedPackPrompt, setSelectedPackPrompt] = useState<string>('');
+  const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [newTemplatePrompts, setNewTemplatePrompts] = useState<string[]>(['']);
 
   const categories = [
     { id: 'restaurants', label: 'Restaurants & Food', icon: Utensils, color: 'from-orange-500 to-red-500' },
@@ -176,6 +238,137 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     }
   });
 
+  // New feature queries
+  const { data: packsData } = useQuery<{ packs: JournalPack[] }>({
+    queryKey: ['/api/journal/packs'],
+    enabled: activeTab === 'packs',
+  });
+
+  const { data: statsData, isLoading: statsLoading } = useQuery<JournalStats>({
+    queryKey: ['/api/journal/stats'],
+    enabled: activeTab === 'insights',
+  });
+
+  const { data: templatesData } = useQuery<{ templates: JournalTemplate[] }>({
+    queryKey: ['/api/journal/templates'],
+    enabled: activeTab === 'templates',
+  });
+
+  // Generate prompt mutation
+  const generatePromptMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/journal/generate-prompt');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setGeneratedPrompt(data.prompt);
+      toast({
+        title: "Prompt Generated!",
+        description: "A personalized prompt based on your activities.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Failed",
+        description: "Could not generate prompt. Try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Get AI summary mutation
+  const getSummaryMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/journal/summary');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Insights Ready!",
+        description: "Your journal analysis is complete.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Failed",
+        description: "Could not analyze journal. Try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create template mutation
+  const createTemplateMutation = useMutation({
+    mutationFn: async (data: { name: string; prompts: string[] }) => {
+      const response = await apiRequest('POST', '/api/journal/templates', {
+        ...data,
+        description: '',
+        category: 'custom',
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/journal/templates'] });
+      setShowTemplateDialog(false);
+      setNewTemplateName('');
+      setNewTemplatePrompts(['']);
+      toast({
+        title: "Template Created!",
+        description: "Your custom template is ready to use.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Failed",
+        description: "Could not create template.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete template mutation
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      const response = await apiRequest('DELETE', `/api/journal/templates/${templateId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/journal/templates'] });
+      toast({
+        title: "Deleted",
+        description: "Template removed.",
+      });
+    },
+  });
+
+  const handleCopyPrompt = (prompt: string) => {
+    navigator.clipboard.writeText(prompt);
+    setCopiedPrompt(prompt);
+    setTimeout(() => setCopiedPrompt(null), 2000);
+    toast({ title: "Copied!", description: "Prompt copied to clipboard." });
+  };
+
+  const handleUsePromptInJournal = (prompt: string) => {
+    setNewItem(prompt);
+    setActiveTab('journal');
+    setActiveCategory('notes');
+    toast({ title: "Prompt added!", description: "Start writing your response below." });
+  };
+
+  const getPackIcon = (iconName: string) => {
+    switch (iconName) {
+      case 'heart': return Heart;
+      case 'sparkles': return Sparkles;
+      case 'target': return Target;
+      case 'cloud': return Cloud;
+      case 'palette': return Palette;
+      case 'users': return Users;
+      default: return Package;
+    }
+  };
+
+  const CHART_COLORS = ['#8b5cf6', '#ec4899', '#f97316', '#22c55e', '#3b82f6', '#eab308', '#06b6d4'];
+
   const handleAddCustomCategory = () => {
     if (!newCategoryName.trim()) {
       toast({
@@ -230,19 +423,47 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   };
 
   return (
-    <div className="h-full flex flex-col lg:flex-row gap-4 p-2 sm:p-4">
-      {/* Sidebar - Categories */}
-      <div className="w-full lg:w-64 flex-shrink-0">
-        <Card className="border-none shadow-sm bg-card/50 backdrop-blur">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-primary" />
-              My Journal
-            </CardTitle>
-            <CardDescription className="text-xs sm:text-sm">
-              Capture what makes you unique
-            </CardDescription>
-          </CardHeader>
+    <div className="h-full flex flex-col p-2 sm:p-4">
+      {/* Feature Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <TabsList className="w-full flex-wrap h-auto gap-1 mb-4 p-1">
+          <TabsTrigger value="journal" className="flex-1 gap-2" data-testid="tab-journal">
+            <BookOpen className="w-4 h-4" />
+            <span className="hidden sm:inline">Journal</span>
+          </TabsTrigger>
+          <TabsTrigger value="prompts" className="flex-1 gap-2" data-testid="tab-prompts">
+            <Wand2 className="w-4 h-4" />
+            <span className="hidden sm:inline">AI Prompts</span>
+          </TabsTrigger>
+          <TabsTrigger value="packs" className="flex-1 gap-2" data-testid="tab-packs">
+            <Package className="w-4 h-4" />
+            <span className="hidden sm:inline">Packs</span>
+          </TabsTrigger>
+          <TabsTrigger value="templates" className="flex-1 gap-2" data-testid="tab-templates">
+            <FileText className="w-4 h-4" />
+            <span className="hidden sm:inline">Templates</span>
+          </TabsTrigger>
+          <TabsTrigger value="insights" className="flex-1 gap-2" data-testid="tab-insights">
+            <BarChart3 className="w-4 h-4" />
+            <span className="hidden sm:inline">Insights</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Journal Tab - Original journal content */}
+        <TabsContent value="journal" className="flex-1 overflow-auto m-0">
+          <div className="h-full flex flex-col lg:flex-row gap-4">
+            {/* Sidebar - Categories */}
+            <div className="w-full lg:w-64 flex-shrink-0">
+              <Card className="border-none shadow-sm bg-card/50 backdrop-blur">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-primary" />
+                    My Journal
+                  </CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">
+                    Capture what makes you unique
+                  </CardDescription>
+                </CardHeader>
           <CardContent className="p-2">
             <ScrollArea className="h-[400px] lg:h-[calc(90vh-180px)]">
               <div className="space-y-1">
@@ -481,67 +702,543 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
           </CardContent>
         </Card>
       </div>
+    </div>
+    </TabsContent>
 
-      {/* Add Custom Category Dialog */}
-      <Dialog open={showAddCategoryDialog} onOpenChange={setShowAddCategoryDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader backLabel="Back to Journal">
-            <DialogTitle>Add Custom Category</DialogTitle>
-            <DialogDescription>
-              Create a new category to organize your journal entries.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Category Name</label>
-              <Input
-                placeholder="e.g., Goals, Dreams, Quotes..."
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAddCustomCategory()}
-                data-testid="input-category-name"
-              />
-            </div>
+    {/* AI Prompts Tab */}
+    <TabsContent value="prompts" className="flex-1 overflow-auto m-0">
+      <div className="max-w-2xl mx-auto space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wand2 className="w-5 h-5 text-primary" />
+              One-Click AI Prompts
+            </CardTitle>
+            <CardDescription>
+              Get personalized journal prompts based on your activities, tasks, and recent entries
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              onClick={() => generatePromptMutation.mutate()}
+              disabled={generatePromptMutation.isPending}
+              className="w-full gap-2"
+              data-testid="button-generate-prompt"
+            >
+              {generatePromptMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Generating personalized prompt...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Generate Personalized Prompt
+                </>
+              )}
+            </Button>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Color</label>
-              <div className="flex gap-2 flex-wrap">
-                {colorOptions.map((color) => (
-                  <button
-                    key={color}
-                    onClick={() => setSelectedColor(color)}
-                    className={`w-10 h-10 rounded-lg bg-gradient-to-br ${color} ${
-                      selectedColor === color ? 'ring-2 ring-offset-2 ring-primary' : ''
-                    } transition-all`}
-                    data-testid={`color-${color}`}
-                  />
+            {generatedPrompt && (
+              <Card className="bg-primary/5 border-primary/20">
+                <CardContent className="pt-4 space-y-4">
+                  <p className="text-lg italic">"{generatedPrompt}"</p>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCopyPrompt(generatedPrompt)}
+                      className="gap-2"
+                    >
+                      {copiedPrompt === generatedPrompt ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      Copy
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleUsePromptInJournal(generatedPrompt)}
+                      className="gap-2"
+                    >
+                      <PenTool className="w-4 h-4" />
+                      Write Response
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </TabsContent>
+
+    {/* Themed Packs Tab */}
+    <TabsContent value="packs" className="flex-1 overflow-auto m-0">
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Themed Journal Packs</h2>
+          <p className="text-muted-foreground">Curated prompts for focused self-reflection</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {packsData?.packs?.map((pack) => {
+            const PackIcon = getPackIcon(pack.icon);
+            return (
+              <Card
+                key={pack.id}
+                className="hover-elevate cursor-pointer transition-all"
+                onClick={() => setSelectedPack(pack)}
+                data-testid={`pack-${pack.id}`}
+              >
+                <CardHeader className="pb-2">
+                  <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${pack.color} text-white flex items-center justify-center mb-2`}>
+                    <PackIcon className="w-6 h-6" />
+                  </div>
+                  <CardTitle className="text-lg">{pack.name}</CardTitle>
+                  <CardDescription>{pack.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Badge variant="secondary">{pack.prompts.length} prompts</Badge>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Selected Pack Dialog */}
+        {selectedPack && (
+          <Dialog open={!!selectedPack} onOpenChange={() => setSelectedPack(null)}>
+            <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  {(() => {
+                    const PackIcon = getPackIcon(selectedPack.icon);
+                    return <PackIcon className="w-5 h-5" />;
+                  })()}
+                  {selectedPack.name}
+                </DialogTitle>
+                <DialogDescription>{selectedPack.description}</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                {selectedPack.prompts.map((prompt, idx) => (
+                  <Card key={idx} className="hover-elevate">
+                    <CardContent className="p-4">
+                      <p className="text-sm mb-3">{prompt}</p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCopyPrompt(prompt)}
+                        >
+                          {copiedPrompt === prompt ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            handleUsePromptInJournal(prompt);
+                            setSelectedPack(null);
+                          }}
+                        >
+                          Use This
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
-            </div>
-          </div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+    </TabsContent>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowAddCategoryDialog(false);
-                setNewCategoryName('');
-                setSelectedColor('from-teal-500 to-cyan-500');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddCustomCategory}
-              disabled={!newCategoryName.trim() || saveCustomCategoryMutation.isPending}
-              data-testid="button-create-category"
-            >
-              {saveCustomCategoryMutation.isPending ? 'Creating...' : 'Create Category'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+    {/* Templates Tab */}
+    <TabsContent value="templates" className="flex-1 overflow-auto m-0">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Custom Templates</h2>
+            <p className="text-muted-foreground text-sm">Create reusable journal structures</p>
+          </div>
+          <Button onClick={() => setShowTemplateDialog(true)} className="gap-2" data-testid="button-create-template">
+            <Plus className="w-4 h-4" />
+            New Template
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {templatesData?.templates?.map((template) => (
+            <Card key={template.id} className="hover-elevate">
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="text-lg">{template.name}</CardTitle>
+                    <CardDescription>{template.description || 'Custom template'}</CardDescription>
+                  </div>
+                  {!template.isDefault && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteTemplateMutation.mutate(template.id)}
+                      data-testid={`delete-template-${template.id}`}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {template.prompts.slice(0, 3).map((prompt, idx) => (
+                    <p key={idx} className="text-sm text-muted-foreground truncate">
+                      {idx + 1}. {prompt}
+                    </p>
+                  ))}
+                  {template.prompts.length > 3 && (
+                    <p className="text-xs text-muted-foreground">+{template.prompts.length - 3} more prompts</p>
+                  )}
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="mt-3 w-full"
+                  onClick={() => {
+                    template.prompts.forEach(p => handleUsePromptInJournal(p));
+                  }}
+                >
+                  Use Template
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </TabsContent>
+
+    {/* Insights Tab */}
+    <TabsContent value="insights" className="flex-1 overflow-auto m-0">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="text-center mb-6">
+          <h2 className="text-xl font-semibold">Your Journal Insights</h2>
+          <p className="text-muted-foreground">Data visualizations and AI-powered analysis</p>
+        </div>
+
+        {statsLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : statsData ? (
+          <>
+            {/* Stats Overview */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="pt-4 text-center">
+                  <div className="text-3xl font-bold text-primary">{statsData.stats?.totalEntries || 0}</div>
+                  <p className="text-sm text-muted-foreground">Total Entries</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 text-center">
+                  <div className="text-3xl font-bold text-emerald-500">{statsData.stats?.completedTasks || 0}</div>
+                  <p className="text-sm text-muted-foreground">Tasks Completed</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 text-center">
+                  <div className="text-3xl font-bold text-amber-500">{statsData.stats?.journalingStreak || 0}</div>
+                  <p className="text-sm text-muted-foreground">Day Streak</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 text-center">
+                  <div className="text-3xl font-bold text-blue-500">{statsData.stats?.totalActivities || 0}</div>
+                  <p className="text-sm text-muted-foreground">Activities</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Entries by Category */}
+              {statsData.charts?.entriesByCategory && statsData.charts.entriesByCategory.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Entries by Category</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={statsData.charts.entriesByCategory}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          label={({ name, value }) => `${name}: ${value}`}
+                        >
+                          {statsData.charts.entriesByCategory.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Activity Progress */}
+              {statsData.charts?.activityProgress && statsData.charts.activityProgress.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Activity Progress</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {statsData.charts.activityProgress.slice(0, 5).map((activity, idx) => (
+                      <div key={idx}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="truncate max-w-[70%]">{activity.name}</span>
+                          <span className="text-muted-foreground">{activity.completed}/{activity.total}</span>
+                        </div>
+                        <Progress value={activity.progress} className="h-2" />
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 7-Day Activity */}
+              {statsData.charts?.last7Days && statsData.charts.last7Days.length > 0 && (
+                <Card className="lg:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="text-base">Last 7 Days Activity</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={statsData.charts.last7Days}>
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <Tooltip />
+                        <Bar dataKey="entries" fill="#8b5cf6" name="Entries" />
+                        <Bar dataKey="tasks" fill="#22c55e" name="Tasks" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* AI Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  AI-Powered Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={() => getSummaryMutation.mutate()}
+                  disabled={getSummaryMutation.isPending}
+                  className="w-full gap-2"
+                  data-testid="button-get-summary"
+                >
+                  {getSummaryMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Analyzing your journal...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate AI Summary
+                    </>
+                  )}
+                </Button>
+
+                {getSummaryMutation.data?.summary && (
+                  <div className="mt-4 space-y-4">
+                    <div className="p-4 bg-primary/5 rounded-lg">
+                      <h4 className="font-medium mb-2">Key Themes</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {getSummaryMutation.data.summary.themes.map((theme: string, idx: number) => (
+                          <Badge key={idx} variant="secondary">{theme}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="p-4 bg-muted rounded-lg">
+                      <h4 className="font-medium mb-2">Insights</h4>
+                      <p className="text-sm text-muted-foreground">{getSummaryMutation.data.summary.insights}</p>
+                    </div>
+                    {getSummaryMutation.data.summary.recommendations?.length > 0 && (
+                      <div className="p-4 bg-emerald-500/10 rounded-lg">
+                        <h4 className="font-medium mb-2">Recommendations</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          {getSummaryMutation.data.summary.recommendations.map((rec: string, idx: number) => (
+                            <li key={idx} className="flex gap-2">
+                              <Target className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                              {rec}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p>No data available yet. Start journaling to see your insights!</p>
+          </div>
+        )}
+      </div>
+    </TabsContent>
+  </Tabs>
+
+  {/* Add Custom Category Dialog */}
+  <Dialog open={showAddCategoryDialog} onOpenChange={setShowAddCategoryDialog}>
+    <DialogContent className="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle>Add Custom Category</DialogTitle>
+        <DialogDescription>
+          Create a new category to organize your journal entries.
+        </DialogDescription>
+      </DialogHeader>
+      
+      <div className="space-y-4 py-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Category Name</label>
+          <Input
+            placeholder="e.g., Goals, Dreams, Quotes..."
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleAddCustomCategory()}
+            data-testid="input-category-name"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Color</label>
+          <div className="flex gap-2 flex-wrap">
+            {colorOptions.map((color) => (
+              <button
+                key={color}
+                onClick={() => setSelectedColor(color)}
+                className={`w-10 h-10 rounded-lg bg-gradient-to-br ${color} ${
+                  selectedColor === color ? 'ring-2 ring-offset-2 ring-primary' : ''
+                } transition-all`}
+                data-testid={`color-${color}`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowAddCategoryDialog(false);
+            setNewCategoryName('');
+            setSelectedColor('from-teal-500 to-cyan-500');
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleAddCustomCategory}
+          disabled={!newCategoryName.trim() || saveCustomCategoryMutation.isPending}
+          data-testid="button-create-category"
+        >
+          {saveCustomCategoryMutation.isPending ? 'Creating...' : 'Create Category'}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* Create Template Dialog */}
+  <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+    <DialogContent className="sm:max-w-lg">
+      <DialogHeader>
+        <DialogTitle>Create Custom Template</DialogTitle>
+        <DialogDescription>
+          Build a reusable set of prompts for your journaling practice.
+        </DialogDescription>
+      </DialogHeader>
+      
+      <div className="space-y-4 py-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Template Name</label>
+          <Input
+            placeholder="e.g., Morning Reflection, Weekly Review..."
+            value={newTemplateName}
+            onChange={(e) => setNewTemplateName(e.target.value)}
+            data-testid="input-template-name"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Prompts</label>
+          {newTemplatePrompts.map((prompt, idx) => (
+            <div key={idx} className="flex gap-2">
+              <Input
+                placeholder={`Prompt ${idx + 1}`}
+                value={prompt}
+                onChange={(e) => {
+                  const updated = [...newTemplatePrompts];
+                  updated[idx] = e.target.value;
+                  setNewTemplatePrompts(updated);
+                }}
+                data-testid={`input-prompt-${idx}`}
+              />
+              {newTemplatePrompts.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setNewTemplatePrompts(newTemplatePrompts.filter((_, i) => i !== idx))}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setNewTemplatePrompts([...newTemplatePrompts, ''])}
+            className="w-full gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Prompt
+          </Button>
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowTemplateDialog(false);
+            setNewTemplateName('');
+            setNewTemplatePrompts(['']);
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={() => createTemplateMutation.mutate({
+            name: newTemplateName,
+            prompts: newTemplatePrompts.filter(p => p.trim()),
+          })}
+          disabled={!newTemplateName.trim() || newTemplatePrompts.every(p => !p.trim()) || createTemplateMutation.isPending}
+          data-testid="button-save-template"
+        >
+          {createTemplateMutation.isPending ? 'Creating...' : 'Create Template'}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+  </div>
   );
 }

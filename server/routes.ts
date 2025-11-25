@@ -6668,6 +6668,577 @@ ${emoji} ${progressLine}
     }
   });
 
+  // ============================================
+  // JOURNAL FEATURES - 5 New Features
+  // ============================================
+
+  // 1. One-Click Journal Prompts - Generate personalized prompts based on user activities
+  app.post("/api/journal/generate-prompt", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Get user's activities and tasks
+      const activities = await storage.getUserActivities(userId);
+      const tasks = await storage.getUserTasks(userId);
+      
+      // Get completed and uncompleted tasks
+      const completedTasks = tasks.filter((t: any) => t.completed);
+      const incompleteTasks = tasks.filter((t: any) => !t.completed && !t.archived);
+      
+      // Get recent journal entries for context
+      const prefs = await storage.getPersonalJournalEntries(userId);
+      const journalData = prefs?.preferences?.journalData || {};
+      const recentEntries: string[] = [];
+      
+      for (const [category, entries] of Object.entries(journalData)) {
+        if (Array.isArray(entries)) {
+          entries.slice(-3).forEach((entry: any) => {
+            if (typeof entry === 'string') {
+              recentEntries.push(entry);
+            } else if (entry.text) {
+              recentEntries.push(entry.text);
+            }
+          });
+        }
+      }
+      
+      // Build context for AI
+      const context = {
+        totalActivities: activities.length,
+        completedTasksCount: completedTasks.length,
+        incompleteTasksCount: incompleteTasks.length,
+        recentCompletedTasks: completedTasks.slice(-5).map((t: any) => t.title),
+        upcomingTasks: incompleteTasks.slice(0, 5).map((t: any) => t.title),
+        activityCategories: [...new Set(activities.map((a: any) => a.category))],
+        recentJournalTopics: recentEntries.slice(-5),
+      };
+      
+      // Generate personalized prompt using AI
+      const systemPrompt = `You are a thoughtful journaling coach. Based on the user's activity data, generate ONE personalized journal prompt that helps them reflect on their progress, challenges, or feelings. The prompt should be:
+- Personal and specific to their activities
+- Thought-provoking but not overwhelming
+- Encouraging self-reflection
+
+User Context:
+- Total activities: ${context.totalActivities}
+- Tasks completed: ${context.completedTasksCount}
+- Tasks pending: ${context.incompleteTasksCount}
+- Recently completed: ${context.recentCompletedTasks.join(', ') || 'None'}
+- Upcoming tasks: ${context.upcomingTasks.join(', ') || 'None'}
+- Categories they work on: ${context.activityCategories.join(', ') || 'Various'}
+- Recent journal topics: ${context.recentJournalTopics.join(', ') || 'New to journaling'}
+
+Generate a single, thoughtful journal prompt (1-2 sentences). Just the prompt, no explanation.`;
+
+      const { getProvider } = await import('./services/llmProvider');
+      const provider = getProvider('openai');
+      
+      if (!provider) {
+        // Fallback prompts if AI unavailable
+        const fallbackPrompts = [
+          `You've completed ${context.completedTasksCount} tasks recently. What's one thing you've learned about yourself through this progress?`,
+          `Looking at your upcoming tasks, what excites you most? What feels challenging?`,
+          `Reflect on your journey with ${context.activityCategories[0] || 'your goals'}. How have you grown?`,
+          `What's one small win you're proud of this week?`,
+          `If you could give advice to yourself from last month, what would it be?`,
+        ];
+        return res.json({
+          prompt: fallbackPrompts[Math.floor(Math.random() * fallbackPrompts.length)],
+          context: { type: 'fallback' }
+        });
+      }
+      
+      const response = await provider.generateCompletion(
+        systemPrompt,
+        'Generate a personalized journal prompt.',
+        { maxTokens: 150, temperature: 0.8 }
+      );
+      
+      res.json({
+        prompt: response.content.trim(),
+        context: {
+          completedTasks: context.completedTasksCount,
+          pendingTasks: context.incompleteTasksCount,
+          categories: context.activityCategories
+        }
+      });
+    } catch (error) {
+      console.error('Generate prompt error:', error);
+      res.status(500).json({ error: 'Failed to generate prompt' });
+    }
+  });
+
+  // 2. Themed Journal Packs - Curated prompt collections
+  const themedJournalPacks = [
+    {
+      id: 'gratitude',
+      name: 'Gratitude Practice',
+      description: 'Cultivate appreciation and positivity through daily gratitude reflection',
+      icon: 'heart',
+      color: 'from-pink-500 to-rose-500',
+      prompts: [
+        'What are three things you\'re grateful for today?',
+        'Who made a positive impact on your life recently? How did they help?',
+        'What small moment brought you joy this week?',
+        'What ability or skill are you thankful to have?',
+        'Describe a challenge that taught you something valuable.',
+        'What part of your daily routine are you grateful for?',
+        'Who is someone you\'ve never thanked properly? What would you say?',
+      ]
+    },
+    {
+      id: 'self-reflection',
+      name: 'Self-Reflection',
+      description: 'Deep dive into self-awareness and personal understanding',
+      icon: 'sparkles',
+      color: 'from-purple-500 to-indigo-500',
+      prompts: [
+        'What emotion did you feel most strongly today? Why?',
+        'What would your ideal day look like?',
+        'What belief about yourself would you like to change?',
+        'When do you feel most like yourself?',
+        'What are you avoiding right now? Why?',
+        'Describe a moment when you felt truly proud of yourself.',
+        'What does success mean to you personally?',
+      ]
+    },
+    {
+      id: 'goal-setting',
+      name: 'Goal Setting & Planning',
+      description: 'Clarify your vision and create actionable steps forward',
+      icon: 'target',
+      color: 'from-emerald-500 to-teal-500',
+      prompts: [
+        'What\'s one goal you want to achieve in the next 30 days?',
+        'What\'s holding you back from your biggest dream?',
+        'If you could master one skill, what would it be and why?',
+        'What does your life look like in 5 years?',
+        'What small step can you take today toward a big goal?',
+        'What goal have you been procrastinating on? What\'s the first action?',
+        'How will you celebrate when you achieve your current goal?',
+      ]
+    },
+    {
+      id: 'stress-relief',
+      name: 'Stress Relief & Calm',
+      description: 'Process difficult emotions and find inner peace',
+      icon: 'cloud',
+      color: 'from-sky-500 to-blue-500',
+      prompts: [
+        'What\'s weighing on your mind right now? Write it out.',
+        'Describe a place where you feel completely at peace.',
+        'What would you tell a friend who\'s feeling the way you are?',
+        'What are three things within your control right now?',
+        'What can you let go of today?',
+        'Describe how your body feels right now. Where do you hold tension?',
+        'What activity helps you feel grounded and calm?',
+      ]
+    },
+    {
+      id: 'creativity',
+      name: 'Creative Exploration',
+      description: 'Unlock imagination and explore new ideas',
+      icon: 'palette',
+      color: 'from-orange-500 to-amber-500',
+      prompts: [
+        'If you could create anything without limitations, what would it be?',
+        'Describe a dream you had recently in vivid detail.',
+        'What inspires you most? Describe why.',
+        'Write a short story starting with: "The door opened and..."',
+        'If your life was a book, what would this chapter be titled?',
+        'What creative project have you been wanting to start?',
+        'Describe an ordinary object as if seeing it for the first time.',
+      ]
+    },
+    {
+      id: 'relationships',
+      name: 'Relationships & Connection',
+      description: 'Strengthen bonds and reflect on meaningful connections',
+      icon: 'users',
+      color: 'from-violet-500 to-purple-500',
+      prompts: [
+        'Who do you want to spend more time with? Why?',
+        'Describe your ideal friendship. What qualities matter most?',
+        'What relationship in your life needs more attention?',
+        'Write a thank you note to someone who influenced you.',
+        'How do you show love to the people who matter most?',
+        'What boundary do you need to set in a relationship?',
+        'Describe a meaningful conversation you had recently.',
+      ]
+    },
+  ];
+
+  app.get("/api/journal/packs", async (req, res) => {
+    try {
+      res.json({ packs: themedJournalPacks });
+    } catch (error) {
+      console.error('Get journal packs error:', error);
+      res.status(500).json({ error: 'Failed to fetch journal packs' });
+    }
+  });
+
+  app.get("/api/journal/packs/:packId", async (req, res) => {
+    try {
+      const { packId } = req.params;
+      const pack = themedJournalPacks.find(p => p.id === packId);
+      
+      if (!pack) {
+        return res.status(404).json({ error: 'Pack not found' });
+      }
+      
+      res.json({ pack });
+    } catch (error) {
+      console.error('Get journal pack error:', error);
+      res.status(500).json({ error: 'Failed to fetch journal pack' });
+    }
+  });
+
+  // 3. AI-Powered Journal Summaries - Analyze entries for themes and patterns
+  app.post("/api/journal/summary", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Get all journal entries
+      const prefs = await storage.getPersonalJournalEntries(userId);
+      const journalData = prefs?.preferences?.journalData || {};
+      
+      // Collect all entries with timestamps
+      const allEntries: { text: string; category: string; timestamp: string }[] = [];
+      
+      for (const [category, entries] of Object.entries(journalData)) {
+        if (Array.isArray(entries)) {
+          entries.forEach((entry: any) => {
+            const text = typeof entry === 'string' ? entry : entry.text;
+            const timestamp = typeof entry === 'string' ? new Date().toISOString() : entry.timestamp;
+            if (text) {
+              allEntries.push({ text, category, timestamp });
+            }
+          });
+        }
+      }
+      
+      if (allEntries.length === 0) {
+        return res.json({
+          summary: {
+            totalEntries: 0,
+            themes: [],
+            emotions: [],
+            insights: 'Start journaling to see insights about your thoughts and patterns!',
+            recommendations: ['Try the Gratitude Pack to get started', 'Use the Generate Prompt feature for inspiration'],
+          }
+        });
+      }
+      
+      // Sort by timestamp and get recent entries
+      allEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      const recentEntries = allEntries.slice(0, 20);
+      
+      // Build context for AI analysis
+      const entriesText = recentEntries.map(e => `[${e.category}]: ${e.text}`).join('\n');
+      
+      const systemPrompt = `Analyze these journal entries and provide insights. Return a JSON object with:
+- themes: array of 3-5 recurring themes (strings)
+- emotions: array of detected emotions with frequency (e.g., [{emotion: "hopeful", count: 3}])
+- insights: 2-3 sentence summary of patterns you notice
+- recommendations: array of 2-3 actionable suggestions based on the entries
+
+Journal entries:
+${entriesText}
+
+Return ONLY valid JSON, no markdown or explanation.`;
+
+      const { getProvider } = await import('./services/llmProvider');
+      const provider = getProvider('openai');
+      
+      if (!provider) {
+        // Fallback analysis
+        const categories = [...new Set(allEntries.map(e => e.category))];
+        return res.json({
+          summary: {
+            totalEntries: allEntries.length,
+            themes: categories,
+            emotions: [{ emotion: 'reflective', count: allEntries.length }],
+            insights: `You have ${allEntries.length} journal entries across ${categories.length} categories. Keep up the great journaling habit!`,
+            recommendations: ['Continue your daily journaling practice', 'Try exploring new categories'],
+          }
+        });
+      }
+      
+      const response = await provider.generateCompletion(
+        systemPrompt,
+        'Analyze these journal entries',
+        { maxTokens: 500, temperature: 0.3 }
+      );
+      
+      try {
+        const analysis = JSON.parse(response.content);
+        res.json({
+          summary: {
+            totalEntries: allEntries.length,
+            ...analysis
+          }
+        });
+      } catch (parseError) {
+        // If JSON parsing fails, return a basic analysis
+        res.json({
+          summary: {
+            totalEntries: allEntries.length,
+            themes: [...new Set(allEntries.map(e => e.category))],
+            emotions: [{ emotion: 'reflective', count: allEntries.length }],
+            insights: response.content.slice(0, 200),
+            recommendations: ['Continue journaling regularly', 'Explore different themed packs'],
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Journal summary error:', error);
+      res.status(500).json({ error: 'Failed to generate journal summary' });
+    }
+  });
+
+  // 4. Customizable Journal Templates - CRUD operations
+  app.get("/api/journal/templates", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Get user's custom templates
+      const templates = await storage.getUserJournalTemplates(userId);
+      
+      // Add default templates
+      const defaultTemplates = [
+        {
+          id: 'default-morning',
+          userId: null,
+          name: 'Morning Pages',
+          description: 'Start your day with intention and clarity',
+          prompts: [
+            'What are you grateful for this morning?',
+            'What\'s your main intention for today?',
+            'What might get in your way? How will you handle it?',
+          ],
+          isDefault: true,
+          category: 'morning',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'default-evening',
+          userId: null,
+          name: 'Evening Reflection',
+          description: 'Wind down and reflect on your day',
+          prompts: [
+            'What went well today?',
+            'What did you learn?',
+            'What will you do differently tomorrow?',
+          ],
+          isDefault: true,
+          category: 'evening',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'default-weekly',
+          userId: null,
+          name: 'Weekly Review',
+          description: 'Reflect on your week and plan ahead',
+          prompts: [
+            'What were your biggest wins this week?',
+            'What challenges did you face? How did you handle them?',
+            'What are your top 3 priorities for next week?',
+            'What self-care did you practice?',
+          ],
+          isDefault: true,
+          category: 'weekly',
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      
+      res.json({ templates: [...defaultTemplates, ...templates] });
+    } catch (error) {
+      console.error('Get templates error:', error);
+      res.status(500).json({ error: 'Failed to fetch templates' });
+    }
+  });
+
+  app.post("/api/journal/templates", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      if (isDemoUser(userId)) {
+        return res.status(403).json({ error: 'Demo users cannot create templates' });
+      }
+      
+      const { name, description, prompts, category } = req.body;
+      
+      if (!name || !prompts || !Array.isArray(prompts)) {
+        return res.status(400).json({ error: 'Name and prompts array are required' });
+      }
+      
+      const template = await storage.createJournalTemplate({
+        userId,
+        name,
+        description: description || '',
+        prompts,
+        category: category || 'custom',
+        isDefault: false,
+      });
+      
+      res.json({ template });
+    } catch (error) {
+      console.error('Create template error:', error);
+      res.status(500).json({ error: 'Failed to create template' });
+    }
+  });
+
+  app.put("/api/journal/templates/:templateId", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { templateId } = req.params;
+      
+      if (isDemoUser(userId)) {
+        return res.status(403).json({ error: 'Demo users cannot update templates' });
+      }
+      
+      const { name, description, prompts, category } = req.body;
+      
+      const template = await storage.updateJournalTemplate(templateId, userId, {
+        name,
+        description,
+        prompts,
+        category,
+      });
+      
+      if (!template) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+      
+      res.json({ template });
+    } catch (error) {
+      console.error('Update template error:', error);
+      res.status(500).json({ error: 'Failed to update template' });
+    }
+  });
+
+  app.delete("/api/journal/templates/:templateId", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { templateId } = req.params;
+      
+      if (isDemoUser(userId)) {
+        return res.status(403).json({ error: 'Demo users cannot delete templates' });
+      }
+      
+      await storage.deleteJournalTemplate(templateId, userId);
+      
+      res.json({ message: 'Template deleted successfully' });
+    } catch (error) {
+      console.error('Delete template error:', error);
+      res.status(500).json({ error: 'Failed to delete template' });
+    }
+  });
+
+  // 5. Journal Stats for Visualizations
+  app.get("/api/journal/stats", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Get journal entries
+      const prefs = await storage.getPersonalJournalEntries(userId);
+      const journalData = prefs?.preferences?.journalData || {};
+      
+      // Get tasks for completion data
+      const tasks = await storage.getUserTasks(userId);
+      const activities = await storage.getUserActivities(userId);
+      
+      // Calculate journal stats
+      const entriesByCategory: Record<string, number> = {};
+      const entriesByDate: Record<string, number> = {};
+      let totalEntries = 0;
+      
+      for (const [category, entries] of Object.entries(journalData)) {
+        if (Array.isArray(entries)) {
+          entriesByCategory[category] = entries.length;
+          totalEntries += entries.length;
+          
+          entries.forEach((entry: any) => {
+            const timestamp = typeof entry === 'string' ? new Date().toISOString() : entry.timestamp;
+            const date = timestamp.split('T')[0];
+            entriesByDate[date] = (entriesByDate[date] || 0) + 1;
+          });
+        }
+      }
+      
+      // Calculate task completion stats
+      const completedTasks = tasks.filter((t: any) => t.completed);
+      const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
+      
+      // Calculate activity progress
+      const activityProgress = activities.map((a: any) => {
+        const activityTasks = tasks.filter((t: any) => t.activityId === a.id || t.goalId === a.id);
+        const completed = activityTasks.filter((t: any) => t.completed).length;
+        return {
+          name: a.title,
+          category: a.category,
+          total: activityTasks.length,
+          completed,
+          progress: activityTasks.length > 0 ? Math.round((completed / activityTasks.length) * 100) : 0,
+        };
+      }).filter(a => a.total > 0);
+      
+      // Calculate journaling streak
+      const dates = Object.keys(entriesByDate).sort().reverse();
+      let streak = 0;
+      const today = new Date().toISOString().split('T')[0];
+      
+      for (let i = 0; i < 30; i++) {
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() - i);
+        const dateStr = checkDate.toISOString().split('T')[0];
+        
+        if (entriesByDate[dateStr]) {
+          streak++;
+        } else if (i > 0) {
+          break;
+        }
+      }
+      
+      // Prepare chart data (last 7 days)
+      const last7Days: { date: string; entries: number; tasks: number }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        const dayTasks = completedTasks.filter((t: any) => 
+          t.completedAt && t.completedAt.toISOString().split('T')[0] === dateStr
+        );
+        
+        last7Days.push({
+          date: dateStr,
+          entries: entriesByDate[dateStr] || 0,
+          tasks: dayTasks.length,
+        });
+      }
+      
+      res.json({
+        stats: {
+          totalEntries,
+          totalCategories: Object.keys(entriesByCategory).length,
+          journalingStreak: streak,
+          completionRate,
+          totalActivities: activities.length,
+          completedTasks: completedTasks.length,
+          pendingTasks: tasks.length - completedTasks.length,
+        },
+        charts: {
+          entriesByCategory: Object.entries(entriesByCategory).map(([name, value]) => ({ name, value })),
+          activityProgress,
+          last7Days,
+        }
+      });
+    } catch (error) {
+      console.error('Journal stats error:', error);
+      res.status(500).json({ error: 'Failed to fetch journal stats' });
+    }
+  });
+
   // Chat Import routes
   app.post("/api/chat/import", async (req, res) => {
     try {
