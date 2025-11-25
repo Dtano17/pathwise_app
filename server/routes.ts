@@ -1654,8 +1654,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (user) {
           // Remove password from response and add authenticated flag
           const { password, ...userWithoutPassword } = user;
-          console.log('Authenticated user found:', { userId, username: user.username, email: user.email });
-          return { ...userWithoutPassword, authenticated: true, isGuest: false };
+          
+          // Check for profile image override from user_profiles table
+          // This allows user-uploaded images to take precedence over OAuth images
+          const userProfile = await storage.getUserProfile(userId);
+          const effectiveProfileImageUrl = userProfile?.profileImageUrlOverride || user.profileImageUrl;
+          
+          console.log('Authenticated user found:', { 
+            userId, 
+            username: user.username, 
+            email: user.email,
+            hasProfileImageOverride: !!userProfile?.profileImageUrlOverride 
+          });
+          
+          return { 
+            ...userWithoutPassword, 
+            profileImageUrl: effectiveProfileImageUrl,
+            authenticated: true, 
+            isGuest: false 
+          };
         }
       } catch (error) {
         console.error('Error fetching authenticated user:', error);
