@@ -7,6 +7,8 @@ import { setupVite, serveStatic, log } from "./vite";
 import { setupMultiProviderAuth } from "./multiProviderAuth";
 import { initializeLLMProviders } from "./services/llmProviders";
 import { handleStripeWebhook } from "./stripeWebhook";
+import { runMigrations } from 'stripe-replit-sync';
+import { getStripeSync } from "./stripeClient";
 
 // Validate critical environment variables
 function validateEnvironment() {
@@ -102,6 +104,34 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize Stripe schema and sync data on startup
+  try {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (databaseUrl) {
+      console.log('[STRIPE] Initializing schema...');
+      await runMigrations({ 
+        databaseUrl,
+        schema: 'stripe'
+      });
+      console.log('[STRIPE] Schema ready');
+
+      // Get StripeSync instance
+      const stripeSync = await getStripeSync();
+
+      // Start syncing data in background
+      stripeSync.syncBackfill()
+        .then(() => {
+          console.log('[STRIPE] Data synced');
+        })
+        .catch((err) => {
+          console.error('[STRIPE] Error syncing data:', err);
+        });
+    }
+  } catch (error: any) {
+    console.warn('[STRIPE] Failed to initialize Stripe:', error.message);
+    // Don't throw - Stripe is optional
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

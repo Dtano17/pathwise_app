@@ -1,33 +1,36 @@
 import type { Request, Response } from 'express';
 import Stripe from 'stripe';
 import { storage } from './storage';
+import { getUncachableStripeClient } from './stripeClient';
 
-// Initialize Stripe only if keys are configured
-let stripe: Stripe | null = null;
-if (process.env.STRIPE_SECRET_KEY) {
-  stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2025-09-30.clover'
-  });
-}
+// Stripe client is fetched dynamically from secure Replit connection
+// Do NOT cache it - always call getUncachableStripeClient()
 
 /**
  * Stripe webhook handler - must receive RAW body buffer for signature verification
  * This handler is registered in server/index.ts with express.raw() middleware
+ * Credentials are fetched from Replit secure connection, not environment variables
  */
 export async function handleStripeWebhook(req: Request, res: Response) {
-  if (!stripe) {
-    return res.status(500).send('Stripe not configured');
-  }
-
   const sig = req.headers['stripe-signature'];
   let event;
 
   try {
+    // Get Stripe client from secure Replit connection
+    const stripe = await getUncachableStripeClient();
+    
+    // Get webhook secret from environment (set during Stripe initialization)
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error('STRIPE_WEBHOOK_SECRET not configured');
+      return res.status(500).send('Stripe webhook secret not configured');
+    }
+    
     // req.body is a Buffer when using express.raw()
     event = stripe.webhooks.constructEvent(
       req.body,
       sig as string,
-      process.env.STRIPE_WEBHOOK_SECRET || ''
+      webhookSecret
     );
   } catch (err: any) {
     console.error('Webhook signature verification failed:', err.message);

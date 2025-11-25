@@ -51,7 +51,17 @@ The application employs a mobile-first responsive design featuring a clean, card
 - **PostgreSQL (Neon)**: Cloud-hosted relational database.
 - **Passport.js**: Authentication middleware.
 - **Resend**: Email delivery service.
-## Latest Updates (November 24, 2025)
+## Latest Updates (November 25, 2025)
+- ✅ **Stripe Integration Secured via Replit Connection Manager**:
+  - Moved all Stripe secrets from `.replit` file to Replit's secure connection store
+  - Installed `stripe@18.5.0` and `stripe-replit-sync@0.0.12`
+  - Created secure Stripe client that fetches credentials from Replit connection API
+  - Automatic schema creation and data sync on startup via `stripe-replit-sync`
+  - No more secrets exposed in `.replit` file or environment variables
+  - Files changed: Created `server/stripeClient.ts`, `server/stripeService.ts`, `server/stripeWebhookHandlers.ts`
+  - Impact: Stripe secrets are now encrypted and managed by Replit, preventing GitHub push protection violations
+
+## Previous Updates (November 24, 2025)
 - ✅ **CRITICAL Stripe webhook signature verification fix**:
   - Problem: Webhooks failing with HTTP 400 "Webhook payload must be provided as a string or a Buffer"
   - Solution: Moved webhook route BEFORE express.json() in server/index.ts, using express.raw() middleware
