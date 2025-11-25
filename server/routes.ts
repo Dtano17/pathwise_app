@@ -11884,6 +11884,215 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
+  // ========== MEDIA IMPORT ROUTES (Social Media Content) ==========
+  // These routes handle importing plans from images and videos (Instagram, TikTok, etc.)
+
+  // Process media import (image OCR or video transcription)
+  app.post("/api/extensions/import-media", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { mediaType, caption, source, sourceDevice, imageBase64 } = req.body;
+      
+      if (!mediaType || !['image', 'video'].includes(mediaType)) {
+        return res.status(400).json({ error: "Valid media type required (image or video)" });
+      }
+
+      // Check subscription tier for import limits
+      const tier = user.subscriptionTier || 'free';
+      const monthlyImports = await storage.getUserMonthlyImportCount(user.id);
+      const FREE_MONTHLY_LIMIT = 3;
+      
+      if (tier === 'free' && monthlyImports >= FREE_MONTHLY_LIMIT) {
+        return res.status(403).json({ 
+          error: "Monthly import limit reached",
+          limit: FREE_MONTHLY_LIMIT,
+          used: monthlyImports,
+          upgrade: true
+        });
+      }
+
+      // Import services
+      const { extractTextFromImage, mergeMediaContent, detectMediaSource } = await import('./services/mediaInterpretationService');
+      const { parseAIPlan, validateParsedPlan } = await import('./services/aiPlanParser');
+      
+      let extractedText = '';
+      let ocrConfidence = 0;
+      let imageDescription = '';
+      
+      if (mediaType === 'image' && imageBase64) {
+        const ocrResult = await extractTextFromImage(imageBase64, 'image/jpeg');
+        extractedText = ocrResult.extractedText;
+        ocrConfidence = ocrResult.confidence;
+        imageDescription = ocrResult.imageDescription || '';
+      }
+
+      // Merge caption with extracted text
+      const mergedContent = mergeMediaContent(caption, extractedText, imageDescription);
+      
+      if (mergedContent.length < 20) {
+        return res.status(400).json({ 
+          error: "Not enough content to create a plan",
+          details: "Please share content that includes tasks, goals, or actionable items"
+        });
+      }
+
+      // Parse the merged content as a plan
+      const parsedPlan = await parseAIPlan(mergedContent);
+      
+      const validation = validateParsedPlan(parsedPlan);
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: "Failed to extract actionable plan",
+          details: validation.errors 
+        });
+      }
+
+      // Create the import record
+      const planImport = await storage.createAiPlanImport({
+        userId: user.id,
+        source: source || detectMediaSource('', caption || ''),
+        sourceDevice: sourceDevice || 'android',
+        rawText: mergedContent,
+        parsedTitle: parsedPlan.title,
+        parsedDescription: parsedPlan.description || null,
+        parsedTasks: parsedPlan.tasks,
+        confidence: parsedPlan.confidence,
+        status: 'pending'
+      });
+
+      res.json({
+        success: true,
+        import: planImport,
+        parsed: {
+          title: parsedPlan.title,
+          description: parsedPlan.description,
+          tasks: parsedPlan.tasks,
+          confidence: parsedPlan.confidence,
+          mediaProcessing: {
+            extractedText,
+            ocrConfidence,
+            imageDescription
+          }
+        },
+        limits: {
+          used: monthlyImports + 1,
+          limit: tier === 'free' ? FREE_MONTHLY_LIMIT : null
+        }
+      });
+    } catch (error) {
+      console.error('[MEDIA IMPORT] Error processing media:', error);
+      res.status(500).json({ 
+        error: "Failed to process media",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // ========== PLAN REMIX ROUTES (Combine Multiple Plans) ==========
+  // These routes handle combining multiple community plans into one
+
+  // Preview a remix of selected plans
+  app.post("/api/community-plans/remix/preview", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { activityIds } = req.body;
+      
+      if (!activityIds || !Array.isArray(activityIds) || activityIds.length < 2) {
+        return res.status(400).json({ error: "At least 2 activities required for remix" });
+      }
+
+      if (activityIds.length > 10) {
+        return res.status(400).json({ error: "Maximum 10 activities can be remixed at once" });
+      }
+
+      const { createRemix } = await import('./services/planRemixService');
+      const remixResult = await createRemix(activityIds);
+
+      res.json({
+        success: true,
+        preview: remixResult
+      });
+    } catch (error) {
+      console.error('[PLAN REMIX] Error creating preview:', error);
+      res.status(500).json({ 
+        error: "Failed to create remix preview",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Confirm and save a plan remix
+  app.post("/api/community-plans/remix/confirm", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { 
+        activityIds, 
+        mergedTitle, 
+        mergedDescription, 
+        mergedTasks, 
+        attributions 
+      } = req.body;
+      
+      if (!activityIds || !mergedTitle || !mergedTasks) {
+        return res.status(400).json({ error: "Missing required remix data" });
+      }
+
+      // Create the new activity from the remix
+      const activity = await storage.createActivity({
+        userId: user.id,
+        title: mergedTitle,
+        description: mergedDescription || `Remixed from ${activityIds.length} community plans`,
+        category: mergedTasks[0]?.category || 'personal',
+        status: 'planning',
+        planSummary: `Remixed plan combining ${activityIds.length} community plans`,
+        tags: ['remix', 'community']
+      });
+
+      // Create tasks for the activity
+      let order = 0;
+      for (const task of mergedTasks) {
+        order++;
+        await storage.createActivityTask({
+          activityId: activity.id,
+          title: task.title,
+          description: task.description || undefined,
+          category: task.category || 'personal',
+          priority: task.priority || 'medium',
+          completed: false,
+          order
+        });
+      }
+
+      res.json({
+        success: true,
+        activity,
+        tasksCreated: mergedTasks.length,
+        stats: {
+          sourcePlans: activityIds.length,
+          attributions
+        }
+      });
+    } catch (error) {
+      console.error('[PLAN REMIX] Error confirming remix:', error);
+      res.status(500).json({ 
+        error: "Failed to save remixed plan",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

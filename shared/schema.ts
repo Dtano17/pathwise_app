@@ -1658,3 +1658,131 @@ export const insertExtensionTokenSchema = createInsertSchema(extensionTokens).om
 
 export type ExtensionToken = typeof extensionTokens.$inferSelect;
 export type InsertExtensionToken = z.infer<typeof insertExtensionTokenSchema>;
+
+// Media imports - tracks social media content (images, videos) shared for plan extraction
+export const mediaImports = pgTable("media_imports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Source information
+  source: text("source").notNull(), // 'instagram' | 'tiktok' | 'reels' | 'youtube' | 'gallery' | 'camera'
+  sourceDevice: text("source_device").notNull(), // 'ios' | 'android' | 'web'
+  
+  // Media information
+  mediaType: text("media_type").notNull(), // 'image' | 'video'
+  mediaUrl: text("media_url"), // Temporary URL for processing (deleted after 24h)
+  thumbnailUrl: text("thumbnail_url"), // Preview thumbnail for UI
+  originalCaption: text("original_caption"), // Caption shared with the media
+  
+  // Processing results
+  extractedText: text("extracted_text"), // OCR result (images) or transcription (videos)
+  ocrConfidence: real("ocr_confidence"), // OCR confidence score 0-1
+  transcriptionDuration: integer("transcription_duration"), // Video duration in seconds
+  
+  // Merged content for plan parsing
+  mergedContent: text("merged_content"), // caption + extractedText combined
+  
+  // AI parsing results (same as aiPlanImports)
+  parsedTitle: text("parsed_title"),
+  parsedDescription: text("parsed_description"),
+  parsedTasks: jsonb("parsed_tasks").$type<Array<{
+    title: string;
+    description?: string;
+    category: string;
+    priority: 'low' | 'medium' | 'high';
+    dueDate?: string;
+    timeEstimate?: string;
+    order: number;
+  }>>(),
+  parsingConfidence: real("parsing_confidence"),
+  
+  // Resulting activity (after user confirms)
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "set null" }),
+  
+  // Status and lifecycle
+  status: text("status").notNull().default("pending"), // 'pending' | 'processing' | 'parsed' | 'confirmed' | 'failed' | 'discarded'
+  processingError: text("processing_error"), // Error message if failed
+  confirmedAt: timestamp("confirmed_at"),
+  
+  // Privacy: auto-delete raw media after 24 hours
+  mediaExpiresAt: timestamp("media_expires_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("media_imports_user_id_index").on(table.userId),
+  statusIndex: index("media_imports_status_index").on(table.status),
+  createdAtIndex: index("media_imports_created_at_index").on(table.createdAt),
+}));
+
+// Type exports for media imports
+export const insertMediaImportSchema = createInsertSchema(mediaImports).omit({
+  id: true,
+  createdAt: true,
+  confirmedAt: true,
+  activityId: true,
+  mediaExpiresAt: true,
+});
+
+export type MediaImport = typeof mediaImports.$inferSelect;
+export type InsertMediaImport = z.infer<typeof insertMediaImportSchema>;
+
+// Plan remixes - tracks when users combine multiple community plans
+export const planRemixes = pgTable("plan_remixes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Source plans (activity IDs)
+  sourcePlanIds: jsonb("source_plan_ids").$type<string[]>().notNull(),
+  
+  // Attribution (creator IDs and names for display)
+  attributions: jsonb("attributions").$type<Array<{
+    activityId: string;
+    activityTitle: string;
+    creatorId: string;
+    creatorName: string;
+    tasksUsed: number;
+  }>>().notNull(),
+  
+  // Merged result
+  mergedTitle: text("merged_title").notNull(),
+  mergedDescription: text("merged_description"),
+  mergedTasks: jsonb("merged_tasks").$type<Array<{
+    title: string;
+    description?: string;
+    category: string;
+    priority: 'low' | 'medium' | 'high';
+    dueDate?: string;
+    timeEstimate?: string;
+    order: number;
+    sourceActivityId?: string; // Which plan this came from
+    isDuplicate?: boolean; // Detected as duplicate
+  }>>().notNull(),
+  
+  // Deduplication stats
+  originalTaskCount: integer("original_task_count").default(0),
+  finalTaskCount: integer("final_task_count").default(0),
+  duplicatesRemoved: integer("duplicates_removed").default(0),
+  
+  // Resulting activity (after user confirms)
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "set null" }),
+  
+  // Status
+  status: text("status").notNull().default("draft"), // 'draft' | 'confirmed' | 'discarded'
+  confirmedAt: timestamp("confirmed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("plan_remixes_user_id_index").on(table.userId),
+  statusIndex: index("plan_remixes_status_index").on(table.status),
+}));
+
+// Type exports for plan remixes
+export const insertPlanRemixSchema = createInsertSchema(planRemixes).omit({
+  id: true,
+  createdAt: true,
+  confirmedAt: true,
+  activityId: true,
+});
+
+export type PlanRemix = typeof planRemixes.$inferSelect;
+export type InsertPlanRemix = z.infer<typeof insertPlanRemixSchema>;
