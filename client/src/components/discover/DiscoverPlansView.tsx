@@ -18,7 +18,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2, Pin, MapPin, Settings, Flag } from "lucide-react";
+import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2, Pin, MapPin, Settings, Flag, Combine, X, Check, Loader2 } from "lucide-react";
 import { SiLinkedin, SiInstagram, SiX } from "react-icons/si";
 import type { Activity } from "@shared/schema";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
@@ -312,7 +312,96 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportingPlan, setReportingPlan] = useState<{ id: string; title: string } | null>(null);
+  const [remixMode, setRemixMode] = useState(false);
+  const [selectedForRemix, setSelectedForRemix] = useState<Set<string>>(new Set());
+  const [remixDialogOpen, setRemixDialogOpen] = useState(false);
+  const [remixPreview, setRemixPreview] = useState<any>(null);
+  const [isRemixing, setIsRemixing] = useState(false);
   const { toast } = useToast();
+
+  const toggleRemixSelection = (planId: string) => {
+    const newSelection = new Set(selectedForRemix);
+    if (newSelection.has(planId)) {
+      newSelection.delete(planId);
+    } else {
+      if (newSelection.size >= 10) {
+        toast({
+          title: "Maximum plans selected",
+          description: "You can remix up to 10 plans at once",
+          variant: "destructive"
+        });
+        return;
+      }
+      newSelection.add(planId);
+    }
+    setSelectedForRemix(newSelection);
+  };
+
+  const handleRemixPreview = async () => {
+    if (selectedForRemix.size < 2) {
+      toast({
+        title: "Select more plans",
+        description: "Select at least 2 plans to remix",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsRemixing(true);
+    try {
+      const response = await apiRequest('/api/community-plans/remix/preview', {
+        method: 'POST',
+        body: JSON.stringify({ activityIds: Array.from(selectedForRemix) })
+      });
+      setRemixPreview(response.preview);
+      setRemixDialogOpen(true);
+    } catch (error) {
+      toast({
+        title: "Remix failed",
+        description: error instanceof Error ? error.message : "Could not create remix preview",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRemixing(false);
+    }
+  };
+
+  const handleRemixConfirm = async () => {
+    if (!remixPreview) return;
+    
+    setIsRemixing(true);
+    try {
+      await apiRequest('/api/community-plans/remix/confirm', {
+        method: 'POST',
+        body: JSON.stringify({
+          activityIds: Array.from(selectedForRemix),
+          mergedTitle: remixPreview.mergedTitle,
+          mergedDescription: remixPreview.mergedDescription,
+          mergedTasks: remixPreview.mergedTasks,
+          attributions: remixPreview.attributions
+        })
+      });
+      
+      toast({
+        title: "Remix created!",
+        description: `Created "${remixPreview.mergedTitle}" with ${remixPreview.mergedTasks.length} tasks`
+      });
+      
+      setRemixDialogOpen(false);
+      setRemixMode(false);
+      setSelectedForRemix(new Set());
+      setRemixPreview(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+    } catch (error) {
+      toast({
+        title: "Save failed",
+        description: error instanceof Error ? error.message : "Could not save remix",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRemixing(false);
+    }
+  };
 
   // Handle location toggle
   const handleLocationToggle = async () => {
@@ -973,7 +1062,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
             />
           </div>
           
-          {/* Location & Settings Icons */}
+          {/* Location, Remix & Settings Icons */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button
               variant={filters.locationEnabled ? "default" : "outline"}
@@ -984,6 +1073,27 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
               className="flex-shrink-0"
             >
               <MapPin className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={remixMode ? "default" : "outline"}
+              size="icon"
+              onClick={() => {
+                if (remixMode) {
+                  setRemixMode(false);
+                  setSelectedForRemix(new Set());
+                } else {
+                  if (!user) {
+                    onSignInRequired?.();
+                    return;
+                  }
+                  setRemixMode(true);
+                }
+              }}
+              data-testid="button-remix-toggle"
+              className={`flex-shrink-0 ${remixMode ? 'bg-gradient-to-r from-purple-500 to-violet-600 text-white' : ''}`}
+              title={remixMode ? 'Cancel remix' : 'Remix multiple plans'}
+            >
+              <Combine className="w-4 h-4" />
             </Button>
             <CardDisplaySettings 
               preferences={displayPrefs} 
@@ -1079,18 +1189,38 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
               distance = formatDistance(distanceMeters);
             }
             
+            const isSelected = selectedForRemix.has(plan.id);
+            
             return (
               <HoverCard key={plan.id} openDelay={300} closeDelay={200}>
                 <HoverCardTrigger asChild>
                   <Card 
-                    className="flex flex-col group hover-elevate cursor-pointer" 
-                    onClick={() => handlePreviewPlan(plan.id, plan.shareToken, plan.title)}
+                    className={`flex flex-col group hover-elevate cursor-pointer relative ${
+                      remixMode && isSelected ? 'ring-2 ring-purple-500 ring-offset-2' : ''
+                    }`}
+                    onClick={() => {
+                      if (remixMode) {
+                        toggleRemixSelection(plan.id);
+                      } else {
+                        handlePreviewPlan(plan.id, plan.shareToken, plan.title);
+                      }
+                    }}
                     style={{ 
-                      borderColor: planTypeBadge.borderColor,
+                      borderColor: remixMode && isSelected ? 'var(--purple-500)' : planTypeBadge.borderColor,
                       borderWidth: '2px'
                     }}
                     data-testid={`card-plan-${plan.id}`}
                   >
+                    {/* Remix mode selection overlay */}
+                    {remixMode && (
+                      <div className={`absolute top-3 right-3 z-10 w-6 h-6 rounded-full flex items-center justify-center ${
+                        isSelected 
+                          ? 'bg-purple-500 text-white' 
+                          : 'bg-white/80 backdrop-blur-sm border-2 border-purple-300'
+                      }`}>
+                        {isSelected && <Check className="w-4 h-4" />}
+                      </div>
+                    )}
                 {stockImage && (
                   <div className="relative h-48 overflow-hidden">
                     <img
@@ -1576,6 +1706,180 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
           activityTitle={reportingPlan.title}
         />
       )}
+
+      {/* Remix Mode Floating Action Bar */}
+      {remixMode && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent z-50">
+          <div className="max-w-2xl mx-auto">
+            <Card className="p-4 shadow-lg border-purple-200 dark:border-purple-800">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1">
+                  <p className="font-medium text-foreground">
+                    {selectedForRemix.size === 0 
+                      ? "Select plans to remix" 
+                      : `${selectedForRemix.size} plan${selectedForRemix.size !== 1 ? 's' : ''} selected`
+                    }
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedForRemix.size < 2 
+                      ? "Select at least 2 plans" 
+                      : "Ready to create your remix"
+                    }
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setRemixMode(false);
+                      setSelectedForRemix(new Set());
+                    }}
+                    data-testid="button-cancel-remix"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-gradient-to-r from-purple-500 to-violet-600 text-white"
+                    onClick={handleRemixPreview}
+                    disabled={selectedForRemix.size < 2 || isRemixing}
+                    data-testid="button-preview-remix"
+                  >
+                    {isRemixing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Combine className="w-4 h-4 mr-2" />
+                        Remix {selectedForRemix.size} Plans
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Remix Preview Dialog */}
+      <Dialog open={remixDialogOpen} onOpenChange={setRemixDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" data-testid="dialog-remix-preview">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Combine className="w-5 h-5 text-purple-500" />
+              Remix Preview
+            </DialogTitle>
+            <DialogDescription>
+              Review your remixed plan before saving
+            </DialogDescription>
+          </DialogHeader>
+          
+          {remixPreview && (
+            <div className="space-y-4 py-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Title</label>
+                <p className="text-lg font-semibold" data-testid="text-remix-title">
+                  {remixPreview.mergedTitle}
+                </p>
+              </div>
+              
+              {remixPreview.mergedDescription && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Description</label>
+                  <p className="text-foreground" data-testid="text-remix-description">
+                    {remixPreview.mergedDescription}
+                  </p>
+                </div>
+              )}
+              
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Tasks ({remixPreview.mergedTasks?.length || 0})
+                  </label>
+                  {remixPreview.stats?.duplicatesRemoved > 0 && (
+                    <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                      {remixPreview.stats.duplicatesRemoved} duplicates removed
+                    </Badge>
+                  )}
+                </div>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {remixPreview.mergedTasks?.map((task: any, index: number) => (
+                    <div 
+                      key={index} 
+                      className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border"
+                      data-testid={`task-remix-${index}`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <span className="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-xs font-medium text-purple-600">
+                          {index + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground">{task.title}</p>
+                          {task.description && (
+                            <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="flex-shrink-0">
+                          {task.priority}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {remixPreview.attributions?.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    Credits
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {remixPreview.attributions.map((attr: any, index: number) => (
+                      <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        {attr.creatorName || 'Community Member'} ({attr.tasksContributed} tasks)
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <div className="flex gap-3 pt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setRemixDialogOpen(false)}
+              className="flex-1"
+              data-testid="button-cancel-save-remix"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRemixConfirm}
+              disabled={isRemixing}
+              className="flex-1 bg-gradient-to-r from-purple-500 to-violet-600 text-white"
+              data-testid="button-save-remix"
+            >
+              {isRemixing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Save Remix
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

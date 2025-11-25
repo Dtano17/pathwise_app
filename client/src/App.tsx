@@ -16,6 +16,7 @@ import GroupGoalsPage from "@/pages/GroupGoalsPage";
 import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import SubscriptionCanceled from "@/pages/SubscriptionCanceled";
 import ImportPlan from "@/pages/ImportPlan";
+import Updates from "@/pages/Updates";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
 import { useAuth } from "@/hooks/useAuth";
@@ -78,6 +79,9 @@ function AppContent() {
         
         {/* AI Plan Import Page (no sidebar) */}
         <Route path="/import-plan" component={ImportPlan} />
+        
+        {/* Updates/Blog Page (no sidebar) */}
+        <Route path="/updates" component={Updates} />
         
         {/* Main App with Sidebar */}
         <Route>
