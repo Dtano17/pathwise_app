@@ -112,6 +112,24 @@ app.use((req, res, next) => {
     throw err;
   });
 
+  // Cache control middleware for production deployments
+  // This ensures users always get fresh HTML while caching hashed assets
+  if (app.get("env") !== "development") {
+    app.use((req, res, next) => {
+      // Hashed assets in /assets/ can be cached forever (immutable)
+      if (req.path.startsWith('/assets/')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+      // HTML and root paths should never be cached
+      else if (req.path === '/' || req.path.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+      next();
+    });
+  }
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
