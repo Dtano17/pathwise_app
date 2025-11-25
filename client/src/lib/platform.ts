@@ -11,7 +11,11 @@ import { Capacitor } from '@capacitor/core';
  * Check if the app is running as a native mobile app (via Capacitor)
  */
 export const isNative = (): boolean => {
-  return Capacitor.isNativePlatform();
+  const result = Capacitor.isNativePlatform();
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    console.log(`[PLATFORM] isNative() = ${result}, Platform: ${Capacitor.getPlatform()}`);
+  }
+  return result;
 };
 
 /**

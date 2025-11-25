@@ -76,21 +76,24 @@ export async function checkContactsPermission(): Promise<boolean> {
  */
 export async function getContacts(): Promise<SimpleContact[]> {
   if (!isNative()) {
-    console.warn('Contacts only available on native platforms');
-    return [];
+    console.warn('[CONTACTS] Not a native platform - contacts unavailable');
+    throw new Error('Contact sync is only available on the mobile app');
   }
 
   try {
+    console.log('[CONTACTS] Checking contacts permission...');
     // Check permission first
     const hasPermission = await checkContactsPermission();
     if (!hasPermission) {
+      console.log('[CONTACTS] Permission not granted, requesting...');
       const granted = await requestContactsPermission();
       if (!granted) {
-        console.warn('Contacts permission not granted');
-        return [];
+        console.warn('[CONTACTS] Permission request denied by user');
+        throw new Error('Contacts permission was denied. Please enable it in settings.');
       }
     }
 
+    console.log('[CONTACTS] Fetching contacts from device...');
     // Fetch contacts
     const result: GetContactsResult = await Contacts.getContacts({
       projection: {
@@ -101,11 +104,18 @@ export async function getContacts(): Promise<SimpleContact[]> {
       },
     });
 
+    console.log(`[CONTACTS] Successfully fetched ${result.contacts.length} contacts from device`);
+    
     // Transform to simple format
-    return result.contacts.map(transformContact).filter((c) => c !== null) as SimpleContact[];
+    const transformed = result.contacts.map(transformContact).filter((c) => c !== null) as SimpleContact[];
+    console.log(`[CONTACTS] Transformed ${transformed.length} valid contacts`);
+    return transformed;
   } catch (error) {
-    console.error('Failed to get contacts:', error);
-    return [];
+    console.error('[CONTACTS] Failed to get contacts:', error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to fetch contacts: ${error.message}`);
+    }
+    throw new Error('Failed to fetch contacts from your device');
   }
 }
 

@@ -116,38 +116,48 @@ export default function Contacts() {
     // Check if on mobile app
     if (!isNative()) {
       toast({
-        title: "Mobile Feature",
-        description: "Contact import is available on our mobile app. Download from the App Store or Play Store, or add contacts manually.",
+        title: "Sync Contacts",
+        description: "Contact sync is only available on the mobile app. Download from the App Store or Play Store.",
         variant: "destructive",
       });
       return;
     }
     
+    // Show loading state
+    syncContactsMutation.mutate([]);
+    
     try {
+      console.log('[CONTACTS PAGE] Starting contact sync on native platform');
+      
       // Get contacts from device using Capacitor
       const phoneContacts = await getContacts();
+      
+      console.log(`[CONTACTS PAGE] Got ${phoneContacts.length} contacts from device`);
       
       if (phoneContacts.length === 0) {
         toast({
           title: "No Contacts Found",
-          description: "No contacts found on your device or permission was denied.",
+          description: "No contacts found on your device. Make sure you have contacts saved and the app has permission to access them.",
           variant: "destructive",
         });
         return;
       }
       
-      // Sync with server
-      await syncContactsWithServer(phoneContacts);
-      queryClient.invalidateQueries({ queryKey: ['/api/contacts'] });
+      // Transform contacts to backend format
+      const transformedContacts = phoneContacts.map(contact => ({
+        name: contact.displayName,
+        emails: contact.emails || [],
+        tel: contact.phoneNumbers || []
+      }));
       
-      toast({
-        title: "Contacts Imported!",
-        description: `Successfully imported ${phoneContacts.length} contacts from your device.`,
-      });
+      console.log(`[CONTACTS PAGE] Sending ${transformedContacts.length} contacts to server`);
+      
+      // Send to backend using mutation
+      syncContactsMutation.mutate(transformedContacts);
     } catch (error: any) {
-      console.error('Contact sync error:', error);
+      console.error('[CONTACTS PAGE] Contact sync error:', error);
       toast({
-        title: "Import Failed",
+        title: "Sync Failed",
         description: error.message || "Failed to import contacts. Please try again.",
         variant: "destructive",
       });
