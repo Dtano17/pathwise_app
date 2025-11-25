@@ -6604,18 +6604,9 @@ ${emoji} ${progressLine}
       res.status(500).json({ error: 'Failed to fetch journal entries' });
     }
   });
-  
-  app.get("/api/journal/:date", async (req, res) => {
-    try {
-      const { date } = req.params;
-      const userId = getUserId(req) || DEMO_USER_ID;
-      const entry = await storage.getUserJournalEntry(userId, date);
-      res.json(entry || null);
-    } catch (error) {
-      console.error('Get journal error:', error);
-      res.status(500).json({ error: 'Failed to fetch journal entry' });
-    }
-  });
+
+  // NOTE: The /api/journal/:date parameterized route is defined AFTER all specific routes
+  // to prevent route matching issues. See end of journal features section.
 
   app.post("/api/journal", async (req, res) => {
     try {
@@ -7236,6 +7227,20 @@ Return ONLY valid JSON, no markdown or explanation.`;
     } catch (error) {
       console.error('Journal stats error:', error);
       res.status(500).json({ error: 'Failed to fetch journal stats' });
+    }
+  });
+
+  // IMPORTANT: This parameterized route MUST come AFTER all specific /api/journal/* routes
+  // to prevent route matching issues (e.g., /api/journal/packs would match :date as "packs")
+  app.get("/api/journal/:date", async (req, res) => {
+    try {
+      const { date } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const entry = await storage.getUserJournalEntry(userId, date);
+      res.json(entry || null);
+    } catch (error) {
+      console.error('Get journal error:', error);
+      res.status(500).json({ error: 'Failed to fetch journal entry' });
     }
   });
 
