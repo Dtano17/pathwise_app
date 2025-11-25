@@ -72,6 +72,10 @@ import {
   type UserNotification,
   type JournalTemplate,
   type InsertJournalTemplate,
+  type AiPlanImport,
+  type InsertAiPlanImport,
+  type ExtensionToken,
+  type InsertExtensionToken,
   users,
   goals,
   tasks,
@@ -105,7 +109,9 @@ import {
   groupActivityFeed,
   activityReports,
   userNotifications,
-  journalTemplates
+  journalTemplates,
+  aiPlanImports,
+  extensionTokens
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -376,6 +382,23 @@ export interface IStorage {
   createJournalTemplate(template: InsertJournalTemplate): Promise<JournalTemplate>;
   updateJournalTemplate(templateId: string, userId: string, updates: Partial<InsertJournalTemplate>): Promise<JournalTemplate | undefined>;
   deleteJournalTemplate(templateId: string, userId: string): Promise<void>;
+
+  // AI Plan Imports (Extension/Mobile)
+  createAiPlanImport(planImport: InsertAiPlanImport & { userId: string }): Promise<AiPlanImport>;
+  getAiPlanImport(importId: string, userId: string): Promise<AiPlanImport | undefined>;
+  getUserAiPlanImports(userId: string, status?: string): Promise<AiPlanImport[]>;
+  updateAiPlanImport(importId: string, userId: string, updates: Partial<AiPlanImport>): Promise<AiPlanImport | undefined>;
+  confirmAiPlanImport(importId: string, userId: string, activityId: string): Promise<AiPlanImport | undefined>;
+  discardAiPlanImport(importId: string, userId: string): Promise<void>;
+  getUserMonthlyImportCount(userId: string): Promise<number>;
+
+  // Extension Tokens
+  createExtensionToken(token: InsertExtensionToken & { userId: string }): Promise<ExtensionToken>;
+  getExtensionToken(token: string): Promise<ExtensionToken | undefined>;
+  getUserExtensionTokens(userId: string): Promise<ExtensionToken[]>;
+  updateExtensionTokenActivity(token: string): Promise<void>;
+  revokeExtensionToken(tokenId: string, userId: string): Promise<void>;
+  revokeAllExtensionTokens(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3365,6 +3388,149 @@ export class DatabaseStorage implements IStorage {
         eq(journalTemplates.id, templateId),
         eq(journalTemplates.userId, userId)
       ));
+  }
+
+  // AI Plan Imports (Extension/Mobile)
+  async createAiPlanImport(planImport: InsertAiPlanImport & { userId: string }): Promise<AiPlanImport> {
+    const [created] = await db
+      .insert(aiPlanImports)
+      .values(planImport)
+      .returning();
+    return created;
+  }
+
+  async getAiPlanImport(importId: string, userId: string): Promise<AiPlanImport | undefined> {
+    const [result] = await db
+      .select()
+      .from(aiPlanImports)
+      .where(and(
+        eq(aiPlanImports.id, importId),
+        eq(aiPlanImports.userId, userId)
+      ));
+    return result;
+  }
+
+  async getUserAiPlanImports(userId: string, status?: string): Promise<AiPlanImport[]> {
+    if (status) {
+      return await db
+        .select()
+        .from(aiPlanImports)
+        .where(and(
+          eq(aiPlanImports.userId, userId),
+          eq(aiPlanImports.status, status)
+        ))
+        .orderBy(desc(aiPlanImports.createdAt));
+    }
+    return await db
+      .select()
+      .from(aiPlanImports)
+      .where(eq(aiPlanImports.userId, userId))
+      .orderBy(desc(aiPlanImports.createdAt));
+  }
+
+  async updateAiPlanImport(importId: string, userId: string, updates: Partial<AiPlanImport>): Promise<AiPlanImport | undefined> {
+    const [updated] = await db
+      .update(aiPlanImports)
+      .set(updates)
+      .where(and(
+        eq(aiPlanImports.id, importId),
+        eq(aiPlanImports.userId, userId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async confirmAiPlanImport(importId: string, userId: string, activityId: string): Promise<AiPlanImport | undefined> {
+    const [updated] = await db
+      .update(aiPlanImports)
+      .set({
+        status: 'confirmed',
+        activityId,
+        confirmedAt: new Date()
+      })
+      .where(and(
+        eq(aiPlanImports.id, importId),
+        eq(aiPlanImports.userId, userId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async discardAiPlanImport(importId: string, userId: string): Promise<void> {
+    await db
+      .update(aiPlanImports)
+      .set({ status: 'discarded' })
+      .where(and(
+        eq(aiPlanImports.id, importId),
+        eq(aiPlanImports.userId, userId)
+      ));
+  }
+
+  async getUserMonthlyImportCount(userId: string): Promise<number> {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(aiPlanImports)
+      .where(and(
+        eq(aiPlanImports.userId, userId),
+        sql`${aiPlanImports.createdAt} >= ${startOfMonth}`
+      ));
+    return result[0]?.count || 0;
+  }
+
+  // Extension Tokens
+  async createExtensionToken(token: InsertExtensionToken & { userId: string }): Promise<ExtensionToken> {
+    const [created] = await db
+      .insert(extensionTokens)
+      .values(token)
+      .returning();
+    return created;
+  }
+
+  async getExtensionToken(token: string): Promise<ExtensionToken | undefined> {
+    const [result] = await db
+      .select()
+      .from(extensionTokens)
+      .where(and(
+        eq(extensionTokens.token, token),
+        eq(extensionTokens.isActive, true)
+      ));
+    return result;
+  }
+
+  async getUserExtensionTokens(userId: string): Promise<ExtensionToken[]> {
+    return await db
+      .select()
+      .from(extensionTokens)
+      .where(eq(extensionTokens.userId, userId))
+      .orderBy(desc(extensionTokens.createdAt));
+  }
+
+  async updateExtensionTokenActivity(token: string): Promise<void> {
+    await db
+      .update(extensionTokens)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(extensionTokens.token, token));
+  }
+
+  async revokeExtensionToken(tokenId: string, userId: string): Promise<void> {
+    await db
+      .update(extensionTokens)
+      .set({ isActive: false })
+      .where(and(
+        eq(extensionTokens.id, tokenId),
+        eq(extensionTokens.userId, userId)
+      ));
+  }
+
+  async revokeAllExtensionTokens(userId: string): Promise<void> {
+    await db
+      .update(extensionTokens)
+      .set({ isActive: false })
+      .where(eq(extensionTokens.userId, userId));
   }
 }
 

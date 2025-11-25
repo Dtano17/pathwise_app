@@ -11160,6 +11160,446 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
+  // ========== AI PLAN IMPORT ROUTES (Extension/Mobile) ==========
+  // These routes handle importing AI-generated plans from ChatGPT, Claude, etc.
+
+  // Parse and import AI plan text
+  app.post("/api/extensions/import-plan", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { text, source, sourceDevice } = req.body;
+      
+      if (!text || typeof text !== 'string' || text.trim().length < 10) {
+        return res.status(400).json({ error: "Plan text is required (minimum 10 characters)" });
+      }
+
+      // Check subscription tier for import limits
+      const tier = user.subscriptionTier || 'free';
+      const monthlyImports = await storage.getUserMonthlyImportCount(user.id);
+      const FREE_MONTHLY_LIMIT = 3;
+      
+      if (tier === 'free' && monthlyImports >= FREE_MONTHLY_LIMIT) {
+        return res.status(403).json({ 
+          error: "Monthly import limit reached",
+          limit: FREE_MONTHLY_LIMIT,
+          used: monthlyImports,
+          upgrade: true
+        });
+      }
+
+      // Import the AI plan parser
+      const { parseAIPlan, validateParsedPlan } = await import('./services/aiPlanParser');
+      
+      // Parse the AI plan text
+      const parsedPlan = await parseAIPlan(text.trim());
+      
+      // Validate parsed plan
+      const validation = validateParsedPlan(parsedPlan);
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: "Failed to parse plan",
+          details: validation.errors 
+        });
+      }
+
+      // Create the import record
+      const planImport = await storage.createAiPlanImport({
+        userId: user.id,
+        source: source || parsedPlan.source || 'other',
+        sourceDevice: sourceDevice || 'web',
+        rawText: text.trim(),
+        parsedTitle: parsedPlan.title,
+        parsedDescription: parsedPlan.description || null,
+        parsedTasks: parsedPlan.tasks,
+        confidence: parsedPlan.confidence,
+        status: 'pending'
+      });
+
+      res.json({
+        success: true,
+        import: planImport,
+        parsed: {
+          title: parsedPlan.title,
+          description: parsedPlan.description,
+          tasks: parsedPlan.tasks,
+          confidence: parsedPlan.confidence
+        },
+        limits: {
+          used: monthlyImports + 1,
+          limit: tier === 'free' ? FREE_MONTHLY_LIMIT : null
+        }
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error importing plan:', error);
+      res.status(500).json({ 
+        error: "Failed to import plan",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get user's pending plan imports
+  app.get("/api/extensions/imports", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const status = req.query.status as string | undefined;
+      const imports = await storage.getUserAiPlanImports(user.id, status);
+      
+      res.json({ imports });
+    } catch (error) {
+      console.error('[EXTENSION] Error fetching imports:', error);
+      res.status(500).json({ error: "Failed to fetch imports" });
+    }
+  });
+
+  // Confirm a plan import and create an activity
+  app.post("/api/extensions/imports/:importId/confirm", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { importId } = req.params;
+      const { tasks, title, description } = req.body;
+
+      // Get the import
+      const planImport = await storage.getAiPlanImport(importId, user.id);
+      if (!planImport) {
+        return res.status(404).json({ error: "Import not found" });
+      }
+
+      if (planImport.status !== 'pending') {
+        return res.status(400).json({ error: "Import already processed" });
+      }
+
+      // Use provided tasks or fall back to parsed tasks
+      const finalTasks = tasks || planImport.parsedTasks;
+      const finalTitle = title || planImport.parsedTitle;
+      const finalDescription = description || planImport.parsedDescription;
+
+      // Create the activity
+      const activity = await storage.createActivity({
+        userId: user.id,
+        title: finalTitle,
+        description: finalDescription || undefined,
+        category: 'personal',
+        status: 'planning',
+        planSummary: `Imported from ${planImport.source}`,
+        tags: ['imported', planImport.source]
+      });
+
+      // Create tasks for the activity
+      let order = 0;
+      for (const task of finalTasks) {
+        order++;
+        await storage.createActivityTask({
+          activityId: activity.id,
+          title: task.title,
+          description: task.description || undefined,
+          category: task.category || 'personal',
+          priority: task.priority || 'medium',
+          completed: false,
+          order
+        });
+      }
+
+      // Confirm the import
+      await storage.confirmAiPlanImport(importId, user.id, activity.id);
+
+      res.json({
+        success: true,
+        activity,
+        tasksCreated: finalTasks.length
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error confirming import:', error);
+      res.status(500).json({ 
+        error: "Failed to confirm import",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Discard a plan import
+  app.delete("/api/extensions/imports/:importId", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { importId } = req.params;
+      await storage.discardAiPlanImport(importId, user.id);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[EXTENSION] Error discarding import:', error);
+      res.status(500).json({ error: "Failed to discard import" });
+    }
+  });
+
+  // Generate extension token for browser extension authentication
+  app.post("/api/extensions/tokens", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { platform, name } = req.body;
+      
+      if (!platform || !['chrome', 'firefox', 'edge', 'safari'].includes(platform)) {
+        return res.status(400).json({ error: "Valid platform required (chrome, firefox, edge, safari)" });
+      }
+
+      // Generate a secure random token
+      const token = crypto.randomBytes(32).toString('hex');
+      
+      // Set expiry to 1 year from now
+      const expiresAt = new Date();
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+      const extensionToken = await storage.createExtensionToken({
+        userId: user.id,
+        token,
+        name: name || `${platform.charAt(0).toUpperCase() + platform.slice(1)} Extension`,
+        platform,
+        isActive: true,
+        expiresAt
+      });
+
+      res.json({
+        success: true,
+        token: extensionToken.token,
+        expiresAt: extensionToken.expiresAt
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error creating token:', error);
+      res.status(500).json({ error: "Failed to create extension token" });
+    }
+  });
+
+  // List user's extension tokens
+  app.get("/api/extensions/tokens", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const tokens = await storage.getUserExtensionTokens(user.id);
+      
+      // Don't expose the actual token values
+      const safeTokens = tokens.map(t => ({
+        id: t.id,
+        name: t.name,
+        platform: t.platform,
+        isActive: t.isActive,
+        lastUsedAt: t.lastUsedAt,
+        createdAt: t.createdAt,
+        expiresAt: t.expiresAt
+      }));
+      
+      res.json({ tokens: safeTokens });
+    } catch (error) {
+      console.error('[EXTENSION] Error fetching tokens:', error);
+      res.status(500).json({ error: "Failed to fetch tokens" });
+    }
+  });
+
+  // Revoke an extension token
+  app.delete("/api/extensions/tokens/:tokenId", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { tokenId } = req.params;
+      await storage.revokeExtensionToken(tokenId, user.id);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[EXTENSION] Error revoking token:', error);
+      res.status(500).json({ error: "Failed to revoke token" });
+    }
+  });
+
+  // Extension authentication endpoint (using token instead of session)
+  app.post("/api/extensions/auth", async (req, res) => {
+    try {
+      const { token } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ error: "Token required" });
+      }
+
+      const extensionToken = await storage.getExtensionToken(token);
+      
+      if (!extensionToken) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      // Check if token is expired
+      if (extensionToken.expiresAt && new Date(extensionToken.expiresAt) < new Date()) {
+        return res.status(401).json({ error: "Token expired" });
+      }
+
+      // Update last used time
+      await storage.updateExtensionTokenActivity(token);
+
+      // Get user info
+      const user = await storage.getUser(extensionToken.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          subscriptionTier: user.subscriptionTier
+        }
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error authenticating:', error);
+      res.status(500).json({ error: "Authentication failed" });
+    }
+  });
+
+  // Extension-authenticated import endpoint (using token instead of session)
+  app.post("/api/extensions/import-with-token", async (req, res) => {
+    try {
+      const { token, text, source, sourceDevice } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ error: "Token required" });
+      }
+
+      const extensionToken = await storage.getExtensionToken(token);
+      
+      if (!extensionToken) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      if (extensionToken.expiresAt && new Date(extensionToken.expiresAt) < new Date()) {
+        return res.status(401).json({ error: "Token expired" });
+      }
+
+      const user = await storage.getUser(extensionToken.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      if (!text || typeof text !== 'string' || text.trim().length < 10) {
+        return res.status(400).json({ error: "Plan text is required (minimum 10 characters)" });
+      }
+
+      // Check subscription tier for import limits
+      const tier = user.subscriptionTier || 'free';
+      const monthlyImports = await storage.getUserMonthlyImportCount(user.id);
+      const FREE_MONTHLY_LIMIT = 3;
+      
+      if (tier === 'free' && monthlyImports >= FREE_MONTHLY_LIMIT) {
+        return res.status(403).json({ 
+          error: "Monthly import limit reached",
+          limit: FREE_MONTHLY_LIMIT,
+          used: monthlyImports,
+          upgrade: true
+        });
+      }
+
+      // Update token activity
+      await storage.updateExtensionTokenActivity(token);
+
+      // Import the AI plan parser
+      const { parseAIPlan, validateParsedPlan } = await import('./services/aiPlanParser');
+      
+      // Parse the AI plan text
+      const parsedPlan = await parseAIPlan(text.trim());
+      
+      // Validate parsed plan
+      const validation = validateParsedPlan(parsedPlan);
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: "Failed to parse plan",
+          details: validation.errors 
+        });
+      }
+
+      // Create the import record
+      const planImport = await storage.createAiPlanImport({
+        userId: user.id,
+        source: source || parsedPlan.source || 'extension',
+        sourceDevice: sourceDevice || 'web_extension',
+        rawText: text.trim(),
+        parsedTitle: parsedPlan.title,
+        parsedDescription: parsedPlan.description || null,
+        parsedTasks: parsedPlan.tasks,
+        confidence: parsedPlan.confidence,
+        status: 'pending'
+      });
+
+      res.json({
+        success: true,
+        import: planImport,
+        parsed: {
+          title: parsedPlan.title,
+          description: parsedPlan.description,
+          tasks: parsedPlan.tasks,
+          confidence: parsedPlan.confidence
+        },
+        limits: {
+          used: monthlyImports + 1,
+          limit: tier === 'free' ? FREE_MONTHLY_LIMIT : null
+        }
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error importing plan with token:', error);
+      res.status(500).json({ 
+        error: "Failed to import plan",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get import usage stats
+  app.get("/api/extensions/usage", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const tier = user.subscriptionTier || 'free';
+      const monthlyImports = await storage.getUserMonthlyImportCount(user.id);
+      const FREE_MONTHLY_LIMIT = 3;
+
+      res.json({
+        tier,
+        monthlyImports,
+        limit: tier === 'free' ? FREE_MONTHLY_LIMIT : null,
+        remaining: tier === 'free' ? Math.max(0, FREE_MONTHLY_LIMIT - monthlyImports) : null
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error fetching usage:', error);
+      res.status(500).json({ error: "Failed to fetch usage stats" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -1581,3 +1581,80 @@ export const insertJournalTemplateSchema = createInsertSchema(journalTemplates).
 
 export type JournalTemplate = typeof journalTemplates.$inferSelect;
 export type InsertJournalTemplate = z.infer<typeof insertJournalTemplateSchema>;
+
+// Extension/Mobile AI Plan Imports - tracks imported plans from ChatGPT, Claude, etc.
+export const aiPlanImports = pgTable("ai_plan_imports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  source: text("source").notNull(), // 'chatgpt' | 'claude' | 'gemini' | 'perplexity' | 'clipboard' | 'share_sheet' | 'extension'
+  sourceDevice: text("source_device").notNull(), // 'web_extension' | 'ios' | 'android' | 'web'
+  
+  // Original content
+  rawText: text("raw_text").notNull(),
+  parsedTitle: text("parsed_title").notNull(),
+  parsedDescription: text("parsed_description"),
+  
+  // Parsed tasks before user edits
+  parsedTasks: jsonb("parsed_tasks").$type<Array<{
+    title: string;
+    description?: string;
+    category: string;
+    priority: 'low' | 'medium' | 'high';
+    dueDate?: string;
+    timeEstimate?: string;
+    order: number;
+  }>>().notNull(),
+  
+  // AI parsing confidence
+  confidence: real("confidence").default(0),
+  
+  // Resulting activity (after user confirms)
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "set null" }),
+  
+  // Status
+  status: text("status").notNull().default("pending"), // 'pending' | 'confirmed' | 'discarded'
+  confirmedAt: timestamp("confirmed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("ai_plan_imports_user_id_index").on(table.userId),
+  statusIndex: index("ai_plan_imports_status_index").on(table.status),
+  createdAtIndex: index("ai_plan_imports_created_at_index").on(table.createdAt),
+}));
+
+// Type exports for AI plan imports
+export const insertAiPlanImportSchema = createInsertSchema(aiPlanImports).omit({
+  id: true,
+  createdAt: true,
+  confirmedAt: true,
+  activityId: true,
+});
+
+export type AiPlanImport = typeof aiPlanImports.$inferSelect;
+export type InsertAiPlanImport = z.infer<typeof insertAiPlanImportSchema>;
+
+// Extension tokens for secure authentication between browser extension and API
+export const extensionTokens = pgTable("extension_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  token: varchar("token").notNull().unique(), // Secure random token
+  name: text("name").notNull().default("Browser Extension"), // User-friendly device name
+  platform: text("platform").notNull(), // 'chrome' | 'firefox' | 'edge' | 'safari'
+  isActive: boolean("is_active").default(true),
+  lastUsedAt: timestamp("last_used_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("extension_tokens_user_id_index").on(table.userId),
+  tokenIndex: index("extension_tokens_token_index").on(table.token),
+}));
+
+// Type exports for extension tokens
+export const insertExtensionTokenSchema = createInsertSchema(extensionTokens).omit({
+  id: true,
+  createdAt: true,
+  lastUsedAt: true,
+});
+
+export type ExtensionToken = typeof extensionTokens.$inferSelect;
+export type InsertExtensionToken = z.infer<typeof insertExtensionTokenSchema>;
