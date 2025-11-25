@@ -16,7 +16,13 @@ interface User {
 }
 
 export function useAuth() {
-  const queryClient = useQueryClient();
+  let queryClient;
+  try {
+    queryClient = useQueryClient();
+  } catch {
+    // QueryClientProvider not yet mounted - during HMR/startup
+    queryClient = null;
+  }
 
   // Fetch user data using react-query
   const { data: user, isLoading, error } = useQuery<User | null>({
@@ -42,7 +48,7 @@ export function useAuth() {
       }),
     onSuccess: () => {
       // Clear all queries and redirect
-      queryClient.clear();
+      if (queryClient) queryClient.clear();
       window.location.href = '/';
     }
   });

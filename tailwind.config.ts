@@ -109,6 +109,22 @@ export default {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
       },
+      backdropFilter: {
+        'none': 'none',
+        'blur': 'blur(10px)',
+        'blur-sm': 'blur(4px)',
+        'blur-md': 'blur(12px)',
+        'blur-lg': 'blur(20px)',
+        'blur-xl': 'blur(30px)',
+      },
+      backgroundColor: {
+        'glass': 'rgba(255, 255, 255, 0.1)',
+        'glass-dark': 'rgba(15, 15, 35, 0.1)',
+      },
+      borderColor: {
+        'glass': 'rgba(255, 255, 255, 0.2)',
+        'glass-dark': 'rgba(255, 255, 255, 0.1)',
+      },
     },
   },
   plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
