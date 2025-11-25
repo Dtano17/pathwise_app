@@ -2948,7 +2948,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Only admins can remove other members' });
       }
 
+      // Get member and group info before removing
+      const leavingUser = await storage.getUser(memberId);
+      const group = await storage.getGroup(groupId);
+
       await storage.removeGroupMember(groupId, memberId);
+
+      // Create activity feed entry for member leaving
+      try {
+        console.log(`[LEAVE GROUP] Creating activity feed entry for ${leavingUser?.username || 'Someone'} leaving group ${groupId}`);
+        await storage.logGroupActivity({
+          groupId,
+          userId: memberId,
+          userName: leavingUser?.username || 'Someone',
+          activityType: 'member_left',
+          activityTitle: `${leavingUser?.username || 'Someone'} left the group`,
+          taskTitle: null,
+          groupActivityId: null,
+        });
+        console.log(`[LEAVE GROUP] Activity feed entry created`);
+      } catch (feedError) {
+        console.error('Error creating leave activity feed entry:', feedError);
+        // Don't fail the operation if feed logging fails
+      }
+
+      // Send notification to remaining group members
+      try {
+        console.log(`[LEAVE GROUP] Sending notification for user ${memberId} leaving group ${groupId}`);
+        await sendGroupNotification(storage, {
+          groupId,
+          actorUserId: memberId,
+          excludeUserIds: [memberId], // Don't notify the person who left
+          notificationType: 'member_removed',
+          payload: {
+            title: 'Member left',
+            body: `${leavingUser?.username || 'Someone'} left "${group?.name || 'the group'}"`,
+            data: { groupId, memberId },
+            route: `/groups/${groupId}`,
+          },
+        });
+        console.log(`[LEAVE GROUP] Notification sent successfully`);
+      } catch (notifError) {
+        console.error('Failed to send leave notification:', notifError);
+        // Don't fail the operation if notification fails
+      }
 
       res.json({ message: 'Member removed successfully' });
     } catch (error) {

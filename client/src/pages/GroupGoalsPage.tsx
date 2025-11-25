@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Users, UserPlus, CheckCircle2, Plus, Sparkles, ArrowRight, Circle, Share2, ArrowLeft, Home } from "lucide-react";
+import { Users, UserPlus, CheckCircle2, Plus, Sparkles, ArrowRight, Circle, Share2, ArrowLeft, Home, RefreshCw, LogOut } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "wouter";
@@ -77,16 +77,27 @@ export default function GroupGoalsPage() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedGroupForShare, setSelectedGroupForShare] = useState<string | null>(null);
 
-  // Fetch user's groups
-  const { data: groupsData, isLoading: groupsLoading} = useQuery<{ groups: Group[] }>({
+  // Fetch user's groups with auto-refresh every 10 seconds
+  const { data: groupsData, isLoading: groupsLoading, refetch: refetchGroups } = useQuery<{ groups: Group[] }>({
     queryKey: ["/api/groups"],
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
   const groups = groupsData?.groups || [];
 
-  // Fetch recent group activity
-  const { data: activities, isLoading: activitiesLoading } = useQuery<GroupActivity[]>({
+  // Fetch recent group activity with auto-refresh every 10 seconds
+  const { data: activities, isLoading: activitiesLoading, refetch: refetchActivities } = useQuery<GroupActivity[]>({
     queryKey: ["/api/groups/activity"],
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
+
+  // Manual refresh function for mobile users
+  const handleRefresh = async () => {
+    await Promise.all([refetchGroups(), refetchActivities()]);
+    toast({
+      title: "Refreshed",
+      description: "Groups and activity updated!",
+    });
+  };
 
   // Fetch user activities (only when dialog is open)
   const { data: userActivities = [] } = useQuery<Activity[]>({
@@ -282,6 +293,8 @@ export default function GroupGoalsPage() {
         return <Share2 className="w-5 h-5 text-purple-400" />;
       case "member_joined":
         return <UserPlus className="w-5 h-5 text-primary" />;
+      case "member_left":
+        return <LogOut className="w-5 h-5 text-orange-400" />;
       default:
         return <Users className="w-5 h-5 text-muted-foreground" />;
     }
@@ -297,6 +310,8 @@ export default function GroupGoalsPage() {
         return "bg-purple-500/10 border-purple-500/20";
       case "member_joined":
         return "bg-primary/10 border-primary/20";
+      case "member_left":
+        return "bg-orange-500/10 border-orange-500/20";
       default:
         return "bg-background/40 border-border/50";
     }
@@ -332,6 +347,12 @@ export default function GroupGoalsPage() {
             <span className="font-medium">{userName}</span> joined the group
           </>
         );
+      case "member_left":
+        return (
+          <>
+            <span className="font-medium">{userName}</span> left the group
+          </>
+        );
       default:
         return <span className="font-medium">{userName}</span>;
     }
@@ -359,12 +380,24 @@ export default function GroupGoalsPage() {
 
       {/* Header */}
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center gap-3 mb-2">
-          <Users className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold">Group Goals & Shared Accountability</h1>
-          <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-            Preview Mode
-          </Badge>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <Users className="w-8 h-8 text-primary" />
+            <h1 className="text-3xl font-bold">Group Goals & Shared Accountability</h1>
+            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+              Preview Mode
+            </Badge>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={handleRefresh}
+            data-testid="button-refresh-groups"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
         </div>
         <p className="text-muted-foreground">
           Create groups, share goals, and celebrate progress together!
