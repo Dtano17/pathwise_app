@@ -349,11 +349,11 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
     
     setIsRemixing(true);
     try {
-      const response = await apiRequest('/api/community-plans/remix/preview', {
-        method: 'POST',
-        body: JSON.stringify({ activityIds: Array.from(selectedForRemix) })
+      const response = await apiRequest('POST', '/api/community-plans/remix/preview', { 
+        activityIds: Array.from(selectedForRemix) 
       });
-      setRemixPreview(response.preview);
+      const data = await (response as any).json();
+      setRemixPreview(data.preview);
       setRemixDialogOpen(true);
     } catch (error) {
       toast({
@@ -371,15 +371,12 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
     
     setIsRemixing(true);
     try {
-      await apiRequest('/api/community-plans/remix/confirm', {
-        method: 'POST',
-        body: JSON.stringify({
-          activityIds: Array.from(selectedForRemix),
-          mergedTitle: remixPreview.mergedTitle,
-          mergedDescription: remixPreview.mergedDescription,
-          mergedTasks: remixPreview.mergedTasks,
-          attributions: remixPreview.attributions
-        })
+      await apiRequest('POST', '/api/community-plans/remix/confirm', {
+        activityIds: Array.from(selectedForRemix),
+        mergedTitle: remixPreview.mergedTitle,
+        mergedDescription: remixPreview.mergedDescription,
+        mergedTasks: remixPreview.mergedTasks,
+        attributions: remixPreview.attributions
       });
       
       toast({
