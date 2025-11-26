@@ -426,6 +426,32 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Feedback Section */}
+      <section className="py-20 bg-card/50">
+        <div className="container mx-auto px-4">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <Card className="border-2 border-purple-200 dark:border-purple-900 overflow-hidden">
+              <CardContent className="p-8 md:p-12 text-center">
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">Have a Feature Request?</h2>
+                <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
+                  We'd love to hear your ideas for making JournalMate even better.
+                </p>
+                <a href="mailto:support@journalmate.ai">
+                  <Button size="lg" className="gap-2 bg-gradient-to-r from-purple-500 to-violet-600 text-white" data-testid="button-share-feedback">
+                    <Share2 className="w-4 h-4" />
+                    Share Your Feedback
+                  </Button>
+                </a>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 bg-card/50">
         <div className="container mx-auto px-4">
@@ -524,6 +550,10 @@ export default function LandingPage() {
               <div className="flex items-center gap-1">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                 Voice-to-Text
+              </div>
+              <div className="flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                Calendar Sync
               </div>
             </div>
           </motion.div>
