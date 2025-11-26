@@ -1710,51 +1710,54 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
 
       {/* Remix Mode Floating Action Bar */}
       {remixMode && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent z-50">
+        <div className="fixed bottom-0 left-0 right-0 p-2 sm:p-4 bg-gradient-to-t from-background via-background to-transparent z-50">
           <div className="max-w-2xl mx-auto">
-            <Card className="p-4 shadow-lg border-purple-200 dark:border-purple-800">
-              <div className="flex items-center justify-between gap-4">
+            <Card className="p-3 sm:p-4 shadow-lg border-purple-200 dark:border-purple-800">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                 <div className="flex-1">
-                  <p className="font-medium text-foreground">
+                  <p className="font-medium text-foreground text-sm sm:text-base">
                     {selectedForRemix.size === 0 
                       ? "Select plans to remix" 
                       : `${selectedForRemix.size} plan${selectedForRemix.size !== 1 ? 's' : ''} selected`
                     }
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     {selectedForRemix.size < 2 
                       ? "Select at least 2 plans" 
                       : "Ready to create your remix"
                     }
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full sm:w-auto">
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => {
                       setRemixMode(false);
                       setSelectedForRemix(new Set());
                     }}
                     data-testid="button-cancel-remix"
+                    className="flex-1 sm:flex-none"
                   >
-                    <X className="w-4 h-4 mr-2" />
-                    Cancel
+                    <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    <span className="text-xs sm:text-sm">Cancel</span>
                   </Button>
                   <Button
-                    className="bg-gradient-to-r from-purple-500 to-violet-600 text-white"
+                    size="sm"
+                    className="flex-1 sm:flex-none bg-gradient-to-r from-purple-500 to-violet-600 text-white"
                     onClick={handleRemixPreview}
                     disabled={selectedForRemix.size < 2 || isRemixing}
                     data-testid="button-preview-remix"
                   >
                     {isRemixing ? (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Processing...
+                        <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 animate-spin" />
+                        <span className="text-xs sm:text-sm">Processing...</span>
                       </>
                     ) : (
                       <>
-                        <Combine className="w-4 h-4 mr-2" />
-                        Remix {selectedForRemix.size} Plans
+                        <Combine className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                        <span className="text-xs sm:text-sm">Remix {selectedForRemix.size}</span>
                       </>
                     )}
                   </Button>

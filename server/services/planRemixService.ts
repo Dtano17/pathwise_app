@@ -35,7 +35,8 @@ export interface RemixResult {
   };
 }
 
-function normalizeTitle(title: string): string {
+function normalizeTitle(title: string | undefined): string {
+  if (!title) return '';
   return title
     .toLowerCase()
     .replace(/[^\w\s]/g, '')
@@ -147,6 +148,7 @@ export async function createRemix(activityIds: string[]): Promise<RemixResult> {
 
     for (let i = 0; i < tasksForThisActivity.length; i++) {
       const t = tasksForThisActivity[i];
+      if (!t.title) continue; // Skip tasks without titles
       allTasks.push({
         title: t.title,
         description: t.description || undefined,
