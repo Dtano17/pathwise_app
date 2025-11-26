@@ -17,6 +17,8 @@ import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import SubscriptionCanceled from "@/pages/SubscriptionCanceled";
 import ImportPlan from "@/pages/ImportPlan";
 import Updates from "@/pages/Updates";
+import Privacy from "@/pages/Privacy";
+import Terms from "@/pages/Terms";
 import LandingPage from "@/pages/LandingPage";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
@@ -83,6 +85,12 @@ function AppContent() {
         
         {/* Updates/Blog Page (no sidebar) */}
         <Route path="/updates" component={Updates} />
+        
+        {/* Privacy Policy Page (no sidebar) */}
+        <Route path="/privacy" component={Privacy} />
+        
+        {/* Terms of Service Page (no sidebar) */}
+        <Route path="/terms" component={Terms} />
         
         {/* Main App Route - Shows landing page for unauthenticated users, main app for authenticated */}
         <Route path="/">
