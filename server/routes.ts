@@ -5011,17 +5011,16 @@ ${emoji} ${progressLine}
       };
       
       // Check if activity belongs to any group (for progress sharing)
-      // ALWAYS check group_activities table first - it's the authoritative source
+      // Priority: 1. group_activities table, 2. share_links.groupId, 3. activity.targetGroupId
       let activityGroupId: string | null = null;
       let groupActivityRecordId: string | null = null;
       
+      // First check group_activities table - this is the authoritative source for group association
       try {
-        // First check group_activities table - this is the authoritative source for group association
-        const groupCheckResult = await pool.query(
-          `SELECT id, group_id FROM group_activities WHERE activity_id = $1 LIMIT 1`,
-          [sharedActivity.id]
-        );
-        if (groupCheckResult.rows.length > 0) {
+        const groupCheckResult: any = await db.execute(drizzleSql.raw(`
+          SELECT id, group_id FROM group_activities WHERE activity_id = '${sharedActivity.id}' LIMIT 1
+        `));
+        if (groupCheckResult.rows && groupCheckResult.rows.length > 0) {
           activityGroupId = groupCheckResult.rows[0].group_id;
           groupActivityRecordId = groupCheckResult.rows[0].id;
           console.log('[COPY ACTIVITY] ✅ Found group from group_activities:', { activityGroupId, groupActivityRecordId });
@@ -5030,18 +5029,38 @@ ${emoji} ${progressLine}
         console.error('[COPY ACTIVITY] Error checking group_activities:', err);
       }
       
-      // Fallback to targetGroupId if no group_activities record found
+      // If no group found, check share_links table for groupId (stored when activity was shared)
+      if (!activityGroupId) {
+        try {
+          const shareLink = await storage.getShareLink(shareToken);
+          if (shareLink?.groupId) {
+            activityGroupId = shareLink.groupId;
+            console.log('[COPY ACTIVITY] ✅ Found group from share_links:', activityGroupId);
+            
+            // Now try to find the group_activities record for this group
+            const gaResult: any = await db.execute(drizzleSql.raw(`
+              SELECT id FROM group_activities WHERE activity_id = '${sharedActivity.id}' AND group_id = '${activityGroupId}' LIMIT 1
+            `));
+            if (gaResult.rows && gaResult.rows.length > 0) {
+              groupActivityRecordId = gaResult.rows[0].id;
+            }
+          }
+        } catch (err) {
+          console.error('[COPY ACTIVITY] Error checking share_links for groupId:', err);
+        }
+      }
+      
+      // Fallback to activity.targetGroupId if no group found from other sources
       if (!activityGroupId && sharedActivity.targetGroupId) {
         activityGroupId = sharedActivity.targetGroupId;
         console.log('[COPY ACTIVITY] Using targetGroupId as fallback:', activityGroupId);
         
         // Try to find group_activities record
         try {
-          const gaResult = await pool.query(
-            `SELECT id FROM group_activities WHERE activity_id = $1 AND group_id = $2 LIMIT 1`,
-            [sharedActivity.id, activityGroupId]
-          );
-          if (gaResult.rows.length > 0) {
+          const gaResult: any = await db.execute(drizzleSql.raw(`
+            SELECT id FROM group_activities WHERE activity_id = '${sharedActivity.id}' AND group_id = '${activityGroupId}' LIMIT 1
+          `));
+          if (gaResult.rows && gaResult.rows.length > 0) {
             groupActivityRecordId = gaResult.rows[0].id;
           }
         } catch (err) {
@@ -5139,35 +5158,15 @@ ${emoji} ${progressLine}
       // Count preserved progress
       const preservedCompletions = copiedTasks.filter(t => t.completed).length;
       
-      // Find the group ID - either from targetGroupId or from group_activities table
-      let groupIdToJoin = sharedActivity.targetGroupId;
-      console.log('[COPY ACTIVITY] 🔍 Group join attempt - Initial check:', {
-        targetGroupId: sharedActivity.targetGroupId,
+      // Use the already-resolved activityGroupId for group join
+      // This was resolved earlier from: group_activities table -> share_links.groupId -> activity.targetGroupId
+      const groupIdToJoin = activityGroupId;
+      console.log('[COPY ACTIVITY] 🔍 Group join check:', {
+        groupIdToJoin,
         joinGroupFlag: joinGroup,
         currentUserId,
         shareToken
       });
-      
-      if (!groupIdToJoin) {
-        // Check if activity is in any group
-        console.log('[COPY ACTIVITY] 🔍 No targetGroupId, checking group_activities table...');
-        try {
-          const groupActivitiesResult = await pool.query(
-            `SELECT group_id FROM group_activities WHERE activity_id = $1 LIMIT 1`,
-            [sharedActivity.id]
-          );
-          if (groupActivitiesResult.rows.length > 0) {
-            groupIdToJoin = groupActivitiesResult.rows[0].group_id;
-            console.log('[COPY ACTIVITY] ✅ Found group from group_activities:', groupIdToJoin);
-          } else {
-            console.log('[COPY ACTIVITY] ❌ No group found in group_activities table');
-          }
-        } catch (err) {
-          console.error('[COPY ACTIVITY] ❌ Error checking group_activities:', err);
-        }
-      } else {
-        console.log('[COPY ACTIVITY] ✅ Group found from targetGroupId:', groupIdToJoin);
-      }
       
       // Join group if user opted in (joinGroup=true) and we found a group
       let joinedGroup = null;
