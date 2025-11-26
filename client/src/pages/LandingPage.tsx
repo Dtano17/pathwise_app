@@ -63,6 +63,13 @@ const features = [
     description: "Discover emergency plans and trending activities near you. Connect with local community goals.",
     color: "text-violet-500",
     bgColor: "bg-violet-100 dark:bg-violet-900/30"
+  },
+  {
+    icon: TrendingUp,
+    title: "Share Plans & Get Rewards",
+    description: "Share your plans on Instagram, TikTok, LinkedIn, X, and Facebook. Tag @JournalMate and unlock rewards.",
+    color: "text-rose-500",
+    bgColor: "bg-rose-100 dark:bg-rose-900/30"
   }
 ];
 
