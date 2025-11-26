@@ -4508,7 +4508,8 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
               name: group.name,
               description: group.description,
               memberCount: members.length,
-              isUserMember
+              isUserMember,
+              inviteCode: group.inviteCode || null
             };
           }
         } catch (error) {
@@ -4540,7 +4541,8 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
                 name: group.name,
                 description: group.description || null,
                 memberCount: members.length,
-                isUserMember
+                isUserMember,
+                inviteCode: group.inviteCode || null
               };
               console.log('[SHARE] ✅ Built groupInfo from share_links:', groupInfo);
             }
@@ -4555,7 +4557,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         console.log('[SHARE] Checking group_activities table for activity:', activity.id);
         try {
           const groupActivitiesResult: any = await db.execute(drizzleSql.raw(`
-            SELECT ga.group_id, g.name, g.description
+            SELECT ga.group_id, g.name, g.description, g.invite_code
             FROM group_activities ga
             INNER JOIN groups g ON ga.group_id = g.id
             WHERE ga.activity_id = '${activity.id}'
@@ -4581,7 +4583,8 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
               name: groupRow.name,
               description: groupRow.description || null,
               memberCount: members.length,
-              isUserMember
+              isUserMember,
+              inviteCode: groupRow.invite_code || null
             };
             console.log('[SHARE] Built groupInfo from group_activities:', groupInfo);
           }
@@ -5453,7 +5456,8 @@ ${emoji} ${progressLine}
               name: group.name,
               description: group.description,
               memberCount: members.length,
-              isUserMember: isGroupMember
+              isUserMember: isGroupMember,
+              inviteCode: group.inviteCode || null
             };
           }
         } catch (groupErr) {
@@ -5466,7 +5470,7 @@ ${emoji} ${progressLine}
         console.log('[SHARE] Checking group_activities table for activity:', activity.id);
         try {
           const groupActivitiesResult: any = await db.execute(drizzleSql.raw(`
-            SELECT ga.group_id, g.name, g.description
+            SELECT ga.group_id, g.name, g.description, g.invite_code
             FROM group_activities ga
             INNER JOIN groups g ON ga.group_id = g.id
             WHERE ga.activity_id = '${activity.id}'
@@ -5493,7 +5497,8 @@ ${emoji} ${progressLine}
               name: groupRow.name,
               description: groupRow.description || null,
               memberCount: members.length,
-              isUserMember: isGroupMember
+              isUserMember: isGroupMember,
+              inviteCode: groupRow.invite_code || null
             };
             console.log('[SHARE] Built groupInfo:', groupInfo);
           }
