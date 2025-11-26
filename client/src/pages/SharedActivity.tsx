@@ -881,6 +881,13 @@ export default function SharedActivity() {
                 </Button>
               </div>
               <div className="flex items-center gap-2 flex-wrap justify-center">
+                {data.linkStatus && (
+                  <LinkStatusIndicator
+                    linkStatus={data.linkStatus}
+                    onRefresh={() => refetch()}
+                    isRefreshing={isRefetching}
+                  />
+                )}
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -952,15 +959,6 @@ export default function SharedActivity() {
                     <Share2 className="w-4 h-4" />
                     <span>Shared by {data.sharedBy.name}</span>
                   </div>
-                )}
-                
-                {/* Link Status Indicator - shows when content is outdated or deleted */}
-                {data.linkStatus && (
-                  <LinkStatusIndicator
-                    linkStatus={data.linkStatus}
-                    onRefresh={() => refetch()}
-                    isRefreshing={isRefetching}
-                  />
                 )}
                 
                 <div className="flex flex-wrap items-center justify-center gap-3">
