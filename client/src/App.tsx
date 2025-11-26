@@ -19,6 +19,7 @@ import ImportPlan from "@/pages/ImportPlan";
 import Updates from "@/pages/Updates";
 import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
+import Support from "@/pages/Support";
 import LandingPage from "@/pages/LandingPage";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
@@ -91,6 +92,9 @@ function AppContent() {
         
         {/* Terms of Service Page (no sidebar) */}
         <Route path="/terms" component={Terms} />
+        
+        {/* Support & Help Page (no sidebar) */}
+        <Route path="/support" component={Support} />
         
         {/* Main App Route - Shows landing page for unauthenticated users, main app for authenticated */}
         <Route path="/">
