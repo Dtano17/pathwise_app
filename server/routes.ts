@@ -11998,11 +11998,6 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   // Preview a remix of selected plans
   app.post("/api/community-plans/remix/preview", async (req, res) => {
     try {
-      const user = req.user as User;
-      if (!user) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
       const { activityIds } = req.body;
       
       if (!activityIds || !Array.isArray(activityIds) || activityIds.length < 2) {
@@ -12032,10 +12027,10 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   // Confirm and save a plan remix
   app.post("/api/community-plans/remix/confirm", async (req, res) => {
     try {
-      const user = req.user as User;
-      if (!user) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
+      const user = req.user || (req as any).user || null;
+      
+      // Allow demo users or authenticated users
+      const userId = user?.id || 'demo-user';
 
       const { 
         activityIds, 
@@ -12051,7 +12046,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
 
       // Create the new activity from the remix
       const activity = await storage.createActivity({
-        userId: user.id,
+        userId: userId,
         title: mergedTitle,
         description: mergedDescription || `Remixed from ${activityIds.length} community plans`,
         category: mergedTasks[0]?.category || 'personal',
