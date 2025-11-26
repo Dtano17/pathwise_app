@@ -84,9 +84,6 @@ function AppContent() {
         {/* Updates/Blog Page (no sidebar) */}
         <Route path="/updates" component={Updates} />
         
-        {/* Landing Page (no sidebar, publicly accessible) */}
-        <Route path="/welcome" component={LandingPage} />
-        
         {/* Main App Route - Shows landing page for unauthenticated users, main app for authenticated */}
         <Route path="/">
           {isAuthenticated ? (
@@ -146,6 +143,7 @@ function AppContent() {
             <LandingPage />
           )}
         </Route>
+        
       </Switch>
       {user?.id && <NotificationService userId={user.id} />}
       <Toaster />
