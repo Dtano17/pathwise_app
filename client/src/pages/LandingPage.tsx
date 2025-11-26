@@ -470,24 +470,17 @@ export default function LandingPage() {
             
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Take JournalMate Everywhere</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
-              Download our native app for iOS and Android with home screen widgets, push notifications, and offline support.
+              Download our Capacitor app for Android with home screen widgets, push notifications, biometric auth, and offline support. iOS coming soon.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a 
-                href="https://apps.apple.com/app/journalmate" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                data-testid="link-app-store-bottom"
-              >
-                <div className="flex items-center gap-2 bg-black text-white px-6 py-4 rounded-xl hover:bg-gray-800 transition-colors">
-                  <SiApple className="w-8 h-8" />
-                  <div className="text-left">
-                    <div className="text-xs">Download on the</div>
-                    <div className="text-xl font-semibold -mt-1">App Store</div>
-                  </div>
+              <div className="flex items-center gap-2 bg-gray-200 dark:bg-gray-800 text-foreground px-6 py-4 rounded-xl opacity-60">
+                <SiApple className="w-8 h-8" />
+                <div className="text-left">
+                  <div className="text-xs">Available on the</div>
+                  <div className="text-xl font-semibold -mt-1">App Store</div>
                 </div>
-              </a>
+              </div>
               <a 
                 href="https://play.google.com/store/apps/details?id=ai.journalmate.app" 
                 target="_blank" 
@@ -497,11 +490,15 @@ export default function LandingPage() {
                 <div className="flex items-center gap-2 bg-black text-white px-6 py-4 rounded-xl hover:bg-gray-800 transition-colors">
                   <SiGoogleplay className="w-7 h-7" />
                   <div className="text-left">
-                    <div className="text-xs">GET IT ON</div>
+                    <div className="text-xs">Download on</div>
                     <div className="text-xl font-semibold -mt-1">Google Play</div>
                   </div>
                 </div>
               </a>
+            </div>
+            
+            <div className="mt-4 text-sm text-muted-foreground">
+              <p>iOS App Store coming soon • Android Capacitor App available now</p>
             </div>
 
             <div className="mt-8 flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
@@ -531,9 +528,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
+              <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-8 h-8 rounded-lg" />
               <span className="font-bold text-xl">JournalMate</span>
             </div>
             
