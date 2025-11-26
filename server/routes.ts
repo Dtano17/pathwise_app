@@ -12055,25 +12055,31 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         tags: ['remix', 'community']
       });
 
-      // Create tasks for the activity
-      let order = 0;
-      for (const task of mergedTasks) {
-        order++;
-        await storage.createActivityTask({
-          activityId: activity.id,
-          title: task.title,
-          description: task.description || undefined,
-          category: task.category || 'personal',
-          priority: task.priority || 'medium',
-          completed: false,
-          order
+      // Create tasks and link them to the activity
+      const createdTasks = [];
+      for (let i = 0; i < mergedTasks.length; i++) {
+        const taskData = mergedTasks[i];
+        
+        // First create the actual task in the tasks table
+        const task = await storage.createTask({
+          title: taskData.title,
+          description: taskData.description || undefined,
+          category: taskData.category || 'personal',
+          priority: taskData.priority || 'medium',
+          userId: userId
         });
+        
+        // Then link it to the activity with proper ordering
+        await storage.addTaskToActivity(activity.id, task.id, i);
+        createdTasks.push(task);
       }
+
+      console.log(`[PLAN REMIX] Created ${createdTasks.length} tasks for remixed activity ${activity.id}`);
 
       res.json({
         success: true,
         activity,
-        tasksCreated: mergedTasks.length,
+        tasksCreated: createdTasks.length,
         stats: {
           sourcePlans: activityIds.length,
           attributions

@@ -1,5 +1,5 @@
 import { db } from "../storage";
-import { activities, activityTasks, users } from "@shared/schema";
+import { activities, activityTasks, tasks, users } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
 
 interface RemixTask {
@@ -127,16 +127,33 @@ export async function createRemix(activityIds: string[]): Promise<RemixResult> {
     }
   }
 
+  // Join activityTasks with tasks table to get the actual task data
   const activityTaskList = await db
-    .select()
+    .select({
+      activityId: activityTasks.activityId,
+      taskId: activityTasks.taskId,
+      order: activityTasks.order,
+      // Task data from tasks table
+      title: tasks.title,
+      description: tasks.description,
+      category: tasks.category,
+      priority: tasks.priority,
+      dueDate: tasks.dueDate,
+      timeEstimate: tasks.timeEstimate,
+    })
     .from(activityTasks)
+    .innerJoin(tasks, eq(activityTasks.taskId, tasks.id))
     .where(inArray(activityTasks.activityId, activityIds));
+
+  console.log(`[PLAN REMIX] Found ${activityTaskList.length} tasks from ${activityIds.length} activities`);
 
   const allTasks: RemixTask[] = [];
   const attributions: Attribution[] = [];
 
   for (const activity of selectedActivities) {
     const tasksForThisActivity = activityTaskList.filter(t => t.activityId === activity.id);
+    
+    console.log(`[PLAN REMIX] Activity "${activity.title}" has ${tasksForThisActivity.length} tasks`);
     
     attributions.push({
       activityId: activity.id,
@@ -162,6 +179,8 @@ export async function createRemix(activityIds: string[]): Promise<RemixResult> {
       });
     }
   }
+  
+  console.log(`[PLAN REMIX] Total tasks collected: ${allTasks.length}`);
 
   const originalTaskCount = allTasks.length;
   const deduplicatedTasks: RemixTask[] = [];
