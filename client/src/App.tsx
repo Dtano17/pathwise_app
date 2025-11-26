@@ -17,6 +17,7 @@ import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import SubscriptionCanceled from "@/pages/SubscriptionCanceled";
 import ImportPlan from "@/pages/ImportPlan";
 import Updates from "@/pages/Updates";
+import LandingPage from "@/pages/LandingPage";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
 import { useAuth } from "@/hooks/useAuth";
@@ -82,6 +83,9 @@ function AppContent() {
         
         {/* Updates/Blog Page (no sidebar) */}
         <Route path="/updates" component={Updates} />
+        
+        {/* Landing Page (no sidebar, publicly accessible) */}
+        <Route path="/welcome" component={LandingPage} />
         
         {/* Main App with Sidebar */}
         <Route>
