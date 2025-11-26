@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Mic, MicOff, Send, User, Bot, Sparkles, Target, ListTodo, CheckCircle, Clock } from "lucide-react";
+import { Loader2, Mic, MicOff, Send, User, Bot, Sparkles, Target, ListTodo, CheckCircle, Clock, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -33,8 +33,11 @@ export default function LiveChatInterface({
   const [isParsingPaste, setIsParsingPaste] = useState(false);
   const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [isParsingFiles, setIsParsingFiles] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -173,6 +176,19 @@ export default function LiveChatInterface({
   const clearConversation = () => {
     setConversation([]);
     setMessage('');
+    setUploadedFiles([]);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.currentTarget.files;
+    if (!files) return;
+
+    const newFiles = Array.from(files);
+    setUploadedFiles(prev => [...prev, ...newFiles]);
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handlePaste = async (e: React.ClipboardEvent) => {
@@ -433,20 +449,40 @@ export default function LiveChatInterface({
               onPaste={handlePaste}
               placeholder={placeholder}
               className="min-h-[60px] max-h-[120px] resize-none"
-              disabled={chatMutation.isPending || isParsingPaste}
+              disabled={chatMutation.isPending || isParsingPaste || isParsingFiles}
               data-testid="input-chat-message"
             />
-            {isParsingPaste && (
+            {(isParsingPaste || isParsingFiles) && (
               <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex items-center justify-center rounded-md">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Sparkles className="h-4 w-4 animate-pulse" />
-                  <span>Analyzing pasted content...</span>
+                  <span>{isParsingFiles ? 'Processing documents...' : 'Analyzing pasted content...'}</span>
                 </div>
               </div>
             )}
           </div>
           
           <div className="flex flex-col gap-2">
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              variant="outline"
+              size="icon"
+              className="w-12 h-12"
+              disabled={chatMutation.isPending || isParsingFiles}
+              data-testid="button-upload-file"
+            >
+              <Upload className="w-4 h-4" />
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx,.rtf"
+              className="hidden"
+              onChange={handleFileSelect}
+              data-testid="input-file-upload"
+            />
+            
             <Button
               onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
               variant={isRecording ? "destructive" : "outline"}
@@ -460,7 +496,7 @@ export default function LiveChatInterface({
             
             <Button
               onClick={handleSubmit}
-              disabled={!message.trim() || chatMutation.isPending}
+              disabled={(!message.trim() && uploadedFiles.length === 0) || chatMutation.isPending}
               size="icon"
               className="w-12 h-12"
               data-testid="button-send-message"
@@ -473,6 +509,23 @@ export default function LiveChatInterface({
             </Button>
           </div>
         </div>
+
+        {uploadedFiles.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {uploadedFiles.map((file, index) => (
+              <Badge key={index} variant="secondary" className="gap-1 px-2">
+                <span className="text-xs truncate max-w-[100px]">{file.name}</span>
+                <button
+                  onClick={() => removeFile(index)}
+                  className="ml-1 hover:opacity-70"
+                  data-testid={`button-remove-file-${index}`}
+                >
+                  ×
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
         
         {conversation.length > 0 && (
           <div className="flex justify-between items-center mt-3">

@@ -422,7 +422,8 @@ export default function UserProfile() {
                         <Label htmlFor="firstName">First Name</Label>
                         <Input
                           id="firstName"
-                          defaultValue={profile.firstName || ''}
+                          value={formData.firstName}
+                          onChange={(e) => setFormData({...formData, firstName: e.target.value})}
                           placeholder="Your first name"
                           data-testid="input-first-name"
                         />
@@ -431,7 +432,8 @@ export default function UserProfile() {
                         <Label htmlFor="lastName">Last Name</Label>
                         <Input
                           id="lastName"
-                          defaultValue={profile.lastName || ''}
+                          value={formData.lastName}
+                          onChange={(e) => setFormData({...formData, lastName: e.target.value})}
                           placeholder="Your last name"
                           data-testid="input-last-name"
                         />
@@ -442,7 +444,8 @@ export default function UserProfile() {
                       <Label htmlFor="nickname">Nickname/Display Name</Label>
                       <Input
                         id="nickname"
-                        defaultValue={profile.nickname || ''}
+                        value={formData.nickname}
+                        onChange={(e) => setFormData({...formData, nickname: e.target.value})}
                         placeholder="How you'd like to be called"
                         data-testid="input-nickname"
                       />
@@ -453,7 +456,8 @@ export default function UserProfile() {
                       <Input
                         id="email"
                         type="email"
-                        defaultValue={profile.email || ''}
+                        value={formData.email}
+                        onChange={(e) => setFormData({...formData, email: e.target.value})}
                         placeholder="your.email@example.com"
                         data-testid="input-email"
                       />
@@ -463,7 +467,8 @@ export default function UserProfile() {
                       <Label htmlFor="publicBio">Public Bio</Label>
                       <Textarea
                         id="publicBio"
-                        defaultValue={profile.publicBio || ''}
+                        value={formData.publicBio}
+                        onChange={(e) => setFormData({...formData, publicBio: e.target.value})}
                         placeholder="Tell others about yourself..."
                         className="resize-none"
                         rows={3}
@@ -473,23 +478,13 @@ export default function UserProfile() {
 
                     <Button
                       onClick={() => {
-                        const formData = new FormData();
-                        const form = document.querySelector('[data-testid="input-first-name"]')?.closest('div')?.parentElement;
-                        if (form) {
-                          const firstName = (form.querySelector('[data-testid="input-first-name"]') as HTMLInputElement)?.value;
-                          const lastName = (form.querySelector('[data-testid="input-last-name"]') as HTMLInputElement)?.value;
-                          const nickname = (form.querySelector('[data-testid="input-nickname"]') as HTMLInputElement)?.value;
-                          const email = (form.querySelector('[data-testid="input-email"]') as HTMLInputElement)?.value;
-                          const publicBio = (form.querySelector('[data-testid="textarea-public-bio"]') as HTMLTextAreaElement)?.value;
-
-                          updateProfileMutation.mutate({
-                            firstName: firstName || undefined,
-                            lastName: lastName || undefined,
-                            nickname: nickname || undefined,
-                            email: email || undefined,
-                            publicBio: publicBio || undefined,
-                          });
-                        }
+                        updateProfileMutation.mutate({
+                          firstName: formData.firstName || undefined,
+                          lastName: formData.lastName || undefined,
+                          nickname: formData.nickname || undefined,
+                          email: formData.email || undefined,
+                          publicBio: formData.publicBio || undefined,
+                        });
                       }}
                       disabled={updateProfileMutation.isPending}
                       className="w-full"
@@ -517,7 +512,8 @@ export default function UserProfile() {
                       <Input
                         id="birthDate"
                         type="date"
-                        defaultValue={profile.birthDate || ''}
+                        value={formData.birthDate}
+                        onChange={(e) => setFormData({...formData, birthDate: e.target.value})}
                         data-testid="input-birth-date"
                       />
                     </div>
@@ -527,7 +523,8 @@ export default function UserProfile() {
                         <Label htmlFor="height">Height</Label>
                         <Input
                           id="height"
-                          defaultValue={profile.height || ''}
+                          value={formData.height}
+                          onChange={(e) => setFormData({...formData, height: e.target.value})}
                           placeholder="e.g., 5'10&quot; or 178cm"
                           data-testid="input-height"
                         />
@@ -536,7 +533,8 @@ export default function UserProfile() {
                         <Label htmlFor="weight">Weight</Label>
                         <Input
                           id="weight"
-                          defaultValue={profile.weight || ''}
+                          value={formData.weight}
+                          onChange={(e) => setFormData({...formData, weight: e.target.value})}
                           placeholder="e.g., 150 lbs or 68 kg"
                           data-testid="input-weight"
                         />
@@ -547,7 +545,8 @@ export default function UserProfile() {
                       <Label htmlFor="ethnicity">Ethnicity (Optional)</Label>
                       <Input
                         id="ethnicity"
-                        defaultValue={profile.ethnicity || ''}
+                        value={formData.ethnicity}
+                        onChange={(e) => setFormData({...formData, ethnicity: e.target.value})}
                         placeholder="Your ethnic background"
                         data-testid="input-ethnicity"
                       />
@@ -558,7 +557,8 @@ export default function UserProfile() {
                         <Label htmlFor="location">Location</Label>
                         <Input
                           id="location"
-                          defaultValue={profile.location || ''}
+                          value={formData.location}
+                          onChange={(e) => setFormData({...formData, location: e.target.value})}
                           placeholder="City, State/Country"
                           data-testid="input-location"
                         />
@@ -567,7 +567,8 @@ export default function UserProfile() {
                         <Label htmlFor="occupation">Occupation</Label>
                         <Input
                           id="occupation"
-                          defaultValue={profile.occupation || ''}
+                          value={formData.occupation}
+                          onChange={(e) => setFormData({...formData, occupation: e.target.value})}
                           placeholder="Your job title"
                           data-testid="input-occupation"
                         />
@@ -576,24 +577,14 @@ export default function UserProfile() {
 
                     <Button
                       onClick={() => {
-                        const form = document.querySelector('[data-testid="input-birth-date"]')?.closest('div')?.parentElement;
-                        if (form) {
-                          const birthDate = (form.querySelector('[data-testid="input-birth-date"]') as HTMLInputElement)?.value;
-                          const height = (form.querySelector('[data-testid="input-height"]') as HTMLInputElement)?.value;
-                          const weight = (form.querySelector('[data-testid="input-weight"]') as HTMLInputElement)?.value;
-                          const ethnicity = (form.querySelector('[data-testid="input-ethnicity"]') as HTMLInputElement)?.value;
-                          const location = (form.querySelector('[data-testid="input-location"]') as HTMLInputElement)?.value;
-                          const occupation = (form.querySelector('[data-testid="input-occupation"]') as HTMLInputElement)?.value;
-
-                          updateProfileMutation.mutate({
-                            birthDate: birthDate || undefined,
-                            height: height || undefined,
-                            weight: weight || undefined,
-                            ethnicity: ethnicity || undefined,
-                            location: location || undefined,
-                            occupation: occupation || undefined,
-                          });
-                        }
+                        updateProfileMutation.mutate({
+                          birthDate: formData.birthDate || undefined,
+                          height: formData.height || undefined,
+                          weight: formData.weight || undefined,
+                          ethnicity: formData.ethnicity || undefined,
+                          location: formData.location || undefined,
+                          occupation: formData.occupation || undefined,
+                        });
                       }}
                       disabled={updateProfileMutation.isPending}
                       className="w-full"
@@ -673,7 +664,8 @@ export default function UserProfile() {
                       <Label htmlFor="privateBio">Private Bio & Notes</Label>
                       <Textarea
                         id="privateBio"
-                        defaultValue={profile.privateBio || ''}
+                        value={formData.privateBio}
+                        onChange={(e) => setFormData({...formData, privateBio: e.target.value})}
                         placeholder="Personal notes, reminders, or private thoughts about yourself..."
                         className="resize-none"
                         rows={6}
@@ -686,9 +678,8 @@ export default function UserProfile() {
 
                     <Button
                       onClick={() => {
-                        const privateBio = (document.querySelector('[data-testid="textarea-private-bio"]') as HTMLTextAreaElement)?.value;
                         updateProfileMutation.mutate({
-                          privateBio: privateBio || undefined,
+                          privateBio: formData.privateBio || undefined,
                         });
                       }}
                       disabled={updateProfileMutation.isPending}
