@@ -5047,42 +5047,43 @@ ${emoji} ${progressLine}
       };
       
       // Check if activity belongs to any group (for progress sharing)
-      // Priority: 1. group_activities table, 2. share_links.groupId, 3. activity.targetGroupId
+      // Priority: 1. share_links.groupId (what user sees in dialog), 2. group_activities, 3. activity.targetGroupId
       let activityGroupId: string | null = null;
       let groupActivityRecordId: string | null = null;
       
-      // First check group_activities table - this is the authoritative source for group association
+      // FIRST check share_links table for groupId - this is what the user SEES in the join dialog!
+      // The share link's groupId is authoritative because it matches the group shown to the user
       try {
-        const groupCheckResult: any = await db.execute(drizzleSql.raw(`
-          SELECT id, group_id FROM group_activities WHERE activity_id = '${sharedActivity.id}' LIMIT 1
-        `));
-        if (groupCheckResult.rows && groupCheckResult.rows.length > 0) {
-          activityGroupId = groupCheckResult.rows[0].group_id;
-          groupActivityRecordId = groupCheckResult.rows[0].id;
-          console.log('[COPY ACTIVITY] ✅ Found group from group_activities:', { activityGroupId, groupActivityRecordId });
+        const shareLink = await storage.getShareLink(shareToken);
+        if (shareLink?.groupId) {
+          activityGroupId = shareLink.groupId;
+          console.log('[COPY ACTIVITY] ✅ Found group from share_links (authoritative):', activityGroupId);
+          
+          // Now try to find the group_activities record for this group
+          const gaResult: any = await db.execute(drizzleSql.raw(`
+            SELECT id FROM group_activities WHERE activity_id = '${sharedActivity.id}' AND group_id = '${activityGroupId}' LIMIT 1
+          `));
+          if (gaResult.rows && gaResult.rows.length > 0) {
+            groupActivityRecordId = gaResult.rows[0].id;
+          }
         }
       } catch (err) {
-        console.error('[COPY ACTIVITY] Error checking group_activities:', err);
+        console.error('[COPY ACTIVITY] Error checking share_links for groupId:', err);
       }
       
-      // If no group found, check share_links table for groupId (stored when activity was shared)
+      // Fallback: check group_activities table if no share_link groupId
       if (!activityGroupId) {
         try {
-          const shareLink = await storage.getShareLink(shareToken);
-          if (shareLink?.groupId) {
-            activityGroupId = shareLink.groupId;
-            console.log('[COPY ACTIVITY] ✅ Found group from share_links:', activityGroupId);
-            
-            // Now try to find the group_activities record for this group
-            const gaResult: any = await db.execute(drizzleSql.raw(`
-              SELECT id FROM group_activities WHERE activity_id = '${sharedActivity.id}' AND group_id = '${activityGroupId}' LIMIT 1
-            `));
-            if (gaResult.rows && gaResult.rows.length > 0) {
-              groupActivityRecordId = gaResult.rows[0].id;
-            }
+          const groupCheckResult: any = await db.execute(drizzleSql.raw(`
+            SELECT id, group_id FROM group_activities WHERE activity_id = '${sharedActivity.id}' LIMIT 1
+          `));
+          if (groupCheckResult.rows && groupCheckResult.rows.length > 0) {
+            activityGroupId = groupCheckResult.rows[0].group_id;
+            groupActivityRecordId = groupCheckResult.rows[0].id;
+            console.log('[COPY ACTIVITY] ✅ Found group from group_activities (fallback):', { activityGroupId, groupActivityRecordId });
           }
         } catch (err) {
-          console.error('[COPY ACTIVITY] Error checking share_links for groupId:', err);
+          console.error('[COPY ACTIVITY] Error checking group_activities:', err);
         }
       }
       
