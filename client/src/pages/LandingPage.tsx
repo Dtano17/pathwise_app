@@ -27,7 +27,6 @@ import {
 import { SiApple, SiGoogleplay } from "react-icons/si";
 import { motion } from "framer-motion";
 import ThemeToggle from "@/components/ThemeToggle";
-import logoImg from "@assets/image_1764121826058.png";
 
 const features = [
   {
@@ -88,7 +87,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={logoImg} alt="JournalMate" className="w-8 h-8 rounded-lg" />
+            <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-8 h-8 rounded-lg" />
             <span className="font-bold text-xl">JournalMate</span>
           </div>
           <div className="flex items-center gap-3">
