@@ -62,6 +62,7 @@ interface SharedActivityData {
     description: string | null;
     memberCount: number;
     isUserMember: boolean;
+    inviteCode: string | null;
   };
   linkStatus?: {
     isUsingSnapshot: boolean;
@@ -409,14 +410,20 @@ export default function SharedActivity() {
         if (result.requiresAuth) {
           // Save join preferences to localStorage so we can use them after login
           // This allows auto-join without showing the dialog again
+          // Include inviteCode to use the proven invite code join flow
           localStorage.setItem('pendingGroupJoin', JSON.stringify({
             shareToken: token,
             joinGroup,
             shareProgress: shareProgressParam,
             groupId: data?.groupInfo?.id || null,
+            inviteCode: data?.groupInfo?.inviteCode || null,
             timestamp: Date.now()
           }));
-          console.log('[SHARED ACTIVITY] Auth required, saving join preferences:', { joinGroup, shareProgress: shareProgressParam });
+          console.log('[SHARED ACTIVITY] Auth required, saving join preferences:', { 
+            joinGroup, 
+            shareProgress: shareProgressParam,
+            inviteCode: data?.groupInfo?.inviteCode 
+          });
           
           const returnTo = encodeURIComponent(`${window.location.pathname}?autoCopy=true`);
           console.log('[SHARED ACTIVITY] Redirecting to login with autoCopy');
@@ -527,7 +534,14 @@ export default function SharedActivity() {
       
       // Check for pending join preferences saved before login redirect
       const pendingJoinStr = localStorage.getItem('pendingGroupJoin');
-      let savedJoinPrefs: { joinGroup?: boolean; shareProgress?: boolean; shareToken?: string; timestamp?: number } | null = null;
+      let savedJoinPrefs: { 
+        joinGroup?: boolean; 
+        shareProgress?: boolean; 
+        shareToken?: string; 
+        timestamp?: number;
+        inviteCode?: string | null;
+        groupId?: string | null;
+      } | null = null;
       
       if (pendingJoinStr) {
         try {
@@ -553,15 +567,68 @@ export default function SharedActivity() {
       // For auto-copy, use saved join preferences if available, otherwise show dialog for group activities
       if (savedJoinPrefs) {
         // User already chose to join/not join before login, use their preference
-        console.log('[SHARED ACTIVITY] 🚀 Auto-copying with saved preferences:', {
+        console.log('[SHARED ACTIVITY] 🚀 Auto-processing with saved preferences:', {
           joinGroup: savedJoinPrefs.joinGroup,
-          shareProgress: savedJoinPrefs.shareProgress
+          shareProgress: savedJoinPrefs.shareProgress,
+          inviteCode: savedJoinPrefs.inviteCode
         });
-        copyActivityMutation.mutate({ 
-          forceUpdate: false, 
-          joinGroup: savedJoinPrefs.joinGroup || false,
-          shareProgress: savedJoinPrefs.shareProgress || false
-        });
+        
+        // If user opted to join group and we have an invite code, use the proven invite code flow
+        if (savedJoinPrefs.joinGroup && savedJoinPrefs.inviteCode) {
+          console.log('[SHARED ACTIVITY] 🔑 Joining group via invite code first...');
+          
+          // Join group via invite code (the proven working flow)
+          fetch('/api/groups/join', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ inviteCode: savedJoinPrefs.inviteCode })
+          })
+          .then(async (res) => {
+            if (res.ok) {
+              const joinResult = await res.json();
+              console.log('[SHARED ACTIVITY] ✅ Successfully joined group via invite code:', joinResult.group?.name);
+              toast({
+                title: 'Joined Group!',
+                description: `You've joined "${joinResult.group?.name}"`,
+              });
+              // Invalidate groups query to update sidebar
+              queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+            } else {
+              const errorData = await res.json().catch(() => ({}));
+              // If already a member, that's fine - continue with copy
+              if (errorData.error?.includes('already a member')) {
+                console.log('[SHARED ACTIVITY] ℹ️ Already a member of group, proceeding with copy');
+              } else {
+                console.warn('[SHARED ACTIVITY] ⚠️ Failed to join group:', errorData.error);
+              }
+            }
+            // Now copy the activity (with shareProgress if enabled)
+            console.log('[SHARED ACTIVITY] 📋 Copying activity after group join...');
+            copyActivityMutation.mutate({ 
+              forceUpdate: false, 
+              joinGroup: false, // Already joined via invite code
+              shareProgress: savedJoinPrefs?.shareProgress || false
+            });
+          })
+          .catch((err) => {
+            console.error('[SHARED ACTIVITY] ❌ Error joining group:', err);
+            // Still try to copy the activity
+            copyActivityMutation.mutate({ 
+              forceUpdate: false, 
+              joinGroup: false,
+              shareProgress: savedJoinPrefs?.shareProgress || false
+            });
+          });
+        } else {
+          // No invite code or user chose not to join - just copy
+          console.log('[SHARED ACTIVITY] 📋 Copying activity without group join');
+          copyActivityMutation.mutate({ 
+            forceUpdate: false, 
+            joinGroup: false,
+            shareProgress: savedJoinPrefs.shareProgress || false
+          });
+        }
       } else if (data.groupInfo) {
         console.log('[SHARED ACTIVITY] 🚀 Showing join dialog for group:', data.groupInfo.name);
         setPendingCopy({ forceUpdate: false });
