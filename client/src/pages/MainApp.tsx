@@ -29,7 +29,7 @@ import RecentGoals from './RecentGoals';
 import ProgressReport from './ProgressReport';
 import { SocialLogin } from '@/components/SocialLogin';
 import { SignInPromptModal } from '@/components/SignInPromptModal';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2, Circle, UserPlus, Globe2, Link2 } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2, Circle, UserPlus, UserMinus, Globe2, Link2 } from 'lucide-react';
 import DiscoverPlansView from '@/components/discover/DiscoverPlansView';
 import { Link } from 'wouter';
 import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
@@ -287,6 +287,8 @@ export default function MainApp({
         return <Share2 className="w-5 h-5 text-purple-400" />;
       case "member_joined":
         return <UserPlus className="w-5 h-5 text-primary" />;
+      case "member_left":
+        return <UserMinus className="w-5 h-5 text-muted-foreground" />;
       default:
         return <Users className="w-5 h-5 text-muted-foreground" />;
     }
@@ -302,6 +304,8 @@ export default function MainApp({
         return "bg-purple-500/10 border-purple-500/20";
       case "member_joined":
         return "bg-primary/10 border-primary/20";
+      case "member_left":
+        return "bg-muted/50 border-muted-foreground/20";
       default:
         return "bg-background/40 border-border/50";
     }
@@ -335,6 +339,12 @@ export default function MainApp({
         return (
           <>
             <span className="font-medium">{userName}</span> joined the group
+          </>
+        );
+      case "member_left":
+        return (
+          <>
+            <span className="font-medium">{userName}</span> left the group
           </>
         );
       default:
