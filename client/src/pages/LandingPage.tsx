@@ -20,6 +20,7 @@ import {
 import { SiApple, SiGoogleplay } from "react-icons/si";
 import { motion } from "framer-motion";
 import ThemeToggle from "@/components/ThemeToggle";
+import logoImg from "@assets/image_1764121826058.png";
 
 const features = [
   {
@@ -80,9 +81,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
+            <img src={logoImg} alt="JournalMate" className="w-8 h-8 rounded-lg" />
             <span className="font-bold text-xl">JournalMate</span>
           </div>
           <div className="flex items-center gap-3">

@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap, Moon, LineChart, Mail, CheckSquare, Globe2, Plug, SettingsIcon, Newspaper } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import logoImg from "@assets/image_1764121826058.png";
 import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -234,7 +235,10 @@ export function AppSidebar({
       <SidebarContent>
         {/* Header */}
         <div className="flex justify-between items-center p-3 border-b">
-          <span className="text-lg font-semibold text-foreground">JournalMate</span>
+          <div className="flex items-center gap-2">
+            <img src={logoImg} alt="JournalMate" className="w-6 h-6 rounded" />
+            <span className="text-lg font-semibold text-foreground">JournalMate</span>
+          </div>
           <SidebarTrigger data-testid="button-sidebar-toggle-inside" />
         </div>
 
