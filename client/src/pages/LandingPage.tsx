@@ -130,8 +130,8 @@ export default function LandingPage() {
             </h1>
             
             <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Import plans from ChatGPT, Claude, or social media. Track progress with friends. 
-              Celebrate achievements together.
+              Create plans with our AI agent, or import from ChatGPT, Claude, and social media. 
+              JournalMate devises and tracks your plan to help you achieve your goals.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -262,9 +262,9 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
-              { step: "1", title: "Import Your Plan", description: "Paste from ChatGPT, Claude, or share from social media. Our AI extracts tasks automatically." },
-              { step: "2", title: "Track Progress", description: "Check off tasks, view your dashboard, and stay motivated with streaks and achievements." },
-              { step: "3", title: "Celebrate Together", description: "Share wins with friends, earn badges, and discover what's working for others." }
+              { step: "1", title: "Create or Import", description: "Use our AI agent for Quick/Smart Plan, or paste from ChatGPT, Claude, Perplexity, and social media." },
+              { step: "2", title: "We Devise Your Plan", description: "JournalMate transforms raw ideas into actionable tasks, priorities, and deadlines tailored to your goals." },
+              { step: "3", title: "Track & Celebrate", description: "Check off tasks, view your progress dashboard, and share wins with friends. Earn badges and streaks." }
             ].map((item, index) => (
               <motion.div
                 key={item.step}
@@ -381,17 +381,30 @@ export default function LandingPage() {
             viewport={{ once: true }}
             className="text-center mb-12"
           >
-            <h3 className="text-2xl font-bold mb-6">Import Plans From Anywhere</h3>
+            <h3 className="text-2xl font-bold mb-6">Two Ways to Create Your Plan</h3>
             <div className="grid md:grid-cols-3 gap-6">
-              {/* Paste from AI */}
+              {/* Use AI Agent */}
+              <Card className="hover-elevate border-2 border-blue-200 dark:border-blue-900">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-4">
+                    <Cpu className="w-6 h-6 text-blue-500" />
+                  </div>
+                  <h4 className="font-semibold mb-2">Use Our AI Agent</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Quick Plan or Smart Plan - let our dedicated AI agent create your personalized plan
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Paste from AI Platforms */}
               <Card className="hover-elevate">
                 <CardContent className="p-6">
                   <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mx-auto mb-4">
                     <Brain className="w-6 h-6 text-purple-500" />
                   </div>
-                  <h4 className="font-semibold mb-2">Paste from ChatGPT, Claude</h4>
+                  <h4 className="font-semibold mb-2">Paste from AI Platforms</h4>
                   <p className="text-sm text-muted-foreground">
-                    Copy any AI-generated plan and paste directly into JournalMate
+                    Copy from ChatGPT, Claude, Perplexity, Gemini, or other AI tools
                   </p>
                 </CardContent>
               </Card>
@@ -402,9 +415,9 @@ export default function LandingPage() {
                   <div className="w-12 h-12 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center mx-auto mb-4">
                     <Instagram className="w-6 h-6 text-pink-500" />
                   </div>
-                  <h4 className="font-semibold mb-2">Copy from Social Media</h4>
+                  <h4 className="font-semibold mb-2">Import from Social Media</h4>
                   <p className="text-sm text-muted-foreground">
-                    Import plans from Instagram, TikTok, and other platforms with auto-extraction
+                    Share from Instagram, TikTok, LinkedIn, and other platforms
                   </p>
                 </CardContent>
               </Card>
