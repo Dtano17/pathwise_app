@@ -174,7 +174,7 @@ export interface IStorage {
   deleteActivity(activityId: string, userId: string): Promise<void>;
   archiveActivity(activityId: string, userId: string): Promise<Activity | undefined>;
   getPublicActivities(limit?: number): Promise<Activity[]>;
-  generateShareableLink(activityId: string, userId: string): Promise<string | null>;
+  generateShareableLink(activityId: string, userId: string, groupId?: string): Promise<string | null>;
   
   // Activity Tasks
   addTaskToActivity(activityId: string, taskId: string, order?: number): Promise<ActivityTask>;
@@ -824,7 +824,7 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async generateShareableLink(activityId: string, userId: string): Promise<string | null> {
+  async generateShareableLink(activityId: string, userId: string, groupId?: string): Promise<string | null> {
     const shareToken = crypto.randomUUID().replace(/-/g, '');
     
     // First get the activity to create a snapshot
@@ -848,6 +848,23 @@ export class DatabaseStorage implements IStorage {
     
     if (result.length === 0) {
       return null; // Activity not found or user doesn't own it
+    }
+    
+    // Determine the groupId - from param, or check activity's targetGroupId, or check group_activities table
+    let resolvedGroupId = groupId || (activity as any).targetGroupId;
+    
+    if (!resolvedGroupId) {
+      // Check if activity is in any group via group_activities table
+      try {
+        const groupCheckResult = await db.execute(
+          sql`SELECT group_id FROM group_activities WHERE activity_id = ${activityId} LIMIT 1`
+        );
+        if (groupCheckResult.rows && groupCheckResult.rows.length > 0) {
+          resolvedGroupId = (groupCheckResult.rows[0] as any).group_id;
+        }
+      } catch (err) {
+        console.error('[generateShareableLink] Error checking group_activities:', err);
+      }
     }
     
     // Create snapshot data - includes activity and tasks with completion state
@@ -880,8 +897,8 @@ export class DatabaseStorage implements IStorage {
       })),
     };
     
-    // Create the permanent share link record
-    await db.insert(shareLinks).values({
+    // Create the permanent share link record with groupId if available
+    const shareLinkData: any = {
       shareToken,
       activityId,
       userId,
@@ -891,7 +908,14 @@ export class DatabaseStorage implements IStorage {
       isActivityDeleted: false,
       viewCount: 0,
       copyCount: 0,
-    });
+    };
+    
+    if (resolvedGroupId) {
+      shareLinkData.groupId = resolvedGroupId;
+      console.log('[generateShareableLink] Storing groupId in share_link:', resolvedGroupId);
+    }
+    
+    await db.insert(shareLinks).values(shareLinkData);
     
     return shareToken;
   }
@@ -3009,24 +3033,35 @@ export class DatabaseStorage implements IStorage {
     return membership;
   }
 
-  // Add member to group
+  // Add member to group (handles duplicates gracefully)
   async addGroupMember(groupId: string, userId: string, role: string): Promise<GroupMembership> {
-    // Check if already a member
+    // Check if already a member - return existing if so
     const existing = await this.getGroupMembership(groupId, userId);
     if (existing) {
-      throw new Error('User is already a member of this group');
+      return existing; // Idempotent - return existing membership instead of throwing
     }
 
-    const [membership] = await db
-      .insert(groupMemberships)
-      .values({
-        groupId,
-        userId,
-        role,
-      })
-      .returning();
+    try {
+      const [membership] = await db
+        .insert(groupMemberships)
+        .values({
+          groupId,
+          userId,
+          role,
+        })
+        .returning();
 
-    return membership;
+      return membership;
+    } catch (error: any) {
+      // Handle concurrent insert race condition (duplicate key)
+      if (error.code === '23505') { // PostgreSQL unique violation
+        const existingMembership = await this.getGroupMembership(groupId, userId);
+        if (existingMembership) {
+          return existingMembership;
+        }
+      }
+      throw error;
+    }
   }
 
   // Remove member from group

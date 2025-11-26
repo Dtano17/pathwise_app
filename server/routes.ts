@@ -4823,8 +4823,8 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         }
       }
       
-      // Generate share token and make activity public
-      const shareToken = await storage.generateShareableLink(activityId, userId);
+      // Generate share token and make activity public - pass targetGroupId to store in share_links
+      const shareToken = await storage.generateShareableLink(activityId, userId, targetGroupId || newGroupId);
       
       // Update activity with isPublic, targetGroupId if provided
       const updateData: any = { isPublic: true };
@@ -5011,26 +5011,83 @@ ${emoji} ${progressLine}
       };
       
       // Check if activity belongs to any group (for progress sharing)
-      let activityGroupId = sharedActivity.targetGroupId;
-      if (!activityGroupId) {
+      // ALWAYS check group_activities table first - it's the authoritative source
+      let activityGroupId: string | null = null;
+      let groupActivityRecordId: string | null = null;
+      
+      try {
+        // First check group_activities table - this is the authoritative source for group association
+        const groupCheckResult = await pool.query(
+          `SELECT id, group_id FROM group_activities WHERE activity_id = $1 LIMIT 1`,
+          [sharedActivity.id]
+        );
+        if (groupCheckResult.rows.length > 0) {
+          activityGroupId = groupCheckResult.rows[0].group_id;
+          groupActivityRecordId = groupCheckResult.rows[0].id;
+          console.log('[COPY ACTIVITY] ✅ Found group from group_activities:', { activityGroupId, groupActivityRecordId });
+        }
+      } catch (err) {
+        console.error('[COPY ACTIVITY] Error checking group_activities:', err);
+      }
+      
+      // Fallback to targetGroupId if no group_activities record found
+      if (!activityGroupId && sharedActivity.targetGroupId) {
+        activityGroupId = sharedActivity.targetGroupId;
+        console.log('[COPY ACTIVITY] Using targetGroupId as fallback:', activityGroupId);
+        
+        // Try to find group_activities record
         try {
-          const groupCheckResult = await pool.query(
-            `SELECT group_id FROM group_activities WHERE activity_id = $1 LIMIT 1`,
-            [sharedActivity.id]
+          const gaResult = await pool.query(
+            `SELECT id FROM group_activities WHERE activity_id = $1 AND group_id = $2 LIMIT 1`,
+            [sharedActivity.id, activityGroupId]
           );
-          if (groupCheckResult.rows.length > 0) {
-            activityGroupId = groupCheckResult.rows[0].group_id;
+          if (gaResult.rows.length > 0) {
+            groupActivityRecordId = gaResult.rows[0].id;
           }
         } catch (err) {
-          console.error('[COPY ACTIVITY] Error checking group for progress sharing:', err);
+          console.error('[COPY ACTIVITY] Error getting group_activities record:', err);
         }
       }
       
-      // Enable progress sharing if requested and activity is part of a group
-      if (shareProgress && activityGroupId) {
+      // If we have a group but no group_activities record and user wants progress sharing,
+      // create the group_activities record now (this enables tracking for newly shared activities)
+      if (shareProgress && activityGroupId && !groupActivityRecordId) {
+        console.log('[COPY ACTIVITY] 🔧 Creating group_activities record for progress sharing...');
+        try {
+          // Get the original activity owner for shared_by field
+          const originalOwner = sharedActivity.userId;
+          
+          // Create group_activities record using storage method
+          const newGroupActivity = await storage.shareActivityToGroup(
+            sharedActivity.id,
+            activityGroupId,
+            originalOwner,
+            true // forceUpdate = true to handle existing records gracefully
+          );
+          groupActivityRecordId = newGroupActivity.id;
+          console.log('[COPY ACTIVITY] ✅ Created group_activities record:', groupActivityRecordId);
+        } catch (err: any) {
+          console.error('[COPY ACTIVITY] ❌ Failed to create group_activities record:', err.message);
+          // Don't fail the copy - just disable progress sharing
+        }
+      }
+      
+      // Enable progress sharing if we have a valid group_activities record
+      if (shareProgress && groupActivityRecordId) {
         activityData.sharesProgressWithGroup = true;
-        activityData.linkedGroupActivityId = sharedActivity.id; // Link to the original group activity
-        console.log('[COPY ACTIVITY] Enabling progress sharing with group activity:', sharedActivity.id);
+        activityData.linkedGroupActivityId = groupActivityRecordId;
+        activityData.targetGroupId = activityGroupId;
+        console.log('[COPY ACTIVITY] ✅ Progress sharing enabled:', {
+          groupId: activityGroupId,
+          groupActivityRecordId,
+        });
+      } else if (shareProgress && activityGroupId && !groupActivityRecordId) {
+        // We have a group but couldn't create group_activities record - warn
+        console.warn('[COPY ACTIVITY] ⚠️ Progress sharing disabled: could not create/find group_activities record', {
+          groupId: activityGroupId,
+        });
+        // Still store targetGroupId for group join purposes
+        activityData.targetGroupId = activityGroupId;
       }
       
       const copiedActivity = await storage.createActivity(activityData);
