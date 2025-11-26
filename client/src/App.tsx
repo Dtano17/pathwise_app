@@ -26,8 +26,8 @@ import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { initializeMobileFeatures } from "@/lib/mobile";
 
 function AppContent() {
-  // Get authenticated user
-  const { user } = useAuth();
+  // Get authenticated user - use isAuthenticated to distinguish from demo/guest users
+  const { user, isAuthenticated } = useAuth();
   
   // Shared state for sidebar and main app communication
   const [selectedTheme, setSelectedTheme] = useState<string>('');
@@ -87,60 +87,64 @@ function AppContent() {
         {/* Landing Page (no sidebar, publicly accessible) */}
         <Route path="/welcome" component={LandingPage} />
         
-        {/* Main App with Sidebar */}
-        <Route>
-          <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
-            <div className="flex h-screen w-full overflow-auto">
-              <AppSidebar
-                selectedTheme={selectedTheme}
-                onThemeSelect={setSelectedTheme}
-                onShowThemeSelector={() => setShowThemeSelector(true)}
-                onShowDatePlanner={() => setShowLocationDatePlanner(true)}
-                onShowContacts={() => setShowContacts(true)}
-                onShowChatHistory={() => setShowChatHistory(true)}
-                onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
-                onShowRecentGoals={() => setShowRecentGoals(true)}
-                onShowProgressReport={() => setShowProgressReport(true)}
-                onShowEndOfDayReview={() => setShowEndOfDayReview(true)}
-                onOpenUpgradeModal={(trigger) => {
-                  setUpgradeTrigger(trigger);
-                  setShowUpgradeModal(true);
-                }}
-                onShowGoalInput={() => mainAppTabRef.current('input')}
-                onShowDiscover={() => mainAppTabRef.current('discover')}
-                onShowActivities={() => mainAppTabRef.current('activities')}
-                onShowAllTasks={() => mainAppTabRef.current('tasks')}
-                onShowProgress={() => mainAppTabRef.current('progress')}
-                onShowGroups={() => mainAppTabRef.current('groups')}
-                onShowIntegrations={() => mainAppTabRef.current('sync')}
-              />
-              <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-                <MainApp
+        {/* Main App Route - Shows landing page for unauthenticated users, main app for authenticated */}
+        <Route path="/">
+          {isAuthenticated ? (
+            <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
+              <div className="flex h-screen w-full overflow-auto">
+                <AppSidebar
                   selectedTheme={selectedTheme}
                   onThemeSelect={setSelectedTheme}
-                  showThemeSelector={showThemeSelector}
-                  onShowThemeSelector={setShowThemeSelector}
-                  showLocationDatePlanner={showLocationDatePlanner}
-                  onShowLocationDatePlanner={setShowLocationDatePlanner}
-                  showContacts={showContacts}
-                  onShowContacts={setShowContacts}
-                  showChatHistory={showChatHistory}
-                  onShowChatHistory={setShowChatHistory}
-                  showLifestylePlanner={showLifestylePlanner}
-                  onShowLifestylePlanner={setShowLifestylePlanner}
-                  showRecentGoals={showRecentGoals}
-                  onShowRecentGoals={setShowRecentGoals}
-                  showProgressReport={showProgressReport}
-                  onShowProgressReport={setShowProgressReport}
-                  showEndOfDayReview={showEndOfDayReview}
-                  onShowEndOfDayReview={setShowEndOfDayReview}
-                  onTabChange={(setter) => {
-                    mainAppTabRef.current = setter;
+                  onShowThemeSelector={() => setShowThemeSelector(true)}
+                  onShowDatePlanner={() => setShowLocationDatePlanner(true)}
+                  onShowContacts={() => setShowContacts(true)}
+                  onShowChatHistory={() => setShowChatHistory(true)}
+                  onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
+                  onShowRecentGoals={() => setShowRecentGoals(true)}
+                  onShowProgressReport={() => setShowProgressReport(true)}
+                  onShowEndOfDayReview={() => setShowEndOfDayReview(true)}
+                  onOpenUpgradeModal={(trigger) => {
+                    setUpgradeTrigger(trigger);
+                    setShowUpgradeModal(true);
                   }}
+                  onShowGoalInput={() => mainAppTabRef.current('input')}
+                  onShowDiscover={() => mainAppTabRef.current('discover')}
+                  onShowActivities={() => mainAppTabRef.current('activities')}
+                  onShowAllTasks={() => mainAppTabRef.current('tasks')}
+                  onShowProgress={() => mainAppTabRef.current('progress')}
+                  onShowGroups={() => mainAppTabRef.current('groups')}
+                  onShowIntegrations={() => mainAppTabRef.current('sync')}
                 />
+                <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+                  <MainApp
+                    selectedTheme={selectedTheme}
+                    onThemeSelect={setSelectedTheme}
+                    showThemeSelector={showThemeSelector}
+                    onShowThemeSelector={setShowThemeSelector}
+                    showLocationDatePlanner={showLocationDatePlanner}
+                    onShowLocationDatePlanner={setShowLocationDatePlanner}
+                    showContacts={showContacts}
+                    onShowContacts={setShowContacts}
+                    showChatHistory={showChatHistory}
+                    onShowChatHistory={setShowChatHistory}
+                    showLifestylePlanner={showLifestylePlanner}
+                    onShowLifestylePlanner={setShowLifestylePlanner}
+                    showRecentGoals={showRecentGoals}
+                    onShowRecentGoals={setShowRecentGoals}
+                    showProgressReport={showProgressReport}
+                    onShowProgressReport={setShowProgressReport}
+                    showEndOfDayReview={showEndOfDayReview}
+                    onShowEndOfDayReview={setShowEndOfDayReview}
+                    onTabChange={(setter) => {
+                      mainAppTabRef.current = setter;
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          </SidebarProvider>
+            </SidebarProvider>
+          ) : (
+            <LandingPage />
+          )}
         </Route>
       </Switch>
       {user?.id && <NotificationService userId={user.id} />}
