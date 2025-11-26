@@ -454,7 +454,7 @@ export default function TermsPage() {
             </Card>
 
             {/* Community Plan Validation */}
-            <Card id="community-plan-validation" className="border-2 border-blue-200 dark:border-blue-900">
+            <Card id="community-plan-validation" className="border-3 border-blue-300 dark:border-blue-600 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/40 dark:to-cyan-950/40">
               <CardContent className="pt-6">
                 <h2 className="text-2xl font-bold mb-4">Community Plan Validation & Best Practices</h2>
                 <p className="text-muted-foreground mb-4">
