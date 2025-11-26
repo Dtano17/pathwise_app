@@ -596,9 +596,9 @@ export default function LandingPage() {
               <Link href="/discover">
                 <span className="hover:text-foreground cursor-pointer" data-testid="footer-link-discover">Community</span>
               </Link>
-              <a href="#" className="hover:text-foreground">Privacy</a>
-              <a href="#" className="hover:text-foreground">Terms</a>
-              <a href="mailto:support@journalmate.ai" className="hover:text-foreground">Support</a>
+              <a href="/terms#privacy-policy" className="hover:text-foreground" data-testid="footer-link-privacy">Privacy</a>
+              <a href="/terms#terms-of-service" className="hover:text-foreground" data-testid="footer-link-terms">Terms</a>
+              <a href="/support" className="hover:text-foreground" data-testid="footer-link-support">Support</a>
             </div>
             
             <div className="text-sm text-muted-foreground">
