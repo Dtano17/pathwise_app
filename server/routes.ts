@@ -5238,42 +5238,95 @@ ${emoji} ${progressLine}
     }
   });
 
-  // View shared activity by token
+  // View shared activity by token - PERMANENT LINKS that never expire
   app.get("/api/share/activity/:token", async (req, res) => {
     try {
       const { token } = req.params;
-      const activity = await storage.getActivityByShareToken(token);
+      const currentUserId = getUserId(req);
       
-      if (!activity) {
+      // First check for share_link record (permanent link with snapshot)
+      const shareLink = await storage.getShareLink(token);
+      
+      // Try to get the live activity
+      const liveActivity = await storage.getActivityByShareToken(token);
+      
+      // If no share_link AND no live activity, the link is truly invalid
+      if (!shareLink && !liveActivity) {
+        return res.status(404).json({ error: 'Shared activity not found or link has expired' });
+      }
+      
+      // Increment view count for permanent links
+      if (shareLink) {
+        await storage.incrementShareLinkViewCount(token);
+      }
+      
+      // Determine which data to use: live activity OR snapshot
+      let activity: any;
+      let activityTasks: any[] = [];
+      let isUsingSnapshot = false;
+      let hasUpdates = false;
+      let isActivityDeleted = false;
+      let snapshotAt: Date | null = null;
+      
+      if (liveActivity) {
+        // Live activity exists - use it
+        activity = liveActivity;
+        try {
+          activityTasks = await storage.getActivityTasks(activity.id, activity.userId);
+        } catch (taskError) {
+          console.error('Error fetching activity tasks:', taskError);
+          activityTasks = [];
+        }
+        
+        // Check if there are updates since the snapshot was created
+        if (shareLink && shareLink.activityUpdatedAt) {
+          const activityLastUpdated = activity.updatedAt || activity.createdAt;
+          hasUpdates = activityLastUpdated > shareLink.snapshotAt;
+          snapshotAt = shareLink.snapshotAt;
+        }
+      } else if (shareLink && shareLink.snapshotData) {
+        // Live activity was deleted - use snapshot (link NEVER breaks)
+        console.log('[SHARE] Activity deleted, using snapshot from share_link');
+        isUsingSnapshot = true;
+        isActivityDeleted = true;
+        snapshotAt = shareLink.snapshotAt;
+        
+        const snapshot = shareLink.snapshotData as { activity: any; tasks: any[] };
+        activity = {
+          ...snapshot.activity,
+          shareToken: token,
+          userId: shareLink.userId,
+          isPublic: true, // Snapshots are always publicly accessible - the link was shared
+        };
+        // Preserve task completion state from snapshot - don't force incomplete
+        activityTasks = snapshot.tasks.map((t: any, index: number) => ({
+          ...t,
+          id: `snapshot-task-${index}`,
+          userId: shareLink.userId,
+        }));
+        
+        // Mark the share link as having a deleted activity
+        if (!shareLink.isActivityDeleted) {
+          await storage.markShareLinkActivityDeleted(token);
+        }
+      } else {
+        // Fallback: old share links without snapshot data
         return res.status(404).json({ error: 'Shared activity not found or link has expired' });
       }
 
-      // Check if activity requires authentication (not public)
-      const requiresAuth = !activity.isPublic;
-      const currentUserId = getUserId(req);
-      
-      // If activity requires auth and user is not authenticated, return 401
-      if (requiresAuth && !currentUserId) {
-        return res.status(401).json({ 
-          error: 'Authentication required',
-          requiresAuth: true 
-        });
-      }
-
-      // Get the tasks for this activity (using the owner's userId)
-      let activityTasks: any[] = [];
-      try {
-        activityTasks = await storage.getActivityTasks(activity.id, activity.userId);
-      } catch (taskError) {
-        console.error('Error fetching activity tasks:', taskError);
-        // Continue with empty tasks array if there's an error
-        activityTasks = [];
-      }
+      // IMPORTANT: Share links NEVER require authentication since they were explicitly shared
+      // If we got here, the token is valid because:
+      // - We already returned 404 if both shareLink AND liveActivity were missing
+      // - So reaching this point means the token was found in the system
+      // The act of sharing (generating a share token) implies public access
+      // Share tokens are intentionally public - no auth required
+      const requiresAuth = false;
       
       // Get owner information for "sharedBy"
       let sharedBy = undefined;
+      const ownerUserId = shareLink?.userId || activity.userId;
       try {
-        const owner = await storage.getUser(activity.userId);
+        const owner = await storage.getUser(ownerUserId);
         if (owner) {
           const ownerName = owner.firstName && owner.lastName 
             ? `${owner.firstName} ${owner.lastName}`
@@ -5295,12 +5348,15 @@ ${emoji} ${progressLine}
       let groupInfo = undefined;
       let isGroupMember = false;
       
+      // Use group ID from share_link if available
+      const groupId = shareLink?.groupId || activity.targetGroupId;
+      
       // First check if activity has targetGroupId (for personal copies linked to groups)
-      if (activity.targetGroupId && currentUserId) {
+      if (groupId && currentUserId) {
         try {
-          const group = await storage.getGroup(activity.targetGroupId);
+          const group = await storage.getGroup(groupId);
           if (group) {
-            const members = await storage.getGroupMembers(activity.targetGroupId);
+            const members = await storage.getGroupMembers(groupId);
             isGroupMember = members.some(m => m.userId === currentUserId);
             
             groupInfo = {
@@ -5317,7 +5373,7 @@ ${emoji} ${progressLine}
       }
       
       // If no targetGroupId, check if this activity is shared to any groups (in group_activities table)
-      if (!groupInfo) {
+      if (!groupInfo && !isUsingSnapshot && activity.id) {
         console.log('[SHARE] Checking group_activities table for activity:', activity.id);
         try {
           const groupActivitiesResult: any = await db.execute(drizzleSql.raw(`
@@ -5365,7 +5421,16 @@ ${emoji} ${progressLine}
         tasks: activityTasks,
         requiresAuth,
         sharedBy,
-        groupInfo
+        groupInfo,
+        // New fields for permanent link tracking
+        linkStatus: {
+          isUsingSnapshot,
+          isActivityDeleted,
+          hasUpdates,
+          snapshotAt: snapshotAt?.toISOString() || null,
+          viewCount: shareLink?.viewCount || 0,
+          copyCount: shareLink?.copyCount || 0,
+        }
       });
     } catch (error) {
       console.error('Get shared activity error:', error);

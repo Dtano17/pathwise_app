@@ -67,6 +67,8 @@ import {
   type InsertGroupActivity,
   type GroupActivityFeedItem,
   type InsertGroupActivityFeedItem,
+  type ShareLink,
+  type InsertShareLink,
   type ActivityReport,
   type InsertActivityReport,
   type UserNotification,
@@ -107,6 +109,7 @@ import {
   groupMemberships,
   groupActivities,
   groupActivityFeed,
+  shareLinks,
   activityReports,
   userNotifications,
   journalTemplates,
@@ -158,6 +161,15 @@ export interface IStorage {
   getActivityById(activityId: string): Promise<Activity | undefined>;
   getActivityByShareToken(shareToken: string): Promise<Activity | undefined>;
   getExistingCopyByShareToken(userId: string, shareToken: string): Promise<Activity | undefined>;
+  
+  // Share Links (permanent links with snapshots)
+  createShareLink(shareLink: InsertShareLink & { shareToken: string; userId: string }): Promise<ShareLink>;
+  getShareLink(shareToken: string): Promise<ShareLink | undefined>;
+  updateShareLinkSnapshot(shareToken: string, snapshotData: any, activityUpdatedAt: Date): Promise<ShareLink | undefined>;
+  markShareLinkActivityDeleted(shareToken: string): Promise<ShareLink | undefined>;
+  incrementShareLinkViewCount(shareToken: string): Promise<void>;
+  incrementShareLinkCopyCount(shareToken: string): Promise<void>;
+  
   updateActivity(activityId: string, updates: Partial<Activity>, userId: string): Promise<Activity | undefined>;
   deleteActivity(activityId: string, userId: string): Promise<void>;
   archiveActivity(activityId: string, userId: string): Promise<Activity | undefined>;
@@ -685,6 +697,59 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async createShareLink(shareLinkData: InsertShareLink & { shareToken: string; userId: string }): Promise<ShareLink> {
+    const [result] = await db.insert(shareLinks).values(shareLinkData).returning();
+    return result;
+  }
+
+  async getShareLink(shareToken: string): Promise<ShareLink | undefined> {
+    const [result] = await db.select().from(shareLinks)
+      .where(eq(shareLinks.shareToken, shareToken));
+    return result;
+  }
+
+  async updateShareLinkSnapshot(shareToken: string, snapshotData: any, activityUpdatedAt: Date): Promise<ShareLink | undefined> {
+    const [result] = await db.update(shareLinks)
+      .set({
+        snapshotData,
+        snapshotAt: new Date(),
+        activityUpdatedAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(shareLinks.shareToken, shareToken))
+      .returning();
+    return result;
+  }
+
+  async markShareLinkActivityDeleted(shareToken: string): Promise<ShareLink | undefined> {
+    const [result] = await db.update(shareLinks)
+      .set({
+        isActivityDeleted: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(shareLinks.shareToken, shareToken))
+      .returning();
+    return result;
+  }
+
+  async incrementShareLinkViewCount(shareToken: string): Promise<void> {
+    await db.update(shareLinks)
+      .set({
+        viewCount: sql`${shareLinks.viewCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(shareLinks.shareToken, shareToken));
+  }
+
+  async incrementShareLinkCopyCount(shareToken: string): Promise<void> {
+    await db.update(shareLinks)
+      .set({
+        copyCount: sql`${shareLinks.copyCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(shareLinks.shareToken, shareToken));
+  }
+
   async updateActivity(activityId: string, updates: Partial<Activity>, userId: string): Promise<Activity | undefined> {
     const result = await db.update(activities)
       .set({
@@ -761,6 +826,16 @@ export class DatabaseStorage implements IStorage {
 
   async generateShareableLink(activityId: string, userId: string): Promise<string | null> {
     const shareToken = crypto.randomUUID().replace(/-/g, '');
+    
+    // First get the activity to create a snapshot
+    const activity = await this.getActivity(activityId, userId);
+    if (!activity) {
+      return null;
+    }
+    
+    // Get activity tasks for the snapshot
+    const activityTasksList = await this.getActivityTasks(activityId, userId);
+    
     // Store the token and mark as public
     const result = await db.update(activities)
       .set({ 
@@ -774,6 +849,49 @@ export class DatabaseStorage implements IStorage {
     if (result.length === 0) {
       return null; // Activity not found or user doesn't own it
     }
+    
+    // Create snapshot data - includes activity and tasks with completion state
+    const snapshotData = {
+      activity: {
+        id: activity.id,
+        title: activity.title,
+        description: activity.description,
+        category: activity.category,
+        status: activity.status,
+        planSummary: (activity as any).planSummary,
+        shareTitle: (activity as any).shareTitle,
+        socialText: (activity as any).socialText,
+        backdrop: (activity as any).backdrop,
+        isPublic: true, // Snapshots are always public since link was shared
+        authorName: (activity as any).authorName,
+        authorImage: (activity as any).authorImage,
+        sourceType: (activity as any).sourceType,
+      },
+      tasks: activityTasksList.map(t => ({
+        title: t.title,
+        description: t.description,
+        category: t.category,
+        priority: t.priority,
+        dueDate: t.dueDate,
+        timeEstimate: t.timeEstimate,
+        context: t.context,
+        completed: t.completed, // Preserve completion state in snapshot
+        completedAt: t.completedAt,
+      })),
+    };
+    
+    // Create the permanent share link record
+    await db.insert(shareLinks).values({
+      shareToken,
+      activityId,
+      userId,
+      snapshotData,
+      snapshotAt: new Date(),
+      activityUpdatedAt: activity.updatedAt || activity.createdAt,
+      isActivityDeleted: false,
+      viewCount: 0,
+      copyCount: 0,
+    });
     
     return shareToken;
   }

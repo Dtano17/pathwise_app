@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, Sparkles, Users, Loader2, type LucideIcon } from 'lucide-react';
+import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, Sparkles, Users, Loader2, RefreshCw, AlertTriangle, type LucideIcon } from 'lucide-react';
 const journalMateLogo = '/journalmate-logo-transparent.png';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -62,6 +62,14 @@ interface SharedActivityData {
     description: string | null;
     memberCount: number;
     isUserMember: boolean;
+  };
+  linkStatus?: {
+    isUsingSnapshot: boolean;
+    isActivityDeleted: boolean;
+    hasUpdates: boolean;
+    snapshotAt: string | null;
+    viewCount: number;
+    copyCount: number;
   };
 }
 
@@ -134,6 +142,82 @@ const categoryThemes: Record<string, { gradient: string; Icon: LucideIcon; accen
   }
 };
 
+interface LinkStatusIndicatorProps {
+  linkStatus: SharedActivityData['linkStatus'];
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}
+
+function LinkStatusIndicator({ linkStatus, onRefresh, isRefreshing }: LinkStatusIndicatorProps) {
+  const [dismissed, setDismissed] = useState(false);
+  
+  if (!linkStatus || dismissed) return null;
+  
+  const { isUsingSnapshot, isActivityDeleted, hasUpdates, snapshotAt } = linkStatus;
+  
+  if (isActivityDeleted) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex items-center gap-2 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-amber-300/50 dark:border-amber-600/50"
+        data-testid="link-status-deleted"
+      >
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full bg-amber-400 animate-pulse opacity-50" />
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 relative z-10" />
+        </div>
+        <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+          Original plan archived
+        </span>
+        {snapshotAt && (
+          <span className="text-xs text-amber-600 dark:text-amber-400">
+            • Saved {new Date(snapshotAt).toLocaleDateString()}
+          </span>
+        )}
+      </motion.div>
+    );
+  }
+  
+  if (hasUpdates) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex items-center gap-2"
+        data-testid="link-status-updates"
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm border-amber-300/50 dark:border-amber-600/50 hover:bg-amber-200/90 dark:hover:bg-amber-800/30 text-amber-800 dark:text-amber-200 gap-2 h-7 px-2.5 rounded-full"
+          data-testid="button-refresh-activity"
+        >
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-amber-400 animate-pulse opacity-50" />
+            <RefreshCw className={`w-3.5 h-3.5 relative z-10 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </div>
+          <span className="text-xs font-medium hidden sm:inline">Updates available</span>
+          <span className="text-xs font-medium sm:hidden">Update</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setDismissed(true)}
+          className="h-6 w-6 text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200"
+          data-testid="button-dismiss-status"
+        >
+          <span className="text-xs">×</span>
+        </Button>
+      </motion.div>
+    );
+  }
+  
+  return null;
+}
+
 export default function SharedActivity() {
   const { token } = useParams<{ token: string }>();
   const { toast } = useToast();
@@ -191,10 +275,10 @@ export default function SharedActivity() {
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
   };
 
-  const { data, isLoading, error: queryError } = useQuery<SharedActivityData>({
+  const { data, isLoading, error: queryError, refetch, isRefetching } = useQuery<SharedActivityData>({
     queryKey: ['/api/share', token],
     queryFn: async () => {
-      const response = await fetch(`/api/share/${token}`, {
+      const response = await fetch(`/api/share/activity/${token}`, {
         credentials: 'include', // Send session cookie to check membership status
       });
       if (!response.ok) {
@@ -869,6 +953,16 @@ export default function SharedActivity() {
                     <span>Shared by {data.sharedBy.name}</span>
                   </div>
                 )}
+                
+                {/* Link Status Indicator - shows when content is outdated or deleted */}
+                {data.linkStatus && (
+                  <LinkStatusIndicator
+                    linkStatus={data.linkStatus}
+                    onRefresh={() => refetch()}
+                    isRefreshing={isRefetching}
+                  />
+                )}
+                
                 <div className="flex flex-wrap items-center justify-center gap-3">
                   <Badge variant="outline" className="bg-white/90 backdrop-blur-sm border-white/50 text-gray-900">
                     <span className="capitalize">{activity.category}</span>
