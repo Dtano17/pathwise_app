@@ -150,8 +150,40 @@ export default function TermsPage() {
                   <span><strong>Attribution:</strong> When remixing, original creators are credited and attributed</span>
                 </li>
               </ul>
-              <p className="text-muted-foreground mt-4">
-                However, you must use common sense and validate any plan based on the original social media reference and your own judgment. JournalMate is not responsible for the accuracy, completeness, or legality of community plans.
+            </CardContent>
+          </Card>
+
+          {/* Community Plan Guidelines */}
+          <Card className="border-2 border-blue-200 dark:border-blue-900">
+            <CardContent className="pt-6">
+              <h2 className="text-2xl font-bold mb-4">Community Plan Validation & Best Practices</h2>
+              <p className="text-muted-foreground mb-4">
+                When using plans from the community or importing from social media and AI platforms, you must validate and apply critical thinking:
+              </p>
+              <ul className="space-y-3 mb-6">
+                <li className="flex gap-3">
+                  <span className="text-blue-500 font-bold min-w-fit">•</span>
+                  <span><strong>Use Common Sense:</strong> Validate plans based on the original social media reference and apply critical thinking to all content</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-blue-500 font-bold min-w-fit">•</span>
+                  <span><strong>Check the Source:</strong> For imported plans, verify the original social media, AI platform, or reference for accuracy and context</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-blue-500 font-bold min-w-fit">•</span>
+                  <span><strong>Adapt to Your Situation:</strong> Don't follow plans blindly—customize them based on your goals, capabilities, and circumstances</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-blue-500 font-bold min-w-fit">•</span>
+                  <span><strong>Remix Responsibly:</strong> When combining multiple plans, review and edit the merged result to ensure it makes sense for you</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-blue-500 font-bold min-w-fit">•</span>
+                  <span><strong>Consult Professionals:</strong> For specialized advice (medical, legal, financial), consult qualified professionals—don't rely solely on plans</span>
+                </li>
+              </ul>
+              <p className="text-sm bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-3 text-blue-900 dark:text-blue-200">
+                <strong>Important:</strong> JournalMate is not responsible for the accuracy, completeness, or legality of community plans. You are solely responsible for validating plans and making appropriate use of any plan you adopt or share.
               </p>
             </CardContent>
           </Card>
