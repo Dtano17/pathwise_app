@@ -292,6 +292,95 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Group Planning Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Plan Together, Achieve Together</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Create group plans, track progress in real-time, and celebrate wins together with friends and team members.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {[
+              { 
+                step: "1", 
+                icon: Users,
+                title: "Plan as a Group", 
+                description: "Create a shared plan with team members or friends. Everyone contributes ideas and helps shape the perfect strategy.",
+                color: "text-emerald-500",
+                bgColor: "bg-emerald-100 dark:bg-emerald-900/30"
+              },
+              { 
+                step: "2", 
+                icon: TrendingUp,
+                title: "Track Progress Together", 
+                description: "See real-time updates as group members complete tasks. Stay motivated with shared progress dashboards and achievements.",
+                color: "text-blue-500",
+                bgColor: "bg-blue-100 dark:bg-blue-900/30"
+              },
+              { 
+                step: "3", 
+                icon: Share2,
+                title: "Share & Celebrate", 
+                description: "Share your group's success with permanent links. Invite others to join and build an even larger community around your goals.",
+                color: "text-purple-500",
+                bgColor: "bg-purple-100 dark:bg-purple-900/30"
+              }
+            ].map((item, index) => (
+              <motion.div
+                key={item.step}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.15 }}
+              >
+                <Card className="h-full hover-elevate">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="flex-shrink-0">
+                        <div className={`w-12 h-12 rounded-xl ${item.bgColor} flex items-center justify-center`}>
+                          <item.icon className={`w-6 h-6 ${item.color}`} />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <div className={`text-sm font-bold ${item.color} mb-1`}>Step {item.step}</div>
+                        <h3 className="text-lg font-semibold">{item.title}</h3>
+                      </div>
+                    </div>
+                    <p className="text-muted-foreground text-sm">{item.description}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            className="text-center mt-12"
+          >
+            <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
+              Share permanent links that never expire. Recipients can view your plan, join your group, and track progress together in real-time.
+            </p>
+            <Link href="/login">
+              <Button size="lg" variant="outline" className="gap-2" data-testid="button-start-group">
+                <Users className="w-4 h-4" />
+                Create Your First Group Plan
+              </Button>
+            </Link>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Dedicated AI Planning Agent Section */}
       <section className="py-20 bg-card/50">
         <div className="container mx-auto px-4">
