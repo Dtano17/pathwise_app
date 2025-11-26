@@ -352,10 +352,11 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
       const response = await apiRequest('POST', '/api/community-plans/remix/preview', { 
         activityIds: Array.from(selectedForRemix) 
       });
-      const data = await (response as any).json();
-      setRemixPreview(data.preview);
+      const data = await response.json();
+      setRemixPreview(data.preview || data);
       setRemixDialogOpen(true);
     } catch (error) {
+      console.error('Remix preview error:', error);
       toast({
         title: "Remix failed",
         description: error instanceof Error ? error.message : "Could not create remix preview",
@@ -371,13 +372,15 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
     
     setIsRemixing(true);
     try {
-      await apiRequest('POST', '/api/community-plans/remix/confirm', {
+      const response = await apiRequest('POST', '/api/community-plans/remix/confirm', {
         activityIds: Array.from(selectedForRemix),
         mergedTitle: remixPreview.mergedTitle,
         mergedDescription: remixPreview.mergedDescription,
         mergedTasks: remixPreview.mergedTasks,
         attributions: remixPreview.attributions
       });
+      
+      await response.json();
       
       toast({
         title: "Remix created!",
@@ -390,6 +393,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
       setRemixPreview(null);
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
     } catch (error) {
+      console.error('Remix confirm error:', error);
       toast({
         title: "Save failed",
         description: error instanceof Error ? error.message : "Could not save remix",
