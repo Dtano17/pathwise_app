@@ -5121,6 +5121,21 @@ ${emoji} ${progressLine}
         willAttemptJoin: !!(groupIdToJoin && currentUserId && joinGroup)
       });
       
+      // CRITICAL: Log explicit warning if join was requested but we can't proceed
+      if (joinGroup && groupIdToJoin && !currentUserId) {
+        console.error('[COPY ACTIVITY] ⚠️ JOIN SKIPPED: User requested to join group but session not authenticated!', {
+          groupIdToJoin,
+          joinGroupRequested: true,
+          reason: 'currentUserId is null - session may not be properly hydrated'
+        });
+      } else if (joinGroup && !groupIdToJoin) {
+        console.warn('[COPY ACTIVITY] ⚠️ JOIN SKIPPED: User requested to join but no group found', {
+          joinGroupRequested: true,
+          targetGroupId: sharedActivity.targetGroupId,
+          reason: 'No group associated with this activity'
+        });
+      }
+      
       if (groupIdToJoin && currentUserId && joinGroup) {
         console.log('[COPY ACTIVITY] ✅ Attempting to join group:', groupIdToJoin);
         try {

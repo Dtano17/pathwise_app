@@ -145,6 +145,7 @@ export default function SharedActivity() {
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [pendingCopy, setPendingCopy] = useState<{ forceUpdate: boolean } | null>(null);
   const [shareProgress, setShareProgress] = useState(true); // Default to sharing progress
+  const [authRefreshTriggered, setAuthRefreshTriggered] = useState(false); // Track if we've triggered a refresh
   
   // Initialize theme from localStorage or default to dark
   const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>(() => {
@@ -159,6 +160,23 @@ export default function SharedActivity() {
   useEffect(() => {
     setIsAuthenticated(!!user && typeof user === 'object' && 'id' in user && user.id !== 'demo-user');
   }, [user]);
+
+  // Effect to refresh user data after OAuth authentication
+  // This ensures we trigger a refetch to get fresh session data
+  // NOTE: Auto-copy is gated on actual user data (user?.id !== 'demo-user'), not this flag
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const justAuthenticated = urlParams.get('auth') === 'success' || urlParams.get('autoCopy') === 'true';
+    
+    if (justAuthenticated && !authRefreshTriggered) {
+      console.log('[SHARED ACTIVITY] 🔄 Auth detected, triggering user data refresh...');
+      setAuthRefreshTriggered(true); // Prevent re-triggering
+      
+      // Trigger a refetch of user data to get fresh session
+      // The auto-copy effect will wait for user?.id !== 'demo-user' before proceeding
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+    }
+  }, [authRefreshTriggered]);
 
   // Apply initial theme to document on mount
   useEffect(() => {
@@ -176,7 +194,9 @@ export default function SharedActivity() {
   const { data, isLoading, error: queryError } = useQuery<SharedActivityData>({
     queryKey: ['/api/share', token],
     queryFn: async () => {
-      const response = await fetch(`/api/share/${token}`);
+      const response = await fetch(`/api/share/${token}`, {
+        credentials: 'include', // Send session cookie to check membership status
+      });
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('This shared activity link is invalid or has expired.');
@@ -279,9 +299,11 @@ export default function SharedActivity() {
   const copyActivityMutation = useMutation({
     mutationFn: async ({ forceUpdate = false, joinGroup = false, shareProgress: shareProgressParam = false }: { forceUpdate?: boolean; joinGroup?: boolean; shareProgress?: boolean }) => {
       if (!token) throw new Error('Share token not found');
+      console.log('[SHARED ACTIVITY] 📤 Sending copy API request:', { forceUpdate, joinGroup, shareProgress: shareProgressParam });
       const response = await fetch(`/api/activities/copy/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // CRITICAL: Send session cookie for authentication
         body: JSON.stringify({ forceUpdate, joinGroup, shareProgress: shareProgressParam }),
       });
       
@@ -356,40 +378,52 @@ export default function SharedActivity() {
   });
 
   // Automatic copy when user signs in
+  // CRITICAL: This effect is gated directly on user?.id !== 'demo-user' to ensure
+  // we only proceed when we have confirmed authenticated user data
   useEffect(() => {
     // Check if user just authenticated (auth=success OR autoCopy=true in URL)
     const urlParams = new URLSearchParams(window.location.search);
     const justAuthenticated = urlParams.get('auth') === 'success' || urlParams.get('autoCopy') === 'true';
     
+    // Derive the user ID directly from user object for deterministic gating
+    const currentUserId = user && typeof user === 'object' && 'id' in user ? (user as any).id : null;
+    const isRealUser = currentUserId && currentUserId !== 'demo-user';
+    
     console.log('[SHARED ACTIVITY] Auto-copy check:', {
-      isAuthenticated,
       justAuthenticated,
       hasActivity: !!data?.activity,
       hasUser: !!user,
-      isOwner: data?.activity?.userId === (user as any)?.id,
+      userId: currentUserId,
+      isRealUser,
+      isOwner: data?.activity?.userId === currentUserId,
       permissionRequested,
       urlParams: Object.fromEntries(urlParams.entries())
     });
     
+    // CRITICAL: Wait for real (non-demo) user data before auto-copying
+    // This ensures the session cookie is properly hydrated and user data is fresh
+    if (justAuthenticated && !isRealUser) {
+      console.log('[SHARED ACTIVITY] ⏳ Waiting for authenticated user data (currently:', currentUserId, ')...');
+      return;
+    }
+    
     // Only auto-copy if:
-    // 1. User is authenticated (not demo user)
+    // 1. User is a real authenticated user (not demo user) - DERIVED FROM USER DATA
     // 2. Activity data is loaded
     // 3. User is not the owner
     // 4. Haven't already requested permission
     // 5. Just authenticated (from OAuth callback or clicked "Get Started Free")
     if (
-      isAuthenticated && 
+      isRealUser &&
       justAuthenticated &&
       data?.activity && 
-      user && 
-      typeof user === 'object' && 
-      'id' in user && 
-      data.activity.userId !== (user as any).id &&
+      data.activity.userId !== currentUserId &&
       !permissionRequested
     ) {
       setPermissionRequested(true);
       console.log('[SHARED ACTIVITY] ✅ Auto-copying activity for newly authenticated user');
       console.log('[SHARED ACTIVITY] Activity:', data.activity.title);
+      console.log('[SHARED ACTIVITY] User ID:', currentUserId);
       console.log('[SHARED ACTIVITY] User:', (user as any).username || (user as any).email);
       console.log('[SHARED ACTIVITY] Has groupInfo:', !!data.groupInfo);
       if (data.groupInfo) {
@@ -410,7 +444,7 @@ export default function SharedActivity() {
       // Clean up URL params after triggering copy
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, [isAuthenticated, data, user, permissionRequested]);
+  }, [data, user, permissionRequested]);
 
   const handleCopyLink = async () => {
     if (!data?.activity) return;
