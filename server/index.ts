@@ -73,6 +73,23 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 // Serve static files from attached_assets directory
 app.use('/attached_assets', express.static('attached_assets'));
 
+// Cache control headers for production deployment (fixes browser caching after updates)
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production') {
+    // Force no-cache for HTML files and root to bust cache after deployments
+    if (req.path.endsWith('.html') || req.path === '/' || req.path === '') {
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+    }
+    // Long cache for versioned assets (Vite adds content hash)
+    else if (req.path.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
+      res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;

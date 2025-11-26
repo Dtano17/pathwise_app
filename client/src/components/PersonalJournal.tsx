@@ -632,7 +632,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                 {text}
                               </p>
                               {media && media.length > 0 && (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mt-3 sm:mt-4">
                                   {media.map((m, idx) => (
                                     <div key={idx} className="relative aspect-square rounded-md overflow-hidden bg-muted">
                                       {m.type === 'video' ? (
