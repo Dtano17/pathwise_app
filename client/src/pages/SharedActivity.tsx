@@ -407,8 +407,19 @@ export default function SharedActivity() {
       if (!response.ok) {
         // If authentication is required, redirect to login
         if (result.requiresAuth) {
+          // Save join preferences to localStorage so we can use them after login
+          // This allows auto-join without showing the dialog again
+          localStorage.setItem('pendingGroupJoin', JSON.stringify({
+            shareToken: token,
+            joinGroup,
+            shareProgress: shareProgressParam,
+            groupId: data?.groupInfo?.id || null,
+            timestamp: Date.now()
+          }));
+          console.log('[SHARED ACTIVITY] Auth required, saving join preferences:', { joinGroup, shareProgress: shareProgressParam });
+          
           const returnTo = encodeURIComponent(`${window.location.pathname}?autoCopy=true`);
-          console.log('[SHARED ACTIVITY] Auth required, redirecting to login with autoCopy');
+          console.log('[SHARED ACTIVITY] Redirecting to login with autoCopy');
           window.location.href = `/login?returnTo=${returnTo}`;
           throw new Error('Redirecting to login...');
         }
@@ -514,9 +525,44 @@ export default function SharedActivity() {
         console.log('[SHARED ACTIVITY] Group:', data.groupInfo.name, 'Members:', data.groupInfo.memberCount);
       }
       
+      // Check for pending join preferences saved before login redirect
+      const pendingJoinStr = localStorage.getItem('pendingGroupJoin');
+      let savedJoinPrefs: { joinGroup?: boolean; shareProgress?: boolean; shareToken?: string; timestamp?: number } | null = null;
+      
+      if (pendingJoinStr) {
+        try {
+          savedJoinPrefs = JSON.parse(pendingJoinStr);
+          // Verify it's for the same share token and not too old (1 hour max)
+          const isValid = savedJoinPrefs?.shareToken === token && 
+            savedJoinPrefs?.timestamp && 
+            (Date.now() - savedJoinPrefs.timestamp) < 3600000; // 1 hour
+          if (!isValid) {
+            savedJoinPrefs = null;
+            localStorage.removeItem('pendingGroupJoin');
+          } else {
+            console.log('[SHARED ACTIVITY] ✅ Found valid pending join preferences:', savedJoinPrefs);
+            localStorage.removeItem('pendingGroupJoin'); // Clean up after reading
+          }
+        } catch (e) {
+          console.error('[SHARED ACTIVITY] Error parsing pending join preferences:', e);
+          localStorage.removeItem('pendingGroupJoin');
+        }
+      }
+      
       // Automatically trigger copy (forceUpdate = false for initial copy)
-      // For auto-copy, check if it's a group activity and show join dialog
-      if (data.groupInfo) {
+      // For auto-copy, use saved join preferences if available, otherwise show dialog for group activities
+      if (savedJoinPrefs) {
+        // User already chose to join/not join before login, use their preference
+        console.log('[SHARED ACTIVITY] 🚀 Auto-copying with saved preferences:', {
+          joinGroup: savedJoinPrefs.joinGroup,
+          shareProgress: savedJoinPrefs.shareProgress
+        });
+        copyActivityMutation.mutate({ 
+          forceUpdate: false, 
+          joinGroup: savedJoinPrefs.joinGroup || false,
+          shareProgress: savedJoinPrefs.shareProgress || false
+        });
+      } else if (data.groupInfo) {
         console.log('[SHARED ACTIVITY] 🚀 Showing join dialog for group:', data.groupInfo.name);
         setPendingCopy({ forceUpdate: false });
         setShowJoinDialog(true);
