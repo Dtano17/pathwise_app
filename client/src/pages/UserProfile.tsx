@@ -65,10 +65,44 @@ export default function UserProfile() {
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Form state for editable fields
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    nickname: '',
+    email: '',
+    publicBio: '',
+    birthDate: '',
+    height: '',
+    weight: '',
+    ethnicity: '',
+    location: '',
+    occupation: '',
+    privateBio: '',
+  });
+  
   // Get full user profile
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
     queryKey: ['/api/user/profile'],
     enabled: isAuthenticated,
+    onSuccess: (data) => {
+      if (data) {
+        setFormData({
+          firstName: data.firstName || '',
+          lastName: data.lastName || '',
+          nickname: data.nickname || '',
+          email: data.email || '',
+          publicBio: data.publicBio || '',
+          birthDate: data.birthDate || '',
+          height: data.height || '',
+          weight: data.weight || '',
+          ethnicity: data.ethnicity || '',
+          location: data.location || '',
+          occupation: data.occupation || '',
+          privateBio: data.privateBio || '',
+        });
+      }
+    },
   });
 
   const updateProfileMutation = useMutation({
