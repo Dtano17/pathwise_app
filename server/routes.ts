@@ -3273,11 +3273,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If joinGroup is true and user is not a member, add them
       let newMembership = null;
       if (joinGroup && !existingMembership) {
-        newMembership = await storage.addGroupMember({
+        newMembership = await storage.addGroupMember(
           groupId,
           userId,
-          role: 'member'
-        });
+          'member'
+        );
 
         // Get user info for notification
         const joiningUser = await storage.getUser(userId);

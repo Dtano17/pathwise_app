@@ -301,8 +301,8 @@ export default function SharedActivity() {
       if (!response.ok) {
         // If authentication is required, redirect to login
         if (result.requiresAuth) {
-          const returnTo = encodeURIComponent(window.location.pathname);
-          console.log('[SHARED ACTIVITY] Auth required, redirecting to login');
+          const returnTo = encodeURIComponent(`${window.location.pathname}?autoCopy=true`);
+          console.log('[SHARED ACTIVITY] Auth required, redirecting to login with autoCopy');
           window.location.href = `/login?returnTo=${returnTo}`;
           throw new Error('Redirecting to login...');
         }
