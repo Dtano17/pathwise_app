@@ -260,6 +260,48 @@ export const groupActivities = pgTable("group_activities", {
   groupActivityIndex: index("group_activity_index").on(table.groupId),
 }));
 
+// Permanent share links - persists share tokens and snapshots even if original activity is deleted
+export const shareLinks = pgTable("share_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  shareToken: varchar("share_token").unique().notNull(),
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "set null" }), // Nullable - activity may be deleted
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }).notNull(), // Who created the share
+  groupId: varchar("group_id").references(() => groups.id, { onDelete: "set null" }), // If shared to/from a group
+  snapshotData: jsonb("snapshot_data").$type<{
+    title: string;
+    description?: string;
+    category: string;
+    planSummary?: string;
+    backdrop?: string;
+    shareTitle?: string;
+    tasks: Array<{
+      id: string;
+      title: string;
+      description?: string;
+      category: string;
+      priority: string;
+      order: number;
+    }>;
+    groupInfo?: {
+      id: string;
+      name: string;
+      description?: string;
+      memberCount: number;
+    };
+  }>().notNull(),
+  snapshotAt: timestamp("snapshot_at").defaultNow().notNull(), // When the snapshot was taken
+  activityUpdatedAt: timestamp("activity_updated_at"), // Last known activity update time for comparison
+  isActivityDeleted: boolean("is_activity_deleted").default(false), // Track if original was deleted
+  viewCount: integer("view_count").default(0),
+  copyCount: integer("copy_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  shareTokenIndex: uniqueIndex("share_token_index").on(table.shareToken),
+  activityShareIndex: index("activity_share_index").on(table.activityId),
+  userShareIndex: index("user_share_index").on(table.userId),
+}));
+
 // Activity change proposals from group contributors
 export const activityChangeProposals = pgTable("activity_change_proposals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -432,6 +474,14 @@ export const insertSharedTaskSchema = createInsertSchema(sharedTasks).omit({
 
 export const insertGroupActivitySchema = createInsertSchema(groupActivities).omit({
   id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertShareLinkSchema = createInsertSchema(shareLinks).omit({
+  id: true,
+  viewCount: true,
+  copyCount: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -617,6 +667,9 @@ export type InsertSharedTask = z.infer<typeof insertSharedTaskSchema>;
 
 export type GroupActivity = typeof groupActivities.$inferSelect;
 export type InsertGroupActivity = z.infer<typeof insertGroupActivitySchema>;
+
+export type ShareLink = typeof shareLinks.$inferSelect;
+export type InsertShareLink = z.infer<typeof insertShareLinkSchema>;
 
 export type ActivityChangeProposal = typeof activityChangeProposals.$inferSelect;
 export type InsertActivityChangeProposal = z.infer<typeof insertActivityChangeProposalSchema>;
