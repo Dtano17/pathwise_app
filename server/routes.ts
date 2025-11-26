@@ -4517,7 +4517,40 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         }
       }
       
-      // If no targetGroupId, check if this activity is shared to any groups (in group_activities table)
+      // FIRST check the share_links table - this is where the groupId is stored when sharing
+      if (!groupInfo) {
+        console.log('[SHARE] Checking share_links table for groupId:', shareToken);
+        try {
+          const shareLink = await storage.getShareLink(shareToken);
+          console.log('[SHARE] share_links result:', {
+            found: !!shareLink,
+            hasGroupId: !!shareLink?.groupId,
+            groupId: shareLink?.groupId
+          });
+          
+          if (shareLink?.groupId) {
+            const group = await storage.getGroup(shareLink.groupId);
+            if (group) {
+              const members = await storage.getGroupMembers(shareLink.groupId);
+              const currentUserId = getUserId(req);
+              const isUserMember = currentUserId ? members.some(m => m.userId === currentUserId) : false;
+              
+              groupInfo = {
+                id: group.id,
+                name: group.name,
+                description: group.description || null,
+                memberCount: members.length,
+                isUserMember
+              };
+              console.log('[SHARE] ✅ Built groupInfo from share_links:', groupInfo);
+            }
+          }
+        } catch (shareLinkErr) {
+          console.error('[SHARE] Failed to get group info from share_links:', shareLinkErr);
+        }
+      }
+      
+      // If still no groupInfo, check if this activity is shared to any groups (in group_activities table)
       if (!groupInfo) {
         console.log('[SHARE] Checking group_activities table for activity:', activity.id);
         try {
