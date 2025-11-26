@@ -15,7 +15,11 @@ import {
   Globe,
   Zap,
   Star,
-  Download
+  Download,
+  Cpu,
+  TrendingUp,
+  Instagram,
+  BookMarked
 } from "lucide-react";
 import { SiApple, SiGoogleplay } from "react-icons/si";
 import { motion } from "framer-motion";
@@ -279,8 +283,147 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Advanced Features Section */}
       <section className="py-20">
+        <div className="container mx-auto px-4">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Powerful Features for Every Goal</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Advanced tools to import, share, monetize, and automate your planning journey.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* AI Planning Agent */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0 }}
+            >
+              <Card className="h-full hover-elevate">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-4">
+                    <Cpu className="w-6 h-6 text-purple-500" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">Dedicated AI Planning Agent</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Leverage Claude, ChatGPT, or DeepSeek to generate intelligent, context-aware plans tailored to your goals.
+                  </p>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      Multi-AI support
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      Intelligent task extraction
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Share & Commercialize */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="h-full hover-elevate">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-4">
+                    <TrendingUp className="w-6 h-6 text-emerald-500" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">Share & Commercialize</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Share your plans with the community and unlock monetization opportunities through premium plans.
+                  </p>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      Community sharing
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      Revenue generation
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Social Media Import */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+            >
+              <Card className="h-full hover-elevate">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center mb-4">
+                    <Instagram className="w-6 h-6 text-pink-500" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">Copy Plans from Social Media</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Import plans directly from Instagram, TikTok, and other platforms with OCR and video transcription.
+                  </p>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      Multi-platform support
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      OCR & video transcription
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Auto-Journal */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+            >
+              <Card className="h-full hover-elevate">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4">
+                    <BookMarked className="w-6 h-6 text-blue-500" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">Auto-Journal Your Progress</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Automatically create journal entries as you complete goals, capturing your journey and insights.
+                  </p>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      Automated logging
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      Personal insights
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 bg-card/50">
         <div className="container mx-auto px-4">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
