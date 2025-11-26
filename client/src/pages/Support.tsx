@@ -24,14 +24,14 @@ export default function SupportPage() {
       icon: Shield,
       title: "Privacy Policy",
       description: "Learn how we protect your data, PII redaction features, and GDPR/CCPA compliance",
-      link: "/privacy",
+      link: "/terms#privacy-policy",
       color: "text-emerald-500"
     },
     {
       icon: FileText,
-      title: "Terms of Service",
+      title: "Terms & Community Guidelines",
       description: "Community guidelines, plan validation best practices, and user responsibilities",
-      link: "/terms",
+      link: "/terms#terms-of-service",
       color: "text-rose-500"
     },
     {
@@ -124,19 +124,19 @@ export default function SupportPage() {
                 <div>
                   <h3 className="font-semibold mb-1">How do I protect my sensitive information?</h3>
                   <p className="text-muted-foreground text-sm">
-                    See our <Link href="/privacy"><span className="underline text-purple-500">Privacy Policy</span></Link> for details on PII/PHI redaction features and data protection.
+                    See our <a href="/terms#privacy-policy" className="underline text-purple-500">Privacy Policy</a> for details on PII/PHI redaction features and data protection.
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold mb-1">What are my responsibilities when sharing plans?</h3>
                   <p className="text-muted-foreground text-sm">
-                    Check our <Link href="/terms"><span className="underline text-purple-500">Terms of Service</span></Link> for community guidelines and plan validation best practices.
+                    Check our <a href="/terms#terms-of-service" className="underline text-purple-500">Terms of Service</a> for community guidelines and plan validation best practices.
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold mb-1">How do I use community plans responsibly?</h3>
                   <p className="text-muted-foreground text-sm">
-                    Visit the <Link href="/terms"><span className="underline text-purple-500">Community Plan Validation section</span></Link> in Terms of Service for best practices on validating and adapting plans.
+                    Visit the <a href="/terms#community-plan-validation" className="underline text-purple-500">Community Plan Validation section</a> for best practices on validating and adapting plans.
                   </p>
                 </div>
               </div>

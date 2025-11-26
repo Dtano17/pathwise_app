@@ -113,11 +113,11 @@ export function SocialLogin({
         {/* Terms and Privacy */}
         <p className="text-xs text-muted-foreground text-center leading-5 pt-2 px-2" data-testid="text-terms">
           By continuing, you agree to our{" "}
-          <a href="/terms" className="underline underline-offset-4 hover:text-primary">
+          <a href="/terms#terms-of-service" className="underline underline-offset-4 hover:text-primary">
             Terms of Service
           </a>{" "}
           and{" "}
-          <a href="/privacy" className="underline underline-offset-4 hover:text-primary">
+          <a href="/terms#privacy-policy" className="underline underline-offset-4 hover:text-primary">
             Privacy Policy
           </a>
           .
