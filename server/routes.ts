@@ -5262,6 +5262,24 @@ ${emoji} ${progressLine}
               groupId: group?.id
             });
             
+            // Create activity feed entry for member joining (shows in "Recent Group Activity")
+            try {
+              console.log(`[COPY ACTIVITY] 📝 Creating activity feed entry for ${user?.username || 'Someone'} joining group ${groupIdToJoin}`);
+              await storage.logGroupActivity({
+                groupId: groupIdToJoin,
+                userId: currentUserId,
+                userName: user?.username || 'Someone',
+                activityType: 'member_joined',
+                activityTitle: `${user?.username || 'Someone'} joined the group`,
+                taskTitle: null,
+                groupActivityId: null,
+              });
+              console.log(`[COPY ACTIVITY] ✅ Activity feed entry created`);
+            } catch (feedError) {
+              console.error('[COPY ACTIVITY] ❌ Error creating activity feed entry:', feedError);
+              // Don't fail the operation if feed logging fails
+            }
+            
             // Send notification to admin and members using proper notification service
             try {
               console.log('[COPY ACTIVITY] 🔔 Sending group join notifications...');
