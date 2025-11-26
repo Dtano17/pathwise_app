@@ -52,10 +52,17 @@ const features = [
   },
   {
     icon: Share2,
-    title: "Share & Discover Plans",
-    description: "Share your plans with the community and discover trending plans from others. Remix and customize.",
+    title: "Discover & Remix Plans",
+    description: "Download plans from other users, discover trending plans, and remix multiple plans to create your perfect routine.",
     color: "text-pink-500",
     bgColor: "bg-pink-100 dark:bg-pink-900/30"
+  },
+  {
+    icon: Globe,
+    title: "Find What's Nearby",
+    description: "Discover emergency plans and trending activities near you. Connect with local community goals.",
+    color: "text-violet-500",
+    bgColor: "bg-violet-100 dark:bg-violet-900/30"
   }
 ];
 
@@ -470,7 +477,7 @@ export default function LandingPage() {
             
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Take JournalMate Everywhere</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
-              Download our Capacitor app for Android with home screen widgets, push notifications, biometric auth, and offline support. iOS coming soon.
+              Download our Android app with home screen widgets, push notifications, biometric auth, and offline support. iOS coming soon.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -498,7 +505,7 @@ export default function LandingPage() {
             </div>
             
             <div className="mt-4 text-sm text-muted-foreground">
-              <p>iOS App Store coming soon • Android Capacitor App available now</p>
+              <p>iOS App Store coming soon • Android app ready now</p>
             </div>
 
             <div className="mt-8 flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
