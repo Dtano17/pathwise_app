@@ -1816,7 +1816,11 @@ export default function MainApp({
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start gap-2 mb-2">
                                 <h3 className="text-base sm:text-lg font-semibold break-words flex-1">{activity.title}</h3>
-                                <Badge variant="secondary" className="text-xs shrink-0">{activity.category || 'General'}</Badge>
+                                {(activity as any).targetGroupId || (activity as any).linkedGroupActivityId ? (
+                                  <Badge className="text-xs shrink-0 bg-emerald-600 text-white border-none">group</Badge>
+                                ) : (
+                                  <Badge className="text-xs shrink-0 bg-emerald-500 text-white border-none">personal</Badge>
+                                )}
                               </div>
                               <p className="text-muted-foreground text-sm line-clamp-2 break-words">
                                 {activity.description || 'No description provided'}

@@ -2241,9 +2241,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         // Get all activities this task belongs to
         const activityTasks = await storage.getActivityTasksForTask(taskId);
+        console.log('[TASK COMPLETE] Checking progress sharing for task:', taskId, '- Found', activityTasks.length, 'activity-task links');
         
         for (const at of activityTasks) {
           const activity = await storage.getActivityById(at.activityId);
+          console.log('[TASK COMPLETE] Activity check:', {
+            activityId: at.activityId,
+            title: activity?.title,
+            sharesProgressWithGroup: activity?.sharesProgressWithGroup,
+            linkedGroupActivityId: activity?.linkedGroupActivityId,
+            targetGroupId: activity?.targetGroupId
+          });
           
           // If this activity shares progress with a group, log it to the group feed
           if (activity && activity.sharesProgressWithGroup && activity.linkedGroupActivityId) {
