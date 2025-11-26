@@ -30,15 +30,8 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 const features = [
   {
-    icon: Brain,
-    title: "AI-Powered Planning",
-    description: "Import plans from ChatGPT, Claude, or any AI. Our smart parser extracts actionable tasks automatically.",
-    color: "text-purple-500",
-    bgColor: "bg-purple-100 dark:bg-purple-900/30"
-  },
-  {
     icon: Target,
-    title: "Activate Your Plans",
+    title: "Activate Your Goals",
     description: "Turn AI suggestions into real action items with deadlines, priorities, and categories.",
     color: "text-emerald-500",
     bgColor: "bg-emerald-100 dark:bg-emerald-900/30"
@@ -51,25 +44,18 @@ const features = [
     bgColor: "bg-blue-100 dark:bg-blue-900/30"
   },
   {
-    icon: Users,
-    title: "Track as a Group",
-    description: "Create groups with friends and family. Share goals, track progress together, and celebrate wins.",
-    color: "text-pink-500",
-    bgColor: "bg-pink-100 dark:bg-pink-900/30"
-  },
-  {
-    icon: Share2,
-    title: "Share with Friends",
-    description: "Share your plans on social media, invite friends to join, and discover community plans.",
+    icon: BookMarked,
+    title: "AI Auto-Journal",
+    description: "Automatically create journal entries as you complete tasks, capturing your achievements and growth.",
     color: "text-orange-500",
     bgColor: "bg-orange-100 dark:bg-orange-900/30"
   },
   {
-    icon: Globe,
-    title: "Community Plans",
-    description: "Browse trending plans from the community. Remix multiple plans into your perfect routine.",
-    color: "text-violet-500",
-    bgColor: "bg-violet-100 dark:bg-violet-900/30"
+    icon: Share2,
+    title: "Share & Discover Plans",
+    description: "Share your plans with the community and discover trending plans from others. Remix and customize.",
+    color: "text-pink-500",
+    bgColor: "bg-pink-100 dark:bg-pink-900/30"
   }
 ];
 
@@ -85,12 +71,12 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-8 h-8 rounded-lg" />
-            <span className="font-bold text-xl">JournalMate</span>
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-8 h-8 rounded-lg flex-shrink-0" />
+            <span className="font-bold text-lg sm:text-xl truncate">JournalMate</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-3">
             <Link href="/updates">
               <Button variant="ghost" size="sm" data-testid="link-updates">
                 Updates
@@ -101,9 +87,16 @@ export default function LandingPage() {
                 Discover
               </Button>
             </Link>
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
             <ThemeToggle />
-            <Link href="/login">
+            <Link href="/login" className="hidden sm:block">
               <Button size="sm" data-testid="button-login-landing">
+                Sign In
+              </Button>
+            </Link>
+            <Link href="/login" className="sm:hidden">
+              <Button size="sm" variant="default" data-testid="button-login-landing-mobile">
                 Sign In
               </Button>
             </Link>
@@ -317,20 +310,20 @@ export default function LandingPage() {
                     <h3 className="text-2xl font-bold">Quick Plan</h3>
                   </div>
                   <p className="text-muted-foreground mb-6">
-                    Get results fast with 5 intelligent questions that extract your core goals into actionable tasks.
+                    Get faster results with our dedicated AI agent methodology that adapts to your unique situation and goals.
                   </p>
                   <div className="space-y-3 text-sm">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-blue-500" />
-                      <span>5 focused questions</span>
+                      <span>Rapid planning</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-blue-500" />
-                      <span>Perfect for simple goals</span>
+                      <span>AI-adaptive methodology</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-blue-500" />
-                      <span>Instant task generation</span>
+                      <span>Instant actionable tasks</span>
                     </div>
                   </div>
                 </CardContent>
@@ -353,16 +346,16 @@ export default function LandingPage() {
                     <h3 className="text-2xl font-bold">Smart Plan</h3>
                   </div>
                   <p className="text-muted-foreground mb-6">
-                    Get comprehensive plans with 10 deep-dive questions for complex goals and detailed roadmaps.
+                    Get comprehensive, sophisticated plans with our dedicated AI agent methodology for complex goals.
                   </p>
                   <div className="space-y-3 text-sm">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-purple-500" />
-                      <span>10 comprehensive questions</span>
+                      <span>Deep analysis</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-purple-500" />
-                      <span>Context-aware planning</span>
+                      <span>Context-aware methodology</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-purple-500" />
