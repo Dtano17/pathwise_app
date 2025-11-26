@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +11,23 @@ export default function TermsPage() {
     { id: "terms-of-service", label: "Terms of Service" },
     { id: "community-plan-validation", label: "Community Guidelines" },
   ];
+
+  // Handle anchor navigation on page load and hash changes
+  useEffect(() => {
+    const handleAnchorNavigation = () => {
+      const hash = window.location.hash;
+      if (hash) {
+        const element = document.querySelector(hash);
+        if (element) {
+          setTimeout(() => element.scrollIntoView({ behavior: "smooth" }), 100);
+        }
+      }
+    };
+
+    handleAnchorNavigation();
+    window.addEventListener("hashchange", handleAnchorNavigation);
+    return () => window.removeEventListener("hashchange", handleAnchorNavigation);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
