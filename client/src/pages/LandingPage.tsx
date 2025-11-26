@@ -19,7 +19,10 @@ import {
   Cpu,
   TrendingUp,
   Instagram,
-  BookMarked
+  BookMarked,
+  Lightbulb,
+  Clock,
+  Puzzle
 } from "lucide-react";
 import { SiApple, SiGoogleplay } from "react-icons/si";
 import { motion } from "framer-motion";
@@ -283,8 +286,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Advanced Features Section */}
-      <section className="py-20">
+      {/* Dedicated AI Planning Agent Section */}
+      <section className="py-20 bg-card/50">
         <div className="container mx-auto px-4">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -292,133 +295,135 @@ export default function LandingPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Powerful Features for Every Goal</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Your Dedicated AI Planning Agent</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Advanced tools to import, share, monetize, and automate your planning journey.
+              Choose between Quick Plan for fast results or Smart Plan for comprehensive analysis.
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* AI Planning Agent */}
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
+            {/* Quick Plan */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0 }}
             >
-              <Card className="h-full hover-elevate">
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-4">
-                    <Cpu className="w-6 h-6 text-purple-500" />
+              <Card className="h-full hover-elevate border-2 border-blue-200 dark:border-blue-900">
+                <CardContent className="p-8">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                      <Clock className="w-6 h-6 text-blue-500" />
+                    </div>
+                    <h3 className="text-2xl font-bold">Quick Plan</h3>
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">Dedicated AI Planning Agent</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Leverage Claude, ChatGPT, or DeepSeek to generate intelligent, context-aware plans tailored to your goals.
+                  <p className="text-muted-foreground mb-6">
+                    Get results fast with 5 intelligent questions that extract your core goals into actionable tasks.
                   </p>
-                  <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="space-y-3 text-sm">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      Multi-AI support
+                      <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                      <span>5 focused questions</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      Intelligent task extraction
+                      <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                      <span>Perfect for simple goals</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                      <span>Instant task generation</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
 
-            {/* Share & Commercialize */}
+            {/* Smart Plan */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 }}
             >
-              <Card className="h-full hover-elevate">
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-4">
-                    <TrendingUp className="w-6 h-6 text-emerald-500" />
+              <Card className="h-full hover-elevate border-2 border-purple-200 dark:border-purple-900">
+                <CardContent className="p-8">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                      <Lightbulb className="w-6 h-6 text-purple-500" />
+                    </div>
+                    <h3 className="text-2xl font-bold">Smart Plan</h3>
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">Share & Commercialize</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Share your plans with the community and unlock monetization opportunities through premium plans.
+                  <p className="text-muted-foreground mb-6">
+                    Get comprehensive plans with 10 deep-dive questions for complex goals and detailed roadmaps.
                   </p>
-                  <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="space-y-3 text-sm">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      Community sharing
+                      <CheckCircle2 className="w-4 h-4 text-purple-500" />
+                      <span>10 comprehensive questions</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      Revenue generation
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Social Media Import */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-            >
-              <Card className="h-full hover-elevate">
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center mb-4">
-                    <Instagram className="w-6 h-6 text-pink-500" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">Copy Plans from Social Media</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Import plans directly from Instagram, TikTok, and other platforms with OCR and video transcription.
-                  </p>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      Multi-platform support
+                      <CheckCircle2 className="w-4 h-4 text-purple-500" />
+                      <span>Context-aware planning</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      OCR & video transcription
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Auto-Journal */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 }}
-            >
-              <Card className="h-full hover-elevate">
-                <CardContent className="p-6">
-                  <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4">
-                    <BookMarked className="w-6 h-6 text-blue-500" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">Auto-Journal Your Progress</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Automatically create journal entries as you complete goals, capturing your journey and insights.
-                  </p>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      Automated logging
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      Personal insights
+                      <CheckCircle2 className="w-4 h-4 text-purple-500" />
+                      <span>Detailed roadmaps</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
           </div>
+
+          {/* Import & Extension Section */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h3 className="text-2xl font-bold mb-6">Import Plans From Anywhere</h3>
+            <div className="grid md:grid-cols-3 gap-6">
+              {/* Paste from AI */}
+              <Card className="hover-elevate">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mx-auto mb-4">
+                    <Brain className="w-6 h-6 text-purple-500" />
+                  </div>
+                  <h4 className="font-semibold mb-2">Paste from ChatGPT, Claude</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Copy any AI-generated plan and paste directly into JournalMate
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Social Media */}
+              <Card className="hover-elevate">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center mx-auto mb-4">
+                    <Instagram className="w-6 h-6 text-pink-500" />
+                  </div>
+                  <h4 className="font-semibold mb-2">Copy from Social Media</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Import plans from Instagram, TikTok, and other platforms with auto-extraction
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Browser Extension */}
+              <Card className="hover-elevate border-2 border-emerald-200 dark:border-emerald-900">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto mb-4">
+                    <Puzzle className="w-6 h-6 text-emerald-500" />
+                  </div>
+                  <h4 className="font-semibold mb-2">Browser Extension</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Save plans with one click using our Chrome extension
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </motion.div>
         </div>
       </section>
 
