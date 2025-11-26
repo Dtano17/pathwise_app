@@ -133,7 +133,7 @@ export default function LandingPage() {
             </Badge>
             
             <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-purple-600 via-violet-600 to-emerald-500 bg-clip-text text-transparent">
-              Turn Your AI Plans Into Action
+              Execute your plans, track and share your progress
             </h1>
             
             <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
