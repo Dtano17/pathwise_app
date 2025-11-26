@@ -1,5 +1,5 @@
 import { db } from "../storage";
-import { activities, tasks, users } from "@shared/schema";
+import { activities, activityTasks, users } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
 
 interface RemixTask {
@@ -126,27 +126,27 @@ export async function createRemix(activityIds: string[]): Promise<RemixResult> {
     }
   }
 
-  const activityTasks = await db
+  const activityTaskList = await db
     .select()
-    .from(tasks)
-    .where(inArray(tasks.goalId, activityIds));
+    .from(activityTasks)
+    .where(inArray(activityTasks.activityId, activityIds));
 
   const allTasks: RemixTask[] = [];
   const attributions: Attribution[] = [];
 
   for (const activity of selectedActivities) {
-    const activityTaskList = activityTasks.filter(t => t.goalId === activity.id);
+    const tasksForThisActivity = activityTaskList.filter(t => t.activityId === activity.id);
     
     attributions.push({
       activityId: activity.id,
       activityTitle: activity.title,
       creatorId: activity.userId || '',
       creatorName: userMap.get(activity.userId || '') || 'Anonymous',
-      tasksUsed: activityTaskList.length,
+      tasksUsed: tasksForThisActivity.length,
     });
 
-    for (let i = 0; i < activityTaskList.length; i++) {
-      const t = activityTaskList[i];
+    for (let i = 0; i < tasksForThisActivity.length; i++) {
+      const t = tasksForThisActivity[i];
       allTasks.push({
         title: t.title,
         description: t.description || undefined,
