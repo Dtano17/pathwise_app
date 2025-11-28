@@ -812,6 +812,86 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     }
   });
 
+  // Helper function to render the curated questions dialog
+  const renderCuratedQuestionsDialog = () => (
+    <Dialog open={showCuratedQuestionsDialog} onOpenChange={setShowCuratedQuestionsDialog}>
+      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto" data-testid="dialog-curated-questions">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-purple-500" />
+            Personalized Questions
+          </DialogTitle>
+          <DialogDescription>
+            Answer these questions to get a plan tailored specifically to your needs.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          {curatedQuestions.map((question, index) => (
+            <div key={question.id} className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                {index + 1}. {question.question}
+              </label>
+              {question.type === 'choice' && question.choices ? (
+                <div className="flex flex-wrap gap-2">
+                  {question.choices.map((choice) => (
+                    <Button
+                      key={choice}
+                      variant={curatedAnswers[question.id] === choice ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCuratedAnswers(prev => ({ ...prev, [question.id]: choice }))}
+                      className={curatedAnswers[question.id] === choice 
+                        ? "bg-purple-600 hover:bg-purple-700" 
+                        : ""
+                      }
+                      data-testid={`choice-${question.id}-${choice}`}
+                    >
+                      {choice}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <Textarea
+                  value={curatedAnswers[question.id] || ''}
+                  onChange={(e) => setCuratedAnswers(prev => ({ ...prev, [question.id]: e.target.value }))}
+                  placeholder="Type your answer..."
+                  className="min-h-[60px]"
+                  data-testid={`input-answer-${question.id}`}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowCuratedQuestionsDialog(false);
+              setCuratedQuestions([]);
+              setCuratedAnswers({});
+              setIsLoadingCuratedQuestions(false);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCuratedQuestionsSubmit}
+            disabled={curatedQuestions.some(q => !curatedAnswers[q.id]?.trim())}
+            className={curatedQuestionsMode === 'quick' 
+              ? "bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
+              : "bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
+            }
+            data-testid="button-submit-curated-answers"
+          >
+            <Target className="h-4 w-4 mr-2" />
+            Generate Personalized Plan
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   // If in conversation mode, show full-screen chat interface
   if (currentMode && chatMessages.length > 0) {
     return (
@@ -995,83 +1075,8 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           </div>
         </div>
 
-        {/* Curated Questions Dialog - Also needed in conversation mode */}
-        <Dialog open={showCuratedQuestionsDialog} onOpenChange={setShowCuratedQuestionsDialog}>
-          <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto" data-testid="dialog-curated-questions">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-purple-500" />
-                Personalized Questions
-              </DialogTitle>
-              <DialogDescription>
-                Answer these questions to get a plan tailored specifically to your needs.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              {curatedQuestions.map((question, index) => (
-                <div key={question.id} className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    {index + 1}. {question.question}
-                  </label>
-                  {question.type === 'choice' && question.choices ? (
-                    <div className="flex flex-wrap gap-2">
-                      {question.choices.map((choice) => (
-                        <Button
-                          key={choice}
-                          variant={curatedAnswers[question.id] === choice ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setCuratedAnswers(prev => ({ ...prev, [question.id]: choice }))}
-                          className={curatedAnswers[question.id] === choice 
-                            ? "bg-purple-600 hover:bg-purple-700" 
-                            : ""
-                          }
-                          data-testid={`choice-${question.id}-${choice}`}
-                        >
-                          {choice}
-                        </Button>
-                      ))}
-                    </div>
-                  ) : (
-                    <Textarea
-                      value={curatedAnswers[question.id] || ''}
-                      onChange={(e) => setCuratedAnswers(prev => ({ ...prev, [question.id]: e.target.value }))}
-                      placeholder="Type your answer..."
-                      className="min-h-[60px]"
-                      data-testid={`input-answer-${question.id}`}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <DialogFooter className="gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowCuratedQuestionsDialog(false);
-                  setCuratedQuestions([]);
-                  setCuratedAnswers({});
-                  setIsLoadingCuratedQuestions(false);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCuratedQuestionsSubmit}
-                disabled={curatedQuestions.some(q => !curatedAnswers[q.id]?.trim())}
-                className={curatedQuestionsMode === 'quick' 
-                  ? "bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
-                  : "bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
-                }
-                data-testid="button-submit-curated-answers"
-              >
-                <Target className="h-4 w-4 mr-2" />
-                Generate Personalized Plan
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {/* Curated Questions Dialog */}
+        {renderCuratedQuestionsDialog()}
       </div>
     );
   }
@@ -1409,82 +1414,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
       </Dialog>
 
       {/* Curated Questions Dialog */}
-      <Dialog open={showCuratedQuestionsDialog} onOpenChange={setShowCuratedQuestionsDialog}>
-        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto" data-testid="dialog-curated-questions">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-500" />
-              Personalized Questions
-            </DialogTitle>
-            <DialogDescription>
-              Answer these questions to get a plan tailored specifically to your needs.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            {curatedQuestions.map((question, index) => (
-              <div key={question.id} className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  {index + 1}. {question.question}
-                </label>
-                {question.type === 'choice' && question.choices ? (
-                  <div className="flex flex-wrap gap-2">
-                    {question.choices.map((choice) => (
-                      <Button
-                        key={choice}
-                        variant={curatedAnswers[question.id] === choice ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCuratedAnswers(prev => ({ ...prev, [question.id]: choice }))}
-                        className={curatedAnswers[question.id] === choice 
-                          ? "bg-purple-600 hover:bg-purple-700" 
-                          : ""
-                        }
-                        data-testid={`choice-${question.id}-${choice}`}
-                      >
-                        {choice}
-                      </Button>
-                    ))}
-                  </div>
-                ) : (
-                  <Textarea
-                    value={curatedAnswers[question.id] || ''}
-                    onChange={(e) => setCuratedAnswers(prev => ({ ...prev, [question.id]: e.target.value }))}
-                    placeholder="Type your answer..."
-                    className="min-h-[60px]"
-                    data-testid={`input-answer-${question.id}`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowCuratedQuestionsDialog(false);
-                setCuratedQuestions([]);
-                setCuratedAnswers({});
-                setIsLoadingCuratedQuestions(false);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCuratedQuestionsSubmit}
-              disabled={curatedQuestions.some(q => !curatedAnswers[q.id]?.trim())}
-              className={curatedQuestionsMode === 'quick' 
-                ? "bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
-                : "bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
-              }
-              data-testid="button-submit-curated-answers"
-            >
-              <Target className="h-4 w-4 mr-2" />
-              Generate Personalized Plan
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {renderCuratedQuestionsDialog()}
     </div>
   );
 };
