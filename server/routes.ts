@@ -10365,6 +10365,45 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   });
 
   // Parse pasted LLM content into actionable tasks (OLD - keeping for backwards compatibility)
+  // Parse URL and extract content
+  app.post("/api/parse-url", async (req, res) => {
+    try {
+      const { url } = req.body;
+      if (!url) {
+        return res.status(400).json({ error: "URL is required" });
+      }
+
+      // Fetch URL content
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        timeout: 10000
+      });
+
+      if (!response.ok) {
+        return res.status(400).json({ error: `Failed to fetch URL: ${response.statusText}` });
+      }
+
+      const html = await response.text();
+      
+      // Extract text content: remove scripts, styles, and HTML tags
+      let text = html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // Limit content to 5000 characters
+      text = text.substring(0, 5000);
+
+      res.json({ content: text });
+    } catch (error: any) {
+      res.status(500).json({ error: `Failed to parse URL: ${error.message}` });
+    }
+  });
+
   app.post("/api/planner/parse-llm-content", async (req, res) => {
     try {
       const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;

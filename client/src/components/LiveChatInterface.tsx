@@ -38,6 +38,9 @@ export default function LiveChatInterface({
   const queryClient = useQueryClient();
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isParsingFiles, setIsParsingFiles] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
+  const [isParsingUrls, setIsParsingUrls] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -160,9 +163,39 @@ export default function LiveChatInterface({
     setIsListening(false);
   };
 
-  const handleSubmit = () => {
-    if (message.trim() && !chatMutation.isPending) {
-      chatMutation.mutate(message.trim());
+  const handleSubmit = async () => {
+    if ((message.trim() || uploadedFiles.length > 0 || uploadedUrls.length > 0) && !chatMutation.isPending && !isParsingUrls) {
+      let fullMessage = message.trim();
+
+      // Fetch and include URL content
+      if (uploadedUrls.length > 0) {
+        setIsParsingUrls(true);
+        try {
+          const urlContents = await Promise.all(
+            uploadedUrls.map(async (url) => {
+              try {
+                const response = await apiRequest('POST', '/api/parse-url', { url });
+                return `[Content from ${url}]:\n${response.content}`;
+              } catch (error) {
+                return `[Failed to fetch: ${url}]`;
+              }
+            })
+          );
+          fullMessage += '\n\n' + urlContents.join('\n\n---\n\n');
+          setUploadedUrls([]);
+        } catch (error) {
+          toast({
+            title: "URL Parsing Error",
+            description: "Failed to parse some URLs",
+            variant: "destructive"
+          });
+          setIsParsingUrls(false);
+          return;
+        }
+      }
+
+      chatMutation.mutate(fullMessage);
+      setIsParsingUrls(false);
     }
   };
 
@@ -177,6 +210,8 @@ export default function LiveChatInterface({
     setConversation([]);
     setMessage('');
     setUploadedFiles([]);
+    setUploadedUrls([]);
+    setUrlInput('');
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -189,6 +224,25 @@ export default function LiveChatInterface({
 
   const removeFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addUrl = () => {
+    if (!urlInput.trim()) return;
+    try {
+      new URL(urlInput.trim());
+      setUploadedUrls(prev => [...prev, urlInput.trim()]);
+      setUrlInput('');
+    } catch {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid URL",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const removeUrl = (index: number) => {
+    setUploadedUrls(prev => prev.filter((_, i) => i !== index));
   };
 
   const handlePaste = async (e: React.ClipboardEvent) => {
@@ -449,14 +503,16 @@ export default function LiveChatInterface({
               onPaste={handlePaste}
               placeholder={placeholder}
               className="min-h-[60px] max-h-[120px] resize-none"
-              disabled={chatMutation.isPending || isParsingPaste || isParsingFiles}
+              disabled={chatMutation.isPending || isParsingPaste || isParsingFiles || isParsingUrls}
               data-testid="input-chat-message"
             />
-            {(isParsingPaste || isParsingFiles) && (
+            {(isParsingPaste || isParsingFiles || isParsingUrls) && (
               <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex items-center justify-center rounded-md">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Sparkles className="h-4 w-4 animate-pulse" />
-                  <span>{isParsingFiles ? 'Processing documents...' : 'Analyzing pasted content...'}</span>
+                  <span>
+                    {isParsingFiles ? 'Processing documents...' : isParsingUrls ? 'Fetching URLs...' : 'Analyzing pasted content...'}
+                  </span>
                 </div>
               </div>
             )}
@@ -468,8 +524,9 @@ export default function LiveChatInterface({
               variant="outline"
               size="icon"
               className="w-12 h-12"
-              disabled={chatMutation.isPending || isParsingFiles}
+              disabled={chatMutation.isPending || isParsingFiles || isParsingUrls}
               data-testid="button-upload-file"
+              title="Upload documents"
             >
               <Upload className="w-4 h-4" />
             </Button>
@@ -488,20 +545,21 @@ export default function LiveChatInterface({
               variant={isRecording ? "destructive" : "outline"}
               size="icon"
               className="w-12 h-12"
-              disabled={chatMutation.isPending}
+              disabled={chatMutation.isPending || isParsingUrls}
               data-testid="button-voice-input"
+              title="Voice input"
             >
               {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </Button>
             
             <Button
               onClick={handleSubmit}
-              disabled={(!message.trim() && uploadedFiles.length === 0) || chatMutation.isPending}
+              disabled={(!message.trim() && uploadedFiles.length === 0 && uploadedUrls.length === 0) || chatMutation.isPending || isParsingUrls}
               size="icon"
               className="w-12 h-12"
               data-testid="button-send-message"
             >
-              {chatMutation.isPending ? (
+              {chatMutation.isPending || isParsingUrls ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Send className="w-4 h-4" />
@@ -510,22 +568,64 @@ export default function LiveChatInterface({
           </div>
         </div>
 
-        {uploadedFiles.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {uploadedFiles.map((file, index) => (
-              <Badge key={index} variant="secondary" className="gap-1 px-2">
-                <span className="text-xs truncate max-w-[100px]">{file.name}</span>
-                <button
-                  onClick={() => removeFile(index)}
-                  className="ml-1 hover:opacity-70"
-                  data-testid={`button-remove-file-${index}`}
-                >
-                  ×
-                </button>
-              </Badge>
-            ))}
+        {(uploadedFiles.length > 0 || uploadedUrls.length > 0) && (
+          <div className="mt-3 space-y-2">
+            {uploadedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {uploadedFiles.map((file, index) => (
+                  <Badge key={`file-${index}`} variant="secondary" className="gap-1 px-2">
+                    <span className="text-xs truncate max-w-[100px]">{file.name}</span>
+                    <button
+                      onClick={() => removeFile(index)}
+                      className="ml-1 hover:opacity-70"
+                      data-testid={`button-remove-file-${index}`}
+                    >
+                      ×
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {uploadedUrls.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {uploadedUrls.map((url, index) => (
+                  <Badge key={`url-${index}`} variant="outline" className="gap-1 px-2">
+                    <span className="text-xs truncate max-w-[150px]">{new URL(url).hostname}</span>
+                    <button
+                      onClick={() => removeUrl(index)}
+                      className="ml-1 hover:opacity-70"
+                      data-testid={`button-remove-url-${index}`}
+                    >
+                      ×
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
         )}
+
+        <div className="mt-3 flex gap-2">
+          <input
+            type="url"
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && addUrl()}
+            placeholder="Paste a URL (ChatGPT, Claude, Quora, etc.)"
+            className="flex-1 px-3 py-2 text-sm border rounded-md border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            disabled={isParsingUrls}
+            data-testid="input-url"
+          />
+          <Button
+            onClick={addUrl}
+            variant="outline"
+            size="sm"
+            disabled={!urlInput.trim() || isParsingUrls}
+            data-testid="button-add-url"
+          >
+            Add
+          </Button>
+        </div>
         
         {conversation.length > 0 && (
           <div className="flex justify-between items-center mt-3">
