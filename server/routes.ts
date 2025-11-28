@@ -155,6 +155,23 @@ const upload = multer({
   }
 });
 
+// Configure multer for document uploads (memory storage for direct content access)
+// Only allow text-based formats that can be read directly
+const documentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit for documents
+  fileFilter: (req, file, cb) => {
+    // Only allow text-based formats we can actually parse
+    const allowedTypes = /txt|md|json|html|xml|csv/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    if (extname) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only text-based documents are supported (TXT, MD, JSON, HTML, XML, CSV). For PDF or Word documents, please copy and paste the text content directly.'));
+    }
+  }
+});
+
 // Helper function to extract authenticated user ID from request
 function getUserId(req: any): string | null {
   // Priority 1: Passport authentication (OAuth providers - Google, Facebook)
@@ -8669,8 +8686,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         return await handleSimplePlanConversation(req, res, message, conversationHistory, userId, 'quick');
       }
 
-      // Create a conversation with the AI
-      const aiResponse = await aiService.chatConversation(message, conversationHistory);
+      // Create a conversation with the AI (pass userId for personalization)
+      const aiResponse = await aiService.chatConversation(message, conversationHistory, userId);
       
       // Check if the message contains goals that we should turn into actionable tasks
       const containsGoals = aiService.detectGoalsInMessage(message);
@@ -10364,6 +10381,50 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
+  // Upload and parse document content (for curated questions flow)
+  // Only text-based formats are allowed (txt, md, json, html, xml, csv) - multer filter handles rejection
+  app.post("/api/upload/document", documentUpload.single('document'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Get the file content as text
+      let content = req.file.buffer.toString('utf-8');
+      const ext = (req.file.originalname.toLowerCase().split('.').pop() || '').toLowerCase();
+      
+      // Clean up HTML/XML content for better AI processing
+      if (ext === 'html' || ext === 'xml') {
+        content = content
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      // Check if content is valid
+      if (!content || content.length < 10) {
+        return res.status(400).json({ 
+          error: "The document appears to be empty or contains very little text." 
+        });
+      }
+
+      // Limit content length
+      content = content.substring(0, 10000);
+
+      res.json({ 
+        success: true,
+        content,
+        filename: req.file.originalname,
+        charCount: content.length
+      });
+    } catch (error: any) {
+      console.error('Document upload error:', error);
+      res.status(500).json({ error: `Failed to process document: ${error.message}` });
+    }
+  });
+
   // Parse pasted LLM content into actionable tasks (OLD - keeping for backwards compatibility)
   // Parse URL and extract content
   app.post("/api/parse-url", async (req, res) => {
@@ -10431,6 +10492,111 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     } catch (error) {
       console.error('Error parsing LLM content:', error);
       res.status(500).json({ error: 'Failed to parse LLM content' });
+    }
+  });
+
+  // Generate curated questions from external content (URL/document) for Smart/Quick Plan
+  app.post("/api/planner/generate-curated-questions", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      const { externalContent, mode } = req.body;
+
+      if (!externalContent || typeof externalContent !== 'string') {
+        return res.status(400).json({ error: 'External content is required' });
+      }
+
+      const validMode = mode === 'quick' ? 'quick' : 'smart';
+
+      // Generate curated questions based on content + user profile
+      const result = await aiService.generateCuratedQuestions(
+        externalContent,
+        userId,
+        validMode
+      );
+
+      res.json({
+        success: true,
+        ...result
+      });
+    } catch (error) {
+      console.error('Error generating curated questions:', error);
+      res.status(500).json({ error: 'Failed to generate curated questions' });
+    }
+  });
+
+  // Generate personalized plan from external content + user answers
+  app.post("/api/planner/generate-plan-from-content", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      const { externalContent, userAnswers, mode } = req.body;
+
+      if (!externalContent || typeof externalContent !== 'string') {
+        return res.status(400).json({ error: 'External content is required' });
+      }
+
+      if (!userAnswers || typeof userAnswers !== 'object') {
+        return res.status(400).json({ error: 'User answers are required' });
+      }
+
+      // SECURITY: Block demo users from creating activities/tasks
+      if (isDemoUser(userId)) {
+        return res.status(403).json({
+          error: 'Demo users cannot create activities. Please sign in to save your plan.',
+          requiresAuth: true,
+          message: 'Sign in to save your plan and track your progress!'
+        });
+      }
+
+      const validMode = mode === 'quick' ? 'quick' : 'smart';
+
+      // Generate personalized plan from content + answers
+      const planResult = await aiService.generatePlanFromExternalContent(
+        externalContent,
+        userAnswers,
+        userId,
+        validMode
+      );
+
+      // Create activity and tasks
+      const activity = await storage.createActivity({
+        title: planResult.planTitle || 'Plan from External Content',
+        description: planResult.summary || 'Generated plan',
+        category: planResult.goalCategory || 'personal',
+        status: 'planning',
+        userId
+      });
+
+      // Create tasks
+      const createdTasks = [];
+      if (planResult.tasks && Array.isArray(planResult.tasks)) {
+        for (let i = 0; i < planResult.tasks.length; i++) {
+          const taskData = planResult.tasks[i];
+          const task = await storage.createTask({
+            title: taskData.title,
+            description: taskData.description,
+            category: taskData.category,
+            priority: taskData.priority,
+            timeEstimate: taskData.timeEstimate,
+            userId
+          });
+          await storage.addTaskToActivity(activity.id, task.id, i);
+          createdTasks.push(task);
+        }
+      }
+
+      res.json({
+        success: true,
+        plan: planResult,
+        activity: {
+          id: activity.id,
+          title: activity.title
+        },
+        createdTasks,
+        message: `Created "${activity.title}" with ${createdTasks.length} tasks`
+      });
+    } catch (error) {
+      console.error('Error generating plan from content:', error);
+      res.status(500).json({ error: 'Failed to generate plan from content' });
     }
   });
 

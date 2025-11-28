@@ -105,6 +105,7 @@ export class AIService {
       role: "user" | "assistant";
       content: string;
     }> = [],
+    userId?: string,
   ): Promise<{
     message: string;
     actionPlan?: any;
@@ -112,18 +113,75 @@ export class AIService {
     tasks?: any[];
   }> {
     try {
-      // Build conversation context
-      const messages = [
-        {
-          role: "system" as const,
-          content: `You are JournalMate, an AI-powered lifestyle planner and accountability assistant. Your role is to:
+      // Detect if message contains external content (URLs or documents)
+      const hasExternalContent = this.detectExternalContent(message);
+      
+      // Get user context for personalization if userId provided
+      let userContext: string | null = null;
+      if (userId) {
+        try {
+          userContext = await this.getUserContext(userId);
+        } catch (error) {
+          console.error("Failed to fetch user context:", error);
+        }
+      }
+      
+      // Build enhanced system prompt based on content type
+      const systemPrompt = hasExternalContent
+        ? `You are JournalMate, an AI-powered lifestyle planner and accountability assistant. You specialize in transforming external content (URLs, documents, AI conversations) into actionable plans.
+
+## YOUR MISSION
+When the user shares content from URLs or documents, you MUST:
+1. **Analyze the content** - Extract key goals, steps, advice, or actionable information
+2. **Create an actionable plan** - Transform the content into specific, achievable tasks
+3. **Personalize recommendations** - Tailor the plan based on the user's context
+
+${userContext ? `## USER CONTEXT (Use this to personalize recommendations)\n${userContext}\n` : ''}
+
+## OUTPUT FORMAT
+When external content is detected, ALWAYS respond with a structured action plan:
+
+**📋 Action Plan: [Title based on content]**
+
+**Summary:** Brief overview of what the content covers and what the user will achieve.
+
+**🎯 Tasks:**
+1. **[Task Title]** - [Description with specific steps]
+   - Time estimate: [duration]
+   - Priority: [high/medium/low]
+
+2. **[Task Title]** - [Description with specific steps]
+   - Time estimate: [duration]
+   - Priority: [high/medium/low]
+
+[Continue with 3-6 actionable tasks]
+
+**💡 Key Insights:** [2-3 important takeaways from the content]
+
+**🚀 Next Steps:** [Immediate action the user can take today]
+
+## RULES
+- Extract ACTIONABLE steps, not just summaries
+- Make tasks SPECIFIC and MEASURABLE
+- Include TIME ESTIMATES for each task
+- Prioritize tasks based on impact and effort
+- Add personalized tips based on user context if available
+- Be encouraging and motivating in your tone`
+        : `You are JournalMate, an AI-powered lifestyle planner and accountability assistant. Your role is to:
 
 1. Have natural conversations about goals, intentions, and life planning
 2. Help users clarify their objectives and break them down into actionable steps
 3. Provide personalized advice and motivation
 4. When appropriate, suggest concrete action plans with specific tasks
 
-Keep responses conversational, encouraging, and actionable. If the user shares goals or intentions, offer to help them create a structured action plan.`,
+${userContext ? `## USER CONTEXT\n${userContext}\n` : ''}
+
+Keep responses conversational, encouraging, and actionable. If the user shares goals or intentions, offer to help them create a structured action plan.`;
+
+      const messages = [
+        {
+          role: "system" as const,
+          content: systemPrompt,
         },
         ...conversationHistory,
         {
@@ -133,6 +191,8 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
       ];
 
       // Get AI response using Claude (primary) or OpenAI (fallback)
+      // Use higher token limit for external content analysis
+      const maxTokens = hasExternalContent ? 2000 : 1000;
       let aiMessage: string;
 
       if (process.env.ANTHROPIC_API_KEY) {
@@ -140,7 +200,7 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
           const claudeMessages = messages.slice(1) as Array<{ role: "user" | "assistant"; content: string }>;
           const response = await anthropic.messages.create({
             model: DEFAULT_CLAUDE_MODEL,
-            max_tokens: 1000,
+            max_tokens: maxTokens,
             temperature: 0.7,
             messages: claudeMessages,
             system: messages[0].content, // Claude uses separate system parameter
@@ -154,7 +214,7 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
             model: "gpt-4-turbo-preview",
             messages: messages,
             temperature: 0.7,
-            max_tokens: 1000,
+            max_tokens: maxTokens,
           });
           aiMessage =
             response.choices[0]?.message?.content ||
@@ -165,7 +225,7 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
           model: "gpt-4-turbo-preview",
           messages: messages,
           temperature: 0.7,
-          max_tokens: 1000,
+          max_tokens: maxTokens,
         });
         aiMessage =
           response.choices[0]?.message?.content ||
@@ -179,7 +239,8 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
       let extractedGoals: string[] | undefined = undefined;
       let tasks: any[] | undefined = undefined;
 
-      if (containsGoals) {
+      // For external content, don't add the extra suggestion since we already generated a plan
+      if (containsGoals && !hasExternalContent) {
         // Suggest creating an action plan
         const enhancedMessage =
           aiMessage +
@@ -211,6 +272,35 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
     }
   }
 
+  /**
+   * Detect if message contains external content (URLs, documents, or AI conversation content)
+   */
+  detectExternalContent(message: string): boolean {
+    // Check for URL content markers
+    const urlContentMarkers = [
+      '[Content from http',
+      '[Content from https',
+      '[Document content:',
+      '[File content:',
+      '[Uploaded document:',
+    ];
+    
+    if (urlContentMarkers.some(marker => message.includes(marker))) {
+      return true;
+    }
+    
+    // Check for long-form content that looks like it came from an AI or document
+    // Typically has multiple numbered steps, headers, or structured content
+    const hasStructuredContent = 
+      message.length > 500 &&
+      (message.includes('Step') ||
+       message.match(/\d+\./g)?.length >= 3 ||
+       message.includes('**') ||
+       message.includes('###'));
+    
+    return hasStructuredContent;
+  }
+
   detectGoalsInMessage(message: string): boolean {
     const goalKeywords = [
       "want to",
@@ -238,6 +328,309 @@ Keep responses conversational, encouraging, and actionable. If the user shares g
 
     const lowerMessage = message.toLowerCase();
     return goalKeywords.some((keyword) => lowerMessage.includes(keyword));
+  }
+
+  /**
+   * Generate curated questions based on external content (URL/document) and user profile
+   * Used for Smart Plan and Quick Plan modes to personalize the planning experience
+   */
+  async generateCuratedQuestions(
+    externalContent: string,
+    userId: string,
+    mode: 'quick' | 'smart' = 'smart'
+  ): Promise<{
+    contentSummary: string;
+    detectedTopic: string;
+    questions: Array<{
+      id: string;
+      question: string;
+      type: 'text' | 'select' | 'multiselect';
+      options?: string[];
+      placeholder?: string;
+      required: boolean;
+    }>;
+    suggestedPlanTitle: string;
+  }> {
+    try {
+      // Get user context for personalization
+      let userContext: string | null = null;
+      try {
+        userContext = await this.getUserContext(userId);
+      } catch (error) {
+        console.error("Failed to fetch user context:", error);
+      }
+
+      const questionCount = mode === 'quick' ? 3 : 5;
+      
+      const prompt = `You are JournalMate's intelligent planning assistant. Analyze the following external content (from a URL or document) and generate ${questionCount} personalized questions to create a tailored action plan.
+
+## EXTERNAL CONTENT TO ANALYZE:
+${externalContent.substring(0, 8000)}
+
+${userContext ? `## USER PROFILE & PREFERENCES:\n${userContext}\n` : ''}
+
+## YOUR TASK:
+1. **Analyze the content** - Identify the main topic, goals, steps, or advice
+2. **Generate ${questionCount} curated questions** that will help personalize a plan based on:
+   - The content's topic and recommendations
+   - The user's profile, preferences, and lifestyle (if available)
+   - Practical considerations (time, budget, resources, constraints)
+
+## QUESTION GUIDELINES:
+- Questions should be SPECIFIC to the content topic
+- Consider the user's profile when framing questions
+- Include questions about:
+  - Current situation/experience level
+  - Available time and resources
+  - Specific preferences within the topic
+  - Constraints or limitations
+  ${mode === 'smart' ? '- Deeper motivations and goals' : ''}
+
+## RESPOND WITH JSON:
+{
+  "contentSummary": "Brief 1-2 sentence summary of what the content is about",
+  "detectedTopic": "Main topic category (e.g., Fitness, Learning, Travel, Career, etc.)",
+  "suggestedPlanTitle": "A catchy, personalized title for the action plan",
+  "questions": [
+    {
+      "id": "q1",
+      "question": "The question text with personalized context if user profile is available",
+      "type": "text|select|multiselect",
+      "options": ["Only for select/multiselect types"],
+      "placeholder": "Helpful placeholder text",
+      "required": true
+    }
+  ]
+}
+
+## EXAMPLE OUTPUT (for a Python learning URL):
+{
+  "contentSummary": "A comprehensive guide to learning Python programming from scratch with practical projects.",
+  "detectedTopic": "Learning & Development",
+  "suggestedPlanTitle": "Your Python Learning Journey",
+  "questions": [
+    {
+      "id": "q1",
+      "question": "What's your current programming experience level?",
+      "type": "select",
+      "options": ["Complete beginner", "Some experience with other languages", "I know basics of Python", "Intermediate Python user"],
+      "required": true
+    },
+    {
+      "id": "q2",
+      "question": "How much time can you dedicate to learning each week?",
+      "type": "select",
+      "options": ["1-2 hours", "3-5 hours", "5-10 hours", "10+ hours"],
+      "required": true
+    },
+    {
+      "id": "q3",
+      "question": "What do you want to build with Python?",
+      "type": "multiselect",
+      "options": ["Web applications", "Data analysis", "Machine learning", "Automation scripts", "Games", "Not sure yet"],
+      "required": true
+    }
+  ]
+}`;
+
+      let result: any;
+
+      if (process.env.ANTHROPIC_API_KEY) {
+        try {
+          const response = await anthropic.messages.create({
+            model: DEFAULT_CLAUDE_MODEL,
+            max_tokens: 1500,
+            messages: [{ role: "user", content: prompt }],
+          });
+          result = this.extractJSON((response.content[0] as any).text);
+        } catch (error) {
+          console.error("Claude curated questions failed, trying OpenAI:", error);
+          if (process.env.OPENAI_API_KEY) {
+            const response = await openai.chat.completions.create({
+              model: "gpt-4-turbo-preview",
+              messages: [{ role: "user", content: prompt }],
+              response_format: { type: "json_object" },
+            });
+            result = JSON.parse(response.choices[0].message.content || "{}");
+          }
+        }
+      } else if (process.env.OPENAI_API_KEY) {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4-turbo-preview",
+          messages: [{ role: "user", content: prompt }],
+          response_format: { type: "json_object" },
+        });
+        result = JSON.parse(response.choices[0].message.content || "{}");
+      }
+
+      return {
+        contentSummary: result?.contentSummary || "External content analyzed",
+        detectedTopic: result?.detectedTopic || "General",
+        suggestedPlanTitle: result?.suggestedPlanTitle || "Your Personalized Plan",
+        questions: result?.questions?.map((q: any, idx: number) => ({
+          id: q.id || `q${idx + 1}`,
+          question: q.question || "Tell us more about your preferences",
+          type: q.type || 'text',
+          options: q.options,
+          placeholder: q.placeholder,
+          required: q.required !== false,
+        })) || [],
+      };
+    } catch (error) {
+      console.error("Generate curated questions error:", error);
+      // Fallback questions
+      return {
+        contentSummary: "Content analyzed - ready to create your plan",
+        detectedTopic: "General",
+        suggestedPlanTitle: "Your Action Plan",
+        questions: [
+          {
+            id: "q1",
+            question: "What's your main goal with this content?",
+            type: 'text' as const,
+            placeholder: "Describe what you want to achieve...",
+            required: true,
+          },
+          {
+            id: "q2",
+            question: "How much time can you dedicate to this?",
+            type: 'select' as const,
+            options: ["A few hours", "A few days", "A week", "A month or more"],
+            required: true,
+          },
+          {
+            id: "q3",
+            question: "What's your experience level with this topic?",
+            type: 'select' as const,
+            options: ["Complete beginner", "Some experience", "Intermediate", "Advanced"],
+            required: true,
+          },
+        ],
+      };
+    }
+  }
+
+  /**
+   * Generate a personalized plan from external content + user answers to curated questions
+   */
+  async generatePlanFromExternalContent(
+    externalContent: string,
+    userAnswers: Record<string, string | string[]>,
+    userId: string,
+    mode: 'quick' | 'smart' = 'smart'
+  ): Promise<GoalProcessingResult> {
+    try {
+      // Get user context for personalization
+      let userContext: string | null = null;
+      let userPriorities: any[] = [];
+      
+      try {
+        const { storage } = await import("../storage");
+        userContext = await this.getUserContext(userId);
+        userPriorities = await storage.getUserPriorities(userId);
+      } catch (error) {
+        console.error("Failed to fetch user context:", error);
+      }
+
+      const answersText = Object.entries(userAnswers)
+        .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+        .join('\n');
+
+      const taskCount = mode === 'quick' ? '3-5' : '5-8';
+
+      const prompt = `You are JournalMate's expert planning assistant. Create a detailed, personalized action plan based on external content and the user's specific answers.
+
+## EXTERNAL CONTENT (URL/Document):
+${externalContent.substring(0, 6000)}
+
+## USER'S ANSWERS TO QUESTIONS:
+${answersText}
+
+${userContext ? `## USER PROFILE & PREFERENCES:\n${userContext}\n` : ''}
+
+${userPriorities.length > 0 ? `## USER'S LIFE PRIORITIES:\n${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}\n` : ''}
+
+## CREATE A PERSONALIZED PLAN
+
+Generate ${taskCount} specific, actionable tasks that:
+1. Draw from the external content's recommendations
+2. Are tailored to the user's answers and preferences
+3. Consider the user's available time, experience level, and constraints
+4. Are organized in logical sequence
+
+## RESPOND WITH JSON:
+{
+  "planTitle": "Engaging, personalized title for the plan",
+  "summary": "Brief summary of the plan approach (2-3 sentences)",
+  "tasks": [
+    {
+      "title": "Clear, actionable task title",
+      "description": "Detailed description with specific steps and tips",
+      "category": "Category name",
+      "priority": "high|medium|low",
+      "timeEstimate": "Duration like '30 min', '1 hour', '2 days'",
+      "context": "Why this task matters and personalized tips"
+    }
+  ],
+  "goalCategory": "Main category for the overall goal",
+  "goalPriority": "high|medium|low",
+  "estimatedTimeframe": "Overall timeframe for completing the plan",
+  "motivationalNote": "Encouraging personalized message for the user"
+}`;
+
+      let result: any;
+
+      if (process.env.ANTHROPIC_API_KEY) {
+        try {
+          const response = await anthropic.messages.create({
+            model: DEFAULT_CLAUDE_MODEL,
+            max_tokens: 2000,
+            messages: [{ role: "user", content: prompt }],
+          });
+          result = this.extractJSON((response.content[0] as any).text);
+        } catch (error) {
+          console.error("Claude plan generation failed, trying OpenAI:", error);
+          if (process.env.OPENAI_API_KEY) {
+            const response = await openai.chat.completions.create({
+              model: "gpt-4-turbo-preview",
+              messages: [{ role: "user", content: prompt }],
+              response_format: { type: "json_object" },
+            });
+            result = JSON.parse(response.choices[0].message.content || "{}");
+          }
+        }
+      } else if (process.env.OPENAI_API_KEY) {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4-turbo-preview",
+          messages: [{ role: "user", content: prompt }],
+          response_format: { type: "json_object" },
+        });
+        result = JSON.parse(response.choices[0].message.content || "{}");
+      }
+
+      return {
+        planTitle: result?.planTitle || "Your Personalized Plan",
+        summary: result?.summary || "Plan created from external content",
+        tasks: result?.tasks?.map((task: any) => ({
+          title: task.title || "Untitled Task",
+          description: task.description || "No description provided",
+          category: task.category || "Personal",
+          priority: this.validatePriority(task.priority),
+          goalId: null,
+          completed: false,
+          dueDate: task.dueDate ? new Date(task.dueDate) : null,
+          timeEstimate: task.timeEstimate || "30 min",
+          context: task.context || "Complete this task to progress",
+        })) || [],
+        goalCategory: result?.goalCategory || "Personal",
+        goalPriority: this.validatePriority(result?.goalPriority),
+        estimatedTimeframe: result?.estimatedTimeframe || "1-2 weeks",
+        motivationalNote: result?.motivationalNote || "You've got this! Take it one step at a time.",
+      };
+    } catch (error) {
+      console.error("Generate plan from external content error:", error);
+      return this.createFallbackTasks("Plan from external content");
+    }
   }
 
   async processChatHistory(

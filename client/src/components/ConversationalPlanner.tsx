@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb, Calendar, ExternalLink } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb, Calendar, ExternalLink, Check, Loader2, Link } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useKeywordDetection, getCategoryColor } from '@/hooks/useKeywordDetection';
 import { useLocation } from 'wouter';
@@ -93,6 +93,24 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const journalTextareaRef = useRef<HTMLTextAreaElement>(null);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastAutoSavedTextRef = useRef<string>('');
+  
+  // External Content & Curated Questions State
+  const [externalContent, setExternalContent] = useState<string | null>(null);
+  const [curatedQuestions, setCuratedQuestions] = useState<Array<{
+    id: string;
+    question: string;
+    type: 'text' | 'select' | 'multiselect';
+    options?: string[];
+    placeholder?: string;
+    required: boolean;
+  }>>([]);
+  const [curatedQuestionsAnswers, setCuratedQuestionsAnswers] = useState<Record<string, string | string[]>>({});
+  const [contentSummary, setContentSummary] = useState<string>('');
+  const [suggestedPlanTitle, setSuggestedPlanTitle] = useState<string>('');
+  const [showCuratedQuestionsDialog, setShowCuratedQuestionsDialog] = useState(false);
+  const [isLoadingCuratedQuestions, setIsLoadingCuratedQuestions] = useState(false);
+  const [isGeneratingFromContent, setIsGeneratingFromContent] = useState(false);
+  const plannerFileInputRef = useRef<HTMLInputElement>(null);
   
   // Autocomplete state
   const [showAutocomplete, setShowAutocomplete] = useState(false);
@@ -682,6 +700,183 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     }
   });
 
+  // URL Detection Helper
+  const detectUrlInMessage = (text: string): string | null => {
+    const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/gi;
+    const match = text.match(urlRegex);
+    return match ? match[0] : null;
+  };
+
+  // Fetch URL content
+  const fetchUrlContent = async (url: string): Promise<string> => {
+    const response = await fetch('/api/parse-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch URL');
+    return data.content || '';
+  };
+
+  // Handle file upload for document parsing
+  const handleDocumentUpload = async (file: File) => {
+    if (!file) return;
+    
+    setIsLoadingCuratedQuestions(true);
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+      
+      const response = await fetch('/api/upload/document', {
+        method: 'POST',
+        body: formData
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.suggestion || data.error || 'Failed to upload document');
+      }
+      
+      if (data.content) {
+        await processCuratedQuestionsFlow(data.content);
+      }
+    } catch (error: any) {
+      console.error('Document upload error:', error);
+      toast({
+        title: "Upload Error",
+        description: error.message || "Failed to process the uploaded document. Try pasting the text directly.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingCuratedQuestions(false);
+      // Reset file input
+      if (plannerFileInputRef.current) {
+        plannerFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Process curated questions flow for Smart/Quick Plan modes
+  const processCuratedQuestionsFlow = async (content: string) => {
+    setExternalContent(content);
+    setIsLoadingCuratedQuestions(true);
+    
+    try {
+      const response = await fetch('/api/planner/generate-curated-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          externalContent: content,
+          mode: planningMode === 'quick' ? 'quick' : 'smart'
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate questions');
+      }
+      
+      const data = await response.json();
+      setCuratedQuestions(data.questions || []);
+      setContentSummary(data.contentSummary || '');
+      setSuggestedPlanTitle(data.suggestedPlanTitle || '');
+      setCuratedQuestionsAnswers({});
+      setShowCuratedQuestionsDialog(true);
+    } catch (error) {
+      console.error('Curated questions error:', error);
+      toast({
+        title: "Analysis Error",
+        description: "Failed to analyze content. Try again or paste the content directly.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingCuratedQuestions(false);
+    }
+  };
+
+  // Generate plan from curated questions answers
+  const generatePlanFromCuratedAnswers = useMutation({
+    mutationFn: async () => {
+      if (!externalContent) throw new Error('No external content');
+      
+      const response = await fetch('/api/planner/generate-plan-from-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          externalContent,
+          userAnswers: curatedQuestionsAnswers,
+          mode: planningMode === 'quick' ? 'quick' : 'smart'
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to generate plan');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setShowCuratedQuestionsDialog(false);
+      setCuratedQuestions([]);
+      setCuratedQuestionsAnswers({});
+      setExternalContent(null);
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      
+      toast({
+        title: "Plan Created!",
+        description: data.message || `Created ${data.activity?.title} with ${data.createdTasks?.length} tasks`,
+        action: data.activity?.id ? (
+          <Button 
+            size="sm" 
+            variant="outline"
+            onClick={() => setLocation(`/?tab=activities&activity=${data.activity.id}`)}
+            data-testid="toast-view-activity"
+          >
+            <ExternalLink className="w-3 h-3 mr-1" />
+            View
+          </Button>
+        ) : undefined
+      });
+    },
+    onError: (error: any) => {
+      console.error('Plan generation error:', error);
+      toast({
+        title: "Generation Error",
+        description: error.message || "Failed to create plan from your answers",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Handle URL detection when sending message in Quick/Smart Plan modes
+  const handleMessageWithUrlDetection = async () => {
+    const detectedUrl = detectUrlInMessage(message);
+    
+    if (detectedUrl && (planningMode === 'quick' || planningMode === 'smart')) {
+      setIsLoadingCuratedQuestions(true);
+      try {
+        const content = await fetchUrlContent(detectedUrl);
+        await processCuratedQuestionsFlow(content);
+        setMessage('');
+      } catch (error) {
+        console.error('URL processing error:', error);
+        toast({
+          title: "URL Error",
+          description: "Couldn't fetch the URL content. Try pasting the content directly.",
+          variant: "destructive"
+        });
+        setIsLoadingCuratedQuestions(false);
+      }
+    } else {
+      // Regular message flow
+      handleSendMessage();
+    }
+  };
+
   // Journal Mode submitJournalEntry mutation
   const submitJournalEntry = useMutation({
     mutationFn: async () => {
@@ -817,7 +1012,12 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      // Use URL detection for Quick/Smart Plan modes
+      if (planningMode === 'quick' || planningMode === 'smart') {
+        handleMessageWithUrlDetection();
+      } else {
+        handleSendMessage();
+      }
     }
   };
 
@@ -1783,31 +1983,75 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           {currentSession && !currentSession.isComplete && (
             <>
               <Separator />
-              <div className="p-4">
-                <div className="flex gap-3">
+              <div className="p-4 space-y-2">
+                {/* URL/Document hint for Quick/Smart Plan */}
+                {(planningMode === 'quick' || planningMode === 'smart') && (
+                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
+                    <Link className="h-3 w-3" />
+                    <span>Paste a URL or upload a document to get personalized questions</span>
+                  </div>
+                )}
+                
+                <div className="flex gap-2">
+                  {/* File Upload Button for Quick/Smart Plan */}
+                  {(planningMode === 'quick' || planningMode === 'smart') && (
+                    <>
+                      <input
+                        ref={plannerFileInputRef}
+                        type="file"
+                        accept=".txt,.md,.json,.html,.xml,.csv"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleDocumentUpload(file);
+                        }}
+                        data-testid="input-document-upload"
+                      />
+                      <Button
+                        onClick={() => plannerFileInputRef.current?.click()}
+                        disabled={isLoadingCuratedQuestions || sendMessageMutation.isPending}
+                        size="icon"
+                        variant="outline"
+                        className="shrink-0"
+                        title="Upload document"
+                        data-testid="button-upload-document"
+                      >
+                        {isLoadingCuratedQuestions ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </>
+                  )}
+                  
                   <div className="flex-1 relative">
                     <Input
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
                       onPaste={handlePaste}
-                      placeholder={planningMode === 'quick' ? "Describe your goals and/or journal your life... or paste a ChatGPT conversation/screenshot!" : "Describe your goals and/or journal your life... or paste a ChatGPT conversation/screenshot!"}
-                      disabled={sendMessageMutation.isPending || isParsingPaste}
+                      placeholder={
+                        (planningMode === 'quick' || planningMode === 'smart')
+                          ? "Type your goal, paste a URL, or upload a document..."
+                          : "Describe your goals and/or journal your life... or paste a ChatGPT conversation/screenshot!"
+                      }
+                      disabled={sendMessageMutation.isPending || isParsingPaste || isLoadingCuratedQuestions}
                       className="w-full"
                       data-testid="input-message"
                     />
-                    {isParsingPaste && (
+                    {(isParsingPaste || isLoadingCuratedQuestions) && (
                       <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex items-center justify-center rounded-md">
                         <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                           <Sparkles className="h-4 w-4 animate-pulse" />
-                          <span>Analyzing pasted content...</span>
+                          <span>{isLoadingCuratedQuestions ? 'Analyzing content...' : 'Analyzing pasted content...'}</span>
                         </div>
                       </div>
                     )}
                   </div>
                   <Button
-                    onClick={handleSendMessage}
-                    disabled={!message.trim() || sendMessageMutation.isPending}
+                    onClick={handleMessageWithUrlDetection}
+                    disabled={!message.trim() || sendMessageMutation.isPending || isLoadingCuratedQuestions}
                     size="icon"
                     className={planningMode === 'quick' 
                       ? 'bg-emerald-500 hover:bg-emerald-600' 
@@ -2015,6 +2259,152 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
             >
               <Target className="h-4 w-4 mr-2" />
               Go to Dashboard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Curated Questions Dialog */}
+      <Dialog open={showCuratedQuestionsDialog} onOpenChange={setShowCuratedQuestionsDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-purple-500" />
+              Let's Personalize Your Plan
+            </DialogTitle>
+            <DialogDescription>
+              {contentSummary || "We've analyzed your content. Answer a few questions to create a personalized action plan."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-6">
+            {suggestedPlanTitle && (
+              <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
+                <p className="text-sm text-purple-800 dark:text-purple-200">
+                  <span className="font-medium">Suggested Plan:</span> {suggestedPlanTitle}
+                </p>
+              </div>
+            )}
+
+            {curatedQuestions.map((q, idx) => (
+              <div key={q.id} className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 text-xs font-semibold">
+                    {idx + 1}
+                  </span>
+                  {q.question}
+                  {q.required && <span className="text-red-500">*</span>}
+                </label>
+                
+                {q.type === 'text' && (
+                  <textarea
+                    className="w-full min-h-[80px] p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder={q.placeholder || "Type your answer..."}
+                    value={(curatedQuestionsAnswers[q.id] as string) || ''}
+                    onChange={(e) => setCuratedQuestionsAnswers(prev => ({
+                      ...prev,
+                      [q.id]: e.target.value
+                    }))}
+                    data-testid={`curated-question-${q.id}`}
+                  />
+                )}
+                
+                {q.type === 'select' && q.options && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {q.options.map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        className={`p-3 rounded-lg border text-sm text-left transition-all ${
+                          curatedQuestionsAnswers[q.id] === opt
+                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-600'
+                        }`}
+                        onClick={() => setCuratedQuestionsAnswers(prev => ({
+                          ...prev,
+                          [q.id]: opt
+                        }))}
+                        data-testid={`curated-option-${q.id}-${opt}`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                
+                {q.type === 'multiselect' && q.options && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {q.options.map((opt) => {
+                      const selectedValues = (curatedQuestionsAnswers[q.id] as string[]) || [];
+                      const isSelected = selectedValues.includes(opt);
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          className={`p-3 rounded-lg border text-sm text-left transition-all ${
+                            isSelected
+                              ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500'
+                              : 'border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-600'
+                          }`}
+                          onClick={() => {
+                            setCuratedQuestionsAnswers(prev => {
+                              const current = (prev[q.id] as string[]) || [];
+                              const updated = isSelected
+                                ? current.filter(v => v !== opt)
+                                : [...current, opt];
+                              return { ...prev, [q.id]: updated };
+                            });
+                          }}
+                          data-testid={`curated-multiselect-${q.id}-${opt}`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className={`w-4 h-4 rounded border flex items-center justify-center ${
+                              isSelected ? 'bg-purple-500 border-purple-500' : 'border-slate-300 dark:border-slate-600'
+                            }`}>
+                              {isSelected && <Check className="w-3 h-3 text-white" />}
+                            </span>
+                            {opt}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCuratedQuestionsDialog(false);
+                setCuratedQuestions([]);
+                setCuratedQuestionsAnswers({});
+                setExternalContent(null);
+              }}
+              disabled={generatePlanFromCuratedAnswers.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => generatePlanFromCuratedAnswers.mutate()}
+              disabled={generatePlanFromCuratedAnswers.isPending || curatedQuestions.some(q => 
+                q.required && !curatedQuestionsAnswers[q.id]
+              )}
+              className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
+            >
+              {generatePlanFromCuratedAnswers.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generating Plan...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate My Plan
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
