@@ -63,7 +63,22 @@ The application employs a mobile-first responsive design featuring a clean, card
 - **Passport.js**: Authentication middleware.
 - **Resend**: Email delivery service.
 
-## Latest Updates (November 26, 2025)
+## Latest Updates (November 28, 2025)
+- ✅ **URL Detection & Content-Aware Planning**:
+  - Quick Plan and Smart Plan modes now detect URLs automatically when typed in the input field
+  - When a URL is detected, content is fetched and analyzed by AI
+  - AI generates personalized curated questions based on URL content and user profile
+  - After answering questions, a highly personalized action plan is created
+  - Flow: URL detected → content parsed → curated questions generated → user answers → personalized plan created
+- ✅ **Curated Questions API**:
+  - POST /api/planner/generate-curated-questions - Generates context-aware questions from external content
+  - POST /api/planner/generate-plan-from-content - Creates personalized plans from user answers
+  - Both endpoints integrate with user profile and preferences for maximum personalization
+- ✅ **Code Quality Improvements**:
+  - Extracted shared curated questions dialog into reusable helper function
+  - Dialog now properly renders in both normal and conversation modes
+
+## Previous Updates (November 26, 2025)
 - ✅ **Landing page finalized and deployment-ready**:
   - Official JournalMate logo implemented
   - Mobile responsive header with proper navigation
