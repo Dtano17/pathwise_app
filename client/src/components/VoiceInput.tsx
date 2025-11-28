@@ -1152,13 +1152,83 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                     <input
                       type="file"
                       ref={fileInputRef}
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files || []);
-                        setUploadedImages(prev => [...prev, ...files]);
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        
+                        // Check if file is an image for traditional flow, or document for curated questions flow
+                        const isImage = file.type.startsWith('image/');
+                        const isDocument = [
+                          'application/pdf',
+                          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                          'text/plain',
+                          'text/markdown',
+                          'text/csv',
+                          'application/json'
+                        ].includes(file.type);
+                        
+                        if (isDocument || isImage) {
+                          // Use curated questions flow for documents AND images
+                          setIsLoadingCuratedQuestions(true);
+                          
+                          try {
+                            const formData = new FormData();
+                            formData.append('document', file);
+                            
+                            const response = await fetch('/api/upload/document', {
+                              method: 'POST',
+                              body: formData
+                            });
+                            
+                            if (!response.ok) {
+                              const error = await response.json();
+                              throw new Error(error.error || 'Failed to upload document');
+                            }
+                            
+                            const { content, type: docType } = await response.json();
+                            
+                            // Now generate curated questions based on the document content
+                            const questionsResponse = await fetch('/api/planner/generate-curated-questions', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ 
+                                externalContent: content, 
+                                mode: 'smart'
+                              })
+                            });
+                            
+                            if (!questionsResponse.ok) {
+                              throw new Error('Failed to generate questions');
+                            }
+                            
+                            const questionsData = await questionsResponse.json();
+                            
+                            setCuratedQuestions(questionsData.questions);
+                            setCuratedQuestionsContent(content);
+                            setCuratedQuestionsMode('smart');
+                            setShowCuratedQuestionsDialog(true);
+                            
+                            toast({
+                              title: docType === 'image' ? "Image Analyzed!" : "Document Processed!",
+                              description: "Answer a few questions to create your personalized plan.",
+                            });
+                          } catch (error) {
+                            console.error('Document processing error:', error);
+                            toast({
+                              title: "Processing Error",
+                              description: error instanceof Error ? error.message : "Failed to process document",
+                              variant: "destructive"
+                            });
+                          } finally {
+                            setIsLoadingCuratedQuestions(false);
+                            // Reset file input
+                            e.target.value = '';
+                          }
+                        }
                       }}
-                      accept="image/*"
-                      multiple
+                      accept=".pdf,.docx,.txt,.md,.csv,.json,.jpg,.jpeg,.png,.gif,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv,application/json,image/*"
                       className="hidden"
+                      data-testid="input-file-upload"
                     />
                   </div>
 

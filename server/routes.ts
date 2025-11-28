@@ -155,19 +155,44 @@ const upload = multer({
   }
 });
 
-// Configure multer for document uploads (memory storage for direct content access)
-// Only allow text-based formats that can be read directly
+// Configure multer for document uploads (disk storage for all document types including PDFs and images)
+const documentUploadDir = path.join(process.cwd(), 'attached_assets', 'document_uploads');
+if (!fs.existsSync(documentUploadDir)) {
+  fs.mkdirSync(documentUploadDir, { recursive: true });
+}
+
+const documentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, documentUploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'doc_' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
 const documentUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit for documents
+  storage: documentStorage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit for documents/images
   fileFilter: (req, file, cb) => {
-    // Only allow text-based formats we can actually parse
-    const allowedTypes = /txt|md|json|html|xml|csv/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    if (extname) {
+    // Allow PDFs, Word docs, images, and text files
+    const allowedMimeTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'text/plain',
+      'text/markdown',
+      'text/csv',
+      'application/json'
+    ];
+    
+    if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only text-based documents are supported (TXT, MD, JSON, HTML, XML, CSV). For PDF or Word documents, please copy and paste the text content directly.'));
+      cb(new Error(`Unsupported file type: ${file.mimetype}. Supported: PDF, Word (.docx), Images (JPEG, PNG, GIF, WebP), Text files (TXT, MD, CSV, JSON)`));
     }
   }
 });
@@ -10382,42 +10407,50 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   });
 
   // Upload and parse document content (for curated questions flow)
-  // Only text-based formats are allowed (txt, md, json, html, xml, csv) - multer filter handles rejection
+  // Supports PDF, Word, images, and text files
   app.post("/api/upload/document", documentUpload.single('document'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
       }
 
-      // Get the file content as text
-      let content = req.file.buffer.toString('utf-8');
-      const ext = (req.file.originalname.toLowerCase().split('.').pop() || '').toLowerCase();
+      const { documentParser } = await import('./services/documentParser');
       
-      // Clean up HTML/XML content for better AI processing
-      if (ext === 'html' || ext === 'xml') {
-        content = content
-          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
+      console.log(`[UPLOAD] Processing ${req.file.mimetype}: ${req.file.originalname}`);
+      
+      // Parse the document using the document parser
+      const result = await documentParser.parseFile(req.file.path, req.file.mimetype);
+      
+      // Clean up the temp file after parsing
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (cleanupError) {
+        console.error('[UPLOAD] Failed to cleanup temp file:', cleanupError);
       }
-
-      // Check if content is valid
-      if (!content || content.length < 10) {
+      
+      if (!result.success) {
         return res.status(400).json({ 
-          error: "The document appears to be empty or contains very little text." 
+          error: result.error || "Failed to parse document"
         });
       }
 
-      // Limit content length
-      content = content.substring(0, 10000);
+      // Check if content is valid
+      if (!result.content || result.content.length < 10) {
+        return res.status(400).json({ 
+          error: "The document appears to be empty or contains very little extractable text."
+        });
+      }
+
+      // Limit content length for AI processing
+      const content = result.content.substring(0, 15000);
 
       res.json({ 
         success: true,
         content,
         filename: req.file.originalname,
-        charCount: content.length
+        type: result.type,
+        charCount: content.length,
+        metadata: result.metadata
       });
     } catch (error: any) {
       console.error('Document upload error:', error);

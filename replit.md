@@ -64,6 +64,18 @@ The application employs a mobile-first responsive design featuring a clean, card
 - **Resend**: Email delivery service.
 
 ## Latest Updates (November 28, 2025)
+- ✅ **Multi-Format Document Upload Support**:
+  - Supports PDF, Word (.docx), Images (JPEG, PNG, GIF, WebP), and Text files (TXT, MD, CSV, JSON)
+  - New `documentParser.ts` service handles all document types with proper content extraction
+  - PDF parsing via pdf-parse library
+  - Word document parsing via mammoth library
+  - Image analysis via OpenAI Vision API
+  - 20MB file size limit
+- ✅ **Action-Oriented Task Generation (Critical UX Fix)**:
+  - AI now generates CONCRETE actionable tasks like "Implement schema markup", "Create content strategy"
+  - Explicitly forbids meta-tasks like "Access the link", "Read the document", "Review the material"
+  - AI prompts updated with clear examples of acceptable vs unacceptable task generation
+  - All generated tasks now have strong action verbs and clear deliverables
 - ✅ **URL Detection & Content-Aware Planning**:
   - Quick Plan and Smart Plan modes now detect URLs automatically when typed in the input field
   - When a URL is detected, content is fetched and analyzed by AI
@@ -73,10 +85,12 @@ The application employs a mobile-first responsive design featuring a clean, card
 - ✅ **Curated Questions API**:
   - POST /api/planner/generate-curated-questions - Generates context-aware questions from external content
   - POST /api/planner/generate-plan-from-content - Creates personalized plans from user answers
+  - POST /api/upload/document - Uploads and parses documents (returns extracted content)
   - Both endpoints integrate with user profile and preferences for maximum personalization
 - ✅ **Code Quality Improvements**:
   - Extracted shared curated questions dialog into reusable helper function
   - Dialog now properly renders in both normal and conversation modes
+  - Fixed LSP errors in documentParser.ts (pdf-parse import, type annotations)
 
 ## Previous Updates (November 26, 2025)
 - ✅ **Landing page finalized and deployment-ready**:

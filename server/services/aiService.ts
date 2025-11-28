@@ -160,9 +160,24 @@ When external content is detected, ALWAYS respond with a structured action plan:
 
 **🚀 Next Steps:** [Immediate action the user can take today]
 
-## RULES
-- Extract ACTIONABLE steps, not just summaries
-- Make tasks SPECIFIC and MEASURABLE
+## CRITICAL RULES
+
+**NEVER create meta-tasks or instructional tasks.** You have already analyzed the external content - the research is COMPLETE.
+
+❌ FORBIDDEN (never generate these task types):
+- "Access the shared link and review content"
+- "Read the document and take notes"
+- "Open the URL and understand the requirements"
+- "Document key information from the source"
+- "Research the topic further"
+
+✅ REQUIRED (synthesize actionable work from the content):
+- Create tasks that IMPLEMENT the advice from the content
+- Tasks should produce concrete deliverables
+- Each task should be specific work the user will DO, not information they will READ
+
+## OTHER RULES
+- Make tasks SPECIFIC and MEASURABLE with clear deliverables
 - Include TIME ESTIMATES for each task
 - Prioritize tasks based on impact and effort
 - Add personalized tips based on user context if available
@@ -550,13 +565,32 @@ ${userContext ? `## USER PROFILE & PREFERENCES:\n${userContext}\n` : ''}
 
 ${userPriorities.length > 0 ? `## USER'S LIFE PRIORITIES:\n${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}\n` : ''}
 
+## CRITICAL RULES - WHAT TO GENERATE
+
+**NEVER create meta-tasks or instructional tasks.** The external content has already been analyzed for you.
+
+❌ FORBIDDEN TASK EXAMPLES (never generate these):
+- "Access the shared link and review content"
+- "Read the document and take notes"
+- "Open the URL and understand the requirements"
+- "Document key information from the source"
+- "Review the material and identify goals"
+- "Share goal details with the AI"
+
+✅ REQUIRED TASK EXAMPLES (synthesize actionable work from the content):
+- If content is about SEO: "Implement schema markup on product pages"
+- If content is about fitness: "Complete 30-minute HIIT workout session"
+- If content is about marketing: "Create 3 social media posts for brand awareness"
+- If content is about learning: "Complete Module 1 exercises and practice problems"
+
 ## CREATE A PERSONALIZED PLAN
 
 Generate ${taskCount} specific, actionable tasks that:
-1. Draw from the external content's recommendations
+1. SYNTHESIZE concrete work items from the external content (the research is DONE - create tasks that IMPLEMENT the advice)
 2. Are tailored to the user's answers and preferences
-3. Consider the user's available time, experience level, and constraints
-4. Are organized in logical sequence
+3. Have clear deliverables (what will be produced/completed)
+4. Include specific actions, not instructions to "learn" or "read"
+5. Are organized in logical sequence with realistic timeframes
 
 ## RESPOND WITH JSON:
 {
