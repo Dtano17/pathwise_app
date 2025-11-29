@@ -65,4 +65,10 @@ The application features a mobile-first responsive design, utilizing a clean, ca
   - Strong prompt guidance to generate actionable tasks FROM content, not meta-tasks
   - Forbidden patterns: "Access the URL", "Navigate to link", "Read content"
   - Correct patterns: "Implement X", "Create Y", "Set up Z" (based on actual content)
-  - Note: JavaScript-rendered pages (Copilot shares, Google Docs) may not fetch content properly
+
+- ✅ **Tavily Extract Integration for All Planning Modes**:
+  - Quick Plan, Smart Plan, and Create Action Plan now all use Tavily Extract API
+  - Uses `extractDepth: "advanced"` to handle JavaScript-rendered pages (Copilot shares, SPAs, Google Docs)
+  - Fallback chain: Tavily Extract → basic fetch → error handling
+  - Content limit increased to 15,000 characters for richer context
+  - Endpoint: `/api/parse-url` now uses Tavily with fallback
