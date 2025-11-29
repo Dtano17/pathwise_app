@@ -59,6 +59,9 @@ import path from 'path';
 import fs from 'fs';
 import Stripe from 'stripe';
 import { sendGroupNotification } from './services/notificationService';
+import { tavily } from '@tavily/core';
+
+const tavilyClient = process.env.TAVILY_API_KEY ? tavily({ apiKey: process.env.TAVILY_API_KEY }) : null;
 
 // Helper function to format plan preview for Smart mode
 function formatPlanPreview(plan: any): string {
@@ -10459,7 +10462,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   });
 
   // Parse pasted LLM content into actionable tasks (OLD - keeping for backwards compatibility)
-  // Parse URL and extract content
+  // Parse URL and extract content - uses Tavily Extract API for JavaScript-rendered pages
   app.post("/api/parse-url", async (req, res) => {
     try {
       const { url } = req.body;
@@ -10467,33 +10470,60 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         return res.status(400).json({ error: "URL is required" });
       }
 
-      // Fetch URL content
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        timeout: 10000
-      });
+      console.log(`[PARSE-URL] Extracting content from: ${url}`);
+      let extractedContent = '';
 
-      if (!response.ok) {
-        return res.status(400).json({ error: `Failed to fetch URL: ${response.statusText}` });
+      // Try Tavily Extract first (handles JavaScript-rendered pages like Copilot, SPAs, etc.)
+      if (tavilyClient) {
+        try {
+          console.log(`[PARSE-URL] Using Tavily Extract with advanced depth...`);
+          const tavilyResponse = await tavilyClient.extract([url], {
+            extractDepth: "advanced" // Execute JavaScript, handle anti-bot measures
+          });
+          
+          if (tavilyResponse.results && tavilyResponse.results.length > 0 && tavilyResponse.results[0].rawContent) {
+            extractedContent = tavilyResponse.results[0].rawContent;
+            console.log(`[PARSE-URL] Tavily extracted ${extractedContent.length} chars successfully`);
+          } else if (tavilyResponse.failedResults && tavilyResponse.failedResults.length > 0) {
+            console.log(`[PARSE-URL] Tavily failed: ${tavilyResponse.failedResults[0]}, falling back to basic fetch`);
+          }
+        } catch (tavilyError: any) {
+          console.log(`[PARSE-URL] Tavily error: ${tavilyError.message}, falling back to basic fetch`);
+        }
       }
 
-      const html = await response.text();
-      
-      // Extract text content: remove scripts, styles, and HTML tags
-      let text = html
-        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+      // Fallback to basic fetch if Tavily didn't work
+      if (!extractedContent) {
+        console.log(`[PARSE-URL] Using basic fetch fallback...`);
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
 
-      // Limit content to 5000 characters
-      text = text.substring(0, 5000);
+        if (!response.ok) {
+          return res.status(400).json({ error: `Failed to fetch URL: ${response.statusText}` });
+        }
 
-      res.json({ content: text });
+        const html = await response.text();
+        
+        // Extract text content: remove scripts, styles, and HTML tags
+        extractedContent = html
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        console.log(`[PARSE-URL] Basic fetch extracted ${extractedContent.length} chars`);
+      }
+
+      // Limit content to 15000 characters (increased for better context)
+      extractedContent = extractedContent.substring(0, 15000);
+
+      res.json({ content: extractedContent });
     } catch (error: any) {
+      console.error(`[PARSE-URL] Error: ${error.message}`);
       res.status(500).json({ error: `Failed to parse URL: ${error.message}` });
     }
   });
