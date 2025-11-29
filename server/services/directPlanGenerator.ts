@@ -29,7 +29,7 @@ export interface DirectPlanResult {
 export class DirectPlanGenerator {
 
   /**
-   * Detect if input is a URL
+   * Detect if input is a URL (entire input is just a URL)
    */
   private isUrl(input: string): boolean {
     try {
@@ -38,6 +38,20 @@ export class DirectPlanGenerator {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Extract URLs from text input
+   * Returns array of URLs found in the text
+   */
+  private extractUrls(input: string): string[] {
+    // Match URLs starting with http:// or https://
+    const urlRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
+    const matches = input.match(urlRegex) || [];
+    return matches.map(url => {
+      // Clean up trailing punctuation that might have been captured
+      return url.replace(/[.,;:!?)]+$/, '');
+    });
   }
 
   /**
@@ -88,16 +102,46 @@ export class DirectPlanGenerator {
       console.log(`[DIRECT PLAN] Modifying existing plan: "${existingPlan.activity.title}"`);
     }
 
-    // Step 0: Check if input is a URL and fetch content
+    // Step 0: Check if input contains URLs and fetch content from them
     let processedInput = userInput;
-    if (!isModification && contentType === 'text' && this.isUrl(userInput)) {
-      console.log('[DIRECT PLAN] URL detected, fetching content...');
-      try {
-        const urlContent = await this.fetchUrlContent(userInput);
-        processedInput = `URL: ${userInput}\n\nContent from URL:\n${urlContent}`;
-      } catch (error) {
-        console.error('[DIRECT PLAN] URL fetch failed:', error);
-        throw error;
+    if (!isModification && contentType === 'text') {
+      // First check if entire input is a URL
+      if (this.isUrl(userInput.trim())) {
+        console.log('[DIRECT PLAN] Single URL detected, fetching content...');
+        try {
+          const urlContent = await this.fetchUrlContent(userInput.trim());
+          processedInput = `URL: ${userInput.trim()}\n\nContent from URL:\n${urlContent}`;
+          console.log(`[DIRECT PLAN] Fetched ${urlContent.length} chars from URL`);
+        } catch (error) {
+          console.error('[DIRECT PLAN] URL fetch failed:', error);
+          // Don't throw - continue with original input and let AI handle it
+          processedInput = `User wants to create a plan from this URL (content could not be fetched): ${userInput}`;
+        }
+      } else {
+        // Check if input contains URLs within text
+        const urls = this.extractUrls(userInput);
+        if (urls.length > 0) {
+          console.log(`[DIRECT PLAN] Found ${urls.length} URL(s) in text:`, urls);
+          
+          // Fetch content from all URLs (limit to first 3)
+          const urlContents: string[] = [];
+          for (const url of urls.slice(0, 3)) {
+            try {
+              console.log(`[DIRECT PLAN] Fetching content from: ${url}`);
+              const content = await this.fetchUrlContent(url);
+              urlContents.push(`\n--- Content from ${url} ---\n${content}`);
+              console.log(`[DIRECT PLAN] Fetched ${content.length} chars from ${url}`);
+            } catch (error) {
+              console.error(`[DIRECT PLAN] Failed to fetch ${url}:`, error);
+              urlContents.push(`\n--- Could not fetch content from ${url} ---`);
+            }
+          }
+          
+          if (urlContents.length > 0) {
+            // Combine user's text with fetched URL content
+            processedInput = `${userInput}\n\n=== FETCHED URL CONTENT ===\n${urlContents.join('\n')}`;
+          }
+        }
       }
     }
 
@@ -270,6 +314,30 @@ RULES FOR TITLE EXTRACTION:
 6. If request is a list without title → CREATE descriptive title from context
 7. NEVER use generic titles like "Action Plan" or "Your Tasks"
 8. NEVER use meta descriptions about generating or creating
+
+⚠️ CRITICAL: URL CONTENT HANDLING ⚠️
+When the input contains "FETCHED URL CONTENT" or "Content from URL":
+- You HAVE the actual content already - it's provided above!
+- Generate actionable tasks DIRECTLY FROM the content
+- DO NOT create tasks like "Access the URL", "Navigate to the link", "Read the content"
+- DO NOT create tasks that tell the user to visit/review/access the URL
+- The content HAS BEEN extracted for you - work with it directly!
+
+FORBIDDEN TASK PATTERNS (never generate these):
+❌ "Access the shared URL"
+❌ "Navigate to [URL] and verify..."
+❌ "Extract and document key information"
+❌ "Review your notes to identify..."
+❌ "Read through all content in the shared link"
+❌ "Take note of any access requirements"
+
+CORRECT TASK PATTERNS (generate these instead):
+✅ "Implement [specific feature from content]"
+✅ "Create [specific deliverable mentioned]"
+✅ "Set up [specific component described]"
+✅ "Configure [specific setting referenced]"
+✅ "Write [specific document/code from requirements]"
+✅ "Complete [specific action item from content]"
 
 EXAMPLES:
 

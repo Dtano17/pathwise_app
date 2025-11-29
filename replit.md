@@ -51,3 +51,18 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 - **PostgreSQL (Neon)**: Cloud-hosted relational database.
 - **Passport.js**: Authentication middleware.
 - **Resend**: Email delivery service.
+
+## Latest Updates (November 29, 2025)
+- ✅ **Group Join Flow for New Users Fixed**:
+  - New users now see "Join Group?" dialog immediately after signing up from shared group plan link
+  - Fixed handleSignIn() to save group join intent to localStorage before redirecting to login
+  - Auto-copy effect now properly handles undecided state and shows dialog
+  - Complete flow tested and verified: share link → sign up → return → see dialog → join group
+
+- ✅ **URL Detection in Create Action Plan Enhanced**:
+  - Now detects URLs within text (e.g., "create plan for https://example.com")
+  - Fetches content from URLs and uses it for plan generation
+  - Strong prompt guidance to generate actionable tasks FROM content, not meta-tasks
+  - Forbidden patterns: "Access the URL", "Navigate to link", "Read content"
+  - Correct patterns: "Implement X", "Create Y", "Set up Z" (based on actual content)
+  - Note: JavaScript-rendered pages (Copilot shares, Google Docs) may not fetch content properly
