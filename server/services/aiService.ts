@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { type InsertTask, type InsertChatImport } from "@shared/schema";
+import { tavily } from '@tavily/core';
+import axios from 'axios';
 
 // Using GPT-4 Turbo which is currently the latest available OpenAI model
 export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -20,6 +22,9 @@ const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-20250514";
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
+
+// Initialize Tavily client for URL content extraction
+const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
 interface GoalProcessingResult {
   planTitle?: string;
@@ -54,6 +59,80 @@ const USER_CONTEXT_CACHE = new Map<string, CachedUserContext>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache
 
 export class AIService {
+  /**
+   * Extract URLs from text input
+   */
+  private extractUrls(input: string): string[] {
+    const urlRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
+    const matches = input.match(urlRegex) || [];
+    return matches.map(url => url.replace(/[.,;:!?)]+$/, ''));
+  }
+
+  /**
+   * Check if input is a URL
+   */
+  private isUrl(input: string): boolean {
+    try {
+      new URL(input.trim());
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Extract content from URL using Tavily Extract API (handles JS-rendered pages)
+   */
+  private async extractUrlContentWithTavily(url: string): Promise<string> {
+    try {
+      console.log(`[AISERVICE] Extracting URL with Tavily: ${url}`);
+      const response = await tavilyClient.extract([url], {
+        extractDepth: 'advanced',
+        format: 'markdown',
+        timeout: 30
+      });
+      if (response.results?.length > 0) {
+        const content = response.results[0].rawContent;
+        if (content) {
+          console.log(`[AISERVICE] Extracted ${content.length} chars from URL`);
+          return content.substring(0, 5000);
+        }
+      }
+      throw new Error('Tavily extraction returned no content');
+    } catch (error) {
+      console.error('[AISERVICE] Tavily extraction failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch URL content with fallback chain (Tavily → axios)
+   */
+  private async fetchUrlContent(url: string): Promise<string> {
+    try {
+      try {
+        return await this.extractUrlContentWithTavily(url);
+      } catch (tavily_error) {
+        console.warn('[AISERVICE] Tavily failed, trying axios...');
+      }
+      const response = await axios.get(url, { timeout: 10000 });
+      const content = response.data;
+      if (typeof content === 'string' && content.includes('<html')) {
+        const text = content
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        return text.substring(0, 5000);
+      }
+      return content.toString().substring(0, 5000);
+    } catch (error) {
+      console.error('[AISERVICE] URL fetch failed:', error);
+      throw error;
+    }
+  }
+
   // Helper function to extract JSON from markdown code blocks or plain text
   private extractJSON(text: string): any {
     // Try to find JSON in markdown code blocks first
@@ -78,6 +157,38 @@ export class AIService {
     userId?: string,
     existingActivity?: { title: string; tasks: Array<{ title: string; description?: string }> }
   ): Promise<GoalProcessingResult> {
+    // Step 1: Extract URL content if present
+    let processedGoal = goalText;
+    
+    if (this.isUrl(goalText.trim())) {
+      console.log('[AISERVICE] Single URL detected, extracting content...');
+      try {
+        const urlContent = await this.fetchUrlContent(goalText.trim());
+        processedGoal = `URL: ${goalText.trim()}\n\nContent from URL:\n${urlContent}`;
+      } catch (error) {
+        console.error('[AISERVICE] URL extraction failed:', error);
+        processedGoal = `User wants a plan from this URL (content could not be fetched): ${goalText}`;
+      }
+    } else {
+      const urls = this.extractUrls(goalText);
+      if (urls.length > 0) {
+        console.log(`[AISERVICE] Found ${urls.length} URLs in goal text`);
+        const urlContents: string[] = [];
+        for (const url of urls.slice(0, 3)) {
+          try {
+            const content = await this.fetchUrlContent(url);
+            urlContents.push(`\n--- Content from ${url} ---\n${content}`);
+          } catch (error) {
+            console.error(`[AISERVICE] Failed to fetch ${url}:`, error);
+            urlContents.push(`\n--- Could not fetch content from ${url} ---`);
+          }
+        }
+        if (urlContents.length > 0) {
+          processedGoal = `${goalText}\n\n=== FETCHED URL CONTENT ===\n${urlContents.join('\n')}`;
+        }
+      }
+    }
+
     // Fetch user priorities and context if userId is provided
     let userPriorities: any[] = [];
     let userContext: string | null = null;
@@ -94,9 +205,9 @@ export class AIService {
     }
 
     if (preferredModel === "claude" && process.env.ANTHROPIC_API_KEY) {
-      return this.processGoalWithClaude(goalText, userPriorities, userContext, existingActivity);
+      return this.processGoalWithClaude(processedGoal, userPriorities, userContext, existingActivity);
     }
-    return this.processGoalWithOpenAI(goalText, userPriorities, userContext, existingActivity);
+    return this.processGoalWithOpenAI(processedGoal, userPriorities, userContext, existingActivity);
   }
 
   async chatConversation(
