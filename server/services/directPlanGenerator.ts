@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { User } from '@shared/schema';
+import axios from 'axios';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -28,6 +29,46 @@ export interface DirectPlanResult {
 export class DirectPlanGenerator {
 
   /**
+   * Detect if input is a URL
+   */
+  private isUrl(input: string): boolean {
+    try {
+      new URL(input.trim());
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Fetch content from URL
+   */
+  private async fetchUrlContent(url: string): Promise<string> {
+    try {
+      console.log(`[DIRECT PLAN] Fetching URL content: ${url}`);
+      const response = await axios.get(url, { timeout: 10000 });
+      const content = response.data;
+      
+      // Extract text content from HTML if needed
+      if (typeof content === 'string' && content.includes('<html')) {
+        // Basic HTML text extraction
+        const text = content
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        return text.substring(0, 5000); // Limit to 5000 chars
+      }
+      
+      return content.toString().substring(0, 5000);
+    } catch (error) {
+      console.error('[DIRECT PLAN] Failed to fetch URL:', error);
+      throw new Error(`Failed to fetch URL content: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
    * Generate a plan directly from user input
    * No questions, no back-and-forth, just create the plan!
    */
@@ -47,9 +88,22 @@ export class DirectPlanGenerator {
       console.log(`[DIRECT PLAN] Modifying existing plan: "${existingPlan.activity.title}"`);
     }
 
+    // Step 0: Check if input is a URL and fetch content
+    let processedInput = userInput;
+    if (!isModification && contentType === 'text' && this.isUrl(userInput)) {
+      console.log('[DIRECT PLAN] URL detected, fetching content...');
+      try {
+        const urlContent = await this.fetchUrlContent(userInput);
+        processedInput = `URL: ${userInput}\n\nContent from URL:\n${urlContent}`;
+      } catch (error) {
+        console.error('[DIRECT PLAN] URL fetch failed:', error);
+        throw error;
+      }
+    }
+
     // Step 1: Validate if input is plan-related (guardrail check)
     if (!isModification && contentType === 'text') {
-      const isPlanRelated = await this.validatePlanIntent(userInput);
+      const isPlanRelated = await this.validatePlanIntent(processedInput);
       if (!isPlanRelated) {
         throw new Error('INPUT_NOT_PLAN_RELATED: Your input doesn\'t appear to be requesting a plan. Please describe what you want to plan or accomplish.');
       }
@@ -57,8 +111,8 @@ export class DirectPlanGenerator {
 
     // Build prompt based on whether it's new or modification
     const prompt = isModification
-      ? this.buildModificationPrompt(userInput, existingPlan, userProfile)
-      : this.buildCreationPrompt(userInput, contentType, userProfile);
+      ? this.buildModificationPrompt(processedInput, existingPlan, userProfile)
+      : this.buildCreationPrompt(processedInput, contentType, userProfile);
 
     try {
       const messageContent = contentType === 'image'
@@ -159,7 +213,8 @@ Answer with ONLY "YES" or "NO".`
     userProfile: User
   ): string {
 
-    const userContext = `User: ${userProfile.name || 'User'}
+    const userName = userProfile.firstName || userProfile.username || 'User';
+    const userContext = `User: ${userName}
 Location: ${userProfile.location || 'Unknown'}
 Timezone: ${userProfile.timezone || 'Unknown'}`;
 

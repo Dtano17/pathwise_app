@@ -63,7 +63,17 @@ The application employs a mobile-first responsive design featuring a clean, card
 - **Passport.js**: Authentication middleware.
 - **Resend**: Email delivery service.
 
-## Latest Updates (November 28, 2025)
+## Latest Updates (November 29, 2025)
+- ✅ **Live Chat URL Scanning & Plan Generation**:
+  - Fixed "Create Action Plan" button in Live Chat mode
+  - Now automatically detects URLs when pasted in chat
+  - Fetches URL content and extracts text (5000 char limit)
+  - Handles both HTML and text-based URLs
+  - Generates actionable plans directly from fetched content
+  - No longer treats URLs as plain text - actual content analysis
+  - Updated directPlanGenerator.ts with URL detection and content fetching logic
+
+## Previous Updates (November 28, 2025)
 - ✅ **Multi-Format Document Upload Support**:
   - Supports PDF, Word (.docx), Images (JPEG, PNG, GIF, WebP), and Text files (TXT, MD, CSV, JSON)
   - New `documentParser.ts` service handles all document types with proper content extraction
