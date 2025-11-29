@@ -1,8 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { User } from '@shared/schema';
 import axios from 'axios';
+import { tavily } from '@tavily/core';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+// Initialize Tavily client for advanced URL content extraction
+const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
 // Use Sonnet-4 for direct plan generation (needs high quality output)
 const CLAUDE_SONNET = "claude-sonnet-4-20250514";
@@ -55,29 +59,84 @@ export class DirectPlanGenerator {
   }
 
   /**
-   * Fetch content from URL
+   * Extract content from URL using Tavily Extract API
+   * Handles JavaScript-rendered pages, CAPTCHAs, and anti-bot measures
+   */
+  private async extractUrlContentWithTavily(url: string): Promise<string> {
+    try {
+      console.log(`[DIRECT PLAN] Extracting URL with Tavily (advanced mode): ${url}`);
+      
+      const response = await tavilyClient.extract([url], {
+        extractDepth: 'advanced', // Handles JS rendering, CAPTCHAs, anti-bot
+        format: 'markdown', // Get clean markdown format
+        timeout: 30 // 30 second timeout for advanced extraction
+      });
+
+      if (response.results && response.results.length > 0) {
+        const content = response.results[0].rawContent;
+        if (content) {
+          console.log(`[DIRECT PLAN] Successfully extracted ${content.length} chars from URL via Tavily`);
+          return content.substring(0, 5000); // Limit to 5000 chars
+        }
+      }
+
+      if (response.failedResults && response.failedResults.length > 0) {
+        throw new Error(`Tavily extraction failed: ${response.failedResults[0]}`);
+      }
+
+      throw new Error('Tavily extraction returned no content');
+    } catch (error) {
+      console.error('[DIRECT PLAN] Tavily extraction failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch content from URL with fallback chain:
+   * 1. Try Tavily Extract (handles JS-rendered pages)
+   * 2. Fall back to basic axios
+   * 3. Fail with user-friendly message
    */
   private async fetchUrlContent(url: string): Promise<string> {
     try {
       console.log(`[DIRECT PLAN] Fetching URL content: ${url}`);
-      const response = await axios.get(url, { timeout: 10000 });
-      const content = response.data;
       
-      // Extract text content from HTML if needed
-      if (typeof content === 'string' && content.includes('<html')) {
-        // Basic HTML text extraction
-        const text = content
-          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-        return text.substring(0, 5000); // Limit to 5000 chars
+      // Try Tavily Extract first (best for JS-rendered pages, Copilot shares, SPAs)
+      try {
+        return await this.extractUrlContentWithTavily(url);
+      } catch (tavily_error) {
+        console.warn('[DIRECT PLAN] Tavily extraction failed, falling back to axios:', tavily_error);
+        // Fall through to axios fallback
       }
-      
-      return content.toString().substring(0, 5000);
+
+      // Fallback: Try basic axios fetch
+      try {
+        console.log(`[DIRECT PLAN] Falling back to basic axios fetch: ${url}`);
+        const response = await axios.get(url, { timeout: 10000 });
+        const content = response.data;
+        
+        // Extract text content from HTML if needed
+        if (typeof content === 'string' && content.includes('<html')) {
+          // Basic HTML text extraction
+          const text = content
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          console.log(`[DIRECT PLAN] Extracted ${text.length} chars from URL via axios`);
+          return text.substring(0, 5000); // Limit to 5000 chars
+        }
+        
+        const result = content.toString().substring(0, 5000);
+        console.log(`[DIRECT PLAN] Extracted ${result.length} chars from URL via axios`);
+        return result;
+      } catch (axios_error) {
+        console.error('[DIRECT PLAN] Axios fetch also failed:', axios_error);
+        throw axios_error;
+      }
     } catch (error) {
-      console.error('[DIRECT PLAN] Failed to fetch URL:', error);
+      console.error('[DIRECT PLAN] All URL fetch methods failed:', error);
       throw new Error(`Failed to fetch URL content: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
