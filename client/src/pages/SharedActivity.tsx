@@ -375,6 +375,24 @@ export default function SharedActivity() {
   }, [data]);
 
   const handleSignIn = () => {
+    // Save group join intent BEFORE redirecting to login
+    // This ensures new users see the join dialog after signing up
+    if (data?.groupInfo) {
+      localStorage.setItem('pendingGroupJoin', JSON.stringify({
+        shareToken: token,
+        joinGroup: null, // null = user hasn't decided yet, will show dialog
+        shareProgress: false,
+        groupId: data.groupInfo.id,
+        groupName: data.groupInfo.name,
+        inviteCode: data.groupInfo.inviteCode,
+        timestamp: Date.now()
+      }));
+      console.log('[SHARED ACTIVITY] 💾 Saved group join intent for after auth:', {
+        groupName: data.groupInfo.name,
+        inviteCode: data.groupInfo.inviteCode
+      });
+    }
+    
     // Use full pathname as returnTo with autoCopy parameter to trigger copy after auth
     const returnTo = encodeURIComponent(`${window.location.pathname}?autoCopy=true`);
     console.log('[SHARED ACTIVITY] Redirecting to login with returnTo and autoCopy:', window.location.pathname);
@@ -535,12 +553,13 @@ export default function SharedActivity() {
       // Check for pending join preferences saved before login redirect
       const pendingJoinStr = localStorage.getItem('pendingGroupJoin');
       let savedJoinPrefs: { 
-        joinGroup?: boolean; 
+        joinGroup?: boolean | null; // null means user hasn't decided yet
         shareProgress?: boolean; 
         shareToken?: string; 
         timestamp?: number;
         inviteCode?: string | null;
         groupId?: string | null;
+        groupName?: string | null;
       } | null = null;
       
       if (pendingJoinStr) {
@@ -573,8 +592,14 @@ export default function SharedActivity() {
           inviteCode: savedJoinPrefs.inviteCode
         });
         
-        // If user opted to join group and we have an invite code, use the proven invite code flow
-        if (savedJoinPrefs.joinGroup && savedJoinPrefs.inviteCode) {
+        // joinGroup can be: true (user chose to join), false (user chose not to join), or null (user hasn't decided)
+        // If joinGroup is null, show the join dialog so user can decide
+        if (savedJoinPrefs.joinGroup === null && savedJoinPrefs.inviteCode) {
+          console.log('[SHARED ACTIVITY] 🚀 User hasn\'t decided yet, showing join dialog for group');
+          setPendingCopy({ forceUpdate: false });
+          setShowJoinDialog(true);
+        } else if (savedJoinPrefs.joinGroup === true && savedJoinPrefs.inviteCode) {
+          // User explicitly opted to join group - use the proven invite code flow
           console.log('[SHARED ACTIVITY] 🔑 Joining group via invite code first...');
           
           // Join group via invite code (the proven working flow)
@@ -621,7 +646,7 @@ export default function SharedActivity() {
             });
           });
         } else {
-          // No invite code or user chose not to join - just copy
+          // User chose not to join OR no invite code - just copy without joining
           console.log('[SHARED ACTIVITY] 📋 Copying activity without group join');
           copyActivityMutation.mutate({ 
             forceUpdate: false, 
@@ -630,6 +655,7 @@ export default function SharedActivity() {
           });
         }
       } else if (data.groupInfo) {
+        // No saved preferences but there's group info - show dialog
         console.log('[SHARED ACTIVITY] 🚀 Showing join dialog for group:', data.groupInfo.name);
         setPendingCopy({ forceUpdate: false });
         setShowJoinDialog(true);
