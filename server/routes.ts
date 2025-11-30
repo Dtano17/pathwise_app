@@ -10472,12 +10472,121 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
 
       console.log(`[PARSE-URL] Extracting content from: ${url}`);
       let extractedContent = '';
+      let resolvedUrl = url;
+
+      // Detect video-based social media platforms
+      const isVideoSocialMedia = (urlString: string): { isVideo: boolean; platform: string } => {
+        const videoPatterns = [
+          { pattern: /tiktok\.com/i, platform: 'TikTok' },
+          { pattern: /youtube\.com\/watch|youtu\.be\//i, platform: 'YouTube' },
+          { pattern: /instagram\.com\/(reel|p)\//i, platform: 'Instagram' },
+          { pattern: /twitter\.com\/.*\/status|x\.com\/.*\/status/i, platform: 'X/Twitter' },
+          { pattern: /facebook\.com\/.*\/videos/i, platform: 'Facebook' },
+          { pattern: /vimeo\.com/i, platform: 'Vimeo' },
+        ];
+        
+        for (const { pattern, platform } of videoPatterns) {
+          if (pattern.test(urlString)) {
+            return { isVideo: true, platform };
+          }
+        }
+        return { isVideo: false, platform: '' };
+      };
+
+      // Resolve shortened URLs (like TikTok's t/ format)
+      const resolveShortUrl = async (shortUrl: string): Promise<string> => {
+        try {
+          // Check if it's a shortened URL pattern
+          const shortenedPatterns = [
+            /tiktok\.com\/t\//i,
+            /bit\.ly\//i,
+            /t\.co\//i,
+            /goo\.gl\//i,
+            /ow\.ly\//i,
+            /tiny\.cc\//i,
+          ];
+          
+          const isShortened = shortenedPatterns.some(p => p.test(shortUrl));
+          if (!isShortened) return shortUrl;
+          
+          console.log(`[PARSE-URL] Resolving shortened URL: ${shortUrl}`);
+          
+          // Try HEAD first, fallback to GET (some servers block HEAD)
+          let finalUrl = shortUrl;
+          try {
+            const headResponse = await fetch(shortUrl, {
+              method: 'HEAD',
+              redirect: 'follow',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              }
+            });
+            finalUrl = headResponse.url || shortUrl;
+          } catch (headError) {
+            console.log(`[PARSE-URL] HEAD request failed, trying GET...`);
+            // Fallback to GET request which follows redirects
+            const getResponse = await fetch(shortUrl, {
+              method: 'GET',
+              redirect: 'follow',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              }
+            });
+            finalUrl = getResponse.url || shortUrl;
+          }
+          
+          console.log(`[PARSE-URL] Resolved to: ${finalUrl}`);
+          return finalUrl;
+        } catch (error) {
+          console.log(`[PARSE-URL] Could not resolve shortened URL, using original`);
+          return shortUrl;
+        }
+      };
+
+      // Resolve shortened URLs first
+      resolvedUrl = await resolveShortUrl(url);
+      
+      // Check if it's a video-based social media platform
+      const videoCheck = isVideoSocialMedia(resolvedUrl);
+      if (videoCheck.isVideo) {
+        console.log(`[PARSE-URL] Detected ${videoCheck.platform} video content`);
+        
+        // Still try to extract any text content (captions, descriptions)
+        if (tavilyClient) {
+          try {
+            console.log(`[PARSE-URL] Attempting to extract ${videoCheck.platform} metadata with Tavily...`);
+            const tavilyResponse = await tavilyClient.extract([resolvedUrl], {
+              extractDepth: "advanced"
+            });
+            
+            if (tavilyResponse.results && tavilyResponse.results.length > 0 && tavilyResponse.results[0].rawContent) {
+              extractedContent = tavilyResponse.results[0].rawContent;
+              console.log(`[PARSE-URL] Extracted ${extractedContent.length} chars from ${videoCheck.platform}`);
+            }
+          } catch (e) {
+            console.log(`[PARSE-URL] Tavily extraction failed for ${videoCheck.platform}`);
+          }
+        }
+        
+        // If we couldn't extract meaningful content, provide helpful guidance
+        if (!extractedContent || extractedContent.length < 50) {
+          const guidance = `[${videoCheck.platform} Video Content]\n\nThis appears to be a ${videoCheck.platform} video. Video content cannot be directly extracted.\n\nTo create a plan from this video, please:\n1. Describe what the video is about\n2. Share the key points or ideas from the video\n3. Tell us what aspect you want to turn into an actionable plan\n\nFor example: "The video shows a 5-day Marrakech travel itinerary with visits to the Medina, Jardin Majorelle, and local food tours. I want to recreate this trip."`;
+          
+          return res.json({ 
+            content: guidance,
+            isVideoContent: true,
+            platform: videoCheck.platform,
+            resolvedUrl: resolvedUrl,
+            guidance: guidance
+          });
+        }
+      }
 
       // Try Tavily Extract first (handles JavaScript-rendered pages like Copilot, SPAs, etc.)
-      if (tavilyClient) {
+      if (!extractedContent && tavilyClient) {
         try {
           console.log(`[PARSE-URL] Using Tavily Extract with advanced depth...`);
-          const tavilyResponse = await tavilyClient.extract([url], {
+          const tavilyResponse = await tavilyClient.extract([resolvedUrl], {
             extractDepth: "advanced" // Execute JavaScript, handle anti-bot measures
           });
           
@@ -10495,7 +10604,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       // Fallback to basic fetch if Tavily didn't work
       if (!extractedContent) {
         console.log(`[PARSE-URL] Using basic fetch fallback...`);
-        const response = await fetch(url, {
+        const response = await fetch(resolvedUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
           }
@@ -10521,7 +10630,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       // Limit content to 15000 characters (increased for better context)
       extractedContent = extractedContent.substring(0, 15000);
 
-      res.json({ content: extractedContent });
+      res.json({ content: extractedContent, resolvedUrl });
     } catch (error: any) {
       console.error(`[PARSE-URL] Error: ${error.message}`);
       res.status(500).json({ error: `Failed to parse URL: ${error.message}` });

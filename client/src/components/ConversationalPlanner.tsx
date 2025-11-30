@@ -716,6 +716,16 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to fetch URL');
+    
+    // Handle video content responses with helpful guidance
+    if (data.isVideoContent) {
+      toast({
+        title: `${data.platform} Video Detected`,
+        description: "Video content can't be extracted directly. Please describe what's in the video to create a plan.",
+        duration: 8000
+      });
+    }
+    
     return data.content || '';
   };
 
@@ -859,8 +869,43 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     if (detectedUrl && (planningMode === 'quick' || planningMode === 'smart')) {
       setIsLoadingCuratedQuestions(true);
       try {
-        const content = await fetchUrlContent(detectedUrl);
-        await processCuratedQuestionsFlow(content);
+        const response = await fetch('/api/parse-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: detectedUrl })
+        });
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to fetch URL');
+        }
+        
+        // Handle video content - show guidance and don't proceed to curated questions
+        if (data.isVideoContent) {
+          toast({
+            title: `${data.platform} Video Detected`,
+            description: "Video content can't be extracted directly. Please describe what's in the video to create a plan.",
+            duration: 10000
+          });
+          // Add guidance as a system message
+          const guidanceMessage: ConversationMessage = {
+            role: 'assistant',
+            content: data.guidance || `This appears to be a ${data.platform} video. Please describe what the video shows and what kind of plan you'd like to create from it.`,
+            timestamp: new Date().toISOString()
+          };
+          setCurrentSession(prev => prev ? {
+            ...prev,
+            conversationHistory: [...prev.conversationHistory, guidanceMessage]
+          } : null);
+          setMessage('');
+          setIsLoadingCuratedQuestions(false);
+          return;
+        }
+        
+        // Normal content - proceed with curated questions
+        if (data.content) {
+          await processCuratedQuestionsFlow(data.content);
+        }
         setMessage('');
       } catch (error) {
         console.error('URL processing error:', error);
@@ -1988,7 +2033,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 {(planningMode === 'quick' || planningMode === 'smart') && (
                   <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
                     <Link className="h-3 w-3" />
-                    <span>Paste a URL or upload a document to get personalized questions</span>
+                    <span>Paste a URL, upload an image/document, or describe a video you saw</span>
                   </div>
                 )}
                 
@@ -1999,11 +2044,26 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                       <input
                         ref={plannerFileInputRef}
                         type="file"
-                        accept=".txt,.md,.json,.html,.xml,.csv"
+                        accept=".txt,.md,.json,.html,.xml,.csv,.pdf,.docx,.jpg,.jpeg,.png,.gif,.webp"
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) handleDocumentUpload(file);
+                          if (file) {
+                            // Check if it's a video file
+                            if (file.type.startsWith('video/')) {
+                              toast({
+                                title: "Video Upload Not Supported",
+                                description: "Please describe the video content in text instead. For example: 'The video shows a Marrakech travel guide with visits to the Medina and local restaurants.'",
+                                variant: "destructive",
+                                duration: 8000
+                              });
+                              if (plannerFileInputRef.current) {
+                                plannerFileInputRef.current.value = '';
+                              }
+                              return;
+                            }
+                            handleDocumentUpload(file);
+                          }
                         }}
                         data-testid="input-document-upload"
                       />
@@ -2013,7 +2073,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                         size="icon"
                         variant="outline"
                         className="shrink-0"
-                        title="Upload document"
+                        title="Upload document or image"
                         data-testid="button-upload-document"
                       >
                         {isLoadingCuratedQuestions ? (
