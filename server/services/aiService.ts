@@ -667,6 +667,8 @@ ${userContext ? `## USER PROFILE & PREFERENCES:\n${userContext}\n` : ''}
 
       const prompt = `You are JournalMate's expert planning assistant. Create a detailed, personalized action plan based on external content and the user's specific answers.
 
+⚠️ **CRITICAL: ONLY generate tasks for the destination/topic described in the external content. DO NOT suggest alternatives or other locations.**
+
 ## EXTERNAL CONTENT (URL/Document):
 ${externalContent.substring(0, 8000)}
 
@@ -679,7 +681,9 @@ ${userPriorities.length > 0 ? `## USER'S LIFE PRIORITIES:\n${userPriorities.map(
 
 ## CRITICAL RULES - WHAT TO GENERATE
 
-**NEVER create meta-tasks or instructional tasks.** The external content has already been analyzed for you.
+**RULE #1: Generate ONLY tasks based on the destination/topic in the external content above. Never suggest alternative locations or different destinations.**
+
+**RULE #2: NEVER create meta-tasks or instructional tasks.** The external content has already been analyzed for you.
 
 ❌ FORBIDDEN TASK EXAMPLES (never generate these):
 - "Access the shared link and review content"
@@ -688,6 +692,8 @@ ${userPriorities.length > 0 ? `## USER'S LIFE PRIORITIES:\n${userPriorities.map(
 - "Look up prices for Y" - PROVIDE ACTUAL PRICE ESTIMATES
 - "Document key information from the source"
 - "Review the material and identify goals"
+- "Consider visiting [DIFFERENT DESTINATION]" - ONLY plan for the content destination
+- "Alternatively, you could go to [OTHER PLACE]" - FORBIDDEN
 
 ✅ REQUIRED TASK EXAMPLES (with SPECIFIC details):
 - "Book hotel in Marrakech ($80-120/night, recommend Riad Yasmine or similar riads in Medina)"
@@ -699,10 +705,10 @@ ${userPriorities.length > 0 ? `## USER'S LIFE PRIORITIES:\n${userPriorities.map(
 
 ALL tasks MUST include:
 1. **Specific dollar amounts** when relevant (hotels, flights, activities, shopping)
-2. **Named recommendations** (specific restaurants, hotels, apps, tools)
+2. **Named recommendations** (specific restaurants, hotels, apps, tools) from the content
 3. **Concrete quantities** (3 hours, 5 pages, 2 weeks)
 4. **Actionable steps** - not "research X" but "do X using Y method"
-5. **Price ranges** based on typical costs for the location/activity
+5. **Price ranges** based on typical costs for the location/activity mentioned in content
 
 NEVER use vague language like:
 - "Research prices" → Instead: "Expect to pay $X-Y"
@@ -712,11 +718,12 @@ NEVER use vague language like:
 ## CREATE A PERSONALIZED PLAN
 
 Generate ${taskCountRange} specific, actionable tasks that:
-1. SYNTHESIZE concrete work items from the external content
-2. Include REAL price estimates and specific recommendations
-3. Have clear deliverables with measurable outcomes
-4. Provide named tools, places, or resources when applicable
-5. Are organized in logical sequence with realistic timeframes
+1. SYNTHESIZE concrete work items ONLY from the external content provided above
+2. Match the destination/activity/topic from the content - DO NOT change or suggest alternatives
+3. Include REAL price estimates and specific recommendations found in or relevant to the content
+4. Have clear deliverables with measurable outcomes
+5. Provide named tools, places, or resources when applicable
+6. Are organized in logical sequence with realistic timeframes
 
 ## RESPOND WITH JSON:
 {
