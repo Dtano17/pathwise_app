@@ -52,7 +52,26 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 - **Passport.js**: Authentication middleware.
 - **Resend**: Email delivery service.
 
-## Latest Updates (November 29, 2025)
+## Latest Updates (November 30, 2025)
+- ✅ **Conversational Flow for URL Curated Questions**:
+  - Replaced popup dialog with conversational chat format for URL/document analysis questions
+  - Questions now appear as chat messages with proper markdown formatting
+  - Users answer questions in the natural chat flow, not in modal dialogs
+  - Applies to Quick Plan and Smart Plan modes when URLs or documents are detected
+  - Improved user experience with seamless conversational interactions
+
+- ✅ **Enhanced AI Task Generation (6-9 Tasks with Specific Details)**:
+  - Updated all AI prompts to generate 6-9 actionable tasks (occasionally 5 for simple goals)
+  - Tasks now include SPECIFIC details: real prices, named recommendations, concrete quantities
+  - Forbidden vague patterns: "Research prices", "Look into options", "Set a budget"
+  - Required specific patterns: "$300/person for flights", "Hotel du Petit Moulin ($150/night)"
+  - Updated prompts in: aiService.ts, directPlanGenerator.ts, simpleConversationalPlanner.ts
+
+- ✅ **View Activity Button After Plan Creation**:
+  - ConversationalPlanner shows "View Activity" button linking directly to created activity
+  - Navigation pattern: setLocation('/?tab=activities&activity=${activityId}')
+
+## Previous Updates (November 29, 2025)
 - ✅ **Group Join Flow for New Users Fixed**:
   - New users now see "Join Group?" dialog immediately after signing up from shared group plan link
   - Fixed handleSignIn() to save group join intent to localStorage before redirecting to login
