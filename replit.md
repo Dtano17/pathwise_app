@@ -54,6 +54,17 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 
 ## Latest Updates (November 30, 2025)
 
+### Multi-Source Content Orchestration with Video/Audio Transcription
+- **OpenAI Whisper Integration**: Video and audio files (MP4, MOV, WebM, M4A, WAV, MP3) now transcribed via OpenAI Whisper API
+- **Technical Implementation**: 
+  - Uses `OpenAI.toFile(fs.createReadStream(filePath), fileName, { contentType: mimeType })` for proper MIME handling
+  - 25MB file size limit (Whisper requirement)
+  - Automatic file cleanup in try/finally blocks
+- **Content Orchestrator Service**: New service combining URLs, documents, and media into unified planning context
+- **API Endpoint**: `/api/planner/orchestrate-sources` accepts multiple source types in single request
+- **Frontend Support**: ConversationalPlanner now accepts video/audio uploads with visual feedback
+- **Use Case**: Combine PDF itinerary + social media posts + voice memos into coherent action plans
+
 ### Enhanced Creative Planning with Destination Anchoring
 - **Changed Approach**: Use post as baseline, be creative with similar recommendations
 - **Key Features**:

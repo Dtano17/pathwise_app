@@ -2033,7 +2033,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 {(planningMode === 'quick' || planningMode === 'smart') && (
                   <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
                     <Link className="h-3 w-3" />
-                    <span>Paste a URL, upload an image/document, or describe a video you saw</span>
+                    <span>Paste a URL, upload a video/audio/document, or combine multiple sources</span>
                   </div>
                 )}
                 
@@ -2044,23 +2044,30 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                       <input
                         ref={plannerFileInputRef}
                         type="file"
-                        accept=".txt,.md,.json,.html,.xml,.csv,.pdf,.docx,.jpg,.jpeg,.png,.gif,.webp"
+                        accept=".txt,.md,.json,.html,.xml,.csv,.pdf,.docx,.jpg,.jpeg,.png,.gif,.webp,.mp4,.webm,.mov,.avi,.mp3,.wav,.m4a"
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            // Check if it's a video file
-                            if (file.type.startsWith('video/')) {
+                            const maxSize = 25 * 1024 * 1024;
+                            if (file.size > maxSize) {
                               toast({
-                                title: "Video Upload Not Supported",
-                                description: "Please describe the video content in text instead. For example: 'The video shows a Marrakech travel guide with visits to the Medina and local restaurants.'",
+                                title: "File Too Large",
+                                description: `Maximum file size is 25MB. Your file is ${Math.round(file.size / 1024 / 1024)}MB.`,
                                 variant: "destructive",
-                                duration: 8000
+                                duration: 5000
                               });
                               if (plannerFileInputRef.current) {
                                 plannerFileInputRef.current.value = '';
                               }
                               return;
+                            }
+                            if (file.type.startsWith('video/') || file.type.startsWith('audio/')) {
+                              toast({
+                                title: file.type.startsWith('video/') ? "Transcribing Video..." : "Transcribing Audio...",
+                                description: "Extracting spoken content using AI transcription. This may take a moment.",
+                                duration: 5000
+                              });
                             }
                             handleDocumentUpload(file);
                           }
@@ -2073,7 +2080,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                         size="icon"
                         variant="outline"
                         className="shrink-0"
-                        title="Upload document or image"
+                        title="Upload video, audio, image, or document"
                         data-testid="button-upload-document"
                       >
                         {isLoadingCuratedQuestions ? (

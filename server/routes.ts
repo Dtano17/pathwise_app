@@ -176,9 +176,8 @@ const documentStorage = multer.diskStorage({
 
 const documentUpload = multer({
   storage: documentStorage,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit for documents/images
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit (Whisper API max)
   fileFilter: (req, file, cb) => {
-    // Allow PDFs, Word docs, images, and text files
     const allowedMimeTypes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -189,13 +188,21 @@ const documentUpload = multer({
       'text/plain',
       'text/markdown',
       'text/csv',
-      'application/json'
+      'application/json',
+      'video/mp4',
+      'video/webm',
+      'video/quicktime',
+      'video/x-msvideo',
+      'audio/mpeg',
+      'audio/wav',
+      'audio/mp4',
+      'audio/webm'
     ];
     
     if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error(`Unsupported file type: ${file.mimetype}. Supported: PDF, Word (.docx), Images (JPEG, PNG, GIF, WebP), Text files (TXT, MD, CSV, JSON)`));
+      cb(new Error(`Unsupported file type: ${file.mimetype}. Supported: PDF, Word (.docx), Images, Videos (MP4, WebM, MOV), Audio (MP3, WAV, M4A)`));
     }
   }
 });
@@ -10634,6 +10641,124 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     } catch (error: any) {
       console.error(`[PARSE-URL] Error: ${error.message}`);
       res.status(500).json({ error: `Failed to parse URL: ${error.message}` });
+    }
+  });
+
+  app.post("/api/planner/orchestrate-sources", documentUpload.array('files', 10), async (req: any, res) => {
+    const cleanupFiles = () => {
+      if (req.files) {
+        req.files.forEach((file: any) => {
+          try {
+            if (fs.existsSync(file.path)) {
+              fs.unlinkSync(file.path);
+            }
+          } catch (e) {}
+        });
+      }
+    };
+    
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { urls, textContent, userGoal } = req.body;
+      
+      console.log(`[ORCHESTRATE] User ${userId} submitted multi-source request`);
+      
+      const { contentOrchestrator } = await import('./services/contentOrchestrator');
+      
+      const sources: Array<{
+        id: string;
+        type: 'url' | 'file' | 'text';
+        source: string;
+        mimeType?: string;
+        filePath?: string;
+        originalName?: string;
+      }> = [];
+      
+      if (urls) {
+        let urlList: string[] = [];
+        if (Array.isArray(urls)) {
+          urlList = urls;
+        } else if (typeof urls === 'string') {
+          try {
+            urlList = JSON.parse(urls);
+          } catch {
+            urlList = [urls];
+          }
+        }
+        urlList.forEach((url: string, i: number) => {
+          if (typeof url === 'string' && url.trim()) {
+            sources.push({
+              id: `url-${i}`,
+              type: 'url',
+              source: url.trim()
+            });
+          }
+        });
+      }
+      
+      if (req.files && req.files.length > 0) {
+        req.files.forEach((file: any, i: number) => {
+          sources.push({
+            id: `file-${i}`,
+            type: 'file',
+            source: file.originalname,
+            mimeType: file.mimetype,
+            filePath: file.path,
+            originalName: file.originalname
+          });
+        });
+      }
+      
+      if (textContent && typeof textContent === 'string' && textContent.trim()) {
+        sources.push({
+          id: 'text-0',
+          type: 'text',
+          source: textContent.trim()
+        });
+      }
+      
+      if (sources.length === 0) {
+        cleanupFiles();
+        return res.status(400).json({ error: 'At least one content source is required (URL, file, or text)' });
+      }
+      
+      console.log(`[ORCHESTRATE] Processing ${sources.length} sources`);
+      
+      let orchestratorResult;
+      try {
+        orchestratorResult = await contentOrchestrator.parseMultipleSources(sources);
+      } finally {
+        cleanupFiles();
+      }
+      
+      if (!orchestratorResult.success) {
+        return res.status(400).json({ 
+          error: orchestratorResult.error || 'Failed to process content sources',
+          sources: orchestratorResult.sources
+        });
+      }
+      
+      let plan = null;
+      if (userGoal) {
+        try {
+          plan = await contentOrchestrator.generateUnifiedPlan(orchestratorResult, userGoal);
+        } catch (planError: any) {
+          console.error('[ORCHESTRATE] Plan generation failed:', planError.message);
+        }
+      }
+      
+      res.json({
+        success: true,
+        sources: orchestratorResult.sources,
+        unifiedContent: orchestratorResult.unifiedContent,
+        extractedVenues: orchestratorResult.extractedVenues,
+        extractedLocations: orchestratorResult.extractedLocations,
+        suggestedCategory: orchestratorResult.suggestedCategory,
+        plan
+      });
+    } catch (error: any) {
+      console.error('[ORCHESTRATE] Error:', error);
+      res.status(500).json({ error: error.message || 'Failed to orchestrate content sources' });
     }
   });
 

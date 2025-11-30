@@ -10,12 +10,14 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 export interface ParsedDocument {
   success: boolean;
   content: string;
-  type: 'pdf' | 'docx' | 'image' | 'text' | 'url' | 'unknown';
+  type: 'pdf' | 'docx' | 'image' | 'text' | 'url' | 'video' | 'audio' | 'unknown';
   metadata?: {
     pages?: number;
     title?: string;
     wordCount?: number;
     imageDescription?: string;
+    transcriptionDuration?: number;
+    platform?: string;
   };
   error?: string;
 }
@@ -30,9 +32,17 @@ export type SupportedMimeType =
   | 'text/plain'
   | 'text/markdown'
   | 'text/csv'
-  | 'application/json';
+  | 'application/json'
+  | 'video/mp4'
+  | 'video/webm'
+  | 'video/quicktime'
+  | 'video/x-msvideo'
+  | 'audio/mpeg'
+  | 'audio/wav'
+  | 'audio/mp4'
+  | 'audio/webm';
 
-const SUPPORTED_MIME_TYPES: Record<string, 'pdf' | 'docx' | 'image' | 'text'> = {
+const SUPPORTED_MIME_TYPES: Record<string, 'pdf' | 'docx' | 'image' | 'text' | 'video' | 'audio'> = {
   'application/pdf': 'pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
   'image/jpeg': 'image',
@@ -43,6 +53,14 @@ const SUPPORTED_MIME_TYPES: Record<string, 'pdf' | 'docx' | 'image' | 'text'> = 
   'text/markdown': 'text',
   'text/csv': 'text',
   'application/json': 'text',
+  'video/mp4': 'video',
+  'video/webm': 'video',
+  'video/quicktime': 'video',
+  'video/x-msvideo': 'video',
+  'audio/mpeg': 'audio',
+  'audio/wav': 'audio',
+  'audio/mp4': 'audio',
+  'audio/webm': 'audio',
 };
 
 class DocumentParser {
@@ -68,6 +86,10 @@ class DocumentParser {
           return await this.parseImage(filePath, mimeType);
         case 'text':
           return await this.parseText(filePath);
+        case 'video':
+          return await this.transcribeVideo(filePath, mimeType);
+        case 'audio':
+          return await this.transcribeAudio(filePath, mimeType);
         default:
           return {
             success: false,
@@ -222,6 +244,169 @@ Provide a detailed, structured analysis that can be used to create a personalize
     };
   }
 
+  async transcribeVideo(filePath: string, mimeType: string): Promise<ParsedDocument> {
+    console.log('[DOCUMENT_PARSER] Transcribing video with Whisper:', filePath);
+    
+    if (!process.env.OPENAI_API_KEY) {
+      return {
+        success: false,
+        content: '',
+        type: 'video',
+        error: 'OpenAI API key not configured for video transcription'
+      };
+    }
+
+    try {
+      const fileSize = fs.statSync(filePath).size;
+      const maxSize = 25 * 1024 * 1024;
+      
+      if (fileSize > maxSize) {
+        return {
+          success: false,
+          content: '',
+          type: 'video',
+          error: `Video file too large (${Math.round(fileSize / 1024 / 1024)}MB). Maximum size is 25MB. Please trim or compress the video.`
+        };
+      }
+
+      console.log(`[DOCUMENT_PARSER] Video size: ${Math.round(fileSize / 1024)}KB, sending to Whisper...`);
+      
+      const fileName = path.basename(filePath);
+      const file = await OpenAI.toFile(fs.createReadStream(filePath), fileName, { contentType: mimeType });
+      
+      const transcription = await openai.audio.transcriptions.create({
+        file: file,
+        model: 'whisper-1',
+        response_format: 'verbose_json'
+      });
+
+      const content = transcription.text || '';
+      const wordCount = content.split(/\s+/).filter((w: string) => w.length > 0).length;
+      const duration = (transcription as any).duration || 0;
+      
+      console.log(`[DOCUMENT_PARSER] Video transcribed: ${wordCount} words, ${Math.round(duration)}s duration`);
+
+      if (!content || content.length < 10) {
+        return {
+          success: true,
+          content: '[No speech detected in video - the video may contain only music or ambient sounds]\n\nTo create a plan from this video, please describe what you see: the locations, activities, venues, or recommendations shown.',
+          type: 'video',
+          metadata: {
+            wordCount: 0,
+            transcriptionDuration: duration
+          }
+        };
+      }
+
+      const formattedContent = `[Video Transcription]\n\n${content}\n\n---\nDuration: ${Math.round(duration)} seconds | Words: ${wordCount}`;
+      
+      return {
+        success: true,
+        content: formattedContent,
+        type: 'video',
+        metadata: {
+          wordCount,
+          transcriptionDuration: duration
+        }
+      };
+    } catch (error: any) {
+      console.error('[DOCUMENT_PARSER] Whisper transcription error:', error);
+      
+      if (error.message?.includes('Invalid file format')) {
+        return {
+          success: false,
+          content: '',
+          type: 'video',
+          error: 'Unsupported video format. Please use MP4, WebM, or MOV format.'
+        };
+      }
+      
+      return {
+        success: false,
+        content: '',
+        type: 'video',
+        error: error.message || 'Failed to transcribe video'
+      };
+    }
+  }
+
+  async transcribeAudio(filePath: string, mimeType: string): Promise<ParsedDocument> {
+    console.log('[DOCUMENT_PARSER] Transcribing audio with Whisper:', filePath);
+    
+    if (!process.env.OPENAI_API_KEY) {
+      return {
+        success: false,
+        content: '',
+        type: 'audio',
+        error: 'OpenAI API key not configured for audio transcription'
+      };
+    }
+
+    try {
+      const fileSize = fs.statSync(filePath).size;
+      const maxSize = 25 * 1024 * 1024;
+      
+      if (fileSize > maxSize) {
+        return {
+          success: false,
+          content: '',
+          type: 'audio',
+          error: `Audio file too large (${Math.round(fileSize / 1024 / 1024)}MB). Maximum size is 25MB.`
+        };
+      }
+
+      console.log(`[DOCUMENT_PARSER] Audio size: ${Math.round(fileSize / 1024)}KB, sending to Whisper...`);
+      
+      const fileName = path.basename(filePath);
+      const file = await OpenAI.toFile(fs.createReadStream(filePath), fileName, { contentType: mimeType });
+      
+      const transcription = await openai.audio.transcriptions.create({
+        file: file,
+        model: 'whisper-1',
+        response_format: 'verbose_json'
+      });
+
+      const content = transcription.text || '';
+      const wordCount = content.split(/\s+/).filter((w: string) => w.length > 0).length;
+      const duration = (transcription as any).duration || 0;
+      
+      console.log(`[DOCUMENT_PARSER] Audio transcribed: ${wordCount} words, ${Math.round(duration)}s duration`);
+
+      if (!content || content.length < 10) {
+        return {
+          success: true,
+          content: '[No speech detected in audio - the file may contain only music or ambient sounds]',
+          type: 'audio',
+          metadata: {
+            wordCount: 0,
+            transcriptionDuration: duration
+          }
+        };
+      }
+
+      const formattedContent = `[Audio Transcription]\n\n${content}\n\n---\nDuration: ${Math.round(duration)} seconds | Words: ${wordCount}`;
+      
+      return {
+        success: true,
+        content: formattedContent,
+        type: 'audio',
+        metadata: {
+          wordCount,
+          transcriptionDuration: duration
+        }
+      };
+    } catch (error: any) {
+      console.error('[DOCUMENT_PARSER] Whisper transcription error:', error);
+      
+      return {
+        success: false,
+        content: '',
+        type: 'audio',
+        error: error.message || 'Failed to transcribe audio'
+      };
+    }
+  }
+
   async parseBuffer(buffer: Buffer, mimeType: string, originalName?: string): Promise<ParsedDocument> {
     const docType = SUPPORTED_MIME_TYPES[mimeType];
     
@@ -270,6 +455,14 @@ Provide a detailed, structured analysis that can be used to create a personalize
       'text/markdown': '.md',
       'text/csv': '.csv',
       'application/json': '.json',
+      'video/mp4': '.mp4',
+      'video/webm': '.webm',
+      'video/quicktime': '.mov',
+      'video/x-msvideo': '.avi',
+      'audio/mpeg': '.mp3',
+      'audio/wav': '.wav',
+      'audio/mp4': '.m4a',
+      'audio/webm': '.weba',
     };
     
     return extensions[mimeType] || '.bin';
