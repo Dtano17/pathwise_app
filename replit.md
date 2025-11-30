@@ -54,14 +54,16 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 
 ## Latest Updates (November 30, 2025)
 
-### Bug Fix: Context Awareness in URL-Based Plans
-- **FIXED**: AI was generating plans for wrong destinations (e.g., NYC when content was about Marrakech)
-- **Root Cause**: `generatePlanFromExternalContent` prompt wasn't strongly enforcing context constraints
-- **Solution**: Updated prompt with explicit rules:
-  - "ONLY generate tasks for the destination/topic in the external content"
-  - "DO NOT suggest alternatives or different destinations"
-  - Added forbidden examples: "Consider visiting [DIFFERENT DESTINATION]", "Alternatively, you could go to [OTHER PLACE]"
-- **Result**: Plans now correctly respect the source content destination (Marrakech stays Marrakech, not NYC)
+### Enhanced Creative Planning with Destination Anchoring
+- **Changed Approach**: Use post as baseline, be creative with similar recommendations
+- **Key Features**:
+  - AI keeps destination/location from content (Marrakech stays Marrakech)
+  - Uses mentioned venues as anchors (Comptoir Darna, Royal Mansour, Nommos)
+  - Recommends SIMILAR venues in same location with researched prices
+  - Skips people references (not useful for actionable tasks)
+  - Includes budget breakdowns and tiered pricing options
+  - Generates clarifying questions about budget/preferences
+- **Result**: Plans are creative yet grounded in the correct destination with specific, researched pricing for both mentioned and similar alternatives
 
 ### Conversational Flow for URL Curated Questions
 - Replaced popup dialog with conversational chat format for URL/document analysis questions

@@ -667,7 +667,7 @@ ${userContext ? `## USER PROFILE & PREFERENCES:\n${userContext}\n` : ''}
 
       const prompt = `You are JournalMate's expert planning assistant. Create a detailed, personalized action plan based on external content and the user's specific answers.
 
-⚠️ **CRITICAL: ONLY generate tasks for the destination/topic described in the external content. DO NOT suggest alternatives or other locations.**
+Use the post as a baseline and be creative with similar recommendations. Stay focused on the destination but recommend similar venues and experiences.
 
 ## EXTERNAL CONTENT (URL/Document):
 ${externalContent.substring(0, 8000)}
@@ -679,67 +679,68 @@ ${userContext ? `## USER PROFILE & PREFERENCES:\n${userContext}\n` : ''}
 
 ${userPriorities.length > 0 ? `## USER'S LIFE PRIORITIES:\n${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}\n` : ''}
 
-## CRITICAL RULES - CONTENT-BASED TASK GENERATION
+## PLANNING APPROACH - USE POST AS BASELINE, BE CREATIVE
 
-**RULE #1 - ZERO HALLUCINATION**: Every venue, person, activity, and price mentioned MUST be extracted from the external content. DO NOT:
-- Suggest alternative destinations ("Consider visiting NYC instead")
-- Recommend venues not mentioned in the content
-- Create tasks about activities not in the content
-- Make up prices or budgets
+**DO**: 
+- ✅ Keep the destination/location from content (e.g., Marrakech stays Marrakech)
+- ✅ Use mentioned venues as anchors/reference points (Comptoir Darna, Royal Mansour, Nommos)
+- ✅ Be creative: Recommend SIMILAR venues and experiences in the same location
+- ✅ Research internet prices for both mentioned and similar alternatives
+- ✅ Include specific dollar amounts and budget breakdowns
+- ✅ Ask clarifying questions about budget, preferences, scheduling
 
-**RULE #2 - ENTITY MATCHING**: Each task MUST reference specific entities found in the external content:
-- Specific venues/locations (e.g., Comptoir Darna, Royal Mansour, Nommos beach club)
-- Specific people (e.g., @toyaordor, @rachelkerrmusic, @ike_le_starr)
-- Specific activities mentioned in content
-- Specific prices from or relevant to content
+**DON'T**:
+- ❌ Reference people by names/handles (@toyaordor, @rachelkerrmusic, etc)
+- ❌ Change destinations (Marrakech stays Marrakech, not NYC)
+- ❌ Create meta-tasks ("Access the link", "Read the document")
+- ❌ Use vague language ("Research prices", "Look for hotels")
 
-**RULE #3 - NO META-TASKS**: Never generate research tasks, access tasks, or instructional tasks.
+## TASK GENERATION
 
-❌ ABSOLUTELY FORBIDDEN PATTERNS:
-- "Consider visiting [DIFFERENT DESTINATION]"
-- "Alternatively, you could go to [OTHER PLACE]"
-- "Research prices for [unmentioned venue]"
-- "Look up [unmentioned venue]"
-- "Access the shared link and review content"
-- "Read the document and take notes"
-- "Explore [generic location]" - must be specific venue FROM CONTENT
-- "Visit a [generic category]" - must reference specific venue FROM CONTENT
+Generate ${taskCountRange} specific, actionable tasks that:
+1. **Stay in correct destination** - use destination from content as anchor
+2. **Use mentioned venues as baseline** - reference them but also suggest similar alternatives
+3. **Be creative** - recommend comparable experiences in the same location/category
+4. **Include researched prices** - specific dollar amounts for both mentioned and similar options
+5. **Budget-focused** - break down costs, offer tiered options
+6. **Include context questions** - ask about preferences, budget limits, time
 
-✅ REQUIRED PATTERNS (use specific entities from content):
-- "Visit [SPECIFIC VENUE FROM CONTENT]" (e.g., "Visit Comptoir Darna")
-- "Spend time with [SPECIFIC PERSON FROM CONTENT]" (e.g., "Meet with @ike_le_starr")
-- "Shop at [SPECIFIC LOCATION FROM CONTENT]" (e.g., "Shop for Berber rugs at Souk markets")
-- "Dine at [SPECIFIC RESTAURANT FROM CONTENT]" (e.g., "Dine at Le Jardin in Royal Mansour")
-- "Experience [SPECIFIC ACTIVITY FROM CONTENT]" (e.g., "Enjoy beach club day at Nommos")
-
-## TASK GENERATION PROCESS
-
-Generate ${taskCountRange} specific, actionable tasks by ONLY referencing content entities:
-1. **Extract only venues, people, activities explicitly mentioned** in external content
-2. **Create one task per extracted entity** when applicable
-3. **Include specific details** (names, locations, people) from the content
-4. **Match the destination/activity/topic from content** - NEVER suggest alternatives
-5. **Use content-based prices and estimates** - never fabricate costs
-6. **Validate each task**: Does every name/detail come from the content?
+EXAMPLES:
+- "Dining: Experience Le Jardin at Royal Mansour ($$$ luxury) or try Riad Liona for similar ambiance at lower cost ($80-120/person). Budget: $100-200 per person"
+- "Nightlife: Nommos beach club ($15-30 entry) or similar venues like Palais Skhira ($10-25). Budget: $50-100 evening with drinks"
+- "Shopping: Souk markets for Berber rugs (negotiate $50-300) or Tanora Art Gallery ($30-150). Budget: $100-400 depending on purchases"
 
 ## RESPOND WITH JSON:
 {
-  "planTitle": "Engaging, personalized title for the plan",
-  "summary": "Brief summary of the plan approach (2-3 sentences)",
-  "tasks": [
+  "planTitle": "Engaging title for the plan",
+  "summary": "Brief summary of approach (2-3 sentences)",
+  "questions": [
     {
-      "title": "Clear, actionable task title with specifics",
-      "description": "Detailed description including specific prices, names, quantities, and actionable steps",
-      "category": "Category name",
-      "priority": "high|medium|low",
-      "timeEstimate": "Duration like '30 min', '1 hour', '2 days'",
-      "context": "Why this task matters, budget implications, and personalized tips"
+      "id": "q1",
+      "question": "What's your total budget for this experience?",
+      "type": "text"
+    },
+    {
+      "id": "q2",
+      "question": "How many days/nights are you planning?",
+      "type": "text"
     }
   ],
-  "goalCategory": "Main category for the overall goal",
+  "tasks": [
+    {
+      "title": "Actionable task with specifics",
+      "description": "Detailed description with pricing options, similar alternatives, and budget guidance",
+      "category": "Category",
+      "priority": "high|medium|low",
+      "timeEstimate": "Duration",
+      "context": "Why this matters, budget implications, creative tips"
+    }
+  ],
+  "goalCategory": "Main category",
   "goalPriority": "high|medium|low",
-  "estimatedTimeframe": "Overall timeframe for completing the plan",
-  "motivationalNote": "Encouraging personalized message for the user"
+  "estimatedTimeframe": "Overall timeframe",
+  "budgetSummary": "Total estimated costs with breakdown and tier options",
+  "motivationalNote": "Encouraging personalized message"
 }`;
 
       let result: any;
