@@ -679,51 +679,48 @@ ${userContext ? `## USER PROFILE & PREFERENCES:\n${userContext}\n` : ''}
 
 ${userPriorities.length > 0 ? `## USER'S LIFE PRIORITIES:\n${userPriorities.map(p => `- ${p.title}: ${p.description}`).join('\n')}\n` : ''}
 
-## CRITICAL RULES - WHAT TO GENERATE
+## CRITICAL RULES - CONTENT-BASED TASK GENERATION
 
-**RULE #1: Generate ONLY tasks based on the destination/topic in the external content above. Never suggest alternative locations or different destinations.**
+**RULE #1 - ZERO HALLUCINATION**: Every venue, person, activity, and price mentioned MUST be extracted from the external content. DO NOT:
+- Suggest alternative destinations ("Consider visiting NYC instead")
+- Recommend venues not mentioned in the content
+- Create tasks about activities not in the content
+- Make up prices or budgets
 
-**RULE #2: NEVER create meta-tasks or instructional tasks.** The external content has already been analyzed for you.
+**RULE #2 - ENTITY MATCHING**: Each task MUST reference specific entities found in the external content:
+- Specific venues/locations (e.g., Comptoir Darna, Royal Mansour, Nommos beach club)
+- Specific people (e.g., @toyaordor, @rachelkerrmusic, @ike_le_starr)
+- Specific activities mentioned in content
+- Specific prices from or relevant to content
 
-❌ FORBIDDEN TASK EXAMPLES (never generate these):
+**RULE #3 - NO META-TASKS**: Never generate research tasks, access tasks, or instructional tasks.
+
+❌ ABSOLUTELY FORBIDDEN PATTERNS:
+- "Consider visiting [DIFFERENT DESTINATION]"
+- "Alternatively, you could go to [OTHER PLACE]"
+- "Research prices for [unmentioned venue]"
+- "Look up [unmentioned venue]"
 - "Access the shared link and review content"
 - "Read the document and take notes"
-- "Research budget for X" - GIVE SPECIFIC AMOUNTS INSTEAD
-- "Look up prices for Y" - PROVIDE ACTUAL PRICE ESTIMATES
-- "Document key information from the source"
-- "Review the material and identify goals"
-- "Consider visiting [DIFFERENT DESTINATION]" - ONLY plan for the content destination
-- "Alternatively, you could go to [OTHER PLACE]" - FORBIDDEN
+- "Explore [generic location]" - must be specific venue FROM CONTENT
+- "Visit a [generic category]" - must reference specific venue FROM CONTENT
 
-✅ REQUIRED TASK EXAMPLES (with SPECIFIC details):
-- "Book hotel in Marrakech ($80-120/night, recommend Riad Yasmine or similar riads in Medina)"
-- "Reserve cooking class at La Maison Arabe ($75/person, 3-hour tagine cooking experience)"
-- "Budget $200-300 for 3 days of guided souk shopping (allocate $100 for rugs, $50 for spices)"
-- "Complete 30-minute HIIT workout session (follow Chloe Ting or Heather Robertson free YouTube)"
+✅ REQUIRED PATTERNS (use specific entities from content):
+- "Visit [SPECIFIC VENUE FROM CONTENT]" (e.g., "Visit Comptoir Darna")
+- "Spend time with [SPECIFIC PERSON FROM CONTENT]" (e.g., "Meet with @ike_le_starr")
+- "Shop at [SPECIFIC LOCATION FROM CONTENT]" (e.g., "Shop for Berber rugs at Souk markets")
+- "Dine at [SPECIFIC RESTAURANT FROM CONTENT]" (e.g., "Dine at Le Jardin in Royal Mansour")
+- "Experience [SPECIFIC ACTIVITY FROM CONTENT]" (e.g., "Enjoy beach club day at Nommos")
 
-## TASK SPECIFICITY REQUIREMENTS
+## TASK GENERATION PROCESS
 
-ALL tasks MUST include:
-1. **Specific dollar amounts** when relevant (hotels, flights, activities, shopping)
-2. **Named recommendations** (specific restaurants, hotels, apps, tools) from the content
-3. **Concrete quantities** (3 hours, 5 pages, 2 weeks)
-4. **Actionable steps** - not "research X" but "do X using Y method"
-5. **Price ranges** based on typical costs for the location/activity mentioned in content
-
-NEVER use vague language like:
-- "Research prices" → Instead: "Expect to pay $X-Y"
-- "Find a hotel" → Instead: "Book Hotel X ($X/night) or similar in Y area"
-- "Set a budget" → Instead: "Allocate $X for this activity"
-
-## CREATE A PERSONALIZED PLAN
-
-Generate ${taskCountRange} specific, actionable tasks that:
-1. SYNTHESIZE concrete work items ONLY from the external content provided above
-2. Match the destination/activity/topic from the content - DO NOT change or suggest alternatives
-3. Include REAL price estimates and specific recommendations found in or relevant to the content
-4. Have clear deliverables with measurable outcomes
-5. Provide named tools, places, or resources when applicable
-6. Are organized in logical sequence with realistic timeframes
+Generate ${taskCountRange} specific, actionable tasks by ONLY referencing content entities:
+1. **Extract only venues, people, activities explicitly mentioned** in external content
+2. **Create one task per extracted entity** when applicable
+3. **Include specific details** (names, locations, people) from the content
+4. **Match the destination/activity/topic from content** - NEVER suggest alternatives
+5. **Use content-based prices and estimates** - never fabricate costs
+6. **Validate each task**: Does every name/detail come from the content?
 
 ## RESPOND WITH JSON:
 {
