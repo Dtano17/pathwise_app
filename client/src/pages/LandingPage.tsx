@@ -70,6 +70,13 @@ const features = [
     description: "Share your plans on Instagram, TikTok, LinkedIn, X, and Facebook. Tag @JournalMate and unlock rewards.",
     color: "text-rose-500",
     bgColor: "bg-rose-100 dark:bg-rose-900/30"
+  },
+  {
+    icon: Instagram,
+    title: "Import & Transform Content",
+    description: "Copy any content from social media or AI apps. JournalMate transforms it into creative, budget-focused plans with similar venue alternatives and specific pricing.",
+    color: "text-cyan-500",
+    bgColor: "bg-cyan-100 dark:bg-cyan-900/30"
   }
 ];
 
@@ -590,6 +597,130 @@ export default function LandingPage() {
                 </div>
               </CardContent>
             </Card>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Latest Features Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-100 to-cyan-100 dark:from-emerald-900/30 dark:to-cyan-900/30 mb-6">
+              <Star className="w-5 h-5 text-emerald-500" />
+              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                Latest Updates - November 2025
+              </span>
+            </div>
+            
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Smart Content Import & Creative Planning</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Copy any content from social media or AI apps and JournalMate instantly transforms it into actionable plans.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            {/* Copy from Social & AI Apps */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0 }}
+            >
+              <Card className="h-full hover-elevate border-2 border-pink-200 dark:border-pink-900">
+                <CardContent className="p-8">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center">
+                      <Instagram className="w-6 h-6 text-pink-500" />
+                    </div>
+                    <h3 className="text-2xl font-bold">Copy & Paste Anywhere</h3>
+                  </div>
+                  <p className="text-muted-foreground mb-6">
+                    Share content from Instagram, TikTok, LinkedIn, ChatGPT, Claude, or any AI platform. JournalMate extracts the essence and creates your plan.
+                  </p>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-pink-500" />
+                      <span>Social media posts</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-pink-500" />
+                      <span>AI chatbot outputs</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-pink-500" />
+                      <span>Document excerpts</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-pink-500" />
+                      <span>Web content</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Creative Planning with Budget */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="h-full hover-elevate border-2 border-emerald-200 dark:border-emerald-900">
+                <CardContent className="p-8">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                      <Lightbulb className="w-6 h-6 text-emerald-500" />
+                    </div>
+                    <h3 className="text-2xl font-bold">Creative Plans</h3>
+                  </div>
+                  <p className="text-muted-foreground mb-6">
+                    AI recommends similar venues, activities, and experiences with researched pricing, budget breakdowns, and clarifying questions.
+                  </p>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      <span>Similar alternatives recommended</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      <span>Specific pricing researched</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      <span>Budget breakdowns included</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      <span>Clarifying questions asked</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            className="text-center mt-12"
+          >
+            <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
+              Example: Share a travel photo from Marrakech → AI generates creative plans with both mentioned venues (Royal Mansour, Comptoir Darna) and similar alternatives with current pricing, tiered budgets, and tailored questions about your preferences.
+            </p>
+            <Link href="/login">
+              <Button size="lg" className="gap-2 bg-gradient-to-r from-emerald-500 to-cyan-600 text-white" data-testid="button-try-import">
+                Try Importing Content
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
           </motion.div>
         </div>
       </section>
