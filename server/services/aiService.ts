@@ -662,12 +662,13 @@ ${userContext ? `## USER PROFILE & PREFERENCES:\n${userContext}\n` : ''}
         .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
         .join('\n');
 
-      const taskCount = mode === 'quick' ? '3-5' : '5-8';
+      // Generate 6-9 tasks (randomized), occasionally 5 for simple goals
+      const taskCountRange = mode === 'quick' ? '6-8' : '7-9';
 
       const prompt = `You are JournalMate's expert planning assistant. Create a detailed, personalized action plan based on external content and the user's specific answers.
 
 ## EXTERNAL CONTENT (URL/Document):
-${externalContent.substring(0, 6000)}
+${externalContent.substring(0, 8000)}
 
 ## USER'S ANSWERS TO QUESTIONS:
 ${answersText}
@@ -683,24 +684,38 @@ ${userPriorities.length > 0 ? `## USER'S LIFE PRIORITIES:\n${userPriorities.map(
 ❌ FORBIDDEN TASK EXAMPLES (never generate these):
 - "Access the shared link and review content"
 - "Read the document and take notes"
-- "Open the URL and understand the requirements"
+- "Research budget for X" - GIVE SPECIFIC AMOUNTS INSTEAD
+- "Look up prices for Y" - PROVIDE ACTUAL PRICE ESTIMATES
 - "Document key information from the source"
 - "Review the material and identify goals"
-- "Share goal details with the AI"
 
-✅ REQUIRED TASK EXAMPLES (synthesize actionable work from the content):
-- If content is about SEO: "Implement schema markup on product pages"
-- If content is about fitness: "Complete 30-minute HIIT workout session"
-- If content is about marketing: "Create 3 social media posts for brand awareness"
-- If content is about learning: "Complete Module 1 exercises and practice problems"
+✅ REQUIRED TASK EXAMPLES (with SPECIFIC details):
+- "Book hotel in Marrakech ($80-120/night, recommend Riad Yasmine or similar riads in Medina)"
+- "Reserve cooking class at La Maison Arabe ($75/person, 3-hour tagine cooking experience)"
+- "Budget $200-300 for 3 days of guided souk shopping (allocate $100 for rugs, $50 for spices)"
+- "Complete 30-minute HIIT workout session (follow Chloe Ting or Heather Robertson free YouTube)"
+
+## TASK SPECIFICITY REQUIREMENTS
+
+ALL tasks MUST include:
+1. **Specific dollar amounts** when relevant (hotels, flights, activities, shopping)
+2. **Named recommendations** (specific restaurants, hotels, apps, tools)
+3. **Concrete quantities** (3 hours, 5 pages, 2 weeks)
+4. **Actionable steps** - not "research X" but "do X using Y method"
+5. **Price ranges** based on typical costs for the location/activity
+
+NEVER use vague language like:
+- "Research prices" → Instead: "Expect to pay $X-Y"
+- "Find a hotel" → Instead: "Book Hotel X ($X/night) or similar in Y area"
+- "Set a budget" → Instead: "Allocate $X for this activity"
 
 ## CREATE A PERSONALIZED PLAN
 
-Generate ${taskCount} specific, actionable tasks that:
-1. SYNTHESIZE concrete work items from the external content (the research is DONE - create tasks that IMPLEMENT the advice)
-2. Are tailored to the user's answers and preferences
-3. Have clear deliverables (what will be produced/completed)
-4. Include specific actions, not instructions to "learn" or "read"
+Generate ${taskCountRange} specific, actionable tasks that:
+1. SYNTHESIZE concrete work items from the external content
+2. Include REAL price estimates and specific recommendations
+3. Have clear deliverables with measurable outcomes
+4. Provide named tools, places, or resources when applicable
 5. Are organized in logical sequence with realistic timeframes
 
 ## RESPOND WITH JSON:
@@ -709,12 +724,12 @@ Generate ${taskCount} specific, actionable tasks that:
   "summary": "Brief summary of the plan approach (2-3 sentences)",
   "tasks": [
     {
-      "title": "Clear, actionable task title",
-      "description": "Detailed description with specific steps and tips",
+      "title": "Clear, actionable task title with specifics",
+      "description": "Detailed description including specific prices, names, quantities, and actionable steps",
       "category": "Category name",
       "priority": "high|medium|low",
       "timeEstimate": "Duration like '30 min', '1 hour', '2 days'",
-      "context": "Why this task matters and personalized tips"
+      "context": "Why this task matters, budget implications, and personalized tips"
     }
   ],
   "goalCategory": "Main category for the overall goal",
@@ -1032,13 +1047,13 @@ Create a well-structured plan with the following JSON format:
   "summary": "Brief overview of the approach (1-2 sentences)",
   "tasks": [
     {
-      "title": "Specific, actionable task title",
-      "description": "Detailed step-by-step description with context",
+      "title": "Specific, actionable task title with concrete details",
+      "description": "Detailed description including specific prices, named recommendations, and actionable steps",
       "category": "Category name", 
       "priority": "high|medium|low",
       "timeEstimate": "15 min | 30 min | 1 hour | 2 hours",
       "dueDate": null,
-      "context": "Why this task matters and tips for success"
+      "context": "Why this task matters, budget implications, and personalized tips"
     }
   ],
   "goalCategory": "Overall category for the goal",
@@ -1047,21 +1062,36 @@ Create a well-structured plan with the following JSON format:
   "motivationalNote": "Encouraging note about achieving this goal"
 }
 
-Guidelines for Claude-style formatting:
-- Create 3-6 specific, actionable tasks that build momentum
-- Each task should have rich context explaining WHY it matters
+CRITICAL - Generate 6-9 specific, actionable tasks (occasionally 5 for very simple goals):
+- Each task MUST include SPECIFIC details - real prices, budgets, named recommendations
 - Use motivating, positive language
 - Break complex goals into logical progression steps
 - Include practical tips and time estimates
 - Make tasks feel achievable and rewarding when completed
-- Add context that helps users understand the bigger picture
-- For time-sensitive goals (like "today"), create immediate actionable steps
-- For longer goals (like "2 months"), create milestone-based progression
 
-Examples of excellent task formatting:
-- "I want to lose 20lbs in 2 months" → Create meal prep plan, establish workout routine, track progress
-- "Go hiking and shopping today" → Research hiking trails, prepare gear, plan shopping list, optimize route
-- "Go on a date tonight" → Choose venue, prepare conversation topics, plan outfit, confirm details`;
+## TASK SPECIFICITY REQUIREMENTS
+
+ALL tasks MUST include when relevant:
+1. **Specific dollar amounts** (hotels: $80-120/night, flights: $300-500, etc.)
+2. **Named recommendations** (specific restaurants, hotels, apps, tools by name)
+3. **Concrete quantities** (3 hours, 5 pages, 2 weeks, 30 minutes)
+4. **Actionable steps** - not "research X" but "do X using Y method"
+
+❌ FORBIDDEN VAGUE PATTERNS:
+- "Research prices for hotels" → Instead: "Book hotel ($80-120/night, try Booking.com)"
+- "Find flights" → Instead: "Book roundtrip flights ($400-600, check Google Flights)"
+- "Set a budget" → Instead: "Allocate $500 for dining, $300 for activities"
+- "Look into options" → Instead: "Choose between Option A ($X) or Option B ($Y)"
+
+✅ EXCELLENT TASK EXAMPLES:
+- "Book flights LAX to Paris ($450-650 roundtrip via Google Flights/Kayak)"
+- "Reserve hotel in Le Marais ($150-200/night, try Hotel du Petit Moulin)"
+- "Complete 30-minute HIIT session (YouTube: Heather Robertson or Sydney Cummings)"
+- "Meal prep chicken + veggies for 5 lunches ($35 total, 90 min prep time)"
+- "Set up emergency fund auto-transfer ($200/month to Ally savings, 4.25% APY)"
+
+For time-sensitive goals (like "today"), create immediate actionable steps.
+For longer goals (like "2 months"), create milestone-based progression with specific costs.`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-4-turbo-preview",
@@ -1151,8 +1181,8 @@ Analyze this goal and respond with JSON in this exact format:
   "summary": "A brief, motivating summary of what this plan will accomplish (1-2 sentences)",
   "tasks": [
     {
-      "title": "Specific task title",
-      "description": "Detailed description of what to do",
+      "title": "Specific task title with concrete details (prices, names, quantities)",
+      "description": "Detailed description including specific prices, named recommendations, and actionable steps",
       "category": "Category name",
       "priority": "high|medium|low",
       "timeEstimate": "15 min|30 min|1 hour|2 hours|3 hours|4 hours|1 day",
@@ -1165,28 +1195,40 @@ Analyze this goal and respond with JSON in this exact format:
   "motivationalNote": "An encouraging message to keep the user motivated (1 sentence)"
 }
 
-CRITICAL Guidelines:
+CRITICAL - Generate 6-9 specific, actionable tasks (occasionally 5 for very simple goals):
 - ALWAYS include a "timeEstimate" for every single task - never omit this field
+- Each task MUST include SPECIFIC details - real prices, budgets, named recommendations
 - Time estimates should be realistic and based on the average time it would take to complete the task well
-- Break down complex goals into 2-5 specific, actionable tasks
 - Each task should be completable in one session (15 minutes to 4 hours max)
 - Use clear, action-oriented language ("Do X", "Complete Y", "Practice Z")
-- Assign realistic priorities based on urgency and importance
-- Categories should be simple: Health, Work, Personal, Learning, Social, Finance, etc.
-- For recurring goals (daily habits), create tasks for the next few instances
-- Make tasks specific enough that completion is clear and measurable
+
+## TASK SPECIFICITY REQUIREMENTS
+
+ALL tasks MUST include when relevant:
+1. **Specific dollar amounts** (hotels: $80-120/night, flights: $300-500, groceries: $150/week)
+2. **Named recommendations** (specific restaurants, hotels, apps, tools by name)
+3. **Concrete quantities** (3 hours, 5 pages, 2 weeks, 30 minutes)
+4. **Actionable steps** - not "research X" but "do X using Y method"
+
+❌ FORBIDDEN VAGUE PATTERNS:
+- "Research prices for hotels" → Instead: "Book hotel ($80-120/night, try Booking.com)"
+- "Find flights" → Instead: "Book roundtrip flights ($400-600, check Google Flights)"
+- "Set a budget" → Instead: "Allocate $500 for dining, $300 for activities"
+- "Look into options" → Instead: "Choose between Option A ($X) or Option B ($Y)"
+
+✅ EXCELLENT TASK EXAMPLES:
+- "Book flights LAX to Paris ($450-650 roundtrip via Google Flights/Kayak)" - time: 30 min
+- "Meal prep chicken + veggies for 5 lunches ($35 total, Costco rotisserie + frozen)" - time: 90 min
+- "Set up emergency fund auto-transfer ($200/month to Ally savings, 4.25% APY)" - time: 15 min
+- "Complete 30-minute HIIT session (YouTube: Heather Robertson or Sydney Cummings)" - time: 30 min
 
 Time Estimate Examples:
-- Research task → "30 min"
+- Booking travel → "30 min"
+- Meal prep → "90 min"  
 - Filing paperwork → "1 hour"
 - Writing documentation → "2 hours"
 - Complex coding feature → "4 hours"
-- Multi-step processes → "1 day"
-
-Examples:
-- "Get healthier" → Tasks for meal prep (30 min), workout schedule (15 min), sleep routine (1 hour)
-- "Learn programming" → Tasks for course selection (1 hour), practice projects (4 hours), skill assessment (30 min)
-- "Organize life" → Tasks for decluttering spaces (2 hours), organizing documents (1 hour), creating systems (3 hours)`;
+- Multi-step processes → "1 day"`;
 
       const response = await anthropic.messages.create({
         model: DEFAULT_CLAUDE_MODEL, // "claude-sonnet-4-20250514"

@@ -331,8 +331,8 @@ USER REQUEST:
 
 TASK:
 1. Create an activity with a CLEAR, SPECIFIC, USER-FRIENDLY title
-2. Break down into 3-10 actionable tasks
-3. Each task should be specific and trackable
+2. Break down into 6-9 actionable tasks (occasionally 5 for very simple goals)
+3. Each task MUST include SPECIFIC details - real prices, budgets, named recommendations
 4. Use appropriate priorities (high/medium/low)
 
 CRITICAL - ACTIVITY TITLE REQUIREMENTS:
@@ -356,13 +356,27 @@ OUTPUT FORMAT (JSON only, no markdown):
   },
   "tasks": [
     {
-      "title": "Specific, actionable task title",
-      "description": "What needs to be done and why",
+      "title": "Specific, actionable task title with concrete details",
+      "description": "Detailed description including specific prices ($X-Y), named recommendations, quantities, and actionable steps",
       "category": "Same as activity or more specific",
       "priority": "high|medium|low"
     }
   ]
 }
+
+## TASK SPECIFICITY REQUIREMENTS
+
+ALL tasks MUST include:
+1. **Specific dollar amounts** when relevant (hotels: $80-120/night, flights: $300-500, etc.)
+2. **Named recommendations** (specific restaurants, hotels, apps, tools by name)
+3. **Concrete quantities** (3 hours, 5 pages, 2 weeks, 30 minutes)
+4. **Actionable steps** - not "research X" but "do X using Y method"
+
+❌ FORBIDDEN VAGUE PATTERNS:
+- "Research prices for hotels" → Instead: "Book hotel ($80-120/night, try Booking.com for Medina riads)"
+- "Find flights" → Instead: "Book roundtrip flights ($400-600, check Google Flights/Kayak)"
+- "Set a budget" → Instead: "Allocate $500 for dining, $300 for activities, $200 for shopping"
+- "Look into transportation" → Instead: "Rent car via Avis ($45/day) or use Uber ($15-25 avg ride)"
 
 RULES FOR TITLE EXTRACTION:
 1. If user's request starts with a title/header → USE IT as activity title
@@ -389,14 +403,16 @@ FORBIDDEN TASK PATTERNS (never generate these):
 ❌ "Review your notes to identify..."
 ❌ "Read through all content in the shared link"
 ❌ "Take note of any access requirements"
+❌ "Research prices for X"
+❌ "Look up options for Y"
 
 CORRECT TASK PATTERNS (generate these instead):
-✅ "Implement [specific feature from content]"
-✅ "Create [specific deliverable mentioned]"
-✅ "Set up [specific component described]"
-✅ "Configure [specific setting referenced]"
-✅ "Write [specific document/code from requirements]"
-✅ "Complete [specific action item from content]"
+✅ "Book flights to Paris ($450-650 roundtrip via Google Flights)"
+✅ "Reserve hotel in Le Marais ($150-200/night, try Hotel du Petit Moulin)"
+✅ "Allocate $200 budget for museum passes (Louvre $17, Orsay $16, etc.)"
+✅ "Complete 30-minute HIIT session (YouTube: Heather Robertson or Sydney Cummings)"
+✅ "Set up Node.js project with Express + TypeScript (2 hours)"
+✅ "Create 5 Instagram Reels for brand launch ($0 using Canva free tier)"
 
 EXAMPLES:
 
