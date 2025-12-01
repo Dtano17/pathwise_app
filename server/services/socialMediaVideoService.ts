@@ -8,6 +8,14 @@ import OpenAI from 'openai';
 const execAsync = promisify(exec);
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+const COBALT_API_ENDPOINTS = [
+  'https://cobalt-api.meowing.de',
+  'https://cobalt-backend.canine.tools',
+  'https://cobalt-api.kwiatekmiki.com',
+  'https://kityune.imput.net',
+  'https://capi.3kh0.net'
+];
+
 export interface SocialMediaContent {
   platform: string;
   url: string;
@@ -80,7 +88,19 @@ class SocialMediaVideoService {
     console.log(`[SOCIAL_MEDIA] Extracting content from ${platform}: ${url}`);
 
     try {
-      const downloadResult = await this.downloadMedia(url, platform);
+      let downloadResult;
+      
+      if (platform === 'instagram' || platform === 'tiktok') {
+        console.log(`[SOCIAL_MEDIA] Using Cobalt API for ${platform} (bypasses login requirements)`);
+        downloadResult = await this.downloadWithCobalt(url, platform);
+        
+        if (!downloadResult.success) {
+          console.log(`[SOCIAL_MEDIA] Cobalt failed, falling back to yt-dlp...`);
+          downloadResult = await this.downloadMedia(url, platform);
+        }
+      } else {
+        downloadResult = await this.downloadMedia(url, platform);
+      }
       
       if (!downloadResult.success) {
         return {
@@ -279,6 +299,145 @@ class SocialMediaVideoService {
         error: `Failed to download: ${error.message}. The content might be private, age-restricted, or require login.`
       };
     }
+  }
+
+  private async downloadWithCobalt(url: string, platform: string): Promise<{
+    success: boolean;
+    filePath?: string;
+    mediaType?: 'video' | 'image';
+    isCarousel?: boolean;
+    carouselFiles?: Array<{ path: string; type: 'video' | 'image' }>;
+    caption?: string;
+    metadata?: any;
+    error?: string;
+  }> {
+    console.log(`[COBALT] Attempting download via Cobalt API...`);
+    
+    const cleanUrl = url.split('?')[0];
+    console.log(`[COBALT] Clean URL: ${cleanUrl}`);
+    
+    for (const endpoint of COBALT_API_ENDPOINTS) {
+      try {
+        console.log(`[COBALT] Trying endpoint: ${endpoint}`);
+        
+        const response = await axios.post(
+          `${endpoint}/`,
+          {
+            url: cleanUrl,
+            videoQuality: '720'
+          },
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'User-Agent': 'JournalMate/1.0 (+https://journalmate.ai)'
+            },
+            timeout: 30000,
+            validateStatus: () => true
+          }
+        );
+
+        const data = response.data;
+        console.log(`[COBALT] HTTP ${response.status}, Response:`, JSON.stringify(data).slice(0, 200));
+
+        if (data.status === 'error') {
+          console.log(`[COBALT] API error: ${data.error?.code || 'unknown'}`);
+          continue;
+        }
+
+        if (data.status === 'picker' && data.picker && data.picker.length > 0) {
+          console.log(`[COBALT] Received picker with ${data.picker.length} items (carousel/multi-media)`);
+          
+          const files: Array<{ path: string; type: 'video' | 'image' }> = [];
+          
+          for (let i = 0; i < Math.min(data.picker.length, 10); i++) {
+            const item = data.picker[i];
+            const itemType = item.type === 'photo' ? 'image' : 'video';
+            const ext = itemType === 'image' ? 'jpg' : 'mp4';
+            const filePath = path.join(this.tempDir, `cobalt_${Date.now()}_${i}.${ext}`);
+            
+            try {
+              await this.downloadCobaltFile(item.url, filePath);
+              if (fs.existsSync(filePath)) {
+                files.push({ path: filePath, type: itemType });
+                console.log(`[COBALT] Downloaded picker item ${i + 1}: ${itemType}`);
+              }
+            } catch (e: any) {
+              console.log(`[COBALT] Failed to download picker item ${i}:`, e.message);
+            }
+          }
+
+          if (files.length > 0) {
+            return {
+              success: true,
+              isCarousel: files.length > 1,
+              carouselFiles: files.length > 1 ? files : undefined,
+              filePath: files.length === 1 ? files[0].path : undefined,
+              mediaType: files.length === 1 ? files[0].type : undefined,
+              metadata: {
+                mediaCount: files.length
+              }
+            };
+          }
+          continue;
+        }
+
+        if ((data.status === 'tunnel' || data.status === 'redirect') && data.url) {
+          console.log(`[COBALT] Got download URL: ${data.status}`);
+          
+          const isImage = data.filename?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+          const ext = isImage ? 'jpg' : 'mp4';
+          const filePath = path.join(this.tempDir, `cobalt_${Date.now()}.${ext}`);
+          
+          await this.downloadCobaltFile(data.url, filePath);
+          
+          if (fs.existsSync(filePath)) {
+            const stats = fs.statSync(filePath);
+            console.log(`[COBALT] Downloaded file: ${Math.round(stats.size / 1024)}KB`);
+            
+            return {
+              success: true,
+              filePath,
+              mediaType: isImage ? 'image' : 'video',
+              metadata: {
+                filename: data.filename
+              }
+            };
+          }
+        }
+
+      } catch (error: any) {
+        console.log(`[COBALT] Endpoint ${endpoint} failed:`, error.message);
+        continue;
+      }
+    }
+
+    return {
+      success: false,
+      error: 'All Cobalt endpoints failed'
+    };
+  }
+
+  private async downloadCobaltFile(url: string, filePath: string): Promise<void> {
+    console.log(`[COBALT] Downloading from tunnel/redirect URL...`);
+    
+    const response = await axios.get(url, {
+      responseType: 'stream',
+      timeout: 120000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': '*/*'
+      },
+      maxRedirects: 5
+    });
+
+    const writer = fs.createWriteStream(filePath);
+    response.data.pipe(writer);
+
+    return new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
   }
 
   private async downloadFile(url: string, filePath: string): Promise<void> {
