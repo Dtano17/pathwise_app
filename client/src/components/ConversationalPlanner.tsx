@@ -1545,7 +1545,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,video/*"
+                accept="image/*,video/*,audio/*,.jpg,.jpeg,.png,.gif,.webp,.mp4,.webm,.mov,.avi,.mp3,.wav,.m4a,.aac,.ogg"
                 multiple
                 className="hidden"
                 onChange={(e) => {
@@ -1561,7 +1561,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 data-testid="button-upload-media"
               >
                 <Upload className="h-4 w-4 mr-2" />
-                Upload Photos/Videos ({journalMedia.length} selected)
+                Upload Photos/Videos/Audio ({journalMedia.length} selected)
               </Button>
               
               {journalMedia.length > 0 && (
@@ -1569,7 +1569,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                   {journalMedia.map((file, idx) => (
                     <div key={idx} className="relative">
                       <Badge variant="secondary" className="pr-6">
-                        {file.type.startsWith('video/') ? '🎥' : '📷'} {file.name.slice(0, 15)}...
+                        {file.type.startsWith('video/') ? '🎥' : file.type.startsWith('audio/') ? '🎵' : '📷'} {file.name.slice(0, 15)}...
                       </Badge>
                       <button
                         onClick={() => setJournalMedia(journalMedia.filter((_, i) => i !== idx))}

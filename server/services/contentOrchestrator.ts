@@ -1,4 +1,5 @@
 import { documentParser, ParsedDocument } from './documentParser';
+import { socialMediaVideoService } from './socialMediaVideoService';
 import { tavily } from '@tavily/core';
 import OpenAI from 'openai';
 
@@ -124,18 +125,37 @@ class ContentOrchestrator {
     let content = '';
     let platform: string | undefined;
     
-    const videoPatterns = [
-      { pattern: /tiktok\.com/i, name: 'TikTok' },
-      { pattern: /instagram\.com\/(reel|p)\//i, name: 'Instagram' },
-      { pattern: /youtube\.com\/shorts/i, name: 'YouTube Shorts' },
-      { pattern: /youtu\.be/i, name: 'YouTube' },
-      { pattern: /youtube\.com\/watch/i, name: 'YouTube' },
-    ];
+    const detectedPlatform = socialMediaVideoService.detectPlatform(source.source);
     
-    for (const { pattern, name } of videoPatterns) {
-      if (pattern.test(source.source)) {
-        platform = name;
-        break;
+    if (detectedPlatform) {
+      platform = detectedPlatform;
+      console.log(`[ORCHESTRATOR] Detected social media platform: ${platform}, using video extraction`);
+      
+      try {
+        const socialResult = await socialMediaVideoService.extractContent(source.source);
+        
+        if (socialResult.success) {
+          const combinedContent = socialMediaVideoService.combineExtractedContent(socialResult);
+          
+          console.log(`[ORCHESTRATOR] Social media extraction complete: ${combinedContent.length} chars`);
+          
+          return {
+            id: source.id,
+            type: 'video',
+            source: source.source,
+            content: combinedContent,
+            success: true,
+            metadata: {
+              platform: socialResult.platform,
+              wordCount: combinedContent.split(/\s+/).length,
+              duration: socialResult.metadata?.duration
+            }
+          };
+        } else {
+          console.log(`[ORCHESTRATOR] Social media extraction failed: ${socialResult.error}`);
+        }
+      } catch (error: any) {
+        console.log(`[ORCHESTRATOR] Social media extraction error: ${error.message}`);
       }
     }
 

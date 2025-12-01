@@ -52,7 +52,29 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 - **Passport.js**: Authentication middleware.
 - **Resend**: Email delivery service.
 
-## Latest Updates (November 30, 2025)
+## Latest Updates (December 1, 2025)
+
+### Social Media Video Content Extraction
+- **Full-Stack Video Processing**: Extract content from YouTube videos with:
+  - **yt-dlp Integration**: Download videos from supported platforms
+  - **FFmpeg Frame Extraction**: Sample 5 frames throughout video for OCR
+  - **OpenAI Whisper Transcription**: Convert audio to text (25MB limit)
+  - **Caption/Description Extraction**: Pull metadata from social media posts
+- **Supported Platforms**: YouTube (fully working), Instagram, TikTok, Twitter/X, Facebook, Reddit (text extraction via Tavily fallback)
+- **Platform Limitations**: 
+  - Instagram/TikTok require authentication for video download (fallback to caption extraction works)
+  - YouTube works fully for public videos
+- **Technical Implementation**:
+  - `server/services/socialMediaVideoService.ts`: yt-dlp download, ffmpeg processing, Whisper transcription
+  - Format selector: `bestvideo[height<=720]+bestaudio/best[height<=720]/bestvideo+bestaudio/best`
+  - Platform detection regex patterns for automatic routing
+  - Graceful fallback chain: video download → caption extraction → Tavily text extraction
+
+### Bug Fixes
+- Fixed YouTube URL detection regex (`watch\?` instead of `watch/`)
+- Fixed ES module compatibility in documentParser.ts (createRequire for pdf-parse)
+
+## Updates (November 30, 2025)
 
 ### Multi-Source Content Orchestration with Video/Audio Transcription
 - **OpenAI Whisper Integration**: Video and audio files (MP4, MOV, WebM, M4A, WAV, MP3) now transcribed via OpenAI Whisper API

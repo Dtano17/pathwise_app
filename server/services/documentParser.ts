@@ -1,4 +1,5 @@
-// Use require for pdf-parse as it doesn't have proper ESM exports
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
 import mammoth from 'mammoth';
 import OpenAI from 'openai';
