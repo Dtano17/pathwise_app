@@ -6,7 +6,15 @@
  */
 
 import { Preferences } from '@capacitor/preferences';
+import { registerPlugin } from '@capacitor/core';
 import { isIOS, isAndroid } from './platform';
+
+// Define the custom plugin interface
+interface WidgetDataPlugin {
+  setWidgetData(options: { data: string }): Promise<void>;
+}
+
+const WidgetData = registerPlugin<WidgetDataPlugin>('WidgetData');
 
 export interface WidgetTask {
   id: string;
@@ -35,31 +43,31 @@ export async function updateWidgetData(
   };
 
   try {
-    // Store in local preferences (accessible by native widget)
+    // Store in local preferences (accessible by native widget on Android via CapacitorStorage)
     await Preferences.set({
       key: 'widget_data',
       value: JSON.stringify(data)
     });
 
     if (isAndroid()) {
-      // Broadcast update to Android widgets
-      try {
-        const { App } = await import('@capacitor/app');
-        // Trigger widget update broadcast if plugin available
-        console.log('[WIDGET] Android widget data updated');
-      } catch (error) {
-        console.log('[WIDGET] Android widget broadcast not available:', error);
-      }
+      // Android widget reads directly from CapacitorStorage SharedPreferences
+      // No need for explicit broadcast if we rely on periodic updates or next open
+      // But we can log it
+      console.log('[WIDGET] Android widget data saved to CapacitorStorage');
     } else if (isIOS()) {
-      // Store in App Groups for iOS widget access
+      // Use custom native plugin to write to App Group
       try {
+        await WidgetData.setWidgetData({
+          data: JSON.stringify(data)
+        });
+        console.log('[WIDGET] iOS App Group widget data updated via native bridge');
+      } catch (error) {
+        console.log('[WIDGET] iOS WidgetData plugin error:', error);
+        // Fallback to Preferences (though likely won't work for widget)
         await Preferences.set({
           key: 'app_group_widget_data',
           value: JSON.stringify(data)
         });
-        console.log('[WIDGET] iOS App Group widget data updated');
-      } catch (error) {
-        console.log('[WIDGET] iOS App Group storage not available:', error);
       }
     }
 

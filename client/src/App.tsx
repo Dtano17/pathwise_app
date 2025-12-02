@@ -31,7 +31,7 @@ import { initializeMobileFeatures } from "@/lib/mobile";
 function AppContent() {
   // Get authenticated user - use isAuthenticated to distinguish from demo/guest users
   const { user, isAuthenticated } = useAuth();
-  
+
   // Shared state for sidebar and main app communication
   const [selectedTheme, setSelectedTheme] = useState<string>('');
   const [showThemeSelector, setShowThemeSelector] = useState(false);
@@ -42,9 +42,9 @@ function AppContent() {
   const [showRecentGoals, setShowRecentGoals] = useState(false);
   const [showProgressReport, setShowProgressReport] = useState(false);
   const [showEndOfDayReview, setShowEndOfDayReview] = useState(false);
-  
+
   // Track current tab to sync between AppSidebar and MainApp
-  const mainAppTabRef = useRef<(tab: string) => void>(() => {});
+  const mainAppTabRef = useRef<(tab: string) => void>(() => { });
 
   // Upgrade modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -56,46 +56,56 @@ function AppContent() {
     "--sidebar-width-icon": "4rem",   // default icon width
   };
 
+  // Save user ID for native widgets (Android)
+  useEffect(() => {
+    if (user?.id) {
+      import('@capacitor/preferences').then(({ Preferences }) => {
+        Preferences.set({ key: 'user_id', value: user.id.toString() });
+        Preferences.set({ key: 'userId', value: user.id.toString() }); // Redundant but safe
+      });
+    }
+  }, [user?.id]);
+
   return (
     <TooltipProvider>
       <AuthHandler />
       <Switch>
         {/* Auth Callback Page (no sidebar) */}
         <Route path="/auth/callback" component={AuthCallback} />
-        
+
         {/* Login Page (no sidebar) */}
         <Route path="/login" component={Login} />
-        
+
         {/* Shared Activity Page (no sidebar) */}
         <Route path="/share/:token" component={SharedActivity} />
-        
+
         {/* Community Plans Discovery Page (no sidebar, publicly accessible) */}
         <Route path="/discover" component={CommunityPlansPage} />
-        
+
         {/* Group Goals Page (no sidebar) */}
         <Route path="/groups" component={GroupGoalsPage} />
-        
+
         {/* Subscription Success Page (no sidebar) */}
         <Route path="/subscription/success" component={SubscriptionSuccess} />
-        
+
         {/* Subscription Canceled Page (no sidebar) */}
         <Route path="/subscription/canceled" component={SubscriptionCanceled} />
-        
+
         {/* AI Plan Import Page (no sidebar) */}
         <Route path="/import-plan" component={ImportPlan} />
-        
+
         {/* Updates/Blog Page (no sidebar) */}
         <Route path="/updates" component={Updates} />
-        
+
         {/* Privacy Policy Page (no sidebar) */}
         <Route path="/privacy" component={Privacy} />
-        
+
         {/* Terms of Service Page (no sidebar) */}
         <Route path="/terms" component={Terms} />
-        
+
         {/* Support & Help Page (no sidebar) */}
         <Route path="/support" component={Support} />
-        
+
         {/* Main App Route - Shows landing page for unauthenticated users, main app for authenticated */}
         <Route path="/">
           {isAuthenticated ? (
@@ -155,14 +165,14 @@ function AppContent() {
             <LandingPage />
           )}
         </Route>
-        
+
       </Switch>
       {user?.id && <NotificationService userId={user.id} />}
       <Toaster />
-      
+
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
-      
+
       {/* Global Upgrade Modal */}
       <UpgradeModal
         open={showUpgradeModal}
