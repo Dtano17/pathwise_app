@@ -482,24 +482,25 @@ class SocialMediaVideoService {
     error?: string;
   }> {
     let postId = this.extractTikTokId(url);
+    let resolvedUrl = url;
     
-    if (!postId || postId.length < 10) {
-      console.log(`[TIKTOK] Resolving short link: ${url}`);
-      try {
-        const resolved = await axios.get(url, {
-          headers: { 'User-Agent': TIKTOK_HEADERS['User-Agent'] },
-          maxRedirects: 5,
-          timeout: 10000
-        });
-        
-        const finalUrl = resolved.request?.res?.responseUrl || resolved.config?.url;
-        if (finalUrl) {
-          const match = finalUrl.match(/video\/(\d+)/);
-          if (match) postId = match[1];
-        }
-      } catch (e: any) {
-        console.log(`[TIKTOK] Short link resolution failed:`, e.message);
-      }
+    console.log(`[TIKTOK] Resolving URL: ${url}`);
+    try {
+      const resolved = await axios.get(url, {
+        headers: { 'User-Agent': TIKTOK_HEADERS['User-Agent'] },
+        maxRedirects: 10,
+        timeout: 15000,
+        validateStatus: () => true
+      });
+      
+      const finalUrl = resolved.request?.res?.responseUrl || resolved.config?.url || url;
+      resolvedUrl = finalUrl;
+      console.log(`[TIKTOK] Resolved to: ${finalUrl}`);
+      
+      const match = finalUrl.match(/video\/(\d+)/);
+      if (match) postId = match[1];
+    } catch (e: any) {
+      console.log(`[TIKTOK] URL resolution failed:`, e.message);
     }
 
     if (!postId) {
@@ -509,9 +510,7 @@ class SocialMediaVideoService {
     console.log(`[TIKTOK] Extracting content for video: ${postId}`);
 
     try {
-      const videoUrl = `https://www.tiktok.com/@i/video/${postId}`;
-      
-      const response = await axios.get(videoUrl, {
+      const response = await axios.get(resolvedUrl, {
         headers: TIKTOK_HEADERS,
         timeout: 15000
       });
