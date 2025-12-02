@@ -1839,3 +1839,51 @@ export const insertPlanRemixSchema = createInsertSchema(planRemixes).omit({
 
 export type PlanRemix = typeof planRemixes.$inferSelect;
 export type InsertPlanRemix = z.infer<typeof insertPlanRemixSchema>;
+
+// URL Content Cache - permanent storage for extracted URL content
+export const urlContentCache = pgTable("url_content_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Normalized URL (without tracking params like ?igsh=...)
+  normalizedUrl: text("normalized_url").notNull().unique(),
+  
+  // Original URL as submitted
+  originalUrl: text("original_url").notNull(),
+  
+  // Platform detected (instagram, tiktok, youtube, etc.)
+  platform: text("platform"),
+  
+  // Full extracted content (combined caption + transcript + OCR)
+  extractedContent: text("extracted_content").notNull(),
+  
+  // Extraction source that succeeded
+  extractionSource: text("extraction_source").notNull(), // 'social_media_service' | 'tavily' | 'axios'
+  
+  // Word count for quick reference
+  wordCount: integer("word_count").default(0),
+  
+  // Metadata about the content
+  metadata: jsonb("metadata").$type<{
+    title?: string;
+    author?: string;
+    caption?: string;
+    hasAudioTranscript?: boolean;
+    hasOcrText?: boolean;
+    carouselItemCount?: number;
+  }>(),
+  
+  // When the content was extracted
+  extractedAt: timestamp("extracted_at").defaultNow(),
+}, (table) => ({
+  normalizedUrlIndex: uniqueIndex("url_content_cache_normalized_url_idx").on(table.normalizedUrl),
+  platformIndex: index("url_content_cache_platform_idx").on(table.platform),
+}));
+
+// Type exports for URL content cache
+export const insertUrlContentCacheSchema = createInsertSchema(urlContentCache).omit({
+  id: true,
+  extractedAt: true,
+});
+
+export type UrlContentCache = typeof urlContentCache.$inferSelect;
+export type InsertUrlContentCache = z.infer<typeof insertUrlContentCacheSchema>;
