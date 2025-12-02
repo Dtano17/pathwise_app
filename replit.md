@@ -52,23 +52,33 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 - **Passport.js**: Authentication middleware.
 - **Resend**: Email delivery service.
 
-## Latest Updates (December 1, 2025)
+## Latest Updates (December 2, 2025)
 
-### Social Media Video Content Extraction
-- **Full-Stack Video Processing**: Extract content from YouTube videos with:
-  - **yt-dlp Integration**: Download videos from supported platforms
-  - **FFmpeg Frame Extraction**: Sample 5 frames throughout video for OCR
-  - **OpenAI Whisper Transcription**: Convert audio to text (25MB limit)
-  - **Caption/Description Extraction**: Pull metadata from social media posts
-- **Supported Platforms**: YouTube (fully working), Instagram, TikTok, Twitter/X, Facebook, Reddit (text extraction via Tavily fallback)
-- **Platform Limitations**: 
-  - Instagram/TikTok require authentication for video download (fallback to caption extraction works)
-  - YouTube works fully for public videos
+### Self-Hosted Direct Extraction (Cobalt-Style)
+- **Instagram Direct Extraction**: No authentication required for public content
+  - **Embed Page Extraction**: Parses `instagram.com/p/{id}/embed/captioned/` for video/image URLs
+  - **GraphQL API Fallback**: Uses Instagram's internal GraphQL endpoint with proper headers
+  - **Carousel Support**: Detects and processes multi-item posts (up to 10 items)
+  - **Complete Content Layers**: Caption + Audio Transcript (Whisper) + OCR (GPT-4o-mini vision)
+  - **Successfully Tested**: Extracted 301 words from Instagram reel including venues, locations, pricing
+- **TikTok Direct Extraction**: Parses `__UNIVERSAL_DATA_FOR_REHYDRATION__` script tag
+  - URL resolution to capture proper creator username
+  - Photo slideshow support for image posts
+  - Falls back to yt-dlp for unavailable/region-locked content
+- **Fallback Chain**: Direct extraction → yt-dlp → Tavily text extraction
 - **Technical Implementation**:
-  - `server/services/socialMediaVideoService.ts`: yt-dlp download, ffmpeg processing, Whisper transcription
-  - Format selector: `bestvideo[height<=720]+bestaudio/best[height<=720]/bestvideo+bestaudio/best`
-  - Platform detection regex patterns for automatic routing
-  - Graceful fallback chain: video download → caption extraction → Tavily text extraction
+  - Custom headers mimicking real browser sessions
+  - Instagram App ID: 936619743392459
+  - Automatic cleanup of audio files in finally blocks
+  - OCR with 'detail: high' for better text extraction from frames
+
+### Supported Platforms
+- **Instagram**: Reels, posts, carousels (embed page + GraphQL direct extraction)
+- **TikTok**: Videos, photo slideshows (universal data parsing)
+- **YouTube**: Full support via yt-dlp with audio transcription
+- **Twitter/X, Facebook, Reddit**: Text extraction via Tavily fallback
+
+### Previous Updates (December 1, 2025)
 
 ### Bug Fixes
 - Fixed YouTube URL detection regex (`watch\?` instead of `watch/`)
