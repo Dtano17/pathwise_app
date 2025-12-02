@@ -78,6 +78,8 @@ import {
   type InsertAiPlanImport,
   type ExtensionToken,
   type InsertExtensionToken,
+  type UrlContentCache,
+  type InsertUrlContentCache,
   users,
   goals,
   tasks,
@@ -114,7 +116,8 @@ import {
   userNotifications,
   journalTemplates,
   aiPlanImports,
-  extensionTokens
+  extensionTokens,
+  urlContentCache
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -411,6 +414,10 @@ export interface IStorage {
   updateExtensionTokenActivity(token: string): Promise<void>;
   revokeExtensionToken(tokenId: string, userId: string): Promise<void>;
   revokeAllExtensionTokens(userId: string): Promise<void>;
+
+  // URL Content Cache (permanent storage for extracted URL content)
+  getUrlContentCache(normalizedUrl: string): Promise<UrlContentCache | undefined>;
+  createUrlContentCache(cache: InsertUrlContentCache): Promise<UrlContentCache>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3684,6 +3691,33 @@ export class DatabaseStorage implements IStorage {
       .update(extensionTokens)
       .set({ isActive: false })
       .where(eq(extensionTokens.userId, userId));
+  }
+
+  // URL Content Cache
+  async getUrlContentCache(normalizedUrl: string): Promise<UrlContentCache | undefined> {
+    const [result] = await db
+      .select()
+      .from(urlContentCache)
+      .where(eq(urlContentCache.normalizedUrl, normalizedUrl));
+    return result;
+  }
+
+  async createUrlContentCache(cache: InsertUrlContentCache): Promise<UrlContentCache> {
+    const [created] = await db
+      .insert(urlContentCache)
+      .values(cache)
+      .onConflictDoUpdate({
+        target: urlContentCache.normalizedUrl,
+        set: {
+          extractedContent: cache.extractedContent,
+          extractionSource: cache.extractionSource,
+          wordCount: cache.wordCount,
+          metadata: cache.metadata,
+          extractedAt: new Date(),
+        }
+      })
+      .returning();
+    return created;
   }
 }
 
