@@ -1,8 +1,10 @@
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
-import { type InsertTask, type InsertChatImport } from "@shared/schema";
+import { type InsertTask, type InsertChatImport, type InsertUrlContentCache } from "@shared/schema";
 import { tavily } from '@tavily/core';
 import axios from 'axios';
+import { socialMediaVideoService } from './socialMediaVideoService';
+import { storage } from '../storage';
 
 // Using GPT-4 Turbo which is currently the latest available OpenAI model
 export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -81,6 +83,57 @@ export class AIService {
   }
 
   /**
+   * Normalize URL by removing tracking parameters for consistent cache hits
+   * Strips params like ?igsh=..., ?utm_..., etc.
+   */
+  private normalizeUrl(url: string): string {
+    try {
+      const parsed = new URL(url);
+      
+      // Instagram: remove igsh, utm params, keep only path
+      if (parsed.hostname.includes('instagram.com')) {
+        // Extract the post ID from the path (e.g., /reel/ABC123/ or /p/ABC123/)
+        const pathMatch = parsed.pathname.match(/\/(reel|p|stories)\/([^\/]+)/);
+        if (pathMatch) {
+          return `https://www.instagram.com/${pathMatch[1]}/${pathMatch[2]}/`;
+        }
+      }
+      
+      // TikTok: normalize to just the video URL
+      if (parsed.hostname.includes('tiktok.com')) {
+        const pathMatch = parsed.pathname.match(/\/@[^\/]+\/video\/(\d+)/);
+        if (pathMatch) {
+          const username = parsed.pathname.split('/')[1]; // @username
+          return `https://www.tiktok.com/${username}/video/${pathMatch[1]}`;
+        }
+      }
+      
+      // YouTube: normalize to just the video ID
+      if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) {
+        let videoId: string | null = null;
+        if (parsed.hostname.includes('youtu.be')) {
+          videoId = parsed.pathname.slice(1);
+        } else if (parsed.pathname.includes('/shorts/')) {
+          videoId = parsed.pathname.split('/shorts/')[1]?.split('/')[0];
+        } else {
+          videoId = parsed.searchParams.get('v');
+        }
+        if (videoId) {
+          return `https://www.youtube.com/watch?v=${videoId}`;
+        }
+      }
+      
+      // For other URLs, remove common tracking params
+      const paramsToRemove = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid', 'ref', 'source'];
+      paramsToRemove.forEach(param => parsed.searchParams.delete(param));
+      
+      return parsed.toString();
+    } catch {
+      return url;
+    }
+  }
+
+  /**
    * Extract content from URL using Tavily Extract API (handles JS-rendered pages)
    */
   private async extractUrlContentWithTavily(url: string): Promise<string> {
@@ -95,7 +148,7 @@ export class AIService {
         const content = response.results[0].rawContent;
         if (content) {
           console.log(`[AISERVICE] Extracted ${content.length} chars from URL`);
-          return content.substring(0, 5000);
+          return content.substring(0, 15000);
         }
       }
       throw new Error('Tavily extraction returned no content');
@@ -106,31 +159,114 @@ export class AIService {
   }
 
   /**
-   * Fetch URL content with fallback chain (Tavily → axios)
+   * Fetch URL content with smart caching and fallback chain:
+   * 1. Check cache first (instant)
+   * 2. Try social media service for supported platforms (Instagram, TikTok, YouTube)
+   * 3. Fall back to Tavily for other URLs
+   * 4. Cache successful extractions permanently
    */
   private async fetchUrlContent(url: string): Promise<string> {
+    const normalizedUrl = this.normalizeUrl(url);
+    
+    // Step 1: Check cache first
     try {
-      try {
-        return await this.extractUrlContentWithTavily(url);
-      } catch (tavily_error) {
-        console.warn('[AISERVICE] Tavily failed, trying axios...');
+      const cached = await storage.getUrlContentCache(normalizedUrl);
+      if (cached) {
+        console.log(`[AISERVICE] Cache HIT for URL: ${normalizedUrl} (${cached.wordCount} words, source: ${cached.extractionSource})`);
+        return cached.extractedContent;
       }
-      const response = await axios.get(url, { timeout: 10000 });
-      const content = response.data;
-      if (typeof content === 'string' && content.includes('<html')) {
-        const text = content
-          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-        return text.substring(0, 5000);
-      }
-      return content.toString().substring(0, 5000);
-    } catch (error) {
-      console.error('[AISERVICE] URL fetch failed:', error);
-      throw error;
+      console.log(`[AISERVICE] Cache MISS for URL: ${normalizedUrl}`);
+    } catch (cacheError) {
+      console.warn('[AISERVICE] Cache lookup failed:', cacheError);
     }
+    
+    // Step 2: Determine extraction method
+    const platform = socialMediaVideoService.detectPlatform(url);
+    let extractedContent: string | null = null;
+    let extractionSource: string = 'unknown';
+    let metadata: InsertUrlContentCache['metadata'] = {};
+    
+    // Step 3: Try social media service first for supported platforms
+    if (platform) {
+      console.log(`[AISERVICE] Detected platform: ${platform}, using social media service...`);
+      try {
+        const socialResult = await socialMediaVideoService.extractContent(url);
+        
+        if (socialResult.success) {
+          extractedContent = socialMediaVideoService.combineExtractedContent(socialResult);
+          extractionSource = 'social_media_service';
+          metadata = {
+            title: socialResult.metadata?.title,
+            author: socialResult.metadata?.author,
+            caption: socialResult.caption,
+            hasAudioTranscript: !!socialResult.audioTranscript,
+            hasOcrText: !!socialResult.ocrText,
+            carouselItemCount: socialResult.carouselItems?.length
+          };
+          console.log(`[AISERVICE] Social media extraction SUCCESS: ${extractedContent.length} chars`);
+        } else {
+          console.warn(`[AISERVICE] Social media extraction failed: ${socialResult.error}`);
+        }
+      } catch (socialError: any) {
+        console.warn(`[AISERVICE] Social media service error: ${socialError.message}`);
+      }
+    }
+    
+    // Step 4: Fall back to Tavily if social media extraction failed or unsupported platform
+    if (!extractedContent) {
+      console.log(`[AISERVICE] Trying Tavily extraction...`);
+      try {
+        extractedContent = await this.extractUrlContentWithTavily(url);
+        extractionSource = 'tavily';
+        console.log(`[AISERVICE] Tavily extraction SUCCESS: ${extractedContent.length} chars`);
+      } catch (tavilyError: any) {
+        console.warn(`[AISERVICE] Tavily failed: ${tavilyError.message}`);
+        
+        // Step 5: Last resort - axios
+        try {
+          console.log(`[AISERVICE] Trying axios fallback...`);
+          const response = await axios.get(url, { timeout: 10000 });
+          const content = response.data;
+          if (typeof content === 'string' && content.includes('<html')) {
+            extractedContent = content
+              .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+              .replace(/<[^>]+>/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .substring(0, 15000);
+          } else {
+            extractedContent = content.toString().substring(0, 15000);
+          }
+          extractionSource = 'axios';
+          console.log(`[AISERVICE] Axios extraction SUCCESS: ${extractedContent.length} chars`);
+        } catch (axiosError: any) {
+          console.error(`[AISERVICE] All extraction methods failed for ${url}`);
+          throw new Error(`Failed to extract content from URL: ${url}`);
+        }
+      }
+    }
+    
+    // Step 6: Cache the successful extraction permanently
+    if (extractedContent) {
+      const wordCount = extractedContent.split(/\s+/).length;
+      try {
+        await storage.createUrlContentCache({
+          normalizedUrl,
+          originalUrl: url,
+          platform: platform || undefined,
+          extractedContent,
+          extractionSource,
+          wordCount,
+          metadata
+        });
+        console.log(`[AISERVICE] Cached content for URL: ${normalizedUrl} (${wordCount} words)`);
+      } catch (cacheError) {
+        console.warn('[AISERVICE] Failed to cache content:', cacheError);
+      }
+    }
+    
+    return extractedContent || '';
   }
 
   // Helper function to extract JSON from markdown code blocks or plain text
