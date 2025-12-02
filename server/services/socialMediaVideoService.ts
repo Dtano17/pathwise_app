@@ -8,13 +8,29 @@ import OpenAI from 'openai';
 const execAsync = promisify(exec);
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const COBALT_API_ENDPOINTS = [
-  'https://cobalt-api.meowing.de',
-  'https://cobalt-backend.canine.tools',
-  'https://cobalt-api.kwiatekmiki.com',
-  'https://kityune.imput.net',
-  'https://capi.3kh0.net'
-];
+const INSTAGRAM_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Ch-Ua': '"Chromium";v="120", "Google Chrome";v="120"',
+  'Sec-Ch-Ua-Mobile': '?0',
+  'Sec-Ch-Ua-Platform': '"Windows"',
+  'Upgrade-Insecure-Requests': '1',
+  'Cache-Control': 'max-age=0'
+};
+
+const TIKTOK_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate'
+};
+
+const IG_APP_ID = '936619743392459';
 
 export interface SocialMediaContent {
   platform: string;
@@ -43,6 +59,8 @@ interface YtDlpInfo {
   duration?: number;
   description?: string;
   entries?: YtDlpInfo[];
+  ext?: string;
+  url?: string;
 }
 
 const SUPPORTED_PLATFORMS = {
@@ -90,12 +108,20 @@ class SocialMediaVideoService {
     try {
       let downloadResult;
       
-      if (platform === 'instagram' || platform === 'tiktok') {
-        console.log(`[SOCIAL_MEDIA] Using Cobalt API for ${platform} (bypasses login requirements)`);
-        downloadResult = await this.downloadWithCobalt(url, platform);
+      if (platform === 'instagram') {
+        console.log(`[SOCIAL_MEDIA] Using direct Instagram extraction (Cobalt-style)...`);
+        downloadResult = await this.extractDirectFromInstagram(url);
         
         if (!downloadResult.success) {
-          console.log(`[SOCIAL_MEDIA] Cobalt failed, falling back to yt-dlp...`);
+          console.log(`[SOCIAL_MEDIA] Direct extraction failed, falling back to yt-dlp...`);
+          downloadResult = await this.downloadMedia(url, platform);
+        }
+      } else if (platform === 'tiktok') {
+        console.log(`[SOCIAL_MEDIA] Using direct TikTok extraction (Cobalt-style)...`);
+        downloadResult = await this.extractDirectFromTikTok(url);
+        
+        if (!downloadResult.success) {
+          console.log(`[SOCIAL_MEDIA] Direct extraction failed, falling back to yt-dlp...`);
           downloadResult = await this.downloadMedia(url, platform);
         }
       } else {
@@ -149,6 +175,498 @@ class SocialMediaVideoService {
         error: error.message || 'Failed to extract content'
       };
     }
+  }
+
+  private extractInstagramId(url: string): string | null {
+    const patterns = [
+      /instagram\.com\/(?:p|reel|tv)\/([A-Za-z0-9_-]+)/i,
+      /instagram\.com\/stories\/[\w.]+\/(\d+)/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) return match[1];
+    }
+    return null;
+  }
+
+  private extractTikTokId(url: string): string | null {
+    const patterns = [
+      /tiktok\.com\/@[\w.-]+\/video\/(\d+)/i,
+      /tiktok\.com\/t\/([A-Za-z0-9]+)/i,
+      /vm\.tiktok\.com\/([A-Za-z0-9]+)/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) return match[1];
+    }
+    return null;
+  }
+
+  private async extractDirectFromInstagram(url: string): Promise<{
+    success: boolean;
+    filePath?: string;
+    mediaType?: 'video' | 'image';
+    isCarousel?: boolean;
+    carouselFiles?: Array<{ path: string; type: 'video' | 'image' }>;
+    caption?: string;
+    metadata?: any;
+    error?: string;
+  }> {
+    const postId = this.extractInstagramId(url);
+    if (!postId) {
+      return { success: false, error: 'Could not extract Instagram post ID' };
+    }
+
+    console.log(`[INSTAGRAM] Extracting content for post: ${postId}`);
+
+    try {
+      const embedResult = await this.fetchInstagramEmbed(postId);
+      if (embedResult.success) {
+        return embedResult;
+      }
+      console.log(`[INSTAGRAM] Embed method failed: ${embedResult.error}`);
+    } catch (e: any) {
+      console.log(`[INSTAGRAM] Embed extraction error:`, e.message);
+    }
+
+    try {
+      const gqlResult = await this.fetchInstagramGraphQL(postId);
+      if (gqlResult.success) {
+        return gqlResult;
+      }
+      console.log(`[INSTAGRAM] GraphQL method failed: ${gqlResult.error}`);
+    } catch (e: any) {
+      console.log(`[INSTAGRAM] GraphQL extraction error:`, e.message);
+    }
+
+    return { 
+      success: false, 
+      error: 'All Instagram extraction methods failed. Content may be private or age-restricted.' 
+    };
+  }
+
+  private async fetchInstagramEmbed(postId: string): Promise<{
+    success: boolean;
+    filePath?: string;
+    mediaType?: 'video' | 'image';
+    isCarousel?: boolean;
+    carouselFiles?: Array<{ path: string; type: 'video' | 'image' }>;
+    caption?: string;
+    metadata?: any;
+    error?: string;
+  }> {
+    console.log(`[INSTAGRAM] Trying embed page extraction...`);
+    
+    const embedUrl = `https://www.instagram.com/p/${postId}/embed/captioned/`;
+    
+    const response = await axios.get(embedUrl, {
+      headers: INSTAGRAM_HEADERS,
+      timeout: 15000
+    });
+
+    const html = response.data;
+    
+    const jsonMatch = html.match(/"init",\[\],\[(.*?)\]\],/);
+    if (!jsonMatch) {
+      return { success: false, error: 'Could not find embed data' };
+    }
+
+    let embedData;
+    try {
+      const parsed = JSON.parse(jsonMatch[1]);
+      if (parsed?.contextJSON) {
+        embedData = JSON.parse(parsed.contextJSON);
+      } else {
+        embedData = parsed;
+      }
+    } catch (e) {
+      return { success: false, error: 'Could not parse embed JSON' };
+    }
+
+    if (!embedData) {
+      return { success: false, error: 'Empty embed data' };
+    }
+
+    const caption = embedData.caption?.text || embedData.title;
+    
+    if (embedData.video_url) {
+      console.log(`[INSTAGRAM] Found video URL in embed`);
+      return await this.downloadAndReturnMedia(embedData.video_url, 'video', caption, {
+        author: embedData.owner?.username
+      });
+    }
+    
+    if (embedData.display_url) {
+      console.log(`[INSTAGRAM] Found image URL in embed`);
+      return await this.downloadAndReturnMedia(embedData.display_url, 'image', caption, {
+        author: embedData.owner?.username
+      });
+    }
+
+    return { success: false, error: 'No media URLs in embed data' };
+  }
+
+  private async fetchInstagramGraphQL(postId: string): Promise<{
+    success: boolean;
+    filePath?: string;
+    mediaType?: 'video' | 'image';
+    isCarousel?: boolean;
+    carouselFiles?: Array<{ path: string; type: 'video' | 'image' }>;
+    caption?: string;
+    metadata?: any;
+    error?: string;
+  }> {
+    console.log(`[INSTAGRAM] Trying GraphQL extraction...`);
+    
+    const pageUrl = `https://www.instagram.com/p/${postId}/`;
+    const pageResponse = await axios.get(pageUrl, {
+      headers: INSTAGRAM_HEADERS,
+      timeout: 15000
+    });
+
+    const pageHtml = pageResponse.data;
+    
+    const scriptMatch = pageHtml.match(/<script[^>]*>window\._sharedData\s*=\s*(\{[\s\S]*?\});<\/script>/);
+    let sharedData = null;
+    
+    if (scriptMatch) {
+      try {
+        sharedData = JSON.parse(scriptMatch[1]);
+      } catch (e) {
+        console.log(`[INSTAGRAM] Could not parse _sharedData`);
+      }
+    }
+
+    const additionalMatch = pageHtml.match(/<script[^>]*>window\.__additionalDataLoaded\s*\([^,]+,\s*(\{[\s\S]*?\})\s*\);<\/script>/);
+    let additionalData = null;
+    
+    if (additionalMatch) {
+      try {
+        additionalData = JSON.parse(additionalMatch[1]);
+      } catch (e) {
+        console.log(`[INSTAGRAM] Could not parse additionalData`);
+      }
+    }
+
+    const media = sharedData?.entry_data?.PostPage?.[0]?.graphql?.shortcode_media ||
+                  additionalData?.graphql?.shortcode_media ||
+                  additionalData?.items?.[0];
+
+    if (!media) {
+      const lsd = pageHtml.match(/"LSD",\[\],\{"token":"([^"]+)"\}/)?.[1] || 
+                  Math.random().toString(36).substring(2, 10);
+      const csrf = pageHtml.match(/"csrf_token":"([^"]+)"/)?.[1];
+      
+      console.log(`[INSTAGRAM] Trying direct GraphQL query...`);
+      
+      try {
+        const gqlResponse = await axios.post('https://www.instagram.com/graphql/query', 
+          new URLSearchParams({
+            fb_api_caller_class: 'RelayModern',
+            fb_api_req_friendly_name: 'PolarisPostActionLoadPostQueryQuery',
+            variables: JSON.stringify({
+              shortcode: postId,
+              fetch_tagged_user_count: null,
+              hoisted_comment_id: null,
+              hoisted_reply_id: null
+            }),
+            server_timestamps: 'true',
+            doc_id: '8845758582119845'
+          }).toString(),
+          {
+            headers: {
+              ...INSTAGRAM_HEADERS,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'X-FB-LSD': lsd,
+              'X-CSRFToken': csrf || '',
+              'X-IG-App-ID': IG_APP_ID,
+              'X-FB-Friendly-Name': 'PolarisPostActionLoadPostQueryQuery'
+            },
+            timeout: 15000
+          }
+        );
+
+        const gqlData = gqlResponse.data?.data?.xdt_shortcode_media || 
+                       gqlResponse.data?.data?.shortcode_media;
+        
+        if (gqlData) {
+          return this.processInstagramMedia(gqlData);
+        }
+      } catch (e: any) {
+        console.log(`[INSTAGRAM] GraphQL query failed:`, e.message);
+      }
+      
+      return { success: false, error: 'Could not find media in page data' };
+    }
+
+    return this.processInstagramMedia(media);
+  }
+
+  private async processInstagramMedia(media: any): Promise<{
+    success: boolean;
+    filePath?: string;
+    mediaType?: 'video' | 'image';
+    isCarousel?: boolean;
+    carouselFiles?: Array<{ path: string; type: 'video' | 'image' }>;
+    caption?: string;
+    metadata?: any;
+    error?: string;
+  }> {
+    const caption = media.edge_media_to_caption?.edges?.[0]?.node?.text || 
+                   media.caption?.text;
+    const author = media.owner?.username;
+
+    const sidecar = media.edge_sidecar_to_children?.edges || media.carousel_media;
+    if (sidecar && sidecar.length > 0) {
+      console.log(`[INSTAGRAM] Found carousel with ${sidecar.length} items`);
+      
+      const files: Array<{ path: string; type: 'video' | 'image' }> = [];
+      
+      for (let i = 0; i < Math.min(sidecar.length, 10); i++) {
+        const item = sidecar[i]?.node || sidecar[i];
+        const isVideo = item.is_video || item.video_versions;
+        const mediaUrl = isVideo ? 
+          (item.video_url || item.video_versions?.[0]?.url) : 
+          (item.display_url || item.image_versions2?.candidates?.[0]?.url);
+        
+        if (mediaUrl) {
+          const ext = isVideo ? 'mp4' : 'jpg';
+          const filePath = path.join(this.tempDir, `ig_carousel_${Date.now()}_${i}.${ext}`);
+          
+          try {
+            await this.downloadMediaFile(mediaUrl, filePath);
+            if (fs.existsSync(filePath)) {
+              files.push({ path: filePath, type: isVideo ? 'video' : 'image' });
+            }
+          } catch (e: any) {
+            console.log(`[INSTAGRAM] Failed to download carousel item ${i}:`, e.message);
+          }
+        }
+      }
+
+      if (files.length > 0) {
+        return {
+          success: true,
+          isCarousel: files.length > 1,
+          carouselFiles: files.length > 1 ? files : undefined,
+          filePath: files.length === 1 ? files[0].path : undefined,
+          mediaType: files.length === 1 ? files[0].type : undefined,
+          caption,
+          metadata: { author, mediaCount: files.length }
+        };
+      }
+    }
+
+    const isVideo = media.is_video || media.video_versions;
+    const mediaUrl = isVideo ? 
+      (media.video_url || media.video_versions?.[0]?.url) : 
+      (media.display_url || media.image_versions2?.candidates?.[0]?.url);
+
+    if (!mediaUrl) {
+      return { success: false, error: 'No media URL found' };
+    }
+
+    return await this.downloadAndReturnMedia(mediaUrl, isVideo ? 'video' : 'image', caption, { author });
+  }
+
+  private async extractDirectFromTikTok(url: string): Promise<{
+    success: boolean;
+    filePath?: string;
+    mediaType?: 'video' | 'image';
+    isCarousel?: boolean;
+    carouselFiles?: Array<{ path: string; type: 'video' | 'image' }>;
+    caption?: string;
+    metadata?: any;
+    error?: string;
+  }> {
+    let postId = this.extractTikTokId(url);
+    
+    if (!postId || postId.length < 10) {
+      console.log(`[TIKTOK] Resolving short link: ${url}`);
+      try {
+        const resolved = await axios.get(url, {
+          headers: { 'User-Agent': TIKTOK_HEADERS['User-Agent'] },
+          maxRedirects: 5,
+          timeout: 10000
+        });
+        
+        const finalUrl = resolved.request?.res?.responseUrl || resolved.config?.url;
+        if (finalUrl) {
+          const match = finalUrl.match(/video\/(\d+)/);
+          if (match) postId = match[1];
+        }
+      } catch (e: any) {
+        console.log(`[TIKTOK] Short link resolution failed:`, e.message);
+      }
+    }
+
+    if (!postId) {
+      return { success: false, error: 'Could not extract TikTok video ID' };
+    }
+
+    console.log(`[TIKTOK] Extracting content for video: ${postId}`);
+
+    try {
+      const videoUrl = `https://www.tiktok.com/@i/video/${postId}`;
+      
+      const response = await axios.get(videoUrl, {
+        headers: TIKTOK_HEADERS,
+        timeout: 15000
+      });
+
+      const html = response.data;
+      
+      const scriptMatch = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([^<]+)<\/script>/);
+      if (!scriptMatch) {
+        return { success: false, error: 'Could not find TikTok data script' };
+      }
+
+      let data;
+      try {
+        data = JSON.parse(scriptMatch[1]);
+      } catch (e) {
+        return { success: false, error: 'Could not parse TikTok data' };
+      }
+
+      const videoDetail = data?.['__DEFAULT_SCOPE__']?.['webapp.video-detail'];
+      
+      if (!videoDetail) {
+        return { success: false, error: 'No video detail found in TikTok data' };
+      }
+
+      if (videoDetail.statusMsg) {
+        return { success: false, error: `TikTok error: ${videoDetail.statusMsg}` };
+      }
+
+      const detail = videoDetail?.itemInfo?.itemStruct;
+      if (!detail) {
+        return { success: false, error: 'No item structure in TikTok response' };
+      }
+
+      if (detail.isContentClassified) {
+        return { success: false, error: 'Content is age-restricted' };
+      }
+
+      const author = detail.author?.uniqueId || detail.author?.nickname;
+      const caption = detail.desc;
+      
+      const images = detail.imagePost?.images;
+      if (images && images.length > 0) {
+        console.log(`[TIKTOK] Found photo slideshow with ${images.length} images`);
+        
+        const files: Array<{ path: string; type: 'video' | 'image' }> = [];
+        
+        for (let i = 0; i < Math.min(images.length, 10); i++) {
+          const imageUrl = images[i]?.imageURL?.urlList?.find((u: string) => u.includes('.jpeg')) ||
+                          images[i]?.imageURL?.urlList?.[0];
+          
+          if (imageUrl) {
+            const filePath = path.join(this.tempDir, `tt_slide_${Date.now()}_${i}.jpg`);
+            try {
+              await this.downloadMediaFile(imageUrl, filePath);
+              if (fs.existsSync(filePath)) {
+                files.push({ path: filePath, type: 'image' });
+              }
+            } catch (e: any) {
+              console.log(`[TIKTOK] Failed to download slide ${i}:`, e.message);
+            }
+          }
+        }
+
+        if (files.length > 0) {
+          return {
+            success: true,
+            isCarousel: files.length > 1,
+            carouselFiles: files.length > 1 ? files : undefined,
+            filePath: files.length === 1 ? files[0].path : undefined,
+            mediaType: files.length === 1 ? files[0].type : undefined,
+            caption,
+            metadata: { author, mediaCount: files.length }
+          };
+        }
+      }
+
+      const playAddr = detail.video?.playAddr || 
+                      detail.video?.downloadAddr ||
+                      detail.video?.bitrateInfo?.[0]?.PlayAddr?.UrlList?.[0];
+
+      if (!playAddr) {
+        return { success: false, error: 'No video URL found' };
+      }
+
+      console.log(`[TIKTOK] Found video URL`);
+      return await this.downloadAndReturnMedia(playAddr, 'video', caption, { 
+        author,
+        duration: detail.video?.duration
+      });
+
+    } catch (error: any) {
+      console.error(`[TIKTOK] Extraction error:`, error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  private async downloadAndReturnMedia(
+    mediaUrl: string, 
+    mediaType: 'video' | 'image',
+    caption?: string,
+    metadata?: any
+  ): Promise<{
+    success: boolean;
+    filePath?: string;
+    mediaType?: 'video' | 'image';
+    caption?: string;
+    metadata?: any;
+    error?: string;
+  }> {
+    const ext = mediaType === 'video' ? 'mp4' : 'jpg';
+    const filePath = path.join(this.tempDir, `direct_${Date.now()}.${ext}`);
+    
+    try {
+      await this.downloadMediaFile(mediaUrl, filePath);
+      
+      if (fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        console.log(`[DIRECT] Downloaded ${mediaType}: ${Math.round(stats.size / 1024)}KB`);
+        
+        return {
+          success: true,
+          filePath,
+          mediaType,
+          caption,
+          metadata
+        };
+      }
+      
+      return { success: false, error: 'Downloaded file not found' };
+    } catch (error: any) {
+      return { success: false, error: `Download failed: ${error.message}` };
+    }
+  }
+
+  private async downloadMediaFile(url: string, filePath: string): Promise<void> {
+    console.log(`[DIRECT] Downloading media file...`);
+    
+    const response = await axios.get(url, {
+      responseType: 'stream',
+      timeout: 120000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+        'Referer': 'https://www.instagram.com/'
+      },
+      maxRedirects: 5
+    });
+
+    const writer = fs.createWriteStream(filePath);
+    response.data.pipe(writer);
+
+    return new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
   }
 
   private async downloadMedia(url: string, platform: string): Promise<{
@@ -299,145 +817,6 @@ class SocialMediaVideoService {
         error: `Failed to download: ${error.message}. The content might be private, age-restricted, or require login.`
       };
     }
-  }
-
-  private async downloadWithCobalt(url: string, platform: string): Promise<{
-    success: boolean;
-    filePath?: string;
-    mediaType?: 'video' | 'image';
-    isCarousel?: boolean;
-    carouselFiles?: Array<{ path: string; type: 'video' | 'image' }>;
-    caption?: string;
-    metadata?: any;
-    error?: string;
-  }> {
-    console.log(`[COBALT] Attempting download via Cobalt API...`);
-    
-    const cleanUrl = url.split('?')[0];
-    console.log(`[COBALT] Clean URL: ${cleanUrl}`);
-    
-    for (const endpoint of COBALT_API_ENDPOINTS) {
-      try {
-        console.log(`[COBALT] Trying endpoint: ${endpoint}`);
-        
-        const response = await axios.post(
-          `${endpoint}/`,
-          {
-            url: cleanUrl,
-            videoQuality: '720'
-          },
-          {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'User-Agent': 'JournalMate/1.0 (+https://journalmate.ai)'
-            },
-            timeout: 30000,
-            validateStatus: () => true
-          }
-        );
-
-        const data = response.data;
-        console.log(`[COBALT] HTTP ${response.status}, Response:`, JSON.stringify(data).slice(0, 200));
-
-        if (data.status === 'error') {
-          console.log(`[COBALT] API error: ${data.error?.code || 'unknown'}`);
-          continue;
-        }
-
-        if (data.status === 'picker' && data.picker && data.picker.length > 0) {
-          console.log(`[COBALT] Received picker with ${data.picker.length} items (carousel/multi-media)`);
-          
-          const files: Array<{ path: string; type: 'video' | 'image' }> = [];
-          
-          for (let i = 0; i < Math.min(data.picker.length, 10); i++) {
-            const item = data.picker[i];
-            const itemType = item.type === 'photo' ? 'image' : 'video';
-            const ext = itemType === 'image' ? 'jpg' : 'mp4';
-            const filePath = path.join(this.tempDir, `cobalt_${Date.now()}_${i}.${ext}`);
-            
-            try {
-              await this.downloadCobaltFile(item.url, filePath);
-              if (fs.existsSync(filePath)) {
-                files.push({ path: filePath, type: itemType });
-                console.log(`[COBALT] Downloaded picker item ${i + 1}: ${itemType}`);
-              }
-            } catch (e: any) {
-              console.log(`[COBALT] Failed to download picker item ${i}:`, e.message);
-            }
-          }
-
-          if (files.length > 0) {
-            return {
-              success: true,
-              isCarousel: files.length > 1,
-              carouselFiles: files.length > 1 ? files : undefined,
-              filePath: files.length === 1 ? files[0].path : undefined,
-              mediaType: files.length === 1 ? files[0].type : undefined,
-              metadata: {
-                mediaCount: files.length
-              }
-            };
-          }
-          continue;
-        }
-
-        if ((data.status === 'tunnel' || data.status === 'redirect') && data.url) {
-          console.log(`[COBALT] Got download URL: ${data.status}`);
-          
-          const isImage = data.filename?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-          const ext = isImage ? 'jpg' : 'mp4';
-          const filePath = path.join(this.tempDir, `cobalt_${Date.now()}.${ext}`);
-          
-          await this.downloadCobaltFile(data.url, filePath);
-          
-          if (fs.existsSync(filePath)) {
-            const stats = fs.statSync(filePath);
-            console.log(`[COBALT] Downloaded file: ${Math.round(stats.size / 1024)}KB`);
-            
-            return {
-              success: true,
-              filePath,
-              mediaType: isImage ? 'image' : 'video',
-              metadata: {
-                filename: data.filename
-              }
-            };
-          }
-        }
-
-      } catch (error: any) {
-        console.log(`[COBALT] Endpoint ${endpoint} failed:`, error.message);
-        continue;
-      }
-    }
-
-    return {
-      success: false,
-      error: 'All Cobalt endpoints failed'
-    };
-  }
-
-  private async downloadCobaltFile(url: string, filePath: string): Promise<void> {
-    console.log(`[COBALT] Downloading from tunnel/redirect URL...`);
-    
-    const response = await axios.get(url, {
-      responseType: 'stream',
-      timeout: 120000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': '*/*'
-      },
-      maxRedirects: 5
-    });
-
-    const writer = fs.createWriteStream(filePath);
-    response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
-    });
   }
 
   private async downloadFile(url: string, filePath: string): Promise<void> {
