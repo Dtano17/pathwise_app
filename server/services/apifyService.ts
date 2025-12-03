@@ -67,17 +67,15 @@ class ApifyService {
 
     console.log(`[APIFY] Extracting Instagram Reel: ${url}`);
 
-    // Try the general Instagram scraper first (more reliable for single URLs)
+    // Use the official Instagram Reel Scraper actor (most reliable)
     try {
-      const actorId = 'apify~instagram-scraper';
+      const actorId = 'apify~instagram-reel-scraper';
       const runUrl = `${APIFY_BASE_URL}/acts/${actorId}/run-sync-get-dataset-items?token=${APIFY_API_TOKEN}`;
 
-      console.log(`[APIFY] Using instagram-scraper actor...`);
+      console.log(`[APIFY] Using official instagram-reel-scraper actor...`);
       const response = await axios.post(runUrl, {
         directUrls: [url],
-        resultsType: 'posts',
-        resultsLimit: 1,
-        addParentData: false
+        resultsLimit: 1
       }, {
         headers: { 'Content-Type': 'application/json' },
         timeout: 90000
@@ -91,11 +89,15 @@ class ApifyService {
       }
 
       const item = items[0];
+      
+      // Log full response structure to debug field mapping
+      console.log(`[APIFY] Raw Instagram data keys:`, Object.keys(item));
       console.log(`[APIFY] Instagram extraction successful:`, {
-        hasVideo: !!item.videoUrl,
-        caption: item.caption?.substring(0, 50),
-        likes: item.likesCount,
-        views: item.videoViewCount || item.viewCount
+        hasVideo: !!item.videoUrl || !!item.video_url || !!item.video,
+        caption: (item.caption || item.text)?.substring(0, 100),
+        likes: item.likesCount || item.likes || item.like_count,
+        views: item.videoViewCount || item.viewCount || item.views || item.play_count,
+        duration: item.duration || item.video_duration
       });
 
       if (item.carousel_media && item.carousel_media.length > 0) {
@@ -158,13 +160,16 @@ class ApifyService {
 
   private async extractInstagramReelAlternative(url: string): Promise<ApifyInstagramResult> {
     try {
-      const actorId = 'apify~instagram-reel-scraper';
+      // Fallback to general Instagram scraper
+      const actorId = 'apify~instagram-scraper';
       const runUrl = `${APIFY_BASE_URL}/acts/${actorId}/run-sync-get-dataset-items?token=${APIFY_API_TOKEN}`;
 
-      console.log(`[APIFY] Using instagram-reel-scraper actor...`);
+      console.log(`[APIFY] Using instagram-scraper actor as fallback...`);
       const response = await axios.post(runUrl, {
         directUrls: [url],
-        resultsLimit: 1
+        resultsType: 'posts',
+        resultsLimit: 1,
+        addParentData: false
       }, {
         headers: { 'Content-Type': 'application/json' },
         timeout: 90000
