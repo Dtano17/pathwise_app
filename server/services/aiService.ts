@@ -134,6 +134,24 @@ export class AIService {
   }
 
   /**
+   * Patterns that indicate content is from social media extraction
+   */
+  private static SOCIAL_MEDIA_PATTERNS = [
+    'Platform: INSTAGRAM',
+    'Platform: TIKTOK', 
+    'Platform: YOUTUBE',
+    'On-Screen Text (OCR)',
+    'Audio Transcript'
+  ];
+
+  /**
+   * Check if content is from social media (extracted via our services)
+   */
+  private isSocialMediaContent(content: string): boolean {
+    return AIService.SOCIAL_MEDIA_PATTERNS.some(pattern => content.includes(pattern));
+  }
+
+  /**
    * Extract content from URL using Tavily Extract API (handles JS-rendered pages)
    */
   private async extractUrlContentWithTavily(url: string): Promise<string> {
@@ -1293,6 +1311,13 @@ For longer goals (like "2 months"), create milestone-based progression with spec
     existingActivity?: { title: string; tasks: Array<{ title: string; description?: string }> }
   ): Promise<GoalProcessingResult> {
     try {
+      // Check if this is social media content that requires strict grounding
+      const hasSocialMediaContent = this.isSocialMediaContent(goalText);
+      
+      if (hasSocialMediaContent) {
+        console.log('[AISERVICE] Social media content detected - applying grounding rules');
+      }
+
       const prioritiesContext =
         userPriorities.length > 0
           ? `\nUser's Life Priorities (consider these when creating the plan):
@@ -1312,7 +1337,42 @@ ${existingActivity.tasks.map((task, idx) => `${idx + 1}. ${task.title}${task.des
 IMPORTANT: The user is asking you to MODIFY the above activity. Build upon the existing tasks - add, remove, or update tasks based on the user's request. Keep the activity title unless the user explicitly asks to change it. Your response should be a refined version of this existing plan, not a completely new one.`
         : "";
 
-      const prompt = `You are an AI productivity assistant. Transform the user's goal or intention into specific, actionable tasks with realistic time estimates.
+      // GROUNDING RULES FOR SOCIAL MEDIA CONTENT
+      const groundingRules = hasSocialMediaContent ? `
+
+## 🔒 STRICT GROUNDING RULES FOR SOCIAL MEDIA/URL CONTENT 🔒
+
+The content above was extracted from social media (Instagram, TikTok, YouTube) and contains specific venues, activities, and prices from OCR and captions.
+
+**RULE 1 - PRESERVE ALL SOURCE CONTENT (MANDATORY):**
+Every single venue, activity, location, and price mentioned in the OCR text or caption MUST become its own task. Do NOT skip any.
+
+Example: If OCR shows "PILATES - Lo Studio, VI - ₦100,000", you MUST create:
+- Task: "Book Pilates session at Lo Studio, Victoria Island (₦100,000)"
+
+**RULE 2 - USE EXACT NAMES AND PRICES:**
+- Use the EXACT venue names from the source (e.g., "Knowhere" not "a brunch spot")
+- Use the EXACT prices from the source (e.g., "₦50,000" not "around 50k")
+- Use the EXACT locations from the source (e.g., "VI" or "Victoria Island")
+
+**RULE 3 - ADDITIVE ONLY FOR LOGISTICS:**
+You may ONLY add tasks for:
+- Transportation between venues mentioned in the source
+- Budget summary/planning based on prices IN the source
+- Packing/preparation for activities IN the source
+
+**RULE 4 - ABSOLUTELY FORBIDDEN:**
+❌ DO NOT suggest alternative venues (no "or try Nok by Alara instead")
+❌ DO NOT recommend restaurants/activities NOT in the source content
+❌ DO NOT create vague tasks like "Research more activities" or "Find other options"
+❌ DO NOT substitute source venues with your own recommendations
+❌ DO NOT add "Shiro", "Sky Restaurant" or ANY venue not explicitly in the OCR/caption
+
+**SCAN THE CONTENT NOW AND LIST ALL VENUES/ACTIVITIES:**
+Before generating tasks, mentally list every venue, activity, and price from the OCR and caption. Each one MUST become a task.
+` : "";
+
+      const prompt = `You are an AI productivity assistant. Transform the user's goal or intention into specific, actionable tasks with realistic time estimates.${groundingRules}
 
 User's ${existingActivity ? 'refinement request' : 'goal'}: "${goalText}"${prioritiesContext}${personalizationContext}${existingActivityContext}
 
