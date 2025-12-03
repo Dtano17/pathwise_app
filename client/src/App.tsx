@@ -191,7 +191,7 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <KonstaApp>
+      <KonstaApp theme="ios" safeAreas={false}>
         <AppContent />
       </KonstaApp>
     </QueryClientProvider>
