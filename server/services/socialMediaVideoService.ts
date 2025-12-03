@@ -1127,10 +1127,21 @@ class SocialMediaVideoService {
         response_format: 'text'
       });
       
-      const transcript = String(transcription);
+      const transcript = String(transcription).trim();
       console.log(`[SOCIAL_MEDIA] Transcription complete: ${transcript.length} chars`);
       
-      return transcript.trim() || undefined;
+      if (!transcript) {
+        return undefined;
+      }
+      
+      const musicAnalysis = this.detectMusicVsNarration(transcript);
+      
+      if (musicAnalysis.isLikelyMusic) {
+        console.log(`[SOCIAL_MEDIA] Detected background music (confidence: ${(musicAnalysis.confidence * 100).toFixed(0)}%), marking as such`);
+        return `[Background Music - Not Narration]\n${transcript}`;
+      }
+      
+      return transcript;
 
     } catch (error: any) {
       console.error(`[SOCIAL_MEDIA] Transcription error:`, error.message);
@@ -1140,22 +1151,158 @@ class SocialMediaVideoService {
     }
   }
 
-  private async extractVideoFramesAndOCR(videoPath: string): Promise<string | undefined> {
+  private detectMusicVsNarration(transcript: string): { isLikelyMusic: boolean; confidence: number } {
+    const text = transcript.toLowerCase();
+    const words = text.split(/\s+/);
+    
+    let musicScore = 0;
+    let narrationScore = 0;
+    
+    const musicPatterns = [
+      /\b(la la|na na|oh oh|yeah yeah|hey hey|baby|love|heart|dance|party|night|girl|boy|sexy|body|feel|groove)\b/gi,
+      /\b(ooh|ahh|mmm|uh|huh|whoa|yo|yow|ayy)\b/gi,
+      /\b(step in|pull up|rock with|vibe with|hit the|on the floor)\b/gi,
+      /\b(baddie|baller|flexin|drippin|slay|fire|lit|vibes)\b/gi
+    ];
+    
+    const narrationPatterns = [
+      /\b(today|first|second|third|step|tip|here's|let me|i'm going|welcome|hello|hi everyone)\b/gi,
+      /\b(you should|you can|try this|recommend|suggest|best way|how to)\b/gi,
+      /\b(location|address|price|cost|budget|book|reserve|call)\b/gi,
+      /\b(number one|number two|activity|experience|place|venue)\b/gi
+    ];
+    
+    for (const pattern of musicPatterns) {
+      const matches = text.match(pattern);
+      if (matches) {
+        musicScore += matches.length * 2;
+      }
+    }
+    
+    for (const pattern of narrationPatterns) {
+      const matches = text.match(pattern);
+      if (matches) {
+        narrationScore += matches.length * 3;
+      }
+    }
+    
+    const sentences = transcript.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const avgWordsPerSentence = words.length / Math.max(sentences.length, 1);
+    
+    if (avgWordsPerSentence > 15) {
+      musicScore += 3;
+    }
+    
+    const repetitionCount = this.countRepetitions(words);
+    if (repetitionCount > words.length * 0.15) {
+      musicScore += 4;
+    }
+    
+    const rhymeScore = this.detectRhymePatterns(transcript);
+    musicScore += rhymeScore;
+    
+    if (text.includes('step') && text.includes('party') && text.includes('body')) {
+      musicScore += 5;
+    }
+    
+    const totalScore = musicScore + narrationScore;
+    const confidence = totalScore > 0 ? musicScore / totalScore : 0.5;
+    
+    const isLikelyMusic = musicScore > narrationScore && musicScore >= 5;
+    
+    return { isLikelyMusic, confidence };
+  }
+
+  private countRepetitions(words: string[]): number {
+    const wordCounts: Record<string, number> = {};
+    for (const word of words) {
+      if (word.length > 2) {
+        wordCounts[word] = (wordCounts[word] || 0) + 1;
+      }
+    }
+    
+    let repetitions = 0;
+    for (const count of Object.values(wordCounts)) {
+      if (count > 2) {
+        repetitions += count - 1;
+      }
+    }
+    
+    return repetitions;
+  }
+
+  private detectRhymePatterns(text: string): number {
+    const lines = text.split(/[,\n]/).filter(l => l.trim().length > 0);
+    let rhymeScore = 0;
+    
+    for (let i = 0; i < lines.length - 1; i++) {
+      const words1 = lines[i].trim().split(/\s+/);
+      const words2 = lines[i + 1].trim().split(/\s+/);
+      
+      if (words1.length > 0 && words2.length > 0) {
+        const end1 = words1[words1.length - 1].toLowerCase().slice(-3);
+        const end2 = words2[words2.length - 1].toLowerCase().slice(-3);
+        
+        if (end1 === end2 && end1.length >= 2) {
+          rhymeScore += 1;
+        }
+      }
+    }
+    
+    return rhymeScore;
+  }
+
+  private async getVideoDuration(videoPath: string): Promise<number> {
     try {
-      const framesDir = path.join(this.tempDir, `frames_${Date.now()}`);
+      const { stdout } = await execAsync(
+        `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`,
+        { timeout: 10000 }
+      );
+      const duration = parseFloat(stdout.trim());
+      return isNaN(duration) ? 30 : duration;
+    } catch (error) {
+      console.log(`[SOCIAL_MEDIA] Could not get video duration, defaulting to 30s`);
+      return 30;
+    }
+  }
+
+  private async extractVideoFramesAndOCR(videoPath: string): Promise<string | undefined> {
+    const framesDir = path.join(this.tempDir, `frames_${Date.now()}`);
+    
+    try {
       fs.mkdirSync(framesDir, { recursive: true });
 
-      console.log(`[SOCIAL_MEDIA] Extracting video frames...`);
+      const duration = await this.getVideoDuration(videoPath);
+      console.log(`[SOCIAL_MEDIA] Video duration: ${duration.toFixed(1)}s`);
       
-      await execAsync(
-        `ffmpeg -i "${videoPath}" -vf "fps=1/2,scale=1280:-1" -frames:v 10 "${framesDir}/frame_%03d.jpg"`,
-        { timeout: 60000 }
-      );
+      const targetFrameCount = Math.min(20, Math.max(10, Math.ceil(duration / 3)));
+      const interval = duration / (targetFrameCount + 1);
+      
+      const timestamps: number[] = [];
+      for (let i = 1; i <= targetFrameCount; i++) {
+        timestamps.push(interval * i);
+      }
+      
+      console.log(`[SOCIAL_MEDIA] Extracting ${timestamps.length} frames evenly distributed across ${duration.toFixed(1)}s video...`);
+      
+      const extractionPromises = timestamps.map(async (ts, index) => {
+        const framePath = path.join(framesDir, `frame_${String(index).padStart(3, '0')}.jpg`);
+        try {
+          await execAsync(
+            `ffmpeg -ss ${ts.toFixed(2)} -i "${videoPath}" -vframes 1 -q:v 2 -vf "scale=1280:-1" "${framePath}"`,
+            { timeout: 15000 }
+          );
+          return framePath;
+        } catch (error) {
+          return null;
+        }
+      });
+      
+      await Promise.all(extractionPromises);
 
       const frameFiles = fs.readdirSync(framesDir)
         .filter(f => f.endsWith('.jpg'))
-        .sort()
-        .slice(0, 5);
+        .sort();
 
       if (frameFiles.length === 0) {
         console.log(`[SOCIAL_MEDIA] No frames extracted`);
@@ -1165,15 +1312,14 @@ class SocialMediaVideoService {
 
       console.log(`[SOCIAL_MEDIA] Running OCR on ${frameFiles.length} frames...`);
       
-      const ocrResults: string[] = [];
-      
-      for (const frameFile of frameFiles) {
+      const ocrPromises = frameFiles.map(async (frameFile) => {
         const framePath = path.join(framesDir, frameFile);
         const ocrText = await this.performOCR(framePath);
-        if (ocrText && ocrText.trim().length > 5) {
-          ocrResults.push(ocrText.trim());
-        }
-      }
+        return ocrText && ocrText.trim().length > 5 ? ocrText.trim() : null;
+      });
+      
+      const ocrResultsRaw = await Promise.all(ocrPromises);
+      const ocrResults = ocrResultsRaw.filter((text): text is string => text !== null);
 
       fs.rmSync(framesDir, { recursive: true, force: true });
 
@@ -1181,7 +1327,7 @@ class SocialMediaVideoService {
         return undefined;
       }
 
-      const uniqueTexts = Array.from(new Set(ocrResults));
+      const uniqueTexts = this.deduplicateOCRResults(ocrResults);
       const combinedText = uniqueTexts.join('\n---\n');
       console.log(`[SOCIAL_MEDIA] OCR complete: ${combinedText.length} chars from ${uniqueTexts.length} unique frames`);
       
@@ -1189,8 +1335,72 @@ class SocialMediaVideoService {
 
     } catch (error: any) {
       console.error(`[SOCIAL_MEDIA] Frame extraction/OCR error:`, error.message);
+      try {
+        fs.rmSync(framesDir, { recursive: true, force: true });
+      } catch (e) {}
       return undefined;
     }
+  }
+
+  private deduplicateOCRResults(results: string[]): string[] {
+    const unique: string[] = [];
+    
+    for (const text of results) {
+      const normalizedNew = text.toLowerCase().replace(/\s+/g, ' ').trim();
+      
+      let isDuplicate = false;
+      for (const existing of unique) {
+        const normalizedExisting = existing.toLowerCase().replace(/\s+/g, ' ').trim();
+        
+        if (normalizedNew === normalizedExisting) {
+          isDuplicate = true;
+          break;
+        }
+        
+        const shorter = normalizedNew.length < normalizedExisting.length ? normalizedNew : normalizedExisting;
+        const longer = normalizedNew.length >= normalizedExisting.length ? normalizedNew : normalizedExisting;
+        
+        if (longer.includes(shorter) && shorter.length > 20) {
+          if (normalizedNew.length > normalizedExisting.length) {
+            const idx = unique.indexOf(existing);
+            unique[idx] = text;
+          }
+          isDuplicate = true;
+          break;
+        }
+        
+        const similarity = this.calculateSimilarity(normalizedNew, normalizedExisting);
+        if (similarity > 0.85) {
+          if (text.length > existing.length) {
+            const idx = unique.indexOf(existing);
+            unique[idx] = text;
+          }
+          isDuplicate = true;
+          break;
+        }
+      }
+      
+      if (!isDuplicate) {
+        unique.push(text);
+      }
+    }
+    
+    return unique;
+  }
+
+  private calculateSimilarity(str1: string, str2: string): number {
+    const words1 = new Set(str1.split(/\s+/));
+    const words2 = new Set(str2.split(/\s+/));
+    
+    let intersection = 0;
+    for (const word of words1) {
+      if (words2.has(word)) {
+        intersection++;
+      }
+    }
+    
+    const union = words1.size + words2.size - intersection;
+    return union === 0 ? 0 : intersection / union;
   }
 
   private async performOCR(imagePath: string): Promise<string | undefined> {
