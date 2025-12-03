@@ -54,10 +54,21 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 
 ## Latest Updates (December 3, 2025)
 
+### Strict Grounding Rules for Plan Generation (Anti-Hallucination)
+- **Problem Solved**: AI was substituting extracted venues/prices with generic recommendations despite perfect extraction
+- **Solution**: "Preserve + Add" architecture with mandatory grounding rules
+- **Rule 1 - Preserve**: Every venue/activity/location from OCR/caption MUST become a task with EXACT names and prices
+- **Rule 2 - Additive Only**: May only ADD complementary logistics (flights, accommodation, transport between venues)
+- **Rule 3 - Contextual**: Additions must be location-aware ("Stay near Victoria Island to access Lo Studio, Knowhere, Dulce easily")
+- **Rule 4 - No Hallucination**: Forbidden to add restaurants/venues NOT in extracted content, or suggest "alternatives"
+- **Contextual Search**: Uses Tavily to find hotels/transport NEAR extracted venue locations
+- **Applied to Both Modes**: Quick Plan (directPlanGenerator.ts) and Smart Plan (simpleConversationalPlanner.ts)
+- **Tested**: Lagos social content with 6 venues - all preserved with exact prices, only transport/budget logistics added
+
 ### Apify Integration for Social Media Content Extraction
 - **Apify API Service**: Created `server/services/apifyService.ts` for reliable Instagram and TikTok extraction
 - **Extraction Chain**: Apify → Direct extraction → yt-dlp → Tavily (with automatic failover)
-- **Instagram Support**: Uses `instagram-scraper` and `instagram-reel-scraper` actors
+- **Instagram Support**: Uses official `instagram-reel-scraper` actor (most reliable)
 - **TikTok Support**: Uses `clockworks~tiktok-scraper` with `novi~fast-tiktok-api` fallback
 - **Integration Status Endpoint**: `/api/integrations/status` shows configuration of Apify, Tavily, OpenAI
 
