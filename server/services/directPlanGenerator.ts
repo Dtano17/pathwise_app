@@ -8,6 +8,15 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 // Initialize Tavily client for advanced URL content extraction
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
+// Patterns to detect social media content
+const SOCIAL_MEDIA_PATTERNS = [
+  'Platform: INSTAGRAM',
+  'Platform: TIKTOK', 
+  'Platform: YOUTUBE',
+  'On-Screen Text (OCR)',
+  'Audio Transcript'
+];
+
 // Use Sonnet-4 for direct plan generation (needs high quality output)
 const CLAUDE_SONNET = "claude-sonnet-4-20250514";
 
@@ -56,6 +65,104 @@ export class DirectPlanGenerator {
       // Clean up trailing punctuation that might have been captured
       return url.replace(/[.,;:!?)]+$/, '');
     });
+  }
+
+  /**
+   * Check if content is from social media (extracted via our services)
+   */
+  private isSocialMediaContent(content: string): boolean {
+    return SOCIAL_MEDIA_PATTERNS.some(pattern => content.includes(pattern));
+  }
+
+  /**
+   * Extract location/destination info from social media content
+   */
+  private extractLocationsFromContent(content: string): { destination: string | null; areas: string[] } {
+    const areas: string[] = [];
+    let destination: string | null = null;
+
+    // Common area patterns in content (e.g., "VI", "Ikoyi", "Lagos")
+    const areaPatterns = [
+      /\bVI\b/gi,
+      /\bVictoria Island\b/gi,
+      /\bIkoyi\b/gi,
+      /\bIkeja\b/gi,
+      /\bLekki\b/gi,
+      /\bIlashe\b/gi,
+      /\bLagos\b/gi,
+      /\bAbuja\b/gi,
+      /\bParis\b/gi,
+      /\bLondon\b/gi,
+      /\bDubai\b/gi,
+      /\bNew York\b/gi,
+      /\bMarrakech\b/gi,
+    ];
+
+    for (const pattern of areaPatterns) {
+      const matches = content.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          const normalized = match.toLowerCase() === 'vi' ? 'Victoria Island' : match;
+          if (!areas.includes(normalized)) {
+            areas.push(normalized);
+          }
+        }
+      }
+    }
+
+    // Detect main destination (usually a city/country)
+    const destinationPatterns = [
+      /\bLagos\b/gi,
+      /\bNigeria\b/gi,
+      /\bParis\b/gi,
+      /\bFrance\b/gi,
+      /\bLondon\b/gi,
+      /\bDubai\b/gi,
+      /\bMorocco\b/gi,
+    ];
+
+    for (const pattern of destinationPatterns) {
+      if (pattern.test(content)) {
+        destination = pattern.source.replace(/\\b/g, '');
+        break;
+      }
+    }
+
+    return { destination, areas };
+  }
+
+  /**
+   * Search for contextual additions (hotels, transport) near extracted locations
+   */
+  private async searchContextualAdditions(destination: string, areas: string[]): Promise<string> {
+    if (!destination || areas.length === 0) {
+      return '';
+    }
+
+    const areaList = areas.slice(0, 3).join(', ');
+    console.log(`[DIRECT PLAN] Searching for hotels/transport near: ${areaList} in ${destination}`);
+
+    try {
+      const searchQuery = `best hotels accommodations near ${areaList} ${destination} prices 2024`;
+      const response = await tavilyClient.search(searchQuery, {
+        maxResults: 5,
+        searchDepth: 'basic'
+      });
+
+      if (response.results && response.results.length > 0) {
+        const hotelInfo = response.results
+          .slice(0, 3)
+          .map((r: any) => `- ${r.title}: ${r.content?.substring(0, 200) || 'No details'}`)
+          .join('\n');
+
+        console.log(`[DIRECT PLAN] Found contextual hotel info: ${hotelInfo.length} chars`);
+        return `\n\n=== CONTEXTUAL ADDITIONS (for complementary logistics) ===\n**Destination:** ${destination}\n**Key Areas:** ${areaList}\n\n**Nearby Accommodation Options (from web search):**\n${hotelInfo}\n\nUse this to suggest contextual accommodation NEAR the extracted venues.`;
+      }
+    } catch (error) {
+      console.warn('[DIRECT PLAN] Contextual search failed:', error);
+    }
+
+    return '';
   }
 
   /**
@@ -209,6 +316,21 @@ export class DirectPlanGenerator {
       const isPlanRelated = await this.validatePlanIntent(processedInput);
       if (!isPlanRelated) {
         throw new Error('INPUT_NOT_PLAN_RELATED: Your input doesn\'t appear to be requesting a plan. Please describe what you want to plan or accomplish.');
+      }
+    }
+
+    // Step 1.5: If social media content detected, search for contextual additions
+    if (!isModification && this.isSocialMediaContent(processedInput)) {
+      console.log('[DIRECT PLAN] Social media content detected, extracting locations...');
+      const { destination, areas } = this.extractLocationsFromContent(processedInput);
+      
+      if (destination && areas.length > 0) {
+        console.log(`[DIRECT PLAN] Found destination: ${destination}, areas: ${areas.join(', ')}`);
+        const contextualInfo = await this.searchContextualAdditions(destination, areas);
+        if (contextualInfo) {
+          processedInput += contextualInfo;
+          console.log('[DIRECT PLAN] Added contextual hotel/transport info to input');
+        }
       }
     }
 
