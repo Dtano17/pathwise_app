@@ -4,6 +4,7 @@ import path from 'path';
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import OpenAI from 'openai';
+import { apifyService } from './apifyService';
 
 const execAsync = promisify(exec);
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -109,16 +110,30 @@ class SocialMediaVideoService {
       let downloadResult;
       
       if (platform === 'instagram') {
-        console.log(`[SOCIAL_MEDIA] Using direct Instagram extraction (Cobalt-style)...`);
-        downloadResult = await this.extractDirectFromInstagram(url);
+        if (apifyService.isAvailable()) {
+          console.log(`[SOCIAL_MEDIA] Using Apify for Instagram extraction (reliable, no rate limits)...`);
+          downloadResult = await this.extractViaApifyInstagram(url);
+        }
+        
+        if (!downloadResult?.success) {
+          console.log(`[SOCIAL_MEDIA] Apify failed or unavailable, trying direct extraction...`);
+          downloadResult = await this.extractDirectFromInstagram(url);
+        }
         
         if (!downloadResult.success) {
           console.log(`[SOCIAL_MEDIA] Direct extraction failed, falling back to yt-dlp...`);
           downloadResult = await this.downloadMedia(url, platform);
         }
       } else if (platform === 'tiktok') {
-        console.log(`[SOCIAL_MEDIA] Using direct TikTok extraction (Cobalt-style)...`);
-        downloadResult = await this.extractDirectFromTikTok(url);
+        if (apifyService.isAvailable()) {
+          console.log(`[SOCIAL_MEDIA] Using Apify for TikTok extraction (reliable, no rate limits)...`);
+          downloadResult = await this.extractViaApifyTikTok(url);
+        }
+        
+        if (!downloadResult?.success) {
+          console.log(`[SOCIAL_MEDIA] Apify failed or unavailable, trying direct extraction...`);
+          downloadResult = await this.extractDirectFromTikTok(url);
+        }
         
         if (!downloadResult.success) {
           console.log(`[SOCIAL_MEDIA] Direct extraction failed, falling back to yt-dlp...`);
@@ -175,6 +190,224 @@ class SocialMediaVideoService {
         error: error.message || 'Failed to extract content'
       };
     }
+  }
+
+  private async extractViaApifyInstagram(url: string): Promise<{
+    success: boolean;
+    filePath?: string;
+    mediaType?: 'video' | 'image';
+    isCarousel?: boolean;
+    carouselFiles?: Array<{ path: string; type: 'video' | 'image' }>;
+    caption?: string;
+    metadata?: any;
+    error?: string;
+  }> {
+    const apifyResult = await apifyService.extractInstagramReel(url);
+    
+    if (!apifyResult.success) {
+      return { success: false, error: apifyResult.error };
+    }
+
+    const caption = apifyResult.caption;
+    const metadata = {
+      author: apifyResult.author?.username,
+      title: apifyResult.caption?.substring(0, 100),
+      duration: apifyResult.duration,
+      likes: apifyResult.likesCount,
+      views: apifyResult.viewsCount,
+      audioInfo: apifyResult.audioInfo
+    };
+
+    if (apifyResult.isCarousel && apifyResult.carouselItems) {
+      console.log(`[APIFY] Instagram carousel with ${apifyResult.carouselItems.length} items`);
+      
+      const files: Array<{ path: string; type: 'video' | 'image' }> = [];
+      
+      for (let i = 0; i < Math.min(apifyResult.carouselItems.length, 10); i++) {
+        const item = apifyResult.carouselItems[i];
+        if (!item.url) continue;
+        
+        const ext = item.type === 'video' ? 'mp4' : 'jpg';
+        const filePath = path.join(this.tempDir, `apify_ig_carousel_${Date.now()}_${i}.${ext}`);
+        
+        try {
+          await this.downloadMediaFile(item.url, filePath);
+          if (fs.existsSync(filePath)) {
+            files.push({ path: filePath, type: item.type });
+          }
+        } catch (e: any) {
+          console.log(`[APIFY] Failed to download carousel item ${i}:`, e.message);
+        }
+      }
+
+      if (files.length > 0) {
+        return {
+          success: true,
+          isCarousel: files.length > 1,
+          carouselFiles: files.length > 1 ? files : undefined,
+          filePath: files.length === 1 ? files[0].path : undefined,
+          mediaType: files.length === 1 ? files[0].type : undefined,
+          caption,
+          metadata: { ...metadata, mediaCount: files.length }
+        };
+      }
+    }
+
+    if (apifyResult.videoUrl) {
+      console.log(`[APIFY] Downloading Instagram video from Apify URL...`);
+      const filePath = path.join(this.tempDir, `apify_ig_${Date.now()}.mp4`);
+      
+      try {
+        await this.downloadMediaFile(apifyResult.videoUrl, filePath);
+        
+        if (fs.existsSync(filePath)) {
+          const stats = fs.statSync(filePath);
+          console.log(`[APIFY] Downloaded Instagram video: ${Math.round(stats.size / 1024)}KB`);
+          
+          return {
+            success: true,
+            filePath,
+            mediaType: 'video',
+            caption,
+            metadata
+          };
+        }
+      } catch (e: any) {
+        console.log(`[APIFY] Failed to download video:`, e.message);
+      }
+    }
+
+    if (apifyResult.thumbnailUrl) {
+      console.log(`[APIFY] Downloading Instagram thumbnail...`);
+      const filePath = path.join(this.tempDir, `apify_ig_${Date.now()}.jpg`);
+      
+      try {
+        await this.downloadMediaFile(apifyResult.thumbnailUrl, filePath);
+        
+        if (fs.existsSync(filePath)) {
+          return {
+            success: true,
+            filePath,
+            mediaType: 'image',
+            caption,
+            metadata
+          };
+        }
+      } catch (e: any) {
+        console.log(`[APIFY] Failed to download thumbnail:`, e.message);
+      }
+    }
+
+    return { success: false, error: 'No downloadable media from Apify' };
+  }
+
+  private async extractViaApifyTikTok(url: string): Promise<{
+    success: boolean;
+    filePath?: string;
+    mediaType?: 'video' | 'image';
+    isCarousel?: boolean;
+    carouselFiles?: Array<{ path: string; type: 'video' | 'image' }>;
+    caption?: string;
+    metadata?: any;
+    error?: string;
+  }> {
+    const apifyResult = await apifyService.extractTikTokVideo(url);
+    
+    if (!apifyResult.success) {
+      return { success: false, error: apifyResult.error };
+    }
+
+    const caption = apifyResult.caption;
+    const metadata = {
+      author: apifyResult.author?.username || apifyResult.author?.nickname,
+      title: apifyResult.caption?.substring(0, 100),
+      duration: apifyResult.duration,
+      likes: apifyResult.likesCount,
+      views: apifyResult.viewsCount,
+      shares: apifyResult.sharesCount,
+      music: apifyResult.music
+    };
+
+    if (apifyResult.isSlideshow && apifyResult.slideshowImages) {
+      console.log(`[APIFY] TikTok slideshow with ${apifyResult.slideshowImages.length} images`);
+      
+      const files: Array<{ path: string; type: 'video' | 'image' }> = [];
+      
+      for (let i = 0; i < Math.min(apifyResult.slideshowImages.length, 10); i++) {
+        const imageUrl = apifyResult.slideshowImages[i];
+        if (!imageUrl) continue;
+        
+        const filePath = path.join(this.tempDir, `apify_tt_slide_${Date.now()}_${i}.jpg`);
+        
+        try {
+          await this.downloadMediaFile(imageUrl, filePath);
+          if (fs.existsSync(filePath)) {
+            files.push({ path: filePath, type: 'image' });
+          }
+        } catch (e: any) {
+          console.log(`[APIFY] Failed to download slideshow image ${i}:`, e.message);
+        }
+      }
+
+      if (files.length > 0) {
+        return {
+          success: true,
+          isCarousel: files.length > 1,
+          carouselFiles: files.length > 1 ? files : undefined,
+          filePath: files.length === 1 ? files[0].path : undefined,
+          mediaType: files.length === 1 ? files[0].type : undefined,
+          caption,
+          metadata: { ...metadata, mediaCount: files.length }
+        };
+      }
+    }
+
+    if (apifyResult.videoUrl) {
+      console.log(`[APIFY] Downloading TikTok video from Apify URL...`);
+      const filePath = path.join(this.tempDir, `apify_tt_${Date.now()}.mp4`);
+      
+      try {
+        await this.downloadMediaFile(apifyResult.videoUrl, filePath);
+        
+        if (fs.existsSync(filePath)) {
+          const stats = fs.statSync(filePath);
+          console.log(`[APIFY] Downloaded TikTok video: ${Math.round(stats.size / 1024)}KB`);
+          
+          return {
+            success: true,
+            filePath,
+            mediaType: 'video',
+            caption,
+            metadata
+          };
+        }
+      } catch (e: any) {
+        console.log(`[APIFY] Failed to download TikTok video:`, e.message);
+      }
+    }
+
+    if (apifyResult.thumbnailUrl) {
+      console.log(`[APIFY] Downloading TikTok thumbnail...`);
+      const filePath = path.join(this.tempDir, `apify_tt_${Date.now()}.jpg`);
+      
+      try {
+        await this.downloadMediaFile(apifyResult.thumbnailUrl, filePath);
+        
+        if (fs.existsSync(filePath)) {
+          return {
+            success: true,
+            filePath,
+            mediaType: 'image',
+            caption,
+            metadata
+          };
+        }
+      } catch (e: any) {
+        console.log(`[APIFY] Failed to download TikTok thumbnail:`, e.message);
+      }
+    }
+
+    return { success: false, error: 'No downloadable media from Apify' };
   }
 
   private extractInstagramId(url: string): string | null {

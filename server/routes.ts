@@ -60,6 +60,8 @@ import fs from 'fs';
 import Stripe from 'stripe';
 import { sendGroupNotification } from './services/notificationService';
 import { tavily } from '@tavily/core';
+import { socialMediaVideoService } from './services/socialMediaVideoService';
+import { apifyService } from './services/apifyService';
 
 const tavilyClient = process.env.TAVILY_API_KEY ? tavily({ apiKey: process.env.TAVILY_API_KEY }) : null;
 
@@ -930,6 +932,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
+  
+  // ========== INTEGRATION STATUS ENDPOINT ==========
+  // Shows status of content extraction integrations (Apify, Tavily)
+  app.get("/api/integrations/status", async (_req, res) => {
+    const status = {
+      apify: apifyService.getStatus(),
+      tavily: {
+        configured: !!process.env.TAVILY_API_KEY,
+        message: process.env.TAVILY_API_KEY ? 'Tavily integration ready' : 'TAVILY_API_KEY not set'
+      },
+      openai: {
+        configured: !!process.env.OPENAI_API_KEY,
+        message: process.env.OPENAI_API_KEY ? 'OpenAI integration ready (Whisper + OCR)' : 'OPENAI_API_KEY not set'
+      },
+      extractionPipeline: {
+        instagramReels: apifyService.isAvailable() ? 'Apify → Whisper → OCR' : 'Direct extraction → yt-dlp → Whisper → OCR',
+        tiktokVideos: apifyService.isAvailable() ? 'Apify → Whisper → OCR' : 'Direct extraction → yt-dlp → Whisper → OCR',
+        youtube: 'yt-dlp → Whisper',
+        webContent: process.env.TAVILY_API_KEY ? 'Tavily Extract (advanced)' : 'Basic fetch',
+        documents: 'PDF/DOCX/Image parsing → OpenAI'
+      }
+    };
+    
+    res.json(status);
+  });
   
   // ========== DYNAMIC OPEN GRAPH IMAGE GENERATOR ==========
   // Serve dynamically generated OG images for share previews
@@ -10558,7 +10585,39 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       if (videoCheck.isVideo) {
         console.log(`[PARSE-URL] Detected ${videoCheck.platform} video content`);
         
-        // Still try to extract any text content (captions, descriptions)
+        // For Instagram Reels and TikTok, use our full extraction pipeline (Apify → Whisper → OCR)
+        const platform = socialMediaVideoService.detectPlatform(resolvedUrl);
+        if (platform === 'instagram' || platform === 'tiktok') {
+          console.log(`[PARSE-URL] Using socialMediaVideoService for ${platform} (Apify → Whisper → OCR)`);
+          
+          try {
+            const socialResult = await socialMediaVideoService.extractContent(resolvedUrl);
+            
+            if (socialResult.success) {
+              const combinedContent = socialMediaVideoService.combineExtractedContent(socialResult);
+              console.log(`[PARSE-URL] Full extraction complete: ${combinedContent.length} chars`);
+              
+              return res.json({ 
+                content: combinedContent,
+                isVideoContent: true,
+                platform: videoCheck.platform,
+                resolvedUrl: resolvedUrl,
+                metadata: {
+                  hasAudioTranscript: !!socialResult.audioTranscript,
+                  hasOcrText: !!socialResult.ocrText,
+                  hasCaption: !!socialResult.caption,
+                  author: socialResult.metadata?.author
+                }
+              });
+            } else {
+              console.log(`[PARSE-URL] Social media extraction failed: ${socialResult.error}`);
+            }
+          } catch (e: any) {
+            console.log(`[PARSE-URL] Social media extraction error: ${e.message}`);
+          }
+        }
+        
+        // Fallback to Tavily for other video platforms or if social media extraction failed
         if (tavilyClient) {
           try {
             console.log(`[PARSE-URL] Attempting to extract ${videoCheck.platform} metadata with Tavily...`);

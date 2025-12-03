@@ -52,7 +52,22 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 - **Passport.js**: Authentication middleware.
 - **Resend**: Email delivery service.
 
-## Latest Updates (December 2, 2025)
+## Latest Updates (December 3, 2025)
+
+### Apify Integration for Social Media Content Extraction
+- **Apify API Service**: Created `server/services/apifyService.ts` for reliable Instagram and TikTok extraction
+- **Extraction Chain**: Apify → Direct extraction → yt-dlp → Tavily (with automatic failover)
+- **Instagram Support**: Uses `instagram-scraper` and `instagram-reel-scraper` actors
+- **TikTok Support**: Uses `clockworks~tiktok-scraper` with `novi~fast-tiktok-api` fallback
+- **Integration Status Endpoint**: `/api/integrations/status` shows configuration of Apify, Tavily, OpenAI
+- **Three Content Layers**: 
+  - Audio transcription (Whisper) - 854 chars captured
+  - OCR text extraction (GPT-4 Vision) - 322 chars captured
+  - Caption/description text
+- **Robust Fallback**: When Apify unavailable, falls back to direct extraction (embed page + GraphQL)
+- **Files Updated**: `apifyService.ts`, `socialMediaVideoService.ts`, `routes.ts`
+
+## Previous Updates (December 2, 2025)
 
 ### Self-Hosted Direct Extraction (Cobalt-Style)
 - **Instagram Direct Extraction**: No authentication required for public content
