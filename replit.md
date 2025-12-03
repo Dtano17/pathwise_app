@@ -66,7 +66,8 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 - **Cross-Service Sharing**: Both Quick Plan and Smart Plan share the same cache
 - **Metadata Stored**: Platform, extraction source, word count, OCR/transcript flags, author info
 - **Cost Impact**: Same URL can be tested unlimited times after first extraction at zero API cost
-- **Files Updated**: `directPlanGenerator.ts`, `aiService.ts`
+- **Performance**: First extraction ~42 seconds, subsequent requests ~0.5 seconds (instant cache hit)
+- **Files Updated**: `routes.ts` (parse-url endpoint), `contentOrchestrator.ts`, `directPlanGenerator.ts`, `aiService.ts`
 
 ### Strict Grounding Rules for Plan Generation (Anti-Hallucination)
 - **Problem Solved**: AI was substituting extracted venues/prices with generic recommendations despite perfect extraction
