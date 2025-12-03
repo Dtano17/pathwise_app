@@ -54,6 +54,20 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 
 ## Latest Updates (December 3, 2025)
 
+### Database Caching for URL Content Extraction (Cost Optimization)
+- **Problem Solved**: Repeated Instagram/TikTok URL tests were triggering expensive Apify + Whisper + OCR calls each time
+- **Solution**: Permanent caching in `url_content_cache` table - extract once, serve forever
+- **Cache Flow**: 
+  1. Check database cache FIRST (instant, free)
+  2. If cache miss: Extract via Apify/social media service
+  3. Cache successful extraction permanently
+  4. Future requests for same URL return cached content instantly
+- **URL Normalization**: Strips tracking params (`igsh=`, `utm_source=`, etc.) for consistent cache keys
+- **Cross-Service Sharing**: Both Quick Plan and Smart Plan share the same cache
+- **Metadata Stored**: Platform, extraction source, word count, OCR/transcript flags, author info
+- **Cost Impact**: Same URL can be tested unlimited times after first extraction at zero API cost
+- **Files Updated**: `directPlanGenerator.ts`, `aiService.ts`
+
 ### Strict Grounding Rules for Plan Generation (Anti-Hallucination)
 - **Problem Solved**: AI was substituting extracted venues/prices with generic recommendations despite perfect extraction
 - **Solution**: "Preserve + Add" architecture with mandatory grounding rules
