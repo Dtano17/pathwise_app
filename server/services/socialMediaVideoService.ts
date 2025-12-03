@@ -1389,17 +1389,18 @@ class SocialMediaVideoService {
   }
 
   private calculateSimilarity(str1: string, str2: string): number {
-    const words1 = new Set(str1.split(/\s+/));
-    const words2 = new Set(str2.split(/\s+/));
+    const words1Array = str1.split(/\s+/);
+    const words2Set = new Set(str2.split(/\s+/));
     
     let intersection = 0;
-    for (const word of words1) {
-      if (words2.has(word)) {
+    for (const word of words1Array) {
+      if (words2Set.has(word)) {
         intersection++;
       }
     }
     
-    const union = words1.size + words2.size - intersection;
+    const uniqueWords1 = new Set(words1Array).size;
+    const union = uniqueWords1 + words2Set.size - intersection;
     return union === 0 ? 0 : intersection / union;
   }
 

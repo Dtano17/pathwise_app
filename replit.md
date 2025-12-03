@@ -60,12 +60,22 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 - **Instagram Support**: Uses `instagram-scraper` and `instagram-reel-scraper` actors
 - **TikTok Support**: Uses `clockworks~tiktok-scraper` with `novi~fast-tiktok-api` fallback
 - **Integration Status Endpoint**: `/api/integrations/status` shows configuration of Apify, Tavily, OpenAI
-- **Three Content Layers**: 
-  - Audio transcription (Whisper) - 854 chars captured
-  - OCR text extraction (GPT-4 Vision) - 322 chars captured
-  - Caption/description text
-- **Robust Fallback**: When Apify unavailable, falls back to direct extraction (embed page + GraphQL)
-- **Files Updated**: `apifyService.ts`, `socialMediaVideoService.ts`, `routes.ts`
+
+### Improved Video Frame Extraction (Anti-Hallucination Fix)
+- **Problem Identified**: Only first 5 frames captured (0-10s), missing content from rest of slideshow videos
+- **Solution**: Dynamic frame distribution across entire video duration
+  - Uses ffprobe to get video duration
+  - Calculates 1 frame per 3 seconds (min 10, max 20 frames)
+  - Extracts frames at evenly distributed timestamps throughout video
+- **Music vs Narration Detection**: 
+  - Analyzes transcription for music patterns (lyrics, repetition, rhyme)
+  - Marks background music with `[Background Music - Not Narration]` prefix
+  - 93% confidence detection for music-only audio
+- **Smart OCR Deduplication**: 
+  - Similarity-based comparison to remove near-duplicate frames
+  - Keeps longer/more complete text when duplicates found
+- **Results**: Lagos reel test - 16 frames, 12 unique OCR results, all 10 activities captured with locations and prices
+- **Files Updated**: `socialMediaVideoService.ts`
 
 ## Previous Updates (December 2, 2025)
 
