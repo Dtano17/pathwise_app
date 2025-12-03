@@ -1,7 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { User } from '@shared/schema';
+import type { User, InsertUrlContentCache } from '@shared/schema';
 import axios from 'axios';
 import { tavily } from '@tavily/core';
+import { storage } from '../storage';
+import { socialMediaVideoService } from './socialMediaVideoService';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -50,6 +52,25 @@ export class DirectPlanGenerator {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Normalize URL for consistent cache keys
+   * Strips tracking params (igsh, utm_*, etc.) that don't affect content
+   */
+  private normalizeUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      const paramsToRemove = [
+        'igsh', 'igshid', 'ig_mid', 'ig_cache_key',
+        'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+        'fbclid', 'gclid', 'ref', 'ref_src', 's', 't'
+      ];
+      paramsToRemove.forEach(param => urlObj.searchParams.delete(param));
+      return urlObj.toString().replace(/\/$/, ''); // Remove trailing slash
+    } catch {
+      return url.trim().toLowerCase();
     }
   }
 
@@ -199,53 +220,121 @@ export class DirectPlanGenerator {
   }
 
   /**
-   * Fetch content from URL with fallback chain:
-   * 1. Try Tavily Extract (handles JS-rendered pages)
-   * 2. Fall back to basic axios
-   * 3. Fail with user-friendly message
+   * Fetch content from URL with smart caching and fallback chain:
+   * 1. Check database cache first (instant, free)
+   * 2. Try social media service for Instagram/TikTok (Apify + OCR + transcription)
+   * 3. Fall back to Tavily Extract for other URLs
+   * 4. Fall back to axios
+   * 5. Cache successful extractions permanently
    */
   private async fetchUrlContent(url: string): Promise<string> {
+    const normalizedUrl = this.normalizeUrl(url);
+    
+    // Step 1: Check cache FIRST - this is FREE and instant!
     try {
-      console.log(`[DIRECT PLAN] Fetching URL content: ${url}`);
-      
-      // Try Tavily Extract first (best for JS-rendered pages, Copilot shares, SPAs)
-      try {
-        return await this.extractUrlContentWithTavily(url);
-      } catch (tavily_error) {
-        console.warn('[DIRECT PLAN] Tavily extraction failed, falling back to axios:', tavily_error);
-        // Fall through to axios fallback
+      const cached = await storage.getUrlContentCache(normalizedUrl);
+      if (cached) {
+        console.log(`[DIRECT PLAN] 💾 CACHE HIT for URL: ${normalizedUrl}`);
+        console.log(`[DIRECT PLAN] Returning ${cached.wordCount} words from cache (source: ${cached.extractionSource})`);
+        return cached.extractedContent;
       }
-
-      // Fallback: Try basic axios fetch
-      try {
-        console.log(`[DIRECT PLAN] Falling back to basic axios fetch: ${url}`);
-        const response = await axios.get(url, { timeout: 10000 });
-        const content = response.data;
-        
-        // Extract text content from HTML if needed
-        if (typeof content === 'string' && content.includes('<html')) {
-          // Basic HTML text extraction
-          const text = content
-            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-          console.log(`[DIRECT PLAN] Extracted ${text.length} chars from URL via axios`);
-          return text.substring(0, 5000); // Limit to 5000 chars
-        }
-        
-        const result = content.toString().substring(0, 5000);
-        console.log(`[DIRECT PLAN] Extracted ${result.length} chars from URL via axios`);
-        return result;
-      } catch (axios_error) {
-        console.error('[DIRECT PLAN] Axios fetch also failed:', axios_error);
-        throw axios_error;
-      }
-    } catch (error) {
-      console.error('[DIRECT PLAN] All URL fetch methods failed:', error);
-      throw new Error(`Failed to fetch URL content: ${error instanceof Error ? error.message : String(error)}`);
+      console.log(`[DIRECT PLAN] Cache MISS for URL: ${normalizedUrl}`);
+    } catch (cacheError) {
+      console.warn('[DIRECT PLAN] Cache lookup failed:', cacheError);
     }
+    
+    // Step 2: Determine extraction method based on platform
+    const platform = socialMediaVideoService.detectPlatform(url);
+    let extractedContent: string | null = null;
+    let extractionSource: string = 'unknown';
+    let metadata: InsertUrlContentCache['metadata'] = {};
+    
+    // Step 3: Use social media service for Instagram/TikTok/YouTube (Apify + Whisper + OCR)
+    if (platform) {
+      console.log(`[DIRECT PLAN] 🎬 Detected ${platform} - using social media extraction service...`);
+      try {
+        const socialResult = await socialMediaVideoService.extractContent(url);
+        
+        if (socialResult.success) {
+          extractedContent = socialMediaVideoService.combineExtractedContent(socialResult);
+          extractionSource = 'social_media_service';
+          metadata = {
+            title: socialResult.metadata?.title,
+            author: socialResult.metadata?.author,
+            caption: socialResult.caption,
+            hasAudioTranscript: !!socialResult.audioTranscript,
+            hasOcrText: !!socialResult.ocrText,
+            carouselItemCount: socialResult.carouselItems?.length
+          };
+          console.log(`[DIRECT PLAN] ✅ Social media extraction SUCCESS: ${extractedContent.length} chars`);
+        } else {
+          console.warn(`[DIRECT PLAN] Social media extraction failed: ${socialResult.error}`);
+        }
+      } catch (socialError: any) {
+        console.warn(`[DIRECT PLAN] Social media service error: ${socialError.message}`);
+      }
+    }
+    
+    // Step 4: Fall back to Tavily if social media extraction failed or unsupported platform
+    if (!extractedContent) {
+      console.log(`[DIRECT PLAN] Trying Tavily extraction...`);
+      try {
+        extractedContent = await this.extractUrlContentWithTavily(url);
+        extractionSource = 'tavily';
+        console.log(`[DIRECT PLAN] Tavily extraction SUCCESS: ${extractedContent.length} chars`);
+      } catch (tavilyError: any) {
+        console.warn(`[DIRECT PLAN] Tavily failed: ${tavilyError.message}`);
+        
+        // Step 5: Last resort - axios
+        try {
+          console.log(`[DIRECT PLAN] Trying axios fallback...`);
+          const response = await axios.get(url, { timeout: 10000 });
+          const content = response.data;
+          if (typeof content === 'string' && content.includes('<html')) {
+            extractedContent = content
+              .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+              .replace(/<[^>]+>/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .substring(0, 15000);
+          } else {
+            extractedContent = content.toString().substring(0, 15000);
+          }
+          extractionSource = 'axios';
+          console.log(`[DIRECT PLAN] Axios extraction SUCCESS: ${extractedContent.length} chars`);
+        } catch (axiosError: any) {
+          console.error(`[DIRECT PLAN] All extraction methods failed for ${url}`);
+          throw new Error(`Failed to extract content from URL: ${url}`);
+        }
+      }
+    }
+    
+    // Step 6: Cache the successful extraction permanently for future users!
+    if (extractedContent) {
+      const wordCount = extractedContent.split(/\s+/).length;
+      try {
+        await storage.createUrlContentCache({
+          normalizedUrl,
+          originalUrl: url,
+          platform: platform || undefined,
+          extractedContent,
+          extractionSource,
+          wordCount,
+          metadata
+        });
+        console.log(`[DIRECT PLAN] 💾 CACHED content for URL: ${normalizedUrl} (${wordCount} words)`);
+      } catch (cacheError: any) {
+        // Don't fail on cache errors - content was still extracted
+        if (cacheError.code === '23505') {
+          console.log(`[DIRECT PLAN] URL already cached (race condition), continuing...`);
+        } else {
+          console.warn('[DIRECT PLAN] Failed to cache content:', cacheError.message);
+        }
+      }
+    }
+    
+    return extractedContent || '';
   }
 
   /**
