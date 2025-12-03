@@ -10580,6 +10580,49 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       // Resolve shortened URLs first
       resolvedUrl = await resolveShortUrl(url);
       
+      // URL normalization helper for consistent cache keys
+      const normalizeUrlForCache = (urlString: string): string => {
+        try {
+          const parsed = new URL(urlString);
+          
+          if (parsed.hostname.includes('instagram.com')) {
+            const pathMatch = parsed.pathname.match(/\/(reel|p|stories)\/([^\/]+)/);
+            if (pathMatch) {
+              return `https://www.instagram.com/${pathMatch[1]}/${pathMatch[2]}/`;
+            }
+          }
+          
+          if (parsed.hostname.includes('tiktok.com')) {
+            const pathMatch = parsed.pathname.match(/\/@[^\/]+\/video\/(\d+)/);
+            if (pathMatch) {
+              const username = parsed.pathname.split('/')[1];
+              return `https://www.tiktok.com/${username}/video/${pathMatch[1]}`;
+            }
+          }
+          
+          if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) {
+            let videoId: string | null = null;
+            if (parsed.hostname.includes('youtu.be')) {
+              videoId = parsed.pathname.slice(1);
+            } else if (parsed.pathname.includes('/shorts/')) {
+              videoId = parsed.pathname.split('/shorts/')[1]?.split('/')[0];
+            } else {
+              videoId = parsed.searchParams.get('v');
+            }
+            if (videoId) {
+              return `https://www.youtube.com/watch?v=${videoId}`;
+            }
+          }
+          
+          const paramsToRemove = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid', 'ref', 'source', 'igsh'];
+          paramsToRemove.forEach(param => parsed.searchParams.delete(param));
+          
+          return parsed.toString();
+        } catch {
+          return urlString;
+        }
+      };
+
       // Check if it's a video-based social media platform
       const videoCheck = isVideoSocialMedia(resolvedUrl);
       if (videoCheck.isVideo) {
@@ -10588,6 +10631,29 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         // For Instagram Reels and TikTok, use our full extraction pipeline (Apify → Whisper → OCR)
         const platform = socialMediaVideoService.detectPlatform(resolvedUrl);
         if (platform === 'instagram' || platform === 'tiktok') {
+          const normalizedUrl = normalizeUrlForCache(resolvedUrl);
+          console.log(`[PARSE-URL] Normalized URL for cache: ${normalizedUrl}`);
+          
+          // Step 1: CHECK CACHE FIRST - this is FREE and instant!
+          try {
+            const cached = await storage.getUrlContentCache(normalizedUrl);
+            if (cached) {
+              console.log(`[PARSE-URL] 💾 CACHE HIT! Returning ${cached.wordCount} words (source: ${cached.extractionSource})`);
+              return res.json({ 
+                content: cached.extractedContent,
+                isVideoContent: true,
+                platform: videoCheck.platform,
+                resolvedUrl: resolvedUrl,
+                fromCache: true,
+                metadata: cached.metadata || {}
+              });
+            }
+            console.log(`[PARSE-URL] Cache MISS for ${normalizedUrl} - will extract fresh`);
+          } catch (cacheError) {
+            console.warn('[PARSE-URL] Cache lookup failed:', cacheError);
+          }
+          
+          // Step 2: Extract fresh content via Apify/Whisper/OCR
           console.log(`[PARSE-URL] Using socialMediaVideoService for ${platform} (Apify → Whisper → OCR)`);
           
           try {
@@ -10597,11 +10663,34 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
               const combinedContent = socialMediaVideoService.combineExtractedContent(socialResult);
               console.log(`[PARSE-URL] Full extraction complete: ${combinedContent.length} chars`);
               
+              // Step 3: CACHE the successful extraction for future use
+              try {
+                const wordCount = combinedContent.split(/\s+/).length;
+                await storage.createUrlContentCache({
+                  normalizedUrl,
+                  originalUrl: resolvedUrl,
+                  platform: platform,
+                  extractedContent: combinedContent,
+                  extractionSource: 'social_media_service',
+                  wordCount,
+                  metadata: {
+                    hasAudioTranscript: !!socialResult.audioTranscript,
+                    hasOcrText: !!socialResult.ocrText,
+                    hasCaption: !!socialResult.caption,
+                    author: socialResult.metadata?.author
+                  }
+                });
+                console.log(`[PARSE-URL] ✅ Cached content for future use: ${normalizedUrl} (${wordCount} words)`);
+              } catch (cacheError) {
+                console.warn('[PARSE-URL] Failed to cache extraction:', cacheError);
+              }
+              
               return res.json({ 
                 content: combinedContent,
                 isVideoContent: true,
                 platform: videoCheck.platform,
                 resolvedUrl: resolvedUrl,
+                fromCache: false,
                 metadata: {
                   hasAudioTranscript: !!socialResult.audioTranscript,
                   hasOcrText: !!socialResult.ocrText,

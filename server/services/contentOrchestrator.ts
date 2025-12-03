@@ -2,9 +2,52 @@ import { documentParser, ParsedDocument } from './documentParser';
 import { socialMediaVideoService } from './socialMediaVideoService';
 import { tavily } from '@tavily/core';
 import OpenAI from 'openai';
+import { storage } from '../storage';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const tavilyClient = process.env.TAVILY_API_KEY ? tavily({ apiKey: process.env.TAVILY_API_KEY }) : null;
+
+function normalizeUrlForCache(urlString: string): string {
+  try {
+    const parsed = new URL(urlString);
+    
+    if (parsed.hostname.includes('instagram.com')) {
+      const pathMatch = parsed.pathname.match(/\/(reel|p|stories)\/([^\/]+)/);
+      if (pathMatch) {
+        return `https://www.instagram.com/${pathMatch[1]}/${pathMatch[2]}/`;
+      }
+    }
+    
+    if (parsed.hostname.includes('tiktok.com')) {
+      const pathMatch = parsed.pathname.match(/\/@[^\/]+\/video\/(\d+)/);
+      if (pathMatch) {
+        const username = parsed.pathname.split('/')[1];
+        return `https://www.tiktok.com/${username}/video/${pathMatch[1]}`;
+      }
+    }
+    
+    if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) {
+      let videoId: string | null = null;
+      if (parsed.hostname.includes('youtu.be')) {
+        videoId = parsed.pathname.slice(1);
+      } else if (parsed.pathname.includes('/shorts/')) {
+        videoId = parsed.pathname.split('/shorts/')[1]?.split('/')[0];
+      } else {
+        videoId = parsed.searchParams.get('v');
+      }
+      if (videoId) {
+        return `https://www.youtube.com/watch?v=${videoId}`;
+      }
+    }
+    
+    const paramsToRemove = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid', 'ref', 'source', 'igsh'];
+    paramsToRemove.forEach(param => parsed.searchParams.delete(param));
+    
+    return parsed.toString();
+  } catch {
+    return urlString;
+  }
+}
 
 export interface ContentSource {
   id: string;
@@ -129,8 +172,32 @@ class ContentOrchestrator {
     
     if (detectedPlatform) {
       platform = detectedPlatform;
-      console.log(`[ORCHESTRATOR] Detected social media platform: ${platform}, using video extraction`);
+      const normalizedUrl = normalizeUrlForCache(source.source);
+      console.log(`[ORCHESTRATOR] Detected social media platform: ${platform}, normalized URL: ${normalizedUrl}`);
       
+      // Step 1: CHECK CACHE FIRST - this is FREE and instant!
+      try {
+        const cached = await storage.getUrlContentCache(normalizedUrl);
+        if (cached) {
+          console.log(`[ORCHESTRATOR] 💾 CACHE HIT! Returning ${cached.wordCount} words (source: ${cached.extractionSource})`);
+          return {
+            id: source.id,
+            type: 'video',
+            source: source.source,
+            content: cached.extractedContent,
+            success: true,
+            metadata: {
+              platform: detectedPlatform,
+              wordCount: cached.wordCount || undefined
+            }
+          };
+        }
+        console.log(`[ORCHESTRATOR] Cache MISS for ${normalizedUrl} - will extract fresh`);
+      } catch (cacheError) {
+        console.warn('[ORCHESTRATOR] Cache lookup failed:', cacheError);
+      }
+      
+      // Step 2: Extract fresh content
       try {
         const socialResult = await socialMediaVideoService.extractContent(source.source);
         
@@ -138,6 +205,28 @@ class ContentOrchestrator {
           const combinedContent = socialMediaVideoService.combineExtractedContent(socialResult);
           
           console.log(`[ORCHESTRATOR] Social media extraction complete: ${combinedContent.length} chars`);
+          
+          // Step 3: CACHE the successful extraction for future use
+          try {
+            const wordCount = combinedContent.split(/\s+/).length;
+            await storage.createUrlContentCache({
+              normalizedUrl,
+              originalUrl: source.source,
+              platform: detectedPlatform,
+              extractedContent: combinedContent,
+              extractionSource: 'social_media_service',
+              wordCount,
+              metadata: {
+                hasAudioTranscript: !!socialResult.audioTranscript,
+                hasOcrText: !!socialResult.ocrText,
+                caption: socialResult.caption,
+                author: socialResult.metadata?.author
+              }
+            });
+            console.log(`[ORCHESTRATOR] ✅ Cached content for future use: ${normalizedUrl} (${wordCount} words)`);
+          } catch (cacheError) {
+            console.warn('[ORCHESTRATOR] Failed to cache extraction:', cacheError);
+          }
           
           return {
             id: source.id,
