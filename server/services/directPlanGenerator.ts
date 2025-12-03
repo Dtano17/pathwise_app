@@ -302,7 +302,7 @@ export class DirectPlanGenerator {
             extractedContent = content.toString().substring(0, 15000);
           }
           extractionSource = 'axios';
-          console.log(`[DIRECT PLAN] Axios extraction SUCCESS: ${extractedContent.length} chars`);
+          console.log(`[DIRECT PLAN] Axios extraction SUCCESS: ${extractedContent?.length || 0} chars`);
         } catch (axiosError: any) {
           console.error(`[DIRECT PLAN] All extraction methods failed for ${url}`);
           throw new Error(`Failed to extract content from URL: ${url}`);
