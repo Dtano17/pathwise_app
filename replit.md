@@ -76,8 +76,12 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 - **Rule 3 - Contextual**: Additions must be location-aware ("Stay near Victoria Island to access Lo Studio, Knowhere, Dulce easily")
 - **Rule 4 - No Hallucination**: Forbidden to add restaurants/venues NOT in extracted content, or suggest "alternatives"
 - **Contextual Search**: Uses Tavily to find hotels/transport NEAR extracted venue locations
-- **Applied to Both Modes**: Quick Plan (directPlanGenerator.ts) and Smart Plan (simpleConversationalPlanner.ts)
-- **Tested**: Lagos social content with 6 venues - all preserved with exact prices, only transport/budget logistics added
+- **Applied to ALL Planning Services**: 
+  - Quick Plan (`directPlanGenerator.ts`)
+  - Smart Plan (`simpleConversationalPlanner.ts`) 
+  - API Goal Processing (`aiService.ts` - added Dec 3, 2025)
+- **Social Media Detection**: Triggers on content containing "Platform: INSTAGRAM/TIKTOK/YOUTUBE" or "On-Screen Text (OCR)" markers
+- **Tested**: Lagos social content - AI preserved only venues from OCR, no hallucinated alternatives like "Nok by Alara" or "Shiro"
 
 ### Apify Integration for Social Media Content Extraction
 - **Apify API Service**: Created `server/services/apifyService.ts` for reliable Instagram and TikTok extraction
