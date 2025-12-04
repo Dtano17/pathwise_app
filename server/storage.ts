@@ -80,6 +80,8 @@ import {
   type InsertExtensionToken,
   type UrlContentCache,
   type InsertUrlContentCache,
+  type UserSavedContent,
+  type InsertUserSavedContent,
   users,
   goals,
   tasks,
@@ -117,7 +119,8 @@ import {
   journalTemplates,
   aiPlanImports,
   extensionTokens,
-  urlContentCache
+  urlContentCache,
+  userSavedContent
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -418,6 +421,22 @@ export interface IStorage {
   // URL Content Cache (permanent storage for extracted URL content)
   getUrlContentCache(normalizedUrl: string): Promise<UrlContentCache | undefined>;
   createUrlContentCache(cache: InsertUrlContentCache): Promise<UrlContentCache>;
+
+  // User Saved Content (personalized content from social media shares)
+  createUserSavedContent(content: InsertUserSavedContent): Promise<UserSavedContent>;
+  getUserSavedContent(userId: string, filters?: {
+    city?: string;
+    location?: string;
+    category?: string;
+    platform?: string;
+    limit?: number;
+  }): Promise<UserSavedContent[]>;
+  getUserSavedContentById(contentId: string, userId: string): Promise<UserSavedContent | undefined>;
+  updateUserSavedContent(contentId: string, userId: string, updates: Partial<InsertUserSavedContent>): Promise<UserSavedContent | undefined>;
+  deleteUserSavedContent(contentId: string, userId: string): Promise<void>;
+  incrementContentReferenceCount(contentId: string): Promise<void>;
+  getUserSavedLocations(userId: string): Promise<Array<{ city: string; country: string | null; count: number }>>;
+  getUserSavedCategories(userId: string): Promise<Array<{ category: string; count: number }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3718,6 +3737,127 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return created;
+  }
+
+  // User Saved Content
+  async createUserSavedContent(content: InsertUserSavedContent): Promise<UserSavedContent> {
+    const [created] = await db
+      .insert(userSavedContent)
+      .values(content)
+      .returning();
+    return created;
+  }
+
+  async getUserSavedContent(userId: string, filters?: {
+    city?: string;
+    location?: string;
+    category?: string;
+    platform?: string;
+    limit?: number;
+  }): Promise<UserSavedContent[]> {
+    const conditions = [eq(userSavedContent.userId, userId)];
+    
+    if (filters?.city) {
+      conditions.push(sql`LOWER(${userSavedContent.city}) LIKE LOWER(${'%' + filters.city + '%'})`);
+    }
+    if (filters?.location) {
+      conditions.push(sql`LOWER(${userSavedContent.location}) LIKE LOWER(${'%' + filters.location + '%'})`);
+    }
+    if (filters?.category) {
+      conditions.push(eq(userSavedContent.category, filters.category));
+    }
+    if (filters?.platform) {
+      conditions.push(eq(userSavedContent.platform, filters.platform));
+    }
+
+    let query = db
+      .select()
+      .from(userSavedContent)
+      .where(and(...conditions))
+      .orderBy(desc(userSavedContent.savedAt));
+    
+    if (filters?.limit) {
+      query = query.limit(filters.limit) as any;
+    }
+
+    return await query;
+  }
+
+  async getUserSavedContentById(contentId: string, userId: string): Promise<UserSavedContent | undefined> {
+    const [result] = await db
+      .select()
+      .from(userSavedContent)
+      .where(and(
+        eq(userSavedContent.id, contentId),
+        eq(userSavedContent.userId, userId)
+      ));
+    return result;
+  }
+
+  async updateUserSavedContent(contentId: string, userId: string, updates: Partial<InsertUserSavedContent>): Promise<UserSavedContent | undefined> {
+    const [updated] = await db
+      .update(userSavedContent)
+      .set(updates)
+      .where(and(
+        eq(userSavedContent.id, contentId),
+        eq(userSavedContent.userId, userId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deleteUserSavedContent(contentId: string, userId: string): Promise<void> {
+    await db
+      .delete(userSavedContent)
+      .where(and(
+        eq(userSavedContent.id, contentId),
+        eq(userSavedContent.userId, userId)
+      ));
+  }
+
+  async incrementContentReferenceCount(contentId: string): Promise<void> {
+    await db
+      .update(userSavedContent)
+      .set({
+        referenceCount: sql`${userSavedContent.referenceCount} + 1`,
+        lastReferencedAt: new Date()
+      })
+      .where(eq(userSavedContent.id, contentId));
+  }
+
+  async getUserSavedLocations(userId: string): Promise<Array<{ city: string; country: string | null; count: number }>> {
+    const results = await db
+      .select({
+        city: userSavedContent.city,
+        country: userSavedContent.country,
+        count: sql<number>`COUNT(*)::int`
+      })
+      .from(userSavedContent)
+      .where(and(
+        eq(userSavedContent.userId, userId),
+        sql`${userSavedContent.city} IS NOT NULL`
+      ))
+      .groupBy(userSavedContent.city, userSavedContent.country)
+      .orderBy(sql`COUNT(*) DESC`);
+    
+    return results.filter(r => r.city !== null) as Array<{ city: string; country: string | null; count: number }>;
+  }
+
+  async getUserSavedCategories(userId: string): Promise<Array<{ category: string; count: number }>> {
+    const results = await db
+      .select({
+        category: userSavedContent.category,
+        count: sql<number>`COUNT(*)::int`
+      })
+      .from(userSavedContent)
+      .where(and(
+        eq(userSavedContent.userId, userId),
+        sql`${userSavedContent.category} IS NOT NULL`
+      ))
+      .groupBy(userSavedContent.category)
+      .orderBy(sql`COUNT(*) DESC`);
+    
+    return results.filter(r => r.category !== null) as Array<{ category: string; count: number }>;
   }
 }
 

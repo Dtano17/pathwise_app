@@ -1887,3 +1887,84 @@ export const insertUrlContentCacheSchema = createInsertSchema(urlContentCache).o
 
 export type UrlContentCache = typeof urlContentCache.$inferSelect;
 export type InsertUrlContentCache = z.infer<typeof insertUrlContentCacheSchema>;
+
+// User Saved Content - stores categorized content from social media shares for personalized planning
+export const userSavedContent = pgTable("user_saved_content", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User who saved the content
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Source URL and platform
+  sourceUrl: text("source_url").notNull(),
+  platform: text("platform").notNull(), // 'instagram' | 'tiktok' | 'youtube' | 'other'
+  
+  // Location categorization
+  location: text("location"), // Full location string e.g. "Los Angeles, California"
+  city: text("city"), // Extracted city e.g. "Los Angeles"
+  country: text("country"), // Extracted country e.g. "USA"
+  neighborhood: text("neighborhood"), // Specific area e.g. "Beverly Hills"
+  
+  // Activity categorization
+  category: text("category"), // 'bars' | 'restaurants' | 'activities' | 'hotels' | 'shopping' | 'nightlife' | 'travel' | 'fitness' | 'other'
+  subcategory: text("subcategory"), // More specific e.g. 'wine_bars', 'rooftop_bars'
+  
+  // Extracted venue/place details
+  venues: jsonb("venues").$type<Array<{
+    name: string;
+    type?: string;
+    priceRange?: string; // '$' | '$$' | '$$$' | '$$$$'
+    address?: string;
+    notes?: string;
+  }>>().default([]),
+  
+  // Budget information
+  budgetTier: text("budget_tier"), // 'budget' | 'moderate' | 'upscale' | 'luxury'
+  estimatedCost: integer("estimated_cost"), // Estimated cost in cents if mentioned
+  
+  // Raw extracted content for reference
+  rawContent: text("raw_content"),
+  
+  // Author of the original content (for attribution in Discovery only)
+  authorHandle: text("author_handle"),
+  authorName: text("author_name"),
+  
+  // Content title/description
+  title: text("title"),
+  
+  // Reference to cached extraction (if available)
+  cacheId: varchar("cache_id").references(() => urlContentCache.id),
+  
+  // Tags for flexible categorization
+  tags: jsonb("tags").$type<string[]>().default([]),
+  
+  // User's notes about this saved content
+  userNotes: text("user_notes"),
+  
+  // Auto-journal entry ID if created
+  journalEntryId: varchar("journal_entry_id"),
+  
+  // Metadata
+  savedAt: timestamp("saved_at").defaultNow(),
+  lastReferencedAt: timestamp("last_referenced_at"), // When this was used in a plan
+  referenceCount: integer("reference_count").default(0), // How many times used in plans
+}, (table) => ({
+  userIdIndex: index("user_saved_content_user_id_idx").on(table.userId),
+  locationIndex: index("user_saved_content_location_idx").on(table.location),
+  cityIndex: index("user_saved_content_city_idx").on(table.city),
+  categoryIndex: index("user_saved_content_category_idx").on(table.category),
+  platformIndex: index("user_saved_content_platform_idx").on(table.platform),
+  userLocationIdx: index("user_saved_content_user_location_idx").on(table.userId, table.city),
+  userCategoryIdx: index("user_saved_content_user_category_idx").on(table.userId, table.category),
+}));
+
+// Type exports for user saved content
+export const insertUserSavedContentSchema = createInsertSchema(userSavedContent).omit({
+  id: true,
+  savedAt: true,
+  lastReferencedAt: true,
+  referenceCount: true,
+});
+
+export type UserSavedContent = typeof userSavedContent.$inferSelect;
+export type InsertUserSavedContent = z.infer<typeof insertUserSavedContentSchema>;
