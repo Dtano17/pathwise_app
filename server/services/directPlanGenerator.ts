@@ -108,60 +108,185 @@ export class DirectPlanGenerator {
   }
 
   /**
-   * Extract location/destination info from social media content
+   * Extract location/destination info from content using comprehensive patterns
+   * Supports major cities worldwide plus user input location detection
    */
-  private extractLocationsFromContent(content: string): { destination: string | null; areas: string[] } {
+  private extractLocationsFromContent(content: string, userInput?: string): { destination: string | null; areas: string[] } {
     const areas: string[] = [];
     let destination: string | null = null;
 
-    // Common area patterns in content (e.g., "VI", "Ikoyi", "Lagos")
-    const areaPatterns = [
-      /\bVI\b/gi,
-      /\bVictoria Island\b/gi,
-      /\bIkoyi\b/gi,
-      /\bIkeja\b/gi,
-      /\bLekki\b/gi,
-      /\bIlashe\b/gi,
-      /\bLagos\b/gi,
-      /\bAbuja\b/gi,
-      /\bParis\b/gi,
-      /\bLondon\b/gi,
-      /\bDubai\b/gi,
-      /\bNew York\b/gi,
-      /\bMarrakech\b/gi,
+    // Comprehensive list of major cities and destinations
+    const cityList = [
+      // Africa
+      'Lagos', 'Abuja', 'Cairo', 'Cape Town', 'Johannesburg', 'Nairobi', 'Accra', 'Casablanca', 'Marrakech',
+      // Europe  
+      'London', 'Paris', 'Berlin', 'Rome', 'Madrid', 'Barcelona', 'Amsterdam', 'Vienna', 'Prague', 'Lisbon',
+      'Milan', 'Munich', 'Zurich', 'Geneva', 'Brussels', 'Dublin', 'Edinburgh', 'Athens', 'Copenhagen', 'Stockholm',
+      // Asia
+      'Tokyo', 'Singapore', 'Hong Kong', 'Bangkok', 'Bali', 'Dubai', 'Abu Dhabi', 'Mumbai', 'Delhi', 'Shanghai',
+      'Beijing', 'Seoul', 'Taipei', 'Osaka', 'Kuala Lumpur', 'Jakarta', 'Manila', 'Hanoi', 'Ho Chi Minh',
+      // Americas
+      'New York', 'Los Angeles', 'Miami', 'Las Vegas', 'San Francisco', 'Chicago', 'Boston', 'Seattle', 'Austin',
+      'Toronto', 'Vancouver', 'Montreal', 'Mexico City', 'Cancun', 'Tulum', 'Buenos Aires', 'Rio de Janeiro',
+      'Sao Paulo', 'Lima', 'Bogota', 'Cartagena', 'Havana',
+      // Oceania
+      'Sydney', 'Melbourne', 'Auckland', 'Brisbane', 'Perth', 'Queenstown',
+      // Middle East
+      'Tel Aviv', 'Jerusalem', 'Beirut', 'Istanbul', 'Doha', 'Kuwait', 'Riyadh', 'Jeddah'
     ];
 
-    for (const pattern of areaPatterns) {
-      const matches = content.match(pattern);
-      if (matches) {
-        for (const match of matches) {
-          const normalized = match.toLowerCase() === 'vi' ? 'Victoria Island' : match;
-          if (!areas.includes(normalized)) {
-            areas.push(normalized);
+    // Neighborhood/area patterns
+    const neighborhoodPatterns: { pattern: RegExp; normalized: string }[] = [
+      { pattern: /\bVI\b/gi, normalized: 'Victoria Island' },
+      { pattern: /\bVictoria Island\b/gi, normalized: 'Victoria Island' },
+      { pattern: /\bIkoyi\b/gi, normalized: 'Ikoyi' },
+      { pattern: /\bIkeja\b/gi, normalized: 'Ikeja' },
+      { pattern: /\bLekki\b/gi, normalized: 'Lekki' },
+      { pattern: /\bIlashe\b/gi, normalized: 'Ilashe' },
+      { pattern: /\bSoho\b/gi, normalized: 'Soho' },
+      { pattern: /\bWest Hollywood\b/gi, normalized: 'West Hollywood' },
+      { pattern: /\bSanta Monica\b/gi, normalized: 'Santa Monica' },
+      { pattern: /\bBeverly Hills\b/gi, normalized: 'Beverly Hills' },
+      { pattern: /\bManhattan\b/gi, normalized: 'Manhattan' },
+      { pattern: /\bBrooklyn\b/gi, normalized: 'Brooklyn' },
+      { pattern: /\bSouth Beach\b/gi, normalized: 'South Beach' },
+      { pattern: /\bWynwood\b/gi, normalized: 'Wynwood' },
+      { pattern: /\bMayfair\b/gi, normalized: 'Mayfair' },
+      { pattern: /\bChelsea\b/gi, normalized: 'Chelsea' },
+      { pattern: /\bNotting Hill\b/gi, normalized: 'Notting Hill' },
+      { pattern: /\bMarais\b/gi, normalized: 'Marais' },
+      { pattern: /\bMontmartre\b/gi, normalized: 'Montmartre' },
+      { pattern: /\bMedina\b/gi, normalized: 'Medina' },
+    ];
+
+    // Search both content and user input
+    const searchText = `${content} ${userInput || ''}`;
+
+    // Find neighborhoods first
+    for (const { pattern, normalized } of neighborhoodPatterns) {
+      if (pattern.test(searchText)) {
+        if (!areas.includes(normalized)) {
+          areas.push(normalized);
+        }
+      }
+    }
+
+    // Find cities - create case-insensitive patterns
+    for (const city of cityList) {
+      const cityPattern = new RegExp(`\\b${city}\\b`, 'gi');
+      if (cityPattern.test(searchText)) {
+        if (!destination) {
+          destination = city;
+        }
+        if (!areas.includes(city)) {
+          areas.push(city);
+        }
+      }
+    }
+
+    // Also check for country mentions as fallback destinations
+    const countryPatterns: { pattern: RegExp; city: string }[] = [
+      { pattern: /\bNigeria\b/gi, city: 'Lagos' },
+      { pattern: /\bFrance\b/gi, city: 'Paris' },
+      { pattern: /\bMorocco\b/gi, city: 'Marrakech' },
+      { pattern: /\bUAE\b/gi, city: 'Dubai' },
+      { pattern: /\bUnited Arab Emirates\b/gi, city: 'Dubai' },
+      { pattern: /\bJapan\b/gi, city: 'Tokyo' },
+      { pattern: /\bItaly\b/gi, city: 'Rome' },
+      { pattern: /\bSpain\b/gi, city: 'Barcelona' },
+      { pattern: /\bThailand\b/gi, city: 'Bangkok' },
+      { pattern: /\bIndonesia\b/gi, city: 'Bali' },
+      { pattern: /\bUK\b/gi, city: 'London' },
+      { pattern: /\bUnited Kingdom\b/gi, city: 'London' },
+      { pattern: /\bMexico\b/gi, city: 'Mexico City' },
+      { pattern: /\bBrazil\b/gi, city: 'Rio de Janeiro' },
+      { pattern: /\bAustralia\b/gi, city: 'Sydney' },
+      { pattern: /\bSouth Korea\b/gi, city: 'Seoul' },
+      { pattern: /\bGermany\b/gi, city: 'Berlin' },
+      { pattern: /\bNetherlands\b/gi, city: 'Amsterdam' },
+      { pattern: /\bSwitzerland\b/gi, city: 'Zurich' },
+      { pattern: /\bGreece\b/gi, city: 'Athens' },
+      { pattern: /\bPortugal\b/gi, city: 'Lisbon' },
+      { pattern: /\bEgypt\b/gi, city: 'Cairo' },
+      { pattern: /\bSouth Africa\b/gi, city: 'Cape Town' },
+      { pattern: /\bKenya\b/gi, city: 'Nairobi' },
+      { pattern: /\bGhana\b/gi, city: 'Accra' },
+    ];
+
+    if (!destination) {
+      for (const { pattern, city } of countryPatterns) {
+        if (pattern.test(searchText)) {
+          destination = city;
+          // Also add the city to areas when inferred from country
+          if (!areas.includes(city)) {
+            areas.push(city);
+          }
+          break;
+        }
+      }
+    }
+
+    // Look for "trip to X", "plan for X", "visiting X" patterns
+    const tripPatterns = [
+      /(?:trip|travel|going|visit(?:ing)?|plan(?:ning)?)\s+(?:to|for)\s+([A-Z][a-zA-Z\s]+?)(?:\s|$|,|\.)/gi,
+      /(?:my|our|a)\s+([A-Z][a-zA-Z]+)\s+(?:trip|vacation|holiday|getaway)/gi,
+    ];
+
+    for (const tripPattern of tripPatterns) {
+      const matches = searchText.matchAll(tripPattern);
+      for (const match of matches) {
+        const potentialCity = match[1]?.trim();
+        if (potentialCity && potentialCity.length > 2 && potentialCity.length < 30) {
+          // Check if this matches any known city
+          const foundCity = cityList.find(c => 
+            c.toLowerCase() === potentialCity.toLowerCase()
+          );
+          if (foundCity && !destination) {
+            destination = foundCity;
           }
         }
       }
     }
 
-    // Detect main destination (usually a city/country)
-    const destinationPatterns = [
-      /\bLagos\b/gi,
-      /\bNigeria\b/gi,
-      /\bParis\b/gi,
-      /\bFrance\b/gi,
-      /\bLondon\b/gi,
-      /\bDubai\b/gi,
-      /\bMorocco\b/gi,
-    ];
-
-    for (const pattern of destinationPatterns) {
-      if (pattern.test(content)) {
-        destination = pattern.source.replace(/\\b/g, '');
-        break;
-      }
-    }
-
+    // If no destination found, the caller can use fallback to stored preference locations
+    console.log(`[LOCATION] Extracted destination: ${destination || 'none'}, areas: ${areas.join(', ') || 'none'}`);
     return { destination, areas };
+  }
+
+  /**
+   * Get unique cities from user's stored preferences
+   * Used as fallback when location detection from content fails
+   */
+  private async getUserPreferenceCities(userId: number): Promise<string[]> {
+    try {
+      // Get all user's saved content with non-null cities
+      const savedContent = await storage.getUserSavedContent(userId, undefined, undefined);
+      
+      if (!savedContent || savedContent.length === 0) {
+        return [];
+      }
+      
+      // Extract unique cities
+      const cities = new Set<string>();
+      for (const content of savedContent) {
+        if (content.city) {
+          cities.add(content.city);
+        }
+        if (content.location) {
+          // Try to extract city from location string (e.g., "Lagos, Nigeria" -> "Lagos")
+          const locationParts = content.location.split(',');
+          if (locationParts.length > 0) {
+            const city = locationParts[0].trim();
+            if (city) cities.add(city);
+          }
+        }
+      }
+      
+      return Array.from(cities);
+    } catch (error) {
+      console.error('[LOCATION] Failed to get user preference cities:', error);
+      return [];
+    }
   }
 
   /**
@@ -421,14 +546,83 @@ export class DirectPlanGenerator {
       }
     }
 
-    // Step 1.5: If social media content detected, search for contextual additions
+    // Step 1.5: Extract location for user preferences lookup and contextual additions
+    // Do this BEFORE social media check so we always try to find user preferences
+    let detectedDestination: string | null = null;
+    let detectedAreas: string[] = [];
+    const { destination, areas } = this.extractLocationsFromContent(processedInput, userInput);
+    detectedDestination = destination;
+    detectedAreas = areas;
+    
+    // Fallback: If no destination detected but user has saved preferences, 
+    // check if any saved city is mentioned in the input
+    if (!destination && userProfile?.id) {
+      try {
+        const userCities = await this.getUserPreferenceCities(userProfile.id);
+        if (userCities.length > 0) {
+          const lowerInput = (processedInput + ' ' + userInput).toLowerCase();
+          for (const city of userCities) {
+            if (lowerInput.includes(city.toLowerCase())) {
+              detectedDestination = city;
+              detectedAreas = [city];
+              console.log(`[LOCATION FALLBACK] Matched city from user preferences: ${city}`);
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[LOCATION FALLBACK] Failed:', error);
+      }
+    }
+    
+    // If we found a destination and user is authenticated, look up their saved preferences
+    if (detectedDestination && userProfile?.id && !userPreferences) {
+      try {
+        console.log(`[DIRECT PLAN] Looking up user preferences for: ${detectedDestination}`);
+        const savedContent = await storage.getUserSavedContent(userProfile.id, detectedDestination, undefined);
+        
+        if (savedContent && savedContent.length > 0) {
+          // Build preferences from saved content
+          const venues: Array<{ name: string; type: string; priceRange?: string }> = [];
+          const categories = new Set<string>();
+          const budgetTiers = new Set<string>();
+          
+          for (const content of savedContent) {
+            if (content.venues && Array.isArray(content.venues)) {
+              for (const venue of content.venues as any[]) {
+                venues.push({
+                  name: venue.name || 'Unknown',
+                  type: venue.type || 'venue',
+                  priceRange: venue.priceRange
+                });
+              }
+            }
+            if (content.category) categories.add(content.category);
+            if (content.budgetTier) budgetTiers.add(content.budgetTier);
+          }
+          
+          userPreferences = {
+            location: detectedDestination,
+            savedItems: savedContent.length,
+            venues: venues.slice(0, 15),
+            categories: Array.from(categories),
+            budgetTiers: Array.from(budgetTiers)
+          };
+          
+          console.log(`[DIRECT PLAN] Found ${savedContent.length} saved items with ${venues.length} venues for ${detectedDestination}`);
+        }
+      } catch (error) {
+        console.error('[DIRECT PLAN] Failed to lookup user preferences:', error);
+      }
+    }
+    
+    // If social media content detected, search for contextual additions
     if (!isModification && this.isSocialMediaContent(processedInput)) {
-      console.log('[DIRECT PLAN] Social media content detected, extracting locations...');
-      const { destination, areas } = this.extractLocationsFromContent(processedInput);
+      console.log('[DIRECT PLAN] Social media content detected');
       
-      if (destination && areas.length > 0) {
-        console.log(`[DIRECT PLAN] Found destination: ${destination}, areas: ${areas.join(', ')}`);
-        const contextualInfo = await this.searchContextualAdditions(destination, areas);
+      if (detectedDestination && detectedAreas.length > 0) {
+        console.log(`[DIRECT PLAN] Found destination: ${detectedDestination}, areas: ${detectedAreas.join(', ')}`);
+        const contextualInfo = await this.searchContextualAdditions(detectedDestination, detectedAreas);
         if (contextualInfo) {
           processedInput += contextualInfo;
           console.log('[DIRECT PLAN] Added contextual hotel/transport info to input');

@@ -10,17 +10,76 @@ import { isNative, isIOS } from './platform';
 
 // Import the share extension plugin for iOS
 let ShareExtension: any = null;
-try {
-  // Dynamic import for native only
-  if (typeof window !== 'undefined' && (window as any).Capacitor) {
-    import('capacitor-share-extension').then(module => {
-      ShareExtension = module.ShareExtension;
-    }).catch(() => {
-      console.log('[SHARE] capacitor-share-extension not available');
-    });
+let shareExtensionReady = false;
+let shareExtensionPromise: Promise<void> | null = null;
+
+// Initialize the share extension plugin asynchronously
+function initShareExtensionPlugin(): Promise<void> {
+  if (shareExtensionPromise) return shareExtensionPromise;
+  
+  shareExtensionPromise = (async () => {
+    try {
+      if (typeof window !== 'undefined' && (window as any).Capacitor) {
+        const module = await import('capacitor-share-extension');
+        ShareExtension = module.ShareExtension;
+        shareExtensionReady = true;
+        console.log('[SHARE] capacitor-share-extension loaded successfully');
+      }
+    } catch (e) {
+      console.log('[SHARE] capacitor-share-extension not available:', e);
+      shareExtensionReady = false;
+    }
+  })();
+  
+  return shareExtensionPromise;
+}
+
+// Start loading the plugin immediately on module load (for native only)
+if (typeof window !== 'undefined' && (window as any).Capacitor) {
+  initShareExtensionPlugin();
+}
+
+// Re-check for shares when the app becomes visible or resumes
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      checkIOSPendingShare();
+    }
+  });
+}
+
+// Listen for Capacitor App state changes (more reliable on native)
+async function setupAppStateListeners() {
+  try {
+    if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.App) {
+      const App = (window as any).Capacitor.Plugins.App;
+      
+      // Re-check on app resume (foreground)
+      App.addListener('appStateChange', (state: { isActive: boolean }) => {
+        if (state.isActive) {
+          console.log('[SHARE] App became active, checking for pending shares...');
+          checkIOSPendingShare();
+        }
+      });
+      
+      // Also check when app is opened via URL (share extension deep link)
+      App.addListener('appUrlOpen', (data: { url: string }) => {
+        if (data.url?.includes('share')) {
+          console.log('[SHARE] App opened via share URL:', data.url);
+          checkIOSPendingShare();
+        }
+      });
+      
+      console.log('[SHARE] App state listeners registered');
+    }
+  } catch (error) {
+    console.log('[SHARE] Could not set up app state listeners:', error);
   }
-} catch (e) {
-  // Not available on this platform
+}
+
+// Setup app state listeners after a short delay to ensure Capacitor is ready
+if (typeof window !== 'undefined' && (window as any).Capacitor) {
+  setTimeout(setupAppStateListeners, 100);
 }
 
 export interface ShareData {
@@ -281,21 +340,41 @@ export function initIncomingShareListener(): void {
   console.log('[SHARE] Incoming share listener initialized');
 }
 
+// Track if we've already processed a share to avoid duplicates
+let shareProcessed = false;
+let checkInProgress = false;
+
 /**
  * Check for pending iOS shares from Share Extension
  * Uses capacitor-share-extension plugin for iOS
+ * Implements exponential backoff with jitter for reliability
  */
-async function checkIOSPendingShare(): Promise<void> {
+async function checkIOSPendingShare(retryCount = 0): Promise<void> {
   if (!isIOS()) return;
+  if (shareProcessed || checkInProgress) return;
+  
+  const MAX_RETRIES = 6;
+  const BASE_DELAY_MS = 250;
+  const MAX_DELAY_MS = 4000;
+  
+  checkInProgress = true;
   
   try {
+    // Wait for the plugin to be loaded if it's still initializing
+    if (!shareExtensionReady && shareExtensionPromise) {
+      console.log('[SHARE iOS] Waiting for plugin to be ready...');
+      await shareExtensionPromise;
+    }
+    
     // Try capacitor-share-extension plugin first
-    if (ShareExtension) {
+    if (ShareExtension && shareExtensionReady) {
+      console.log('[SHARE iOS] Checking for pending share intent...');
       const result = await ShareExtension.checkSendIntentReceived();
       
       if (result && result.payload && result.payload.length > 0) {
         const items = result.payload;
         console.log('[SHARE iOS] Received share items:', items);
+        shareProcessed = true;
         
         // Process the first item (or could combine multiple)
         const firstItem = items[0];
@@ -333,20 +412,52 @@ async function checkIOSPendingShare(): Promise<void> {
         
         // Clear the share data after processing
         await ShareExtension.finish();
+      } else {
+        console.log('[SHARE iOS] No pending share intent found');
       }
     } else if ((window as any).Capacitor?.Plugins?.AppGroupPlugin) {
       // Fallback to AppGroupPlugin for older implementations
+      console.log('[SHARE iOS] Using AppGroupPlugin fallback...');
       const result = await (window as any).Capacitor.Plugins.AppGroupPlugin.getSharedData();
       
       if (result?.data) {
+        shareProcessed = true;
         setPendingShareData(result.data);
       }
+    } else if (retryCount < MAX_RETRIES) {
+      // Plugin not ready yet, retry with exponential backoff + jitter
+      const delay = Math.min(BASE_DELAY_MS * Math.pow(2, retryCount), MAX_DELAY_MS);
+      const jitter = Math.random() * 100; // Add random jitter up to 100ms
+      console.log(`[SHARE iOS] Plugin not ready, retrying in ${Math.round(delay + jitter)}ms (${retryCount + 1}/${MAX_RETRIES})...`);
+      checkInProgress = false;
+      await new Promise(resolve => setTimeout(resolve, delay + jitter));
+      return checkIOSPendingShare(retryCount + 1);
     } else {
-      console.log('[SHARE] No iOS share extension plugin available');
+      console.log('[SHARE iOS] No share extension plugin available after retries');
     }
   } catch (error) {
-    console.error('[SHARE] Failed to check iOS pending share:', error);
+    console.error('[SHARE iOS] Failed to check pending share:', error);
+    
+    // Retry on error with exponential backoff
+    if (retryCount < MAX_RETRIES) {
+      const delay = Math.min(BASE_DELAY_MS * Math.pow(2, retryCount), MAX_DELAY_MS);
+      const jitter = Math.random() * 100;
+      console.log(`[SHARE iOS] Retrying after error in ${Math.round(delay + jitter)}ms (${retryCount + 1}/${MAX_RETRIES})...`);
+      checkInProgress = false;
+      await new Promise(resolve => setTimeout(resolve, delay + jitter));
+      return checkIOSPendingShare(retryCount + 1);
+    }
+  } finally {
+    checkInProgress = false;
   }
+}
+
+/**
+ * Reset share state (call when share has been fully processed by the app)
+ */
+export function resetShareState(): void {
+  shareProcessed = false;
+  checkInProgress = false;
 }
 
 /**
@@ -469,4 +580,5 @@ export default {
   consumePendingShareData,
   hasPendingShareData,
   shareToSocial,
+  resetShareState,
 };
