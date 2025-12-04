@@ -22,6 +22,8 @@ import {
   type InsertNotificationPreferences,
   type TaskReminder,
   type InsertTaskReminder,
+  type ActivityReminder,
+  type InsertActivityReminder,
   type DeviceToken,
   type InsertDeviceToken,
   type SchedulingSuggestion,
@@ -91,6 +93,7 @@ import {
   priorities,
   notificationPreferences,
   taskReminders,
+  activityReminders,
   deviceTokens,
   schedulingSuggestions,
   authIdentities,
@@ -260,6 +263,15 @@ export interface IStorage {
   getPendingReminders(): Promise<TaskReminder[]>;
   markReminderSent(reminderId: string): Promise<void>;
   deleteTaskReminder(reminderId: string, userId: string): Promise<void>;
+
+  // Activity Reminders (for plan notifications)
+  createActivityReminder(reminder: InsertActivityReminder & { userId: string }): Promise<ActivityReminder>;
+  getActivityReminders(activityId: string): Promise<ActivityReminder[]>;
+  getUserActivityReminders(userId: string): Promise<ActivityReminder[]>;
+  getPendingActivityReminders(beforeTime: Date): Promise<ActivityReminder[]>;
+  markActivityReminderSent(reminderId: string): Promise<void>;
+  deleteActivityReminders(activityId: string): Promise<void>;
+  getUpcomingActivitiesForReminders(beforeDate: Date): Promise<Activity[]>;
 
   // Device Tokens (for push notifications)
   upsertDeviceToken(userId: string, token: InsertDeviceToken): Promise<DeviceToken>;
@@ -1547,6 +1559,57 @@ export class DatabaseStorage implements IStorage {
   async deleteTaskReminder(reminderId: string, userId: string): Promise<void> {
     await db.delete(taskReminders)
       .where(and(eq(taskReminders.id, reminderId), eq(taskReminders.userId, userId)));
+  }
+
+  // Activity Reminders (for plan notifications)
+  async createActivityReminder(reminder: InsertActivityReminder & { userId: string }): Promise<ActivityReminder> {
+    const [result] = await db.insert(activityReminders).values(reminder).returning();
+    return result;
+  }
+
+  async getActivityReminders(activityId: string): Promise<ActivityReminder[]> {
+    return await db.select().from(activityReminders)
+      .where(eq(activityReminders.activityId, activityId))
+      .orderBy(activityReminders.scheduledAt);
+  }
+
+  async getUserActivityReminders(userId: string): Promise<ActivityReminder[]> {
+    return await db.select().from(activityReminders)
+      .where(and(
+        eq(activityReminders.userId, userId),
+        eq(activityReminders.isSent, false)
+      ))
+      .orderBy(activityReminders.scheduledAt);
+  }
+
+  async getPendingActivityReminders(beforeTime: Date): Promise<ActivityReminder[]> {
+    return await db.select().from(activityReminders)
+      .where(and(
+        eq(activityReminders.isSent, false),
+        lte(activityReminders.scheduledAt, beforeTime)
+      ))
+      .orderBy(activityReminders.scheduledAt);
+  }
+
+  async markActivityReminderSent(reminderId: string): Promise<void> {
+    await db.update(activityReminders)
+      .set({ isSent: true, sentAt: new Date() })
+      .where(eq(activityReminders.id, reminderId));
+  }
+
+  async deleteActivityReminders(activityId: string): Promise<void> {
+    await db.delete(activityReminders)
+      .where(eq(activityReminders.activityId, activityId));
+  }
+
+  async getUpcomingActivitiesForReminders(beforeDate: Date): Promise<Activity[]> {
+    const now = new Date();
+    return await db.select().from(activities)
+      .where(and(
+        sql`${activities.startDate} IS NOT NULL`,
+        sql`${activities.startDate} > ${now}`,
+        sql`${activities.startDate} <= ${beforeDate}`
+      ));
   }
 
   // Device Tokens (for push notifications)

@@ -9,6 +9,8 @@ import { initializeLLMProviders } from "./services/llmProviders";
 import { handleStripeWebhook } from "./stripeWebhook";
 import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from "./stripeClient";
+import { startReminderProcessor } from "./services/reminderProcessor";
+import { storage } from "./storage";
 
 // Validate critical environment variables
 function validateEnvironment() {
@@ -202,6 +204,14 @@ app.use((req, res, next) => {
       await seedSampleGroups();
     } catch (error) {
       console.error('[SEED] Failed to seed sample groups:', error);
+    }
+    
+    // Start the reminder processor for plan notifications
+    try {
+      startReminderProcessor(storage);
+      console.log('[REMINDER] Reminder processor started');
+    } catch (error) {
+      console.error('[REMINDER] Failed to start reminder processor:', error);
     }
   });
 })();

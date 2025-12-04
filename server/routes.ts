@@ -63,6 +63,7 @@ import { tavily } from '@tavily/core';
 import { socialMediaVideoService } from './services/socialMediaVideoService';
 import { apifyService } from './services/apifyService';
 import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay } from './services/contentCategorizationService';
+import { scheduleRemindersForActivity, cancelRemindersForActivity } from './services/reminderProcessor';
 
 const tavilyClient = process.env.TAVILY_API_KEY ? tavily({ apiKey: process.env.TAVILY_API_KEY }) : null;
 
@@ -4036,6 +4037,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...activityData,
         userId
       });
+      
+      // Schedule reminders if the activity has a start date
+      if (activity.startDate) {
+        try {
+          const result = await scheduleRemindersForActivity(storage, activity.id, userId);
+          console.log(`[ACTIVITY] Scheduled ${result.created} reminders for activity ${activity.id}`);
+        } catch (reminderError) {
+          console.error('[ACTIVITY] Failed to schedule reminders:', reminderError);
+        }
+      }
+      
       res.json(activity);
     } catch (error) {
       console.error('Create activity error:', error);
@@ -4096,6 +4108,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Activity not found' });
       }
 
+      // Reschedule reminders if startDate was updated
+      if ('startDate' in updates) {
+        try {
+          if (activity.startDate) {
+            const result = await scheduleRemindersForActivity(storage, activity.id, userId);
+            console.log(`[ACTIVITY] Rescheduled ${result.created} reminders for activity ${activity.id}`);
+          } else {
+            await cancelRemindersForActivity(storage, activityId);
+            console.log(`[ACTIVITY] Cancelled reminders for activity ${activity.id} (no start date)`);
+          }
+        } catch (reminderError) {
+          console.error('[ACTIVITY] Failed to reschedule reminders:', reminderError);
+        }
+      }
+
       res.json(activity);
     } catch (error) {
       console.error('Patch activity error:', error);
@@ -4108,11 +4135,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { activityId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Cancel reminders when activity is deleted
+      try {
+        await cancelRemindersForActivity(storage, activityId);
+      } catch (err) {
+        console.error('[ACTIVITY] Failed to cancel reminders on delete:', err);
+      }
+      
       await storage.deleteActivity(activityId, userId);
       res.json({ success: true });
     } catch (error) {
       console.error('Delete activity error:', error);
       res.status(500).json({ error: 'Failed to delete activity' });
+    }
+  });
+
+  // ==================== REMINDERS API ====================
+
+  // Get user's upcoming reminders
+  app.get("/api/reminders/activities/me", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const reminders = await storage.getUserActivityReminders(userId);
+      res.json({ reminders });
+    } catch (error) {
+      console.error('Get reminders error:', error);
+      res.status(500).json({ error: 'Failed to fetch reminders' });
+    }
+  });
+
+  // Get reminders for a specific activity
+  app.get("/api/reminders/activities/:activityId", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const reminders = await storage.getActivityReminders(activityId);
+      res.json({ reminders });
+    } catch (error) {
+      console.error('Get activity reminders error:', error);
+      res.status(500).json({ error: 'Failed to fetch activity reminders' });
+    }
+  });
+
+  // Manually trigger reminder scheduling for an activity
+  app.post("/api/reminders/activities/:activityId", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      const result = await scheduleRemindersForActivity(storage, activityId, userId);
+      res.json({ 
+        success: true, 
+        created: result.created,
+        skipped: result.skipped,
+        message: `Scheduled ${result.created} reminders for this activity`
+      });
+    } catch (error) {
+      console.error('Schedule reminders error:', error);
+      res.status(500).json({ error: 'Failed to schedule reminders' });
+    }
+  });
+
+  // Cancel all reminders for an activity
+  app.delete("/api/reminders/activities/:activityId", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      await cancelRemindersForActivity(storage, activityId);
+      res.json({ success: true, message: 'All reminders cancelled' });
+    } catch (error) {
+      console.error('Cancel reminders error:', error);
+      res.status(500).json({ error: 'Failed to cancel reminders' });
+    }
+  });
+
+  // Dismiss a specific reminder
+  app.patch("/api/reminders/:reminderId/dismiss", async (req, res) => {
+    try {
+      const { reminderId } = req.params;
+      await storage.markActivityReminderSent(reminderId);
+      res.json({ success: true, message: 'Reminder dismissed' });
+    } catch (error) {
+      console.error('Dismiss reminder error:', error);
+      res.status(500).json({ error: 'Failed to dismiss reminder' });
     }
   });
 

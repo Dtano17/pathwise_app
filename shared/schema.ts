@@ -533,6 +533,30 @@ export const taskReminders = pgTable("task_reminders", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Scheduled reminders for activities/plans
+export const activityReminders = pgTable("activity_reminders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  reminderType: text("reminder_type").notNull(), // 'one_week' | 'three_days' | 'one_day' | 'morning_of' | 'custom'
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  title: text("title").notNull(),
+  message: text("message"),
+  metadata: jsonb("metadata").$type<{
+    activityTitle?: string;
+    location?: string;
+    weatherInfo?: string;
+    contextualTips?: string[];
+  }>().default({}),
+  isSent: boolean("is_sent").default(false),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  activityIdIndex: index("activity_reminders_activity_id_index").on(table.activityId),
+  userIdScheduledIndex: index("activity_reminders_user_scheduled_index").on(table.userId, table.scheduledAt),
+  pendingIndex: index("activity_reminders_pending_index").on(table.isSent, table.scheduledAt),
+}));
+
 // User notifications for in-app alerts
 export const userNotifications = pgTable("user_notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -606,6 +630,14 @@ export const insertTaskReminderSchema = createInsertSchema(taskReminders).omit({
   userId: true,
   createdAt: true,
   sentAt: true,
+});
+
+export const insertActivityReminderSchema = createInsertSchema(activityReminders).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  sentAt: true,
+  isSent: true,
 });
 
 export const insertUserNotificationSchema = createInsertSchema(userNotifications).omit({
@@ -689,6 +721,9 @@ export type InsertNotificationPreferences = z.infer<typeof insertNotificationPre
 
 export type TaskReminder = typeof taskReminders.$inferSelect;
 export type InsertTaskReminder = z.infer<typeof insertTaskReminderSchema>;
+
+export type ActivityReminder = typeof activityReminders.$inferSelect;
+export type InsertActivityReminder = z.infer<typeof insertActivityReminderSchema>;
 
 export type UserNotification = typeof userNotifications.$inferSelect;
 export type InsertUserNotification = z.infer<typeof insertUserNotificationSchema>;

@@ -39,6 +39,13 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 - **PWA Features**: Service worker for offline functionality and install prompts.
 - **Native Mobile Features**: Home screen widgets, calendar sync, biometric authentication, voice-to-text, Android inbound share, push notifications, haptic feedback, and iOS share extension support.
 - **Content Extraction & Caching**: Utilizes Apify for reliable Instagram and TikTok content extraction, self-hosted direct extraction methods, and dynamic video frame extraction. Implements database caching for URL content to optimize costs and performance. Strict grounding rules are applied during plan generation to prevent AI hallucinations.
+- **Smart Reminder System**: Background processor running on 5-minute intervals that schedules and dispatches intelligent reminders for upcoming activities. Features:
+  - Automatic scheduling at strategic times (1 week, 3 days, 1 day, morning-of)
+  - Weather-enriched notifications using Open-Meteo API (free, no API key required)
+  - Respects user quiet hours and notification preferences
+  - Contextual enrichment with local tips via Tavily
+  - Idempotent reminder scheduling (safe to reschedule when dates change)
+  - API endpoints: GET/POST/DELETE /api/reminders/activities/:activityId
 
 ## External Dependencies
 - **Replit Auth**: Google, X/Twitter, Apple, and Email authentication.
@@ -54,3 +61,4 @@ The application features a mobile-first responsive design, utilizing a clean, ca
 - **Apify**: Social media content scraping (Instagram, TikTok).
 - **yt-dlp**: Video content extraction fallback.
 - **capacitor-share-extension**: iOS share sheet integration.
+- **Open-Meteo**: Free weather API for forecast data (no API key required, 1M calls/month free).
