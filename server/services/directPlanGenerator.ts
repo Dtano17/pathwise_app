@@ -36,6 +36,18 @@ export interface DirectPlanResult {
   }>;
 }
 
+export interface UserPreferences {
+  location: string;
+  savedItems: number;
+  venues: Array<{
+    name: string;
+    type: string;
+    priceRange?: string;
+  }>;
+  categories: string[];
+  budgetTiers: string[];
+}
+
 /**
  * Direct Plan Generator - No questions, no validation, just generate!
  *
@@ -345,7 +357,8 @@ export class DirectPlanGenerator {
     userInput: string,
     contentType: 'text' | 'image',
     userProfile: User,
-    existingPlan?: DirectPlanResult // For modifications
+    existingPlan?: DirectPlanResult, // For modifications
+    userPreferences?: UserPreferences // User's saved preferences for the destination
   ): Promise<DirectPlanResult> {
 
     console.log(`[DIRECT PLAN] Generating plan from ${contentType} input`);
@@ -426,7 +439,7 @@ export class DirectPlanGenerator {
     // Build prompt based on whether it's new or modification
     const prompt = isModification
       ? this.buildModificationPrompt(processedInput, existingPlan, userProfile)
-      : this.buildCreationPrompt(processedInput, contentType, userProfile);
+      : this.buildCreationPrompt(processedInput, contentType, userProfile, userPreferences);
 
     try {
       const messageContent = contentType === 'image'
@@ -524,19 +537,49 @@ Answer with ONLY "YES" or "NO".`
   private buildCreationPrompt(
     userInput: string,
     contentType: 'text' | 'image',
-    userProfile: User
+    userProfile: User,
+    userPreferences?: UserPreferences
   ): string {
 
     const userName = userProfile.firstName || userProfile.username || 'User';
     const userContext = `User: ${userName}
 Location: ${userProfile.location || 'Unknown'}
 Timezone: ${userProfile.timezone || 'Unknown'}`;
+    
+    // Build user preferences section if available
+    let userPreferencesSection = '';
+    if (userPreferences && userPreferences.savedItems > 0) {
+      const venuesList = userPreferences.venues
+        .slice(0, 10)
+        .map(v => `- ${v.name} (${v.type}${v.priceRange ? `, ${v.priceRange}` : ''})`)
+        .join('\n');
+      
+      userPreferencesSection = `
+
+## 🌟 USER'S SAVED PREFERENCES FOR ${userPreferences.location.toUpperCase()} 🌟
+
+The user has previously saved ${userPreferences.savedItems} items for ${userPreferences.location}.
+These are places/activities they're interested in visiting:
+
+${venuesList}
+
+Categories of interest: ${userPreferences.categories.join(', ')}
+Budget preference: ${userPreferences.budgetTiers.join(', ') || 'Not specified'}
+
+**INSTRUCTIONS FOR USING PREFERENCES:**
+1. PRIORITIZE these saved venues/activities in your plan
+2. Include at least 2-3 of their saved spots as specific tasks
+3. Use their saved preferences to understand their taste and recommend similar venues
+4. Match their budget preference when suggesting additional options
+5. DO NOT ignore their saved preferences - they specifically saved these for a reason!
+`;
+    }
 
     return `Generate an actionable plan based on the user's request.
 
 USER CONTEXT:
 ${userContext}
-
+${userPreferencesSection}
 USER REQUEST:
 "${userInput}"
 

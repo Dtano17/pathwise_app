@@ -10632,12 +10632,53 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         }
       }
 
+      // Try to extract location from user input to query preferences
+      let userPreferences = undefined;
+      const locationPatterns = [
+        /(?:trip to|visit(?:ing)?|going to|plan(?:ning)? for|in)\s+([A-Z][a-zA-Z\s,]+)/i,
+        /\b(lagos|paris|london|dubai|new york|tokyo|marrakech|barcelona|rome|amsterdam|bali|la|los angeles|miami|nyc|sf|san francisco)\b/i
+      ];
+      
+      for (const pattern of locationPatterns) {
+        const match = userInput.match(pattern);
+        if (match) {
+          const detectedCity = match[1].trim().replace(/,.*$/, '').trim();
+          console.log(`[DIRECT PLAN] Detected destination: ${detectedCity}, checking for saved preferences...`);
+          
+          try {
+            const savedContent = await storage.getUserSavedContent(userId, {
+              city: detectedCity,
+              limit: 20
+            });
+            
+            if (savedContent.length > 0) {
+              userPreferences = {
+                location: detectedCity,
+                savedItems: savedContent.length,
+                venues: savedContent.flatMap((item: any) => (item.venues || []).map((v: any) => ({
+                  name: v.name,
+                  type: v.type,
+                  priceRange: v.priceRange
+                }))),
+                categories: [...new Set(savedContent.map((item: any) => item.category))] as string[],
+                budgetTiers: [...new Set(savedContent.filter((item: any) => item.budgetTier).map((item: any) => item.budgetTier))] as string[]
+              };
+              console.log(`[DIRECT PLAN] Found ${userPreferences.savedItems} saved items for ${detectedCity} with ${userPreferences.venues.length} venues`);
+            }
+          } catch (prefsError) {
+            console.warn('[DIRECT PLAN] Error fetching preferences:', prefsError);
+          }
+          break;
+        }
+      }
+
       // Generate plan directly - no questions!
       const plan = await directPlanGenerator.generatePlan(
         userInput,
         contentType || 'text',
         user,
-        existingPlan
+        existingPlan,
+        userPreferences
       );
 
       // Create or update session
