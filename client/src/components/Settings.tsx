@@ -20,8 +20,10 @@ import {
   Moon,
   Globe,
   CreditCard,
-  Crown
+  Crown,
+  BookmarkCheck
 } from 'lucide-react';
+import MySavedSpots from './MySavedSpots';
 
 interface UserPreferences {
   theme?: string;
@@ -499,6 +501,9 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
           </div>
         </CardContent>
       </Card>
+
+      {/* My Saved Spots */}
+      <MySavedSpots />
     </div>
   );
 }
