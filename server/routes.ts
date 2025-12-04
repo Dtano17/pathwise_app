@@ -62,6 +62,7 @@ import { sendGroupNotification } from './services/notificationService';
 import { tavily } from '@tavily/core';
 import { socialMediaVideoService } from './services/socialMediaVideoService';
 import { apifyService } from './services/apifyService';
+import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay } from './services/contentCategorizationService';
 
 const tavilyClient = process.env.TAVILY_API_KEY ? tavily({ apiKey: process.env.TAVILY_API_KEY }) : null;
 
@@ -1936,6 +1937,254 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Tutorial completion error:", error);
       res.status(500).json({ error: "Failed to mark tutorial as completed" });
+    }
+  });
+
+  // ============================================
+  // USER SAVED CONTENT / PREFERENCES API
+  // ============================================
+  
+  // Save content for later (from social media share or URL)
+  app.post('/api/user/saved-content', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { sourceUrl, extractedContent, userNotes, autoJournal } = req.body;
+      
+      if (!sourceUrl || !extractedContent) {
+        return res.status(400).json({ error: 'Source URL and extracted content are required' });
+      }
+
+      const platform = detectPlatform(sourceUrl);
+      
+      // Categorize the content using AI
+      console.log(`[SAVE CONTENT] Categorizing content from ${platform}: ${sourceUrl}`);
+      const categorized = await categorizeContent(extractedContent, platform);
+      
+      // Save to database
+      const savedContent = await storage.createUserSavedContent({
+        userId,
+        sourceUrl,
+        platform,
+        location: categorized.location,
+        city: categorized.city,
+        country: categorized.country,
+        neighborhood: categorized.neighborhood,
+        category: categorized.category,
+        subcategory: categorized.subcategory,
+        venues: categorized.venues,
+        budgetTier: categorized.budgetTier,
+        estimatedCost: categorized.estimatedCost,
+        rawContent: extractedContent.substring(0, 10000), // Limit stored content
+        title: categorized.title,
+        tags: categorized.tags,
+        userNotes: userNotes || null
+      });
+      
+      console.log(`[SAVE CONTENT] Saved content ${savedContent.id} for user ${userId}`);
+      console.log(`[SAVE CONTENT] Categorized: ${categorized.city}, ${categorized.category}, ${categorized.venues?.length || 0} venues`);
+
+      // Auto-create journal entry if requested
+      let journalEntryId = null;
+      if (autoJournal) {
+        try {
+          const journalContent = `Saved from ${platform}: ${categorized.title || 'Interesting content'}\n\n` +
+            `Location: ${categorized.city || categorized.location || 'Unknown'}\n` +
+            `Category: ${formatCategoryForDisplay(categorized.category)}\n` +
+            (categorized.venues?.length > 0 ? `Venues: ${categorized.venues.map((v: any) => v.name).join(', ')}\n` : '') +
+            (userNotes ? `\nMy notes: ${userNotes}` : '');
+          
+          const journalEntry = await storage.createJournalEntry({
+            userId,
+            content: journalContent,
+            category: 'travel_adventure',
+            tags: categorized.tags,
+            mood: 'excited'
+          });
+          journalEntryId = journalEntry.id;
+          
+          // Update saved content with journal entry reference
+          await storage.updateUserSavedContent(savedContent.id, userId, {
+            journalEntryId
+          });
+          
+          console.log(`[SAVE CONTENT] Created journal entry ${journalEntryId}`);
+        } catch (journalError) {
+          console.error('[SAVE CONTENT] Error creating journal entry:', journalError);
+        }
+      }
+
+      res.json({
+        success: true,
+        savedContent: {
+          ...savedContent,
+          categoryDisplay: formatCategoryForDisplay(categorized.category),
+          budgetDisplay: formatBudgetTierForDisplay(categorized.budgetTier)
+        },
+        journalEntryId
+      });
+    } catch (error) {
+      console.error('Save content error:', error);
+      res.status(500).json({ error: 'Failed to save content' });
+    }
+  });
+
+  // Get user's saved content (with filters)
+  app.get('/api/user/saved-content', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { city, location, category, platform, limit } = req.query;
+      
+      const savedContent = await storage.getUserSavedContent(userId, {
+        city: city as string,
+        location: location as string,
+        category: category as string,
+        platform: platform as string,
+        limit: limit ? parseInt(limit as string) : undefined
+      });
+
+      res.json({
+        savedContent: savedContent.map((item: any) => ({
+          ...item,
+          categoryDisplay: formatCategoryForDisplay(item.category),
+          budgetDisplay: formatBudgetTierForDisplay(item.budgetTier)
+        }))
+      });
+    } catch (error) {
+      console.error('Get saved content error:', error);
+      res.status(500).json({ error: 'Failed to fetch saved content' });
+    }
+  });
+
+  // Get user's saved locations (for planning dropdown)
+  app.get('/api/user/saved-locations', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const locations = await storage.getUserSavedLocations(userId);
+      res.json({ locations });
+    } catch (error) {
+      console.error('Get saved locations error:', error);
+      res.status(500).json({ error: 'Failed to fetch saved locations' });
+    }
+  });
+
+  // Get user's saved categories
+  app.get('/api/user/saved-categories', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const categories = await storage.getUserSavedCategories(userId);
+      res.json({ 
+        categories: categories.map((c: any) => ({
+          ...c,
+          display: formatCategoryForDisplay(c.category)
+        }))
+      });
+    } catch (error) {
+      console.error('Get saved categories error:', error);
+      res.status(500).json({ error: 'Failed to fetch saved categories' });
+    }
+  });
+
+  // Get preferences for a specific location (used by planning agent)
+  app.get('/api/user/preferences', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { location, city, category } = req.query;
+      
+      if (!location && !city) {
+        return res.status(400).json({ error: 'Location or city parameter required' });
+      }
+
+      const savedContent = await storage.getUserSavedContent(userId, {
+        city: city as string,
+        location: location as string,
+        category: category as string,
+        limit: 20
+      });
+
+      // Format preferences for the planning agent
+      const preferences = {
+        location: city || location,
+        savedItems: savedContent.length,
+        venues: savedContent.flatMap((item: any) => item.venues || []),
+        categories: [...new Set(savedContent.map((item: any) => item.category))],
+        budgetTiers: [...new Set(savedContent.filter((item: any) => item.budgetTier).map((item: any) => item.budgetTier))],
+        summary: savedContent.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          venues: item.venues?.map((v: any) => v.name) || [],
+          budgetTier: item.budgetTier
+        }))
+      };
+
+      res.json({ preferences });
+    } catch (error) {
+      console.error('Get preferences error:', error);
+      res.status(500).json({ error: 'Failed to fetch preferences' });
+    }
+  });
+
+  // Delete saved content
+  app.delete('/api/user/saved-content/:contentId', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { contentId } = req.params;
+      
+      await storage.deleteUserSavedContent(contentId, userId);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete saved content error:', error);
+      res.status(500).json({ error: 'Failed to delete saved content' });
+    }
+  });
+
+  // Track when saved content is referenced in a plan
+  app.post('/api/user/saved-content/:contentId/reference', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { contentId } = req.params;
+      
+      // Verify ownership
+      const content = await storage.getUserSavedContentById(contentId, userId);
+      if (!content) {
+        return res.status(404).json({ error: 'Content not found' });
+      }
+      
+      await storage.incrementContentReferenceCount(contentId);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Reference content error:', error);
+      res.status(500).json({ error: 'Failed to track reference' });
     }
   });
 
