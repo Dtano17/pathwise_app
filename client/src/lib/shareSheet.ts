@@ -8,6 +8,21 @@
 import { Share, ShareResult } from '@capacitor/share';
 import { isNative, isIOS } from './platform';
 
+// Import the share extension plugin for iOS
+let ShareExtension: any = null;
+try {
+  // Dynamic import for native only
+  if (typeof window !== 'undefined' && (window as any).Capacitor) {
+    import('capacitor-share-extension').then(module => {
+      ShareExtension = module.ShareExtension;
+    }).catch(() => {
+      console.log('[SHARE] capacitor-share-extension not available');
+    });
+  }
+} catch (e) {
+  // Not available on this platform
+}
+
 export interface ShareData {
   title?: string;
   text?: string;
@@ -268,22 +283,66 @@ export function initIncomingShareListener(): void {
 
 /**
  * Check for pending iOS shares from Share Extension
- * Requires AppGroupPlugin (see IOS_SHARE_EXTENSION_GUIDE.md)
+ * Uses capacitor-share-extension plugin for iOS
  */
 async function checkIOSPendingShare(): Promise<void> {
   if (!isIOS()) return;
   
   try {
-    // This requires AppGroupPlugin implementation
-    // See IOS_SHARE_EXTENSION_GUIDE.md for setup instructions
-    if ((window as any).Capacitor?.Plugins?.AppGroupPlugin) {
+    // Try capacitor-share-extension plugin first
+    if (ShareExtension) {
+      const result = await ShareExtension.checkSendIntentReceived();
+      
+      if (result && result.payload && result.payload.length > 0) {
+        const items = result.payload;
+        console.log('[SHARE iOS] Received share items:', items);
+        
+        // Process the first item (or could combine multiple)
+        const firstItem = items[0];
+        
+        if (firstItem.url) {
+          setPendingShareData({
+            type: 'url',
+            url: firstItem.url,
+            title: firstItem.title,
+          });
+        } else if (firstItem.text) {
+          // Check if text contains a URL
+          const urlMatch = firstItem.text.match(/https?:\/\/[^\s]+/);
+          if (urlMatch) {
+            setPendingShareData({
+              type: 'url',
+              url: urlMatch[0],
+              text: firstItem.text,
+              title: firstItem.title,
+            });
+          } else {
+            setPendingShareData({
+              type: 'text',
+              text: firstItem.text,
+              title: firstItem.title,
+            });
+          }
+        } else if (firstItem.webPath) {
+          setPendingShareData({
+            type: 'file',
+            files: items.map((i: any) => i.webPath).filter(Boolean),
+            title: firstItem.title,
+          });
+        }
+        
+        // Clear the share data after processing
+        await ShareExtension.finish();
+      }
+    } else if ((window as any).Capacitor?.Plugins?.AppGroupPlugin) {
+      // Fallback to AppGroupPlugin for older implementations
       const result = await (window as any).Capacitor.Plugins.AppGroupPlugin.getSharedData();
       
       if (result?.data) {
         setPendingShareData(result.data);
       }
     } else {
-      console.warn('[SHARE] AppGroupPlugin not found. See IOS_SHARE_EXTENSION_GUIDE.md for setup.');
+      console.log('[SHARE] No iOS share extension plugin available');
     }
   } catch (error) {
     console.error('[SHARE] Failed to check iOS pending share:', error);
