@@ -9,6 +9,7 @@ import {
   type IncomingShareData 
 } from '@/lib/shareSheet';
 import { useLocation } from 'wouter';
+import { isSocialMediaUrl, extractUrlFromText } from '@/components/SocialMediaShareDialog';
 
 export interface ParsedTask {
   title: string;
@@ -29,13 +30,15 @@ export interface ParsedPlan {
 }
 
 export interface ImportState {
-  status: 'idle' | 'loading' | 'parsed' | 'saving' | 'success' | 'error';
+  status: 'idle' | 'loading' | 'parsed' | 'saving' | 'success' | 'error' | 'social_media_choice';
   rawText?: string;
   parsedPlan?: ParsedPlan;
   importId?: string;
   error?: string;
   source?: string;
   upgradeRequired?: boolean;
+  socialMediaUrl?: string;
+  extractedContent?: string;
 }
 
 export interface ImportLimits {
@@ -280,24 +283,57 @@ export function useAIPlanImport() {
     setState({ status: 'idle' });
   }, []);
 
+  const handleIncomingText = useCallback((text: string) => {
+    const url = extractUrlFromText(text);
+    
+    if (url && isSocialMediaUrl(url)) {
+      setState({
+        status: 'social_media_choice',
+        rawText: text,
+        socialMediaUrl: url,
+        source: 'mobile_share'
+      });
+      setLocation('/import-plan');
+    } else {
+      startImport(text, 'mobile_share');
+      setLocation('/import-plan');
+    }
+  }, [startImport, setLocation]);
+
+  const setSocialMediaExtractedContent = useCallback((content: string) => {
+    setState(prev => ({
+      ...prev,
+      extractedContent: content
+    }));
+  }, []);
+
+  const dismissSocialMediaDialog = useCallback(() => {
+    setState({ status: 'idle' });
+  }, []);
+
+  const proceedWithPlan = useCallback(() => {
+    if (state.rawText) {
+      setState(prev => ({ ...prev, status: 'idle' }));
+      startImport(state.rawText, state.source || 'mobile_share');
+    }
+  }, [state.rawText, state.source, startImport]);
+
   useEffect(() => {
     if (hasPendingShareData()) {
       const shareData = consumePendingShareData();
       if (shareData?.text) {
-        startImport(shareData.text, 'mobile_share');
-        setLocation('/import-plan');
+        handleIncomingText(shareData.text);
       }
     }
 
     const cleanup = onIncomingShare((data: IncomingShareData) => {
       if (data.text) {
-        startImport(data.text, 'mobile_share');
-        setLocation('/import-plan');
+        handleIncomingText(data.text);
       }
     });
 
     return cleanup;
-  }, [startImport, setLocation]);
+  }, [handleIncomingText]);
 
   return {
     state,
@@ -310,10 +346,14 @@ export function useAIPlanImport() {
     confirmImport,
     cancel,
     reset,
+    setSocialMediaExtractedContent,
+    dismissSocialMediaDialog,
+    proceedWithPlan,
     isLoading: state.status === 'loading' || state.status === 'saving',
     isParsed: state.status === 'parsed',
     isSuccess: state.status === 'success',
-    isError: state.status === 'error'
+    isError: state.status === 'error',
+    isSocialMediaChoice: state.status === 'social_media_choice'
   };
 }
 

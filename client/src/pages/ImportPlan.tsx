@@ -29,6 +29,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAIPlanImport, useClipboardImport, type ParsedTask } from '@/hooks/useAIPlanImport';
 import { motion, AnimatePresence } from 'framer-motion';
+import { SocialMediaShareDialog } from '@/components/SocialMediaShareDialog';
 
 function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
@@ -317,10 +318,13 @@ export default function ImportPlan() {
     confirmImport,
     cancel,
     reset,
+    dismissSocialMediaDialog,
+    proceedWithPlan,
     isLoading,
     isParsed,
     isSuccess,
-    isError
+    isError,
+    isSocialMediaChoice
   } = useAIPlanImport();
 
   const [showAddTask, setShowAddTask] = useState(false);
@@ -582,6 +586,14 @@ export default function ImportPlan() {
           </div>
         </div>
       )}
+
+      <SocialMediaShareDialog
+        isOpen={isSocialMediaChoice}
+        onClose={dismissSocialMediaDialog}
+        url={state.socialMediaUrl || ''}
+        extractedContent={state.extractedContent || state.rawText || ''}
+        onPlanNow={proceedWithPlan}
+      />
     </div>
   );
 }
