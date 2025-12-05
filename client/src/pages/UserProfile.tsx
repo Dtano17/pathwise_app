@@ -58,6 +58,46 @@ interface UserProfile {
   lastActiveDate: string;
 }
 
+// ProfileEditSection moved outside to prevent re-renders on form input changes
+function ProfileEditSection({ 
+  title, 
+  sectionKey,
+  editingSection,
+  setEditingSection,
+  children 
+}: { 
+  title: string;
+  sectionKey: string;
+  editingSection: string | null;
+  setEditingSection: (section: string | null) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-base font-medium">{title}</CardTitle>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            if (editingSection === sectionKey) {
+              setEditingSection(null);
+            } else {
+              setEditingSection(sectionKey);
+            }
+          }}
+          data-testid={`button-edit-${sectionKey}`}
+        >
+          {editingSection === sectionKey ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function UserProfile() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
@@ -244,39 +284,6 @@ export default function UserProfile() {
     });
   };
 
-  const ProfileEditSection = ({ 
-    title, 
-    sectionKey, 
-    children 
-  }: { 
-    title: string;
-    sectionKey: string;
-    children: React.ReactNode;
-  }) => (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-base font-medium">{title}</CardTitle>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            if (editingSection === sectionKey) {
-              setEditingSection(null);
-            } else {
-              setEditingSection(sectionKey);
-            }
-          }}
-          data-testid={`button-edit-${sectionKey}`}
-        >
-          {editingSection === sectionKey ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {children}
-      </CardContent>
-    </Card>
-  );
-
   return (
     <div className="container mx-auto p-6 max-w-4xl" data-testid="page-user-profile">
       <div className="flex items-center gap-4 mb-6">
@@ -422,7 +429,7 @@ export default function UserProfile() {
 
             {/* Personal Information Tab */}
             <TabsContent value="personal" className="space-y-4">
-              <ProfileEditSection title="Basic Information" sectionKey="basic">
+              <ProfileEditSection title="Basic Information" sectionKey="basic" editingSection={editingSection} setEditingSection={setEditingSection}>
                 {editingSection === 'basic' ? (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -512,7 +519,7 @@ export default function UserProfile() {
                 )}
               </ProfileEditSection>
 
-              <ProfileEditSection title="Personal Details" sectionKey="details">
+              <ProfileEditSection title="Personal Details" sectionKey="details" editingSection={editingSection} setEditingSection={setEditingSection}>
                 {editingSection === 'details' ? (
                   <div className="space-y-4">
                     <div>
@@ -665,7 +672,7 @@ export default function UserProfile() {
 
             {/* Private Notes Tab */}
             <TabsContent value="private" className="space-y-4">
-              <ProfileEditSection title="Private Notes" sectionKey="private">
+              <ProfileEditSection title="Private Notes" sectionKey="private" editingSection={editingSection} setEditingSection={setEditingSection}>
                 {editingSection === 'private' ? (
                   <div className="space-y-4">
                     <div>
