@@ -108,6 +108,11 @@ export default function LandingPage() {
                 Discover
               </Button>
             </Link>
+            <Link href="/import-plan">
+              <Button variant="ghost" size="sm" data-testid="link-import">
+                Import
+              </Button>
+            </Link>
           </div>
           <div className="flex items-center gap-2 ml-auto">
             <ThemeToggle />

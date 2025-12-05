@@ -453,6 +453,14 @@ export default function ImportPlan() {
   const { toast } = useToast();
   const { user, isAuthenticated, login, isLoading: authLoading } = useAuth();
   
+  // Redirect to login if not authenticated (protected route)
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      // Use router navigation instead of window.location to avoid full page reload
+      setLocation('/login?returnTo=/import-plan');
+    }
+  }, [authLoading, isAuthenticated, setLocation]);
+  
   const {
     state,
     limits,
@@ -620,6 +628,34 @@ export default function ImportPlan() {
   };
 
   const isProcessing = isLoading || extractingContent || generatePlanMutation.isPending;
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="h-screen overflow-auto bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-slate-900 dark:via-slate-900 dark:to-purple-950">
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto mb-4" />
+            <p className="text-slate-600 dark:text-slate-400">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render content if not authenticated (redirect will happen)
+  if (!isAuthenticated) {
+    return (
+      <div className="h-screen overflow-auto bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-slate-900 dark:via-slate-900 dark:to-purple-950">
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto mb-4" />
+            <p className="text-slate-600 dark:text-slate-400">Redirecting to login...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen overflow-auto bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-slate-900 dark:via-slate-900 dark:to-purple-950">

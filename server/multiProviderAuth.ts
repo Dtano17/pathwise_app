@@ -484,7 +484,15 @@ export async function setupMultiProviderAuth(app: Express) {
       
       // Append auth success parameter
       const separator = returnTo.includes('?') ? '&' : '?';
-      res.redirect(`${returnTo}${separator}auth=success&provider=google`);
+      const redirectUrl = `${returnTo}${separator}auth=success&provider=google`;
+      
+      // Explicitly save session before redirecting to ensure persistence
+      req.session.save((err) => {
+        if (err) {
+          console.error('[Google OAuth] Session save error:', err);
+        }
+        res.redirect(redirectUrl);
+      });
     }
   );
 

@@ -11522,6 +11522,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           
           const journalEntry = await storage.createJournalEntry({
             userId,
+            date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
             content: journalContent,
             category: 'travel_adventure',
             tags: [platform.toLowerCase(), planResult.goalCategory || 'planning'],

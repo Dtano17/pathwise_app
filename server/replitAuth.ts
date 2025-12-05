@@ -10,6 +10,13 @@ import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 import { sendWelcomeEmail } from "./emailService";
 
+// Extend express-session types to include returnTo
+declare module 'express-session' {
+  interface SessionData {
+    returnTo?: string;
+  }
+}
+
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
 }
@@ -33,14 +40,22 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  // Determine if we should use secure cookies
+  // In Replit, NODE_ENV is 'production' but we might be accessed via HTTP tunnel
+  // Check if we're in a Replit environment and allow non-secure cookies for dev testing
+  const isReplitDev = process.env.REPL_ID && process.env.NODE_ENV === 'development';
+  const forceSecure = process.env.SESSION_SECURE === 'true';
+  
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    proxy: true, // Trust the proxy for secure cookie detection
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: forceSecure || (!isReplitDev && process.env.NODE_ENV === 'production'),
+      sameSite: 'lax', // Required for OAuth redirects to work properly
       maxAge: sessionTtl,
     },
   });
@@ -162,6 +177,11 @@ export async function setupAuth(app: Express) {
   };
 
   app.get("/api/login", (req, res, next) => {
+    // Store returnTo in session if provided (validate to prevent open redirect)
+    const returnTo = req.query.returnTo as string;
+    if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+      req.session.returnTo = returnTo;
+    }
     passport.authenticate(getDomainStrategy(req.hostname), {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
@@ -170,9 +190,22 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/callback", (req, res, next) => {
     passport.authenticate(getDomainStrategy(req.hostname), {
-      successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
-    })(req, res, next);
+    })(req, res, (err: any) => {
+      if (err) return next(err);
+      
+      // Get returnTo from session or default to home
+      const returnTo = req.session.returnTo || '/';
+      delete req.session.returnTo; // Clean up
+      
+      // Save session before redirecting to ensure persistence
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('[Replit Auth] Session save error:', saveErr);
+        }
+        res.redirect(returnTo);
+      });
+    });
   });
 
   // Handle logout for Replit auth (GET request from Replit)
