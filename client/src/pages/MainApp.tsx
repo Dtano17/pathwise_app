@@ -1389,7 +1389,7 @@ export default function MainApp({
     { value: "tasks", label: `All Tasks (${tasks.length})`, shortLabel: "Tasks", icon: Target },
     { value: "progress", label: "Progress", shortLabel: "Stats", icon: BarChart3 },
     { value: "groups", label: "Groups", shortLabel: "Groups", icon: Users },
-    { value: "sync", label: "Import", shortLabel: "Import", icon: Download },
+    { value: "sync", label: "Integrations", shortLabel: "Integrate", icon: Plug },
     { value: "about", label: "About", shortLabel: "About", icon: Sparkles }
   ];
 
@@ -2094,29 +2094,27 @@ export default function MainApp({
                                     : 'text-muted-foreground group-hover:text-red-600 group-hover:scale-105'
                                 }`} />
                               </Button>
-                              {progressPercent > 0 && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setJournalActivityContext({
-                                      activityId: activity.id,
-                                      title: activity.title
-                                    });
-                                    setShowJournalMode(true);
-                                  }}
-                                  data-testid={`button-journal-${activity.id}`}
-                                  title="Journal about this activity"
-                                  className={`transition-all duration-300 ${
-                                    progressPercent === 100
-                                      ? 'text-purple-600 animate-pulse hover:scale-110'
-                                      : 'hover:text-purple-600'
-                                  }`}
-                                >
-                                  <BookOpen className="w-4 h-4" />
-                                </Button>
-                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setJournalActivityContext({
+                                    activityId: activity.id,
+                                    title: activity.title
+                                  });
+                                  setShowJournalMode(true);
+                                }}
+                                data-testid={`button-journal-${activity.id}`}
+                                title="Journal about this activity"
+                                className={`transition-all duration-300 ${
+                                  progressPercent === 100
+                                    ? 'text-purple-600 animate-pulse hover:scale-110'
+                                    : 'hover:text-purple-600'
+                                }`}
+                              >
+                                <BookOpen className="w-4 h-4" />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"

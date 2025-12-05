@@ -25,7 +25,8 @@ import {
   Puzzle,
   Megaphone,
   Compass,
-  Upload
+  Upload,
+  Plug
 } from "lucide-react";
 import { SiApple, SiGoogleplay } from "react-icons/si";
 import { motion } from "framer-motion";
@@ -76,7 +77,7 @@ const features = [
   },
   {
     icon: Instagram,
-    title: "Import & Transform Content",
+    title: "Integrate & Transform Content",
     description: "Share TikTok videos, Instagram Reels, posts, stories, and content from anywhere you get inspiration. We'll journal it for you so you can plan with it and track your progress.",
     color: "text-cyan-500",
     bgColor: "bg-cyan-100 dark:bg-cyan-900/30"
@@ -129,10 +130,10 @@ export default function LandingPage() {
               <Button 
                 size="sm" 
                 className="gap-1.5 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white text-xs sm:text-sm px-2.5 sm:px-3 relative"
-                data-testid="link-import"
+                data-testid="link-integrate"
               >
-                <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span>Import</span>
+                <Plug className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>Integrate</span>
                 <Badge className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[10px] px-1.5 py-0 h-4 border-0">
                   New
                 </Badge>
@@ -297,7 +298,7 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
-              { step: "1", title: "Create or Import", description: "Use our AI agent for Quick/Smart Plan, or paste from ChatGPT, Claude, Perplexity, and social media." },
+              { step: "1", title: "Create or Integrate", description: "Use our AI agent for Quick/Smart Plan, or paste from ChatGPT, Claude, Perplexity, and social media." },
               { step: "2", title: "We Devise Your Plan", description: "JournalMate transforms raw ideas into actionable tasks, priorities, and deadlines tailored to your goals." },
               { step: "3", title: "Track & Celebrate", description: "Check off tasks, view your progress dashboard, and share wins with friends. Earn badges and streaks." }
             ].map((item, index) => (
@@ -498,7 +499,7 @@ export default function LandingPage() {
             </motion.div>
           </div>
 
-          {/* Import & Extension Section */}
+          {/* Integrations & Extension Section */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -539,7 +540,7 @@ export default function LandingPage() {
                   <div className="w-12 h-12 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center mx-auto mb-4">
                     <Instagram className="w-6 h-6 text-pink-500" />
                   </div>
-                  <h4 className="font-semibold mb-2">Import from Social Media</h4>
+                  <h4 className="font-semibold mb-2">Integrate Social Media</h4>
                   <p className="text-sm text-muted-foreground">
                     Share from Instagram, TikTok, LinkedIn, and other platforms
                   </p>
@@ -638,7 +639,7 @@ export default function LandingPage() {
               </span>
             </div>
             
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Smart Content Import & Creative Planning</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Smart Content Integration & Creative Planning</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Copy any content from social media or AI apps and JournalMate instantly transforms it into actionable plans.
             </p>

@@ -54,7 +54,7 @@ const AVAILABLE_QUICK_ACTIONS: Record<string, Omit<QuickAction, 'action'>> = {
   allTasks: { id: 'allTasks', name: 'All Tasks', icon: CheckSquare, href: '/?tab=tasks', testId: 'button-all-tasks-quick' },
   progress: { id: 'progress', name: 'Progress', icon: BarChart3, href: '/?tab=progress', testId: 'button-progress-quick' },
   groups: { id: 'groups', name: 'Groups', icon: Users, href: '/?tab=groups', testId: 'button-groups-quick' },
-  integrations: { id: 'integrations', name: 'Import', icon: Download, href: '/?tab=sync', testId: 'button-import-quick' },
+  integrations: { id: 'integrations', name: 'Integrations', icon: Plug, href: '/?tab=sync', testId: 'button-integrations-quick' },
 };
 
 interface AppSidebarProps {

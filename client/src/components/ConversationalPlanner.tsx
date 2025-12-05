@@ -193,6 +193,29 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
 
   const journalEntries = journalEntriesData?.entries || [];
 
+  // Fetch activity details when activityId is provided (for journal progress display)
+  const { data: activityDetails } = useQuery<{ 
+    id: string; 
+    title: string; 
+    description: string; 
+    status: string; 
+    userLiked?: boolean;
+    tasks: Array<{ id: string; title: string; completed: boolean; priority: string }>;
+  }>({
+    queryKey: ['/api/activities', activityId],
+    enabled: planningMode === 'journal' && !!activityId,
+  });
+
+  // Calculate activity progress for journal display
+  const activityProgress = activityDetails && activityDetails.tasks ? {
+    totalTasks: activityDetails.tasks.length,
+    completedTasks: activityDetails.tasks.filter((t: any) => t.completed).length,
+    incompleteTasks: activityDetails.tasks.filter((t: any) => !t.completed),
+    completedTasksList: activityDetails.tasks.filter((t: any) => t.completed),
+    isLiked: activityDetails.userLiked || false,
+    status: activityDetails.status || 'active'
+  } : null;
+
 
   // Calculate plan generation readiness (must be before useEffect that uses it)
   const requiredSlotsFilled = contextChips.filter(chip => chip.category === 'required' && chip.filled).length;
@@ -1439,6 +1462,20 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                       </Badge>
                     )}
                   </div>
+                  {/* Activity Progress Summary */}
+                  {activityProgress && activityProgress.totalTasks > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <Badge variant="secondary" className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                        <Check className="h-3 w-3 mr-1" />
+                        {activityProgress.completedTasks}/{activityProgress.totalTasks} done
+                      </Badge>
+                      {activityProgress.isLiked && (
+                        <Badge variant="secondary" className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                          ❤️ Liked
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                   {isSavingJournal && (
                     <Badge variant="secondary" className="text-xs animate-pulse">
                       <RefreshCcw className="h-3 w-3 mr-1 animate-spin" />
@@ -1451,6 +1488,59 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                     ? "Capture your thoughts and experiences about this activity"
                     : "Type freely. Use @keywords like @restaurants, @travel, @music for smart categorization"}
                 </CardDescription>
+                
+                {/* Activity Task Breakdown for Journal */}
+                {activityProgress && activityProgress.totalTasks > 0 && (
+                  <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg space-y-2">
+                    <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Activity Summary</p>
+                    
+                    {/* Completed Tasks */}
+                    {activityProgress.completedTasksList.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
+                          <Check className="h-3 w-3" /> Completed ({activityProgress.completedTasksList.length})
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {activityProgress.completedTasksList.slice(0, 5).map((task: any) => (
+                            <Badge key={task.id} variant="secondary" className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                              {task.title.length > 25 ? task.title.substring(0, 25) + '...' : task.title}
+                            </Badge>
+                          ))}
+                          {activityProgress.completedTasksList.length > 5 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{activityProgress.completedTasksList.length - 5} more
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Incomplete Tasks */}
+                    {activityProgress.incompleteTasks.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> Still to do ({activityProgress.incompleteTasks.length})
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {activityProgress.incompleteTasks.slice(0, 3).map((task: any) => (
+                            <Badge key={task.id} variant="outline" className="text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700">
+                              {task.title.length > 25 ? task.title.substring(0, 25) + '...' : task.title}
+                            </Badge>
+                          ))}
+                          {activityProgress.incompleteTasks.length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{activityProgress.incompleteTasks.length - 3} more
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                      Reflect on what you completed and what you might do differently next time!
+                    </p>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-3">
             <div className="space-y-2 relative">

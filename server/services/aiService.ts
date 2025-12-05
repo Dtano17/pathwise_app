@@ -1372,13 +1372,28 @@ You may ONLY add tasks for:
 Before generating tasks, mentally list every venue, activity, and price from the OCR and caption. Each one MUST become a task.
 ` : "";
 
+      // Detect if this is a URL import (starts with "URL:" or contains "Content from URL:")
+      const isUrlImport = goalText.startsWith("URL:") || goalText.includes("Content from URL:");
+      
+      const titleInstructions = isUrlImport
+        ? `"planTitle": "EXTRACT the actual title from the URL content - use the main headline, article title, or Instagram post topic (e.g., '18 Hot New Lagos Restaurants', 'Weekend Brunch Guide', 'Fitness Transformation Plan'). NEVER use 'Generated Plan', 'Plan from URL', or generic titles!",`
+        : `"planTitle": "A catchy, concise title for this action plan (3-5 words)",`;
+
       const prompt = `You are an AI productivity assistant. Transform the user's goal or intention into specific, actionable tasks with realistic time estimates.${groundingRules}
 
 User's ${existingActivity ? 'refinement request' : 'goal'}: "${goalText}"${prioritiesContext}${personalizationContext}${existingActivityContext}
 
-Analyze this goal and respond with JSON in this exact format:
+${isUrlImport ? `## IMPORTANT: URL CONTENT DETECTED
+Extract the ACTUAL TITLE from the content. Look for:
+- The main headline or article title
+- Instagram post topic (e.g., "18 hot new Lagos restaurants")
+- YouTube video title
+- The central theme of the content
+NEVER use generic titles like "Generated Plan", "Plan from URL", "New Activity", etc.
+
+` : ''}Analyze this goal and respond with JSON in this exact format:
 {
-  "planTitle": "A catchy, concise title for this action plan (3-5 words)",
+  ${titleInstructions}
   "summary": "A brief, motivating summary of what this plan will accomplish (1-2 sentences)",
   "tasks": [
     {
