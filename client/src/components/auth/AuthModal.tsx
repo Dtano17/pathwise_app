@@ -7,7 +7,6 @@ import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Mail, Lock, Phone, User, Eye, EyeOff } from 'lucide-react'
 import { FcGoogle } from 'react-icons/fc'
-import { FaFacebook, FaGithub, FaApple, FaTwitter } from 'react-icons/fa'
 import {
   signInWithEmail,
   signUpWithEmail,
@@ -213,61 +212,24 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
             </Alert>
           )}
 
-          {/* Social Sign-in Providers */}
+          {/* Social Sign-in Providers - Email and Google Only */}
           {(mode === 'signin' || mode === 'signup') && (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => handleProviderSignIn('google')}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <FcGoogle className="w-4 h-4 mr-2" />
-                  Google
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleProviderSignIn('facebook')}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <FaFacebook className="w-4 h-4 mr-2 text-blue-600" />
-                  Facebook
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => handleProviderSignIn('github')}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <FaGithub className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleProviderSignIn('apple')}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <FaApple className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleProviderSignIn('twitter')}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <FaTwitter className="w-4 h-4 text-blue-400" />
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                onClick={() => handleProviderSignIn('google')}
+                disabled={loading}
+                className="w-full"
+                data-testid="button-google-signin"
+              >
+                <FcGoogle className="w-5 h-5 mr-2" />
+                Continue with Google
+              </Button>
 
               <div className="relative">
                 <Separator />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="bg-background px-2 text-muted-foreground text-sm">or</span>
+                  <span className="bg-background px-2 text-muted-foreground text-sm">or continue with email</span>
                 </div>
               </div>
             </>

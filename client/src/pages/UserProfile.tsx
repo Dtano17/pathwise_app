@@ -81,34 +81,42 @@ export default function UserProfile() {
     privateBio: '',
   });
   
+  // Track if form has been initialized from profile data
+  const formInitialized = useRef(false);
+  
   // Get full user profile
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
     queryKey: ['/api/user/profile'],
     enabled: isAuthenticated,
-    onSuccess: (data) => {
-      if (data) {
-        setFormData({
-          firstName: data.firstName || '',
-          lastName: data.lastName || '',
-          nickname: data.nickname || '',
-          email: data.email || '',
-          publicBio: data.publicBio || '',
-          birthDate: data.birthDate || '',
-          height: data.height || '',
-          weight: data.weight || '',
-          ethnicity: data.ethnicity || '',
-          location: data.location || '',
-          occupation: data.occupation || '',
-          privateBio: data.privateBio || '',
-        });
-      }
-    },
   });
+  
+  // Initialize form data from profile only once when profile first loads
+  useEffect(() => {
+    if (profile && !formInitialized.current) {
+      setFormData({
+        firstName: profile.firstName || '',
+        lastName: profile.lastName || '',
+        nickname: profile.nickname || '',
+        email: profile.email || '',
+        publicBio: profile.publicBio || '',
+        birthDate: profile.birthDate || '',
+        height: profile.height || '',
+        weight: profile.weight || '',
+        ethnicity: profile.ethnicity || '',
+        location: profile.location || '',
+        occupation: profile.occupation || '',
+        privateBio: profile.privateBio || '',
+      });
+      formInitialized.current = true;
+    }
+  }, [profile]);
 
   const updateProfileMutation = useMutation({
     mutationFn: (updates: Partial<UserProfile>) => 
       apiRequest('PUT', '/api/user/profile', updates),
     onSuccess: () => {
+      // Reset form initialized flag so it picks up new data after save
+      formInitialized.current = false;
       queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
       setIsEditing(false);
       setEditingSection(null);
