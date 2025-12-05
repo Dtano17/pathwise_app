@@ -121,7 +121,7 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 <tr>
                   <td class="content-padding" style="padding:0 40px 20px">
                     <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6"><strong>You're now part of a community that turns social content into life experiences.</strong></p>
-                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6">Welcome to JournalMate—your journal-first planning companion. Share an Instagram Reel, TikTok, or YouTube video, and we'll automatically create a journal entry. From there, build actionable plans, get smart reminders with weather context, and celebrate your completed experiences.</p>
+                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6">Welcome to JournalMate—your journal-first planning companion. Share TikTok videos, Instagram Reels, posts, stories, and content from anywhere you get inspiration. We'll journal it for you so you can plan with it and track your progress. Get smart reminders with weather context, and celebrate your completed experiences.</p>
                   </td>
                 </tr>
 

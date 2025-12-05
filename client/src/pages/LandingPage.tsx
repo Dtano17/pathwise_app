@@ -74,7 +74,7 @@ const features = [
   {
     icon: Instagram,
     title: "Import & Transform Content",
-    description: "Share TikTok, Instagram Reels, or YouTube videos to auto-create journal entries. Import from ChatGPT, Claude, or any AI app and transform content into actionable plans with real pricing.",
+    description: "Share TikTok videos, Instagram Reels, posts, stories, and content from anywhere you get inspiration. We'll journal it for you so you can plan with it and track your progress.",
     color: "text-cyan-500",
     bgColor: "bg-cyan-100 dark:bg-cyan-900/30"
   }

@@ -35,12 +35,12 @@ const updates: UpdateEntry[] = [
     date: 'November 2025',
     title: 'Social Media Import',
     category: 'feature',
-    description: 'Import plans directly from Instagram, TikTok, and other social media apps. Share images or videos with captions to JournalMate and our AI will extract actionable tasks automatically.',
+    description: 'Share TikTok videos, Instagram Reels, posts, stories, and content from anywhere you get inspiration. We\'ll journal it for you so you can plan with it and track your progress.',
     highlights: [
-      'Share images with text overlays - AI reads them with OCR',
-      'Share videos with spoken content - AI transcribes and extracts tasks',
-      'Caption text is automatically merged with extracted content',
-      'Works with any app that supports Android/iOS share sheets'
+      'Share videos and images from TikTok, Instagram, and more',
+      'Automatically creates journal entries from your shared content',
+      'Turn saved inspiration into actionable plans',
+      'Track your progress on activities you discover'
     ],
     icon: <ImagePlus className="w-6 h-6 text-pink-500" />,
     isNew: true
@@ -50,12 +50,12 @@ const updates: UpdateEntry[] = [
     date: 'November 2025',
     title: 'Plan Remix',
     category: 'feature',
-    description: 'Combine multiple community plans into one personalized plan. Select 2-10 plans, and our AI will intelligently merge tasks, remove duplicates, and create a cohesive action plan.',
+    description: 'Combine multiple community plans into one personalized plan. Select 2-10 plans and create a cohesive action plan that works for you.',
     highlights: [
-      'Multi-select mode in Discover - choose plans to remix',
-      'Smart duplicate detection - no repeated tasks',
-      'Attribution to original creators',
-      'Drag-and-drop task reordering before saving'
+      'Choose multiple plans from Discover to remix',
+      'Automatically removes duplicate tasks',
+      'Credits original plan creators',
+      'Reorder tasks before saving'
     ],
     icon: <Combine className="w-6 h-6 text-violet-500" />,
     isNew: true
@@ -65,12 +65,12 @@ const updates: UpdateEntry[] = [
     date: 'October 2025',
     title: 'Cross-Platform AI Import',
     category: 'feature',
-    description: 'Import AI-generated plans from ChatGPT, Claude, Gemini, and any other AI assistant. Our universal parser works with any format.',
+    description: 'Import AI-generated plans from ChatGPT, Claude, Gemini, and any other AI assistant. Copy and paste or share directly to JournalMate.',
     highlights: [
-      'Browser extension for Chrome, Firefox, Edge',
-      'Mobile share integration for iOS and Android',
-      'Automatic source detection',
-      'High-confidence task extraction'
+      'Works with any AI assistant output',
+      'Paste or share plans directly',
+      'Automatically organizes tasks for you',
+      'Start planning immediately'
     ],
     icon: <Sparkles className="w-6 h-6 text-purple-500" />
   },
