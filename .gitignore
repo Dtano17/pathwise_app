@@ -19,3 +19,8 @@ IP_DOCUMENTATION/
 *.trademark
 *_Deposit.pdf
 *_NDA.pdf
+
+# Android Signing
+*.jks
+*.keystore
+google-services.json
