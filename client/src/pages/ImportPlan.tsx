@@ -453,15 +453,6 @@ export default function ImportPlan() {
   const { toast } = useToast();
   const { user, isAuthenticated, login, isLoading: authLoading } = useAuth();
   
-  // Redirect unauthenticated users to login immediately
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      // Store current path so user returns after login
-      sessionStorage.setItem('redirectAfterLogin', '/import-plan');
-      setLocation('/login');
-    }
-  }, [authLoading, isAuthenticated, setLocation]);
-  
   // Store pending URL for auto-processing after login
   // Read from sessionStorage but don't remove yet - we'll remove after successful processing
   const [pendingUrl, setPendingUrl] = useState<string | null>(() => {
@@ -494,21 +485,30 @@ export default function ImportPlan() {
   const [planPreview, setPlanPreview] = useState<any>(null);
   const [showSignIn, setShowSignIn] = useState(false);
   
-  // Auto-process pending URL after authentication
+  // Auto-process pending content after authentication
   useEffect(() => {
     if (!authLoading && isAuthenticated && pendingUrl) {
-      // User just logged in with a pending URL - auto-process it
+      // User just logged in with pending content - auto-process it
       // Clear from sessionStorage first to prevent re-triggering on navigation
       sessionStorage.removeItem('pendingImportUrl');
-      setExtractingContent(true);
       
-      const urlToProcess = pendingUrl;
+      const contentToProcess = pendingUrl;
       setPendingUrl(null);
       
-      generatePlanMutation.mutate({
-        content: `URL to extract and plan: ${urlToProcess}`,
-        sourceUrl: urlToProcess
-      });
+      // Check if it's a URL or plain text
+      const extractedUrl = extractUrlFromText(contentToProcess);
+      
+      if (extractedUrl) {
+        // It's a URL - use the generate plan mutation
+        setExtractingContent(true);
+        generatePlanMutation.mutate({
+          content: `URL to extract and plan: ${extractedUrl}`,
+          sourceUrl: extractedUrl
+        });
+      } else if (contentToProcess.length > 20) {
+        // It's plain text - use the import flow
+        startImport(contentToProcess, 'clipboard');
+      }
     }
   }, [authLoading, isAuthenticated, pendingUrl]);
 
@@ -590,18 +590,39 @@ export default function ImportPlan() {
       const trimmedText = text.trim();
       const url = extractUrlFromText(trimmedText);
       
-      if (url && isSocialMediaUrl(url)) {
-        if (!isAuthenticated) {
-          setPlanPreview({
-            title: `Plan from ${detectPlatform(url)}`,
-            description: 'Content will be extracted and turned into actionable tasks',
-            taskCount: '6-9',
-            sourceUrl: url
-          });
-          setShowSignIn(true);
-          return;
-        }
+      // Auth check: redirect to sign in if not authenticated
+      // Store content for auto-processing after login
+      if (!isAuthenticated) {
+        const previewTitle = url 
+          ? `Plan from ${detectPlatform(url)}`
+          : 'Plan from Clipboard Content';
+        const previewDesc = url
+          ? 'Content will be extracted and turned into actionable tasks'
+          : 'Your text will be turned into actionable tasks';
         
+        // Store the content/URL for processing after login
+        sessionStorage.setItem('pendingImportUrl', url || trimmedText);
+        
+        setPlanPreview({
+          title: previewTitle,
+          description: previewDesc,
+          taskCount: '6-9',
+          sourceUrl: url || trimmedText
+        });
+        setShowSignIn(true);
+        return;
+      }
+      
+      // User is authenticated - process the content
+      if (url && isSocialMediaUrl(url)) {
+        setExtractingContent(true);
+        
+        generatePlanMutation.mutate({
+          content: `URL to extract and plan: ${url}`,
+          sourceUrl: url
+        });
+      } else if (url) {
+        // Non-social URL - still process it
         setExtractingContent(true);
         
         generatePlanMutation.mutate({
