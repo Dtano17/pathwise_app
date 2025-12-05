@@ -11424,7 +11424,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   app.post("/api/planner/generate-plan-from-content", async (req, res) => {
     try {
       const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
-      const { externalContent, userAnswers, mode } = req.body;
+      const { externalContent, userAnswers, mode, sourceUrl } = req.body;
 
       if (!externalContent || typeof externalContent !== 'string') {
         return res.status(400).json({ error: 'External content is required' });
@@ -11453,13 +11453,27 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         validMode
       );
 
+      // Check if source is a social media URL
+      const isSocialMedia = sourceUrl && typeof sourceUrl === 'string' && 
+        /instagram\.com|tiktok\.com|youtube\.com|youtu\.be/i.test(sourceUrl);
+      
+      // Build activity description including source URL if from social media
+      let activityDescription = planResult.summary || 'Generated plan';
+      if (isSocialMedia) {
+        const platform = sourceUrl.includes('instagram') ? 'Instagram' : 
+                        sourceUrl.includes('tiktok') ? 'TikTok' : 
+                        sourceUrl.includes('youtube') || sourceUrl.includes('youtu.be') ? 'YouTube' : 'Social Media';
+        activityDescription = `${activityDescription}\n\nSource: ${platform} - ${sourceUrl}`;
+      }
+      
       // Create activity and tasks
       const activity = await storage.createActivity({
         title: planResult.planTitle || 'Plan from External Content',
-        description: planResult.summary || 'Generated plan',
+        description: activityDescription,
         category: planResult.goalCategory || 'personal',
         status: 'planning',
-        userId
+        userId,
+        planSummary: planResult.summary || undefined
       });
 
       // Create tasks
@@ -11480,6 +11494,48 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         }
       }
 
+      // Auto-journal if source is a social media URL
+      let journalEntryId = null;
+      if (isSocialMedia) {
+        try {
+          const platform = sourceUrl.includes('instagram') ? 'Instagram' : 
+                         sourceUrl.includes('tiktok') ? 'TikTok' : 
+                         sourceUrl.includes('youtube') || sourceUrl.includes('youtu.be') ? 'YouTube' : 'Social Media';
+          
+          // Create journal entry with the FULL extracted content (caption, audio transcript, OCR, venues)
+          // plus the generated plan summary and tasks
+          const tasksList = createdTasks.map((t: any) => t.title).join('\n- ');
+          
+          // Build comprehensive journal content that includes:
+          // 1. The full raw extracted content (caption, audio transcript, OCR text)
+          // 2. The AI-generated summary
+          // 3. The task breakdown
+          const extractedContentPreview = externalContent.length > 2000 
+            ? externalContent.substring(0, 2000) + '...' 
+            : externalContent;
+          
+          const journalContent = `## Saved from ${platform}: ${activity.title}\n\n` +
+            `**Source:** ${sourceUrl}\n\n` +
+            `### Plan Summary\n${planResult.summary || 'No summary available'}\n\n` +
+            `### Tasks\n- ${tasksList}\n\n` +
+            `### Extracted Content\n${extractedContentPreview}`;
+          
+          const journalEntry = await storage.createJournalEntry({
+            userId,
+            content: journalContent,
+            category: 'travel_adventure',
+            tags: [platform.toLowerCase(), planResult.goalCategory || 'planning'],
+            mood: 'excited'
+          });
+          journalEntryId = journalEntry.id;
+          
+          console.log(`[AUTO-JOURNAL] Created journal entry ${journalEntryId} from ${platform} URL for activity ${activity.id}`);
+        } catch (journalError) {
+          console.error('[AUTO-JOURNAL] Error creating journal entry:', journalError);
+          // Don't fail the whole request if journaling fails
+        }
+      }
+
       res.json({
         success: true,
         plan: planResult,
@@ -11488,7 +11544,8 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           title: activity.title
         },
         createdTasks,
-        message: `Created "${activity.title}" with ${createdTasks.length} tasks`
+        journalEntryId,
+        message: `Created "${activity.title}" with ${createdTasks.length} tasks${journalEntryId ? ' and added to journal' : ''}`
       });
     } catch (error) {
       console.error('Error generating plan from content:', error);

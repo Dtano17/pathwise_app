@@ -96,6 +96,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   
   // External Content & Curated Questions State
   const [externalContent, setExternalContent] = useState<string | null>(null);
+  const [externalSourceUrl, setExternalSourceUrl] = useState<string | null>(null);
   const [curatedQuestions, setCuratedQuestions] = useState<Array<{
     id: string;
     question: string;
@@ -816,7 +817,8 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
         body: JSON.stringify({
           externalContent,
           userAnswers: curatedQuestionsAnswers,
-          mode: planningMode === 'quick' ? 'quick' : 'smart'
+          mode: planningMode === 'quick' ? 'quick' : 'smart',
+          sourceUrl: externalSourceUrl
         })
       });
       
@@ -832,12 +834,15 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       setCuratedQuestions([]);
       setCuratedQuestionsAnswers({});
       setExternalContent(null);
+      setExternalSourceUrl(null);
       
       queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/journal'] });
       
+      const hasJournal = data.journalEntryId;
       toast({
-        title: "Plan Created!",
+        title: hasJournal ? "Plan Created & Journaled!" : "Plan Created!",
         description: data.message || `Created ${data.activity?.title} with ${data.createdTasks?.length} tasks`,
         action: data.activity?.id ? (
           <Button 
@@ -868,6 +873,13 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     
     if (detectedUrl && (planningMode === 'quick' || planningMode === 'smart')) {
       setIsLoadingCuratedQuestions(true);
+      
+      // Store the URL for auto-journaling if it's a social media URL
+      const isSocialMediaUrl = /instagram\.com|tiktok\.com|youtube\.com|youtu\.be/i.test(detectedUrl);
+      if (isSocialMediaUrl) {
+        setExternalSourceUrl(detectedUrl);
+      }
+      
       try {
         const response = await fetch('/api/parse-url', {
           method: 'POST',
@@ -899,6 +911,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           } : null);
           setMessage('');
           setIsLoadingCuratedQuestions(false);
+          setExternalSourceUrl(null);
           return;
         }
         
@@ -915,6 +928,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           variant: "destructive"
         });
         setIsLoadingCuratedQuestions(false);
+        setExternalSourceUrl(null);
       }
     } else {
       // Regular message flow
