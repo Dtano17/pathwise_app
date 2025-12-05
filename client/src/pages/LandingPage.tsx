@@ -717,15 +717,9 @@ export default function LandingPage() {
             transition={{ delay: 0.2 }}
             className="text-center mt-12"
           >
-            <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
+            <p className="text-muted-foreground max-w-2xl mx-auto">
               Example: Share a travel photo from Marrakech → AI generates creative plans with both mentioned venues (Royal Mansour, Comptoir Darna) and similar alternatives with current pricing, tiered budgets, and tailored questions about your preferences.
             </p>
-            <Link href="/login">
-              <Button size="lg" className="gap-2 bg-gradient-to-r from-emerald-500 to-cyan-600 text-white" data-testid="button-try-import">
-                Try Importing Content
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </Link>
           </motion.div>
         </div>
       </section>

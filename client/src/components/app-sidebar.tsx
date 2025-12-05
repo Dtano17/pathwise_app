@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap, Moon, LineChart, Mail, CheckSquare, Globe2, Plug, SettingsIcon, Newspaper } from 'lucide-react';
+import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap, Moon, LineChart, Mail, CheckSquare, Globe2, Plug, SettingsIcon, Newspaper, Download } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
@@ -532,10 +532,18 @@ export function AppSidebar({
           </SidebarGroup>
         </Collapsible>
 
-        {/* Updates & News Section */}
+        {/* Import & Updates Section */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <Link href="/import-plan">
+                  <SidebarMenuButton data-testid="button-import-sidebar">
+                    <Download className="w-4 h-4" />
+                    <span>Import Content</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <Link href="/updates">
                   <SidebarMenuButton data-testid="button-updates-sidebar">

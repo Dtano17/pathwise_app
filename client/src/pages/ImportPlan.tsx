@@ -162,7 +162,7 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
   );
 }
 
-function SignInPrompt({ planPreview, onSignIn }: { planPreview: any; onSignIn: () => void }) {
+function SignInPrompt({ planPreview, onSignIn }: { planPreview: any; onSignIn: (url?: string) => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -204,7 +204,7 @@ function SignInPrompt({ planPreview, onSignIn }: { planPreview: any; onSignIn: (
       </div>
 
       <Button
-        onClick={onSignIn}
+        onClick={() => onSignIn(planPreview?.sourceUrl)}
         className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-lg w-full max-w-xs"
         size="lg"
         data-testid="button-sign-in"
@@ -453,13 +453,11 @@ export default function ImportPlan() {
   const { toast } = useToast();
   const { user, isAuthenticated, login, isLoading: authLoading } = useAuth();
   
-  // Redirect to login if not authenticated (protected route)
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      // Use router navigation instead of window.location to avoid full page reload
-      setLocation('/login?returnTo=/import-plan');
-    }
-  }, [authLoading, isAuthenticated, setLocation]);
+  // Store pending URL for auto-processing after login
+  // Read from sessionStorage but don't remove yet - we'll remove after successful processing
+  const [pendingUrl, setPendingUrl] = useState<string | null>(() => {
+    return sessionStorage.getItem('pendingImportUrl');
+  });
   
   const {
     state,
@@ -486,6 +484,24 @@ export default function ImportPlan() {
   const [extractingContent, setExtractingContent] = useState(false);
   const [planPreview, setPlanPreview] = useState<any>(null);
   const [showSignIn, setShowSignIn] = useState(false);
+  
+  // Auto-process pending URL after authentication
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && pendingUrl) {
+      // User just logged in with a pending URL - auto-process it
+      // Clear from sessionStorage first to prevent re-triggering on navigation
+      sessionStorage.removeItem('pendingImportUrl');
+      setExtractingContent(true);
+      
+      const urlToProcess = pendingUrl;
+      setPendingUrl(null);
+      
+      generatePlanMutation.mutate({
+        content: `URL to extract and plan: ${urlToProcess}`,
+        sourceUrl: urlToProcess
+      });
+    }
+  }, [authLoading, isAuthenticated, pendingUrl]);
 
   const generatePlanMutation = useMutation({
     mutationFn: async ({ content, sourceUrl }: { content: string; sourceUrl: string }) => {
@@ -570,7 +586,8 @@ export default function ImportPlan() {
           setPlanPreview({
             title: `Plan from ${detectPlatform(url)}`,
             description: 'Content will be extracted and turned into actionable tasks',
-            taskCount: '6-9'
+            taskCount: '6-9',
+            sourceUrl: url
           });
           setShowSignIn(true);
           return;
@@ -623,39 +640,16 @@ export default function ImportPlan() {
     }
   };
 
-  const handleSignIn = () => {
-    login();
+  const handleSignIn = (urlToStore?: string) => {
+    // Store the pending URL so we can auto-process after login
+    if (urlToStore) {
+      sessionStorage.setItem('pendingImportUrl', urlToStore);
+    }
+    // Redirect to login with returnTo parameter
+    setLocation('/login?returnTo=/import-plan');
   };
 
   const isProcessing = isLoading || extractingContent || generatePlanMutation.isPending;
-
-  // Show loading while checking authentication
-  if (authLoading) {
-    return (
-      <div className="h-screen overflow-auto bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-slate-900 dark:via-slate-900 dark:to-purple-950">
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto mb-4" />
-            <p className="text-slate-600 dark:text-slate-400">Loading...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render content if not authenticated (redirect will happen)
-  if (!isAuthenticated) {
-    return (
-      <div className="h-screen overflow-auto bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-slate-900 dark:via-slate-900 dark:to-purple-950">
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto mb-4" />
-            <p className="text-slate-600 dark:text-slate-400">Redirecting to login...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="h-screen overflow-auto bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-slate-900 dark:via-slate-900 dark:to-purple-950">
