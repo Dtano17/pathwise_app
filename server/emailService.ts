@@ -120,8 +120,8 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 </tr>
                 <tr>
                   <td class="content-padding" style="padding:0 40px 20px">
-                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6"><strong>You're now part of a community that plans smarter, grows together, and never misses life's special moments.</strong></p>
-                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6">Welcome to JournalMate—where adaptive planning, emotional intelligence, and rhythm-aware journaling transform your dreams into reality. But that's not all...</p>
+                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6"><strong>You're now part of a community that turns social content into life experiences.</strong></p>
+                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6">Welcome to JournalMate—your journal-first planning companion. Share an Instagram Reel, TikTok, or YouTube video, and we'll automatically create a journal entry. From there, build actionable plans, get smart reminders with weather context, and celebrate your completed experiences.</p>
                   </td>
                 </tr>
 
@@ -189,14 +189,14 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 <!-- Getting Started CTA -->
                 <tr>
                   <td class="section-padding" style="padding:40px;background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)">
-                    <h3 style="margin:0 0 20px;padding:0;font-size:24px;line-height:1.08em;padding-top:0.389em;font-weight:700;color:#ffffff;text-align:center">🚀 Getting Started Is Easy</h3>
+                    <h3 style="margin:0 0 20px;padding:0;font-size:24px;line-height:1.08em;padding-top:0.389em;font-weight:700;color:#ffffff;text-align:center">🚀 The JournalMate Loop</h3>
                     <ol style="margin:0;padding:0;padding-left:25px;color:#ffffff;font-size:15px;line-height:1.8">
-                      <li style="margin:0 0 10px"><strong>Create Your First Plan</strong> → Try Quick Plan or Smart Plan</li>
-                      <li style="margin:0 0 10px"><strong>Explore Trending Plans</strong> near you for instant inspiration</li>
-                      <li style="margin:0 0 10px"><strong>Browse Community Plans</strong> and copy ones you love</li>
-                      <li style="margin:0 0 10px"><strong>Journal with @keywords</strong>, photos, or voice notes</li>
-                      <li style="margin:0 0 10px"><strong>Share your rhythm</strong> with friends or groups</li>
-                      <li style="margin:0"><strong>Swipe to complete</strong>, skip, or reflect on activities</li>
+                      <li style="margin:0 0 10px"><strong>Share Content</strong> → Paste a TikTok, Instagram, or YouTube link</li>
+                      <li style="margin:0 0 10px"><strong>Auto-Journal</strong> → AI creates a journal entry with your interests</li>
+                      <li style="margin:0 0 10px"><strong>Build Plans</strong> → Reference journals to create actionable plans</li>
+                      <li style="margin:0 0 10px"><strong>Smart Reminders</strong> → Get notified at optimal times with weather context</li>
+                      <li style="margin:0 0 10px"><strong>Experience & Celebrate</strong> → Complete activities and capture moments</li>
+                      <li style="margin:0"><strong>Review & Repeat</strong> → Reflect on experiences and discover more</li>
                     </ol>
                     <div style="padding:15px 0;text-align:center">
                       <a href="${appURL}/dashboard" style="color:#ffffff;text-decoration:none;display:inline-block;background:linear-gradient(135deg,#14B8A6 0%,#0D9488 100%);padding:16px 36px;border-radius:12px;font-size:17px;font-weight:700;box-shadow:0 4px 12px rgba(20,184,166,0.3)">Start Planning with JournalMate</a>

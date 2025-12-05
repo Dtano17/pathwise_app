@@ -36,7 +36,7 @@ export function SocialLogin({
   
 
   return (
-    <Card className="w-full max-w-md mx-auto" data-testid="card-social-login">
+    <Card className="w-full max-w-md mx-auto glass-card" data-testid="card-social-login">
       <CardHeader className="text-center px-4 sm:px-6">
         <CardTitle className="text-xl sm:text-2xl font-bold" data-testid="text-login-title">
           {title}
