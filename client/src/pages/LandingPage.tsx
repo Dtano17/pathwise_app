@@ -30,53 +30,53 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 const features = [
   {
-    icon: Instagram,
-    title: "Share to Auto-Journal",
-    description: "Share any TikTok, Instagram Reel, or YouTube video. Our AI automatically creates a categorized journal entry capturing what interests you.",
-    color: "text-cyan-500",
-    bgColor: "bg-cyan-100 dark:bg-cyan-900/30"
-  },
-  {
-    icon: BookMarked,
-    title: "Journal as Source of Truth",
-    description: "Your journal is your single source for both saved interests and completed experiences. Everything starts and ends with your journal.",
-    color: "text-orange-500",
-    bgColor: "bg-orange-100 dark:bg-orange-900/30"
-  },
-  {
     icon: Target,
-    title: "Build Plans from Journal",
-    description: "Reference your journal entries to create actionable plans. AI generates specific tasks with real details, prices, and timelines.",
+    title: "Activate Your Goals",
+    description: "Turn AI suggestions into real action items with deadlines, priorities, and categories.",
     color: "text-emerald-500",
     bgColor: "bg-emerald-100 dark:bg-emerald-900/30"
   },
   {
-    icon: Clock,
-    title: "Smart Reminders with Weather",
-    description: "Get reminded at strategic times - 1 week, 3 days, and day before. Morning-of reminders include weather forecasts for your location.",
+    icon: BarChart3,
+    title: "Track Your Progress",
+    description: "Visual dashboards, completion streaks, and insights to keep you motivated and on track.",
     color: "text-blue-500",
     bgColor: "bg-blue-100 dark:bg-blue-900/30"
   },
   {
+    icon: BookMarked,
+    title: "AI Auto-Journal",
+    description: "Automatically create journal entries as you complete tasks, capturing your achievements and growth.",
+    color: "text-orange-500",
+    bgColor: "bg-orange-100 dark:bg-orange-900/30"
+  },
+  {
     icon: Share2,
-    title: "Discover Community Plans",
-    description: "Browse trending plans from other users. Copy, remix, and adapt plans to make them your own.",
+    title: "Discover & Remix Plans",
+    description: "Download plans from other users, discover trending plans, and remix multiple plans to create your perfect routine.",
     color: "text-pink-500",
     bgColor: "bg-pink-100 dark:bg-pink-900/30"
   },
   {
     icon: Globe,
-    title: "Location-Aware Planning",
-    description: "Discover activities and events near you. Get local tips and alternative venues with real pricing.",
+    title: "Find What's Nearby",
+    description: "Discover emergency plans and trending activities near you. Connect with local community goals.",
     color: "text-violet-500",
     bgColor: "bg-violet-100 dark:bg-violet-900/30"
   },
   {
     icon: TrendingUp,
-    title: "Complete Loop Experience",
-    description: "Share content, auto-journal, plan, experience, review, and repeat. Your growth journey documented and celebrated.",
+    title: "Share Plans & Get Rewards",
+    description: "Share your plans on Instagram, TikTok, LinkedIn, X, and Facebook. Tag @JournalMate and unlock rewards.",
     color: "text-rose-500",
     bgColor: "bg-rose-100 dark:bg-rose-900/30"
+  },
+  {
+    icon: Instagram,
+    title: "Import & Transform Content",
+    description: "Share TikTok, Instagram Reels, or YouTube videos to auto-create journal entries. Import from ChatGPT, Claude, or any AI app and transform content into actionable plans with real pricing.",
+    color: "text-cyan-500",
+    bgColor: "bg-cyan-100 dark:bg-cyan-900/30"
   }
 ];
 
@@ -140,12 +140,12 @@ export default function LandingPage() {
             </Badge>
             
             <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-purple-600 via-violet-600 to-emerald-500 bg-clip-text text-transparent">
-              Share content. Auto-journal. Plan. Experience. Repeat.
+              Execute your plans, track and share your progress
             </h1>
             
             <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Share a TikTok, Instagram Reel, or YouTube video. JournalMate's AI automatically creates journal entries,
-              builds actionable plans with smart reminders, and helps you celebrate your experiences.
+              Create plans with our AI agent, or import from ChatGPT, Claude, and social media. 
+              JournalMate devises and tracks your plan to help you achieve your goals.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
