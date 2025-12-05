@@ -54,10 +54,10 @@ function LoadingState() {
         </div>
       </div>
       <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">
-        Analyzing Your Plan
+        Analyzing Your Content
       </h3>
       <p className="text-slate-500 dark:text-slate-400 text-center max-w-xs">
-        AI is extracting tasks, priorities, and timelines from your text...
+        AI is extracting tasks, priorities, and details from your content...
       </p>
     </motion.div>
   );
@@ -74,11 +74,18 @@ function EmptyState({ onPasteClick }: { onPasteClick: () => void }) {
         <ClipboardPaste className="w-10 h-10 text-purple-500" />
       </div>
       <h3 className="text-xl font-semibold text-slate-800 dark:text-white mb-2">
-        Import AI Plan
+        Import Content to Plan
       </h3>
-      <p className="text-slate-500 dark:text-slate-400 text-center max-w-sm mb-8">
-        Paste a plan from ChatGPT, Claude, or any AI assistant to automatically create tasks
+      <p className="text-slate-500 dark:text-slate-400 text-center max-w-sm mb-4">
+        Paste content from AI assistants or social media to create actionable plans
       </p>
+      <div className="flex flex-wrap justify-center gap-2 mb-6">
+        <span className="text-xs px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">ChatGPT</span>
+        <span className="text-xs px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">Claude</span>
+        <span className="text-xs px-2 py-1 rounded-full bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400">Instagram</span>
+        <span className="text-xs px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">TikTok</span>
+        <span className="text-xs px-2 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">YouTube</span>
+      </div>
       <Button
         onClick={onPasteClick}
         className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-lg"
@@ -88,8 +95,8 @@ function EmptyState({ onPasteClick }: { onPasteClick: () => void }) {
         <ClipboardPaste className="w-5 h-5 mr-2" />
         Paste from Clipboard
       </Button>
-      <p className="text-xs text-slate-400 dark:text-slate-500 mt-4">
-        Or share text directly from ChatGPT/Claude app to JournalMate
+      <p className="text-xs text-slate-400 dark:text-slate-500 mt-4 text-center">
+        Share directly from any app, or paste URLs and text
       </p>
     </motion.div>
   );
@@ -385,7 +392,7 @@ export default function ImportPlan() {
           </Button>
 
           <h1 className="text-lg font-semibold text-slate-800 dark:text-white">
-            Import AI Plan
+            Import Content
           </h1>
 
           <div className="w-10" />
