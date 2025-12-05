@@ -7072,31 +7072,241 @@ ${emoji} ${progressLine}
       if (isSocialMedia && isAuthenticated) {
         try {
           const sourceUrl = urlMatch[0];
-          const platform = sourceUrl.includes('instagram') ? 'Instagram' : 
-                         sourceUrl.includes('tiktok') ? 'TikTok' : 
-                         sourceUrl.includes('youtube') || sourceUrl.includes('youtu.be') ? 'YouTube' :
-                         sourceUrl.includes('twitter') || sourceUrl.includes('x.com') ? 'Twitter/X' :
-                         sourceUrl.includes('facebook') ? 'Facebook' :
-                         sourceUrl.includes('reddit') ? 'Reddit' : 'Social Media';
           
-          // Build journal content from the imported content
-          const tasksList = tasks?.map((t: any) => t.title).join('\n- ') || '';
-          const journalContent = `## Saved from ${platform}: ${title}\n\n` +
-            `**Source:** ${sourceUrl}\n\n` +
-            `### Plan Summary\n${description || 'No summary available'}\n\n` +
-            `### Tasks\n- ${tasksList}`;
+          // Normalize URL for consistent duplicate detection
+          const normalizeUrlForDuplicateCheck = (urlString: string): string => {
+            try {
+              const parsed = new URL(urlString);
+              if (parsed.hostname.includes('instagram.com')) {
+                const pathMatch = parsed.pathname.match(/\/(reel|p|stories)\/([^\/]+)/);
+                if (pathMatch) {
+                  return `https://www.instagram.com/${pathMatch[1]}/${pathMatch[2]}/`;
+                }
+              }
+              if (parsed.hostname.includes('tiktok.com')) {
+                const pathMatch = parsed.pathname.match(/\/@?[^\/]+\/video\/(\d+)/);
+                if (pathMatch) {
+                  return `https://www.tiktok.com/video/${pathMatch[1]}`;
+                }
+              }
+              if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) {
+                const videoId = parsed.searchParams.get('v') || parsed.pathname.split('/').pop();
+                if (videoId) {
+                  return `https://www.youtube.com/watch?v=${videoId}`;
+                }
+              }
+              parsed.search = '';
+              parsed.hash = '';
+              return parsed.toString();
+            } catch {
+              return urlString;
+            }
+          };
           
-          const journalEntry = await storage.createJournalEntry({
-            userId,
-            date: new Date().toISOString().split('T')[0],
-            content: journalContent,
-            category: 'travel_adventure',
-            tags: [platform.toLowerCase(), 'imported', 'planning'],
-            mood: 'excited'
-          });
-          journalEntryId = journalEntry.id;
+          const normalizedSourceUrl = normalizeUrlForDuplicateCheck(sourceUrl);
           
-          console.log(`[AUTO-JOURNAL] Created journal entry ${journalEntryId} from ${platform} URL for activity ${activity.id}`);
+          // Check for duplicate in journalData preferences (primary source of truth)
+          const prefs = await storage.getUserPreferences(userId);
+          const journalData = prefs?.preferences?.journalData || {};
+          let existsInPreferences = false;
+          
+          for (const categoryKey of Object.keys(journalData)) {
+            const items = journalData[categoryKey] || [];
+            if (items.some((item: any) => {
+              if (!item.sourceUrl) return false;
+              const itemNormalizedUrl = normalizeUrlForDuplicateCheck(item.sourceUrl);
+              return itemNormalizedUrl === normalizedSourceUrl;
+            })) {
+              existsInPreferences = true;
+              console.log(`[AUTO-JOURNAL] Entry already exists in journalData.${categoryKey} for normalized URL: ${normalizedSourceUrl}`);
+              break;
+            }
+          }
+          
+          if (existsInPreferences) {
+            console.log(`[AUTO-JOURNAL] Skipping duplicate - URL already exists in journal preferences`);
+          } else {
+            const platform = sourceUrl.includes('instagram') ? 'Instagram' : 
+                           sourceUrl.includes('tiktok') ? 'TikTok' : 
+                           sourceUrl.includes('youtube') || sourceUrl.includes('youtu.be') ? 'YouTube' :
+                           sourceUrl.includes('twitter') || sourceUrl.includes('x.com') ? 'Twitter/X' :
+                           sourceUrl.includes('facebook') ? 'Facebook' :
+                           sourceUrl.includes('reddit') ? 'Reddit' : 'Social Media';
+            
+            // Map activity category to journal category
+            const activityToJournalCategory: Record<string, string> = {
+              'food_dining': 'restaurants',
+              'restaurants': 'restaurants',
+              'entertainment': 'movies',
+              'movies': 'movies',
+              'music': 'music',
+              'travel_adventure': 'travel',
+              'travel': 'travel',
+              'fitness_wellness': 'fitness',
+              'fitness': 'fitness',
+              'reading': 'books',
+              'books': 'books',
+              'shopping': 'shopping',
+              'nightlife': 'nightlife',
+              'creative': 'favorites',
+              'productivity': 'notes',
+              'general': 'notes'
+            };
+            
+            const journalCategory = activityToJournalCategory[category] || 'notes';
+            
+            // Try to look up cached content for enrichment
+            let cachedContent: any = null;
+            let thumbnailUrl: string | null = null;
+            let extractedDescription: string | null = null;
+            
+            try {
+              // Normalize URL for cache lookup
+              const normalizeUrlForCache = (urlString: string): string => {
+                try {
+                  const parsed = new URL(urlString);
+                  if (parsed.hostname.includes('instagram.com')) {
+                    const pathMatch = parsed.pathname.match(/\/(reel|p|stories)\/([^\/]+)/);
+                    if (pathMatch) {
+                      return `https://www.instagram.com/${pathMatch[1]}/${pathMatch[2]}/`;
+                    }
+                  }
+                  if (parsed.hostname.includes('tiktok.com')) {
+                    const pathMatch = parsed.pathname.match(/\/@?[^\/]+\/video\/(\d+)/);
+                    if (pathMatch) {
+                      return `https://www.tiktok.com/video/${pathMatch[1]}`;
+                    }
+                  }
+                  parsed.search = '';
+                  parsed.hash = '';
+                  return parsed.toString();
+                } catch {
+                  return urlString;
+                }
+              };
+              
+              const normalizedUrl = normalizeUrlForCache(sourceUrl);
+              cachedContent = await storage.getUrlContentCache(normalizedUrl);
+              
+              if (cachedContent) {
+                console.log(`[AUTO-JOURNAL] Found cached content for URL: ${normalizedUrl}`);
+                thumbnailUrl = cachedContent.metadata?.thumbnail || null;
+                extractedDescription = cachedContent.extractedContent?.substring(0, 500) || null;
+              }
+            } catch (cacheError) {
+              console.warn('[AUTO-JOURNAL] Cache lookup failed:', cacheError);
+            }
+            
+            // First, add to journalData in user preferences (primary source of truth)
+            // This is checked FIRST before creating journal entry to minimize race window
+            try {
+              // Re-fetch preferences to get latest state
+              const latestPrefs = await storage.getUserPreferences(userId);
+              const currentPrefs = latestPrefs?.preferences || {};
+              const journalData = currentPrefs.journalData || {};
+              const categoryItems = journalData[journalCategory] || [];
+              
+              // Final duplicate check with freshly fetched data
+              const alreadyExists = categoryItems.some((item: any) => {
+                if (!item.sourceUrl) return false;
+                try {
+                  const itemNormalized = normalizeUrlForDuplicateCheck(item.sourceUrl);
+                  return itemNormalized === normalizedSourceUrl;
+                } catch {
+                  return item.sourceUrl === sourceUrl;
+                }
+              });
+              
+              if (alreadyExists) {
+                console.log(`[AUTO-JOURNAL] Duplicate detected on final check, skipping all journal creation`);
+              } else {
+                // Build media array with proper null checks
+                const cachedMedia = Array.isArray(cachedContent?.metadata?.media) 
+                  ? cachedContent.metadata.media.filter((m: any) => m && (m.type === 'image' || m.type === 'video') && m.url)
+                  : [];
+                const mediaItems = cachedMedia.length > 0 
+                  ? cachedMedia 
+                  : (thumbnailUrl ? [{ type: 'image', url: thumbnailUrl }] : []);
+                
+                // Generate a temporary ID for the journal item (will be updated after journal_entries creation)
+                const tempId = `pending-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+                
+                // Create new journal item with enriched data and normalized URL
+                const newJournalItem = {
+                  id: tempId,
+                  text: title,
+                  date: new Date().toISOString().split('T')[0],
+                  notes: description || '',
+                  sourceUrl: normalizedSourceUrl,
+                  originalUrl: sourceUrl,
+                  platform: platform.toLowerCase(),
+                  thumbnail: thumbnailUrl || null,
+                  media: mediaItems,
+                  keywords: [platform.toLowerCase(), 'imported', journalCategory].filter(Boolean),
+                  aiConfidence: 0.9,
+                  isImported: true,
+                  activityId: activity.id
+                };
+                
+                // Add to the beginning of the category items
+                const updatedItems = [newJournalItem, ...categoryItems];
+                
+                // Reserve the slot in preferences first
+                await storage.upsertUserPreferences(userId, {
+                  preferences: {
+                    ...currentPrefs,
+                    journalData: {
+                      ...journalData,
+                      [journalCategory]: updatedItems
+                    }
+                  }
+                });
+                
+                console.log(`[AUTO-JOURNAL] Reserved slot in journalData.${journalCategory} for user ${userId}`);
+                
+                // Now create the journal entry in the database
+                const tasksList = tasks?.map((t: any) => t.title).join('\n- ') || '';
+                const journalReflection = `## Saved from ${platform}: ${title}\n\n` +
+                  `**Source:** ${sourceUrl}\n\n` +
+                  (extractedDescription ? `### Content\n${extractedDescription}\n\n` : '') +
+                  `### Plan Summary\n${description || 'No summary available'}\n\n` +
+                  `### Tasks\n- ${tasksList}`;
+                
+                const journalEntry = await storage.createJournalEntry({
+                  userId,
+                  date: new Date().toISOString().split('T')[0],
+                  mood: 'great',
+                  reflection: journalReflection
+                });
+                journalEntryId = journalEntry.id;
+                
+                // Update the temporary ID with the real journal entry ID
+                const finalPrefs = await storage.getUserPreferences(userId);
+                const finalCurrentPrefs = finalPrefs?.preferences || {};
+                const finalJournalData = finalCurrentPrefs.journalData || {};
+                const finalCategoryItems = finalJournalData[journalCategory] || [];
+                
+                // Find and update the pending item with the real ID
+                const updatedFinalItems = finalCategoryItems.map((item: any) => 
+                  item.id === tempId ? { ...item, id: journalEntryId } : item
+                );
+                
+                await storage.upsertUserPreferences(userId, {
+                  preferences: {
+                    ...finalCurrentPrefs,
+                    journalData: {
+                      ...finalJournalData,
+                      [journalCategory]: updatedFinalItems
+                    }
+                  }
+                });
+                
+                console.log(`[AUTO-JOURNAL] Created journal entry ${journalEntryId} from ${platform} URL for activity ${activity.id} in category: ${journalCategory}`);
+              }
+            } catch (prefError) {
+              console.warn('[AUTO-JOURNAL] Failed to create journal entry:', prefError);
+            }
+          }
         } catch (journalError) {
           console.error('[AUTO-JOURNAL] Error creating journal entry:', journalError);
           // Don't fail the whole request if journaling fails

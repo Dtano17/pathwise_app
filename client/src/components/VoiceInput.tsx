@@ -88,10 +88,9 @@ interface VoiceInputProps {
   onSubmit: (data: any) => void;
   isGenerating?: boolean;
   placeholder?: string;
-  onOpenJournalMode?: () => void;
 }
 
-const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "Describe your goals and/or journal your life...", onOpenJournalMode }) => {
+const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "Describe your goals and/or journal your life..." }) => {
   const [text, setText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -1258,18 +1257,6 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       <Brain className="w-3.5 h-3.5 flex-shrink-0" />
                       <span className="text-xs font-medium">Smart Plan</span>
                     </Button>
-                    {onOpenJournalMode && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={onOpenJournalMode}
-                        className="gap-1.5 px-3 py-1.5 bg-pink-600/5 border-pink-600/40 text-pink-700 dark:text-pink-400 dark:bg-pink-900/10 dark:border-pink-600/40"
-                        data-testid="button-journal-mode"
-                      >
-                        <BookOpen className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="text-xs font-medium">Journal</span>
-                      </Button>
-                    )}
                   </div>
                   
                   <Button

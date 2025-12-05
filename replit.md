@@ -51,6 +51,13 @@ The application features a mobile-first responsive design with **Liquid Glass UI
   - Robust error handling for denied permissions and insecure contexts
   - API endpoints: GET/PUT /api/user/location
 - **Content Extraction & Caching**: Utilizes Apify for reliable Instagram and TikTok content extraction, self-hosted direct extraction methods, and dynamic video frame extraction. Implements database caching for URL content to optimize costs and performance. Strict grounding rules are applied during plan generation to prevent AI hallucinations.
+- **Auto-Journaling from Social Media**: When content is shared from social media platforms (Instagram, TikTok, YouTube, Twitter/X, Facebook, Reddit), entries are automatically created in the Personal Journal with:
+  - Smart category mapping (e.g., food_dining → restaurants, travel_adventure → travel, entertainment → movies)
+  - Enriched content from url_content_cache (thumbnails, extracted descriptions)
+  - Normalized URL duplicate prevention to avoid duplicate entries
+  - Both normalized and original URLs stored for reliable matching
+  - Slot reservation pattern: reserves journal slot before database write to minimize race conditions
+  - Journal data stored in user preferences under `preferences.journalData`
 - **Smart Reminder System**: Background processor running on 5-minute intervals that schedules and dispatches intelligent reminders for upcoming activities. Features:
   - Automatic scheduling at strategic times (1 week, 3 days, 1 day, morning-of)
   - Weather-enriched notifications using Open-Meteo API (free, no API key required)

@@ -1587,7 +1587,6 @@ export default function MainApp({
               <VoiceInput
                 onSubmit={(text) => processGoalMutation.mutate(text)}
                 isGenerating={processGoalMutation.isPending}
-                onOpenJournalMode={() => setShowJournalMode(true)}
               />
 
               {/* Interactive Options */}
