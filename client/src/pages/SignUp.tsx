@@ -15,9 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { signupUserSchema, profileCompletionSchema, type SignupUser, type ProfileCompletion } from '@shared/schema';
 import { CheckCircle, User, Heart, Target, Clock, MapPin, Briefcase, ArrowLeft, ArrowRight } from 'lucide-react';
-import { SiFacebook, SiGoogle } from 'react-icons/si';
+import { SiGoogle } from 'react-icons/si';
 import { Separator } from '@/components/ui/separator';
-import { useFacebookAuth } from '@/hooks/useFacebookAuth';
 
 interface SignUpProps {
   onSignUpComplete: (user: any) => void;
@@ -30,7 +29,6 @@ export default function SignUp({ onSignUpComplete, onBackToLogin }: SignUpProps)
   const [progress, setProgress] = useState(20);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { fbStatus, isProcessing, loginWithFacebook } = useFacebookAuth();
 
   // Step 1: Basic signup form
   const signupForm = useForm<SignupUser>({
@@ -140,17 +138,7 @@ export default function SignUp({ onSignUpComplete, onBackToLogin }: SignUpProps)
   };
 
   const handleSocialLogin = (provider: string) => {
-    if (provider === 'facebook') {
-      // Use the popup-based Facebook login to avoid iframe issues
-      if (window.facebookLogin) {
-        window.facebookLogin();
-      } else {
-        // Fallback to direct OAuth redirect
-        window.location.href = '/api/auth/facebook';
-      }
-    } else {
-      window.location.href = `/api/auth/${provider}`;
-    }
+    window.location.href = `/api/auth/${provider}`;
   };
 
   // Helper for managing array fields
@@ -514,17 +502,6 @@ export default function SignUp({ onSignUpComplete, onBackToLogin }: SignUpProps)
               >
                 <SiGoogle className="w-5 h-5 text-[#4285F4]" />
                 Sign up with Google
-              </Button>
-
-              {/* Facebook */}
-              <Button
-                variant="outline"
-                onClick={() => handleSocialLogin('facebook')}
-                className="w-full h-11 text-base justify-start"
-                data-testid="button-signup-facebook"
-              >
-                <SiFacebook className="w-5 h-5 text-[#1877F2]" />
-                Sign up with Facebook
               </Button>
             </div>
 

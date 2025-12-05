@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SiGoogle, SiFacebook, SiApple } from "react-icons/si";
+import { SiGoogle } from "react-icons/si";
 import { Mail } from "lucide-react";
-import { FaXTwitter } from "react-icons/fa6";
 import { useToast } from "@/hooks/use-toast";
 import { EmailAuthDialog } from './EmailAuthDialog';
 
@@ -35,14 +34,6 @@ export function SocialLogin({
     window.location.href = `/api/auth/google${getReturnToParam()}`;
   };
   
-  const handleFacebookLogin = () => {
-    window.location.href = `/api/auth/facebook${getReturnToParam()}`;
-  };
-
-  const handleReplitLogin = () => {
-    // Replit Auth handles multiple providers (X/Twitter, Apple)
-    window.location.href = `/api/login${getReturnToParam()}`;
-  };
 
   return (
     <Card className="w-full max-w-md mx-auto" data-testid="card-social-login">
@@ -75,39 +66,6 @@ export function SocialLogin({
         >
           <SiGoogle className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-[#4285F4] shrink-0" />
           <span className="truncate">Sign in with Google</span>
-        </Button>
-
-        {/* Facebook Sign In via Passport.js */}
-        <Button
-          variant="outline"
-          onClick={handleFacebookLogin}
-          className="w-full min-h-[44px] h-auto py-2.5 text-sm sm:text-base justify-start bg-[#1877F2]/10 border-[#1877F2]/30"
-          data-testid="button-login-facebook"
-        >
-          <SiFacebook className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-[#1877F2] shrink-0" />
-          <span className="truncate">Sign in with Facebook</span>
-        </Button>
-
-        {/* X (Twitter) Sign In via Replit Auth */}
-        <Button
-          variant="outline"
-          onClick={handleReplitLogin}
-          className="w-full min-h-[44px] h-auto py-2.5 text-sm sm:text-base justify-start"
-          data-testid="button-login-x"
-        >
-          <FaXTwitter className="w-4 h-4 sm:w-5 sm:h-5 mr-2 shrink-0" />
-          <span className="truncate">Sign in with X</span>
-        </Button>
-
-        {/* Apple Sign In via Replit Auth */}
-        <Button
-          variant="outline"
-          onClick={handleReplitLogin}
-          className="w-full min-h-[44px] h-auto py-2.5 text-sm sm:text-base justify-start"
-          data-testid="button-login-apple"
-        >
-          <SiApple className="w-4 h-4 sm:w-5 sm:h-5 mr-2 shrink-0" />
-          <span className="truncate">Sign in with Apple</span>
         </Button>
 
         {/* Terms and Privacy */}
