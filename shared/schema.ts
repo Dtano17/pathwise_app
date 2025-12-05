@@ -1425,6 +1425,14 @@ export const userPreferences = pgTable("user_preferences", {
   usePersonalization: boolean("use_personalization").default(false), // Enable AI personalization using profile data
   userContextSummary: text("user_context_summary"), // AI-generated summary of user's profile, preferences, and journal for personalized planning
   contextGeneratedAt: timestamp("context_generated_at"), // When the user context summary was last generated
+  
+  // Device location permission and coordinates
+  locationEnabled: boolean("location_enabled").default(false), // User has granted location permission
+  deviceLatitude: real("device_latitude"), // Device GPS latitude
+  deviceLongitude: real("device_longitude"), // Device GPS longitude  
+  deviceCity: text("device_city"), // Reverse-geocoded city name
+  locationUpdatedAt: timestamp("location_updated_at"), // When location was last updated
+  
   preferences: jsonb("preferences").$type<{
     notificationWindows?: { start: string; end: string }[];
     preferredTaskTimes?: string[]; // ['morning', 'afternoon', 'evening']

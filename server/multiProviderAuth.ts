@@ -49,26 +49,44 @@ interface OAuthUser {
 
 // Setup multi-provider OAuth strategies
 export async function setupMultiProviderAuth(app: Express) {
-  // Passport session serialization - store only user ID in session
+  // Passport session serialization - handle both OAuth providers and Replit Auth
+  // OAuth providers use user.id, Replit Auth uses user.claims.sub
   passport.serializeUser((user: any, done) => {
-    console.log('[Passport] Serializing user:', user.id);
-    done(null, user.id);
+    // For OAuth providers (Google, Facebook, etc.) - user has direct id
+    // For Replit Auth - user has claims.sub
+    const userId = user.id || user.claims?.sub;
+    console.log('[Passport] Serializing user:', userId, 'provider:', user.provider || 'replit');
+    
+    if (!userId) {
+      console.error('[Passport] Cannot serialize user - no ID found:', user);
+      return done(new Error('User ID not found'), null);
+    }
+    
+    done(null, userId);
   });
 
   // Deserialize user from session - retrieve full user from storage
   passport.deserializeUser(async (id: string, done) => {
     try {
-      console.log('[Passport] Deserializing user ID:', id);
-      const user = await storage.getUser(id);
+      // Handle case where id might be the full user object (backwards compatibility)
+      const userId = typeof id === 'object' ? (id as any).id || (id as any).claims?.sub : id;
+      
+      if (!userId) {
+        console.error('[Passport] Cannot deserialize - invalid ID:', id);
+        return done(null, false);
+      }
+      
+      console.log('[Passport] Deserializing user ID:', userId);
+      const user = await storage.getUser(userId);
       if (!user) {
-        console.error('[Passport] User not found:', id);
-        return done(new Error('User not found'), null);
+        console.error('[Passport] User not found:', userId);
+        return done(null, false); // Return false instead of error to allow graceful fallback
       }
       console.log('[Passport] Deserialized user:', user.id);
       done(null, { id: user.id, email: user.email });
     } catch (error) {
       console.error('[Passport] Deserialization error:', error);
-      done(error, null);
+      done(null, false); // Graceful fallback on error
     }
   });
 

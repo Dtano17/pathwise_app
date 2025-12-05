@@ -11618,6 +11618,100 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
+  // Device Location Permission Management
+  app.get("/api/user/location", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      if (!userId || userId === DEMO_USER_ID) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const preferences = await storage.getUserPreferences(userId);
+      res.json({
+        locationEnabled: preferences?.locationEnabled ?? false,
+        latitude: preferences?.deviceLatitude ?? null,
+        longitude: preferences?.deviceLongitude ?? null,
+        city: preferences?.deviceCity ?? null,
+        updatedAt: preferences?.locationUpdatedAt ?? null,
+      });
+    } catch (error) {
+      console.error('Error fetching user location:', error);
+      res.status(500).json({ error: 'Failed to fetch user location' });
+    }
+  });
+
+  // Zod schema for location update validation - prevents empty strings and null being coerced to 0
+  const strictNumber = z.preprocess((val) => {
+    // Reject null, undefined, and empty strings explicitly - don't coerce to 0
+    if (val === null || val === undefined || val === '') return undefined;
+    // Ensure it's a valid number type before parsing
+    if (typeof val === 'number' && !isNaN(val)) return val;
+    if (typeof val === 'string') {
+      const num = Number(val);
+      if (!isNaN(num)) return num;
+    }
+    // Return undefined for invalid inputs - will fail validation
+    return undefined;
+  }, z.number());
+
+  const locationUpdateSchema = z.object({
+    enabled: z.boolean(),
+    latitude: strictNumber.refine(n => n >= -90 && n <= 90, { message: 'Latitude must be between -90 and 90' }).optional(),
+    longitude: strictNumber.refine(n => n >= -180 && n <= 180, { message: 'Longitude must be between -180 and 180' }).optional(),
+    city: z.string().max(200).optional().nullable(),
+  }).refine((data) => {
+    // If enabling location, latitude and longitude must be valid numbers (not null/undefined)
+    if (data.enabled) {
+      return typeof data.latitude === 'number' && typeof data.longitude === 'number' &&
+             !isNaN(data.latitude) && !isNaN(data.longitude);
+    }
+    return true;
+  }, {
+    message: 'Valid latitude and longitude are required when enabling location',
+  });
+
+  app.put("/api/user/location", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      if (!userId || userId === DEMO_USER_ID) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Validate request body with Zod
+      const validationResult = locationUpdateSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: 'Invalid location data', 
+          details: validationResult.error.flatten().fieldErrors 
+        });
+      }
+
+      const { enabled, latitude, longitude, city } = validationResult.data;
+
+      // Update preferences with validated location data
+      const preferences = await storage.upsertUserPreferences(userId, {
+        locationEnabled: enabled,
+        deviceLatitude: enabled ? latitude : null,
+        deviceLongitude: enabled ? longitude : null,
+        deviceCity: enabled ? city : null,
+        locationUpdatedAt: enabled ? new Date() : null,
+      });
+
+      console.log('[Location] Updated location for user:', userId, { enabled, city });
+
+      res.json({
+        locationEnabled: preferences.locationEnabled ?? false,
+        latitude: preferences.deviceLatitude ?? null,
+        longitude: preferences.deviceLongitude ?? null,
+        city: preferences.deviceCity ?? null,
+        updatedAt: preferences.locationUpdatedAt ?? null,
+      });
+    } catch (error) {
+      console.error('Error updating user location:', error);
+      res.status(500).json({ error: 'Failed to update user location' });
+    }
+  });
+
   // User Context Management (for personalized AI planning)
   app.get("/api/user/context", async (req, res) => {
     try {

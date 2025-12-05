@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useLocation } from 'wouter';
+import { queryClient } from '@/lib/queryClient';
 
 export function AuthHandler() {
   const { toast } = useToast();
@@ -13,17 +14,23 @@ export function AuthHandler() {
     const provider = params.get('provider');
 
     if (authStatus === 'success') {
+      // Clean up URL params first
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+      
+      // Invalidate all user-related queries to force fresh fetch
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+      queryClient.clear(); // Clear all cached data
+      
       toast({
         title: "Welcome!",
         description: `Successfully signed in${provider ? ` with ${formatProvider(provider)}` : ''}.`,
       });
       
-      // Clean up URL params
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, '', cleanUrl);
-      
-      // Refresh the page to load authenticated state
-      window.location.reload();
+      // Use a short delay then reload to ensure session is ready
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
     } else if (authStatus === 'error') {
       const errorMessage = getErrorMessage(provider);
       toast({
