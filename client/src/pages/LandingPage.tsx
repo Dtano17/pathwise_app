@@ -22,7 +22,10 @@ import {
   BookMarked,
   Lightbulb,
   Clock,
-  Puzzle
+  Puzzle,
+  Megaphone,
+  Compass,
+  Upload
 } from "lucide-react";
 import { SiApple, SiGoogleplay } from "react-icons/si";
 import { motion } from "framer-motion";
@@ -92,37 +95,55 @@ export default function LandingPage() {
     <div className="h-screen overflow-auto bg-background text-foreground">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-8 h-8 rounded-lg flex-shrink-0" />
-            <span className="font-bold text-lg sm:text-xl truncate">JournalMate</span>
+            <span className="font-bold text-lg sm:text-xl truncate hidden sm:block">JournalMate</span>
           </div>
-          <div className="hidden md:flex items-center gap-3">
+          
+          {/* Feature Navigation - Prominent pills with icons */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 justify-center max-w-lg">
             <Link href="/updates">
-              <Button variant="ghost" size="sm" data-testid="link-updates">
-                Updates
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700 text-orange-700 dark:text-orange-300 text-xs sm:text-sm px-2.5 sm:px-3"
+                data-testid="link-updates"
+              >
+                <Megaphone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>Updates</span>
               </Button>
             </Link>
             <Link href="/discover">
-              <Button variant="ghost" size="sm" data-testid="link-discover">
-                Discover
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-200 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-700 text-blue-700 dark:text-blue-300 text-xs sm:text-sm px-2.5 sm:px-3"
+                data-testid="link-discover"
+              >
+                <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>Discover</span>
               </Button>
             </Link>
             <Link href="/import-plan">
-              <Button variant="ghost" size="sm" data-testid="link-import">
-                Import
+              <Button 
+                size="sm" 
+                className="gap-1.5 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white text-xs sm:text-sm px-2.5 sm:px-3 relative"
+                data-testid="link-import"
+              >
+                <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>Import</span>
+                <Badge className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[10px] px-1.5 py-0 h-4 border-0">
+                  New
+                </Badge>
               </Button>
             </Link>
           </div>
-          <div className="flex items-center gap-2 ml-auto">
+
+          <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Link href="/login" className="hidden sm:block">
-              <Button size="sm" data-testid="button-login-landing">
-                Sign In
-              </Button>
-            </Link>
-            <Link href="/login" className="sm:hidden">
-              <Button size="sm" variant="default" data-testid="button-login-landing-mobile">
+            <Link href="/login">
+              <Button size="sm" variant="outline" data-testid="button-login-landing">
                 Sign In
               </Button>
             </Link>
@@ -139,11 +160,6 @@ export default function LandingPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center max-w-4xl mx-auto"
           >
-            <Badge className="mb-6 bg-gradient-to-r from-purple-500 to-violet-600 text-white px-4 py-1">
-              <Zap className="w-3 h-3 mr-1" />
-              AI-Powered Planning
-            </Badge>
-            
             <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-purple-600 via-violet-600 to-emerald-500 bg-clip-text text-transparent">
               Execute your plans, track and share your progress
             </h1>

@@ -453,6 +453,15 @@ export default function ImportPlan() {
   const { toast } = useToast();
   const { user, isAuthenticated, login, isLoading: authLoading } = useAuth();
   
+  // Redirect unauthenticated users to login immediately
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      // Store current path so user returns after login
+      sessionStorage.setItem('redirectAfterLogin', '/import-plan');
+      setLocation('/login');
+    }
+  }, [authLoading, isAuthenticated, setLocation]);
+  
   // Store pending URL for auto-processing after login
   // Read from sessionStorage but don't remove yet - we'll remove after successful processing
   const [pendingUrl, setPendingUrl] = useState<string | null>(() => {
