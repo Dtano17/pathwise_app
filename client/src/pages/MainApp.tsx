@@ -29,10 +29,10 @@ import RecentGoals from './RecentGoals';
 import ProgressReport from './ProgressReport';
 import { SocialLogin } from '@/components/SocialLogin';
 import { SignInPromptModal } from '@/components/SignInPromptModal';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2, Circle, UserPlus, UserMinus, Globe2, Link2 } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2, Circle, UserPlus, UserMinus, Globe2, Link2, ClipboardPaste, FileText, Image, Video, Link as LinkIcon, Loader2 } from 'lucide-react';
 import DiscoverPlansView from '@/components/discover/DiscoverPlansView';
 import { Link } from 'wouter';
-import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
+import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX, SiTiktok, SiYoutube, SiReddit, SiAnthropic, SiGooglegemini } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
 import { formatDistanceToNow } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
@@ -53,6 +53,7 @@ import { UpgradeModal } from '@/components/UpgradeModal';
 import { ProBadge } from '@/components/ProBadge';
 import Confetti from 'react-confetti';
 import { useAuth } from '@/hooks/useAuth';
+import { useImportQueue } from '@/hooks/useImportQueue';
 
 interface ProgressData {
   completedToday: number;
@@ -123,6 +124,9 @@ export default function MainApp({
   const [chatText, setChatText] = useState('');
   const [chatSource, setChatSource] = useState('chatgpt');
   const [chatTitle, setChatTitle] = useState('');
+  
+  // Import queue for handling pasted content
+  const importQueue = useImportQueue();
 
   // Current plan output for Goal Input page
   const [currentPlanOutput, setCurrentPlanOutput] = useState<{
@@ -132,6 +136,7 @@ export default function MainApp({
     estimatedTimeframe?: string;
     motivationalNote?: string;
     activityId?: string;
+    sourceUrl?: string;
   } | null>(null);
 
   // Conversation history for contextual plan regeneration
@@ -141,6 +146,9 @@ export default function MainApp({
   
   // Ref to track activityId to prevent race conditions during refinements
   const activityIdRef = useRef<string | undefined>(undefined);
+  
+  // Ref to track import source URL for auto-journaling
+  const importSourceUrlRef = useRef<string | undefined>(undefined);
 
   // Activity selection and delete dialog state
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
@@ -187,6 +195,38 @@ export default function MainApp({
     const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
     window.history.replaceState({}, "", newUrl);
   }, [activeTab]);
+
+  // Handle pending import from queue (from Import tab or share sheet)
+  // Only processes when user is authenticated to prevent failed mutations
+  useEffect(() => {
+    // Only process on the input tab when authenticated and queue has items
+    if (activeTab === 'input' && isAuthenticated && !processGoalMutation.isPending && !importQueue.isProcessing) {
+      const nextItem = importQueue.getNextItem();
+      if (nextItem && importQueue.startProcessing(nextItem.id)) {
+        // Track the source URL for auto-journaling
+        if (nextItem.payloadType === 'url') {
+          importSourceUrlRef.current = nextItem.payload;
+        }
+        
+        // Small delay to ensure UI is ready
+        setTimeout(() => {
+          processGoalMutation.mutate(nextItem.payload, {
+            onSuccess: () => {
+              importQueue.markItemProcessed(nextItem.id, true);
+            },
+            onError: () => {
+              importQueue.markItemProcessed(nextItem.id, false);
+              importSourceUrlRef.current = undefined;
+            }
+          });
+          toast({
+            title: 'Processing Import',
+            description: 'Creating an action plan from your content...',
+          });
+        }, 100);
+      }
+    }
+  }, [activeTab, isAuthenticated, processGoalMutation.isPending, importQueue.isProcessing, importQueue.hasItems]);
   
   // Task filtering state
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -728,16 +768,21 @@ export default function MainApp({
       const preservedActivityId = activityIdRef.current;
       console.log('🔄 Plan refinement - preserving activityId:', preservedActivityId);
       
+      // Capture the import source URL (if this was from an import)
+      const sourceUrl = importSourceUrlRef.current;
+      importSourceUrlRef.current = undefined; // Clear after capturing
+      
       const newPlanOutput = {
         planTitle: data.planTitle,
         summary: data.summary,
         tasks: data.tasks || [],
         estimatedTimeframe: data.estimatedTimeframe,
         motivationalNote: data.motivationalNote,
-        activityId: preservedActivityId // Preserve activity ID if it exists
+        activityId: preservedActivityId, // Preserve activity ID if it exists
+        sourceUrl: sourceUrl // Include source URL for auto-journaling
       };
       
-      console.log('📋 New plan output:', { ...newPlanOutput, tasks: `${newPlanOutput.tasks.length} tasks` });
+      console.log('📋 New plan output:', { ...newPlanOutput, tasks: `${newPlanOutput.tasks.length} tasks`, sourceUrl });
       setCurrentPlanOutput(newPlanOutput);
 
       // Auto-save conversation session
@@ -1004,6 +1049,45 @@ export default function MainApp({
     }
   };
 
+  // Handle import paste from clipboard - uses import queue for proper authentication gating
+  const handleImportPaste = async () => {
+    // Prevent duplicate processing
+    if (importQueue.isProcessing || processGoalMutation.isPending) {
+      toast({
+        title: 'Already processing',
+        description: 'Please wait for the current import to complete.',
+      });
+      return;
+    }
+
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text || text.trim().length < 5) {
+        toast({
+          title: 'Clipboard is empty',
+          description: 'Copy a URL or content first, then try again.',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Enqueue the content (validation happens inside the hook)
+      const success = importQueue.enqueue(text.trim());
+      
+      if (success) {
+        // Switch to Goal Input tab to process the content
+        setActiveTab('input');
+      }
+      
+    } catch (error) {
+      toast({
+        title: 'Cannot access clipboard',
+        description: 'Please allow clipboard access or paste manually.',
+        variant: 'destructive'
+      });
+    }
+  };
+
   // Complete tutorial mutation
   const completeTutorialMutation = useMutation({
     mutationFn: async () => {
@@ -1050,16 +1134,22 @@ export default function MainApp({
 
   // Create activity from plan mutation
   const createActivityMutation = useMutation({
-    mutationFn: async (planData: { title: string; description: string; tasks: any[]; mode?: 'create' | 'update'; activityId?: string }) => {
+    mutationFn: async (planData: { title: string; description: string; tasks: any[]; mode?: 'create' | 'update'; activityId?: string; sourceUrl?: string }) => {
       // Use explicit mode passed from the call site
       const mode = planData.mode || 'create';
       const activityId = planData.activityId || activityIdRef.current;
+      
+      // Build description with source URL for auto-journaling
+      let fullDescription = planData.description;
+      if (planData.sourceUrl && !fullDescription.includes(planData.sourceUrl)) {
+        fullDescription = `${fullDescription}\n\nSource: ${planData.sourceUrl}`;
+      }
       
       if (mode === 'update' && activityId) {
         // Update existing activity
         const response = await apiRequest('POST', `/api/activities/${activityId}/update-from-dialogue`, {
           title: planData.title,
-          description: planData.description,
+          description: fullDescription,
           category: 'goal',
           tasks: planData.tasks.map(task => ({
             title: task.title,
@@ -1074,7 +1164,7 @@ export default function MainApp({
         // Create new activity
         const response = await apiRequest('POST', '/api/activities/from-dialogue', {
           title: planData.title,
-          description: planData.description,
+          description: fullDescription,
           category: 'goal',
           tasks: planData.tasks.map(task => ({
             title: task.title,
@@ -1299,7 +1389,7 @@ export default function MainApp({
     { value: "tasks", label: `All Tasks (${tasks.length})`, shortLabel: "Tasks", icon: Target },
     { value: "progress", label: "Progress", shortLabel: "Stats", icon: BarChart3 },
     { value: "groups", label: "Groups", shortLabel: "Groups", icon: Users },
-    { value: "sync", label: "Integrations", shortLabel: "Apps", icon: Sparkles },
+    { value: "sync", label: "Import", shortLabel: "Import", icon: Download },
     { value: "about", label: "About", shortLabel: "About", icon: Sparkles }
   ];
 
@@ -1430,9 +1520,9 @@ export default function MainApp({
                   <Users className="w-4 h-4" />
                   <span>Groups ({groups.length})</span>
                 </TabsTrigger>
-                <TabsTrigger value="sync" className="gap-2 text-sm font-medium" data-testid="tab-integrations">
-                  <Plug className="w-4 h-4" />
-                  <span>Integrations</span>
+                <TabsTrigger value="sync" className="gap-2 text-sm font-medium" data-testid="tab-import">
+                  <Download className="w-4 h-4" />
+                  <span>Import</span>
                 </TabsTrigger>
                 <TabsTrigger value="about" className="gap-2 text-sm font-medium" data-testid="tab-about">
                   <Info className="w-4 h-4" />
@@ -1686,7 +1776,10 @@ export default function MainApp({
                     onCompleteTask={(taskId) => completeTaskMutation.mutate(taskId)}
                     onCreateActivity={(planData) => {
                       if (!createActivityMutation.isPending) {
-                        createActivityMutation.mutate(planData);
+                        createActivityMutation.mutate({
+                          ...planData,
+                          sourceUrl: currentPlanOutput.sourceUrl
+                        });
                       }
                     }}
                     isCreating={createActivityMutation.isPending}
@@ -2353,229 +2446,131 @@ export default function MainApp({
               )}
             </TabsContent>
 
-            {/* App Integrations Tab */}
+            {/* Import Content Tab (replaces old Integrations) */}
             <TabsContent value="sync" className="h-full flex flex-col pb-20">
-              <SignInGate feature="App integrations">
-                <div className="text-center mb-6">
+              <div className="flex flex-col items-center justify-center py-8 px-6">
+                <div className="mt-2 mb-4 text-center">
                   <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
-                    <Sparkles className="w-6 h-6" />
-                    App Integrations
+                    <Upload className="w-6 h-6" />
+                    Import Content to Plan
                   </h2>
-                <p className="text-muted-foreground">
-                  Connect your favorite AI assistants, music platforms, and social media to create personalized life plans
+                  <p className="text-muted-foreground max-w-sm mx-auto">
+                    Share or paste content from anywhere. We'll extract it, create an actionable plan, and add it to your journal.
+                  </p>
+                </div>
+
+                <div className="w-full max-w-lg mb-6">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 text-center">
+                    Supported Sources
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-6 mb-4">
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium text-foreground mb-2">Social Media</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-gradient-to-r from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30 text-pink-600 dark:text-pink-400">
+                          <SiInstagram className="w-3.5 h-3.5" />
+                          <span>Instagram</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          <SiTiktok className="w-3.5 h-3.5" />
+                          <span>TikTok</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                          <SiYoutube className="w-3.5 h-3.5" />
+                          <span>YouTube</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400">
+                          <SiX className="w-3.5 h-3.5" />
+                          <span>Twitter/X</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                          <SiFacebook className="w-3.5 h-3.5" />
+                          <span>Facebook</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
+                          <SiReddit className="w-3.5 h-3.5" />
+                          <span>Reddit</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium text-foreground mb-2">AI & Files</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+                          <SiOpenai className="w-3.5 h-3.5" />
+                          <span>ChatGPT</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                          <SiAnthropic className="w-3.5 h-3.5" />
+                          <span>Claude</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                          <SiGooglegemini className="w-3.5 h-3.5" />
+                          <span>Gemini</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                          <LinkIcon className="w-3.5 h-3.5" />
+                          <span>Articles</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Docs</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400">
+                          <Image className="w-3.5 h-3.5" />
+                          <span>Images</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400">
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>PDFs</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
+                          <Video className="w-3.5 h-3.5" />
+                          <span>Videos</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleImportPaste}
+                  disabled={isImportProcessing}
+                  className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-lg px-8"
+                  size="lg"
+                  data-testid="button-paste-import"
+                >
+                  {isImportProcessing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardPaste className="w-5 h-5 mr-2" />
+                      Paste from Clipboard
+                    </>
+                  )}
+                </Button>
+                
+                <p className="text-xs text-muted-foreground mt-4 text-center max-w-xs">
+                  On mobile, use the share button in any app to send content directly to JournalMate
                 </p>
-              </div>
-
-              <div className="max-w-4xl mx-auto space-y-8">
-                {/* AI Assistants */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Brain className="w-5 h-5" />
-                    AI Assistants
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-chatgpt">
-                      <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiOpenai className="w-6 h-6 text-green-600" />
-                      </div>
-                      <p className="text-sm font-medium">ChatGPT</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Connected</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-claude">
-                      <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiClaude className="w-6 h-6 text-purple-600" />
-                      </div>
-                      <p className="text-sm font-medium">Claude</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Connected</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-perplexity">
-                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiPerplexity className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <p className="text-sm font-medium">Perplexity</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Available</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-other-ai">
-                      <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <Lightbulb className="w-6 h-6 text-orange-600" />
-                      </div>
-                      <p className="text-sm font-medium">Other AI</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Available</Badge>
-                    </Card>
-                  </div>
-                </div>
-
-                {/* Music Platforms */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Music className="w-5 h-5" />
-                    Music Platforms
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-spotify">
-                      <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiSpotify className="w-6 h-6 text-green-600" />
-                      </div>
-                      <p className="text-sm font-medium">Spotify</p>
-                      <Badge variant="default" className="mt-1 text-xs bg-green-600 text-white">Connected</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-apple-music">
-                      <div className="w-12 h-12 bg-gray-100 dark:bg-gray-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiApplemusic className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-                      </div>
-                      <p className="text-sm font-medium">Apple Music</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-youtube-music">
-                      <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiYoutubemusic className="w-6 h-6 text-red-600" />
-                      </div>
-                      <p className="text-sm font-medium">YouTube Music</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
-                    </Card>
-                  </div>
-                </div>
-
-                {/* Social Media */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    Social Media
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-facebook">
-                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiFacebook className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <p className="text-sm font-medium">Facebook</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-instagram">
-                      <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiInstagram className="w-6 h-6 text-pink-600" />
-                      </div>
-                      <p className="text-sm font-medium">Instagram</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-twitter">
-                      <div className="w-12 h-12 bg-gray-100 dark:bg-gray-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiX className="w-6 h-6 text-gray-900 dark:text-gray-100" />
-                      </div>
-                      <p className="text-sm font-medium">Twitter/X</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-youtube">
-                      <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <Youtube className="w-6 h-6 text-red-600" />
-                      </div>
-                      <p className="text-sm font-medium">YouTube</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
-                    </Card>
-                  </div>
-                </div>
-
-                {/* Chat Import Form */}
-                <Card className="p-6">
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">AI Source</label>
-                        <Select 
-                          value={chatSource} 
-                          onValueChange={setChatSource}
-                        >
-                          <SelectTrigger data-testid="select-chat-source">
-                            <SelectValue placeholder="Select AI source..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="chatgpt">
-                              <div className="flex items-center gap-2">
-                                <MessageSquare className="w-4 h-4 text-green-600" />
-                                ChatGPT
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="claude">
-                              <div className="flex items-center gap-2">
-                                <Brain className="w-4 h-4 text-purple-600" />
-                                Claude
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="perplexity">
-                              <div className="flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-blue-600" />
-                                Perplexity
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="other">
-                              <div className="flex items-center gap-2">
-                                <Lightbulb className="w-4 h-4 text-orange-600" />
-                                Other AI
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Conversation Title (optional)</label>
-                        <Input
-                          value={chatTitle}
-                          onChange={(e) => setChatTitle(e.target.value)}
-                          placeholder="e.g., Planning my health goals..."
-                          data-testid="input-chat-title"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Chat Conversation</label>
-                      <Textarea
-                        value={chatText}
-                        onChange={(e) => setChatText(e.target.value)}
-                        placeholder="Paste your full conversation here. Include both your messages and the AI's responses.
-
-Example format:
-User: I want to get healthier and work out more
-Assistant: That's a great goal! Here's a plan to help you...
-User: What about my diet?
-Assistant: For nutrition, I recommend..."
-                        className="min-h-[250px] resize-none"
-                        data-testid="textarea-chat-content"
-                      />
-                    </div>
-
-                    <Button
-                      onClick={handleChatImport}
-                      disabled={importChatMutation.isPending || !chatText.trim()}
-                      className="w-full"
-                      data-testid="button-import-chat"
-                    >
-                      {importChatMutation.isPending ? (
-                        <>
-                          <Upload className="w-4 h-4 mr-2 animate-spin" />
-                          Importing & Processing...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4 mr-2" />
-                          Import & Extract Goals
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </Card>
 
                 {/* Recent Imports */}
                 {chatImports.length > 0 && (
-                  <Card className="p-6">
+                  <Card className="mt-8 p-6 w-full max-w-lg">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                       <History className="w-5 h-5" />
-                      Recent Chat Imports
+                      Recent Imports
                     </h3>
                     <div className="space-y-3">
                       {chatImports.slice(0, 5).map((chatImport) => (
                         <div key={chatImport.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover-elevate">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{chatImport.conversationTitle || 'Untitled Conversation'}</p>
+                            <p className="text-sm font-medium truncate">{chatImport.conversationTitle || 'Untitled Import'}</p>
                             <p className="text-xs text-muted-foreground">
                               {chatImport.extractedGoals?.length || 0} goals extracted • {chatImport.processedAt ? new Date(chatImport.processedAt).toLocaleDateString() : 'Processing...'}
                             </p>
@@ -2584,10 +2579,6 @@ Assistant: For nutrition, I recommend..."
                             <Badge variant="outline" className="text-xs">
                               {chatImport.source}
                             </Badge>
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Target className="w-3 h-3" />
-                              {chatImport.extractedGoals?.length || 0}
-                            </div>
                           </div>
                         </div>
                       ))}
@@ -2595,7 +2586,6 @@ Assistant: For nutrition, I recommend..."
                   </Card>
                 )}
               </div>
-              </SignInGate>
             </TabsContent>
 
             {/* Groups Tab */}

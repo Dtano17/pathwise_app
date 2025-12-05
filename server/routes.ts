@@ -7064,9 +7064,48 @@ ${emoji} ${progressLine}
         req.session.demoActivityCount += 1;
       }
 
+      // Auto-journal if the description contains a URL source (imported content)
+      let journalEntryId = null;
+      const urlMatch = description?.match(/https?:\/\/[^\s]+/i);
+      const isSocialMedia = urlMatch && /instagram\.com|tiktok\.com|youtube\.com|youtu\.be|twitter\.com|x\.com|facebook\.com|reddit\.com/i.test(urlMatch[0]);
+      
+      if (isSocialMedia && isAuthenticated) {
+        try {
+          const sourceUrl = urlMatch[0];
+          const platform = sourceUrl.includes('instagram') ? 'Instagram' : 
+                         sourceUrl.includes('tiktok') ? 'TikTok' : 
+                         sourceUrl.includes('youtube') || sourceUrl.includes('youtu.be') ? 'YouTube' :
+                         sourceUrl.includes('twitter') || sourceUrl.includes('x.com') ? 'Twitter/X' :
+                         sourceUrl.includes('facebook') ? 'Facebook' :
+                         sourceUrl.includes('reddit') ? 'Reddit' : 'Social Media';
+          
+          // Build journal content from the imported content
+          const tasksList = tasks?.map((t: any) => t.title).join('\n- ') || '';
+          const journalContent = `## Saved from ${platform}: ${title}\n\n` +
+            `**Source:** ${sourceUrl}\n\n` +
+            `### Plan Summary\n${description || 'No summary available'}\n\n` +
+            `### Tasks\n- ${tasksList}`;
+          
+          const journalEntry = await storage.createJournalEntry({
+            userId,
+            date: new Date().toISOString().split('T')[0],
+            content: journalContent,
+            category: 'travel_adventure',
+            tags: [platform.toLowerCase(), 'imported', 'planning'],
+            mood: 'excited'
+          });
+          journalEntryId = journalEntry.id;
+          
+          console.log(`[AUTO-JOURNAL] Created journal entry ${journalEntryId} from ${platform} URL for activity ${activity.id}`);
+        } catch (journalError) {
+          console.error('[AUTO-JOURNAL] Error creating journal entry:', journalError);
+          // Don't fail the whole request if journaling fails
+        }
+      }
+
       // Get the complete activity with tasks
       const activityTasks = await storage.getActivityTasks(activity.id, userId);
-      res.json({ ...activity, tasks: activityTasks });
+      res.json({ ...activity, tasks: activityTasks, journalEntryId });
     } catch (error) {
       console.error('Create activity from dialogue error:', error);
       res.status(500).json({ error: 'Failed to create activity from dialogue' });

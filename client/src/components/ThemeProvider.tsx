@@ -24,8 +24,8 @@ function getEffectiveTheme(mode: ThemeMode): 'light' | 'dark' {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>('auto');
-  const [isDark, setIsDark] = useState(false);
+  const [theme, setThemeState] = useState<ThemeMode>('dark');
+  const [isDark, setIsDark] = useState(true);
 
   const applyTheme = useCallback((effectiveTheme: 'light' | 'dark') => {
     const shouldBeDark = effectiveTheme === 'dark';
@@ -39,7 +39,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme-mode') as ThemeMode | null;
-    const initialTheme = savedTheme || 'auto';
+    // Default to dark mode unless user explicitly selected auto or light
+    const initialTheme = savedTheme || 'dark';
     setThemeState(initialTheme);
     applyTheme(getEffectiveTheme(initialTheme));
   }, [applyTheme]);
