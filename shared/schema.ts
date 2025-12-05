@@ -1401,9 +1401,11 @@ export const userStatistics = pgTable("user_statistics", {
 export const userProfiles = pgTable("user_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  bio: text("bio"), // Personal bio/description
-  heightCm: integer("height_cm"), // Height in centimeters
-  weightKg: integer("weight_kg"), // Weight in kilograms
+  nickname: text("nickname"), // Display name / preferred name
+  publicBio: text("public_bio"), // Public bio visible to others
+  privateBio: text("private_bio"), // Private notes only visible to the user
+  height: text("height"), // Height as string (e.g., "5'10" or "178cm")
+  weight: text("weight"), // Weight as string (e.g., "170 lbs" or "77kg")
   birthDate: text("birth_date"), // YYYY-MM-DD format for age calculation
   sex: text("sex"), // 'male' | 'female' | 'other' | 'prefer_not_to_say'
   ethnicity: text("ethnicity"), // Self-identified ethnicity
