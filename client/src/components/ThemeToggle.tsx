@@ -1,51 +1,54 @@
-import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, Monitor } from 'lucide-react';
+import { useTheme } from './ThemeProvider';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    // Check initial theme - respect saved preference or system preference
-    const savedTheme = localStorage.getItem('theme');
-    let shouldBeDark: boolean;
-    
-    if (savedTheme) {
-      // User has explicitly set a preference
-      shouldBeDark = savedTheme === 'dark';
-    } else {
-      // No saved preference - check system preference
-      shouldBeDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    
-    setIsDark(shouldBeDark);
-    if (shouldBeDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const newIsDark = !isDark;
-    setIsDark(newIsDark);
-    if (newIsDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('theme', newIsDark ? 'dark' : 'light');
-  };
+  const { theme, isDark, setTheme, toggleTheme } = useTheme();
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggleTheme}
-      data-testid="button-theme-toggle"
-      className="hover-elevate"
-    >
-      {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          data-testid="button-theme-toggle"
+          className="hover-elevate"
+        >
+          {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem 
+          onClick={() => setTheme('light')}
+          className={theme === 'light' ? 'bg-accent' : ''}
+          data-testid="theme-light"
+        >
+          <Sun className="w-4 h-4 mr-2" />
+          Light
+        </DropdownMenuItem>
+        <DropdownMenuItem 
+          onClick={() => setTheme('dark')}
+          className={theme === 'dark' ? 'bg-accent' : ''}
+          data-testid="theme-dark"
+        >
+          <Moon className="w-4 h-4 mr-2" />
+          Dark
+        </DropdownMenuItem>
+        <DropdownMenuItem 
+          onClick={() => setTheme('auto')}
+          className={theme === 'auto' ? 'bg-accent' : ''}
+          data-testid="theme-auto"
+        >
+          <Monitor className="w-4 h-4 mr-2" />
+          Auto (Day/Night)
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

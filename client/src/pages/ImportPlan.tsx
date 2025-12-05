@@ -12,8 +12,15 @@ import {
   AlertCircle,
   ChevronRight,
   Edit2,
-  GripVertical
+  GripVertical,
+  BookOpen,
+  FileText,
+  Link,
+  Image,
+  Video,
+  LogIn
 } from 'lucide-react';
+import { SiInstagram, SiTiktok, SiYoutube, SiX, SiFacebook, SiReddit, SiOpenai } from 'react-icons/si';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,8 +35,11 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAIPlanImport, useClipboardImport, type ParsedTask } from '@/hooks/useAIPlanImport';
+import { useAuth } from '@/hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SocialMediaShareDialog } from '@/components/SocialMediaShareDialog';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 
 function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
@@ -39,7 +49,17 @@ function GlassCard({ children, className = '' }: { children: React.ReactNode; cl
   );
 }
 
-function LoadingState() {
+
+function SourcePill({ icon: Icon, label, color }: { icon: any; label: string; color: string }) {
+  return (
+    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium ${color}`}>
+      <Icon className="w-3.5 h-3.5" />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function LoadingState({ message }: { message?: string }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -54,49 +74,146 @@ function LoadingState() {
         </div>
       </div>
       <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">
-        Analyzing Your Content
+        {message || 'Analyzing Your Content'}
       </h3>
       <p className="text-slate-500 dark:text-slate-400 text-center max-w-xs">
-        AI is extracting tasks, priorities, and details from your content...
+        Extracting content, generating your personalized plan...
       </p>
     </motion.div>
   );
 }
 
-function EmptyState({ onPasteClick }: { onPasteClick: () => void }) {
+function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isLoading?: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col items-center justify-center py-12 px-6"
+      className="flex flex-col items-center justify-center py-8 px-6"
     >
-      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-100 to-violet-100 dark:from-purple-900/30 dark:to-violet-900/30 flex items-center justify-center mb-6">
-        <ClipboardPaste className="w-10 h-10 text-purple-500" />
+      
+      <div className="mt-6 mb-4 text-center">
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
+          Import Content to Plan
+        </h2>
+        <p className="text-slate-500 dark:text-slate-400 max-w-sm">
+          Share or paste content from anywhere. We'll extract it, create an actionable plan, and add it to your journal.
+        </p>
       </div>
-      <h3 className="text-xl font-semibold text-slate-800 dark:text-white mb-2">
-        Import Content to Plan
-      </h3>
-      <p className="text-slate-500 dark:text-slate-400 text-center max-w-sm mb-4">
-        Paste content from AI assistants or social media to create actionable plans
-      </p>
-      <div className="flex flex-wrap justify-center gap-2 mb-6">
-        <span className="text-xs px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">ChatGPT</span>
-        <span className="text-xs px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">Claude</span>
-        <span className="text-xs px-2 py-1 rounded-full bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400">Instagram</span>
-        <span className="text-xs px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">TikTok</span>
-        <span className="text-xs px-2 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">YouTube</span>
+
+      <div className="w-full max-w-md mb-6">
+        <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 text-center">
+          Supported Sources
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Social Media</div>
+            <div className="flex flex-wrap gap-1.5">
+              <SourcePill icon={SiInstagram} label="Instagram" color="bg-gradient-to-r from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30 text-pink-600 dark:text-pink-400" />
+              <SourcePill icon={SiTiktok} label="TikTok" color="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300" />
+              <SourcePill icon={SiYoutube} label="YouTube" color="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" />
+              <SourcePill icon={SiX} label="Twitter/X" color="bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400" />
+              <SourcePill icon={SiFacebook} label="Facebook" color="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" />
+              <SourcePill icon={SiReddit} label="Reddit" color="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400" />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">AI & Files</div>
+            <div className="flex flex-wrap gap-1.5">
+              <SourcePill icon={SiOpenai} label="ChatGPT" color="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" />
+              <SourcePill icon={Sparkles} label="Claude" color="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" />
+              <SourcePill icon={Sparkles} label="Gemini" color="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" />
+              <SourcePill icon={Link} label="Articles" color="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" />
+              <SourcePill icon={FileText} label="Docs" color="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400" />
+              <SourcePill icon={Image} label="Images" color="bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" />
+              <SourcePill icon={FileText} label="PDFs" color="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400" />
+              <SourcePill icon={Video} label="Videos" color="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400" />
+            </div>
+          </div>
+        </div>
       </div>
+
       <Button
         onClick={onPasteClick}
-        className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-lg"
+        disabled={isLoading}
+        className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-lg px-8"
         size="lg"
         data-testid="button-paste-plan"
       >
-        <ClipboardPaste className="w-5 h-5 mr-2" />
-        Paste from Clipboard
+        {isLoading ? (
+          <>
+            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          <>
+            <ClipboardPaste className="w-5 h-5 mr-2" />
+            Paste from Clipboard
+          </>
+        )}
       </Button>
-      <p className="text-xs text-slate-400 dark:text-slate-500 mt-4 text-center">
-        Share directly from any app, or paste URLs and text
+      
+      <p className="text-xs text-slate-400 dark:text-slate-500 mt-4 text-center max-w-xs">
+        On mobile, use the share button in any app to send content directly to JournalMate
+      </p>
+    </motion.div>
+  );
+}
+
+function SignInPrompt({ planPreview, onSignIn }: { planPreview: any; onSignIn: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex flex-col items-center justify-center py-8 px-6"
+    >
+      
+      <div className="w-full mt-6 mb-6">
+        <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800/30">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-4 h-4 text-purple-500" />
+            <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">Your Plan is Ready!</span>
+          </div>
+          
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">
+            {planPreview?.title || 'Generated Plan'}
+          </h3>
+          
+          {planPreview?.description && (
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">
+              {planPreview.description}
+            </p>
+          )}
+          
+          <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+            <Check className="w-4 h-4 text-emerald-500" />
+            <span>{planPreview?.taskCount || 0} actionable tasks created</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="text-center mb-6">
+        <h4 className="font-semibold text-slate-800 dark:text-white mb-2">
+          Sign in to save your plan
+        </h4>
+        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
+          Create an account to track your progress, get reminders, and access your plans anywhere.
+        </p>
+      </div>
+
+      <Button
+        onClick={onSignIn}
+        className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-lg w-full max-w-xs"
+        size="lg"
+        data-testid="button-sign-in"
+      >
+        <LogIn className="w-5 h-5 mr-2" />
+        Sign in to Continue
+      </Button>
+      
+      <p className="text-xs text-slate-400 dark:text-slate-500 mt-4">
+        Free account. No credit card required.
       </p>
     </motion.div>
   );
@@ -131,7 +248,7 @@ function ErrorState({
         )}
       </div>
       <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">
-        {upgradeRequired ? 'Upgrade to Pro' : 'Import Failed'}
+        {upgradeRequired ? 'Upgrade to Pro' : 'Something went wrong'}
       </h3>
       <p className="text-slate-500 dark:text-slate-400 text-center max-w-xs mb-6">
         {error}
@@ -175,7 +292,7 @@ function SuccessState() {
         <Check className="w-10 h-10 text-white" />
       </motion.div>
       <h3 className="text-xl font-semibold text-slate-800 dark:text-white mb-2">
-        Plan Imported!
+        Plan Created & Journaled!
       </h3>
       <p className="text-slate-500 dark:text-slate-400 text-center">
         Redirecting to your new activity...
@@ -203,12 +320,6 @@ function TaskItem({
       onUpdate({ title: editedTitle.trim() });
     }
     setIsEditing(false);
-  };
-
-  const priorityColors = {
-    high: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-    medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-    low: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
   };
 
   return (
@@ -309,10 +420,37 @@ function TaskItem({
   );
 }
 
+function isSocialMediaUrl(text: string): boolean {
+  const patterns = [
+    /instagram\.com\/(reel|p|stories)\//i,
+    /tiktok\.com\/@?[\w.-]+\/video\//i,
+    /(?:youtube\.com\/(?:watch\?|shorts\/)|youtu\.be\/)/i,
+    /(?:twitter\.com|x\.com)\/[\w]+\/status\//i,
+    /facebook\.com\/(?:watch|reel|[\w.]+\/videos)\//i,
+    /reddit\.com\/r\/[\w]+\/comments\//i,
+  ];
+  return patterns.some(pattern => pattern.test(text));
+}
+
+function extractUrlFromText(text: string): string | null {
+  const urlMatch = text.match(/https?:\/\/[^\s]+/i);
+  return urlMatch ? urlMatch[0] : null;
+}
+
+function detectPlatform(url: string): string {
+  if (url.includes('instagram')) return 'Instagram';
+  if (url.includes('tiktok')) return 'TikTok';
+  if (url.includes('youtube') || url.includes('youtu.be')) return 'YouTube';
+  if (url.includes('twitter') || url.includes('x.com')) return 'Twitter';
+  if (url.includes('facebook')) return 'Facebook';
+  if (url.includes('reddit')) return 'Reddit';
+  return 'Web';
+}
+
 export default function ImportPlan() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { importFromClipboard } = useClipboardImport();
+  const { user, isAuthenticated, login, isLoading: authLoading } = useAuth();
   
   const {
     state,
@@ -336,16 +474,105 @@ export default function ImportPlan() {
 
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [extractingContent, setExtractingContent] = useState(false);
+  const [planPreview, setPlanPreview] = useState<any>(null);
+  const [showSignIn, setShowSignIn] = useState(false);
+
+  const generatePlanMutation = useMutation({
+    mutationFn: async ({ content, sourceUrl }: { content: string; sourceUrl: string }) => {
+      const response = await apiRequest('POST', '/api/planner/generate-plan-from-content', {
+        externalContent: content,
+        mode: 'quick',
+        sourceUrl
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate plan');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setExtractingContent(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/journal'] });
+      
+      toast({
+        title: 'Plan Created & Journaled!',
+        description: `Created "${data.activity?.title}" with ${data.createdTasks?.length || 0} tasks`
+      });
+      
+      if (data.activity?.id) {
+        setTimeout(() => {
+          setLocation(`/activities/${data.activity.id}`);
+        }, 1500);
+      }
+    },
+    onError: (error: Error) => {
+      setExtractingContent(false);
+      toast({
+        title: 'Failed to create plan',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  });
+
+  const extractContentMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const response = await apiRequest('POST', '/api/content/extract', {
+        url
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to extract content');
+      }
+      
+      return response.json();
+    }
+  });
 
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      if (text && text.trim().length > 20) {
-        startImport(text.trim(), 'clipboard');
-      } else {
+      if (!text || text.trim().length < 5) {
         toast({
           title: 'Clipboard is empty',
-          description: 'Copy an AI-generated plan first, then try again.',
+          description: 'Copy a URL or content first, then try again.',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      const trimmedText = text.trim();
+      const url = extractUrlFromText(trimmedText);
+      
+      if (url && isSocialMediaUrl(url)) {
+        if (!isAuthenticated) {
+          setPlanPreview({
+            title: `Plan from ${detectPlatform(url)}`,
+            description: 'Content will be extracted and turned into actionable tasks',
+            taskCount: '6-9'
+          });
+          setShowSignIn(true);
+          return;
+        }
+        
+        setExtractingContent(true);
+        
+        generatePlanMutation.mutate({
+          content: `URL to extract and plan: ${url}`,
+          sourceUrl: url
+        });
+      } else if (trimmedText.length > 20) {
+        startImport(trimmedText, 'clipboard');
+      } else {
+        toast({
+          title: 'Content too short',
+          description: 'Please paste a URL or longer content.',
           variant: 'destructive'
         });
       }
@@ -371,12 +598,21 @@ export default function ImportPlan() {
   };
 
   const handleBack = () => {
-    if (isParsed) {
+    if (showSignIn) {
+      setShowSignIn(false);
+      setPlanPreview(null);
+    } else if (isParsed) {
       cancel();
     } else {
       setLocation('/');
     }
   };
+
+  const handleSignIn = () => {
+    login();
+  };
+
+  const isProcessing = isLoading || extractingContent || generatePlanMutation.isPending;
 
   return (
     <div className="h-screen overflow-auto bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-slate-900 dark:via-slate-900 dark:to-purple-950">
@@ -391,16 +627,20 @@ export default function ImportPlan() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
 
-          <h1 className="text-lg font-semibold text-slate-800 dark:text-white">
-            Import Content
-          </h1>
+          <div className="flex items-center gap-2">
+            <img 
+              src="/journalmate-logo-transparent.png" 
+              alt="JournalMate" 
+              className="h-8 w-auto"
+            />
+          </div>
 
           <div className="w-10" />
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto p-4 pb-24">
-        {limits && limits.tier === 'free' && (
+        {limits && limits.tier === 'free' && !showSignIn && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -428,12 +668,23 @@ export default function ImportPlan() {
 
         <GlassCard>
           <AnimatePresence mode="wait">
-            {state.status === 'idle' && (
-              <EmptyState key="empty" onPasteClick={handlePaste} />
+            {showSignIn && planPreview && (
+              <SignInPrompt 
+                key="signin" 
+                planPreview={planPreview} 
+                onSignIn={handleSignIn} 
+              />
             )}
 
-            {isLoading && (
-              <LoadingState key="loading" />
+            {!showSignIn && state.status === 'idle' && !isProcessing && (
+              <EmptyState key="empty" onPasteClick={handlePaste} isLoading={isProcessing} />
+            )}
+
+            {isProcessing && (
+              <LoadingState 
+                key="loading" 
+                message={extractingContent ? 'Extracting & Planning...' : undefined} 
+              />
             )}
 
             {isError && state.error && (
@@ -446,7 +697,7 @@ export default function ImportPlan() {
               />
             )}
 
-            {isSuccess && (
+            {(isSuccess || generatePlanMutation.isSuccess) && (
               <SuccessState key="success" />
             )}
 

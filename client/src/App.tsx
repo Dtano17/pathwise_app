@@ -26,6 +26,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { initializeMobileFeatures } from "@/lib/mobile";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 function AppContent() {
   // Get authenticated user - use isAuthenticated to distinguish from demo/guest users
@@ -190,7 +191,9 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppContent />
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
