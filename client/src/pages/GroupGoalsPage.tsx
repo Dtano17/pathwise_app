@@ -359,7 +359,7 @@ export default function GroupGoalsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6 space-y-8">
+    <div className="h-screen overflow-auto bg-background p-6 space-y-8">
       {/* Navigation Buttons */}
       <div className="max-w-6xl mx-auto">
         <div className="flex gap-2 mb-6">

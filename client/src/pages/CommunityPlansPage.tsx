@@ -5,7 +5,7 @@ import DiscoverPlansView from "@/components/discover/DiscoverPlansView";
 
 export default function CommunityPlansPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="h-screen overflow-auto bg-background text-foreground">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Navigation Buttons */}
         <div className="flex gap-2 mb-6">
