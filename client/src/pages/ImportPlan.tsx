@@ -20,7 +20,7 @@ import {
   Video,
   LogIn
 } from 'lucide-react';
-import { SiInstagram, SiTiktok, SiYoutube, SiX, SiFacebook, SiReddit, SiOpenai } from 'react-icons/si';
+import { SiInstagram, SiTiktok, SiYoutube, SiX, SiFacebook, SiReddit, SiOpenai, SiAnthropic, SiGooglegemini } from 'react-icons/si';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -122,8 +122,8 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
             <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">AI & Files</div>
             <div className="flex flex-wrap gap-1.5">
               <SourcePill icon={SiOpenai} label="ChatGPT" color="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" />
-              <SourcePill icon={Sparkles} label="Claude" color="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" />
-              <SourcePill icon={Sparkles} label="Gemini" color="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" />
+              <SourcePill icon={SiAnthropic} label="Claude" color="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" />
+              <SourcePill icon={SiGooglegemini} label="Gemini" color="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" />
               <SourcePill icon={Link} label="Articles" color="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" />
               <SourcePill icon={FileText} label="Docs" color="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400" />
               <SourcePill icon={Image} label="Images" color="bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" />
@@ -631,7 +631,7 @@ export default function ImportPlan() {
             <img 
               src="/journalmate-logo-transparent.png" 
               alt="JournalMate" 
-              className="h-8 w-auto"
+              className="h-12 w-auto"
             />
           </div>
 
