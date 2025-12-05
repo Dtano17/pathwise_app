@@ -4,26 +4,32 @@
 JournalMate (journalmate.ai) is an AI-powered journaling application that transforms user intentions into actionable plans. It offers a mobile-first experience with features like swipeable task management, celebratory feedback, and comprehensive authentication. The application uses advanced AI for intelligent planning and personalized journaling, guiding users through goal setting, execution, and celebration, aiming to be a production-ready solution for personal development with a freemium revenue model.
 
 ## User Preferences
-- Wants fully functional authentication with Facebook support
-- Requires separate Supabase-based Facebook OAuth (not Replit Auth)
+- **Simplified authentication**: Email and Google sign-in only (removed Facebook/Twitter/Apple)
 - Needs Priorities and Settings tabs to be fully functional
 - Values real user data persistence (no hardcoded demo users)
 - Mobile-first design approach
-- Clean, modern interface design
+- **Liquid Glass UI**: Modern frosted glass aesthetic (iOS 26-style) on both iOS and Android
 - Real AI integration (Claude/OpenAI)
 - Welcome emails working for OAuth users
 - Group invite codes generating and displaying
+- **Journal-first workflow**: Share content → Auto-journal → Plan → Experience → Review → Repeat
 - App production-ready for deployment
 
 ## System Architecture
-The application features a mobile-first responsive design, utilizing a clean, card-based UI with a purple and emerald color scheme and the Inter font family, designed for immediate, celebration-focused feedback.
+The application features a mobile-first responsive design with **Liquid Glass UI** - a frosted glass aesthetic inspired by iOS 26. Uses backdrop-blur, translucent backgrounds, and subtle shadows for a modern, premium look on both iOS and Android.
+
+**Design System:**
+- **Liquid Glass**: CSS utilities in index.css (.glass, .glass-strong, .glass-subtle, .glass-card, .glass-nav, .glass-modal, .glass-button)
+- **Color scheme**: Purple and emerald gradients with high-contrast text
+- **Typography**: Inter font family
+- **Effects**: backdrop-blur-xl, backdrop-saturate, subtle inner shadows for depth
 
 **Technical Stack:**
 - **Frontend**: React, TypeScript, Tailwind CSS, Framer Motion, Wouter
 - **Backend**: Express.js with Passport.js
 - **Database**: PostgreSQL (Neon) with Drizzle ORM
 - **AI Integration**: OpenAI and Claude API with automatic provider switching and cost optimization.
-- **Authentication**: Dual system with Replit Auth (Google, X/Twitter, Apple, Email) and Supabase (Facebook OAuth), unified via Passport.js.
+- **Authentication**: Email + Google sign-in via Replit Auth/Passport.js (simplified from previous multi-provider setup)
 - **Mobile Application**: Capacitor-based native app for iOS and Android, with PWA support.
 
 **Key Features:**
@@ -48,8 +54,7 @@ The application features a mobile-first responsive design, utilizing a clean, ca
   - API endpoints: GET/POST/DELETE /api/reminders/activities/:activityId
 
 ## External Dependencies
-- **Replit Auth**: Google, X/Twitter, Apple, and Email authentication.
-- **Supabase**: Facebook OAuth.
+- **Replit Auth**: Email and Google authentication (simplified from multi-provider).
 - **Stripe**: Payment processing and subscription management.
 - **OpenAI API**: AI model integration (GPT-4o-mini, Whisper).
 - **Tavily API**: Real-time web search and data enrichment, including advanced content extraction for various URLs.
