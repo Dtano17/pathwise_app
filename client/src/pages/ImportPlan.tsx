@@ -40,6 +40,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { SocialMediaShareDialog } from '@/components/SocialMediaShareDialog';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import ThemeToggle from '@/components/ThemeToggle';
 
 function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
@@ -483,7 +484,13 @@ export default function ImportPlan() {
       const response = await apiRequest('POST', '/api/planner/generate-plan-from-content', {
         externalContent: content,
         mode: 'quick',
-        sourceUrl
+        sourceUrl,
+        userAnswers: {
+          goal: 'Turn this inspiration into actionable steps',
+          timeline: 'flexible',
+          priority: 'medium',
+          preferences: 'Create a practical plan based on this content'
+        }
       });
       
       if (!response.ok) {
@@ -635,7 +642,7 @@ export default function ImportPlan() {
             />
           </div>
 
-          <div className="w-10" />
+          <ThemeToggle />
         </div>
       </div>
 
