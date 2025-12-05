@@ -9239,7 +9239,7 @@ You can find these tasks in your task list and start working on them right away!
       const userId = getUserId(req) || DEMO_USER_ID;
       console.log('Fetching profile for user:', userId);
       
-      // Get user data for OAuth profile image
+      // Get user data for OAuth profile image and basic info
       const user = await storage.getUser(userId);
       
       // Try to get existing profile
@@ -9269,10 +9269,27 @@ You can find these tasks in your task list and start working on them right away!
         imageLength: profileImageUrl?.length || 0
       });
       
+      // Merge user table fields with profile table fields for unified response
       res.json({ 
         ...profile, 
+        // User table fields (firstName, lastName, email, location, occupation)
+        firstName: user?.firstName || null,
+        lastName: user?.lastName || null,
+        email: user?.email || null,
+        location: user?.location || null,
+        occupation: user?.occupation || null,
+        username: user?.username || null,
+        // Computed fields
         profileImageUrl, // Add computed field for frontend compatibility
-        preferences: preferences?.preferences 
+        preferences: preferences?.preferences,
+        // Gamification fields from user
+        smartScore: user?.creatorPoints || 0,
+        totalTasksCompleted: user?.totalPlansCreated || 0,
+        streakDays: 0, // This would need to be calculated
+        interests: user?.interests || [],
+        lifeGoals: user?.currentChallenges || [],
+        createdAt: user?.createdAt || null,
+        lastActiveDate: user?.updatedAt || new Date().toISOString(),
       });
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -9283,9 +9300,48 @@ You can find these tasks in your task list and start working on them right away!
   app.put("/api/user/profile", async (req: any, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
-      const profileData = insertUserProfileSchema.parse(req.body);
-      const profile = await storage.upsertUserProfile(userId, profileData);
-      res.json(profile);
+      const body = req.body;
+      
+      // Fields that belong to the users table
+      const userFields = ['firstName', 'lastName', 'email', 'location', 'occupation'];
+      // Fields that belong to the user_profiles table
+      const profileFields = ['nickname', 'publicBio', 'privateBio', 'height', 'weight', 'birthDate', 'sex', 'ethnicity', 'profileVisibility'];
+      
+      // Split the incoming data
+      const userUpdate: any = {};
+      const profileUpdate: any = {};
+      
+      for (const key of Object.keys(body)) {
+        if (userFields.includes(key) && body[key] !== undefined) {
+          userUpdate[key] = body[key];
+        } else if (profileFields.includes(key) && body[key] !== undefined) {
+          profileUpdate[key] = body[key];
+        }
+      }
+      
+      console.log('[PROFILE UPDATE] User fields:', userUpdate);
+      console.log('[PROFILE UPDATE] Profile fields:', profileUpdate);
+      
+      // Update users table if there are user fields to update
+      if (Object.keys(userUpdate).length > 0) {
+        await storage.updateUser(userId, userUpdate);
+        console.log('[PROFILE UPDATE] Updated user table');
+      }
+      
+      // Update user_profiles table
+      const profile = await storage.upsertUserProfile(userId, profileUpdate);
+      console.log('[PROFILE UPDATE] Updated profile table');
+      
+      // Return the merged profile data
+      const user = await storage.getUser(userId);
+      res.json({
+        ...profile,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        email: user?.email,
+        location: user?.location,
+        occupation: user?.occupation,
+      });
     } catch (error) {
       console.error('Error updating user profile:', error);
       res.status(500).json({ error: 'Failed to update user profile' });
