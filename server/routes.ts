@@ -2954,7 +2954,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const { location, budgetTier, category, excludeIds } = req.query;
+      const { location, budgetTier, category, excludeIds, sourceUrl, importId, matchBudget } = req.query;
       
       // Fetch user's journal entries from preferences
       const preferences = await storage.getUserPreferences(userId);
@@ -3012,11 +3012,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Must have venue name
         if (!entry.venueName) return false;
         
+        // Exclude venues already selected for the plan
+        if (entry.selectedForPlan === true) return false;
+        
+        // Filter by sourceUrl - show only venues from same source
+        if (sourceUrl && entry.sourceUrl !== String(sourceUrl)) return false;
+        
+        // Filter by importId - show only venues from same import batch
+        if (importId && entry.importId !== String(importId)) return false;
+        
         // Filter by location if provided
         if (location && !cityMatches(entry.location, String(location))) return false;
         
-        // Filter by budget tier (including adjacent tiers)
-        if (budgetTier && !budgetAdjacent(entry.budgetTier, String(budgetTier))) return false;
+        // Filter by budget tier - if matchBudget=true, only exact match; otherwise include adjacent tiers
+        if (budgetTier) {
+          if (matchBudget === 'true') {
+            // Exact budget match only
+            if (entry.budgetTier !== String(budgetTier)) return false;
+          } else {
+            // Include adjacent budget tiers
+            if (!budgetAdjacent(entry.budgetTier, String(budgetTier))) return false;
+          }
+        }
         
         // Filter by category if provided
         if (category) {
@@ -3032,7 +3049,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If no alternatives found for the location, return empty array
       
       // Format response
-      const response = alternatives.slice(0, 10).map(entry => ({
+      const response = alternatives.slice(0, 20).map(entry => ({
         id: entry.id,
         venueName: entry.venueName,
         venueType: entry.venueType || entry.journalCategory,
@@ -3040,7 +3057,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         priceRange: entry.priceRange,
         budgetTier: entry.budgetTier,
         category: entry.journalCategory,
-        sourceUrl: entry.sourceUrl
+        sourceUrl: entry.sourceUrl,
+        importId: entry.importId,
+        estimatedCost: entry.estimatedCost
       }));
       
       res.json({ alternatives: response });

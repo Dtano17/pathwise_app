@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,15 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
+// Command ref interface for natural language commands from main input
+export interface ClaudePlanCommandRef {
+  saveToJournal: () => void;
+  toggleBudgetFilter: () => void;
+  expandAllAlternatives: () => void;
+  collapseAllAlternatives: () => void;
+  getState: () => { matchBudgetFilter: boolean; expandedAlternatives: number[] };
+}
 
 interface Alternative {
   id: string;
@@ -68,21 +77,44 @@ interface AlternativesSectionProps {
   taskId: string;
   location?: string;
   budgetTier?: string;
+  sourceUrl?: string;
+  importId?: string;
   isExpanded: boolean;
+  isDocked: boolean;
   onToggle: () => void;
+  onToggleDock: () => void;
   onSwap: (alternative: Alternative) => void;
+  onSaveToJournal?: (alternative: Alternative) => void;
+  matchBudget?: boolean;
 }
 
-function AlternativesSection({ taskIndex, taskId, location, budgetTier, isExpanded, onToggle, onSwap }: AlternativesSectionProps) {
+function AlternativesSection({ 
+  taskIndex, 
+  taskId, 
+  location, 
+  budgetTier, 
+  sourceUrl,
+  importId,
+  isExpanded, 
+  isDocked,
+  onToggle, 
+  onToggleDock,
+  onSwap,
+  onSaveToJournal,
+  matchBudget
+}: AlternativesSectionProps) {
   const queryParams = new URLSearchParams();
   if (location) queryParams.set('location', location);
   if (budgetTier) queryParams.set('budgetTier', budgetTier);
   if (taskId) queryParams.set('excludeIds', taskId);
+  if (sourceUrl) queryParams.set('sourceUrl', sourceUrl);
+  if (importId) queryParams.set('importId', importId);
+  if (matchBudget) queryParams.set('matchBudget', 'true');
   
   const alternativesUrl = `/api/alternatives?${queryParams.toString()}`;
   
   const { data: alternatives, isLoading, error } = useQuery<Alternative[]>({
-    queryKey: ['/api/alternatives', location, budgetTier, taskId],
+    queryKey: ['/api/alternatives', location, budgetTier, taskId, sourceUrl, importId, matchBudget],
     queryFn: async () => {
       const response = await fetch(alternativesUrl, { credentials: 'include' });
       if (!response.ok) {
@@ -98,6 +130,111 @@ function AlternativesSection({ taskIndex, taskId, location, budgetTier, isExpand
     return null;
   }
 
+  const alternativesContent = (
+    <div 
+      className={`p-3 bg-muted/30 rounded-lg border border-muted ${isDocked ? 'max-h-32 overflow-y-auto' : ''}`}
+      data-testid={`alternatives-list-${taskIndex}`}
+    >
+      {isLoading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading alternatives...
+        </div>
+      )}
+      
+      {error && (
+        <p className="text-sm text-destructive">Failed to load alternatives</p>
+      )}
+      
+      {!isLoading && !error && alternatives && alternatives.length === 0 && (
+        <p className="text-sm text-muted-foreground">No alternatives found in your journal for this location</p>
+      )}
+      
+      {!isLoading && !error && alternatives && alternatives.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="text-xs text-muted-foreground">
+              Found {alternatives.length} alternative{alternatives.length !== 1 ? 's' : ''} from your journal
+              {sourceUrl && <span className="text-primary"> (same source)</span>}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              onClick={onToggleDock}
+              data-testid={`button-toggle-dock-${taskIndex}`}
+              title={isDocked ? "Expand alternatives" : "Dock alternatives"}
+            >
+              {isDocked ? (
+                <ChevronDown className="w-3 h-3" />
+              ) : (
+                <ChevronDown className="w-3 h-3 rotate-180" />
+              )}
+            </Button>
+          </div>
+          <div className={`flex flex-col gap-2 ${isDocked ? 'max-h-20' : 'max-h-48'} overflow-y-auto`}>
+            {alternatives.map((alt, altIndex) => (
+              <div
+                key={alt.id}
+                className={`flex items-center justify-between gap-3 p-2 bg-background rounded-md border ${isDocked ? 'p-1.5' : ''}`}
+                data-testid={`alternative-item-${altIndex}`}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium truncate ${isDocked ? 'text-xs' : 'text-sm'}`}>{alt.venueName}</p>
+                  {!isDocked && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      {alt.location?.city && (
+                        <Badge variant="outline" className="text-xs gap-1">
+                          <MapPin className="w-2.5 h-2.5" />
+                          {alt.location.city}
+                        </Badge>
+                      )}
+                      {alt.budgetTier && (
+                        <Badge variant="outline" className="text-xs">
+                          {alt.budgetTier}
+                        </Badge>
+                      )}
+                      {alt.priceRange && (
+                        <span className="text-xs text-muted-foreground">{alt.priceRange}</span>
+                      )}
+                      {alt.estimatedCost && (
+                        <span className="text-xs text-muted-foreground">${alt.estimatedCost}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {onSaveToJournal && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={isDocked ? 'h-6 w-6 p-0' : ''}
+                      onClick={() => onSaveToJournal(alt)}
+                      data-testid={`button-journal-alternative-${taskIndex}-${altIndex}`}
+                      title="Save to journal"
+                    >
+                      <BookOpen className="w-3 h-3" />
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={isDocked ? 'h-6 px-2 text-xs' : ''}
+                    onClick={() => onSwap(alt)}
+                    data-testid={`button-swap-alternative-${taskIndex}-${altIndex}`}
+                  >
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    {isDocked ? '' : 'Swap'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggle}>
       <CollapsibleTrigger asChild>
@@ -112,79 +249,14 @@ function AlternativesSection({ taskIndex, taskId, location, budgetTier, isExpand
           <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </Button>
       </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div 
-          className="mt-3 p-3 bg-muted/30 rounded-lg border border-muted"
-          data-testid={`alternatives-list-${taskIndex}`}
-        >
-          {isLoading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Loading alternatives...
-            </div>
-          )}
-          
-          {error && (
-            <p className="text-sm text-destructive">Failed to load alternatives</p>
-          )}
-          
-          {!isLoading && !error && alternatives && alternatives.length === 0 && (
-            <p className="text-sm text-muted-foreground">No alternatives found in your journal for this location</p>
-          )}
-          
-          {!isLoading && !error && alternatives && alternatives.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground mb-2">
-                Found {alternatives.length} alternative{alternatives.length !== 1 ? 's' : ''} from your journal:
-              </p>
-              <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
-                {alternatives.map((alt, altIndex) => (
-                  <div
-                    key={alt.id}
-                    className="flex items-center justify-between gap-3 p-2 bg-background rounded-md border"
-                    data-testid={`alternative-item-${altIndex}`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{alt.venueName}</p>
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                        {alt.location?.city && (
-                          <Badge variant="outline" className="text-xs gap-1">
-                            <MapPin className="w-2.5 h-2.5" />
-                            {alt.location.city}
-                          </Badge>
-                        )}
-                        {alt.budgetTier && (
-                          <Badge variant="outline" className="text-xs">
-                            {alt.budgetTier}
-                          </Badge>
-                        )}
-                        {alt.priceRange && (
-                          <span className="text-xs text-muted-foreground">{alt.priceRange}</span>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0"
-                      onClick={() => onSwap(alt)}
-                      data-testid={`button-swap-alternative-${taskIndex}-${altIndex}`}
-                    >
-                      <RefreshCw className="w-3 h-3 mr-1" />
-                      Swap
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+      <CollapsibleContent className="mt-3">
+        {alternativesContent}
       </CollapsibleContent>
     </Collapsible>
   );
 }
 
-export default function ClaudePlanOutput({
+const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>(({
   planTitle,
   summary,
   tasks,
@@ -200,15 +272,29 @@ export default function ClaudePlanOutput({
   backdrop,
   sourceUrl,
   planMetadata
-}: ClaudePlanOutputProps) {
+}, ref) => {
   const { toast } = useToast();
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [showCelebration, setShowCelebration] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [shareUrl, setShareUrl] = useState<string>('');
   const [expandedAlternatives, setExpandedAlternatives] = useState<Set<number>>(new Set());
+  const [dockedAlternatives, setDockedAlternatives] = useState<Set<number>>(new Set());
   const [swappedTasks, setSwappedTasks] = useState<Map<string, Task>>(new Map());
   const [swappedCostAdjustments, setSwappedCostAdjustments] = useState<Map<string, number>>(new Map());
+  const [matchBudgetFilter, setMatchBudgetFilter] = useState(false);
+
+  // Expose command methods to parent via ref for natural language commands
+  useImperativeHandle(ref, () => ({
+    saveToJournal: () => saveToJournalMutation.mutate(),
+    toggleBudgetFilter: () => setMatchBudgetFilter(prev => !prev),
+    expandAllAlternatives: () => setExpandedAlternatives(new Set(tasks.map((_, i) => i))),
+    collapseAllAlternatives: () => setExpandedAlternatives(new Set()),
+    getState: () => ({ 
+      matchBudgetFilter, 
+      expandedAlternatives: Array.from(expandedAlternatives) 
+    })
+  }));
   
   // Helper to estimate cost from price range or budget tier
   const estimateCostFromPriceData = (priceRange?: string, budgetTier?: string): number | null => {
@@ -684,7 +770,10 @@ export default function ClaudePlanOutput({
                         taskId={displayTask.id}
                         location={getAlternativesLocation()}
                         budgetTier={planMetadata?.budgetTier}
+                        sourceUrl={sourceUrl}
                         isExpanded={expandedAlternatives.has(index)}
+                        isDocked={dockedAlternatives.has(index)}
+                        matchBudget={matchBudgetFilter}
                         onToggle={() => {
                           setExpandedAlternatives(prev => {
                             const next = new Set(prev);
@@ -696,7 +785,51 @@ export default function ClaudePlanOutput({
                             return next;
                           });
                         }}
+                        onToggleDock={() => {
+                          setDockedAlternatives(prev => {
+                            const next = new Set(prev);
+                            if (next.has(index)) {
+                              next.delete(index);
+                            } else {
+                              next.add(index);
+                            }
+                            return next;
+                          });
+                        }}
                         onSwap={(alternative) => handleSwapTask(index, displayTask.id, alternative)}
+                        onSaveToJournal={(alternative) => {
+                          const location = planMetadata?.location || extractLocationFromTitle(planTitle);
+                          const entry = {
+                            category: mapCategoryToJournalCategory(alternative.category),
+                            entry: {
+                              id: `journal-${alternative.id}-${Date.now()}`,
+                              text: `${alternative.venueName}${alternative.venueType ? ` - ${alternative.venueType}` : ''}`,
+                              timestamp: new Date().toISOString(),
+                              venueName: alternative.venueName,
+                              venueType: alternative.venueType,
+                              location: alternative.location || location,
+                              budgetTier: alternative.budgetTier,
+                              priceRange: alternative.priceRange,
+                              estimatedCost: alternative.estimatedCost,
+                              sourceUrl: alternative.sourceUrl || sourceUrl
+                            }
+                          };
+                          apiRequest('POST', '/api/user/journal/batch', { entries: [entry] })
+                            .then(() => {
+                              toast({
+                                title: 'Saved to Journal',
+                                description: `"${alternative.venueName}" added to your Personal Journal.`,
+                              });
+                              queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+                            })
+                            .catch((err) => {
+                              toast({
+                                title: 'Save Failed',
+                                description: err.message || 'Could not save to journal.',
+                                variant: 'destructive',
+                              });
+                            });
+                        }}
                       />
                     )}
                   </div>
@@ -952,4 +1085,6 @@ export default function ClaudePlanOutput({
       />
     </motion.div>
   );
-}
+});
+
+export default ClaudePlanOutput;

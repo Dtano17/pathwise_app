@@ -10,7 +10,7 @@ import VoiceInput from '@/components/VoiceInput';
 import LiveChatInterface from '@/components/LiveChatInterface';
 import TaskCard from '@/components/TaskCard';
 import ProgressDashboard from '@/components/ProgressDashboard';
-import ClaudePlanOutput from '@/components/ClaudePlanOutput';
+import ClaudePlanOutput, { type ClaudePlanCommandRef } from '@/components/ClaudePlanOutput';
 import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import PersonalJournal from '@/components/PersonalJournal';
@@ -149,6 +149,9 @@ export default function MainApp({
   
   // Ref to track import source URL for auto-journaling
   const importSourceUrlRef = useRef<string | undefined>(undefined);
+
+  // Ref for ClaudePlanOutput commands (for natural language control)
+  const planCommandRef = useRef<ClaudePlanCommandRef>(null);
 
   // Activity selection and delete dialog state
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
@@ -434,6 +437,57 @@ export default function MainApp({
 
   const handleSnoozeTask = (taskId: string, hours: number) => {
     snoozeTaskMutation.mutate({ taskId, hours });
+  };
+
+  // Natural language command parser for plan control
+  // Returns true if command was handled, false if should proceed to goal processing
+  const handlePlanCommand = (text: string): boolean => {
+    if (!currentPlanOutput || !planCommandRef.current) return false;
+    
+    const lowerText = text.toLowerCase().trim();
+    
+    // Journal commands: "journal this", "save to journal", "add to journal"
+    if (/\b(journal\s*this|save\s*(to\s*)?(my\s*)?journal|add\s*(to\s*)?(my\s*)?journal)\b/.test(lowerText)) {
+      planCommandRef.current.saveToJournal();
+      toast({
+        title: "Saving to Journal",
+        description: "Adding plan items to your personal journal...",
+      });
+      return true;
+    }
+    
+    // Budget filter commands: "fit my budget", "match budget", "budget filter", "filter by budget"
+    if (/\b(fit\s*(my\s*)?budget|match\s*budget|budget\s*filter|filter\s*(by\s*)?budget|within\s*budget)\b/.test(lowerText)) {
+      planCommandRef.current.toggleBudgetFilter();
+      const state = planCommandRef.current.getState();
+      toast({
+        title: state.matchBudgetFilter ? "Budget Filter Disabled" : "Budget Filter Enabled",
+        description: state.matchBudgetFilter ? "Showing all alternatives" : "Filtering alternatives to match your budget",
+      });
+      return true;
+    }
+    
+    // Expand alternatives commands: "show alternatives", "see alternatives", "see other options", "view alternatives"
+    if (/\b(show\s*alternatives|see\s*alternatives|see\s*other\s*options|view\s*alternatives|expand\s*alternatives)\b/.test(lowerText)) {
+      planCommandRef.current.expandAllAlternatives();
+      toast({
+        title: "Alternatives Expanded",
+        description: "Showing alternative options for all tasks",
+      });
+      return true;
+    }
+    
+    // Collapse alternatives commands: "hide alternatives", "close alternatives", "collapse alternatives"
+    if (/\b(hide\s*alternatives|close\s*alternatives|collapse\s*alternatives)\b/.test(lowerText)) {
+      planCommandRef.current.collapseAllAlternatives();
+      toast({
+        title: "Alternatives Hidden",
+        description: "Alternative options collapsed",
+      });
+      return true;
+    }
+    
+    return false;
   };
 
   // These states are now managed in App.tsx and passed as props
@@ -1708,7 +1762,12 @@ export default function MainApp({
               </div>
               
               <VoiceInput
-                onSubmit={(text) => processGoalMutation.mutate(text)}
+                onSubmit={(text) => {
+                  // Check if this is a plan control command first
+                  if (handlePlanCommand(text)) return;
+                  // Otherwise, process as a goal/refinement
+                  processGoalMutation.mutate(text);
+                }}
                 isGenerating={processGoalMutation.isPending}
               />
 
@@ -1878,6 +1937,7 @@ export default function MainApp({
                   </div>
                   
                   <ClaudePlanOutput
+                    ref={planCommandRef}
                     planTitle={currentPlanOutput.planTitle}
                     summary={currentPlanOutput.summary}
                     tasks={currentPlanOutput.tasks.map(task => {
