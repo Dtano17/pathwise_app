@@ -62,7 +62,7 @@ import { sendGroupNotification } from './services/notificationService';
 import { tavily } from '@tavily/core';
 import { socialMediaVideoService } from './services/socialMediaVideoService';
 import { apifyService } from './services/apifyService';
-import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay } from './services/contentCategorizationService';
+import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory } from './services/contentCategorizationService';
 import { scheduleRemindersForActivity, cancelRemindersForActivity } from './services/reminderProcessor';
 
 const tavilyClient = process.env.TAVILY_API_KEY ? tavily({ apiKey: process.env.TAVILY_API_KEY }) : null;
@@ -2018,7 +2018,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const journalEntry = await storage.createJournalEntry({
             userId,
             content: journalContent,
-            category: 'travel_adventure',
+            category: mapAiCategoryToJournalCategory(categorized.category),
             tags: categorized.tags,
             mood: 'excited'
           });
@@ -7150,27 +7150,22 @@ ${emoji} ${progressLine}
                            sourceUrl.includes('facebook') ? 'Facebook' :
                            sourceUrl.includes('reddit') ? 'Reddit' : 'Social Media';
             
-            // Map activity category to journal category
-            const activityToJournalCategory: Record<string, string> = {
+            // Map category to journal category using centralized function
+            // For AI-categorized content, try to use ContentCategory format first
+            const contentCategoryMap: Record<string, string> = {
               'food_dining': 'restaurants',
-              'restaurants': 'restaurants',
-              'entertainment': 'movies',
-              'movies': 'movies',
-              'music': 'music',
-              'travel_adventure': 'travel',
-              'travel': 'travel',
+              'entertainment': 'entertainment', 
+              'travel_adventure': 'travel_itinerary',
               'fitness_wellness': 'fitness',
-              'fitness': 'fitness',
-              'reading': 'books',
-              'books': 'books',
+              'reading': 'other',
               'shopping': 'shopping',
-              'nightlife': 'nightlife',
-              'creative': 'favorites',
-              'productivity': 'notes',
-              'general': 'notes'
+              'nightlife': 'bars_nightlife',
+              'creative': 'other',
+              'productivity': 'other',
+              'general': 'other'
             };
-            
-            const journalCategory = activityToJournalCategory[category] || 'notes';
+            const contentCategory = contentCategoryMap[category] || category;
+            const journalCategory = mapAiCategoryToJournalCategory(contentCategory as any);
             
             // Try to look up cached content for enrichment
             let cachedContent: any = null;
