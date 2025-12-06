@@ -2946,6 +2946,154 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/alternatives - fetch alternative venues from journal based on location and budget tier
+  app.get("/api/alternatives", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { location, budgetTier, category, excludeIds } = req.query;
+      
+      // Fetch user's journal entries from preferences
+      const preferences = await storage.getUserPreferences(userId);
+      const journalData = preferences?.preferences?.journalData || {};
+      
+      // Collect all journal entries across categories
+      const allEntries: any[] = [];
+      Object.keys(journalData).forEach(cat => {
+        const entries = journalData[cat] || [];
+        entries.forEach((entry: any) => {
+          allEntries.push({ ...entry, journalCategory: cat });
+        });
+      });
+      
+      // Parse excludeIds if provided
+      const excludeIdList = excludeIds ? String(excludeIds).split(',').filter(Boolean) : [];
+      
+      // Extract city from various location formats (string or object)
+      const getCity = (loc: any): string | null => {
+        if (!loc) return null;
+        if (typeof loc === 'string') {
+          // Parse "Austin, TX" or "Lagos, Nigeria" format - extract first part before comma
+          return loc.split(',')[0].trim().toLowerCase();
+        }
+        if (typeof loc === 'object') {
+          return (loc.city || loc.neighborhood || '').toLowerCase();
+        }
+        return null;
+      };
+      
+      // Helper: fuzzy city match (case-insensitive, partial match)
+      const cityMatches = (entryLocation: any, searchCity: string): boolean => {
+        if (!searchCity) return false;
+        const entryCity = getCity(entryLocation);
+        if (!entryCity) return false;
+        const searchLower = searchCity.toLowerCase();
+        return entryCity.includes(searchLower) || searchLower.includes(entryCity);
+      };
+      
+      // Helper: budget tier adjacency (budget ↔ moderate ↔ luxury ↔ ultra_luxury)
+      const budgetAdjacent = (entryTier: string, targetTier: string): boolean => {
+        if (!entryTier || !targetTier) return true; // If no tier specified, include all
+        const tiers = ['budget', 'moderate', 'luxury', 'ultra_luxury'];
+        const entryIdx = tiers.indexOf(entryTier);
+        const targetIdx = tiers.indexOf(targetTier);
+        if (entryIdx === -1 || targetIdx === -1) return true;
+        return Math.abs(entryIdx - targetIdx) <= 1;
+      };
+      
+      // Filter entries
+      let alternatives = allEntries.filter(entry => {
+        // Exclude entries by ID
+        if (excludeIdList.includes(entry.id)) return false;
+        
+        // Must have venue name
+        if (!entry.venueName) return false;
+        
+        // Filter by location if provided
+        if (location && !cityMatches(entry.location, String(location))) return false;
+        
+        // Filter by budget tier (including adjacent tiers)
+        if (budgetTier && !budgetAdjacent(entry.budgetTier, String(budgetTier))) return false;
+        
+        // Filter by category if provided
+        if (category) {
+          const entryCat = (entry.venueType || entry.journalCategory || '').toLowerCase();
+          const searchCat = String(category).toLowerCase();
+          if (!entryCat.includes(searchCat) && !searchCat.includes(entryCat)) return false;
+        }
+        
+        return true;
+      });
+      
+      // NO FALLBACK: Only return venues from the matching city
+      // If no alternatives found for the location, return empty array
+      
+      // Format response
+      const response = alternatives.slice(0, 10).map(entry => ({
+        id: entry.id,
+        venueName: entry.venueName,
+        venueType: entry.venueType || entry.journalCategory,
+        location: entry.location,
+        priceRange: entry.priceRange,
+        budgetTier: entry.budgetTier,
+        category: entry.journalCategory,
+        sourceUrl: entry.sourceUrl
+      }));
+      
+      res.json({ alternatives: response });
+    } catch (error) {
+      console.error('Fetch alternatives error:', error);
+      res.status(500).json({ error: 'Failed to fetch alternatives' });
+    }
+  });
+
+  // PATCH /api/tasks/:taskId/swap - swap task with alternative venue
+  app.patch("/api/tasks/:taskId/swap", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { taskId } = req.params;
+      const { venueName, venueType, location, priceRange, budgetTier, sourceUrl } = req.body;
+
+      if (!venueName) {
+        return res.status(400).json({ error: 'venueName is required' });
+      }
+
+      // Build description from venue info
+      let description = venueType ? `${venueType}` : '';
+      if (location?.city) {
+        description += description ? ` in ${location.city}` : `In ${location.city}`;
+      }
+      if (priceRange) {
+        description += description ? ` - ${priceRange}` : priceRange;
+      }
+      if (budgetTier) {
+        description += description ? ` (${budgetTier})` : budgetTier;
+      }
+
+      const task = await storage.updateTask(taskId, {
+        title: venueName,
+        description: description || 'Swapped from journal',
+        context: sourceUrl ? `Source: ${sourceUrl}` : undefined
+      }, userId);
+
+      if (!task) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+
+      res.json({ task, message: `Task swapped to "${venueName}"` });
+    } catch (error) {
+      console.error('Swap task error:', error);
+      res.status(500).json({ error: 'Failed to swap task' });
+    }
+  });
+
   // ===== SUBSCRIPTION TIER ENFORCEMENT =====
   
   // Helper function to check if user has required subscription tier

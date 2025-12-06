@@ -2,13 +2,25 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap, BookOpen } from 'lucide-react';
+import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap, BookOpen, RefreshCw, ChevronDown, MapPin, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 import ShareDialog from './ShareDialog';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
+interface Alternative {
+  id: string;
+  venueName: string;
+  venueType: string;
+  location: { city?: string };
+  priceRange?: string;
+  budgetTier?: string;
+  category: string;
+  sourceUrl?: string;
+}
 
 interface Task {
   id: string;
@@ -49,6 +61,127 @@ interface ClaudePlanOutputProps {
   planMetadata?: PlanMetadata;
 }
 
+interface AlternativesSectionProps {
+  taskIndex: number;
+  taskId: string;
+  location?: string;
+  budgetTier?: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onSwap: (alternative: Alternative) => void;
+}
+
+function AlternativesSection({ taskIndex, taskId, location, budgetTier, isExpanded, onToggle, onSwap }: AlternativesSectionProps) {
+  const queryParams = new URLSearchParams();
+  if (location) queryParams.set('location', location);
+  if (budgetTier) queryParams.set('budgetTier', budgetTier);
+  if (taskId) queryParams.set('excludeIds', taskId);
+  
+  const alternativesUrl = `/api/alternatives?${queryParams.toString()}`;
+  
+  const { data: alternatives, isLoading, error } = useQuery<Alternative[]>({
+    queryKey: ['/api/alternatives', location, budgetTier, taskId],
+    queryFn: async () => {
+      const response = await fetch(alternativesUrl, { credentials: 'include' });
+      if (!response.ok) {
+        throw new Error('Failed to fetch alternatives');
+      }
+      const data = await response.json();
+      return data.alternatives || [];
+    },
+    enabled: isExpanded && !!location,
+  });
+
+  if (!location) {
+    return null;
+  }
+
+  return (
+    <Collapsible open={isExpanded} onOpenChange={onToggle}>
+      <CollapsibleTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2 text-xs text-muted-foreground hover:text-foreground mt-2"
+          data-testid={`button-view-alternatives-${taskIndex}`}
+        >
+          <RefreshCw className="w-3 h-3" />
+          Swap with alternative
+          <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div 
+          className="mt-3 p-3 bg-muted/30 rounded-lg border border-muted"
+          data-testid={`alternatives-list-${taskIndex}`}
+        >
+          {isLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Loading alternatives...
+            </div>
+          )}
+          
+          {error && (
+            <p className="text-sm text-destructive">Failed to load alternatives</p>
+          )}
+          
+          {!isLoading && !error && alternatives && alternatives.length === 0 && (
+            <p className="text-sm text-muted-foreground">No alternatives found in your journal for this location</p>
+          )}
+          
+          {!isLoading && !error && alternatives && alternatives.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground mb-2">
+                Found {alternatives.length} alternative{alternatives.length !== 1 ? 's' : ''} from your journal:
+              </p>
+              <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                {alternatives.map((alt, altIndex) => (
+                  <div
+                    key={alt.id}
+                    className="flex items-center justify-between gap-3 p-2 bg-background rounded-md border"
+                    data-testid={`alternative-item-${altIndex}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{alt.venueName}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        {alt.location?.city && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <MapPin className="w-2.5 h-2.5" />
+                            {alt.location.city}
+                          </Badge>
+                        )}
+                        {alt.budgetTier && (
+                          <Badge variant="outline" className="text-xs">
+                            {alt.budgetTier}
+                          </Badge>
+                        )}
+                        {alt.priceRange && (
+                          <span className="text-xs text-muted-foreground">{alt.priceRange}</span>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={() => onSwap(alt)}
+                      data-testid={`button-swap-alternative-${taskIndex}-${altIndex}`}
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      Swap
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export default function ClaudePlanOutput({
   planTitle,
   summary,
@@ -71,6 +204,8 @@ export default function ClaudePlanOutput({
   const [showCelebration, setShowCelebration] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [shareUrl, setShareUrl] = useState<string>('');
+  const [expandedAlternatives, setExpandedAlternatives] = useState<Set<number>>(new Set());
+  const [swappedTasks, setSwappedTasks] = useState<Map<string, Task>>(new Map());
   
   // Infer category from tasks (use most common category)
   const category = tasks.length > 0 
@@ -184,6 +319,66 @@ export default function ClaudePlanOutput({
     },
   });
 
+  // Swap task mutation
+  const swapTaskMutation = useMutation({
+    mutationFn: async ({ taskId, alternative }: { taskId: string; alternative: Alternative }) => {
+      const response = await apiRequest('PATCH', `/api/tasks/${taskId}/swap`, {
+        venueName: alternative.venueName,
+        venueType: alternative.venueType,
+        location: alternative.location,
+        priceRange: alternative.priceRange,
+        budgetTier: alternative.budgetTier,
+        sourceUrl: alternative.sourceUrl
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Swap Failed',
+        description: error.message || 'Could not swap task. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Handle swap action
+  const handleSwapTask = (taskIndex: number, taskId: string, alternative: Alternative) => {
+    const swappedTask: Task = {
+      id: taskId,
+      title: alternative.venueName,
+      description: `${alternative.venueType}${alternative.priceRange ? ` - ${alternative.priceRange}` : ''}${alternative.location?.city ? ` in ${alternative.location.city}` : ''}`,
+      priority: 'medium',
+      category: alternative.category,
+      context: alternative.sourceUrl ? `Source: ${alternative.sourceUrl}` : undefined
+    };
+    
+    setSwappedTasks(prev => new Map(prev).set(taskId, swappedTask));
+    setExpandedAlternatives(prev => {
+      const next = new Set(prev);
+      next.delete(taskIndex);
+      return next;
+    });
+    
+    if (activityId && taskId) {
+      swapTaskMutation.mutate({ taskId, alternative });
+    }
+    
+    toast({
+      title: 'Task Swapped',
+      description: `Swapped to "${alternative.venueName}"`,
+    });
+  };
+
+  // Get effective location for alternatives query
+  const getAlternativesLocation = (): string | undefined => {
+    if (planMetadata?.location?.city) return planMetadata.location.city;
+    const extracted = extractLocationFromTitle(planTitle);
+    return extracted?.city;
+  };
+
   // Sync completed tasks from actual task data (additive to preserve optimistic UI, prune stale IDs)
   useEffect(() => {
     const validIds = new Set(tasks.map(t => t.id));
@@ -277,6 +472,7 @@ export default function ClaudePlanOutput({
         </h3>
         
         {tasks.map((task, index) => {
+          const displayTask = swappedTasks.get(task.id) || task;
           const isCompleted = completedTasks.has(task.id) || task.completed;
           
           return (
@@ -311,17 +507,22 @@ export default function ClaudePlanOutput({
                         <h4 className={`font-semibold text-sm sm:text-base text-foreground break-words ${
                           isCompleted ? 'line-through decoration-2 decoration-green-600' : ''
                         }`} data-testid={`text-task-title-${index}`}>
-                          {task.title}
+                          {displayTask.title}
                         </h4>
                       </div>
                       
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 ml-9 sm:ml-11">
-                        <Badge variant="outline" className={`text-xs ${getPriorityColor(task.priority)}`}>
-                          {task.priority}
+                        <Badge variant="outline" className={`text-xs ${getPriorityColor(displayTask.priority)}`}>
+                          {displayTask.priority}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
-                          {task.category}
+                          {displayTask.category}
                         </Badge>
+                        {swappedTasks.has(task.id) && (
+                          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
+                            Swapped
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     
@@ -354,17 +555,17 @@ export default function ClaudePlanOutput({
                     <p className={`text-xs sm:text-sm text-muted-foreground leading-relaxed break-words ${
                       isCompleted ? 'line-through decoration-1 decoration-gray-400 opacity-70' : ''
                     }`} data-testid={`text-task-description-${index}`}>
-                      {task.description}
+                      {displayTask.description}
                     </p>
                     
-                    {task.context && (
+                    {displayTask.context && (
                       <div className="bg-secondary/20 border border-secondary/30 rounded-lg p-2 sm:p-3">
                         <div className="flex items-start gap-2">
                           <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-primary mt-0.5 shrink-0" />
                           <p className={`text-xs text-foreground/80 leading-relaxed break-words ${
                             isCompleted ? 'line-through decoration-1 decoration-gray-400 opacity-70' : ''
                           }`} data-testid={`text-task-context-${index}`}>
-                            {task.context}
+                            {displayTask.context}
                           </p>
                         </div>
                       </div>
@@ -375,6 +576,29 @@ export default function ClaudePlanOutput({
                         <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                         Task completed! Great job!
                       </div>
+                    )}
+
+                    {/* Swappable Alternatives Section */}
+                    {!isCompleted && (
+                      <AlternativesSection
+                        taskIndex={index}
+                        taskId={displayTask.id}
+                        location={getAlternativesLocation()}
+                        budgetTier={planMetadata?.budgetTier}
+                        isExpanded={expandedAlternatives.has(index)}
+                        onToggle={() => {
+                          setExpandedAlternatives(prev => {
+                            const next = new Set(prev);
+                            if (next.has(index)) {
+                              next.delete(index);
+                            } else {
+                              next.add(index);
+                            }
+                            return next;
+                          });
+                        }}
+                        onSwap={(alternative) => handleSwapTask(index, displayTask.id, alternative)}
+                      />
                     )}
                   </div>
                 </div>
