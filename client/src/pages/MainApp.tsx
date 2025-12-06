@@ -605,6 +605,13 @@ export default function MainApp({
   });
   const groups = groupsData?.groups || [];
 
+  // Fetch today's daily theme
+  const { data: dailyThemeData } = useQuery<{ dailyTheme: { activityId: string; activityTitle: string; date: string; tasks?: { title: string; completed: boolean }[] } | null }>({
+    queryKey: ['/api/user/daily-theme'],
+    staleTime: 30000,
+  });
+  const dailyTheme = dailyThemeData?.dailyTheme;
+
   // Fetch recent group activity
   const { data: groupActivities, isLoading: groupActivitiesLoading } = useQuery<Array<{
     id: string;
@@ -948,6 +955,28 @@ export default function MainApp({
       toast({
         title: "Task Snoozed",
         description: `Task postponed for ${hours} hour${hours !== 1 ? 's' : ''}`,
+      });
+    }
+  });
+
+  // Set daily theme mutation
+  const setDailyThemeMutation = useMutation({
+    mutationFn: async (themeData: { activityId: string; activityTitle: string; tasks: { title: string; completed: boolean }[] }) => {
+      const response = await apiRequest('POST', '/api/user/daily-theme', themeData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user/daily-theme'] });
+      toast({
+        title: "Theme Set!",
+        description: "This activity is now your focus theme for today.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Set Theme",
+        description: error?.message || "Could not set theme. Please try again.",
+        variant: "destructive",
       });
     }
   });
@@ -1540,6 +1569,61 @@ export default function MainApp({
 
             {/* Goal Input Tab */}
             <TabsContent value="input" className="space-y-6 pb-20">
+              {/* Today's Focus Theme Section */}
+              {dailyTheme && !currentPlanOutput && !editingActivity && (
+                <div className="max-w-4xl mx-auto mb-6 px-4">
+                  <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                            <Zap className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg">Today's Focus</CardTitle>
+                            <CardDescription>{dailyTheme.activityTitle}</CardDescription>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedActivityId(dailyTheme.activityId);
+                            setActiveTab('tasks');
+                          }}
+                          data-testid="button-view-theme-activity"
+                        >
+                          View Activity
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    {dailyTheme.tasks && dailyTheme.tasks.length > 0 && (
+                      <CardContent className="pt-0">
+                        {(() => {
+                          const completedCount = dailyTheme.tasks.filter(t => t.completed).length;
+                          const totalCount = dailyTheme.tasks.length;
+                          const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+                          return (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">Progress</span>
+                                <span className="font-medium">{completedCount} / {totalCount} tasks</span>
+                              </div>
+                              <div className="w-full bg-secondary/30 rounded-full h-2">
+                                <div 
+                                  className="bg-primary h-2 rounded-full transition-all duration-500"
+                                  style={{ width: `${progressPercent}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </CardContent>
+                    )}
+                  </Card>
+                </div>
+              )}
+
               {editingActivity && (
                 <div className="max-w-4xl mx-auto mb-6 px-4">
                   <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
@@ -1782,12 +1866,8 @@ export default function MainApp({
                       }
                     }}
                     isCreating={createActivityMutation.isPending}
-                    onSetAsTheme={() => {
-                      // TODO: Implement theme/quick actions functionality
-                      toast({
-                        title: "Theme Set!",
-                        description: "This plan is now your focus theme for today. (Feature coming soon!)",
-                      });
+                    onSetAsTheme={(themeData) => {
+                      setDailyThemeMutation.mutate(themeData);
                     }}
                     onOpenSharePreview={async (activityId: string) => {
                       // Fetch full activity data and open SharePreviewDialog
@@ -1798,6 +1878,7 @@ export default function MainApp({
                     }}
                     backdrop={activities?.find(a => a.id === currentPlanOutput.activityId)?.backdrop ?? undefined}
                     showConfetti={true}
+                    sourceUrl={currentPlanOutput.sourceUrl}
                   />
                   
                   {/* Action buttons */}

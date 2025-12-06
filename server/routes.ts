@@ -9498,6 +9498,71 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
+  // Get today's daily theme
+  app.get("/api/user/daily-theme", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const preferences = await storage.getUserPreferences(userId);
+      
+      if (!preferences?.preferences?.dailyTheme) {
+        return res.json({ dailyTheme: null });
+      }
+      
+      const dailyTheme = preferences.preferences.dailyTheme;
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Only return theme if it's from today
+      if (dailyTheme.date === today) {
+        return res.json({ dailyTheme });
+      }
+      
+      return res.json({ dailyTheme: null });
+    } catch (error) {
+      console.error('[DAILY THEME] Error fetching daily theme:', error);
+      res.status(500).json({ error: 'Failed to fetch daily theme' });
+    }
+  });
+
+  // Set daily theme
+  app.post("/api/user/daily-theme", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const { activityId, activityTitle, tasks } = req.body;
+      
+      if (!activityId || !activityTitle) {
+        return res.status(400).json({ error: 'activityId and activityTitle are required' });
+      }
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      const dailyTheme = {
+        activityId,
+        activityTitle,
+        date: today,
+        tasks: tasks || []
+      };
+      
+      // Get current preferences and update with new daily theme
+      const currentPrefs = await storage.getUserPreferences(userId);
+      const updatedPrefs = {
+        ...(currentPrefs?.preferences || {}),
+        dailyTheme
+      };
+      
+      await storage.upsertUserPreferences(userId, { preferences: updatedPrefs });
+      
+      console.log('[DAILY THEME] Set daily theme for user:', userId, 'activity:', activityTitle);
+      res.json({ success: true, dailyTheme });
+    } catch (error) {
+      console.error('[DAILY THEME] Error setting daily theme:', error);
+      res.status(500).json({ error: 'Failed to set daily theme' });
+    }
+  });
+
   // User Profile Management
   app.get("/api/user/profile", async (req: any, res) => {
     try {
@@ -9745,6 +9810,66 @@ You can find these tasks in your task list and start working on them right away!
     } catch (error) {
       console.error('Error saving custom categories:', error);
       res.status(500).json({ error: 'Failed to save custom categories' });
+    }
+  });
+
+  // Personal Journal - Batch save entries from AI plans
+  app.post("/api/user/journal/batch", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { entries } = req.body;
+      
+      const batchEntrySchema = z.object({
+        category: z.string(),
+        entry: z.union([
+          z.string(),
+          z.object({
+            id: z.string(),
+            text: z.string(),
+            timestamp: z.string(),
+            location: z.object({
+              city: z.string().optional(),
+              country: z.string().optional(),
+              neighborhood: z.string().optional()
+            }).optional(),
+            budgetTier: z.enum(['budget', 'moderate', 'luxury', 'ultra_luxury']).optional(),
+            estimatedCost: z.number().optional(),
+            sourceUrl: z.string().optional(),
+            venueName: z.string().optional(),
+            venueType: z.string().optional()
+          })
+        ])
+      });
+      
+      const batchSchema = z.array(batchEntrySchema);
+      
+      const parsed = batchSchema.safeParse(entries);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Invalid entries format', details: parsed.error });
+      }
+      
+      let prefs = await storage.getUserPreferences(userId);
+      const currentPrefs = prefs?.preferences || {};
+      const journalData: Record<string, any[]> = { ...(currentPrefs.journalData || {}) };
+      
+      for (const { category, entry } of parsed.data) {
+        if (!journalData[category]) {
+          journalData[category] = [];
+        }
+        journalData[category].push(entry);
+      }
+      
+      await storage.upsertUserPreferences(userId, {
+        preferences: { ...currentPrefs, journalData }
+      });
+      
+      // Invalidate user context cache
+      aiService.invalidateUserContext(userId);
+      
+      res.json({ success: true, count: parsed.data.length });
+    } catch (error) {
+      console.error('Journal batch save error:', error);
+      res.status(500).json({ error: 'Failed to save journal entries' });
     }
   });
 

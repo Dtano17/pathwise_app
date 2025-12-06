@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { 
@@ -32,6 +33,12 @@ interface RichJournalEntry {
   timestamp: string;
   aiConfidence?: number;
   keywords?: string[];
+  location?: { city?: string; country?: string; neighborhood?: string };
+  budgetTier?: 'budget' | 'moderate' | 'luxury' | 'ultra_luxury';
+  estimatedCost?: number;
+  sourceUrl?: string;
+  venueName?: string;
+  venueType?: string;
 }
 
 type JournalItem = string | RichJournalEntry;
@@ -112,6 +119,10 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplatePrompts, setNewTemplatePrompts] = useState<string[]>(['']);
+  
+  // Filter states
+  const [locationFilter, setLocationFilter] = useState<string>('all');
+  const [budgetFilter, setBudgetFilter] = useState<string>('all');
 
   const categories = [
     { id: 'restaurants', label: 'Restaurants & Food', icon: Utensils, color: 'from-orange-500 to-red-500' },
@@ -422,6 +433,68 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     }
   };
 
+  // Extract unique locations from all journal entries across all categories
+  const getUniqueLocations = (): string[] => {
+    const locations = new Set<string>();
+    Object.values(journalData).forEach(items => {
+      items.forEach(item => {
+        if (typeof item === 'object' && item !== null && item.location) {
+          if (item.location.city) locations.add(item.location.city);
+          if (item.location.country) locations.add(item.location.country);
+          if (item.location.neighborhood) locations.add(item.location.neighborhood);
+        }
+      });
+    });
+    return Array.from(locations).sort();
+  };
+
+  const uniqueLocations = getUniqueLocations();
+
+  // Budget tier labels
+  const budgetTierLabels: Record<string, string> = {
+    'budget': 'Budget ($)',
+    'moderate': 'Moderate ($$)',
+    'luxury': 'Luxury ($$$)',
+    'ultra_luxury': 'Ultra Luxury ($$$$)'
+  };
+
+  // Filter current category entries
+  const getFilteredEntries = (): JournalItem[] => {
+    const entries = journalData[activeCategory] || [];
+    return entries.filter(item => {
+      // String entries pass through if no filters are active
+      if (typeof item === 'string') {
+        return locationFilter === 'all' && budgetFilter === 'all';
+      }
+      
+      // Check location filter
+      if (locationFilter !== 'all') {
+        const location = item.location;
+        const matchesLocation = location && (
+          location.city === locationFilter ||
+          location.country === locationFilter ||
+          location.neighborhood === locationFilter
+        );
+        if (!matchesLocation) return false;
+      }
+      
+      // Check budget filter
+      if (budgetFilter !== 'all') {
+        if (item.budgetTier !== budgetFilter) return false;
+      }
+      
+      return true;
+    });
+  };
+
+  const filteredEntries = getFilteredEntries();
+  const hasActiveFilters = locationFilter !== 'all' || budgetFilter !== 'all';
+
+  const clearFilters = () => {
+    setLocationFilter('all');
+    setBudgetFilter('all');
+  };
+
   return (
     <div className="h-full flex flex-col p-2 sm:p-4">
       {/* Feature Tabs */}
@@ -545,6 +618,50 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                 )}
               </div>
             </div>
+            
+            {/* Filter Dropdowns */}
+            <div className="flex flex-wrap items-center gap-2 mt-4">
+              <Select value={locationFilter} onValueChange={setLocationFilter}>
+                <SelectTrigger className="w-[160px]" data-testid="select-location-filter">
+                  <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <SelectValue placeholder="All Locations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {uniqueLocations.map((location) => (
+                    <SelectItem key={location} value={location}>
+                      {location}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={budgetFilter} onValueChange={setBudgetFilter}>
+                <SelectTrigger className="w-[180px]" data-testid="select-budget-filter">
+                  <SelectValue placeholder="All Budgets" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Budgets</SelectItem>
+                  <SelectItem value="budget">Budget ($)</SelectItem>
+                  <SelectItem value="moderate">Moderate ($$)</SelectItem>
+                  <SelectItem value="luxury">Luxury ($$$)</SelectItem>
+                  <SelectItem value="ultra_luxury">Ultra Luxury ($$$$)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="gap-1"
+                  data-testid="button-clear-filters"
+                >
+                  <X className="w-3 h-3" />
+                  Clear Filters
+                </Button>
+              )}
+            </div>
           </CardHeader>
 
           <CardContent className="space-y-4">
@@ -598,9 +715,9 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                 <div className="text-center py-12 text-muted-foreground">
                   Loading your journal...
                 </div>
-              ) : journalData[activeCategory]?.length > 0 ? (
+              ) : filteredEntries.length > 0 ? (
                 <div className="space-y-2 pr-4">
-                  {journalData[activeCategory].map((item, index) => {
+                  {filteredEntries.map((item, filteredIndex) => {
                     // Support both old string format and new rich entry format
                     const isRichEntry = typeof item === 'object' && item !== null;
                     const text = isRichEntry ? item.text : item;
@@ -608,11 +725,14 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                     const timestamp = isRichEntry ? item.timestamp : null;
                     const keywords = isRichEntry ? item.keywords : null;
                     
+                    // Find original index for removal
+                    const originalIndex = journalData[activeCategory]?.indexOf(item) ?? -1;
+                    
                     return (
                       <Card 
-                        key={index} 
+                        key={filteredIndex} 
                         className="hover-elevate cursor-default group"
-                        data-testid={`journal-entry-${index}`}
+                        data-testid={`journal-entry-${filteredIndex}`}
                       >
                         <CardContent className="p-3 sm:p-4">
                           <div className="flex items-start gap-3">
@@ -666,8 +786,8 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                               variant="ghost"
                               size="sm"
                               className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
-                              onClick={() => handleRemoveItem(index)}
-                              data-testid={`button-remove-${index}`}
+                              onClick={() => handleRemoveItem(originalIndex)}
+                              data-testid={`button-remove-${filteredIndex}`}
                             >
                               <X className="w-4 h-4" />
                             </Button>
@@ -682,10 +802,24 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                   <div className={`mx-auto w-16 h-16 rounded-full bg-gradient-to-br ${currentCategory?.color} opacity-20 flex items-center justify-center mb-4`}>
                     {currentCategory && <currentCategory.icon className="w-8 h-8" />}
                   </div>
-                  <h3 className="text-lg font-medium mb-2">No entries yet</h3>
-                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                    Start capturing your thoughts and preferences. This helps personalize your experience!
-                  </p>
+                  {hasActiveFilters ? (
+                    <>
+                      <h3 className="text-lg font-medium mb-2">No matching entries</h3>
+                      <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
+                        No entries match your current filters. Try adjusting or clearing your filters.
+                      </p>
+                      <Button variant="outline" size="sm" onClick={clearFilters} data-testid="button-clear-filters-empty">
+                        Clear Filters
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-lg font-medium mb-2">No entries yet</h3>
+                      <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                        Start capturing your thoughts and preferences. This helps personalize your experience!
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
             </ScrollArea>

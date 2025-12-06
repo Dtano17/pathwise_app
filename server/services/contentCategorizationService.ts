@@ -422,3 +422,34 @@ export function formatBudgetTierForDisplay(tier: BudgetTier | null): string {
   };
   return displayNames[tier];
 }
+
+export type JournalCategory = 
+  | "restaurants"
+  | "travel"
+  | "hobbies"
+  | "favorites"
+  | "notes";
+
+export function mapAiCategoryToJournalCategory(aiCategory: ContentCategory): JournalCategory {
+  switch (aiCategory) {
+    case "restaurants":
+    case "cafes":
+    case "food_cooking":
+      return "restaurants";
+    case "travel_itinerary":
+    case "hotels_accommodation":
+    case "attractions_activities":
+    case "outdoor_nature":
+      return "travel";
+    case "bars_nightlife":
+    case "entertainment":
+    case "wellness_spa":
+    case "fitness":
+      return "hobbies";
+    case "shopping":
+      return "favorites";
+    case "other":
+    default:
+      return "notes";
+  }
+}

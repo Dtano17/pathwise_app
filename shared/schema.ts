@@ -1461,6 +1461,12 @@ export const userPreferences = pgTable("user_preferences", {
       }>
     }; // Personal journal entries by category with media support
     customJournalCategories?: Array<{ id: string; name: string; color: string }>; // User-created journal categories
+    dailyTheme?: {
+      activityId: string;
+      activityTitle: string;
+      date: string; // YYYY-MM-DD format
+      tasks?: { title: string; completed: boolean }[];
+    }; // Daily focus theme - saved when user clicks "Set as Theme"
   }>().default({}),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

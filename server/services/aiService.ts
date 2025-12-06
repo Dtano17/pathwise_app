@@ -864,9 +864,29 @@ EXAMPLES:
 - "Nightlife: Nommos beach club ($15-30 entry) or similar venues like Palais Skhira ($10-25). Budget: $50-100 evening with drinks"
 - "Shopping: Souk markets for Berber rugs (negotiate $50-300) or Tanora Art Gallery ($30-150). Budget: $100-400 depending on purchases"
 
+## TITLE GENERATION (CRITICAL):
+Generate a descriptive, specific title that includes:
+- The LOCATION from the content (city/country) - e.g., "Lagos", "Marrakech", "Tokyo"
+- The CATEGORY/THEME - e.g., "Restaurants", "Nightlife", "Travel Guide", "Dining Spots"
+- A HOOK or count if applicable - e.g., "18 Hot New", "Best", "Ultimate", "December 2024"
+
+GOOD TITLE EXAMPLES:
+- "18 Hot New Lagos Restaurants - December 2024"
+- "Marrakech Luxury Dining & Nightlife Guide"
+- "Tokyo Street Food & Hidden Gems"
+- "Lagos Victoria Island Restaurant Guide"
+- "Best Rooftop Bars in Lagos"
+
+BAD TITLES (NEVER USE):
+- "Generated Plan" ❌
+- "Your Personalized Plan" ❌
+- "Plan from URL" ❌
+- "Activity Plan" ❌
+- "New Plan" ❌
+
 ## RESPOND WITH JSON:
 {
-  "planTitle": "Engaging title for the plan",
+  "planTitle": "SPECIFIC title with [Location] + [Category/Theme] + [Hook]. Example: 'Lagos Restaurant Guide - 18 New Spots'",
   "summary": "Brief summary of approach (2-3 sentences)",
   "questions": [
     {
@@ -928,7 +948,7 @@ EXAMPLES:
       }
 
       return {
-        planTitle: result?.planTitle || "Your Personalized Plan",
+        planTitle: result?.planTitle || this.generateFallbackTitle(externalContent),
         summary: result?.summary || "Plan created from external content",
         tasks: result?.tasks?.map((task: any) => ({
           title: task.title || "Untitled Task",
@@ -1565,6 +1585,58 @@ Examples: "Try a 10-minute morning meditation", "Take a walk after lunch", "Sche
       return priority;
     }
     return "medium"; // Default fallback
+  }
+
+  private generateFallbackTitle(content: string): string {
+    // Extract location keywords from content
+    const locationPatterns = [
+      /\b(Lagos|Marrakech|Tokyo|Paris|London|Dubai|NYC|New York|Miami|LA|Los Angeles|Ibiza|Bali|Bangkok|Singapore|Hong Kong|Berlin|Barcelona|Amsterdam|Lisbon|Rome|Milan|Accra|Nairobi|Cape Town|Johannesburg)\b/gi
+    ];
+    
+    let location = '';
+    for (const pattern of locationPatterns) {
+      const match = content.match(pattern);
+      if (match) {
+        location = match[0];
+        break;
+      }
+    }
+
+    // Detect category from content
+    const categoryPatterns: { pattern: RegExp; category: string }[] = [
+      { pattern: /restaurant|dining|food|eat|cuisine|menu/i, category: 'Restaurant Guide' },
+      { pattern: /bar|club|nightlife|cocktail|rooftop/i, category: 'Nightlife Guide' },
+      { pattern: /hotel|stay|accommodation|resort/i, category: 'Hotel Guide' },
+      { pattern: /travel|trip|itinerary|vacation|holiday/i, category: 'Travel Guide' },
+      { pattern: /fitness|gym|workout|exercise/i, category: 'Fitness Plan' },
+      { pattern: /recipe|cook|kitchen/i, category: 'Recipe Collection' },
+      { pattern: /spa|wellness|massage|relax/i, category: 'Wellness Guide' },
+      { pattern: /shop|store|boutique|market/i, category: 'Shopping Guide' },
+    ];
+
+    let category = 'Experience Guide';
+    for (const { pattern, category: cat } of categoryPatterns) {
+      if (pattern.test(content)) {
+        category = cat;
+        break;
+      }
+    }
+
+    // Build title
+    if (location) {
+      return `${location} ${category}`;
+    }
+    
+    // Try to extract a meaningful title from content
+    const lines = content.split('\n').filter(l => l.trim());
+    if (lines.length > 0) {
+      const firstLine = lines[0].trim().substring(0, 50);
+      if (firstLine.length > 10) {
+        return firstLine + (lines[0].length > 50 ? '...' : '');
+      }
+    }
+
+    return category;
   }
 
   async parsePastedLLMContent(

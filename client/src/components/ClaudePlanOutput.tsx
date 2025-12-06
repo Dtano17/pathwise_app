@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap } from 'lucide-react';
+import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 import ShareDialog from './ShareDialog';
 import { useMutation } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 
 interface Task {
   id: string;
@@ -20,6 +21,16 @@ interface Task {
   context?: string;
 }
 
+interface PlanMetadata {
+  location?: {
+    city?: string;
+    country?: string;
+    neighborhood?: string;
+  };
+  budgetTier?: 'budget' | 'moderate' | 'luxury' | 'ultra_luxury';
+  estimatedCost?: number;
+}
+
 interface ClaudePlanOutputProps {
   planTitle?: string;
   summary?: string;
@@ -28,12 +39,14 @@ interface ClaudePlanOutputProps {
   motivationalNote?: string;
   onCompleteTask: (taskId: string) => void;
   onCreateActivity?: (planData: { title: string; description: string; tasks: Task[]; mode?: 'create' | 'update'; activityId?: string }) => void;
-  onSetAsTheme?: () => void;
+  onSetAsTheme?: (data: { activityId: string; activityTitle: string; tasks: { title: string; completed: boolean }[] }) => void;
   onOpenSharePreview?: (activityId: string) => void;
   showConfetti?: boolean;
   activityId?: string;
   isCreating?: boolean;
   backdrop?: string;
+  sourceUrl?: string;
+  planMetadata?: PlanMetadata;
 }
 
 export default function ClaudePlanOutput({
@@ -49,7 +62,9 @@ export default function ClaudePlanOutput({
   showConfetti = false,
   activityId,
   isCreating = false,
-  backdrop
+  backdrop,
+  sourceUrl,
+  planMetadata
 }: ClaudePlanOutputProps) {
   const { toast } = useToast();
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
@@ -92,6 +107,78 @@ export default function ClaudePlanOutput({
       toast({
         title: 'Share Failed',
         description: error.message || 'Could not generate share link. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Helper to map task category to journal category
+  const mapCategoryToJournalCategory = (category: string): string => {
+    const cat = category.toLowerCase();
+    if (['restaurants', 'cafes', 'food_cooking', 'food', 'dining'].includes(cat)) return 'restaurants';
+    if (['travel_itinerary', 'hotels_accommodation', 'attractions_activities', 'outdoor_nature', 'travel', 'vacation'].includes(cat)) return 'travel';
+    if (['bars_nightlife', 'entertainment', 'nightlife', 'bars'].includes(cat)) return 'hobbies';
+    if (['wellness_spa', 'fitness', 'wellness', 'health'].includes(cat)) return 'hobbies';
+    if (['shopping', 'retail'].includes(cat)) return 'favorites';
+    return 'notes';
+  };
+
+  // Helper to extract location hints from plan title (e.g., "Lagos Restaurant Guide" → city: "Lagos")
+  const extractLocationFromTitle = (title: string | undefined): { city?: string; country?: string } | undefined => {
+    if (!title) return undefined;
+    
+    // Common city/location patterns in titles - supports multi-word cities like "New York", "Rio de Janeiro"
+    const cityPatterns = [
+      // "New York City Food Tour", "Rio de Janeiro Restaurants"
+      /^([A-Z][a-z]+(?:\s+(?:de\s+)?[A-Z][a-z]+)*(?:\s+City)?)\s+(?:Restaurant|Dining|Food|Travel|Trip|Itinerary|Guide|Hotels?|Bars?|Nightlife|Shopping|Attractions?|Tour|Escape)/i,
+      // "Trip to New York", "Restaurants in Los Angeles"
+      /(?:in|to|for)\s+([A-Z][a-z]+(?:\s+(?:de\s+)?[A-Z][a-z]+)*(?:\s+City)?)/i
+    ];
+    
+    for (const pattern of cityPatterns) {
+      const match = title.match(pattern);
+      if (match && match[1]) {
+        return { city: match[1].trim() };
+      }
+    }
+    return undefined;
+  };
+
+  // Save to Journal mutation
+  const saveToJournalMutation = useMutation({
+    mutationFn: async () => {
+      // Get location from planMetadata or extract from title
+      const location = planMetadata?.location || extractLocationFromTitle(planTitle);
+      
+      const entries = tasks.map(task => ({
+        category: mapCategoryToJournalCategory(task.category),
+        entry: {
+          id: `journal-${task.id}-${Date.now()}`,
+          text: `${task.title}${task.description ? ` - ${task.description}` : ''}`,
+          timestamp: new Date().toISOString(),
+          venueName: task.title,
+          venueType: task.category,
+          location: location,
+          budgetTier: planMetadata?.budgetTier,
+          estimatedCost: planMetadata?.estimatedCost,
+          sourceUrl: sourceUrl
+        }
+      }));
+
+      const response = await apiRequest('POST', '/api/user/journal/batch', { entries });
+      return response.json();
+    },
+    onSuccess: (data: { success: boolean; count: number }) => {
+      toast({
+        title: 'Saved to Journal',
+        description: `${data.count} item${data.count !== 1 ? 's' : ''} saved to your Personal Journal.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Save Failed',
+        description: error.message || 'Could not save to journal. Please try again.',
         variant: 'destructive',
       });
     },
@@ -421,10 +508,26 @@ export default function ClaudePlanOutput({
             {generateShareLinkMutation.isPending ? 'Generating...' : 'Share Plan'}
           </Button>
 
+          {/* Save to Journal */}
+          <Button
+            onClick={() => saveToJournalMutation.mutate()}
+            className="gap-2"
+            variant="outline"
+            disabled={!activityId || saveToJournalMutation.isPending}
+            data-testid="button-save-to-journal"
+          >
+            <BookOpen className="w-4 h-4" />
+            {saveToJournalMutation.isPending ? 'Saving...' : 'Save to Journal'}
+          </Button>
+
           {/* Set as Theme */}
-          {onSetAsTheme && (
+          {onSetAsTheme && activityId && (
             <Button
-              onClick={onSetAsTheme}
+              onClick={() => onSetAsTheme({
+                activityId: activityId,
+                activityTitle: planTitle || 'My Plan',
+                tasks: tasks.map(t => ({ title: t.title, completed: t.completed || false }))
+              })}
               className="gap-2"
               variant="outline"
               data-testid="button-set-as-theme"
