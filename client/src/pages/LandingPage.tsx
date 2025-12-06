@@ -1,7 +1,9 @@
-import { Link } from "wouter";
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { 
   Sparkles, 
   Target, 
@@ -26,10 +28,12 @@ import {
   Megaphone,
   Compass,
   Upload,
-  Plug
+  Loader2,
+  Link as LinkIcon,
+  X
 } from "lucide-react";
-import { SiApple, SiGoogleplay } from "react-icons/si";
-import { motion } from "framer-motion";
+import { SiApple, SiGoogleplay, SiTiktok, SiYoutube } from "react-icons/si";
+import { motion, AnimatePresence } from "framer-motion";
 import ThemeToggle from "@/components/ThemeToggle";
 
 const features = [
@@ -91,7 +95,90 @@ const stats = [
   { value: "4.8", label: "App Rating" }
 ];
 
+// Detect platform from URL
+function detectPlatform(url: string): { platform: string; icon: any; color: string } | null {
+  const urlLower = url.toLowerCase();
+  if (urlLower.includes('instagram.com') || urlLower.includes('instagr.am')) {
+    return { platform: 'Instagram', icon: Instagram, color: 'text-pink-500' };
+  }
+  if (urlLower.includes('tiktok.com') || urlLower.includes('vm.tiktok.com')) {
+    return { platform: 'TikTok', icon: SiTiktok, color: 'text-black dark:text-white' };
+  }
+  if (urlLower.includes('youtube.com') || urlLower.includes('youtu.be')) {
+    return { platform: 'YouTube', icon: SiYoutube, color: 'text-red-500' };
+  }
+  if (urlLower.includes('twitter.com') || urlLower.includes('x.com')) {
+    return { platform: 'X/Twitter', icon: null, color: 'text-foreground' };
+  }
+  if (urlLower.includes('facebook.com') || urlLower.includes('fb.com')) {
+    return { platform: 'Facebook', icon: null, color: 'text-blue-600' };
+  }
+  if (urlLower.includes('reddit.com')) {
+    return { platform: 'Reddit', icon: null, color: 'text-orange-500' };
+  }
+  return null;
+}
+
+// Validate URL format
+function isValidUrl(url: string): boolean {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function LandingPage() {
+  const [, navigate] = useLocation();
+  const [importUrl, setImportUrl] = useState('');
+  const [showExtractingOverlay, setShowExtractingOverlay] = useState(false);
+  const [extractionPhase, setExtractionPhase] = useState<'extracting' | 'detected' | 'error'>('extracting');
+  const [detectedPlatform, setDetectedPlatform] = useState<{ platform: string; icon: any; color: string } | null>(null);
+
+  const handleImportSubmit = () => {
+    if (!importUrl.trim()) return;
+    
+    // Validate URL
+    if (!isValidUrl(importUrl)) {
+      setExtractionPhase('error');
+      setShowExtractingOverlay(true);
+      return;
+    }
+
+    // Detect platform
+    const platform = detectPlatform(importUrl);
+    if (!platform) {
+      setExtractionPhase('error');
+      setShowExtractingOverlay(true);
+      return;
+    }
+
+    setDetectedPlatform(platform);
+    setExtractionPhase('extracting');
+    setShowExtractingOverlay(true);
+
+    // Simulate extraction animation, then show detected state
+    setTimeout(() => {
+      setExtractionPhase('detected');
+    }, 2000);
+  };
+
+  const handleSignInToProcess = () => {
+    // Save URL to localStorage for post-login processing
+    localStorage.setItem('journalmate.pendingImportUrl', importUrl);
+    localStorage.setItem('journalmate.pendingImportTimestamp', Date.now().toString());
+    
+    // Redirect to login
+    navigate('/login');
+  };
+
+  const closeOverlay = () => {
+    setShowExtractingOverlay(false);
+    setExtractionPhase('extracting');
+    setDetectedPlatform(null);
+  };
+
   return (
     <div className="h-screen overflow-auto bg-background text-foreground">
       {/* Header */}
@@ -132,7 +219,7 @@ export default function LandingPage() {
                 className="gap-1.5 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white text-xs sm:text-sm px-2.5 sm:px-3 relative"
                 data-testid="link-import"
               >
-                <Plug className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>Import</span>
                 <Badge className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[10px] px-1.5 py-0 h-4 border-0">
                   New
@@ -170,7 +257,7 @@ export default function LandingPage() {
               JournalMate devises and tracks your plan to help you achieve your goals.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
               <Link href="/login">
                 <Button size="lg" className="gap-2 bg-gradient-to-r from-purple-500 to-violet-600 text-white" data-testid="button-get-started">
                   Get Started Free
@@ -183,6 +270,40 @@ export default function LandingPage() {
                   Browse Community Plans
                 </Button>
               </Link>
+            </div>
+
+            {/* Quick Import URL Section */}
+            <div className="max-w-xl mx-auto mb-12">
+              <p className="text-sm text-muted-foreground mb-3">
+                Or paste a link to import content instantly:
+              </p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="url"
+                    placeholder="Paste Instagram, TikTok, or YouTube URL..."
+                    value={importUrl}
+                    onChange={(e) => setImportUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleImportSubmit()}
+                    className="pl-10 h-12 text-base"
+                    data-testid="input-import-url"
+                  />
+                </div>
+                <Button 
+                  size="lg"
+                  onClick={handleImportSubmit}
+                  disabled={!importUrl.trim()}
+                  className="gap-2 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white"
+                  data-testid="button-import-url"
+                >
+                  <Download className="w-4 h-4" />
+                  Import
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Supports Instagram Reels, TikTok videos, YouTube, and more
+              </p>
             </div>
 
             {/* App Store Badges */}
@@ -843,6 +964,135 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Extracting Overlay Modal */}
+      <AnimatePresence>
+        {showExtractingOverlay && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4"
+            data-testid="extracting-overlay"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", duration: 0.5 }}
+            >
+              <Card className="w-full max-w-md relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2"
+                  onClick={closeOverlay}
+                  data-testid="button-close-overlay"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+
+                <CardContent className="pt-8 pb-6 px-6">
+                  {extractionPhase === 'extracting' && (
+                    <div className="text-center space-y-6">
+                      <div className="relative w-20 h-20 mx-auto">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                          className="absolute inset-0"
+                        >
+                          <div className="w-full h-full rounded-full border-4 border-purple-200 dark:border-purple-900 border-t-purple-500" />
+                        </motion.div>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Sparkles className="w-8 h-8 text-purple-500" />
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold mb-2">Extracting & Planning...</h3>
+                        <p className="text-muted-foreground text-sm">
+                          Analyzing your content to create an action plan
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {extractionPhase === 'detected' && detectedPlatform && (
+                    <div className="text-center space-y-6">
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", duration: 0.5 }}
+                        className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-purple-100 to-violet-100 dark:from-purple-900/30 dark:to-violet-900/30 flex items-center justify-center"
+                      >
+                        {detectedPlatform.icon ? (
+                          <detectedPlatform.icon className={`w-10 h-10 ${detectedPlatform.color}`} />
+                        ) : (
+                          <LinkIcon className={`w-10 h-10 ${detectedPlatform.color}`} />
+                        )}
+                      </motion.div>
+                      <div>
+                        <motion.h3
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.2 }}
+                          className="text-xl font-bold mb-2"
+                        >
+                          {detectedPlatform.platform} content detected!
+                        </motion.h3>
+                        <motion.p
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 }}
+                          className="text-muted-foreground text-sm mb-6"
+                        >
+                          Sign in to generate your personalized action plan from this content
+                        </motion.p>
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.4 }}
+                        >
+                          <Button
+                            size="lg"
+                            onClick={handleSignInToProcess}
+                            className="gap-2 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white w-full"
+                            data-testid="button-signin-to-process"
+                          >
+                            <Sparkles className="w-4 h-4" />
+                            Sign In to Create Action Plan
+                          </Button>
+                        </motion.div>
+                      </div>
+                    </div>
+                  )}
+
+                  {extractionPhase === 'error' && (
+                    <div className="text-center space-y-6">
+                      <div className="w-20 h-20 mx-auto rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                        <X className="w-10 h-10 text-red-500" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold mb-2">Invalid URL</h3>
+                        <p className="text-muted-foreground text-sm mb-6">
+                          Please paste a valid Instagram, TikTok, YouTube, Twitter/X, Facebook, or Reddit URL
+                        </p>
+                        <Button
+                          variant="outline"
+                          onClick={closeOverlay}
+                          className="gap-2"
+                          data-testid="button-try-again"
+                        >
+                          Try Again
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
