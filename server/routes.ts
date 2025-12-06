@@ -1715,19 +1715,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const getUserFromRequest = async (req: any) => {
     let userId: string | null = null;
     
+    // Debug logging for authentication state
+    console.log('[getUserFromRequest] Auth state:', {
+      isAuthenticatedFn: !!req.isAuthenticated,
+      isAuthenticated: req.isAuthenticated?.(),
+      hasUser: !!req.user,
+      userId: req.user?.id,
+      userClaims: req.user?.claims?.sub,
+      sessionUserId: req.session?.userId,
+      passportUser: req.session?.passport?.user,
+      sessionId: req.sessionID
+    });
+    
     // Check multiple authentication methods for session persistence
     if (req.isAuthenticated && req.isAuthenticated() && req.user?.id) {
       // Passport authentication (OAuth and manual login)
       userId = req.user.id;
+      console.log('[getUserFromRequest] Using req.user.id:', userId);
     } else if (req.session?.userId) {
       // Direct session-based authentication
       userId = req.session.userId;
-    } else if (req.session?.passport?.user?.id) {
-      // Passport session serialization
-      userId = req.session.passport.user.id;
+      console.log('[getUserFromRequest] Using session.userId:', userId);
+    } else if (req.session?.passport?.user) {
+      // Passport session serialization - handle both string ID and object formats
+      const passportUser = req.session.passport.user;
+      userId = typeof passportUser === 'string' ? passportUser : passportUser?.id;
+      console.log('[getUserFromRequest] Using session.passport.user:', userId);
     } else if (req.user?.claims?.sub) {
       // Replit auth user
       userId = req.user.claims.sub;
+      console.log('[getUserFromRequest] Using user.claims.sub:', userId);
     }
     
     if (userId) {
