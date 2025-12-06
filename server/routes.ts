@@ -62,7 +62,7 @@ import { sendGroupNotification } from './services/notificationService';
 import { tavily } from '@tavily/core';
 import { socialMediaVideoService } from './services/socialMediaVideoService';
 import { apifyService } from './services/apifyService';
-import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory } from './services/contentCategorizationService';
+import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory, mapVenueTypeToJournalCategory, type VenueInfo } from './services/contentCategorizationService';
 import { scheduleRemindersForActivity, cancelRemindersForActivity } from './services/reminderProcessor';
 
 const tavilyClient = process.env.TAVILY_API_KEY ? tavily({ apiKey: process.env.TAVILY_API_KEY }) : null;
@@ -2005,14 +2005,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[SAVE CONTENT] Saved content ${savedContent.id} for user ${userId}`);
       console.log(`[SAVE CONTENT] Categorized: ${categorized.city}, ${categorized.category}, ${categorized.venues?.length || 0} venues`);
 
-      // Auto-create journal entry if requested
+      // Auto-create journal entries if requested
       let journalEntryId = null;
+      let venuesAddedCount = 0;
+      const venueJournalIds: string[] = [];
+      
       if (autoJournal) {
         try {
+          // Normalize source URL for duplicate checking
+          const normalizeUrlForDuplicateCheck = (urlString: string): string => {
+            try {
+              const url = new URL(urlString);
+              let normalized = url.hostname.replace(/^www\./, '') + url.pathname.replace(/\/$/, '');
+              normalized = normalized.replace(/\/p\/([^\/]+).*/, '/p/$1');
+              normalized = normalized.replace(/\?.*$/, '');
+              return normalized.toLowerCase();
+            } catch {
+              return urlString.toLowerCase().replace(/\/$/, '');
+            }
+          };
+          
+          const normalizedSourceUrl = normalizeUrlForDuplicateCheck(sourceUrl);
+          
+          // If there are venues, save EACH venue as its own journal item
+          if (categorized.venues && categorized.venues.length > 0) {
+            // Fetch user preferences once
+            const userPrefs = await storage.getUserPreferences(userId);
+            const currentPrefs = userPrefs?.preferences || {};
+            const journalData = currentPrefs.journalData || {};
+            
+            // Group venues by their target journal category
+            const venuesByCategory: Record<string, { venue: VenueInfo; category: string }[]> = {};
+            
+            for (const venue of categorized.venues) {
+              const venueCategory = mapVenueTypeToJournalCategory(venue.type, categorized.category);
+              if (!venuesByCategory[venueCategory]) {
+                venuesByCategory[venueCategory] = [];
+              }
+              venuesByCategory[venueCategory].push({ venue, category: venueCategory });
+            }
+            
+            // Process each category and add venues
+            for (const [category, venueItems] of Object.entries(venuesByCategory)) {
+              const categoryItems = journalData[category] || [];
+              const newItems: any[] = [];
+              
+              for (let venueIndex = 0; venueIndex < venueItems.length; venueIndex++) {
+              const { venue } = venueItems[venueIndex];
+              
+              // Check for duplicates: same sourceUrl + same venue name (case-insensitive)
+              // Check both sourceUrl and originalUrl fields since items may have either
+              const isDuplicate = categoryItems.some((item: any) => {
+                const itemSourceUrl = item.sourceUrl || item.originalUrl || '';
+                if (!itemSourceUrl) return false;
+                try {
+                  const itemNormalized = normalizeUrlForDuplicateCheck(itemSourceUrl);
+                  const sameSource = itemNormalized === normalizedSourceUrl;
+                  const sameName = item.text?.toLowerCase().trim() === venue.name.toLowerCase().trim();
+                  return sameSource && sameName;
+                } catch {
+                  return false;
+                }
+              });
+                
+              if (isDuplicate) {
+                console.log(`[SAVE CONTENT] Skipping duplicate venue: ${venue.name} from ${sourceUrl}`);
+                continue;
+              }
+                
+              // Generate unique ID for the journal item with venue index for better uniqueness
+              const venueItemId = `venue-${Date.now()}-${venueIndex}-${Math.random().toString(36).substring(2, 9)}`;
+                
+              // Create journal item for this venue
+              const venueJournalItem = {
+                id: venueItemId,
+                text: venue.name,
+                date: new Date().toISOString().split('T')[0],
+                notes: venue.description || '',
+                sourceUrl: normalizedSourceUrl,
+                originalUrl: sourceUrl,
+                platform: platform.toLowerCase(),
+                venueType: venue.type,
+                priceRange: venue.priceRange,
+                priceAmount: venue.priceAmount,
+                location: venue.location || venue.address || categorized.city || '',
+                keywords: [platform.toLowerCase(), 'imported', venue.type].filter(Boolean),
+                aiConfidence: 0.85,
+                isImported: true
+              };
+                
+              newItems.push(venueJournalItem);
+              venueJournalIds.push(venueItemId);
+              venuesAddedCount++;
+              console.log(`[SAVE CONTENT] Adding venue to journal: ${venue.name} → ${category}`);
+            }
+              
+            // Update this category with new items at the beginning
+            if (newItems.length > 0) {
+              journalData[category] = [...newItems, ...categoryItems];
+            }
+          }
+            
+          // Batch update preferences with all venue entries
+          if (venuesAddedCount > 0) {
+            await storage.upsertUserPreferences(userId, {
+              preferences: {
+                ...currentPrefs,
+                journalData
+              }
+            });
+            console.log(`[SAVE CONTENT] Added ${venuesAddedCount} venues to journal for user ${userId}`);
+          }
+        }
+          
+          // Create summary journal entry for backward compatibility
           const journalContent = `Saved from ${platform}: ${categorized.title || 'Interesting content'}\n\n` +
             `Location: ${categorized.city || categorized.location || 'Unknown'}\n` +
             `Category: ${formatCategoryForDisplay(categorized.category)}\n` +
-            (categorized.venues?.length > 0 ? `Venues: ${categorized.venues.map((v: any) => v.name).join(', ')}\n` : '') +
+            (categorized.venues?.length > 0 ? `Venues (${venuesAddedCount} added to journal): ${categorized.venues.map((v: any) => v.name).join(', ')}\n` : '') +
             (userNotes ? `\nMy notes: ${userNotes}` : '');
           
           const journalEntry = await storage.createJournalEntry({
@@ -2029,9 +2139,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             journalEntryId
           });
           
-          console.log(`[SAVE CONTENT] Created journal entry ${journalEntryId}`);
+          console.log(`[SAVE CONTENT] Created summary journal entry ${journalEntryId}, ${venuesAddedCount} venue items added`);
         } catch (journalError) {
-          console.error('[SAVE CONTENT] Error creating journal entry:', journalError);
+          console.error('[SAVE CONTENT] Error creating journal entries:', journalError);
         }
       }
 
@@ -2042,7 +2152,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           categoryDisplay: formatCategoryForDisplay(categorized.category),
           budgetDisplay: formatBudgetTierForDisplay(categorized.budgetTier)
         },
-        journalEntryId
+        journalEntryId,
+        venuesAddedCount,
+        venueJournalIds
       });
     } catch (error) {
       console.error('Save content error:', error);

@@ -453,3 +453,33 @@ export function mapAiCategoryToJournalCategory(aiCategory: ContentCategory): Jou
       return "notes";
   }
 }
+
+export function mapVenueTypeToJournalCategory(venueType: string, fallbackCategory: ContentCategory): JournalCategory {
+  const normalizedType = venueType.toLowerCase().trim();
+  
+  if (['restaurant', 'restaurants', 'dining', 'eatery', 'cafe', 'coffee', 'bakery', 'food', 'bistro'].some(t => normalizedType.includes(t))) {
+    return "restaurants";
+  }
+  
+  if (['bar', 'pub', 'club', 'nightclub', 'lounge', 'nightlife', 'brewery', 'winery'].some(t => normalizedType.includes(t))) {
+    return "hobbies";
+  }
+  
+  if (['hotel', 'accommodation', 'resort', 'hostel', 'airbnb', 'stay', 'lodging', 'motel', 'inn'].some(t => normalizedType.includes(t))) {
+    return "travel";
+  }
+  
+  if (['attraction', 'museum', 'landmark', 'monument', 'tour', 'activity', 'park', 'beach', 'outdoor', 'nature', 'hiking'].some(t => normalizedType.includes(t))) {
+    return "travel";
+  }
+  
+  if (['shop', 'store', 'boutique', 'mall', 'market', 'shopping'].some(t => normalizedType.includes(t))) {
+    return "favorites";
+  }
+  
+  if (['spa', 'wellness', 'gym', 'fitness', 'yoga', 'salon'].some(t => normalizedType.includes(t))) {
+    return "hobbies";
+  }
+  
+  return mapAiCategoryToJournalCategory(fallbackCategory);
+}
