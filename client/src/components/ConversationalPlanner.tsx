@@ -113,6 +113,10 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const [isGeneratingFromContent, setIsGeneratingFromContent] = useState(false);
   const plannerFileInputRef = useRef<HTMLInputElement>(null);
   
+  // URL Action Choice State (for "Save to Journal" vs "Create Plan" option)
+  const [showUrlActionDialog, setShowUrlActionDialog] = useState(false);
+  const [pendingUrlData, setPendingUrlData] = useState<{ content: string; url: string; isVideoContent?: boolean; platform?: string } | null>(null);
+  
   // Autocomplete state
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [autocompleteSearch, setAutocompleteSearch] = useState('');
@@ -890,6 +894,57 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     }
   });
 
+  // Save to Journal Only mutation (no planning)
+  const saveToJournalOnlyMutation = useMutation({
+    mutationFn: async () => {
+      if (!pendingUrlData) throw new Error('No URL data to save');
+      
+      const response = await apiRequest('POST', '/api/user/saved-content', {
+        sourceUrl: pendingUrlData.url,
+        extractedContent: pendingUrlData.content,
+        autoJournal: true,
+        userNotes: message || undefined
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setShowUrlActionDialog(false);
+      setPendingUrlData(null);
+      setExternalSourceUrl(null);
+      setMessage('');
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      
+      const venueCount = data.venuesAddedCount || 0;
+      toast({
+        title: "Saved to Journal!",
+        description: venueCount > 0 
+          ? `${venueCount} venue${venueCount > 1 ? 's' : ''} added to your journal`
+          : "Content saved to your journal",
+        action: (
+          <Button 
+            size="sm" 
+            variant="outline"
+            onClick={() => setLocation('/journal')}
+            data-testid="toast-view-journal"
+          >
+            <BookOpen className="w-3 h-3 mr-1" />
+            View
+          </Button>
+        )
+      });
+    },
+    onError: (error: any) => {
+      console.error('Journal save error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save to journal",
+        variant: "destructive"
+      });
+    }
+  });
+
   // Handle URL detection when sending message in Quick/Smart Plan modes
   const handleMessageWithUrlDetection = async () => {
     const detectedUrl = detectUrlInMessage(message);
@@ -934,15 +989,36 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           } : null);
           setMessage('');
           setIsLoadingCuratedQuestions(false);
-          setExternalSourceUrl(null);
+          // Store URL data for potential journal save even for video content
+          setPendingUrlData({
+            content: data.guidance || `${data.platform} video content from ${detectedUrl}`,
+            url: detectedUrl,
+            isVideoContent: true,
+            platform: data.platform
+          });
+          setShowUrlActionDialog(true);
           return;
         }
         
-        // Normal content - proceed with curated questions
+        // Normal content - check if social media to show action choice
         if (data.content) {
-          await processCuratedQuestionsFlow(data.content);
+          if (isSocialMediaUrl) {
+            // Social media URL - show action choice dialog (Save to Journal vs Create Plan)
+            setPendingUrlData({
+              content: data.content,
+              url: detectedUrl,
+              isVideoContent: false,
+              platform: data.platform
+            });
+            setShowUrlActionDialog(true);
+            setIsLoadingCuratedQuestions(false);
+          } else {
+            // Non-social URL (articles, blogs, etc.) - proceed directly to curated questions (old behavior)
+            await processCuratedQuestionsFlow(data.content);
+          }
+          setMessage('');
+          return;
         }
-        setMessage('');
       } catch (error) {
         console.error('URL processing error:', error);
         toast({
@@ -2576,6 +2652,75 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                   Generate My Plan
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* URL Action Choice Dialog */}
+      <Dialog open={showUrlActionDialog} onOpenChange={setShowUrlActionDialog}>
+        <DialogContent className="max-w-md" data-testid="dialog-url-action-choice">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link className="h-5 w-5 text-blue-500" />
+              URL Content Detected
+            </DialogTitle>
+            <DialogDescription>
+              {pendingUrlData?.isVideoContent 
+                ? "This appears to be a video. What would you like to do?"
+                : "We found content from this URL. What would you like to do?"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-3">
+            <Button
+              className="w-full justify-start gap-3 h-14"
+              variant="outline"
+              onClick={() => {
+                setShowUrlActionDialog(false);
+                if (pendingUrlData && !pendingUrlData.isVideoContent) {
+                  processCuratedQuestionsFlow(pendingUrlData.content);
+                }
+              }}
+              disabled={pendingUrlData?.isVideoContent}
+              data-testid="button-create-plan-from-url"
+            >
+              <Sparkles className="h-5 w-5 text-purple-500" />
+              <div className="text-left">
+                <div className="font-medium">Create a Plan</div>
+                <div className="text-xs text-muted-foreground">Generate tasks and activities from this content</div>
+              </div>
+            </Button>
+            
+            <Button
+              className="w-full justify-start gap-3 h-14"
+              variant="outline"
+              onClick={() => saveToJournalOnlyMutation.mutate()}
+              disabled={saveToJournalOnlyMutation.isPending}
+              data-testid="button-save-to-journal-only"
+            >
+              {saveToJournalOnlyMutation.isPending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <BookOpen className="h-5 w-5 text-green-500" />
+              )}
+              <div className="text-left">
+                <div className="font-medium">Save to Journal Only</div>
+                <div className="text-xs text-muted-foreground">Bookmark this for later without creating tasks</div>
+              </div>
+            </Button>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowUrlActionDialog(false);
+                setPendingUrlData(null);
+                setExternalSourceUrl(null);
+              }}
+            >
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>
