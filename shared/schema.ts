@@ -1458,8 +1458,22 @@ export const userPreferences = pgTable("user_preferences", {
         activityId?: string; // Link to activity this journal entry reflects on
         linkedActivityTitle?: string; // Activity title for display (denormalized for performance)
         mood?: 'great' | 'good' | 'okay' | 'poor'; // Mood associated with this entry
+        venueName?: string; // Name of venue/restaurant/place extracted from content
+        venueType?: string; // Type of venue: restaurant, bar, cafe, hotel, attraction, etc.
+        location?: {
+          city?: string;
+          country?: string;
+          neighborhood?: string;
+          address?: string;
+        }; // Structured location data for filtering
+        priceRange?: string; // Price range like "$", "$$", "$$$", "$$$$" or "₦30,000-₦50,000"
+        budgetTier?: 'budget' | 'moderate' | 'luxury' | 'ultra_luxury'; // Normalized budget tier
+        estimatedCost?: number; // Numeric cost estimate in local currency
+        sourceUrl?: string; // URL of the reel/post this venue was extracted from
+        importId?: string; // Unique ID for the import session (groups venues from same reel)
+        selectedForPlan?: boolean; // True if this venue was selected for a plan task
       }>
-    }; // Personal journal entries by category with media support
+    }; // Personal journal entries by category with media support and venue data for swap alternatives
     customJournalCategories?: Array<{ id: string; name: string; color: string }>; // User-created journal categories
     dailyTheme?: {
       activityId: string;

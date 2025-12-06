@@ -12142,6 +12142,11 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
 
       // Auto-journal if source is a social media URL
       let journalEntryId = null;
+      let savedVenuesCount = 0;
+      
+      // Generate unique import ID for this batch of venues
+      const importId = `import_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
       if (isSocialMedia) {
         try {
           const platform = sourceUrl.includes('instagram') ? 'Instagram' : 
@@ -12177,6 +12182,72 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           journalEntryId = journalEntry.id;
           
           console.log(`[AUTO-JOURNAL] Created journal entry ${journalEntryId} from ${platform} URL for activity ${activity.id}`);
+          
+          // CRITICAL: Save ALL extracted venues as structured journal entries for swap alternatives
+          const allExtractedVenues = (planResult as any).allExtractedVenues || [];
+          if (allExtractedVenues.length > 0) {
+            try {
+              // Get user preferences to update journalData
+              const preferences = await storage.getUserPreferences(userId);
+              const currentJournalData = preferences?.preferences?.journalData || {};
+              
+              // Track which venue names are used in tasks
+              const taskVenueNames = new Set(
+                planResult.tasks
+                  .filter((t: any) => t.venueName)
+                  .map((t: any) => t.venueName)
+              );
+              
+              // Group venues by category and create structured journal entries
+              const venuesByCategory: Record<string, any[]> = {};
+              const timestamp = new Date().toISOString();
+              
+              for (const venue of allExtractedVenues) {
+                const category = venue.category || 'restaurants';
+                if (!venuesByCategory[category]) {
+                  venuesByCategory[category] = [];
+                }
+                
+                // Create structured journal entry with all venue data
+                venuesByCategory[category].push({
+                  id: `venue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  text: venue.description || `${venue.venueName} - ${venue.venueType || 'venue'}`,
+                  timestamp,
+                  venueName: venue.venueName,
+                  venueType: venue.venueType,
+                  location: venue.location || (planResult as any).planLocation || {},
+                  priceRange: venue.priceRange,
+                  budgetTier: venue.budgetTier,
+                  estimatedCost: venue.estimatedCost,
+                  sourceUrl: sourceUrl,
+                  importId: importId,
+                  selectedForPlan: taskVenueNames.has(venue.venueName),
+                  activityId: activity.id,
+                  linkedActivityTitle: activity.title,
+                  aiConfidence: 0.9,
+                });
+              }
+              
+              // Merge with existing journal data
+              for (const [category, venues] of Object.entries(venuesByCategory)) {
+                const existingEntries = currentJournalData[category] || [];
+                currentJournalData[category] = [...existingEntries, ...venues];
+              }
+              
+              // Update user preferences with new journal data
+              await storage.upsertUserPreferences(userId, {
+                preferences: {
+                  ...preferences?.preferences,
+                  journalData: currentJournalData
+                }
+              });
+              
+              savedVenuesCount = allExtractedVenues.length;
+              console.log(`[AUTO-JOURNAL] Saved ${savedVenuesCount} venues to journalData from ${platform} URL for activity ${activity.id}`);
+            } catch (venueError) {
+              console.error('[AUTO-JOURNAL] Error saving venues to journalData:', venueError);
+            }
+          }
         } catch (journalError) {
           console.error('[AUTO-JOURNAL] Error creating journal entry:', journalError);
           // Don't fail the whole request if journaling fails
@@ -12188,11 +12259,14 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         plan: planResult,
         activity: {
           id: activity.id,
-          title: activity.title
+          title: activity.title,
+          sourceUrl: sourceUrl
         },
         createdTasks,
         journalEntryId,
-        message: `Created "${activity.title}" with ${createdTasks.length} tasks${journalEntryId ? ' and added to journal' : ''}`
+        savedVenuesCount,
+        importId,
+        message: `Created "${activity.title}" with ${createdTasks.length} tasks${journalEntryId ? ' and added to journal' : ''}${savedVenuesCount ? ` (${savedVenuesCount} venues saved for alternatives)` : ''}`
       });
     } catch (error) {
       console.error('Error generating plan from content:', error);

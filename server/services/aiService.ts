@@ -28,6 +28,23 @@ const anthropic = new Anthropic({
 // Initialize Tavily client for URL content extraction
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
+interface ExtractedVenue {
+  venueName: string;
+  venueType: string; // restaurant, bar, cafe, hotel, attraction, club, spa, etc.
+  category: string; // restaurants, travel, activities, etc. (journal category)
+  location?: {
+    city?: string;
+    country?: string;
+    neighborhood?: string;
+    address?: string;
+  };
+  priceRange?: string; // "$", "$$", "$$$", "$$$$" or specific ranges like "₦30,000-₦50,000"
+  budgetTier?: 'budget' | 'moderate' | 'luxury' | 'ultra_luxury';
+  estimatedCost?: number;
+  description?: string;
+  selectedForPlan?: boolean; // True if this venue was selected for a task
+}
+
 interface GoalProcessingResult {
   planTitle?: string;
   summary?: string;
@@ -36,6 +53,11 @@ interface GoalProcessingResult {
   goalPriority: "low" | "medium" | "high";
   estimatedTimeframe: string;
   motivationalNote?: string;
+  allExtractedVenues?: ExtractedVenue[]; // ALL venues extracted from content (not just those in tasks)
+  planLocation?: {
+    city?: string;
+    country?: string;
+  };
 }
 
 interface ChatMessage {
@@ -884,22 +906,32 @@ BAD TITLES (NEVER USE):
 - "Activity Plan" ❌
 - "New Plan" ❌
 
+## CRITICAL: EXTRACT ALL VENUES/ITEMS FROM CONTENT
+You MUST extract EVERY venue, restaurant, bar, cafe, hotel, attraction, or place mentioned in the content.
+If the content mentions 59 restaurants, you must list ALL 59 in "allExtractedVenues".
+Only ${taskCountRange} will be used for tasks, but ALL venues must be saved for the user's journal and swap alternatives.
+
 ## RESPOND WITH JSON:
 {
   "planTitle": "SPECIFIC title with [Location] + [Category/Theme] + [Hook]. Example: 'Lagos Restaurant Guide - 18 New Spots'",
   "summary": "Brief summary of approach (2-3 sentences)",
-  "questions": [
+  "planLocation": {
+    "city": "City name from content (e.g., Lagos, Marrakech)",
+    "country": "Country name"
+  },
+  "allExtractedVenues": [
     {
-      "id": "q1",
-      "question": "What's your total budget for this experience?",
-      "type": "text"
-    },
-    {
-      "id": "q2",
-      "question": "How many days/nights are you planning?",
-      "type": "text"
+      "venueName": "Exact venue name from content",
+      "venueType": "restaurant|bar|cafe|hotel|club|spa|attraction|beach|market|etc",
+      "category": "restaurants|travel|activities|music|movies|shopping|books|health|fashion|personal",
+      "location": { "city": "City", "country": "Country", "neighborhood": "Area/District if mentioned", "address": "Address if available" },
+      "priceRange": "Price range like '$', '$$', '$$$', '$$$$' or specific like '₦30,000-₦50,000'",
+      "budgetTier": "budget|moderate|luxury|ultra_luxury",
+      "estimatedCost": 50000,
+      "description": "Brief description of the venue"
     }
   ],
+  "selectedVenueNames": ["Venue 1", "Venue 2"],
   "tasks": [
     {
       "title": "Actionable task with specifics",
@@ -907,7 +939,8 @@ BAD TITLES (NEVER USE):
       "category": "Category",
       "priority": "high|medium|low",
       "timeEstimate": "Duration",
-      "context": "Why this matters, budget implications, creative tips"
+      "context": "Why this matters, budget implications, creative tips",
+      "venueName": "Primary venue name this task is about (must match an entry in allExtractedVenues)"
     }
   ],
   "goalCategory": "Main category",
@@ -923,7 +956,7 @@ BAD TITLES (NEVER USE):
         try {
           const response = await anthropic.messages.create({
             model: DEFAULT_CLAUDE_MODEL,
-            max_tokens: 2000,
+            max_tokens: 8000, // Increased for extracting all venues
             messages: [{ role: "user", content: prompt }],
           });
           result = this.extractJSON((response.content[0] as any).text);
@@ -932,6 +965,7 @@ BAD TITLES (NEVER USE):
           if (process.env.OPENAI_API_KEY) {
             const response = await openai.chat.completions.create({
               model: "gpt-4-turbo-preview",
+              max_tokens: 8000,
               messages: [{ role: "user", content: prompt }],
               response_format: { type: "json_object" },
             });
@@ -941,11 +975,26 @@ BAD TITLES (NEVER USE):
       } else if (process.env.OPENAI_API_KEY) {
         const response = await openai.chat.completions.create({
           model: "gpt-4-turbo-preview",
+          max_tokens: 8000,
           messages: [{ role: "user", content: prompt }],
           response_format: { type: "json_object" },
         });
         result = JSON.parse(response.choices[0].message.content || "{}");
       }
+
+      // Mark selected venues
+      const selectedVenueNames = new Set(result?.selectedVenueNames || []);
+      const allExtractedVenues = (result?.allExtractedVenues || []).map((venue: any) => ({
+        venueName: venue.venueName || 'Unknown Venue',
+        venueType: venue.venueType || 'restaurant',
+        category: venue.category || 'restaurants',
+        location: venue.location || {},
+        priceRange: venue.priceRange,
+        budgetTier: venue.budgetTier,
+        estimatedCost: venue.estimatedCost,
+        description: venue.description,
+        selectedForPlan: selectedVenueNames.has(venue.venueName),
+      }));
 
       return {
         planTitle: result?.planTitle || this.generateFallbackTitle(externalContent),
@@ -960,11 +1009,14 @@ BAD TITLES (NEVER USE):
           dueDate: task.dueDate ? new Date(task.dueDate) : null,
           timeEstimate: task.timeEstimate || "30 min",
           context: task.context || "Complete this task to progress",
+          venueName: task.venueName, // Track which venue this task is about
         })) || [],
         goalCategory: result?.goalCategory || "Personal",
         goalPriority: this.validatePriority(result?.goalPriority),
         estimatedTimeframe: result?.estimatedTimeframe || "1-2 weeks",
         motivationalNote: result?.motivationalNote || "You've got this! Take it one step at a time.",
+        allExtractedVenues,
+        planLocation: result?.planLocation,
       };
     } catch (error) {
       console.error("Generate plan from external content error:", error);
