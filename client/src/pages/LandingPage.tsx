@@ -219,7 +219,7 @@ export default function LandingPage() {
                 className="gap-1.5 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white text-xs sm:text-sm px-2.5 sm:px-3 relative"
                 data-testid="link-import"
               >
-                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>Import</span>
                 <Badge className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[10px] px-1.5 py-0 h-4 border-0">
                   New
@@ -270,40 +270,6 @@ export default function LandingPage() {
                   Browse Community Plans
                 </Button>
               </Link>
-            </div>
-
-            {/* Quick Import URL Section */}
-            <div className="max-w-xl mx-auto mb-12">
-              <p className="text-sm text-muted-foreground mb-3">
-                Or paste a link to import content instantly:
-              </p>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type="url"
-                    placeholder="Paste Instagram, TikTok, or YouTube URL..."
-                    value={importUrl}
-                    onChange={(e) => setImportUrl(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleImportSubmit()}
-                    className="pl-10 h-12 text-base"
-                    data-testid="input-import-url"
-                  />
-                </div>
-                <Button 
-                  size="lg"
-                  onClick={handleImportSubmit}
-                  disabled={!importUrl.trim()}
-                  className="gap-2 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white"
-                  data-testid="button-import-url"
-                >
-                  <Download className="w-4 h-4" />
-                  Import
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Supports Instagram Reels, TikTok videos, YouTube, and more
-              </p>
             </div>
 
             {/* App Store Badges */}

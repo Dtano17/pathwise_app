@@ -223,7 +223,20 @@ export async function setupAuth(app: Express) {
   // Handle logout for all providers (POST request from frontend)
   app.post("/api/logout", (req, res) => {
     req.logout(() => {
-      res.json({ message: 'Logged out successfully' });
+      // Destroy the session completely to clear from database
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('[Logout] Session destroy error:', err);
+        }
+        // Clear the session cookie
+        res.clearCookie('connect.sid', {
+          path: '/',
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax'
+        });
+        res.json({ message: 'Logged out successfully' });
+      });
     });
   });
 }
