@@ -130,10 +130,10 @@ export default function LandingPage() {
               <Button 
                 size="sm" 
                 className="gap-1.5 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white text-xs sm:text-sm px-2.5 sm:px-3 relative"
-                data-testid="link-integrate"
+                data-testid="link-import"
               >
                 <Plug className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span>Integrate</span>
+                <span>Import</span>
                 <Badge className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[10px] px-1.5 py-0 h-4 border-0">
                   New
                 </Badge>
@@ -161,7 +161,7 @@ export default function LandingPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center max-w-4xl mx-auto"
           >
-            <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-purple-600 via-violet-600 to-emerald-500 bg-clip-text text-transparent">
+            <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-purple-600 via-violet-600 to-emerald-500 bg-clip-text text-transparent leading-tight py-1">
               Execute your plans, track and share your progress
             </h1>
             
