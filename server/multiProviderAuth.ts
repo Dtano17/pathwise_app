@@ -494,22 +494,44 @@ export async function setupMultiProviderAuth(app: Express) {
       failureRedirect: '/?auth=error&provider=google',
       failureMessage: true 
     }),
-    (req, res) => {
-      console.log('[Google OAuth] Callback successful, user:', req.user);
-      // Get returnTo from session or default to home
+    (req: any, res) => {
+      const user = req.user as OAuthUser;
+      console.log('[Google OAuth] Callback successful, user:', user);
+      console.log('[Google OAuth] Session ID before regenerate:', req.sessionID);
+      
+      // Get returnTo from session before regenerating
       const returnTo = req.session.returnTo || '/';
-      delete req.session.returnTo; // Clean up
       
-      // Append auth success parameter
-      const separator = returnTo.includes('?') ? '&' : '?';
-      const redirectUrl = `${returnTo}${separator}auth=success&provider=google`;
-      
-      // Explicitly save session before redirecting to ensure persistence
-      req.session.save((err) => {
-        if (err) {
-          console.error('[Google OAuth] Session save error:', err);
+      // Regenerate session to prevent session fixation and ensure proper cookie setup
+      req.session.regenerate((regenerateErr: any) => {
+        if (regenerateErr) {
+          console.error('[Google OAuth] Session regenerate error:', regenerateErr);
+          return res.redirect('/?auth=error&reason=session');
         }
-        res.redirect(redirectUrl);
+        
+        // Re-establish the user in the new session using passport login
+        req.login(user, (loginErr: any) => {
+          if (loginErr) {
+            console.error('[Google OAuth] Login error after regenerate:', loginErr);
+            return res.redirect('/?auth=error&reason=login');
+          }
+          
+          console.log('[Google OAuth] Session ID after regenerate:', req.sessionID);
+          console.log('[Google OAuth] Session passport user:', req.session?.passport?.user);
+          
+          // Append auth success parameter
+          const separator = returnTo.includes('?') ? '&' : '?';
+          const redirectUrl = `${returnTo}${separator}auth=success&provider=google`;
+          
+          // Explicitly save session before redirecting
+          req.session.save((saveErr: any) => {
+            if (saveErr) {
+              console.error('[Google OAuth] Session save error:', saveErr);
+            }
+            console.log('[Google OAuth] Redirecting to:', redirectUrl);
+            res.redirect(redirectUrl);
+          });
+        });
       });
     }
   );
