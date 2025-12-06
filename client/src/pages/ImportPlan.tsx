@@ -454,9 +454,18 @@ export default function ImportPlan() {
   const { user, isAuthenticated, login, isLoading: authLoading } = useAuth();
   
   // Store pending URL for auto-processing after login
-  // Read from sessionStorage but don't remove yet - we'll remove after successful processing
+  // Read from localStorage (consistent with MainApp.tsx and LandingPage.tsx)
   const [pendingUrl, setPendingUrl] = useState<string | null>(() => {
-    return sessionStorage.getItem('pendingImportUrl');
+    const url = localStorage.getItem('journalmate.pendingImportUrl');
+    const timestamp = localStorage.getItem('journalmate.pendingImportTimestamp');
+    // Only return if not expired (10 minutes)
+    if (url && timestamp) {
+      const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+      if (parseInt(timestamp, 10) > tenMinutesAgo) {
+        return url;
+      }
+    }
+    return null;
   });
   
   const {
@@ -489,8 +498,9 @@ export default function ImportPlan() {
   useEffect(() => {
     if (!authLoading && isAuthenticated && pendingUrl) {
       // User just logged in with pending content - auto-process it
-      // Clear from sessionStorage first to prevent re-triggering on navigation
-      sessionStorage.removeItem('pendingImportUrl');
+      // Clear from localStorage first to prevent re-triggering on navigation
+      localStorage.removeItem('journalmate.pendingImportUrl');
+      localStorage.removeItem('journalmate.pendingImportTimestamp');
       
       const contentToProcess = pendingUrl;
       setPendingUrl(null);
@@ -600,8 +610,9 @@ export default function ImportPlan() {
           ? 'Content will be extracted and turned into actionable tasks'
           : 'Your text will be turned into actionable tasks';
         
-        // Store the content/URL for processing after login
-        sessionStorage.setItem('pendingImportUrl', url || trimmedText);
+        // Store the content/URL for processing after login (consistent with MainApp.tsx)
+        localStorage.setItem('journalmate.pendingImportUrl', url || trimmedText);
+        localStorage.setItem('journalmate.pendingImportTimestamp', Date.now().toString());
         
         setPlanPreview({
           title: previewTitle,
@@ -671,9 +682,10 @@ export default function ImportPlan() {
   };
 
   const handleSignIn = (urlToStore?: string) => {
-    // Store the pending URL so we can auto-process after login
+    // Store the pending URL so we can auto-process after login (consistent with MainApp.tsx)
     if (urlToStore) {
-      sessionStorage.setItem('pendingImportUrl', urlToStore);
+      localStorage.setItem('journalmate.pendingImportUrl', urlToStore);
+      localStorage.setItem('journalmate.pendingImportTimestamp', Date.now().toString());
     }
     // Redirect to login with returnTo parameter
     setLocation('/login?returnTo=/import-plan');
