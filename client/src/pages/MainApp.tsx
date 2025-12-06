@@ -537,6 +537,45 @@ export default function MainApp({
     }
   }, [toast]);
 
+  // Check for pending import URL from landing page (after sign-in)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
+    const pendingUrl = localStorage.getItem('journalmate.pendingImportUrl');
+    const pendingTimestamp = localStorage.getItem('journalmate.pendingImportTimestamp');
+    
+    if (pendingUrl && pendingTimestamp) {
+      const timestamp = parseInt(pendingTimestamp, 10);
+      const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+      
+      // Only process if less than 10 minutes old
+      if (timestamp > tenMinutesAgo) {
+        console.log('[IMPORT] Processing pending URL from landing page:', pendingUrl);
+        
+        // Clear localStorage first to prevent re-processing
+        localStorage.removeItem('journalmate.pendingImportUrl');
+        localStorage.removeItem('journalmate.pendingImportTimestamp');
+        
+        // Navigate to input tab and trigger import
+        setActiveTab('input');
+        
+        // Use importQueue to process the URL
+        setTimeout(() => {
+          importQueue.enqueue(pendingUrl);
+        }, 500);
+        
+        toast({
+          title: "Processing your content",
+          description: "Creating an action plan from your shared link...",
+        });
+      } else {
+        // URL is too old, clean up
+        localStorage.removeItem('journalmate.pendingImportUrl');
+        localStorage.removeItem('journalmate.pendingImportTimestamp');
+      }
+    }
+  }, [isAuthenticated, importQueue, toast]);
+
   // Sign-in gate component for restricted features
   const SignInGate = ({ children, feature }: { children: React.ReactNode; feature: string }) => {
     if (isAuthenticated) {
