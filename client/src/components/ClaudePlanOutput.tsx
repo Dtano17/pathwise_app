@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap, BookOpen, RefreshCw, ChevronDown, MapPin, Loader2 } from 'lucide-react';
+import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap, BookOpen, RefreshCw, ChevronDown, MapPin, Loader2, DollarSign, Calculator } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 import ShareDialog from './ShareDialog';
@@ -20,6 +20,7 @@ interface Alternative {
   budgetTier?: string;
   category: string;
   sourceUrl?: string;
+  estimatedCost?: number;
 }
 
 interface Task {
@@ -31,6 +32,7 @@ interface Task {
   completed?: boolean;
   timeEstimate?: string;
   context?: string;
+  estimatedCost?: number;
 }
 
 interface PlanMetadata {
@@ -206,7 +208,64 @@ export default function ClaudePlanOutput({
   const [shareUrl, setShareUrl] = useState<string>('');
   const [expandedAlternatives, setExpandedAlternatives] = useState<Set<number>>(new Set());
   const [swappedTasks, setSwappedTasks] = useState<Map<string, Task>>(new Map());
+  const [swappedCostAdjustments, setSwappedCostAdjustments] = useState<Map<string, number>>(new Map());
   
+  // Helper to estimate cost from price range or budget tier
+  const estimateCostFromPriceData = (priceRange?: string, budgetTier?: string): number | null => {
+    // Try to parse numeric range like "$50-100" or "50-100"
+    if (priceRange) {
+      const numericMatch = priceRange.match(/\$?(\d+)(?:\s*[-–]\s*\$?(\d+))?/);
+      if (numericMatch) {
+        const low = parseInt(numericMatch[1], 10);
+        const high = numericMatch[2] ? parseInt(numericMatch[2], 10) : low;
+        return Math.round((low + high) / 2);
+      }
+      // Handle dollar signs like "$", "$$", "$$$", "$$$$"
+      const dollarMatch = priceRange.match(/^\$+$/);
+      if (dollarMatch) {
+        const dollarCount = dollarMatch[0].length;
+        const tierEstimates: Record<number, number> = { 1: 15, 2: 35, 3: 75, 4: 150 };
+        return tierEstimates[dollarCount] || 50;
+      }
+    }
+    // Fall back to budget tier estimates
+    if (budgetTier) {
+      const tierEstimates: Record<string, number> = {
+        budget: 25,
+        moderate: 50,
+        luxury: 100,
+        ultra_luxury: 200
+      };
+      return tierEstimates[budgetTier] || null;
+    }
+    return null;
+  };
+
+  // Calculate per-task base cost (evenly divide total if no per-task costs)
+  const perTaskBaseCost = (planMetadata?.estimatedCost && tasks.length > 0) 
+    ? planMetadata.estimatedCost / tasks.length 
+    : 0;
+
+  // Calculate dynamic budget total
+  const calculateBudgetTotal = (): { total: number; isCustomized: boolean; originalTotal: number } => {
+    const originalTotal = planMetadata?.estimatedCost || 0;
+    
+    if (swappedCostAdjustments.size === 0) {
+      return { total: originalTotal, isCustomized: false, originalTotal };
+    }
+    
+    // Sum all cost adjustments (positive = more expensive swap, negative = cheaper swap)
+    let adjustmentSum = 0;
+    swappedCostAdjustments.forEach(adjustment => {
+      adjustmentSum += adjustment;
+    });
+    
+    const adjustedTotal = Math.max(0, originalTotal + adjustmentSum);
+    return { total: adjustedTotal, isCustomized: true, originalTotal };
+  };
+
+  const budgetData = calculateBudgetTotal();
+
   // Infer category from tasks (use most common category)
   const category = tasks.length > 0 
     ? (() => {
@@ -346,13 +405,32 @@ export default function ClaudePlanOutput({
 
   // Handle swap action
   const handleSwapTask = (taskIndex: number, taskId: string, alternative: Alternative) => {
+    // Calculate cost adjustment
+    const newCost = alternative.estimatedCost || estimateCostFromPriceData(alternative.priceRange, alternative.budgetTier);
+    const originalTask = tasks.find(t => t.id === taskId);
+    const originalCost = originalTask?.estimatedCost || perTaskBaseCost;
+    
+    // Track cost adjustment (new cost - original cost), or remove if no pricing data
+    setSwappedCostAdjustments(prev => {
+      const next = new Map(prev);
+      if (newCost !== null) {
+        const adjustment = newCost - originalCost;
+        next.set(taskId, adjustment);
+      } else {
+        // No pricing data - remove any stale entry
+        next.delete(taskId);
+      }
+      return next;
+    });
+    
     const swappedTask: Task = {
       id: taskId,
       title: alternative.venueName,
       description: `${alternative.venueType}${alternative.priceRange ? ` - ${alternative.priceRange}` : ''}${alternative.location?.city ? ` in ${alternative.location.city}` : ''}`,
       priority: 'medium',
       category: alternative.category,
-      context: alternative.sourceUrl ? `Source: ${alternative.sourceUrl}` : undefined
+      context: alternative.sourceUrl ? `Source: ${alternative.sourceUrl}` : undefined,
+      estimatedCost: newCost || undefined
     };
     
     setSwappedTasks(prev => new Map(prev).set(taskId, swappedTask));
@@ -390,6 +468,27 @@ export default function ClaudePlanOutput({
       // Add server-confirmed completions
       completedFromProps.forEach(id => pruned.add(id));
       return pruned;
+    });
+    
+    // Prune stale swapped tasks and cost adjustments for tasks no longer in the plan
+    setSwappedTasks(prev => {
+      const pruned = new Map<string, Task>();
+      prev.forEach((task, id) => {
+        if (validIds.has(id)) {
+          pruned.set(id, task);
+        }
+      });
+      return pruned.size !== prev.size ? pruned : prev;
+    });
+    
+    setSwappedCostAdjustments(prev => {
+      const pruned = new Map<string, number>();
+      prev.forEach((adjustment, id) => {
+        if (validIds.has(id)) {
+          pruned.set(id, adjustment);
+        }
+      });
+      return pruned.size !== prev.size ? pruned : prev;
     });
   }, [tasks]);
 
@@ -607,6 +706,75 @@ export default function ClaudePlanOutput({
           );
         })}
       </div>
+
+      {/* Budget Total Section */}
+      {budgetData.originalTotal > 0 && (
+        <Card className="p-4 sm:p-5 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-200 dark:border-amber-700">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center shrink-0">
+                  <DollarSign className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-amber-900 dark:text-amber-100">Estimated Budget</h4>
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    {planMetadata?.budgetTier && (
+                      <span className="capitalize">{planMetadata.budgetTier.replace('_', ' ')} tier</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="flex items-baseline gap-2 justify-end">
+                  <p className="text-2xl font-bold text-amber-900 dark:text-amber-100" data-testid="text-budget-total">
+                    ${Math.round(budgetData.total).toLocaleString()}
+                  </p>
+                  {budgetData.isCustomized && budgetData.total !== budgetData.originalTotal && (
+                    <span className="text-sm text-muted-foreground line-through" data-testid="text-original-budget">
+                      ${Math.round(budgetData.originalTotal).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs mt-1 ${
+                    budgetData.isCustomized 
+                      ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700' 
+                      : 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700'
+                  }`}
+                  data-testid="badge-budget-source"
+                >
+                  {budgetData.isCustomized ? (
+                    <span className="flex items-center gap-1">
+                      <Calculator className="w-3 h-3" />
+                      User-customized ({swappedTasks.size} swap{swappedTasks.size !== 1 ? 's' : ''})
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      AI-generated
+                    </span>
+                  )}
+                </Badge>
+              </div>
+            </div>
+            
+            {budgetData.isCustomized && (
+              <div className="pt-2 border-t border-amber-200 dark:border-amber-700">
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  {budgetData.total > budgetData.originalTotal 
+                    ? `Budget increased by $${Math.round(budgetData.total - budgetData.originalTotal).toLocaleString()} after swapping venues.`
+                    : budgetData.total < budgetData.originalTotal
+                    ? `You're saving $${Math.round(budgetData.originalTotal - budgetData.total).toLocaleString()} with your personalized selections!`
+                    : `You've personalized this plan by swapping ${swappedTasks.size} venue${swappedTasks.size !== 1 ? 's' : ''} with alternatives from your journal.`
+                  }
+                </p>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Motivational Note */}
       {motivationalNote && (
