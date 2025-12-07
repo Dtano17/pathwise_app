@@ -10,10 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown, Users, Download, Share2, BadgeCheck, AlertTriangle, X } from 'lucide-react';
+import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown, Users, Download, Share2, BadgeCheck, AlertTriangle, X, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardContent, CardDescription } from '@/components/ui/card';
-import { ShareCardGenerator } from './ShareCardGenerator';
+import { ShareCardGenerator, type ShareCardGeneratorRef } from './ShareCardGenerator';
 import { SocialVerificationTab, type SocialMediaLinks } from './SocialVerificationTab';
+import { generatePlatformCaption } from '@/lib/shareCardTemplates';
 
 interface Activity {
   id: string;
@@ -109,6 +110,8 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
   const [forceDuplicate, setForceDuplicate] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const shareCardRef = useRef<ShareCardGeneratorRef>(null);
+  const [isShareImageLoading, setIsShareImageLoading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -367,6 +370,109 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
       });
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleShareImage = async () => {
+    if (!shareCardRef.current || !backdrop) {
+      toast({
+        title: 'Share Failed',
+        description: 'Please select a backdrop image first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsShareImageLoading(true);
+
+    try {
+      const shareFormat = selectedFormat === 'pdf' ? 'jpg' : selectedFormat;
+      const blob = await shareCardRef.current.generateShareCard(selectedPlatform, shareFormat);
+
+      if (!blob) {
+        throw new Error('Failed to generate share card');
+      }
+
+      const file = new File([blob], `journalmate-${selectedPlatform}.${shareFormat}`, { 
+        type: shareFormat === 'jpg' ? 'image/jpeg' : 'image/png' 
+      });
+
+      const captionData = generatePlatformCaption(
+        shareTitle,
+        activity.category,
+        selectedPlatform,
+        undefined,
+        undefined,
+        activity.planSummary || undefined,
+        activity.id
+      );
+
+      let shareSuccessful = false;
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          try {
+            await navigator.clipboard.writeText(captionData.fullText);
+            toast({ 
+              title: 'Caption Copied!',
+              description: 'Share link copied to clipboard - paste it when sharing the image',
+              duration: 3000
+            });
+          } catch (clipboardError) {
+            console.warn('Could not copy to clipboard:', clipboardError);
+          }
+
+          await navigator.share({ files: [file] });
+          
+          await fetch(`/api/activities/${activity.id}/track-share`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ platform: selectedPlatform }),
+          });
+          
+          toast({ title: 'Shared Successfully!' });
+          shareSuccessful = true;
+        } catch (shareError: any) {
+          if (shareError.name === 'AbortError') {
+            return;
+          }
+          console.warn('Share API failed, falling back to download:', shareError);
+        }
+      }
+
+      if (!shareSuccessful) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `journalmate-${selectedPlatform}.${shareFormat}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        try {
+          await navigator.clipboard.writeText(captionData.fullText);
+          toast({ 
+            title: 'Image Downloaded',
+            description: 'Caption copied to clipboard. Image has been downloaded - share it manually.',
+            duration: 3000
+          });
+        } catch {
+          toast({ 
+            title: 'Image Downloaded',
+            description: 'Image has been downloaded. Share it manually from your downloads folder.',
+          });
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Share Failed',
+        description: error.message || 'Could not share image. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsShareImageLoading(false);
+    }
   };
 
   // Privacy scan function
@@ -916,6 +1022,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
                 <div className="w-full overflow-x-auto">
                   <div className="min-w-[320px] max-w-[600px] mx-auto">
                     <ShareCardGenerator
+                      ref={shareCardRef}
                       activityId={activity.id}
                       activityTitle={shareTitle}
                       activityCategory={activity.category}
@@ -944,13 +1051,27 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div className="flex flex-wrap justify-end gap-2 pt-4 border-t">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
               data-testid="button-cancel-share-preview"
             >
               Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleShareImage}
+              disabled={isShareImageLoading || !backdrop || tasksLoading}
+              data-testid="button-share-image"
+              className="gap-2"
+            >
+              {isShareImageLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Share2 className="w-4 h-4" />
+              )}
+              {isShareImageLoading ? 'Sharing...' : 'Share Image'}
             </Button>
             <Button
               onClick={() => updateMutation.mutate()}
