@@ -555,7 +555,6 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
       description: `${alternative.venueType}${alternative.priceRange ? ` - ${alternative.priceRange}` : ''}${alternative.location?.city ? ` in ${alternative.location.city}` : ''}`,
       priority: 'medium',
       category: alternative.category,
-      context: alternative.sourceUrl ? `Source: ${alternative.sourceUrl}` : undefined,
       estimatedCost: newCost || undefined
     };
     
