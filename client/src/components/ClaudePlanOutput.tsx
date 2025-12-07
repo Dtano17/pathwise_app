@@ -340,6 +340,11 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
   const [swappedCostAdjustments, setSwappedCostAdjustments] = useState<Map<string, number>>(new Map());
   const [matchBudgetFilter, setMatchBudgetFilter] = useState(false);
 
+  // Helper to generate stable unique ID for each task (task.id or fallback to index)
+  const getStableTaskId = (task: Task, index: number): string => {
+    return task.id || `local-${index}`;
+  };
+
   // Expose command methods to parent via ref for natural language commands
   useImperativeHandle(ref, () => ({
     saveToJournal: () => saveToJournalMutation.mutate(),
@@ -547,6 +552,9 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
 
   // Handle swap action
   const handleSwapTask = (taskIndex: number, taskId: string, alternative: Alternative) => {
+    // Use stable ID for the swapped task tracking
+    const stableId = getStableTaskId(tasks[taskIndex], taskIndex);
+    
     // Calculate cost adjustment
     const newCost = alternative.estimatedCost || estimateCostFromPriceData(alternative.priceRange, alternative.budgetTier);
     const originalTask = tasks.find(t => t.id === taskId);
@@ -557,10 +565,10 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
       const next = new Map(prev);
       if (newCost !== null) {
         const adjustment = newCost - originalCost;
-        next.set(taskId, adjustment);
+        next.set(stableId, adjustment);
       } else {
         // No pricing data - remove any stale entry
-        next.delete(taskId);
+        next.delete(stableId);
       }
       return next;
     });
@@ -574,7 +582,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
       estimatedCost: newCost || undefined
     };
     
-    setSwappedTasks(prev => new Map(prev).set(taskId, swappedTask));
+    setSwappedTasks(prev => new Map(prev).set(stableId, swappedTask));
     setExpandedAlternatives(prev => {
       const next = new Set(prev);
       next.delete(taskIndex);
@@ -601,6 +609,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
   // Sync completed tasks from actual task data (additive to preserve optimistic UI, prune stale IDs)
   useEffect(() => {
     const validIds = new Set(tasks.map(t => t.id));
+    const validStableIds = new Set(tasks.map((t, i) => getStableTaskId(t, i)));
     const completedFromProps = tasks.filter(t => t.completed).map(t => t.id);
     
     setCompletedTasks(prev => {
@@ -615,7 +624,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
     setSwappedTasks(prev => {
       const pruned = new Map<string, Task>();
       prev.forEach((task, id) => {
-        if (validIds.has(id)) {
+        if (validStableIds.has(id)) {
           pruned.set(id, task);
         }
       });
@@ -625,7 +634,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
     setSwappedCostAdjustments(prev => {
       const pruned = new Map<string, number>();
       prev.forEach((adjustment, id) => {
-        if (validIds.has(id)) {
+        if (validStableIds.has(id)) {
           pruned.set(id, adjustment);
         }
       });
@@ -740,7 +749,8 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
         </h3>
         
         {tasks.map((task, index) => {
-          const displayTask = swappedTasks.get(task.id) || task;
+          const stableId = getStableTaskId(task, index);
+          const displayTask = swappedTasks.get(stableId) || task;
           const isCompleted = completedTasks.has(task.id) || task.completed;
           
           return (
@@ -786,7 +796,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
                         <Badge variant="outline" className="text-xs">
                           {displayTask.category}
                         </Badge>
-                        {swappedTasks.has(task.id) && (
+                        {swappedTasks.has(stableId) && (
                           <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
                             Swapped
                           </Badge>
