@@ -84,6 +84,8 @@ import {
   type InsertUrlContentCache,
   type UserSavedContent,
   type InsertUserSavedContent,
+  type ContentImport,
+  type InsertContentImport,
   users,
   goals,
   tasks,
@@ -123,7 +125,8 @@ import {
   aiPlanImports,
   extensionTokens,
   urlContentCache,
-  userSavedContent
+  userSavedContent,
+  contentImports
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -449,6 +452,23 @@ export interface IStorage {
   incrementContentReferenceCount(contentId: string): Promise<void>;
   getUserSavedLocations(userId: string): Promise<Array<{ city: string; country: string | null; count: number }>>;
   getUserSavedCategories(userId: string): Promise<Array<{ category: string; count: number }>>;
+
+  // Content Imports (stores ALL extracted items from URL for alternatives/swapping)
+  createContentImport(contentImport: InsertContentImport): Promise<ContentImport>;
+  getContentImport(importId: string, userId: string): Promise<ContentImport | undefined>;
+  getContentImportByNormalizedUrl(normalizedUrl: string, userId: string): Promise<ContentImport | undefined>;
+  getContentImportByActivityId(activityId: string): Promise<ContentImport | undefined>;
+  updateContentImport(importId: string, userId: string, updates: Partial<InsertContentImport>): Promise<ContentImport | undefined>;
+  getAlternativesFromImport(importId: string, excludeTaskIds?: string[]): Promise<Array<{
+    id: string;
+    venueName: string;
+    venueType: string;
+    location?: { city?: string; neighborhood?: string };
+    priceRange?: string;
+    budgetTier?: string;
+    estimatedCost?: number;
+    category?: string;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3921,6 +3941,100 @@ export class DatabaseStorage implements IStorage {
       .orderBy(sql`COUNT(*) DESC`);
     
     return results.filter(r => r.category !== null) as Array<{ category: string; count: number }>;
+  }
+
+  // Content Imports (stores ALL extracted items from URL for alternatives/swapping)
+  async createContentImport(contentImport: InsertContentImport): Promise<ContentImport> {
+    const [created] = await db
+      .insert(contentImports)
+      .values(contentImport)
+      .returning();
+    return created;
+  }
+
+  async getContentImport(importId: string, userId: string): Promise<ContentImport | undefined> {
+    const [result] = await db
+      .select()
+      .from(contentImports)
+      .where(and(
+        eq(contentImports.id, importId),
+        eq(contentImports.userId, userId)
+      ));
+    return result;
+  }
+
+  async getContentImportByNormalizedUrl(normalizedUrl: string, userId: string): Promise<ContentImport | undefined> {
+    const [result] = await db
+      .select()
+      .from(contentImports)
+      .where(and(
+        eq(contentImports.normalizedUrl, normalizedUrl),
+        eq(contentImports.userId, userId)
+      ))
+      .orderBy(desc(contentImports.createdAt))
+      .limit(1);
+    return result;
+  }
+
+  async getContentImportByActivityId(activityId: string): Promise<ContentImport | undefined> {
+    const [result] = await db
+      .select()
+      .from(contentImports)
+      .where(eq(contentImports.activityId, activityId));
+    return result;
+  }
+
+  async updateContentImport(importId: string, userId: string, updates: Partial<InsertContentImport>): Promise<ContentImport | undefined> {
+    const [updated] = await db
+      .update(contentImports)
+      .set(updates)
+      .where(and(
+        eq(contentImports.id, importId),
+        eq(contentImports.userId, userId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async getAlternativesFromImport(importId: string, excludeTaskIds?: string[]): Promise<Array<{
+    id: string;
+    venueName: string;
+    venueType: string;
+    location?: { city?: string; neighborhood?: string };
+    priceRange?: string;
+    budgetTier?: string;
+    estimatedCost?: number;
+    category?: string;
+  }>> {
+    const [importData] = await db
+      .select()
+      .from(contentImports)
+      .where(eq(contentImports.id, importId));
+    
+    if (!importData || !importData.extractedItems) {
+      return [];
+    }
+
+    // Filter out items that were selected for the plan (have a taskId in excludeTaskIds)
+    const alternatives = (importData.extractedItems as Array<any>).filter(item => {
+      // Exclude items that are linked to excluded tasks
+      if (excludeTaskIds && item.taskId && excludeTaskIds.includes(item.taskId)) {
+        return false;
+      }
+      // Include items that weren't selected for the plan
+      return !item.selectedForPlan || (excludeTaskIds && !excludeTaskIds.includes(item.taskId));
+    });
+
+    return alternatives.map(item => ({
+      id: item.id,
+      venueName: item.venueName,
+      venueType: item.venueType,
+      location: item.location,
+      priceRange: item.priceRange,
+      budgetTier: item.budgetTier,
+      estimatedCost: item.estimatedCost,
+      category: item.category
+    }));
   }
 }
 

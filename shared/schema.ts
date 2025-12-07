@@ -2033,3 +2033,69 @@ export const insertUserSavedContentSchema = createInsertSchema(userSavedContent)
 
 export type UserSavedContent = typeof userSavedContent.$inferSelect;
 export type InsertUserSavedContent = z.infer<typeof insertUserSavedContentSchema>;
+
+// Content Imports - stores ALL extracted items from a URL for alternatives/swapping
+// When a URL is processed, ALL venues/items are stored here (not just the 6-9 selected for the plan)
+export const contentImports = pgTable("content_imports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User who imported the content
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Source URL information
+  sourceUrl: text("source_url").notNull(),
+  normalizedUrl: text("normalized_url").notNull(),
+  platform: text("platform"), // 'instagram' | 'tiktok' | 'youtube' | etc.
+  
+  // Friendly source name for display (e.g., "Instagram Reel", "TikTok Video")
+  sourceName: text("source_name"),
+  
+  // Content creator info (for attribution)
+  authorHandle: text("author_handle"),
+  authorName: text("author_name"),
+  
+  // Total items extracted from the content
+  totalItemsExtracted: integer("total_items_extracted").default(0),
+  
+  // ALL extracted items (venues, restaurants, activities, etc.)
+  extractedItems: jsonb("extracted_items").$type<Array<{
+    id: string; // Unique ID for this item within the import
+    venueName: string;
+    venueType: string; // 'restaurant' | 'bar' | 'hotel' | 'attraction' | etc.
+    location?: {
+      city?: string;
+      neighborhood?: string;
+      country?: string;
+      address?: string;
+    };
+    priceRange?: string; // '$' | '$$' | '$$$' | '$$$$' or "50-100"
+    budgetTier?: string; // 'budget' | 'moderate' | 'luxury' | 'ultra_luxury'
+    estimatedCost?: number; // In dollars
+    category?: string; // 'restaurants' | 'bars_nightlife' | 'hotels_accommodation' | etc.
+    description?: string;
+    notes?: string; // AI-extracted notes about this venue
+    selectedForPlan?: boolean; // Was this item selected for the generated plan?
+    taskId?: string; // ID of the task this item was used for (if selected)
+  }>>().default([]),
+  
+  // Reference to the generated activity (if plan was created)
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "set null" }),
+  
+  // Cache reference for the raw content extraction
+  cacheId: varchar("cache_id").references(() => urlContentCache.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("content_imports_user_id_idx").on(table.userId),
+  normalizedUrlIndex: index("content_imports_normalized_url_idx").on(table.normalizedUrl),
+  activityIdIndex: index("content_imports_activity_id_idx").on(table.activityId),
+}));
+
+// Type exports for content imports
+export const insertContentImportSchema = createInsertSchema(contentImports).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ContentImport = typeof contentImports.$inferSelect;
+export type InsertContentImport = z.infer<typeof insertContentImportSchema>;
