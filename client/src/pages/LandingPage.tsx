@@ -765,77 +765,18 @@ export default function LandingPage() {
                       <span>Free media edits before sharing to social</span>
                     </div>
                     
-                    {/* Mobile App Exclusive Features */}
-                    <div className="pt-3 mt-3 border-t border-dashed border-purple-200 dark:border-purple-800">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Smartphone className="w-4 h-4 text-purple-500" />
-                        <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide">
-                          Mobile App Benefits
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-start gap-2">
-                          <LayoutGrid className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                          <span>Home screen widget for ongoing tasks</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <Bell className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                          <span>Smart notifications & weather-aware reminders</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <Calendar className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                          <span>Calendar sync with your device</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <Target className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                          <span>Completion reviews & improvement insights</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <Trophy className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                          <span>Share achievements with badges to friends</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <Award className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                          <span>Team & task completion badges for groups</span>
-                        </div>
-                      </div>
-                    </div>
-                    
                     <div className="flex items-start gap-2 text-muted-foreground">
                       <X className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                       <span className="line-through">No group planning with friends</span>
                     </div>
                   </div>
 
-                  <div className="mt-6 space-y-3">
+                  <div className="mt-6">
                     <Link href="/login">
                       <Button variant="outline" className="w-full" data-testid="button-pricing-free">
                         Get Started
                       </Button>
                     </Link>
-                    <div className="flex gap-2 justify-center">
-                      <a 
-                        href="https://apps.apple.com/app/journalmate" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        data-testid="link-pricing-free-ios"
-                      >
-                        <SiApple className="w-4 h-4" />
-                        <span>iOS</span>
-                      </a>
-                      <span className="text-muted-foreground">|</span>
-                      <a 
-                        href="https://play.google.com/store/apps/details?id=ai.journalmate.app" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        data-testid="link-pricing-free-android"
-                      >
-                        <SiGoogleplay className="w-3.5 h-3.5" />
-                        <span>Android</span>
-                      </a>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1202,18 +1143,94 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center"
+            className="text-center mb-16"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-100 to-violet-100 dark:from-purple-900/30 dark:to-violet-900/30 mb-6">
               <Smartphone className="w-5 h-5 text-purple-500" />
               <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                Available on Mobile
+                Mobile App Exclusive
               </span>
             </div>
             
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Take JournalMate Everywhere</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Experience JournalMate on iOS & Android</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto mb-4">
+              Powerful mobile features designed to keep you productive on the go.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            {[
+              {
+                icon: LayoutGrid,
+                title: "Home Screen Widget",
+                description: "Pin your ongoing tasks to your home screen for instant access and progress tracking",
+                color: "text-emerald-500",
+                bgColor: "bg-emerald-100 dark:bg-emerald-900/30"
+              },
+              {
+                icon: Bell,
+                title: "Smart Weather-Aware Updates",
+                description: "Real-time adjustments to your ongoing plans and tasks based on weather conditions",
+                color: "text-blue-500",
+                bgColor: "bg-blue-100 dark:bg-blue-900/30"
+              },
+              {
+                icon: Calendar,
+                title: "Calendar Sync",
+                description: "Automatically sync your tasks with your device calendar for seamless scheduling",
+                color: "text-violet-500",
+                bgColor: "bg-violet-100 dark:bg-violet-900/30"
+              },
+              {
+                icon: Target,
+                title: "Completion Reviews",
+                description: "Get detailed insights and improvement suggestions based on your task completion patterns",
+                color: "text-orange-500",
+                bgColor: "bg-orange-100 dark:bg-orange-900/30"
+              },
+              {
+                icon: Trophy,
+                title: "Share Achievements",
+                description: "Unlock badges and share your accomplishments with friends to celebrate wins",
+                color: "text-pink-500",
+                bgColor: "bg-pink-100 dark:bg-pink-900/30"
+              },
+              {
+                icon: Award,
+                title: "Group Badges",
+                description: "Earn team and task completion badges when working together with your group",
+                color: "text-rose-500",
+                bgColor: "bg-rose-100 dark:bg-rose-900/30"
+              }
+            ].map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card className="h-full hover-elevate" data-testid={`mobile-feature-card-${index}`}>
+                  <CardContent className="p-6">
+                    <div className={`w-12 h-12 rounded-xl ${feature.bgColor} flex items-center justify-center mb-4`}>
+                      <feature.icon className={`w-6 h-6 ${feature.color}`} />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
+                    <p className="text-muted-foreground text-sm">{feature.description}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center"
+          >
             <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
-              Download our Android app with home screen widgets, push notifications, biometric auth, and offline support. iOS coming soon.
+              Download now and get instant access to all mobile-exclusive features
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -1242,29 +1259,6 @@ export default function LandingPage() {
             
             <div className="mt-4 text-sm text-muted-foreground">
               <p>iOS App Store coming soon • Android app ready now</p>
-            </div>
-
-            <div className="mt-8 flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                Home Screen Widgets
-              </div>
-              <div className="flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                Push Notifications
-              </div>
-              <div className="flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                Biometric Auth
-              </div>
-              <div className="flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                Voice-to-Text
-              </div>
-              <div className="flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                Calendar Sync
-              </div>
             </div>
           </motion.div>
         </div>
