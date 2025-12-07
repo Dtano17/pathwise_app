@@ -591,8 +591,14 @@ export function getBestJournalCategory(
   const standardCategory = mapVenueTypeToJournalCategory(venueType, fallbackCategory);
   console.log(`  - standardCategory result: "${standardCategory}"`);
   
-  // Always try to create a dynamic category if we have a specific subcategory
-  // This gives priority to unique subcategories like "poolside activities" over generic mappings
+  // If we get a specific standard category (restaurants, travel, favorites), use it
+  if (standardCategory === 'restaurants' || standardCategory === 'travel' || standardCategory === 'favorites') {
+    console.log(`[CATEGORIZATION] Using specific standard category: ${standardCategory}`);
+    return { category: standardCategory, dynamicInfo: null };
+  }
+  
+  // For generic categories (notes, hobbies), try to create a dynamic category
+  // First try from subcategory (e.g., "poolside lounges", "rooftop bars")
   if (subcategory && subcategory !== 'other' && subcategory !== 'unknown') {
     const dynamicInfo = getDynamicCategoryInfo(subcategory, venueType);
     if (dynamicInfo) {
@@ -601,15 +607,8 @@ export function getBestJournalCategory(
     }
   }
   
-  // If we get a specific category (not notes/hobbies), use it
-  if (standardCategory !== 'notes' && standardCategory !== 'hobbies') {
-    console.log(`[CATEGORIZATION] Using standard category: ${standardCategory}`);
-    return { category: standardCategory, dynamicInfo: null };
-  }
-  
-  // Try to create a dynamic category from venue type as fallback
+  // Then try from venue type
   const dynamicInfo = getDynamicCategoryInfo(null, venueType);
-  
   if (dynamicInfo) {
     console.log(`[CATEGORIZATION] Created dynamic category from venueType: ${dynamicInfo.id} (${dynamicInfo.emoji} ${dynamicInfo.label})`);
     return { category: dynamicInfo.id, dynamicInfo };
