@@ -33,7 +33,12 @@ import {
   X,
   Crown,
   Gift,
-  Infinity as InfinityIcon
+  Infinity as InfinityIcon,
+  Bell,
+  Calendar,
+  LayoutGrid,
+  Award,
+  Trophy
 } from "lucide-react";
 import { SiApple, SiGoogleplay, SiTiktok, SiYoutube } from "react-icons/si";
 import { motion, AnimatePresence } from "framer-motion";
@@ -759,18 +764,78 @@ export default function LandingPage() {
                       <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
                       <span>Free media edits before sharing to social</span>
                     </div>
+                    
+                    {/* Mobile App Exclusive Features */}
+                    <div className="pt-3 mt-3 border-t border-dashed border-purple-200 dark:border-purple-800">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Smartphone className="w-4 h-4 text-purple-500" />
+                        <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide">
+                          Mobile App Benefits
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2">
+                          <LayoutGrid className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                          <span>Home screen widget for ongoing tasks</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <Bell className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                          <span>Smart notifications & weather-aware reminders</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <Calendar className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                          <span>Calendar sync with your device</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <Target className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                          <span>Completion reviews & improvement insights</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <Trophy className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                          <span>Share achievements with badges to friends</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <Award className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                          <span>Team & task completion badges for groups</span>
+                        </div>
+                      </div>
+                    </div>
+                    
                     <div className="flex items-start gap-2 text-muted-foreground">
                       <X className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                       <span className="line-through">No group planning with friends</span>
                     </div>
                   </div>
 
-                  <div className="mt-6">
+                  <div className="mt-6 space-y-3">
                     <Link href="/login">
                       <Button variant="outline" className="w-full" data-testid="button-pricing-free">
                         Get Started
                       </Button>
                     </Link>
+                    <div className="flex gap-2 justify-center">
+                      <a 
+                        href="https://apps.apple.com/app/journalmate" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        data-testid="link-pricing-free-ios"
+                      >
+                        <SiApple className="w-4 h-4" />
+                        <span>iOS</span>
+                      </a>
+                      <span className="text-muted-foreground">|</span>
+                      <a 
+                        href="https://play.google.com/store/apps/details?id=ai.journalmate.app" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        data-testid="link-pricing-free-android"
+                      >
+                        <SiGoogleplay className="w-3.5 h-3.5" />
+                        <span>Android</span>
+                      </a>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
