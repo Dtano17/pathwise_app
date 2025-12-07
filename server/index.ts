@@ -124,31 +124,41 @@ app.use((req, res, next) => {
 
 (async () => {
   // Initialize Stripe schema and sync data on startup
+  // Only initialize if we have both DATABASE_URL and Stripe is configured
   try {
     const databaseUrl = process.env.DATABASE_URL;
-    if (databaseUrl) {
-      console.log('[STRIPE] Initializing schema...');
-      await runMigrations({ 
-        databaseUrl,
-        schema: 'stripe'
-      });
-      console.log('[STRIPE] Schema ready');
-
-      // Get StripeSync instance
-      const stripeSync = await getStripeSync();
-
-      // Start syncing data in background
-      stripeSync.syncBackfill()
-        .then(() => {
-          console.log('[STRIPE] Data synced');
-        })
-        .catch((err) => {
-          console.error('[STRIPE] Error syncing data:', err);
+    const stripeApiKey = process.env.STRIPE_API_KEY; // Check for env variable first
+    
+    if (databaseUrl && (stripeApiKey || process.env.NODE_ENV === 'development')) {
+      try {
+        console.log('[STRIPE] Initializing schema...');
+        await runMigrations({ 
+          databaseUrl,
+          schema: 'stripe'
         });
+        console.log('[STRIPE] Schema ready');
+
+        // Get StripeSync instance
+        const stripeSync = await getStripeSync();
+
+        // Start syncing data in background
+        stripeSync.syncBackfill()
+          .then(() => {
+            console.log('[STRIPE] Data synced');
+          })
+          .catch((err) => {
+            console.error('[STRIPE] Error syncing data:', err);
+          });
+      } catch (stripeError: any) {
+        console.warn('[STRIPE] Failed to initialize Stripe:', stripeError.message);
+        // Don't throw - Stripe is optional
+      }
+    } else if (process.env.NODE_ENV === 'production' && !stripeApiKey) {
+      console.log('[STRIPE] Stripe not configured for production - skipping initialization');
     }
   } catch (error: any) {
-    console.warn('[STRIPE] Failed to initialize Stripe:', error.message);
-    // Don't throw - Stripe is optional
+    console.error('[STARTUP] Unexpected error during initialization:', error.message);
+    // Don't throw - allow app to start even if initialization fails
   }
 
   const server = await registerRoutes(app);
