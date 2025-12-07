@@ -474,6 +474,82 @@ export class DirectPlanGenerator {
       }
     }
 
+    // Fallback: Extract any remaining capitalized lines as potential venues
+    // This captures names that didn't match the specific patterns above
+    const remainingLines = content.split('\n');
+    for (const line of remainingLines) {
+      const trimmedLine = line.trim();
+      
+      // Skip empty lines, lines with too many words (likely not venues), or lines we've seen
+      if (!trimmedLine || trimmedLine.length < 3 || trimmedLine.split(' ').length > 8 || seenNames.has(trimmedLine.toLowerCase())) {
+        continue;
+      }
+      
+      // Check if line looks like a venue name (mostly capitalized, could have numbers for currency)
+      // Match: "KREMLIN LOUNGE", "ORA LOUNGE NG", "POMELO PASTRIES CAFE", etc.
+      const capMatch = trimmedLine.match(/^([A-Z][A-Z\s&'0-9]+?)(?:\s*[-–]\s*([₦$€£][\d,\s\-]+))?(?:\s*\(([^)]+)\))?$/);
+      
+      if (capMatch) {
+        const venueName = capMatch[1]?.trim();
+        const priceRange = capMatch[2]?.trim();
+        const locationText = capMatch[3]?.trim();
+        
+        // Skip if too short, already seen, or is a skip pattern
+        if (!venueName || venueName.length < 3 || seenNames.has(venueName.toLowerCase())) {
+          continue;
+        }
+        
+        const skipPatterns = ['SAVE', 'SHARE', 'FOLLOW', 'LIKE', 'COMMENT', 'TAG', 'DM', 'LINK', 'BIO', 'PROFILE', 'SHOWING', 'FROM'];
+        if (skipPatterns.includes(venueName.toUpperCase())) {
+          continue;
+        }
+        
+        seenNames.add(venueName.toLowerCase());
+        
+        // Parse price
+        let estimatedCost: number | undefined;
+        let budgetTier: string | undefined;
+        
+        if (priceRange) {
+          const numMatch = priceRange.match(/[\d,]+/g);
+          if (numMatch) {
+            const num = parseInt(numMatch[0].replace(/,/g, ''), 10);
+            if (!isNaN(num) && num > 0) {
+              if (priceRange.includes('₦')) {
+                estimatedCost = Math.round(num / 1600);
+              } else {
+                estimatedCost = num;
+              }
+              // Infer budget tier from cost
+              budgetTier = estimatedCost < 30 ? 'budget' : estimatedCost < 75 ? 'moderate' : estimatedCost < 150 ? 'luxury' : 'ultra_luxury';
+            }
+          }
+        }
+        
+        // Infer category from venue name
+        let category = 'other';
+        const lowerName = venueName.toLowerCase();
+        if (lowerName.includes('cafe') || lowerName.includes('restaurant') || lowerName.includes('bakery') || lowerName.includes('bistro')) {
+          category = 'restaurants';
+        } else if (lowerName.includes('lounge') || lowerName.includes('bar') || lowerName.includes('club')) {
+          category = 'bars_nightlife';
+        } else if (lowerName.includes('spa') || lowerName.includes('yoga') || lowerName.includes('gym')) {
+          category = 'wellness_spa';
+        }
+        
+        venues.push({
+          id: crypto.randomUUID(),
+          venueName,
+          venueType: 'venue',
+          location: locationText ? { neighborhood: locationText } : locationInfo.destination ? { city: locationInfo.destination } : undefined,
+          priceRange,
+          budgetTier,
+          estimatedCost,
+          category,
+        });
+      }
+    }
+
     console.log(`[CONTENT IMPORT] Extracted ${venues.length} venues from content`);
     return venues;
   }
