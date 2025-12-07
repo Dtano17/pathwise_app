@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -28,6 +28,15 @@ import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { initializeMobileFeatures } from "@/lib/mobile";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
+interface SubscriptionStatus {
+  tier: string;
+  status: string;
+  planCount: number;
+  planLimit: number | null;
+  trialEndsAt?: string;
+  subscriptionEndsAt?: string;
+}
+
 function AppContent() {
   // Get authenticated user - use isAuthenticated to distinguish from demo/guest users
   const { user, isAuthenticated } = useAuth();
@@ -49,6 +58,13 @@ function AppContent() {
   // Upgrade modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeTrigger, setUpgradeTrigger] = useState<'planLimit' | 'favorites' | 'export' | 'insights'>('planLimit');
+
+  // Fetch subscription status for upgrade modal
+  const { data: subscriptionStatus } = useQuery<SubscriptionStatus>({
+    queryKey: ['/api/subscription/status'],
+    enabled: isAuthenticated,
+    staleTime: 60000, // Cache for 1 minute
+  });
 
   // Custom sidebar width for better content display
   const style = {
@@ -178,6 +194,8 @@ function AppContent() {
         open={showUpgradeModal}
         onOpenChange={setShowUpgradeModal}
         trigger={upgradeTrigger}
+        planCount={subscriptionStatus?.planCount ?? 0}
+        planLimit={subscriptionStatus ? subscriptionStatus.planLimit ?? undefined : 5}
       />
     </TooltipProvider>
   );

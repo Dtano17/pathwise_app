@@ -29,7 +29,9 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
       case 'planLimit':
         return {
           title: "Plan Limit Reached",
-          description: `You've used ${planCount} of ${planLimit} AI plans this month on the free tier.`
+          description: planLimit !== undefined 
+            ? `You've used ${planCount ?? 0} of ${planLimit} AI plans this month on the free tier.`
+            : `Upgrade for unlimited AI plans and premium features.`
         };
       case 'favorites':
         return {
