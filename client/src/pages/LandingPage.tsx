@@ -697,8 +697,11 @@ export default function LandingPage() {
             </div>
             
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Choose Your Plan</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Start free and upgrade when you need more. All plans include our core AI planning features.
+            <p className="text-muted-foreground max-w-2xl mx-auto mb-4">
+              Social media imports let you analyze, plan, and track progress with any post or inspiration online.
+            </p>
+            <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+              Supports 7 social platforms and 8 AI apps and counting
             </p>
           </motion.div>
 
@@ -722,31 +725,35 @@ export default function LandingPage() {
                   </div>
                   
                   <div className="space-y-3 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Upload className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                      <span>3 imports/month</span>
+                    <div className="flex items-start gap-2">
+                      <Upload className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <span>3 social media imports/month</span>
                     </div>
                     <div className="flex items-start gap-2 bg-emerald-50 dark:bg-emerald-900/20 -mx-2 px-2 py-1.5 rounded-lg">
                       <Gift className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
                       <span className="text-emerald-700 dark:text-emerald-300">
-                        <strong>+2 bonus</strong> when you publish to Discovery!
+                        <strong>+2 bonus</strong> every time you publish to Discovery!
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                      <span>AI Quick & Smart Plans</span>
+                    <div className="flex items-start gap-2">
+                      <Brain className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <span>Dedicated AI agent for Quick & Smart Plans</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                      <span>Task management</span>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <span>Track your own tasks & progress</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                      <span>Journal entries</span>
+                    <div className="flex items-start gap-2">
+                      <BookMarked className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <span>Automated journaling from social media imports</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                      <span>Community plans</span>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <span>Discover community & emergency plans</span>
+                    </div>
+                    <div className="flex items-start gap-2 text-muted-foreground">
+                      <X className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <span>No group planning with friends</span>
                     </div>
                   </div>
 
@@ -780,28 +787,32 @@ export default function LandingPage() {
                   </div>
                   
                   <div className="space-y-3 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Upload className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                      <span className="font-medium">50 imports/month</span>
+                    <div className="flex items-start gap-2">
+                      <Upload className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <span className="font-medium">10 social media imports/month</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
                       <span>Everything in Free</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                      <span>Smart favorites</span>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <span>Smart favorites organization</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    <div className="flex items-start gap-2">
+                      <BarChart3 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <span>Task progress & analytics</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
                       <span>Journal insights</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                      <span>Export data</span>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <span>Export all your data</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
                       <span>Priority support</span>
                     </div>
                   </div>
@@ -842,24 +853,24 @@ export default function LandingPage() {
                   </div>
                   
                   <div className="space-y-3 text-sm">
-                    <div className="flex items-center gap-2 font-medium">
-                      <InfinityIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                      <span className="text-purple-700 dark:text-purple-300">Unlimited imports</span>
+                    <div className="flex items-start gap-2 font-medium">
+                      <InfinityIcon className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-purple-700 dark:text-purple-300">Unlimited social media imports/month</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
                       <span>Everything in Pro Monthly</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
                       <span>No monthly limits</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
                       <span>Annual savings</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
                       <span>Priority support</span>
                     </div>
                   </div>
@@ -886,7 +897,7 @@ export default function LandingPage() {
                 <CardContent className="p-6">
                   <div className="text-center mb-6">
                     <h3 className="text-xl font-bold mb-1">Family & Friends</h3>
-                    <p className="text-muted-foreground text-sm">Up to 5 users</p>
+                    <p className="text-muted-foreground text-sm">5 or more members</p>
                     <div className="mt-4">
                       <span className="text-4xl font-bold">$14.99</span>
                       <span className="text-muted-foreground">/month</span>
@@ -894,28 +905,28 @@ export default function LandingPage() {
                   </div>
                   
                   <div className="space-y-3 text-sm">
-                    <div className="flex items-center gap-2 font-medium">
-                      <InfinityIcon className="w-4 h-4 text-pink-500 flex-shrink-0" />
-                      <span className="text-pink-700 dark:text-pink-300">Unlimited imports</span>
+                    <div className="flex items-start gap-2 font-medium">
+                      <InfinityIcon className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-pink-700 dark:text-pink-300">Unlimited social media imports</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-pink-500 flex-shrink-0" />
-                      <span>5 family members</span>
+                    <div className="flex items-start gap-2">
+                      <Users className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />
+                      <span>5 or more family & friends</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0" />
-                      <span>Shared plans</span>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />
+                      <span>Plan & track with any imported or discovered plan</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0" />
-                      <span>Group progress tracking</span>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />
+                      <span>Group progress tracking with live updates</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0" />
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />
                       <span>Collaborative planning</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0" />
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />
                       <span>Priority support</span>
                     </div>
                   </div>

@@ -5141,14 +5141,15 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         return res.status(500).json({ error: 'Failed to publish activity' });
       }
 
-      // Grant Discovery Bonus: +2 extra imports for free tier users who publish to Discovery
-      // This is a one-time bonus that persists even if they unpublish later
-      if (user && !user.hasDiscoveryBonus) {
+      // Grant Discovery Bonus: +2 extra imports EVERY time user publishes to Discovery
+      // This bonus accumulates and persists even if they unpublish later
+      if (user) {
+        const currentBonus = user.discoveryBonusImports || 0;
         await db
           .update(users)
-          .set({ hasDiscoveryBonus: true })
+          .set({ discoveryBonusImports: currentBonus + 2 })
           .where(eq(users.id, userId));
-        console.log(`[Discovery Bonus] Granted to user ${userId} - free tier now has 5 imports/month instead of 3`);
+        console.log(`[Discovery Bonus] Granted +2 to user ${userId} - now has ${currentBonus + 2} bonus imports`);
       }
 
       res.json({
@@ -5156,7 +5157,8 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         publishedToCommunity: true,
         shareableLink,
         activity: updatedActivity,
-        discoveryBonusGranted: !user?.hasDiscoveryBonus // Inform frontend if bonus was just granted
+        discoveryBonusGranted: true, // Always true since bonus is granted every publish
+        newBonusTotal: (user?.discoveryBonusImports || 0) + 2
       });
     } catch (error) {
       console.error('Publish activity error:', error);
@@ -13520,11 +13522,12 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     const interval = user.subscriptionInterval;
     
     if (tier === 'free') {
-      // Base 3, +2 if hasDiscoveryBonus (earned by publishing to Discovery)
-      return user.hasDiscoveryBonus ? 5 : 3;
+      // Base 3 + discoveryBonusImports (earned by publishing to Discovery, +2 each time)
+      const bonusImports = user.discoveryBonusImports || 0;
+      return 3 + bonusImports;
     } else if (tier === 'pro') {
       if (interval === 'yearly') return null; // Pro Yearly = Unlimited
-      return 50; // Pro Monthly = 50 imports/month
+      return 10; // Pro Monthly = 10 imports/month
     } else if (tier === 'family') {
       return null; // Family = Unlimited for all members
     }
@@ -13557,7 +13560,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           upgrade: true,
           tier: user.subscriptionTier || 'free',
           subscriptionInterval: user.subscriptionInterval || null,
-          hasDiscoveryBonus: user.hasDiscoveryBonus || false
+          discoveryBonusImports: user.discoveryBonusImports || 0
         });
       }
 
@@ -13890,7 +13893,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           upgrade: true,
           tier: user.subscriptionTier || 'free',
           subscriptionInterval: user.subscriptionInterval || null,
-          hasDiscoveryBonus: user.hasDiscoveryBonus || false
+          discoveryBonusImports: user.discoveryBonusImports || 0
         });
       }
 
@@ -13962,7 +13965,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       res.json({
         tier: user.subscriptionTier || 'free',
         subscriptionInterval: user.subscriptionInterval || null,
-        hasDiscoveryBonus: user.hasDiscoveryBonus || false,
+        discoveryBonusImports: user.discoveryBonusImports || 0,
         monthlyImports,
         limit: importLimit,
         remaining: importLimit !== null ? Math.max(0, importLimit - monthlyImports) : null
@@ -14285,7 +14288,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           upgrade: true,
           tier: user.subscriptionTier || 'free',
           subscriptionInterval: user.subscriptionInterval || null,
-          hasDiscoveryBonus: user.hasDiscoveryBonus || false
+          discoveryBonusImports: user.discoveryBonusImports || 0
         });
       }
 

@@ -103,7 +103,7 @@ export const users = pgTable("users", {
   subscriptionEndsAt: timestamp("subscription_ends_at"), // For canceled subscriptions
   
   // Import tracking for tier-based limits
-  hasDiscoveryBonus: boolean("has_discovery_bonus").default(false), // True if user earned +2 bonus by publishing to Discovery
+  discoveryBonusImports: integer("discovery_bonus_imports").default(0), // +2 bonus imports earned each time user publishes to Discovery
   
   // User role for special plan publishing (emergency/sponsored)
   userRole: varchar("user_role").default("standard"), // 'standard' | 'government' | 'sponsor' | 'admin'

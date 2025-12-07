@@ -146,13 +146,13 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
             <ul className="space-y-1.5 sm:space-y-2">
               <li className="flex items-start gap-2">
                 <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                <span className="text-xs sm:text-sm font-medium">50 imports/month (Monthly)</span>
+                <span className="text-xs sm:text-sm font-medium">10 social media imports/month (Monthly)</span>
               </li>
               <li className="flex items-start gap-2">
                 <InfinityIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 mt-0.5 flex-shrink-0" />
-                <span className="text-xs sm:text-sm font-medium text-purple-700 dark:text-purple-300">Unlimited imports (Yearly)</span>
+                <span className="text-xs sm:text-sm font-medium text-purple-700 dark:text-purple-300">Unlimited social media imports (Yearly)</span>
               </li>
-              {['Unlimited AI plans', 'Smart favorites organization', 'Journal insights & analytics', 'Export all your data', 'Priority support'].map((feature) => (
+              {['Unlimited AI plans', 'Task progress & analytics', 'Smart favorites organization', 'Journal insights', 'Export all your data', 'Priority support'].map((feature) => (
                 <li key={feature} className="flex items-start gap-2">
                   <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 mt-0.5 flex-shrink-0" />
                   <span className="text-xs sm:text-sm">{feature}</span>
@@ -189,7 +189,7 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
             
             <div>
               <h3 className="font-bold text-lg sm:text-xl">Family & Friends</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground">For up to 5 users</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">5 or more family & friends</p>
             </div>
             
             <div>
@@ -205,9 +205,9 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
             <ul className="space-y-1.5 sm:space-y-2">
               <li className="flex items-start gap-2">
                 <InfinityIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-500 mt-0.5 flex-shrink-0" />
-                <span className="text-xs sm:text-sm font-medium text-pink-700 dark:text-pink-300">Unlimited imports</span>
+                <span className="text-xs sm:text-sm font-medium text-pink-700 dark:text-pink-300">Unlimited social media imports</span>
               </li>
-              {['Everything in Pro', 'Up to 5 family & friends', 'Shared plans & activities', 'Group progress tracking', 'Collaborative planning'].map((feature) => (
+              {['Everything in Pro', 'Plan & track with imported/discovered plans', 'Group progress tracking with live updates', 'Collaborative planning'].map((feature) => (
                 <li key={feature} className="flex items-start gap-2">
                   <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 mt-0.5 flex-shrink-0" />
                   <span className="text-xs sm:text-sm">{feature}</span>
