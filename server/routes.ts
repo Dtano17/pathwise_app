@@ -3014,10 +3014,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const excludeIdList = excludeIds ? String(excludeIds).split(',').filter(Boolean) : [];
             
             // Filter to non-selected items not in exclude list
+            // Note: For imports, we allow all items to be swappable alternatives, don't filter by selectedForPlan
             const alternatives = (contentImport.extractedItems as any[])
               .filter((item: any) => {
                 if (excludeIdList.includes(item.id)) return false;
-                if (item.selectedForPlan === true) return false;
+                // Don't filter by selectedForPlan for imports - all items should be swappable
                 if (!item.venueName) return false;
                 return true;
               })
@@ -3099,8 +3100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Must have venue name
         if (!entry.venueName) return false;
         
-        // Exclude venues already selected for the plan
-        if (entry.selectedForPlan === true) return false;
+        // Don't filter by selectedForPlan - all venues from a source should be swappable
         
         // Filter by sourceUrl - show only venues from same source
         if (sourceUrl && entry.sourceUrl !== String(sourceUrl)) return false;
