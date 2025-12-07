@@ -879,6 +879,8 @@ export class DirectPlanGenerator {
         if (extractedVenues.length > 0 && userProfile?.id) {
           try {
             const normalizedUrl = this.normalizeUrl(singleUrl);
+            // Safety check: filter out any items without venueName (should not happen, but just in case)
+            const validVenues = extractedVenues.filter(v => v.venueName && v.venueName.trim().length > 0);
             const contentImport = await storage.createContentImport({
               userId: userProfile.id,
               sourceUrl: singleUrl,
@@ -886,10 +888,10 @@ export class DirectPlanGenerator {
               platform: platform || undefined,
               sourceName: extractedSourceName,
               totalItemsExtracted: extractedVenues.length,
-              extractedItems: extractedVenues.map(v => ({ ...v, selectedForPlan: false })),
+              extractedItems: validVenues.map(v => ({ ...v, selectedForPlan: false })),
             });
             contentImportId = contentImport.id;
-            console.log(`[CONTENT IMPORT] Created import ${contentImportId} with ${extractedVenues.length} items`);
+            console.log(`[CONTENT IMPORT] Created import ${contentImportId} with ${validVenues.length} items (${extractedVenues.length - validVenues.length} filtered out due to missing venueName)`);
           } catch (error) {
             console.error('[CONTENT IMPORT] Failed to create:', error);
           }
