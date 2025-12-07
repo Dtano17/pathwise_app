@@ -197,7 +197,7 @@ function AlternativesSection({
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 mb-2">
             <p className="text-xs text-muted-foreground">
-              Showing {Math.min(displayCount, alternatives.length)}-{Math.min(displayCount + itemsPerPage, alternatives.length)} of {alternatives.length} 
+              Showing 1-{Math.min(displayCount, alternatives.length)} of {alternatives.length} 
               {importId || sourceUrl 
                 ? <span className="text-primary"> from same source</span>
                 : ' from your journal'}
@@ -880,7 +880,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
                             return next;
                           });
                         }}
-                        onSwap={(alternative) => handleSwapTask(index, displayTask.id, alternative)}
+                        onSwap={(alternative) => handleSwapTask(index, task.id, alternative)}
                         onSaveToJournal={(alternative) => {
                           const location = planMetadata?.location || extractLocationFromTitle(planTitle);
                           const entry = {
