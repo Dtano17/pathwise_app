@@ -122,8 +122,9 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
-  // Initialize Stripe schema and sync data on startup
+// Function to handle background initialization (non-blocking)
+async function initializeBackground() {
+  // Initialize Stripe schema and sync data in the background
   // Only initialize if we have both DATABASE_URL and Stripe is configured
   try {
     const databaseUrl = process.env.DATABASE_URL;
@@ -146,7 +147,7 @@ app.use((req, res, next) => {
           .then(() => {
             console.log('[STRIPE] Data synced');
           })
-          .catch((err) => {
+          .catch((err: any) => {
             console.error('[STRIPE] Error syncing data:', err);
           });
       } catch (stripeError: any) {
@@ -157,10 +158,12 @@ app.use((req, res, next) => {
       console.log('[STRIPE] Stripe not configured for production - skipping initialization');
     }
   } catch (error: any) {
-    console.error('[STARTUP] Unexpected error during initialization:', error.message);
-    // Don't throw - allow app to start even if initialization fails
+    console.error('[STARTUP] Unexpected error during background initialization:', error.message);
+    // Don't throw - allow app to continue even if initialization fails
   }
+}
 
+(async () => {
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -169,6 +172,11 @@ app.use((req, res, next) => {
 
     res.status(status).json({ message });
     throw err;
+  });
+
+  // Health check endpoint for deployment
+  app.get('/health', (req: Request, res: Response) => {
+    res.status(200).json({ status: 'ok' });
   });
 
   // Cache control middleware for production deployments
@@ -206,22 +214,24 @@ app.use((req, res, next) => {
     port,
     host: "0.0.0.0",
     reusePort: true,
-  }, async () => {
+  }, () => {
     log(`serving on port ${port}`);
     
-    // Seed sample groups for demo user on startup
-    try {
-      await seedSampleGroups();
-    } catch (error) {
-      console.error('[SEED] Failed to seed sample groups:', error);
-    }
+    // Fire background initialization tasks (non-blocking)
+    // These run in the background without blocking server startup
     
-    // Start the reminder processor for plan notifications
-    try {
-      startReminderProcessor(storage);
-      console.log('[REMINDER] Reminder processor started');
-    } catch (error) {
-      console.error('[REMINDER] Failed to start reminder processor:', error);
-    }
+    // Initialize Stripe in background
+    initializeBackground().catch((err) => {
+      console.error('[STARTUP] Background initialization error:', err);
+    });
+    
+    // Seed sample groups for demo user (non-blocking)
+    seedSampleGroups().catch((error) => {
+      console.error('[SEED] Failed to seed sample groups:', error);
+    });
+    
+    // Start the reminder processor for plan notifications (non-blocking)
+    startReminderProcessor(storage);
+    console.log('[REMINDER] Reminder processor started');
   });
 })();
