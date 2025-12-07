@@ -2043,11 +2043,12 @@ export default function MainApp({
                 <Button
                   variant="outline"
                   onClick={() => refetchActivities()}
+                  disabled={activitiesLoading}
                   className="gap-2"
                   data-testid="button-refresh-activities"
                 >
-                  <RefreshCw className="w-4 h-4" />
-                  Refresh
+                  <RefreshCw className={`w-4 h-4 ${activitiesLoading ? 'animate-spin' : ''}`} />
+                  {activitiesLoading ? 'Refreshing...' : 'Refresh'}
                 </Button>
               </div>
 
@@ -3327,11 +3328,27 @@ export default function MainApp({
 
       <Dialog open={showLifestylePlanner} onOpenChange={onShowLifestylePlanner}>
         <DialogContent className="max-w-[95vw] sm:max-w-7xl h-[90vh] flex flex-col" data-testid="modal-lifestyle-planner">
-          <DialogHeader className="pb-2" backLabel="Back to Home">
-            <DialogTitle className="text-2xl">Personal Journal</DialogTitle>
-            <DialogDescription>
-              Capture your unique interests, preferences, and personal notes
-            </DialogDescription>
+          <DialogHeader className="pb-2 flex flex-row items-center justify-between" backLabel="Back to Home">
+            <div className="flex-1">
+              <DialogTitle className="text-2xl">Personal Journal</DialogTitle>
+              <DialogDescription>
+                Capture your unique interests, preferences, and personal notes
+              </DialogDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                // Refetch journal entries by closing and reopening (or trigger journal query refetch)
+                onShowLifestylePlanner(false);
+                setTimeout(() => onShowLifestylePlanner(true), 100);
+              }}
+              data-testid="button-refresh-journal"
+              className="shrink-0"
+              title="Refresh journal entries"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </Button>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto min-h-0">
             <PersonalJournal onClose={() => onShowLifestylePlanner(false)} />
