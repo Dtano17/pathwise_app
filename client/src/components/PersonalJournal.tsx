@@ -555,7 +555,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                   </CardDescription>
                 </CardHeader>
           <CardContent className="p-2">
-            <ScrollArea className="h-[400px] lg:h-[calc(90vh-180px)]">
+            <ScrollArea className="h-[200px] sm:h-[300px] lg:h-[calc(90vh-180px)]">
               <div className="space-y-1">
                 {allCategories.map((category) => {
                   const Icon = category.icon;
@@ -637,11 +637,11 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
             </div>
             
             {/* Filter Dropdowns */}
-            <div className="flex flex-wrap items-center gap-2 mt-4">
+            <div className="flex flex-wrap items-center gap-2 mt-3 sm:mt-4">
               <Select value={locationFilter} onValueChange={setLocationFilter}>
-                <SelectTrigger className="w-[160px]" data-testid="select-location-filter">
-                  <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
-                  <SelectValue placeholder="All Locations" />
+                <SelectTrigger className="w-[130px] sm:w-[160px] text-xs sm:text-sm" data-testid="select-location-filter">
+                  <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                  <SelectValue placeholder="Location" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Locations</SelectItem>
@@ -654,8 +654,8 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
               </Select>
 
               <Select value={budgetFilter} onValueChange={setBudgetFilter}>
-                <SelectTrigger className="w-[180px]" data-testid="select-budget-filter">
-                  <SelectValue placeholder="All Budgets" />
+                <SelectTrigger className="w-[130px] sm:w-[180px] text-xs sm:text-sm" data-testid="select-budget-filter">
+                  <SelectValue placeholder="Budget" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Budgets</SelectItem>

@@ -2043,7 +2043,7 @@ export default function MainApp({
                 <Button
                   variant="outline"
                   onClick={async () => {
-                    await refetchActivities();
+                    await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
                   }}
                   disabled={activitiesLoading}
                   className="gap-2"
@@ -3330,26 +3330,11 @@ export default function MainApp({
 
       <Dialog open={showLifestylePlanner} onOpenChange={onShowLifestylePlanner}>
         <DialogContent className="max-w-[95vw] sm:max-w-7xl h-[90vh] flex flex-col" data-testid="modal-lifestyle-planner">
-          <DialogHeader className="flex flex-row items-start justify-between pb-2">
-            <div>
-              <DialogTitle className="text-2xl">Personal Journal</DialogTitle>
-              <DialogDescription>
-                Capture your unique interests, preferences, and personal notes
-              </DialogDescription>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                onShowLifestylePlanner(false);
-                setTimeout(() => onShowLifestylePlanner(true), 100);
-              }}
-              data-testid="button-refresh-journal"
-              className="shrink-0"
-              title="Refresh journal entries"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </Button>
+          <DialogHeader backLabel="Back to Home">
+            <DialogTitle className="text-2xl">Personal Journal</DialogTitle>
+            <DialogDescription>
+              Capture your unique interests, preferences, and personal notes
+            </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto min-h-0">
             <PersonalJournal onClose={() => onShowLifestylePlanner(false)} />
