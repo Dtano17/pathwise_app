@@ -5141,11 +5141,22 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         return res.status(500).json({ error: 'Failed to publish activity' });
       }
 
+      // Grant Discovery Bonus: +2 extra imports for free tier users who publish to Discovery
+      // This is a one-time bonus that persists even if they unpublish later
+      if (user && !user.hasDiscoveryBonus) {
+        await db
+          .update(users)
+          .set({ hasDiscoveryBonus: true })
+          .where(eq(users.id, userId));
+        console.log(`[Discovery Bonus] Granted to user ${userId} - free tier now has 5 imports/month instead of 3`);
+      }
+
       res.json({
         success: true,
         publishedToCommunity: true,
         shareableLink,
-        activity: updatedActivity
+        activity: updatedActivity,
+        discoveryBonusGranted: !user?.hasDiscoveryBonus // Inform frontend if bonus was just granted
       });
     } catch (error) {
       console.error('Publish activity error:', error);
