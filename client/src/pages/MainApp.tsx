@@ -3481,9 +3481,14 @@ export default function MainApp({
               }
             } catch (error) {
               console.error('Share error:', error);
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
               toast({
                 title: "Share Failed",
-                description: "Unable to copy share link. Please try again.",
+                description: errorMessage.includes('No share link') 
+                  ? "The share link was not generated. Please try again."
+                  : errorMessage.includes('network')
+                  ? "Network error. Please check your connection."
+                  : "Unable to copy share link. Please try again.",
                 variant: "destructive"
               });
             }

@@ -5616,7 +5616,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
   app.post("/api/activities/:activityId/share", async (req, res) => {
     try {
       const { activityId } = req.params;
-      const { groupId, targetGroupId, createGroup, groupName, groupDescription, shareCardImage, shareCaption } = req.body;
+      const { groupId, targetGroupId, createGroup, groupName, groupDescription, shareCaption } = req.body;
       const userId = getUserId(req) || DEMO_USER_ID;
       
       // Check subscription tier if creating group - Pro or Family required
@@ -5740,15 +5740,12 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       // Generate share token and make activity public - pass targetGroupId to store in share_links
       const shareToken = await storage.generateShareableLink(activityId, userId, targetGroupId || newGroupId);
       
-      // Update activity with isPublic, targetGroupId if provided, and beautiful share card data
+      // Update activity with isPublic, targetGroupId if provided, and caption for OG tags
       const updateData: any = { isPublic: true };
       if (targetGroupId) {
         updateData.targetGroupId = targetGroupId;
       }
-      // Store beautiful share card image and caption if provided
-      if (shareCardImage) {
-        updateData.shareCardImage = shareCardImage;
-      }
+      // Store caption if provided for OG meta tags
       if (shareCaption) {
         updateData.shareCaption = shareCaption;
       }

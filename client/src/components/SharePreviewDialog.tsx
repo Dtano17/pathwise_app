@@ -282,10 +282,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
           shareData.groupDescription = groupDescription.trim() || null;
         }
         
-        // Include beautiful share card image and caption for OG tags
-        if (shareCardImageData) {
-          shareData.shareCardImage = shareCardImageData;
-        }
+        // Include caption for OG tags (skip large base64 image in request)
         if (captionText) {
           shareData.shareCaption = captionText;
         }
