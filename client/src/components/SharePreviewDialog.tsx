@@ -229,6 +229,39 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         publishedToCommunity = publishData.publishedToCommunity || false;
       }
 
+      // Generate beautiful share card image for OG tags
+      let shareCardImageData: string | undefined;
+      let captionText: string | undefined;
+      
+      if (backdrop && shareCardRef.current) {
+        try {
+          const imageBlob = await shareCardRef.current.generateShareCard('instagram_feed', 'jpg');
+          if (imageBlob) {
+            const reader = new FileReader();
+            shareCardImageData = await new Promise((resolve, reject) => {
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(imageBlob);
+            });
+          }
+          
+          // Generate caption with platform-agnostic text
+          const caption = generatePlatformCaption(
+            shareTitle,
+            activity.category,
+            'instagram_feed',
+            undefined,
+            undefined,
+            activity.planSummary || undefined,
+            activity.id
+          );
+          captionText = caption.fullText;
+        } catch (error) {
+          console.warn('Failed to generate share card image:', error);
+          // Continue without the image - it's optional
+        }
+      }
+
       // Smart share logic: Only trigger share if creating a group or if NOT publishing
       // When only publishing to Community Discovery, skip the share endpoint
       const shouldShare = createGroup || !publishToCommunity;
@@ -247,6 +280,14 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         if (createGroup) {
           shareData.groupName = groupName.trim();
           shareData.groupDescription = groupDescription.trim() || null;
+        }
+        
+        // Include beautiful share card image and caption for OG tags
+        if (shareCardImageData) {
+          shareData.shareCardImage = shareCardImageData;
+        }
+        if (captionText) {
+          shareData.shareCaption = captionText;
         }
 
         // Use fetch to properly handle error responses
@@ -488,10 +529,10 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         privacySettings
       });
       
-      if (response.redacted) {
+      if ((response as any).redacted) {
         setRedactedPreview({
-          title: response.activity.title,
-          tasks: response.tasks.map((t: any) => ({ title: t.title }))
+          title: (response as any).activity.title,
+          tasks: (response as any).tasks.map((t: any) => ({ title: t.title }))
         });
       } else {
         setRedactedPreview(null);
