@@ -483,3 +483,121 @@ export function mapVenueTypeToJournalCategory(venueType: string, fallbackCategor
   
   return mapAiCategoryToJournalCategory(fallbackCategory);
 }
+
+// Dynamic category creation for specialized subcategories with emojis
+export interface DynamicCategoryInfo {
+  id: string;
+  label: string;
+  emoji: string;
+  color: string;
+}
+
+// Emoji mappings for dynamic category creation based on keywords
+const EMOJI_KEYWORDS: Record<string, string> = {
+  pool: '\u{1F3CA}', poolside: '\u{1F3CA}', swimming: '\u{1F3CA}',
+  lounge: '\u{1F6CB}', chill: '\u{1F6CB}', relax: '\u{1F6CB}',
+  beach: '\u{1F3D6}', seaside: '\u{1F3D6}', coastal: '\u{1F3D6}',
+  party: '\u{1F389}', celebration: '\u{1F389}', event: '\u{1F389}',
+  music: '\u{1F3B5}', concert: '\u{1F3B5}', live: '\u{1F3B5}',
+  art: '\u{1F3A8}', gallery: '\u{1F3A8}', museum: '\u{1F3A8}',
+  sports: '\u26BD', game: '\u26BD', match: '\u26BD',
+  wine: '\u{1F377}', vineyard: '\u{1F377}', winery: '\u{1F377}',
+  cocktail: '\u{1F378}', bar: '\u{1F378}', drinks: '\u{1F378}',
+  rooftop: '\u{1F306}', terrace: '\u{1F306}', skyline: '\u{1F306}',
+  brunch: '\u{1F942}', breakfast: '\u{1F950}', morning: '\u2600',
+  sunset: '\u{1F305}', evening: '\u{1F319}', night: '\u{1F319}',
+  spa: '\u{1F486}', wellness: '\u{1F486}', massage: '\u{1F486}',
+  shopping: '\u{1F6CD}', boutique: '\u{1F6CD}', mall: '\u{1F6CD}',
+  coffee: '\u2615', cafe: '\u2615', bakery: '\u{1F950}',
+  dessert: '\u{1F370}', sweet: '\u{1F370}', 'ice cream': '\u{1F366}',
+  club: '\u{1F3B5}', nightclub: '\u{1F3B5}', dj: '\u{1F3A7}',
+  garden: '\u{1F33F}', park: '\u{1F333}', nature: '\u{1F332}',
+  yacht: '\u{1F6E5}', boat: '\u{1F6A4}', sailing: '\u26F5',
+  adventure: '\u{1F3D4}', hiking: '\u{1F97E}', outdoor: '\u{1F3D5}',
+  restaurant: '\u{1F37D}', dining: '\u{1F37D}', food: '\u{1F372}',
+  hotel: '\u{1F3E8}', resort: '\u{1F3E8}', stay: '\u{1F3E8}',
+  travel: '\u2708', trip: '\u2708', vacation: '\u{1F3D6}',
+  fitness: '\u{1F4AA}', gym: '\u{1F4AA}', workout: '\u{1F3CB}',
+  movie: '\u{1F3AC}', cinema: '\u{1F3AC}', film: '\u{1F3AC}',
+  theater: '\u{1F3AD}', show: '\u{1F3AD}', performance: '\u{1F3AD}'
+};
+
+// Gradient colors for dynamic categories (deterministic based on category id)
+const CATEGORY_COLORS = [
+  'from-teal-500 to-cyan-500',
+  'from-violet-500 to-purple-500',
+  'from-fuchsia-500 to-pink-500',
+  'from-rose-500 to-red-500',
+  'from-lime-500 to-green-500',
+  'from-amber-500 to-orange-500',
+  'from-sky-500 to-blue-500',
+  'from-emerald-500 to-teal-500'
+];
+
+/**
+ * Creates a dynamic category from a subcategory string with appropriate emoji
+ * @param subcategory - The subcategory string from AI categorization (e.g., "poolside activities", "rooftop bars")
+ * @param venueType - Optional venue type for additional context
+ * @returns DynamicCategoryInfo or null if no valid category can be created
+ */
+export function getDynamicCategoryInfo(subcategory: string | null, venueType?: string): DynamicCategoryInfo | null {
+  const source = subcategory || venueType;
+  if (!source) return null;
+  
+  const normalized = source.toLowerCase().trim();
+  if (!normalized || normalized === 'other' || normalized === 'unknown') return null;
+  
+  // Create a URL-safe ID from the subcategory
+  const id = `custom-${normalized.replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}`;
+  
+  // Title case the label
+  const label = source.split(/\s+/).map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  ).join(' ');
+  
+  // Find matching emoji from keywords
+  let emoji = '\u{1F4CC}'; // Default pin emoji
+  for (const [keyword, e] of Object.entries(EMOJI_KEYWORDS)) {
+    if (normalized.includes(keyword)) {
+      emoji = e;
+      break;
+    }
+  }
+  
+  // Generate deterministic color based on category id hash
+  const hashCode = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const color = CATEGORY_COLORS[hashCode % CATEGORY_COLORS.length];
+  
+  return { id, label, emoji, color };
+}
+
+/**
+ * Gets the best category for a venue, using dynamic category if standard mapping returns generic
+ * @param venueType - The venue type string
+ * @param subcategory - The subcategory from AI categorization
+ * @param fallbackCategory - The fallback AI category
+ * @returns Object with category (JournalCategory or dynamic id) and optional dynamicInfo
+ */
+export function getBestJournalCategory(
+  venueType: string, 
+  subcategory: string | null, 
+  fallbackCategory: ContentCategory
+): { category: string; dynamicInfo: DynamicCategoryInfo | null } {
+  const standardCategory = mapVenueTypeToJournalCategory(venueType, fallbackCategory);
+  
+  // If we get a specific category (not notes/hobbies), use it
+  if (standardCategory !== 'notes' && standardCategory !== 'hobbies') {
+    return { category: standardCategory, dynamicInfo: null };
+  }
+  
+  // Try to create a dynamic category from subcategory or venue type
+  const dynamicInfo = getDynamicCategoryInfo(subcategory, venueType);
+  
+  if (dynamicInfo) {
+    console.log(`[CATEGORIZATION] Created dynamic category: ${dynamicInfo.id} (${dynamicInfo.emoji} ${dynamicInfo.label})`);
+    return { category: dynamicInfo.id, dynamicInfo };
+  }
+  
+  // Fall back to standard category
+  return { category: standardCategory, dynamicInfo: null };
+}

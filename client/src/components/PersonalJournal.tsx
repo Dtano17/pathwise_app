@@ -46,6 +46,8 @@ type JournalItem = string | RichJournalEntry;
 interface CustomCategory {
   id: string;
   name: string;
+  label?: string;
+  emoji?: string;
   color: string;
 }
 
@@ -161,14 +163,35 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       setJournalData(userData.preferences.journalData);
     }
     if (userData?.preferences?.customJournalCategories) {
-      setCustomCategories(userData.preferences.customJournalCategories);
+      // Handle both object format (from smart categorization) and array format (from manual creation)
+      const rawCategories = userData.preferences.customJournalCategories;
+      if (Array.isArray(rawCategories)) {
+        setCustomCategories(rawCategories);
+      } else if (typeof rawCategories === 'object') {
+        // Convert object format { categoryId: { id, label, emoji, color } } to array
+        const categoriesArray = Object.values(rawCategories).map((cat: any) => ({
+          id: cat.id,
+          name: cat.label || cat.name || cat.id,
+          label: cat.label,
+          emoji: cat.emoji,
+          color: cat.color || 'from-teal-500 to-cyan-500'
+        }));
+        setCustomCategories(categoriesArray);
+      }
     }
   }, [userData]);
 
-  // Merge default and custom categories
+  // Merge default and custom categories (custom categories display with emoji if available)
   const allCategories = [
-    ...categories.map(c => ({ ...c, isCustom: false })),
-    ...customCategories.map(c => ({ id: c.id, label: c.name, icon: Folder, color: c.color, isCustom: true }))
+    ...categories.map(c => ({ ...c, isCustom: false, emoji: undefined as string | undefined })),
+    ...customCategories.map(c => ({ 
+      id: c.id, 
+      label: c.emoji ? `${c.emoji} ${c.label || c.name}` : (c.label || c.name), 
+      icon: Folder, 
+      color: c.color, 
+      isCustom: true,
+      emoji: c.emoji
+    }))
   ];
 
   const currentCategory = allCategories.find(c => c.id === activeCategory);

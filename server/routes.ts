@@ -62,7 +62,7 @@ import { sendGroupNotification } from './services/notificationService';
 import { tavily } from '@tavily/core';
 import { socialMediaVideoService } from './services/socialMediaVideoService';
 import { apifyService } from './services/apifyService';
-import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory, mapVenueTypeToJournalCategory, type VenueInfo } from './services/contentCategorizationService';
+import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory, mapVenueTypeToJournalCategory, getBestJournalCategory, getDynamicCategoryInfo, type VenueInfo, type DynamicCategoryInfo } from './services/contentCategorizationService';
 import { scheduleRemindersForActivity, cancelRemindersForActivity } from './services/reminderProcessor';
 
 const tavilyClient = process.env.TAVILY_API_KEY ? tavily({ apiKey: process.env.TAVILY_API_KEY }) : null;
@@ -2034,15 +2034,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const currentPrefs = userPrefs?.preferences || {};
             const journalData = currentPrefs.journalData || {};
             
-            // Group venues by their target journal category
-            const venuesByCategory: Record<string, { venue: VenueInfo; category: string }[]> = {};
+            // Track dynamic categories created during this save
+            // Handle both array format (from manual creation) and object format (from smart categorization)
+            let existingCustomCategories: Record<string, DynamicCategoryInfo> = {};
+            if (Array.isArray(currentPrefs.customJournalCategories)) {
+              // Convert array to object for consistent handling
+              for (const cat of currentPrefs.customJournalCategories) {
+                existingCustomCategories[cat.id] = {
+                  id: cat.id,
+                  label: cat.name || cat.label || cat.id,
+                  emoji: cat.emoji || '',
+                  color: cat.color || 'from-teal-500 to-cyan-500'
+                };
+              }
+            } else if (currentPrefs.customJournalCategories) {
+              existingCustomCategories = currentPrefs.customJournalCategories;
+            }
+            const newDynamicCategories: Record<string, DynamicCategoryInfo> = {};
+            
+            // Group venues by their target journal category (using smart categorization)
+            const venuesByCategory: Record<string, { venue: VenueInfo; category: string; dynamicInfo: DynamicCategoryInfo | null }[]> = {};
             
             for (const venue of categorized.venues) {
-              const venueCategory = mapVenueTypeToJournalCategory(venue.type, categorized.category);
+              // Use smart categorization that creates dynamic categories when needed
+              const { category: venueCategory, dynamicInfo } = getBestJournalCategory(
+                venue.type, 
+                categorized.subcategory, 
+                categorized.category
+              );
+              
+              // Track new dynamic category for saving to user preferences
+              if (dynamicInfo && !existingCustomCategories[dynamicInfo.id]) {
+                newDynamicCategories[dynamicInfo.id] = dynamicInfo;
+                console.log(`[SAVE CONTENT] New dynamic category created: ${dynamicInfo.emoji} ${dynamicInfo.label} (${dynamicInfo.id})`);
+              }
+              
               if (!venuesByCategory[venueCategory]) {
                 venuesByCategory[venueCategory] = [];
               }
-              venuesByCategory[venueCategory].push({ venue, category: venueCategory });
+              venuesByCategory[venueCategory].push({ venue, category: venueCategory, dynamicInfo });
             }
             
             // Process each category and add venues
@@ -2106,15 +2136,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
             
-          // Batch update preferences with all venue entries
-          if (venuesAddedCount > 0) {
+          // Batch update preferences with all venue entries and new custom categories
+          if (venuesAddedCount > 0 || Object.keys(newDynamicCategories).length > 0) {
+            const updatedCustomCategories = {
+              ...existingCustomCategories,
+              ...newDynamicCategories
+            };
+            
             await storage.upsertUserPreferences(userId, {
               preferences: {
                 ...currentPrefs,
-                journalData
+                journalData,
+                customJournalCategories: updatedCustomCategories
               }
             });
+            
+            const dynamicCatCount = Object.keys(newDynamicCategories).length;
             console.log(`[SAVE CONTENT] Added ${venuesAddedCount} venues to journal for user ${userId}`);
+            if (dynamicCatCount > 0) {
+              console.log(`[SAVE CONTENT] Created ${dynamicCatCount} new custom categories: ${Object.values(newDynamicCategories).map(c => `${c.emoji} ${c.label}`).join(', ')}`);
+            }
           }
         }
           
