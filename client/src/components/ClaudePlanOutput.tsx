@@ -2,7 +2,7 @@ import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap, BookOpen, RefreshCw, ChevronDown, MapPin, Loader2, DollarSign, Calculator } from 'lucide-react';
+import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap, BookOpen, RefreshCw, ChevronDown, MapPin, Loader2, DollarSign, Calculator, Link2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 import ShareDialog from './ShareDialog';
@@ -10,6 +10,38 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { SiInstagram, SiTiktok, SiYoutube, SiTwitter, SiFacebook, SiReddit, SiPinterest } from 'react-icons/si';
+
+// Helper to get friendly source label and icon from URL
+const getSourceLabel = (url?: string): { name: string; icon: JSX.Element; color: string } | null => {
+  if (!url) return null;
+  const lowerUrl = url.toLowerCase();
+  
+  if (lowerUrl.includes('instagram.com')) {
+    return { name: 'Instagram', icon: <SiInstagram className="w-4 h-4" />, color: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' };
+  }
+  if (lowerUrl.includes('tiktok.com')) {
+    return { name: 'TikTok', icon: <SiTiktok className="w-4 h-4" />, color: 'bg-black text-white dark:bg-white dark:text-black' };
+  }
+  if (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) {
+    return { name: 'YouTube', icon: <SiYoutube className="w-4 h-4" />, color: 'bg-red-600 text-white' };
+  }
+  if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) {
+    return { name: 'X (Twitter)', icon: <SiTwitter className="w-4 h-4" />, color: 'bg-black text-white dark:bg-white dark:text-black' };
+  }
+  if (lowerUrl.includes('facebook.com') || lowerUrl.includes('fb.watch')) {
+    return { name: 'Facebook', icon: <SiFacebook className="w-4 h-4" />, color: 'bg-blue-600 text-white' };
+  }
+  if (lowerUrl.includes('reddit.com')) {
+    return { name: 'Reddit', icon: <SiReddit className="w-4 h-4" />, color: 'bg-orange-600 text-white' };
+  }
+  if (lowerUrl.includes('pinterest.com')) {
+    return { name: 'Pinterest', icon: <SiPinterest className="w-4 h-4" />, color: 'bg-red-700 text-white' };
+  }
+  
+  // Generic link for unknown sources - use foreground color for contrast
+  return { name: 'Link', icon: <Link2 className="w-4 h-4" />, color: 'bg-muted text-foreground' };
+};
 
 // Command ref interface for natural language commands from main input
 export interface ClaudePlanCommandRef {
@@ -649,6 +681,26 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
         </div>
       </Card>
 
+      {/* Source Label - Shows friendly platform name with icon */}
+      {sourceUrl && (() => {
+        const source = getSourceLabel(sourceUrl);
+        return source ? (
+          <div className="flex items-center gap-2" data-testid="source-label-container">
+            <span className="text-xs text-muted-foreground">Inspired by:</span>
+            <Badge 
+              variant="outline" 
+              className="gap-1.5 py-1 px-2"
+              data-testid="badge-source-label"
+            >
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center ${source.color}`}>
+                {source.icon}
+              </span>
+              <span className="text-xs font-medium">{source.name}</span>
+            </Badge>
+          </div>
+        ) : null;
+      })()}
+
       {/* Tasks List */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -1038,7 +1090,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
             onClick={() => saveToJournalMutation.mutate()}
             className="gap-2"
             variant="outline"
-            disabled={!activityId || saveToJournalMutation.isPending}
+            disabled={saveToJournalMutation.isPending}
             data-testid="button-save-to-journal"
           >
             <BookOpen className="w-4 h-4" />
