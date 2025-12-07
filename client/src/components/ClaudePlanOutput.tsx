@@ -136,6 +136,9 @@ function AlternativesSection({
   onSaveToJournal,
   matchBudget
 }: AlternativesSectionProps) {
+  const [displayCount, setDisplayCount] = useState(23);
+  const itemsPerPage = 23;
+  
   const queryParams = new URLSearchParams();
   if (location) queryParams.set('location', location);
   if (budgetTier) queryParams.set('budgetTier', budgetTier);
@@ -158,6 +161,9 @@ function AlternativesSection({
     },
     enabled: isExpanded && !!location,
   });
+  
+  const displayedAlternatives = alternatives?.slice(0, displayCount) || [];
+  const hasMore = (alternatives?.length || 0) > displayCount;
 
   if (!location) {
     return null;
@@ -191,7 +197,7 @@ function AlternativesSection({
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 mb-2">
             <p className="text-xs text-muted-foreground">
-              Found {alternatives.length} alternative{alternatives.length !== 1 ? 's' : ''} 
+              Showing {Math.min(displayCount, alternatives.length)}-{Math.min(displayCount + itemsPerPage, alternatives.length)} of {alternatives.length} 
               {importId || sourceUrl 
                 ? <span className="text-primary"> from same source</span>
                 : ' from your journal'}
@@ -212,7 +218,7 @@ function AlternativesSection({
             </Button>
           </div>
           <div className={`flex flex-col gap-2 ${isDocked ? 'max-h-20' : 'max-h-48'} overflow-y-auto`}>
-            {alternatives.map((alt, altIndex) => (
+            {displayedAlternatives.map((alt, altIndex) => (
               <div
                 key={alt.id}
                 className={`flex items-center justify-between gap-3 p-2 bg-background rounded-md border ${isDocked ? 'p-1.5' : ''}`}
@@ -268,6 +274,17 @@ function AlternativesSection({
               </div>
             ))}
           </div>
+          {hasMore && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-xs mt-2"
+              onClick={() => setDisplayCount(prev => prev + itemsPerPage)}
+              data-testid={`button-load-more-alternatives-${taskIndex}`}
+            >
+              Load {Math.min(itemsPerPage, (alternatives?.length || 0) - displayCount)} more venues
+            </Button>
+          )}
         </div>
       )}
     </div>
