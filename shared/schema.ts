@@ -93,6 +93,7 @@ export const users = pgTable("users", {
   
   // Subscription & Billing
   subscriptionTier: varchar("subscription_tier").default("free"), // 'free' | 'pro' | 'family'
+  subscriptionInterval: varchar("subscription_interval"), // 'monthly' | 'yearly' - null for free tier
   subscriptionStatus: varchar("subscription_status").default("active"), // 'active' | 'canceled' | 'past_due' | 'trialing'
   stripeCustomerId: varchar("stripe_customer_id").unique(),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
@@ -100,6 +101,9 @@ export const users = pgTable("users", {
   planCountResetDate: timestamp("plan_count_reset_date"), // When to reset planCount
   trialEndsAt: timestamp("trial_ends_at"), // 7-day trial end date
   subscriptionEndsAt: timestamp("subscription_ends_at"), // For canceled subscriptions
+  
+  // Import tracking for tier-based limits
+  hasDiscoveryBonus: boolean("has_discovery_bonus").default(false), // True if user earned +2 bonus by publishing to Discovery
   
   // User role for special plan publishing (emergency/sponsored)
   userRole: varchar("user_role").default("standard"), // 'standard' | 'government' | 'sponsor' | 'admin'
