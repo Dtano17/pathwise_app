@@ -1644,9 +1644,9 @@ export default function MainApp({
                   <Users className="w-4 h-4" />
                   <span>Groups ({groups.length})</span>
                 </TabsTrigger>
-                <TabsTrigger value="sync" className="gap-2 text-sm font-medium" data-testid="tab-import">
-                  <Download className="w-4 h-4" />
-                  <span>Import</span>
+                <TabsTrigger value="sync" className="gap-2 text-sm font-medium" data-testid="tab-integration">
+                  <Plug className="w-4 h-4" />
+                  <span>Integration</span>
                 </TabsTrigger>
                 <TabsTrigger value="about" className="gap-2 text-sm font-medium" data-testid="tab-about">
                   <Info className="w-4 h-4" />
