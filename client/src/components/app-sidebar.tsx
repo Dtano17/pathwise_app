@@ -532,15 +532,15 @@ export function AppSidebar({
           </SidebarGroup>
         </Collapsible>
 
-        {/* Import & Updates Section */}
+        {/* Integration & Updates Section */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <Link href="/import-plan">
-                  <SidebarMenuButton data-testid="button-import-sidebar">
-                    <Download className="w-4 h-4" />
-                    <span>Import Content</span>
+                  <SidebarMenuButton data-testid="button-integration-sidebar">
+                    <Plug className="w-4 h-4" />
+                    <span>Integration</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
