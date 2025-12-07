@@ -327,14 +327,16 @@ export class DirectPlanGenerator {
     }> = [];
 
     // Pattern to find venue entries like "PILATES - Lo Studio, VI - ₦100,000"
-    // or "BRUNCH - Knowhere, VI - ₦50,000"
+    // or "BRUNCH - Knowhere, VI - ₦50,000" or just "KREMLIN LOUNGE"
     const venuePatterns = [
       // Pattern: "CATEGORY - Venue Name, Location - Price"
       /([A-Z][A-Z\s]+?)\s*[-–]\s*([^,\-₦$€£\n]+?)(?:,\s*([A-Za-z\s]+?))?\s*[-–]?\s*([₦$€£][\d,]+(?:\s*[-–]\s*[₦$€£]?[\d,]+)?)?/g,
-      // Pattern: "Venue Name (Location) - Price" or "Venue Name - Price"
-      /(?:^|\n)(?:\d+\.\s*)?([A-Z][a-zA-Z\s&']+?)\s*(?:\(([^)]+)\))?\s*[-–]\s*([₦$€£][\d,]+(?:\s*[-–]\s*[₦$€£]?[\d,]+)?)?/gm,
+      // Pattern: "Venue Name (Location) - Price" or "Venue Name - Price" (including names without price)
+      /(?:^|\n)(?:\d+\.\s*)?([A-Z][a-zA-Z\s&']+?)(?:\s*\(([^)]+)\))?\s*(?:[-–]\s*([₦$€£][\d,]+(?:\s*[-–]\s*[₦$€£]?[\d,]+)?))?(?=\n|$)/gm,
       // Pattern: Simple "Name - $$" or "Name - $50-100"
       /([A-Z][a-zA-Z\s&']+?)\s*[-–]\s*(\$+|\${1,4}|[₦$€£]\d+(?:\s*[-–]\s*\d+)?)/g,
+      // Pattern: Standalone venue names (lines with just capitalized words, no trailing dashes)
+      /^([A-Z][A-Z\s&']+?)(?:\s+([A-Z][A-Z\s&']+?))*\s*$/gm,
     ];
 
     const seenNames = new Set<string>();
