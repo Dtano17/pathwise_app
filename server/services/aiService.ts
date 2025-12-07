@@ -1467,6 +1467,10 @@ NEVER use generic titles like "Generated Plan", "Plan from URL", "New Activity",
 {
   ${titleInstructions}
   "summary": "A brief, motivating summary of what this plan will accomplish (1-2 sentences)",
+  "planLocation": {
+    "city": "Primary city/location mentioned in the content (e.g., Lagos, Paris, NYC)",
+    "country": "Country if identifiable"
+  },
   "tasks": [
     {
       "title": "Specific task title with concrete details (prices, names, quantities)",
@@ -1476,12 +1480,29 @@ NEVER use generic titles like "Generated Plan", "Plan from URL", "New Activity",
       "timeEstimate": "15 min|30 min|1 hour|2 hours|3 hours|4 hours|1 day",
       "dueDate": null
     }
-  ],
+  ],${hasSocialMediaContent ? `
+  "allExtractedVenues": [
+    {
+      "venueName": "EXACT name of each venue/restaurant/place mentioned",
+      "venueType": "restaurant|bar|cafe|hotel|spa|activity|attraction|shopping",
+      "category": "restaurants|bars|cafes|hotels|activities|shopping|wellness",
+      "location": { "city": "City name", "neighborhood": "Area if mentioned" },
+      "priceRange": "Exact price or range mentioned (e.g., '₦50,000' or '$80-120')",
+      "budgetTier": "budget|moderate|luxury|ultra_luxury",
+      "estimatedCost": 50000,
+      "description": "Brief description from the content"
+    }
+  ],` : ''}
   "goalCategory": "Overall category for the goal",
   "goalPriority": "high|medium|low", 
   "estimatedTimeframe": "Overall time to complete all tasks (e.g., '2 hours', '1 day', '3 days', '1 week')",
   "motivationalNote": "An encouraging message to keep the user motivated (1 sentence)"
-}
+}${hasSocialMediaContent ? `
+
+## CRITICAL: EXTRACT ALL VENUES
+If the content mentions 59 restaurants, you MUST list ALL 59 in "allExtractedVenues".
+Do NOT skip any venue. Each venue from the source content must have an entry in allExtractedVenues.
+The tasks array can have 6-9 selected items, but allExtractedVenues must contain EVERY venue from the source.` : ''}
 
 CRITICAL - Generate 6-9 specific, actionable tasks (occasionally 5 for very simple goals):
 - ALWAYS include a "timeEstimate" for every single task - never omit this field
@@ -1520,7 +1541,7 @@ Time Estimate Examples:
 
       const response = await anthropic.messages.create({
         model: DEFAULT_CLAUDE_MODEL, // "claude-sonnet-4-20250514"
-        max_tokens: 1500,
+        max_tokens: hasSocialMediaContent ? 8000 : 2000, // More tokens for social media with many venues
         system:
           "You are a productivity expert who helps people break down goals into actionable tasks. Always respond with valid JSON.",
         messages: [
@@ -1552,7 +1573,31 @@ Time Estimate Examples:
         goalPriority: this.validatePriority(result.goalPriority),
         estimatedTimeframe: result.estimatedTimeframe || "Unknown",
         motivationalNote: result.motivationalNote || "You got this! One step at a time.",
+        // Parse allExtractedVenues for social media content (all venues from the source)
+        allExtractedVenues: result.allExtractedVenues?.map((venue: any) => ({
+          venueName: venue.venueName,
+          venueType: venue.venueType || 'restaurant',
+          category: venue.category || 'restaurants',
+          location: venue.location,
+          priceRange: venue.priceRange,
+          budgetTier: venue.budgetTier,
+          estimatedCost: venue.estimatedCost,
+          description: venue.description,
+          selectedForPlan: false, // These are all extracted, not just selected ones
+        })) || [],
+        // Parse planLocation for geographic context (only if at least city or country is present)
+        planLocation: (result.planLocation?.city || result.planLocation?.country) ? {
+          city: result.planLocation.city,
+          country: result.planLocation.country,
+        } : undefined,
       };
+      
+      if (processedResult.allExtractedVenues && processedResult.allExtractedVenues.length > 0) {
+        console.log(`[AISERVICE] Extracted ${processedResult.allExtractedVenues.length} venues from social media content`);
+        if (processedResult.planLocation) {
+          console.log(`[AISERVICE] Plan location: ${processedResult.planLocation.city || 'Unknown'}, ${processedResult.planLocation.country || 'Unknown'}`);
+        }
+      }
 
       return processedResult;
     } catch (error) {
