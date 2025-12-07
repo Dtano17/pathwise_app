@@ -10,7 +10,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { SiInstagram, SiTiktok, SiYoutube, SiTwitter, SiFacebook, SiReddit, SiPinterest } from 'react-icons/si';
+import { SiInstagram, SiTiktok, SiYoutube, SiX, SiFacebook, SiReddit, SiPinterest } from 'react-icons/si';
 
 // Helper to get friendly source label and icon from URL
 const getSourceLabel = (url?: string): { name: string; icon: JSX.Element; color: string } | null => {
@@ -27,7 +27,7 @@ const getSourceLabel = (url?: string): { name: string; icon: JSX.Element; color:
     return { name: 'YouTube', icon: <SiYoutube className="w-4 h-4" />, color: 'bg-red-600 text-white' };
   }
   if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) {
-    return { name: 'X (Twitter)', icon: <SiTwitter className="w-4 h-4" />, color: 'bg-black text-white dark:bg-white dark:text-black' };
+    return { name: 'X (Twitter)', icon: <SiX className="w-4 h-4" />, color: 'bg-black text-white dark:bg-white dark:text-black' };
   }
   if (lowerUrl.includes('facebook.com') || lowerUrl.includes('fb.watch')) {
     return { name: 'Facebook', icon: <SiFacebook className="w-4 h-4" />, color: 'bg-blue-600 text-white' };
