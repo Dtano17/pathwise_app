@@ -13502,6 +13502,24 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   // ========== AI PLAN IMPORT ROUTES (Extension/Mobile) ==========
   // These routes handle importing AI-generated plans from ChatGPT, Claude, etc.
 
+  // Helper function to get import limit based on subscription tier
+  // Returns null for unlimited, or the numeric limit
+  function getImportLimit(user: User): number | null {
+    const tier = user.subscriptionTier || 'free';
+    const interval = user.subscriptionInterval;
+    
+    if (tier === 'free') {
+      // Base 3, +2 if hasDiscoveryBonus (earned by publishing to Discovery)
+      return user.hasDiscoveryBonus ? 5 : 3;
+    } else if (tier === 'pro') {
+      if (interval === 'yearly') return null; // Pro Yearly = Unlimited
+      return 50; // Pro Monthly = 50 imports/month
+    } else if (tier === 'family') {
+      return null; // Family = Unlimited for all members
+    }
+    return 3; // Default fallback
+  }
+
   // Parse and import AI plan text
   app.post("/api/extensions/import-plan", async (req, res) => {
     try {
@@ -13517,16 +13535,18 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       }
 
       // Check subscription tier for import limits
-      const tier = user.subscriptionTier || 'free';
       const monthlyImports = await storage.getUserMonthlyImportCount(user.id);
-      const FREE_MONTHLY_LIMIT = 3;
+      const importLimit = getImportLimit(user);
       
-      if (tier === 'free' && monthlyImports >= FREE_MONTHLY_LIMIT) {
+      if (importLimit !== null && monthlyImports >= importLimit) {
         return res.status(403).json({ 
           error: "Monthly import limit reached",
-          limit: FREE_MONTHLY_LIMIT,
+          limit: importLimit,
           used: monthlyImports,
-          upgrade: true
+          upgrade: true,
+          tier: user.subscriptionTier || 'free',
+          subscriptionInterval: user.subscriptionInterval || null,
+          hasDiscoveryBonus: user.hasDiscoveryBonus || false
         });
       }
 
@@ -13569,7 +13589,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         },
         limits: {
           used: monthlyImports + 1,
-          limit: tier === 'free' ? FREE_MONTHLY_LIMIT : null
+          limit: importLimit
         }
       });
     } catch (error) {
@@ -13848,16 +13868,18 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       }
 
       // Check subscription tier for import limits
-      const tier = user.subscriptionTier || 'free';
       const monthlyImports = await storage.getUserMonthlyImportCount(user.id);
-      const FREE_MONTHLY_LIMIT = 3;
+      const importLimit = getImportLimit(user);
       
-      if (tier === 'free' && monthlyImports >= FREE_MONTHLY_LIMIT) {
+      if (importLimit !== null && monthlyImports >= importLimit) {
         return res.status(403).json({ 
           error: "Monthly import limit reached",
-          limit: FREE_MONTHLY_LIMIT,
+          limit: importLimit,
           used: monthlyImports,
-          upgrade: true
+          upgrade: true,
+          tier: user.subscriptionTier || 'free',
+          subscriptionInterval: user.subscriptionInterval || null,
+          hasDiscoveryBonus: user.hasDiscoveryBonus || false
         });
       }
 
@@ -13903,7 +13925,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         },
         limits: {
           used: monthlyImports + 1,
-          limit: tier === 'free' ? FREE_MONTHLY_LIMIT : null
+          limit: importLimit
         }
       });
     } catch (error) {
@@ -13923,15 +13945,16 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const tier = user.subscriptionTier || 'free';
       const monthlyImports = await storage.getUserMonthlyImportCount(user.id);
-      const FREE_MONTHLY_LIMIT = 3;
+      const importLimit = getImportLimit(user);
 
       res.json({
-        tier,
+        tier: user.subscriptionTier || 'free',
+        subscriptionInterval: user.subscriptionInterval || null,
+        hasDiscoveryBonus: user.hasDiscoveryBonus || false,
         monthlyImports,
-        limit: tier === 'free' ? FREE_MONTHLY_LIMIT : null,
-        remaining: tier === 'free' ? Math.max(0, FREE_MONTHLY_LIMIT - monthlyImports) : null
+        limit: importLimit,
+        remaining: importLimit !== null ? Math.max(0, importLimit - monthlyImports) : null
       });
     } catch (error) {
       console.error('[EXTENSION] Error fetching usage:', error);
@@ -14240,16 +14263,18 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       }
 
       // Check subscription tier for import limits
-      const tier = user.subscriptionTier || 'free';
       const monthlyImports = await storage.getUserMonthlyImportCount(user.id);
-      const FREE_MONTHLY_LIMIT = 3;
+      const importLimit = getImportLimit(user);
       
-      if (tier === 'free' && monthlyImports >= FREE_MONTHLY_LIMIT) {
+      if (importLimit !== null && monthlyImports >= importLimit) {
         return res.status(403).json({ 
           error: "Monthly import limit reached",
-          limit: FREE_MONTHLY_LIMIT,
+          limit: importLimit,
           used: monthlyImports,
-          upgrade: true
+          upgrade: true,
+          tier: user.subscriptionTier || 'free',
+          subscriptionInterval: user.subscriptionInterval || null,
+          hasDiscoveryBonus: user.hasDiscoveryBonus || false
         });
       }
 
@@ -14318,7 +14343,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         },
         limits: {
           used: monthlyImports + 1,
-          limit: tier === 'free' ? FREE_MONTHLY_LIMIT : null
+          limit: importLimit
         }
       });
     } catch (error) {
