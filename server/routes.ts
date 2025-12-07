@@ -1982,6 +1982,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[SAVE CONTENT] Categorizing content from ${platform}: ${sourceUrl}`);
       const categorized = await categorizeContent(extractedContent, platform);
       
+      // Log detailed categorization results
+      console.log(`[SAVE CONTENT] AI Categorization result:`);
+      console.log(`  - category: "${categorized.category}"`);
+      console.log(`  - subcategory: "${categorized.subcategory}"`);
+      console.log(`  - title: "${categorized.title}"`);
+      console.log(`  - venues count: ${categorized.venues?.length || 0}`);
+      if (categorized.venues && categorized.venues.length > 0) {
+        console.log(`  - venue types: ${categorized.venues.map((v: any) => v.type).join(', ')}`);
+      }
+      
       // Save to database
       const savedContent = await storage.createUserSavedContent({
         userId,
