@@ -765,12 +765,8 @@ export default function LandingPage() {
                       <span>Free media edits before sharing to social</span>
                     </div>
                     <div className="flex items-start gap-2">
-                      <Sparkles className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
-                      <span>Create compelling plans</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <Award className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
-                      <span>Earn rewards when your plan is used</span>
+                      <TrendingUp className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <span>Create compelling plans, share to community, and earn rewards when used</span>
                     </div>
                     
                     <div className="flex items-start gap-2 text-muted-foreground">
