@@ -2946,7 +2946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/alternatives - fetch alternative venues from journal based on location and budget tier
+  // GET /api/alternatives - fetch alternative venues from journal or ContentImport based on location and budget tier
   app.get("/api/alternatives", async (req: any, res) => {
     try {
       const userId = getUserId(req);
@@ -2956,7 +2956,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { location, budgetTier, category, excludeIds, sourceUrl, importId, matchBudget } = req.query;
       
-      // Fetch user's journal entries from preferences
+      // If importId is provided, fetch alternatives from ContentImport table
+      if (importId) {
+        try {
+          const contentImport = await storage.getContentImport(String(importId), String(userId));
+          if (contentImport && contentImport.extractedItems) {
+            const excludeIdList = excludeIds ? String(excludeIds).split(',').filter(Boolean) : [];
+            
+            // Filter to non-selected items not in exclude list
+            const alternatives = (contentImport.extractedItems as any[])
+              .filter((item: any) => {
+                if (excludeIdList.includes(item.id)) return false;
+                if (item.selectedForPlan === true) return false;
+                if (!item.venueName) return false;
+                return true;
+              })
+              .slice(0, 20)
+              .map((item: any) => ({
+                id: item.id,
+                venueName: item.venueName,
+                venueType: item.venueType,
+                location: item.location,
+                priceRange: item.priceRange,
+                budgetTier: item.budgetTier,
+                category: item.category,
+                sourceUrl: contentImport.sourceUrl,
+                importId: contentImport.id,
+                estimatedCost: item.estimatedCost
+              }));
+            
+            console.log(`[ALTERNATIVES] Found ${alternatives.length} from ContentImport ${importId}`);
+            return res.json({ alternatives, source: 'content_import' });
+          }
+        } catch (error) {
+          console.error('[ALTERNATIVES] ContentImport lookup failed:', error);
+          // Fall through to journal-based lookup
+        }
+      }
+      
+      // Fetch user's journal entries from preferences (fallback)
       const preferences = await storage.getUserPreferences(userId);
       const journalData = preferences?.preferences?.journalData || {};
       
@@ -3069,7 +3107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PATCH /api/tasks/:taskId/swap - swap task with alternative venue
+  // PATCH /api/tasks/:taskId/swap - swap task venue while preserving original task format
   app.patch("/api/tasks/:taskId/swap", async (req: any, res) => {
     try {
       const userId = getUserId(req);
@@ -3078,34 +3116,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { taskId } = req.params;
-      const { venueName, venueType, location, priceRange, budgetTier, sourceUrl } = req.body;
+      const { venueName, venueType, location, priceRange, budgetTier, contentItemId, estimatedCost, originalVenueName } = req.body;
 
       if (!venueName) {
         return res.status(400).json({ error: 'venueName is required' });
       }
 
-      // Build description from venue info
-      let description = venueType ? `${venueType}` : '';
-      if (location?.city) {
-        description += description ? ` in ${location.city}` : `In ${location.city}`;
+      // Get the original task to preserve its format
+      const originalTask = await storage.getTask(taskId, userId);
+      if (!originalTask) {
+        return res.status(404).json({ error: 'Task not found' });
       }
-      if (priceRange) {
-        description += description ? ` - ${priceRange}` : priceRange;
+
+      // Preserve original task format - only swap the venue name and update venue-specific fields
+      let newTitle = originalTask.title;
+      let newDescription = originalTask.description;
+
+      // If we know the original venue name, do a targeted replacement
+      if (originalVenueName && newTitle.includes(originalVenueName)) {
+        newTitle = newTitle.replace(originalVenueName, venueName);
+      } else {
+        // Fallback: Look for common patterns and replace venue-like words
+        // Pattern: "Book [Venue Name] for..." or "Visit [Venue Name]" or "[Venue Name] - ..."
+        const venuePatterns = [
+          /^(Book\s+)([^-–\n]+?)(\s+for\s+)/i,
+          /^(Visit\s+)([^-–\n]+?)(\s+[-–]|\s+in\s+|\s*$)/i,
+          /^(Try\s+)([^-–\n]+?)(\s+[-–]|\s+in\s+|\s*$)/i,
+          /^([^-–]+?)(\s+[-–]\s+)/
+        ];
+        
+        let matched = false;
+        for (const pattern of venuePatterns) {
+          const match = newTitle.match(pattern);
+          if (match) {
+            // Replace the venue portion (group 2) with new venue name
+            newTitle = match[1] + venueName + (match[3] || '');
+            matched = true;
+            break;
+          }
+        }
+        
+        // If no pattern matched, just prepend venue name with original title structure hint
+        if (!matched) {
+          // Keep original structure but update venue
+          const actionVerbs = ['Book', 'Visit', 'Try', 'Check out', 'Explore'];
+          const hasActionVerb = actionVerbs.some(v => newTitle.toLowerCase().startsWith(v.toLowerCase()));
+          if (!hasActionVerb) {
+            newTitle = venueName;
+          }
+        }
       }
-      if (budgetTier) {
-        description += description ? ` (${budgetTier})` : budgetTier;
+
+      // Update description with venue details if it contains venue-related info
+      if (newDescription) {
+        // Add/update location in description
+        const locationStr = location?.city || location?.neighborhood || '';
+        if (locationStr && !newDescription.includes(locationStr)) {
+          // Append location if not present
+          newDescription = newDescription.replace(/\.$/, '') + ` in ${locationStr}.`;
+        }
+        
+        // Update price range if present
+        if (priceRange && estimatedCost) {
+          // Replace any existing price pattern or add new one
+          const pricePattern = /\$[\d,]+(?:\s*[-–]\s*\$?[\d,]+)?/g;
+          if (pricePattern.test(newDescription)) {
+            newDescription = newDescription.replace(pricePattern, priceRange);
+          }
+        }
       }
 
       const task = await storage.updateTask(taskId, {
-        title: venueName,
-        description: description || 'Swapped from journal',
-        context: sourceUrl ? `Source: ${sourceUrl}` : undefined
+        title: newTitle,
+        description: newDescription,
+        contentItemId: contentItemId,
+        estimatedCost: estimatedCost
       }, userId);
 
       if (!task) {
         return res.status(404).json({ error: 'Task not found' });
       }
 
+      console.log(`[SWAP] Task ${taskId}: "${originalTask.title}" → "${newTitle}"`);
       res.json({ task, message: `Task swapped to "${venueName}"` });
     } catch (error) {
       console.error('Swap task error:', error);

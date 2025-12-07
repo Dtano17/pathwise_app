@@ -1,9 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { User, InsertUrlContentCache } from '@shared/schema';
+import type { User, InsertUrlContentCache, InsertContentImport, ContentImport } from '@shared/schema';
 import axios from 'axios';
 import { tavily } from '@tavily/core';
 import { storage } from '../storage';
 import { socialMediaVideoService } from './socialMediaVideoService';
+import crypto from 'crypto';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -33,7 +34,12 @@ export interface DirectPlanResult {
     description: string;
     category: string;
     priority: 'high' | 'medium' | 'low';
+    contentItemId?: string;
+    estimatedCost?: number;
   }>;
+  importId?: string;
+  sourceUrl?: string;
+  sourceName?: string;
 }
 
 export interface UserPreferences {
@@ -286,6 +292,213 @@ export class DirectPlanGenerator {
     } catch (error) {
       console.error('[LOCATION] Failed to get user preference cities:', error);
       return [];
+    }
+  }
+
+  /**
+   * Extract all venue/item mentions from content (OCR text, captions, transcripts)
+   * Returns structured array of extracted items for ContentImport storage
+   */
+  private extractVenuesFromContent(
+    content: string, 
+    platform: string | null,
+    locationInfo: { destination: string | null; areas: string[] }
+  ): Array<{
+    id: string;
+    venueName: string;
+    venueType: string;
+    location?: { city?: string; neighborhood?: string };
+    priceRange?: string;
+    budgetTier?: string;
+    estimatedCost?: number;
+    category?: string;
+    notes?: string;
+  }> {
+    const venues: Array<{
+      id: string;
+      venueName: string;
+      venueType: string;
+      location?: { city?: string; neighborhood?: string };
+      priceRange?: string;
+      budgetTier?: string;
+      estimatedCost?: number;
+      category?: string;
+      notes?: string;
+    }> = [];
+
+    // Pattern to find venue entries like "PILATES - Lo Studio, VI - ₦100,000"
+    // or "BRUNCH - Knowhere, VI - ₦50,000"
+    const venuePatterns = [
+      // Pattern: "CATEGORY - Venue Name, Location - Price"
+      /([A-Z][A-Z\s]+?)\s*[-–]\s*([^,\-₦$€£\n]+?)(?:,\s*([A-Za-z\s]+?))?\s*[-–]?\s*([₦$€£][\d,]+(?:\s*[-–]\s*[₦$€£]?[\d,]+)?)?/g,
+      // Pattern: "Venue Name (Location) - Price" or "Venue Name - Price"
+      /(?:^|\n)(?:\d+\.\s*)?([A-Z][a-zA-Z\s&']+?)\s*(?:\(([^)]+)\))?\s*[-–]\s*([₦$€£][\d,]+(?:\s*[-–]\s*[₦$€£]?[\d,]+)?)?/gm,
+      // Pattern: Simple "Name - $$" or "Name - $50-100"
+      /([A-Z][a-zA-Z\s&']+?)\s*[-–]\s*(\$+|\${1,4}|[₦$€£]\d+(?:\s*[-–]\s*\d+)?)/g,
+    ];
+
+    const seenNames = new Set<string>();
+
+    for (const pattern of venuePatterns) {
+      const matches = content.matchAll(pattern);
+      for (const match of matches) {
+        let venueName = '';
+        let venueType = 'venue';
+        let location: { city?: string; neighborhood?: string } | undefined;
+        let priceRange: string | undefined;
+
+        // Parse based on pattern structure
+        if (pattern.source.includes('CATEGORY')) {
+          // First pattern: "CATEGORY - Venue - Location - Price"
+          venueType = match[1]?.trim().toLowerCase() || 'venue';
+          venueName = match[2]?.trim() || '';
+          if (match[3]) {
+            location = { neighborhood: match[3].trim() };
+          }
+          priceRange = match[4]?.trim();
+        } else if (pattern.source.includes('\\(')) {
+          // Second pattern: "Venue Name (Location) - Price"
+          venueName = match[1]?.trim() || '';
+          if (match[2]) {
+            location = { neighborhood: match[2].trim() };
+          }
+          priceRange = match[3]?.trim();
+        } else {
+          // Simple pattern: "Name - Price"
+          venueName = match[1]?.trim() || '';
+          priceRange = match[2]?.trim();
+        }
+
+        // Skip if no valid venue name or too short
+        if (!venueName || venueName.length < 3 || seenNames.has(venueName.toLowerCase())) {
+          continue;
+        }
+
+        // Skip common false positives
+        const skipPatterns = ['SAVE', 'SHARE', 'FOLLOW', 'LIKE', 'COMMENT', 'TAG', 'DM', 'LINK', 'BIO', 'PROFILE'];
+        if (skipPatterns.includes(venueName.toUpperCase())) {
+          continue;
+        }
+
+        seenNames.add(venueName.toLowerCase());
+
+        // Parse price to estimate cost
+        let estimatedCost: number | undefined;
+        let budgetTier: string | undefined;
+
+        if (priceRange) {
+          // Extract numeric value from price
+          const numMatch = priceRange.match(/[\d,]+/g);
+          if (numMatch) {
+            const num = parseInt(numMatch[0].replace(/,/g, ''), 10);
+            if (!isNaN(num)) {
+              // Convert Nigerian Naira to USD (rough estimate: 1600 NGN = 1 USD)
+              if (priceRange.includes('₦')) {
+                estimatedCost = Math.round(num / 1600);
+              } else {
+                estimatedCost = num;
+              }
+            }
+          }
+          // Parse $ symbols
+          if (priceRange.match(/^\$+$/)) {
+            const dollarCount = priceRange.length;
+            budgetTier = dollarCount <= 1 ? 'budget' : dollarCount === 2 ? 'moderate' : dollarCount === 3 ? 'luxury' : 'ultra_luxury';
+            estimatedCost = dollarCount <= 1 ? 25 : dollarCount === 2 ? 50 : dollarCount === 3 ? 100 : 200;
+          }
+        }
+
+        // Infer budget tier from cost
+        if (estimatedCost && !budgetTier) {
+          budgetTier = estimatedCost < 30 ? 'budget' : estimatedCost < 75 ? 'moderate' : estimatedCost < 150 ? 'luxury' : 'ultra_luxury';
+        }
+
+        // Add location info if we detected it
+        if (!location && locationInfo.destination) {
+          location = { city: locationInfo.destination };
+          if (locationInfo.areas.length > 0) {
+            location.neighborhood = locationInfo.areas[0];
+          }
+        }
+
+        // Map venue type to category
+        let category: string | undefined;
+        const typeMap: Record<string, string> = {
+          'pilates': 'wellness_spa',
+          'yoga': 'wellness_spa',
+          'gym': 'wellness_spa',
+          'spa': 'wellness_spa',
+          'brunch': 'restaurants',
+          'dinner': 'restaurants',
+          'lunch': 'restaurants',
+          'breakfast': 'restaurants',
+          'restaurant': 'restaurants',
+          'cafe': 'restaurants',
+          'coffee': 'restaurants',
+          'bar': 'bars_nightlife',
+          'club': 'bars_nightlife',
+          'lounge': 'bars_nightlife',
+          'hotel': 'hotels_accommodation',
+          'resort': 'hotels_accommodation',
+          'padel': 'attractions_activities',
+          'tennis': 'attractions_activities',
+          'golf': 'attractions_activities',
+          'museum': 'attractions_activities',
+          'tour': 'attractions_activities',
+          'shopping': 'shopping',
+          'market': 'shopping',
+          'matcha': 'restaurants',
+          'date': 'restaurants',
+        };
+
+        const lowerType = venueType.toLowerCase();
+        for (const [keyword, cat] of Object.entries(typeMap)) {
+          if (lowerType.includes(keyword) || venueName.toLowerCase().includes(keyword)) {
+            category = cat;
+            break;
+          }
+        }
+
+        venues.push({
+          id: crypto.randomUUID(),
+          venueName,
+          venueType,
+          location,
+          priceRange,
+          budgetTier,
+          estimatedCost,
+          category,
+        });
+      }
+    }
+
+    console.log(`[CONTENT IMPORT] Extracted ${venues.length} venues from content`);
+    return venues;
+  }
+
+  /**
+   * Get friendly source name for platform
+   */
+  private getSourceName(platform: string | null, url: string): string {
+    if (platform === 'instagram') {
+      if (url.includes('/reel/')) return 'Instagram Reel';
+      if (url.includes('/stories/')) return 'Instagram Story';
+      return 'Instagram Post';
+    }
+    if (platform === 'tiktok') return 'TikTok Video';
+    if (platform === 'youtube') {
+      if (url.includes('/shorts/')) return 'YouTube Short';
+      return 'YouTube Video';
+    }
+    if (platform === 'twitter' || platform === 'x') return 'X Post';
+    if (platform === 'facebook') return 'Facebook Post';
+    if (platform === 'reddit') return 'Reddit Post';
+    
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname.replace('www.', '');
+    } catch {
+      return 'Web Content';
     }
   }
 
@@ -630,6 +843,62 @@ export class DirectPlanGenerator {
       }
     }
 
+    // Step 2: Extract venues and create ContentImport for URL content
+    let contentImportId: string | undefined;
+    let extractedSourceUrl: string | undefined;
+    let extractedSourceName: string | undefined;
+    let extractedVenues: Array<{
+      id: string;
+      venueName: string;
+      venueType: string;
+      location?: { city?: string; neighborhood?: string };
+      priceRange?: string;
+      budgetTier?: string;
+      estimatedCost?: number;
+      category?: string;
+      notes?: string;
+    }> = [];
+
+    if (!isModification && contentType === 'text') {
+      // Get the URL if present
+      const urls = this.extractUrls(userInput);
+      const singleUrl = this.isUrl(userInput.trim()) ? userInput.trim() : urls[0];
+      
+      if (singleUrl) {
+        const platform = socialMediaVideoService.detectPlatform(singleUrl);
+        extractedSourceUrl = singleUrl;
+        extractedSourceName = this.getSourceName(platform, singleUrl);
+        
+        // Extract venues from the content
+        extractedVenues = this.extractVenuesFromContent(
+          processedInput,
+          platform,
+          { destination: detectedDestination, areas: detectedAreas }
+        );
+        
+        if (extractedVenues.length > 0 && userProfile?.id) {
+          try {
+            const normalizedUrl = this.normalizeUrl(singleUrl);
+            const contentImport = await storage.createContentImport({
+              userId: userProfile.id,
+              sourceUrl: singleUrl,
+              normalizedUrl,
+              platform: platform || undefined,
+              sourceName: extractedSourceName,
+              totalItemsExtracted: extractedVenues.length,
+              extractedItems: extractedVenues.map(v => ({ ...v, selectedForPlan: false })),
+            });
+            contentImportId = contentImport.id;
+            console.log(`[CONTENT IMPORT] Created import ${contentImportId} with ${extractedVenues.length} items`);
+          } catch (error) {
+            console.error('[CONTENT IMPORT] Failed to create:', error);
+          }
+        } else {
+          console.log(`[CONTENT IMPORT] No venues extracted or no user profile (venues: ${extractedVenues.length})`);
+        }
+      }
+    }
+
     // Build prompt based on whether it's new or modification
     const prompt = isModification
       ? this.buildModificationPrompt(processedInput, existingPlan, userProfile)
@@ -667,7 +936,58 @@ export class DirectPlanGenerator {
 
       const result: DirectPlanResult = JSON.parse(jsonMatch[0]);
 
+      // Add import info to result
+      result.importId = contentImportId;
+      result.sourceUrl = extractedSourceUrl;
+      result.sourceName = extractedSourceName;
+
+      // Match tasks to extracted venues and add contentItemId
+      if (extractedVenues.length > 0 && contentImportId) {
+        const matchedItemIds: string[] = [];
+        
+        for (const task of result.tasks) {
+          const taskTitle = task.title.toLowerCase();
+          const taskDesc = task.description.toLowerCase();
+          
+          // Find matching venue by name
+          for (const venue of extractedVenues) {
+            const venueName = venue.venueName.toLowerCase();
+            if (taskTitle.includes(venueName) || taskDesc.includes(venueName)) {
+              task.contentItemId = venue.id;
+              task.estimatedCost = venue.estimatedCost;
+              matchedItemIds.push(venue.id);
+              console.log(`[TASK MATCHING] Matched task "${task.title}" to venue "${venue.venueName}" (${venue.id})`);
+              break; // Only match one venue per task
+            }
+          }
+        }
+        
+        // Update ContentImport to mark matched items as selectedForPlan
+        if (matchedItemIds.length > 0 && userProfile?.id) {
+          try {
+            const userId = String(userProfile.id);
+            const contentImport = await storage.getContentImport(contentImportId, userId);
+            if (contentImport && contentImport.extractedItems) {
+              const updatedItems = (contentImport.extractedItems as any[]).map((item: any) => ({
+                ...item,
+                selectedForPlan: matchedItemIds.includes(item.id)
+              }));
+              await storage.updateContentImport(contentImportId, userId, {
+                extractedItems: updatedItems,
+                itemsUsedInPlan: matchedItemIds.length
+              });
+              console.log(`[CONTENT IMPORT] Marked ${matchedItemIds.length} items as selected for plan`);
+            }
+          } catch (error) {
+            console.error('[CONTENT IMPORT] Failed to update selected items:', error);
+          }
+        }
+      }
+
       console.log(`[DIRECT PLAN] Generated: "${result.activity.title}" with ${result.tasks.length} tasks`);
+      if (contentImportId) {
+        console.log(`[DIRECT PLAN] Linked to ContentImport: ${contentImportId} from ${extractedSourceName}`);
+      }
 
       return result;
 
