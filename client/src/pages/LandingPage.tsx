@@ -729,6 +729,10 @@ export default function LandingPage() {
                       <Upload className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
                       <span>3 social media imports/month</span>
                     </div>
+                    <div className="flex items-start gap-2">
+                      <Cpu className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <span>5 AI service imports (8+ AI apps supported)</span>
+                    </div>
                     <div className="flex items-start gap-2 bg-emerald-50 dark:bg-emerald-900/20 -mx-2 px-2 py-1.5 rounded-lg">
                       <Gift className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
                       <span className="text-emerald-700 dark:text-emerald-300">
@@ -740,20 +744,24 @@ export default function LandingPage() {
                       <span>Dedicated AI agent for Quick & Smart Plans</span>
                     </div>
                     <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
-                      <span>Track your own tasks & progress</span>
-                    </div>
-                    <div className="flex items-start gap-2">
                       <BookMarked className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
-                      <span>Automated journaling from social media imports</span>
+                      <span>Smart categorization & automated journaling</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Zap className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <span>Live updates to tasks and plans</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Share2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <span>Post plans for others to adopt in community</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
-                      <span>Discover community & emergency plans</span>
+                      <span>Free media edits before sharing to social</span>
                     </div>
                     <div className="flex items-start gap-2 text-muted-foreground">
                       <X className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                      <span>No group planning with friends</span>
+                      <span className="line-through">No group planning with friends</span>
                     </div>
                   </div>
 
@@ -796,8 +804,12 @@ export default function LandingPage() {
                       <span>Everything in Free</span>
                     </div>
                     <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                      <span>Smart favorites organization</span>
+                      <Sparkles className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <span>Remix social plans with your flavor</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Lightbulb className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <span>Plan using inspiration from imports</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <BarChart3 className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
@@ -836,38 +848,38 @@ export default function LandingPage() {
               transition={{ delay: 0.2 }}
             >
               <Card className="h-full hover-elevate border-2 border-purple-200 dark:border-purple-900 relative" data-testid="pricing-card-pro-yearly">
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-600 to-violet-600 text-white px-3 py-1 rounded-full text-xs font-medium">
-                  Best Value
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-600 to-violet-600 text-white px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">
+                  Best Value for Individuals
                 </div>
                 <CardContent className="p-6">
                   <div className="text-center mb-6">
                     <h3 className="text-xl font-bold mb-1">Pro Yearly</h3>
                     <p className="text-muted-foreground text-sm">Save 30%</p>
                     <div className="mt-4">
-                      <span className="text-4xl font-bold">$59.99</span>
+                      <span className="text-4xl font-bold">$58.99</span>
                       <span className="text-muted-foreground">/year</span>
                     </div>
                     <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                      ~$5/month
+                      ~$4.92/month
                     </p>
                   </div>
                   
                   <div className="space-y-3 text-sm">
                     <div className="flex items-start gap-2 font-medium">
                       <InfinityIcon className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-purple-700 dark:text-purple-300">Unlimited social media imports/month</span>
+                      <span className="text-purple-700 dark:text-purple-300">Unlimited social media imports</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
                       <span>Everything in Pro Monthly</span>
                     </div>
                     <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
-                      <span>No monthly limits</span>
+                      <Sparkles className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                      <span>Remix social plans with your flavor</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
-                      <span>Annual savings</span>
+                      <span>No monthly limits</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
@@ -893,15 +905,21 @@ export default function LandingPage() {
               viewport={{ once: true }}
               transition={{ delay: 0.3 }}
             >
-              <Card className="h-full hover-elevate border-2 border-pink-200 dark:border-pink-900" data-testid="pricing-card-family">
+              <Card className="h-full hover-elevate border-2 border-pink-200 dark:border-pink-900 relative" data-testid="pricing-card-family">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-pink-500 to-rose-600 text-white px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">
+                  Best Value for Groups
+                </div>
                 <CardContent className="p-6">
                   <div className="text-center mb-6">
                     <h3 className="text-xl font-bold mb-1">Family & Friends</h3>
-                    <p className="text-muted-foreground text-sm">5 or more members</p>
+                    <p className="text-muted-foreground text-sm">Plan, track & share together</p>
                     <div className="mt-4">
-                      <span className="text-4xl font-bold">$14.99</span>
-                      <span className="text-muted-foreground">/month</span>
+                      <span className="text-4xl font-bold">$125.99</span>
+                      <span className="text-muted-foreground">/year</span>
                     </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      or $14.99/month
+                    </p>
                   </div>
                   
                   <div className="space-y-3 text-sm">
@@ -911,11 +929,15 @@ export default function LandingPage() {
                     </div>
                     <div className="flex items-start gap-2">
                       <Users className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />
-                      <span>5 or more family & friends</span>
+                      <span>Plan, track & share for 5+ family & friends</span>
                     </div>
                     <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />
-                      <span>Plan & track with any imported or discovered plan</span>
+                      <Zap className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />
+                      <span>Real-time group feeds (cancellations, weather, traffic)</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Compass className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />
+                      <span>Discover & remix inspiration from others' plans</span>
                     </div>
                     <div className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />
