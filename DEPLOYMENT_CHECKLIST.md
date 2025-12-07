@@ -51,7 +51,7 @@
 
 3. **Create Products**:
    - **Pro Monthly**: $6.99/month
-   - **Pro Annual**: $58.99/year (save 30%)
+   - **Pro Annual**: $59.99/year (save 30%)
    - **Family Monthly**: $14.99/month
    - **Family Annual**: $125.99/year (save 30%)
 

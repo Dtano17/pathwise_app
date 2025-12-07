@@ -19,7 +19,7 @@ Successfully implemented a freemium subscription revenue model using Stripe, des
 - Export functionality (CSV/JSON)
 - Priority support
 - **7-day free trial** (no credit card required)
-- **Annual plan: $58.99/year** (save 30%)
+- **Annual plan: $59.99/year** (save 30%)
 
 ### Family & Friends Tier - $14.99/month
 - Everything in Pro

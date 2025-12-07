@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles } from "lucide-react";
+import { Check, Sparkles, Upload, Infinity as InfinityIcon } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -139,12 +139,20 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
                 <span className="text-sm sm:text-base text-muted-foreground">/month</span>
               </div>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                or $58.99/year <span className="text-green-600 font-medium">(save 30%)</span>
+                or $59.99/year <span className="text-green-600 font-medium">(save 30%)</span>
               </p>
             </div>
 
             <ul className="space-y-1.5 sm:space-y-2">
-              {['Unlimited AI plans', 'Smart favorites organization', 'Journal insights & analytics', 'Export all your data', 'Priority support', '7-day free trial'].map((feature) => (
+              <li className="flex items-start gap-2">
+                <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                <span className="text-xs sm:text-sm font-medium">50 imports/month (Monthly)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <InfinityIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                <span className="text-xs sm:text-sm font-medium text-purple-700 dark:text-purple-300">Unlimited imports (Yearly)</span>
+              </li>
+              {['Unlimited AI plans', 'Smart favorites organization', 'Journal insights & analytics', 'Export all your data', 'Priority support'].map((feature) => (
                 <li key={feature} className="flex items-start gap-2">
                   <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 mt-0.5 flex-shrink-0" />
                   <span className="text-xs sm:text-sm">{feature}</span>
@@ -195,7 +203,11 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
             </div>
 
             <ul className="space-y-1.5 sm:space-y-2">
-              {['Everything in Pro', 'Up to 5 family & friends', 'Shared plans & activities', 'Group progress tracking', 'Collaborative planning', '7-day free trial'].map((feature) => (
+              <li className="flex items-start gap-2">
+                <InfinityIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-500 mt-0.5 flex-shrink-0" />
+                <span className="text-xs sm:text-sm font-medium text-pink-700 dark:text-pink-300">Unlimited imports</span>
+              </li>
+              {['Everything in Pro', 'Up to 5 family & friends', 'Shared plans & activities', 'Group progress tracking', 'Collaborative planning'].map((feature) => (
                 <li key={feature} className="flex items-start gap-2">
                   <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 mt-0.5 flex-shrink-0" />
                   <span className="text-xs sm:text-sm">{feature}</span>

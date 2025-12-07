@@ -30,7 +30,10 @@ import {
   Upload,
   Loader2,
   Link as LinkIcon,
-  X
+  X,
+  Crown,
+  Gift,
+  Infinity as InfinityIcon
 } from "lucide-react";
 import { SiApple, SiGoogleplay, SiTiktok, SiYoutube } from "react-icons/si";
 import { motion, AnimatePresence } from "framer-motion";
@@ -673,6 +676,272 @@ export default function LandingPage() {
                 </a>
               </CardContent>
             </Card>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section className="py-20" id="pricing">
+        <div className="container mx-auto px-4">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-100 to-violet-100 dark:from-purple-900/30 dark:to-violet-900/30 mb-6">
+              <Crown className="w-5 h-5 text-purple-500" />
+              <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                Simple Pricing
+              </span>
+            </div>
+            
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Choose Your Plan</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Start free and upgrade when you need more. All plans include our core AI planning features.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+            {/* Free Plan */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0 }}
+            >
+              <Card className="h-full hover-elevate" data-testid="pricing-card-free">
+                <CardContent className="p-6">
+                  <div className="text-center mb-6">
+                    <h3 className="text-xl font-bold mb-1">Free</h3>
+                    <p className="text-muted-foreground text-sm">Get started</p>
+                    <div className="mt-4">
+                      <span className="text-4xl font-bold">$0</span>
+                      <span className="text-muted-foreground">/forever</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Upload className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      <span>3 imports/month</span>
+                    </div>
+                    <div className="flex items-start gap-2 bg-emerald-50 dark:bg-emerald-900/20 -mx-2 px-2 py-1.5 rounded-lg">
+                      <Gift className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-emerald-700 dark:text-emerald-300">
+                        <strong>+2 bonus</strong> when you publish to Discovery!
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      <span>AI Quick & Smart Plans</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      <span>Task management</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      <span>Journal entries</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      <span>Community plans</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <Link href="/login">
+                      <Button variant="outline" className="w-full" data-testid="button-pricing-free">
+                        Get Started
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Pro Monthly Plan */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="h-full hover-elevate border-2 border-blue-200 dark:border-blue-900" data-testid="pricing-card-pro-monthly">
+                <CardContent className="p-6">
+                  <div className="text-center mb-6">
+                    <h3 className="text-xl font-bold mb-1">Pro Monthly</h3>
+                    <p className="text-muted-foreground text-sm">For active planners</p>
+                    <div className="mt-4">
+                      <span className="text-4xl font-bold">$6.99</span>
+                      <span className="text-muted-foreground">/month</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Upload className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <span className="font-medium">50 imports/month</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <span>Everything in Free</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <span>Smart favorites</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <span>Journal insights</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <span>Export data</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <span>Priority support</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <Link href="/login">
+                      <Button className="w-full bg-blue-500 hover:bg-blue-600" data-testid="button-pricing-pro-monthly">
+                        Start Free Trial
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Pro Yearly Plan */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+            >
+              <Card className="h-full hover-elevate border-2 border-purple-200 dark:border-purple-900 relative" data-testid="pricing-card-pro-yearly">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-600 to-violet-600 text-white px-3 py-1 rounded-full text-xs font-medium">
+                  Best Value
+                </div>
+                <CardContent className="p-6">
+                  <div className="text-center mb-6">
+                    <h3 className="text-xl font-bold mb-1">Pro Yearly</h3>
+                    <p className="text-muted-foreground text-sm">Save 30%</p>
+                    <div className="mt-4">
+                      <span className="text-4xl font-bold">$59.99</span>
+                      <span className="text-muted-foreground">/year</span>
+                    </div>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                      ~$5/month
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center gap-2 font-medium">
+                      <InfinityIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      <span className="text-purple-700 dark:text-purple-300">Unlimited imports</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      <span>Everything in Pro Monthly</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      <span>No monthly limits</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      <span>Annual savings</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      <span>Priority support</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <Link href="/login">
+                      <Button className="w-full bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700" data-testid="button-pricing-pro-yearly">
+                        Start Free Trial
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Family Plan */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+            >
+              <Card className="h-full hover-elevate border-2 border-pink-200 dark:border-pink-900" data-testid="pricing-card-family">
+                <CardContent className="p-6">
+                  <div className="text-center mb-6">
+                    <h3 className="text-xl font-bold mb-1">Family & Friends</h3>
+                    <p className="text-muted-foreground text-sm">Up to 5 users</p>
+                    <div className="mt-4">
+                      <span className="text-4xl font-bold">$14.99</span>
+                      <span className="text-muted-foreground">/month</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center gap-2 font-medium">
+                      <InfinityIcon className="w-4 h-4 text-pink-500 flex-shrink-0" />
+                      <span className="text-pink-700 dark:text-pink-300">Unlimited imports</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-pink-500 flex-shrink-0" />
+                      <span>5 family members</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0" />
+                      <span>Shared plans</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0" />
+                      <span>Group progress tracking</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0" />
+                      <span>Collaborative planning</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-pink-500 flex-shrink-0" />
+                      <span>Priority support</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <Link href="/login">
+                      <Button className="w-full bg-pink-500 hover:bg-pink-600" data-testid="button-pricing-family">
+                        Start Free Trial
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.4 }}
+            className="text-center mt-10"
+          >
+            <p className="text-muted-foreground text-sm">
+              7-day free trial on all paid plans. Cancel anytime.
+            </p>
           </motion.div>
         </div>
       </section>
