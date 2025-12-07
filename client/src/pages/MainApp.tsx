@@ -3330,13 +3330,13 @@ export default function MainApp({
 
       <Dialog open={showLifestylePlanner} onOpenChange={onShowLifestylePlanner}>
         <DialogContent className="max-w-[95vw] sm:max-w-7xl h-[90vh] flex flex-col" data-testid="modal-lifestyle-planner">
-          <div className="flex items-start justify-between">
-            <DialogHeader className="pb-2">
+          <DialogHeader className="flex flex-row items-start justify-between pb-2">
+            <div>
               <DialogTitle className="text-2xl">Personal Journal</DialogTitle>
               <DialogDescription>
                 Capture your unique interests, preferences, and personal notes
               </DialogDescription>
-            </DialogHeader>
+            </div>
             <Button
               variant="ghost"
               size="icon"
@@ -3345,12 +3345,12 @@ export default function MainApp({
                 setTimeout(() => onShowLifestylePlanner(true), 100);
               }}
               data-testid="button-refresh-journal"
-              className="shrink-0 mt-0"
+              className="shrink-0"
               title="Refresh journal entries"
             >
               <RefreshCw className="w-4 h-4" />
             </Button>
-          </div>
+          </DialogHeader>
           <div className="flex-1 overflow-y-auto min-h-0">
             <PersonalJournal onClose={() => onShowLifestylePlanner(false)} />
           </div>
