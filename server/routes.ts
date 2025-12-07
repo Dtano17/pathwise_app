@@ -2385,6 +2385,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use AI to process the goal into tasks - switched to Claude as default
       const result = await aiService.processGoalIntoTasks(goalText, 'claude', userId, existingActivity);
       
+      // Generate importId if goal contains URL and has extracted venues
+      let importId: string | undefined;
+      const urlMatch = goalText.match(/https?:\/\/[^\s]+/i);
+      const sourceUrl = urlMatch ? urlMatch[0] : undefined;
+      
+      if (sourceUrl && result.allExtractedVenues && result.allExtractedVenues.length > 0) {
+        importId = `import_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Save all extracted venues to journalData with importId for alternatives
+        try {
+          const preferences = await storage.getUserPreferences(userId);
+          const currentJournalData = (preferences?.preferences as any)?.journalData || {};
+          
+          // Map venues to journal entries with importId
+          for (const venue of result.allExtractedVenues) {
+            const category = venue.category || 'restaurants';
+            const entries = currentJournalData[category] || [];
+            
+            entries.push({
+              id: `journal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              text: `${venue.venueName}${venue.description ? ` - ${venue.description}` : ''}`,
+              timestamp: new Date().toISOString(),
+              venueName: venue.venueName,
+              venueType: venue.venueType || category,
+              location: venue.location || result.planLocation,
+              budgetTier: venue.budgetTier,
+              priceRange: venue.priceRange,
+              estimatedCost: venue.estimatedCost,
+              sourceUrl: sourceUrl,
+              importId: importId
+            });
+            
+            currentJournalData[category] = entries;
+          }
+          
+          await storage.upsertUserPreferences(userId, {
+            preferences: {
+              ...preferences?.preferences,
+              journalData: currentJournalData
+            }
+          });
+          
+          console.log(`[GOALS/PROCESS] Saved ${result.allExtractedVenues.length} venues with importId ${importId}`);
+        } catch (venueError) {
+          console.error('[GOALS/PROCESS] Error saving venues:', venueError);
+        }
+      }
+      
       // Save or update conversation session for history
       if (sessionId) {
         await storage.updateLifestylePlannerSession(sessionId, {
@@ -2409,6 +2457,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         estimatedTimeframe: result.estimatedTimeframe,
         motivationalNote: result.motivationalNote,
         sessionId,
+        importId, // Include importId for alternatives lookup
+        sourceUrl, // Include sourceUrl for UI display
         message: `Generated ${result.tasks.length} task previews! Click "Create Activity" to save them.`
       });
     } catch (error) {

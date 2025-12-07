@@ -101,6 +101,7 @@ interface ClaudePlanOutputProps {
   isCreating?: boolean;
   backdrop?: string;
   sourceUrl?: string;
+  importId?: string;
   planMetadata?: PlanMetadata;
 }
 
@@ -179,15 +180,21 @@ function AlternativesSection({
       )}
       
       {!isLoading && !error && alternatives && alternatives.length === 0 && (
-        <p className="text-sm text-muted-foreground">No alternatives found in your journal for this location</p>
+        <p className="text-sm text-muted-foreground">
+          {importId || sourceUrl 
+            ? "No other items from this source available for swapping" 
+            : "No alternatives found for this location"}
+        </p>
       )}
       
       {!isLoading && !error && alternatives && alternatives.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 mb-2">
             <p className="text-xs text-muted-foreground">
-              Found {alternatives.length} alternative{alternatives.length !== 1 ? 's' : ''} from your journal
-              {sourceUrl && <span className="text-primary"> (same source)</span>}
+              Found {alternatives.length} alternative{alternatives.length !== 1 ? 's' : ''} 
+              {importId || sourceUrl 
+                ? <span className="text-primary"> from same source</span>
+                : ' from your journal'}
             </p>
             <Button
               variant="ghost"
@@ -303,6 +310,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
   isCreating = false,
   backdrop,
   sourceUrl,
+  importId,
   planMetadata
 }, ref) => {
   const { toast } = useToast();
@@ -681,22 +689,30 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
         </div>
       </Card>
 
-      {/* Source Label - Shows friendly platform name with icon */}
+      {/* Source Label - Shows friendly platform name with icon - clickable link to source */}
       {sourceUrl && (() => {
         const source = getSourceLabel(sourceUrl);
         return source ? (
           <div className="flex items-center gap-2" data-testid="source-label-container">
             <span className="text-xs text-muted-foreground">Inspired by:</span>
-            <Badge 
-              variant="outline" 
-              className="gap-1.5 py-1 px-2"
-              data-testid="badge-source-label"
+            <a 
+              href={sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex"
+              data-testid="link-source-url"
             >
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center ${source.color}`}>
-                {source.icon}
-              </span>
-              <span className="text-xs font-medium">{source.name}</span>
-            </Badge>
+              <Badge 
+                variant="outline" 
+                className="gap-1.5 py-1 px-2 cursor-pointer hover-elevate"
+                data-testid="badge-source-label"
+              >
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center ${source.color}`}>
+                  {source.icon}
+                </span>
+                <span className="text-xs font-medium">{source.name}</span>
+              </Badge>
+            </a>
           </div>
         ) : null;
       })()}
@@ -823,6 +839,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
                         location={getAlternativesLocation()}
                         budgetTier={planMetadata?.budgetTier}
                         sourceUrl={sourceUrl}
+                        importId={importId}
                         isExpanded={expandedAlternatives.has(index)}
                         isDocked={dockedAlternatives.has(index)}
                         matchBudget={matchBudgetFilter}

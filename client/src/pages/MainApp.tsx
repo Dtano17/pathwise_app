@@ -137,6 +137,7 @@ export default function MainApp({
     motivationalNote?: string;
     activityId?: string;
     sourceUrl?: string;
+    importId?: string;
   } | null>(null);
 
   // Conversation history for contextual plan regeneration
@@ -847,10 +848,11 @@ export default function MainApp({
         estimatedTimeframe: data.estimatedTimeframe,
         motivationalNote: data.motivationalNote,
         activityId: preservedActivityId, // Preserve activity ID if it exists
-        sourceUrl: sourceUrl // Include source URL for auto-journaling
+        sourceUrl: data.sourceUrl || sourceUrl, // Prefer API response, fallback to ref
+        importId: data.importId // Include importId for alternatives lookup
       };
       
-      console.log('📋 New plan output:', { ...newPlanOutput, tasks: `${newPlanOutput.tasks.length} tasks`, sourceUrl });
+      console.log('📋 New plan output:', { ...newPlanOutput, tasks: `${newPlanOutput.tasks.length} tasks`, sourceUrl: newPlanOutput.sourceUrl, importId: newPlanOutput.importId });
       setCurrentPlanOutput(newPlanOutput);
 
       // Auto-save conversation session
@@ -1978,6 +1980,7 @@ export default function MainApp({
                     backdrop={activities?.find(a => a.id === currentPlanOutput.activityId)?.backdrop ?? undefined}
                     showConfetti={true}
                     sourceUrl={currentPlanOutput.sourceUrl}
+                    importId={currentPlanOutput.importId}
                   />
                   
                   {/* Action buttons */}
