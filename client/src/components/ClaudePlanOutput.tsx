@@ -233,11 +233,10 @@ function AlternativesSection({
                           {alt.budgetTier}
                         </Badge>
                       )}
-                      {alt.priceRange && (
-                        <span className="text-xs text-muted-foreground">{alt.priceRange}</span>
-                      )}
-                      {alt.estimatedCost && (
+                      {alt.estimatedCost ? (
                         <span className="text-xs text-muted-foreground">${alt.estimatedCost}</span>
+                      ) : alt.priceRange && (
+                        <span className="text-xs text-muted-foreground">{alt.priceRange}</span>
                       )}
                     </div>
                   )}

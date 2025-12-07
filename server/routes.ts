@@ -3021,7 +3021,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 if (!item.venueName) return false;
                 return true;
               })
-              .slice(0, 20)
               .map((item: any) => ({
                 id: item.id,
                 venueName: item.venueName,
@@ -3136,8 +3135,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // NO FALLBACK: Only return venues from the matching city
       // If no alternatives found for the location, return empty array
       
-      // Format response
-      const response = alternatives.slice(0, 20).map(entry => ({
+      // Format response - return all alternatives (no hard limit)
+      const response = alternatives.map(entry => ({
         id: entry.id,
         venueName: entry.venueName,
         venueType: entry.venueType || entry.journalCategory,
