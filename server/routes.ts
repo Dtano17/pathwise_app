@@ -10300,7 +10300,7 @@ You can find these tasks in your task list and start working on them right away!
   app.post("/api/user/journal/batch", async (req: any, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
-      const { entries } = req.body;
+      const { entries, subcategory } = req.body;
       
       const batchEntrySchema = z.object({
         category: z.string(),
@@ -10335,16 +10335,73 @@ You can find these tasks in your task list and start working on them right away!
       const currentPrefs = prefs?.preferences || {};
       const journalData: Record<string, any[]> = { ...(currentPrefs.journalData || {}) };
       
-      for (const { category, entry } of parsed.data) {
-        if (!journalData[category]) {
-          journalData[category] = [];
+      // Track custom categories for smart categorization
+      let existingCustomCategories: Record<string, DynamicCategoryInfo> = {};
+      if (Array.isArray(currentPrefs.customJournalCategories)) {
+        for (const cat of currentPrefs.customJournalCategories) {
+          existingCustomCategories[cat.id] = {
+            id: cat.id,
+            label: cat.name || cat.label || cat.id,
+            emoji: cat.emoji || '',
+            color: cat.color || 'from-teal-500 to-cyan-500'
+          };
         }
-        journalData[category].push(entry);
+      } else if (currentPrefs.customJournalCategories) {
+        existingCustomCategories = currentPrefs.customJournalCategories;
+      }
+      const newDynamicCategories: Record<string, DynamicCategoryInfo> = {};
+      
+      for (const { category, entry } of parsed.data) {
+        let finalCategory = category;
+        
+        // Apply smart categorization when venueType is provided and category is generic
+        if (typeof entry === 'object' && entry.venueType) {
+          const venueType = entry.venueType;
+          const entrySubcategory = subcategory || venueType;
+          
+          console.log(`[JOURNAL BATCH] Smart categorizing: venueType="${venueType}", subcategory="${entrySubcategory}", original category="${category}"`);
+          
+          // Only apply smart categorization for generic categories
+          if (category === 'notes' || category === 'hobbies') {
+            const { category: smartCategory, dynamicInfo } = getBestJournalCategory(
+              venueType,
+              entrySubcategory,
+              'other' as any
+            );
+            
+            if (dynamicInfo && !existingCustomCategories[dynamicInfo.id]) {
+              newDynamicCategories[dynamicInfo.id] = dynamicInfo;
+              console.log(`[JOURNAL BATCH] Created dynamic category: ${dynamicInfo.emoji} ${dynamicInfo.label}`);
+            }
+            
+            finalCategory = smartCategory;
+            console.log(`[JOURNAL BATCH] Smart category result: "${finalCategory}"`);
+          }
+        }
+        
+        if (!journalData[finalCategory]) {
+          journalData[finalCategory] = [];
+        }
+        journalData[finalCategory].push(entry);
       }
       
+      // Merge new dynamic categories
+      const updatedCustomCategories = {
+        ...existingCustomCategories,
+        ...newDynamicCategories
+      };
+      
       await storage.upsertUserPreferences(userId, {
-        preferences: { ...currentPrefs, journalData }
+        preferences: { 
+          ...currentPrefs, 
+          journalData,
+          customJournalCategories: updatedCustomCategories
+        }
       });
+      
+      if (Object.keys(newDynamicCategories).length > 0) {
+        console.log(`[JOURNAL BATCH] Created ${Object.keys(newDynamicCategories).length} new custom categories`);
+      }
       
       // Invalidate user context cache
       aiService.invalidateUserContext(userId);
