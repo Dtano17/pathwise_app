@@ -479,8 +479,12 @@ export function formatBudgetTierForDisplay(tier: BudgetTier | null): string {
 
 export type JournalCategory = 
   | "restaurants"
-  | "travel"
+  | "movies"
+  | "music"
+  | "books"
   | "hobbies"
+  | "travel"
+  | "style"
   | "favorites"
   | "notes";
 
@@ -513,6 +517,22 @@ export function mapVenueTypeToJournalCategory(venueType: string, fallbackCategor
   
   if (['restaurant', 'restaurants', 'dining', 'eatery', 'cafe', 'coffee', 'bakery', 'food', 'bistro'].some(t => normalizedType.includes(t))) {
     return "restaurants";
+  }
+  
+  if (['book', 'books', 'reading', 'library', 'author', 'novel', 'literature', 'bookstore', 'memoir', 'fiction', 'nonfiction', 'bestseller'].some(t => normalizedType.includes(t))) {
+    return "books";
+  }
+  
+  if (['movie', 'movies', 'film', 'films', 'cinema', 'theater', 'tv', 'television', 'show', 'shows', 'series', 'netflix', 'streaming', 'actor', 'actress', 'director'].some(t => normalizedType.includes(t))) {
+    return "movies";
+  }
+  
+  if (['music', 'song', 'songs', 'artist', 'artists', 'band', 'bands', 'album', 'albums', 'playlist', 'spotify', 'concert', 'singer', 'musician'].some(t => normalizedType.includes(t))) {
+    return "music";
+  }
+  
+  if (['fashion', 'style', 'clothing', 'outfit', 'clothes', 'wardrobe', 'brand', 'designer', 'wear'].some(t => normalizedType.includes(t))) {
+    return "style";
   }
   
   if (['bar', 'pub', 'club', 'nightclub', 'lounge', 'nightlife', 'brewery', 'winery'].some(t => normalizedType.includes(t))) {
@@ -573,7 +593,8 @@ const EMOJI_KEYWORDS: Record<string, string> = {
   travel: '\u2708', trip: '\u2708', vacation: '\u{1F3D6}',
   fitness: '\u{1F4AA}', gym: '\u{1F4AA}', workout: '\u{1F3CB}',
   movie: '\u{1F3AC}', cinema: '\u{1F3AC}', film: '\u{1F3AC}',
-  theater: '\u{1F3AD}', show: '\u{1F3AD}', performance: '\u{1F3AD}'
+  theater: '\u{1F3AD}', show: '\u{1F3AD}', performance: '\u{1F3AD}',
+  book: '\u{1F4DA}', books: '\u{1F4DA}', reading: '\u{1F4DA}', library: '\u{1F4DA}', author: '\u{1F4DA}', novel: '\u{1F4DA}', literature: '\u{1F4DA}', bookstore: '\u{1F4DA}', memoir: '\u{1F4DA}', fiction: '\u{1F4DA}', nonfiction: '\u{1F4DA}', bestseller: '\u{1F4DA}'
 };
 
 // Gradient colors for dynamic categories (deterministic based on category id)
@@ -659,8 +680,9 @@ export function getBestJournalCategory(
   const standardCategory = mapVenueTypeToJournalCategory(venueType, fallbackCategory);
   console.log(`  - standardCategory result: "${standardCategory}"`);
   
-  // If we get a specific standard category (restaurants, travel, favorites), use it
-  if (standardCategory === 'restaurants' || standardCategory === 'travel' || standardCategory === 'favorites') {
+  // If we get a specific standard category, use it (all standard categories except generic ones like 'notes' and 'hobbies')
+  const specificStandardCategories = ['restaurants', 'travel', 'favorites', 'books', 'movies', 'music', 'style'];
+  if (specificStandardCategories.includes(standardCategory)) {
     console.log(`[CATEGORIZATION] Using specific standard category: ${standardCategory}`);
     return { category: standardCategory, dynamicInfo: null };
   }

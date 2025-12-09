@@ -40,6 +40,7 @@ interface RichJournalEntry {
   sourceUrl?: string;
   venueName?: string;
   venueType?: string;
+  subcategory?: string;
 }
 
 type JournalItem = string | RichJournalEntry;
@@ -126,6 +127,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   // Filter states
   const [locationFilter, setLocationFilter] = useState<string>('all');
   const [budgetFilter, setBudgetFilter] = useState<string>('all');
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all');
 
   const categories = [
     { id: 'restaurants', label: 'Restaurants & Food', icon: Utensils, color: 'from-orange-500 to-red-500' },

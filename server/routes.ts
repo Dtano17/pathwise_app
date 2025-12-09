@@ -10457,7 +10457,8 @@ You can find these tasks in your task list and start working on them right away!
             estimatedCost: z.number().optional(),
             sourceUrl: z.string().optional(),
             venueName: z.string().optional(),
-            venueType: z.string().optional()
+            venueType: z.string().optional(),
+            subcategory: z.string().optional()
           })
         ])
       });
@@ -10520,7 +10521,16 @@ You can find these tasks in your task list and start working on them right away!
         if (!journalData[finalCategory]) {
           journalData[finalCategory] = [];
         }
-        journalData[finalCategory].push(entry);
+        
+        // Ensure subcategory is stored in the entry for filtering
+        let entryToStore = entry;
+        if (typeof entry === 'object') {
+          const entrySubcat = entry.subcategory || subcategory || entry.venueType;
+          if (entrySubcat) {
+            entryToStore = { ...entry, subcategory: entrySubcat };
+          }
+        }
+        journalData[finalCategory].push(entryToStore);
       }
       
       // Merge new dynamic categories
