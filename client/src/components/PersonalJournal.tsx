@@ -18,7 +18,7 @@ import {
   Save, Plus, X, Utensils, Palette, Book, Sparkles,
   Plane, Home, ShoppingBag, Gamepad2, Folder, Wand2,
   Package, BarChart3, FileText, Target, Cloud, Users,
-  Loader2, TrendingUp, PenTool, Copy, Check, RefreshCw
+  Loader2, TrendingUp, PenTool, Copy, Check, RefreshCw, Trash2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
@@ -112,6 +112,8 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const [journalData, setJournalData] = useState<Record<string, JournalItem[]>>({});
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
+  const [showDeleteCategoryDialog, setShowDeleteCategoryDialog] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<CustomCategory | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [selectedColor, setSelectedColor] = useState('from-teal-500 to-cyan-500');
   
@@ -279,6 +281,38 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       toast({
         title: "Failed to Create Category",
         description: errorMessage,
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Delete custom category mutation
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (categoryId: string) => {
+      // Remove the category from the list
+      const updatedCategories = customCategories.filter(c => c.id !== categoryId);
+      const response = await apiRequest('PUT', '/api/user/journal/custom-categories', {
+        customJournalCategories: updatedCategories
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      setShowDeleteCategoryDialog(false);
+      setCategoryToDelete(null);
+      // If we deleted the active category, switch to default
+      if (categoryToDelete && activeCategory === categoryToDelete.id) {
+        setActiveCategory('restaurants');
+      }
+      toast({
+        title: "Category Deleted",
+        description: "The category and its entries have been removed.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Failed to Delete",
+        description: "Could not delete category. Please try again.",
         variant: "destructive"
       });
     }
@@ -614,27 +648,47 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                   const Icon = category.icon;
                   const isActive = activeCategory === category.id;
                   const itemCount = journalData[category.id]?.length || 0;
+                  const isCustom = 'isCustom' in category && category.isCustom;
                   
                   return (
-                    <Button
-                      key={category.id}
-                      variant={isActive ? "secondary" : "ghost"}
-                      className={`w-full justify-start gap-3 h-auto py-3 px-3 ${isActive ? 'bg-primary/10' : ''}`}
-                      onClick={() => setActiveCategory(category.id)}
-                      data-testid={`category-${category.id}`}
-                    >
-                      <div className={`p-2 rounded-lg bg-gradient-to-br ${category.color} text-white flex-shrink-0`}>
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <div className="text-sm font-medium">{category.label}</div>
-                        {itemCount > 0 && (
-                          <div className="text-xs text-muted-foreground">
-                            {itemCount} {itemCount === 1 ? 'entry' : 'entries'}
-                          </div>
-                        )}
-                      </div>
-                    </Button>
+                    <div key={category.id} className="relative group">
+                      <Button
+                        variant={isActive ? "secondary" : "ghost"}
+                        className={`w-full justify-start gap-3 h-auto py-3 px-3 ${isActive ? 'bg-primary/10' : ''} ${isCustom ? 'pr-10' : ''}`}
+                        onClick={() => setActiveCategory(category.id)}
+                        data-testid={`category-${category.id}`}
+                      >
+                        <div className={`p-2 rounded-lg bg-gradient-to-br ${category.color} text-white flex-shrink-0`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="text-sm font-medium">{category.label}</div>
+                          {itemCount > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              {itemCount} {itemCount === 1 ? 'entry' : 'entries'}
+                            </div>
+                          )}
+                        </div>
+                      </Button>
+                      {isCustom && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const customCat = customCategories.find(c => c.id === category.id);
+                            if (customCat) {
+                              setCategoryToDelete(customCat);
+                              setShowDeleteCategoryDialog(true);
+                            }
+                          }}
+                          data-testid={`button-delete-category-${category.id}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   );
                 })}
                 
@@ -1385,6 +1439,43 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
           data-testid="button-create-category"
         >
           {saveCustomCategoryMutation.isPending ? 'Creating...' : 'Create Category'}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* Delete Category Confirmation Dialog */}
+  <Dialog open={showDeleteCategoryDialog} onOpenChange={setShowDeleteCategoryDialog}>
+    <DialogContent className="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle>Delete Category</DialogTitle>
+        <DialogDescription>
+          Are you sure you want to delete "{categoryToDelete?.label || categoryToDelete?.name}"? 
+          All entries in this category will be permanently removed.
+        </DialogDescription>
+      </DialogHeader>
+      
+      <DialogFooter className="gap-2 sm:gap-0">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowDeleteCategoryDialog(false);
+            setCategoryToDelete(null);
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={() => {
+            if (categoryToDelete) {
+              deleteCategoryMutation.mutate(categoryToDelete.id);
+            }
+          }}
+          disabled={deleteCategoryMutation.isPending}
+          data-testid="button-confirm-delete-category"
+        >
+          {deleteCategoryMutation.isPending ? 'Deleting...' : 'Delete Category'}
         </Button>
       </DialogFooter>
     </DialogContent>
