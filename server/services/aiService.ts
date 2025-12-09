@@ -906,10 +906,25 @@ BAD TITLES (NEVER USE):
 - "Activity Plan" ❌
 - "New Plan" ❌
 
-## CRITICAL: EXTRACT ALL VENUES/ITEMS FROM CONTENT
-You MUST extract EVERY venue, restaurant, bar, cafe, hotel, attraction, or place mentioned in the content.
-If the content mentions 59 restaurants, you must list ALL 59 in "allExtractedVenues".
-Only ${taskCountRange} will be used for tasks, but ALL venues must be saved for the user's journal and swap alternatives.
+## ⚠️ CRITICAL: EXTRACT 100% OF ALL VENUES - NO EXCEPTIONS ⚠️
+
+**STEP 1 - COUNT ALL ITEMS FIRST:**
+Scan the entire content and COUNT how many venues/restaurants/places/items are mentioned.
+If you count 10 items, you MUST output exactly 10 entries in allExtractedVenues.
+If you count 18 items, you MUST output exactly 18 entries in allExtractedVenues.
+NEVER skip any item. NEVER output fewer items than you counted.
+
+**RULES:**
+- If content mentions 10 items → allExtractedVenues must have exactly 10 entries
+- If content mentions 59 items → allExtractedVenues must have exactly 59 entries
+- NEVER output fewer venues than mentioned in the source content
+- Only ${taskCountRange} tasks will be generated, but allExtractedVenues captures EVERYTHING
+
+**COMMON MISTAKES TO AVOID:**
+- Stopping at 8-10 venues when there are more
+- Skipping venues that appear at the end of the content
+- Only extracting "top" or "main" venues instead of ALL venues
+- Summarizing multiple venues into one entry
 
 ## RESPOND WITH JSON:
 {
@@ -1380,8 +1395,11 @@ For longer goals (like "2 months"), create milestone-based progression with spec
     goalText: string,
     userPriorities: any[] = [],
     userContext: string | null = null,
-    existingActivity?: { title: string; tasks: Array<{ title: string; description?: string }> }
+    existingActivity?: { title: string; tasks: Array<{ title: string; description?: string }> },
+    retryAttempt: number = 0
   ): Promise<GoalProcessingResult> {
+    const MAX_RETRIES = 1; // Allow one retry for incomplete extractions
+    
     try {
       // Check if this is social media content that requires strict grounding
       const hasSocialMediaContent = this.isSocialMediaContent(goalText);
@@ -1442,6 +1460,12 @@ You may ONLY add tasks for:
 
 **SCAN THE CONTENT NOW AND LIST ALL VENUES/ACTIVITIES:**
 Before generating tasks, mentally list every venue, activity, and price from the OCR and caption. Each one MUST become a task.
+
+**STEP 1 - COUNT ALL ITEMS FIRST:**
+Scan the entire content and COUNT how many venues/restaurants/places/items are mentioned.
+If you count 10 items, you MUST output exactly 10 entries in allExtractedVenues.
+If you count 18 items, you MUST output exactly 18 entries in allExtractedVenues.
+NEVER skip any item. NEVER output fewer items than you counted.
 ` : "";
 
       // Detect if this is a URL import (starts with "URL:" or contains "Content from URL:")
@@ -1499,10 +1523,25 @@ NEVER use generic titles like "Generated Plan", "Plan from URL", "New Activity",
   "motivationalNote": "An encouraging message to keep the user motivated (1 sentence)"
 }${hasSocialMediaContent ? `
 
-## CRITICAL: EXTRACT ALL VENUES
-If the content mentions 59 restaurants, you MUST list ALL 59 in "allExtractedVenues".
-Do NOT skip any venue. Each venue from the source content must have an entry in allExtractedVenues.
-The tasks array can have 6-9 selected items, but allExtractedVenues must contain EVERY venue from the source.` : ''}
+## ⚠️ CRITICAL: EXTRACT 100% OF ALL VENUES - NO EXCEPTIONS ⚠️
+
+**VERIFICATION STEP (DO THIS FIRST):**
+1. Count every single venue/restaurant/bar/cafe/hotel/attraction mentioned in the content
+2. Write down the total count
+3. Your allExtractedVenues array MUST have EXACTLY that many entries
+
+**RULES:**
+- If content mentions 10 items → allExtractedVenues must have exactly 10 entries
+- If content mentions 18 items → allExtractedVenues must have exactly 18 entries
+- If content mentions 59 items → allExtractedVenues must have exactly 59 entries
+- NEVER output fewer venues than mentioned in the source content
+- The tasks array can have 6-9 selected items, but allExtractedVenues captures EVERYTHING
+
+**COMMON MISTAKES TO AVOID:**
+- Stopping at 8-10 venues when there are more
+- Skipping venues that appear at the end of the content
+- Only extracting "top" or "main" venues instead of ALL venues
+- Summarizing multiple venues into one entry` : ''}
 
 CRITICAL - Generate 6-9 specific, actionable tasks (occasionally 5 for very simple goals):
 - ALWAYS include a "timeEstimate" for every single task - never omit this field
@@ -1597,6 +1636,50 @@ Time Estimate Examples:
         if (processedResult.planLocation) {
           console.log(`[AISERVICE] Plan location: ${processedResult.planLocation.city || 'Unknown'}, ${processedResult.planLocation.country || 'Unknown'}`);
         }
+        
+        // VALIDATION: Estimate expected venue count from content and compare
+        const estimatedVenueCount = this.estimateVenueCount(goalText);
+        const extractedCount = processedResult.allExtractedVenues.length;
+        
+        if (estimatedVenueCount > 0) {
+          const extractionRate = extractedCount / estimatedVenueCount;
+          const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+          console.log(`[AISERVICE] Venue extraction validation [${requestId}]: extracted ${extractedCount}/${estimatedVenueCount} venues (${Math.round(extractionRate * 100)}%), attempt=${retryAttempt + 1}`);
+          
+          // If extraction rate is below threshold (<90%) and we haven't retried yet, retry with stricter prompt
+          // Using 90% threshold to catch cases like 8/10 (80%) which was the original bug
+          const RETRY_THRESHOLD = 0.9;
+          const WARNING_THRESHOLD = 0.95;
+          
+          if (extractionRate < RETRY_THRESHOLD && retryAttempt < MAX_RETRIES) {
+            console.warn(`[AISERVICE] ⚠️ INCOMPLETE EXTRACTION [${requestId}]: Only ${extractedCount}/${estimatedVenueCount} venues (${Math.round(extractionRate * 100)}%). RETRYING...`);
+            
+            // Retry with stronger emphasis on counting
+            const retryGoalText = `${goalText}\n\n### CRITICAL RETRY INSTRUCTION ###\nThe previous extraction attempt only captured ${extractedCount} venues but there should be approximately ${estimatedVenueCount} venues in this content. COUNT EVERY SINGLE VENUE and include ALL of them in allExtractedVenues. Do NOT skip any.`;
+            
+            return this.processGoalWithClaude(retryGoalText, userPriorities, userContext, existingActivity, retryAttempt + 1);
+          }
+          
+          // Log warning if still below threshold after retries
+          if (extractionRate < WARNING_THRESHOLD) {
+            console.warn(`[AISERVICE] ⚠️ POSSIBLE INCOMPLETE EXTRACTION [${requestId}]: Only ${extractedCount} venues extracted but content suggests ~${estimatedVenueCount} venues`);
+            console.warn(`[AISERVICE] Extraction details [${requestId}]: extracted=${extractedCount}, estimated=${estimatedVenueCount}, rate=${Math.round(extractionRate * 100)}%, attempts=${retryAttempt + 1}`);
+          }
+        }
+      } else if (hasSocialMediaContent) {
+        // Social media content but no venues extracted - log telemetry and consider retry
+        const estimatedVenueCount = this.estimateVenueCount(goalText);
+        if (estimatedVenueCount > 0) {
+          const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+          console.warn(`[AISERVICE] ⚠️ ZERO VENUES EXTRACTED [${requestId}] from social media content that appears to contain ~${estimatedVenueCount} venues`);
+          
+          // Retry if we haven't already
+          if (retryAttempt < MAX_RETRIES) {
+            console.warn(`[AISERVICE] RETRYING extraction [${requestId}]...`);
+            const retryGoalText = `${goalText}\n\n### CRITICAL RETRY INSTRUCTION ###\nThe previous extraction attempt returned ZERO venues but there should be approximately ${estimatedVenueCount} venues in this content. COUNT EVERY SINGLE VENUE and include ALL of them in allExtractedVenues.`;
+            return this.processGoalWithClaude(retryGoalText, userPriorities, userContext, existingActivity, retryAttempt + 1);
+          }
+        }
       }
 
       return processedResult;
@@ -1682,6 +1765,69 @@ Examples: "Try a 10-minute morning meditation", "Take a walk after lunch", "Sche
       return priority;
     }
     return "medium"; // Default fallback
+  }
+
+  /**
+   * Estimate the number of venues mentioned in content using regex patterns.
+   * Used for validation to detect incomplete AI extractions.
+   */
+  private estimateVenueCount(content: string): number {
+    // Look for patterns that typically indicate venue names in social media content:
+    // 1. Title case words followed by location indicators (VI, Lekki, Ikoyi, etc.)
+    // 2. Numbered lists (1. Venue, 2. Venue)
+    // 3. Bullet points with venue names
+    // 4. Price indicators next to venue-like names
+    
+    let count = 0;
+    
+    // Pattern 1: Look for numbered items in lists (1. X, 2. Y, etc.)
+    const numberedListPattern = /(?:^|\n)\s*(\d{1,2})[.\)]\s*[A-Z][a-zA-Z]+/g;
+    const numberedMatches = content.match(numberedListPattern) || [];
+    
+    // Pattern 2: Look for venue indicators with prices (common in restaurant lists)
+    const venueWithPricePattern = /[A-Z][a-zA-Z\s'&-]{2,30}[\s\-–—]+[₦$€£]\d/g;
+    const priceMatches = content.match(venueWithPricePattern) || [];
+    
+    // Pattern 3: Look for bullet point items starting with capitalized words
+    const bulletPattern = /(?:^|\n)\s*[-•*]\s*[A-Z][a-zA-Z]+/g;
+    const bulletMatches = content.match(bulletPattern) || [];
+    
+    // Pattern 4: Look for OCR-extracted line items (CAPS words with location)
+    const ocrVenuePattern = /[A-Z]{2,}[A-Za-z\s]+(?:VI|Lagos|Lekki|Ikoyi|Yaba)/gi;
+    const ocrMatches = content.match(ocrVenuePattern) || [];
+    
+    // Pattern 5: Look for explicit venue types followed by names
+    const venueTypePattern = /(?:restaurant|bar|cafe|hotel|spa|club|lounge|rooftop|bistro|grill|kitchen|eatery)[\s:–-]+[A-Z][a-zA-Z]+/gi;
+    const venueTypeMatches = content.match(venueTypePattern) || [];
+    
+    // Take the maximum of the different patterns as our estimate
+    // (different content formats will match different patterns)
+    count = Math.max(
+      numberedMatches.length,
+      priceMatches.length,
+      bulletMatches.length,
+      ocrMatches.length,
+      venueTypeMatches.length
+    );
+    
+    // Also check if there's an explicit count mentioned in the content (e.g., "18 restaurants", "Top 10 spots")
+    const explicitCountPattern = /(\d{1,2})\s*(?:hot new|best|top|must-visit|favorite)?\s*(?:restaurants?|bars?|cafes?|spots?|places?|venues?|hotels?)/gi;
+    const explicitMatch = content.match(explicitCountPattern);
+    if (explicitMatch) {
+      for (const match of explicitMatch) {
+        const numMatch = match.match(/(\d{1,2})/);
+        if (numMatch) {
+          const explicitNum = parseInt(numMatch[1], 10);
+          if (explicitNum > count) {
+            count = explicitNum;
+          }
+        }
+      }
+    }
+    
+    console.log(`[AISERVICE] Venue count estimation: numbered=${numberedMatches.length}, priced=${priceMatches.length}, bullets=${bulletMatches.length}, ocr=${ocrMatches.length}, venueType=${venueTypeMatches.length}, final estimate=${count}`);
+    
+    return count;
   }
 
   private generateFallbackTitle(content: string): string {
