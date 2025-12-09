@@ -20,6 +20,12 @@ import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
 import Support from "@/pages/Support";
 import LandingPage from "@/pages/LandingPage";
+import ChatGPTPlanTracker from "@/pages/ChatGPTPlanTracker";
+import ClaudeIntegration from "@/pages/ClaudeIntegration";
+import WeekendPlans from "@/pages/WeekendPlans";
+import FAQ from "@/pages/FAQ";
+import PerplexityPlans from "@/pages/PerplexityPlans";
+import SocialMediaSaver from "@/pages/SocialMediaSaver";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
 import { useAuth } from "@/hooks/useAuth";
@@ -122,6 +128,16 @@ function AppContent() {
 
         {/* Support & Help Page (no sidebar) */}
         <Route path="/support" component={Support} />
+
+        {/* SEO Landing Pages - AI Integration */}
+        <Route path="/chatgpt-plan-tracker" component={ChatGPTPlanTracker} />
+        <Route path="/claude-ai-integration" component={ClaudeIntegration} />
+        <Route path="/perplexity-plans" component={PerplexityPlans} />
+
+        {/* SEO Landing Pages - Discovery */}
+        <Route path="/weekend-plans" component={WeekendPlans} />
+        <Route path="/save-social-media" component={SocialMediaSaver} />
+        <Route path="/faq" component={FAQ} />
 
         {/* Main App Route - Shows landing page for unauthenticated users, main app for authenticated */}
         <Route path="/">

@@ -935,7 +935,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
-  
+
+  // ========== SITEMAP FOR SEO ==========
+  // Dynamic sitemap.xml for search engines and AI crawlers
+  app.get('/sitemap.xml', async (_req, res) => {
+    try {
+      const baseUrl = 'https://journalmate.ai';
+
+      // Static pages with SEO priority
+      const staticPages = [
+        { url: '/', priority: 1.0, changefreq: 'weekly' },
+        { url: '/discover', priority: 0.9, changefreq: 'daily' },
+        { url: '/chatgpt-plan-tracker', priority: 0.9, changefreq: 'monthly' },
+        { url: '/claude-ai-integration', priority: 0.9, changefreq: 'monthly' },
+        { url: '/perplexity-plans', priority: 0.9, changefreq: 'monthly' },
+        { url: '/gemini-plan-importer', priority: 0.9, changefreq: 'monthly' },
+        { url: '/save-social-media', priority: 0.9, changefreq: 'weekly' },
+        { url: '/weekend-plans', priority: 0.85, changefreq: 'weekly' },
+        { url: '/plans-near-me', priority: 0.85, changefreq: 'weekly' },
+        { url: '/christmas-plans', priority: 0.8, changefreq: 'monthly' },
+        { url: '/new-year-activities', priority: 0.8, changefreq: 'monthly' },
+        { url: '/summer-adventures', priority: 0.8, changefreq: 'monthly' },
+        { url: '/winter-plans', priority: 0.8, changefreq: 'monthly' },
+        { url: '/date-night-ideas', priority: 0.8, changefreq: 'weekly' },
+        { url: '/family-activities', priority: 0.8, changefreq: 'weekly' },
+        { url: '/trending-plans', priority: 0.85, changefreq: 'daily' },
+        { url: '/faq', priority: 0.7, changefreq: 'monthly' },
+        { url: '/privacy', priority: 0.5, changefreq: 'yearly' },
+        { url: '/terms', priority: 0.5, changefreq: 'yearly' },
+        { url: '/support', priority: 0.6, changefreq: 'monthly' },
+      ];
+
+      // Fetch public community plans for dynamic URLs
+      const publicPlans = await db.query.activities.findMany({
+        where: eq(activities.communityStatus, 'live'),
+        limit: 1000,
+        columns: {
+          shareToken: true,
+          updatedAt: true,
+        }
+      });
+
+      // Build dynamic URLs from public plans
+      const dynamicUrls = publicPlans.map(plan => ({
+        url: `/share/${plan.shareToken}`,
+        priority: 0.6,
+        changefreq: 'weekly',
+        lastmod: plan.updatedAt instanceof Date ? plan.updatedAt.toISOString() : new Date(plan.updatedAt).toISOString()
+      }));
+
+      // Combine static and dynamic URLs
+      const allUrls = [...staticPages, ...dynamicUrls];
+
+      // Generate XML sitemap
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${allUrls.map(page => `  <url>
+    <loc>${baseUrl}${page.url}</loc>
+    <changefreq>${page.changefreq}</changefreq>
+    <priority>${page.priority}</priority>${page.lastmod ? `
+    <lastmod>${page.lastmod}</lastmod>` : ''}
+  </url>`).join('\n')}
+</urlset>`;
+
+      res.header('Content-Type', 'application/xml');
+      res.send(xml);
+    } catch (error) {
+      console.error('Error generating sitemap:', error);
+      res.status(500).send('Error generating sitemap');
+    }
+  });
+
   // ========== INTEGRATION STATUS ENDPOINT ==========
   // Shows status of content extraction integrations (Apify, Tavily)
   app.get("/api/integrations/status", async (_req, res) => {

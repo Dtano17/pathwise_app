@@ -1,0 +1,36 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow private/authenticated areas
+Disallow: /api/
+Disallow: /auth/
+Disallow: /dashboard
+Disallow: /settings
+
+# AI Crawlers - Explicitly allow SEO-optimized pages
+User-agent: GPTBot
+Allow: /
+Allow: /chatgpt-plan-tracker
+Allow: /claude-ai-integration
+Allow: /gemini-plan-importer
+Allow: /perplexity-plans
+Allow: /save-social-media
+Allow: /weekend-plans
+Allow: /christmas-plans
+Allow: /date-night-ideas
+Allow: /family-activities
+Allow: /discover
+Allow: /faq
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Perplexity-Bot
+Allow: /
+
+# Sitemap location
+Sitemap: https://journalmate.ai/sitemap.xml

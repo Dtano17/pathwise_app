@@ -561,7 +561,8 @@ body, html {
 }
 
 /* Responsive improvements for mobile */
-@media (max-width: 640px) {
+/* Aligned with React hook MOBILE_BREAKPOINT = 768 */
+@media (max-width: 767px) {
   .container {
     padding-left: 0.5rem;
     padding-right: 0.5rem;
@@ -755,7 +756,8 @@ body, html {
 }
 
 /* Tablet optimizations (portrait and landscape) */
-@media (min-width: 641px) and (max-width: 1024px) {
+/* Aligned with React hooks: MOBILE_BREAKPOINT = 768, TABLET_BREAKPOINT = 1024 */
+@media (min-width: 768px) and (max-width: 1023px) {
   .container {
     padding-left: 1rem;
     padding-right: 1rem;

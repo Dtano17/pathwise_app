@@ -65,7 +65,7 @@ export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onTaskSnoo
   );
 
   return (
-    <div className="space-y-6 p-6 md:p-6 p-4 touch-pan-y">
+    <div className="space-y-6 p-4 md:p-6 touch-pan-y">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <CheckSquare className="w-6 h-6 text-primary" />
