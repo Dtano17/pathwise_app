@@ -185,6 +185,11 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     }
   }, [userData]);
 
+  // Reset subcategory filter when category changes
+  useEffect(() => {
+    setSubcategoryFilter('all');
+  }, [activeCategory]);
+
   // Merge default and custom categories (custom categories display with emoji if available)
   const allCategories = useMemo(() => [
     ...categories.map(c => ({ ...c, isCustom: false, emoji: undefined as string | undefined })),
@@ -481,6 +486,18 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     return Array.from(locations).sort();
   }, [journalData]);
 
+  // Extract unique subcategories from entries in the current category
+  const uniqueSubcategories = useMemo(() => {
+    const subcategories = new Set<string>();
+    const entries = journalData[activeCategory] || [];
+    entries.forEach(item => {
+      if (typeof item === 'object' && item !== null && item.subcategory) {
+        subcategories.add(item.subcategory);
+      }
+    });
+    return Array.from(subcategories).sort();
+  }, [journalData, activeCategory]);
+
   // Budget tier labels
   const budgetTierLabels: Record<string, string> = {
     'budget': 'Budget ($)',
@@ -495,7 +512,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     return entries.filter(item => {
       // String entries pass through if no filters are active
       if (typeof item === 'string') {
-        return locationFilter === 'all' && budgetFilter === 'all';
+        return locationFilter === 'all' && budgetFilter === 'all' && subcategoryFilter === 'all';
       }
 
       // Check location filter
@@ -514,15 +531,21 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
         if (item.budgetTier !== budgetFilter) return false;
       }
 
+      // Check subcategory filter
+      if (subcategoryFilter !== 'all') {
+        if (item.subcategory !== subcategoryFilter) return false;
+      }
+
       return true;
     });
-  }, [journalData, activeCategory, locationFilter, budgetFilter]);
+  }, [journalData, activeCategory, locationFilter, budgetFilter, subcategoryFilter]);
 
-  const hasActiveFilters = locationFilter !== 'all' || budgetFilter !== 'all';
+  const hasActiveFilters = locationFilter !== 'all' || budgetFilter !== 'all' || subcategoryFilter !== 'all';
 
   const clearFilters = useCallback(() => {
     setLocationFilter('all');
     setBudgetFilter('all');
+    setSubcategoryFilter('all');
   }, []);
 
   return (
@@ -695,6 +718,23 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                   <SelectItem value="ultra_luxury">Ultra Luxury ($$$$)</SelectItem>
                 </SelectContent>
               </Select>
+
+              {uniqueSubcategories.length > 0 && (
+                <Select value={subcategoryFilter} onValueChange={setSubcategoryFilter}>
+                  <SelectTrigger className="w-[130px] sm:w-[160px] text-xs sm:text-sm" data-testid="select-subcategory-filter">
+                    <Folder className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    {uniqueSubcategories.map((subcategory) => (
+                      <SelectItem key={subcategory} value={subcategory}>
+                        {subcategory.charAt(0).toUpperCase() + subcategory.slice(1).replace(/_/g, ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
               {hasActiveFilters && (
                 <Button

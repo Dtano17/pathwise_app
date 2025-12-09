@@ -91,7 +91,7 @@ interface VoiceInputProps {
   placeholder?: string;
 }
 
-const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "Describe your goals and/or journal your life..." }) => {
+const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "Plan your goals or paste URL to journal..." }) => {
   const [text, setText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
