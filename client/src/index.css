@@ -540,51 +540,244 @@ body, html {
   overscroll-behavior: none;
 }
 
+/* Safe area insets for notched devices (iPhone X+, Android with notches) */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+
+  /* Apply safe area to fixed/sticky elements */
+  [data-fixed-header],
+  [data-sticky-nav],
+  .fixed-header {
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+
+  [data-bottom-nav],
+  .bottom-nav {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+}
+
 /* Responsive improvements for mobile */
 @media (max-width: 640px) {
   .container {
     padding-left: 0.5rem;
     padding-right: 0.5rem;
   }
-  
-  /* Better touch targets on mobile */
-  button, [role="button"], .cursor-pointer {
+
+  /* Better touch targets on mobile (WCAG AAA: 44x44px minimum) */
+  button:not(.no-mobile-min),
+  [role="button"]:not(.no-mobile-min),
+  .cursor-pointer:not(.no-mobile-min),
+  a[href]:not(.no-mobile-min) {
     min-height: 44px;
     min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
-  
+
   /* Adjust tab navigation for mobile */
   [role="tablist"] {
     overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
   }
-  
+
   [role="tablist"]::-webkit-scrollbar {
     display: none;
   }
-  
+
   /* Make task cards more mobile-friendly */
   [data-testid^="task-card-"] {
     max-width: calc(100vw - 2rem);
   }
-  
-  /* Improve toast positioning on mobile */
+
+  /* Improve toast positioning on mobile with safe area */
   [data-sonner-toaster] {
     position: fixed !important;
-    top: 20px !important;
+    top: max(20px, env(safe-area-inset-top, 20px)) !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     width: calc(100vw - 40px) !important;
     max-width: 400px !important;
   }
+
+  /* Modal/Dialog improvements for mobile */
+  [role="dialog"]:not(.desktop-only),
+  [role="alertdialog"]:not(.desktop-only),
+  .dialog-content {
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 2rem) !important;
+    margin: 1rem !important;
+    width: calc(100vw - 2rem) !important;
+    max-width: calc(100vw - 2rem) !important;
+    overflow-y: auto;
+  }
+
+  /* Sheet/drawer improvements */
+  [data-sheet-content],
+  .sheet-content {
+    max-height: calc(85dvh - env(safe-area-inset-bottom, 0px));
+    border-top-left-radius: 1rem;
+    border-top-right-radius: 1rem;
+  }
+
+  /* Form inputs mobile optimization (prevents iOS zoom) */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="number"],
+  input[type="date"],
+  textarea,
+  select {
+    font-size: 16px !important;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* Card spacing optimization */
+  .card:not(.no-mobile-margin),
+  [data-card]:not(.no-mobile-margin) {
+    margin-left: 0.5rem;
+    margin-right: 0.5rem;
+  }
+
+  /* Sidebar adjustments for mobile */
+  [data-sidebar] {
+    width: 100% !important;
+    max-width: 85vw !important;
+  }
+
+  /* Adjust heading sizes for mobile */
+  h1 {
+    font-size: 1.75rem !important;
+    line-height: 2rem !important;
+  }
+
+  h2 {
+    font-size: 1.5rem !important;
+    line-height: 1.75rem !important;
+  }
+
+  h3 {
+    font-size: 1.25rem !important;
+    line-height: 1.5rem !important;
+  }
+
+  /* Stack flex items on mobile */
+  .mobile-stack {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Full width buttons on mobile */
+  .mobile-full-width {
+    width: 100% !important;
+  }
+
+  /* Hide desktop-only elements */
+  .desktop-only {
+    display: none !important;
+  }
+
+  /* Show mobile-only elements */
+  .mobile-only {
+    display: block !important;
+  }
+
+  /* Improve table responsiveness */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Better grid layouts on mobile */
+  .grid-cols-2,
+  .grid-cols-3,
+  .grid-cols-4,
+  .grid-cols-5,
+  .grid-cols-6 {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+
+  /* Adjust padding for mobile */
+  .p-6 {
+    padding: 1rem !important;
+  }
+
+  .px-6 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .py-6 {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  /* Adjust margins for mobile */
+  .m-6 {
+    margin: 1rem !important;
+  }
+
+  .mx-6 {
+    margin-left: 1rem !important;
+    margin-right: 1rem !important;
+  }
+
+  .my-6 {
+    margin-top: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  /* Fix overflow on mobile for cards */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Bottom sheet style modals */
+  .mobile-bottom-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 85dvh;
+    border-radius: 1rem 1rem 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }
 
-/* Medium screens (tablets) */
-@media (min-width: 768px) and (max-width: 1024px) {
+/* Tablet optimizations (portrait and landscape) */
+@media (min-width: 641px) and (max-width: 1024px) {
   .container {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  /* Modal sizing for tablets */
+  [role="dialog"], [role="alertdialog"] {
+    max-width: 600px;
+    width: 90vw;
+  }
+
+  /* Two-column grids for tablets */
+  .grid-cols-3,
+  .grid-cols-4,
+  .grid-cols-5,
+  .grid-cols-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Hide mobile-only on tablets */
+  .mobile-only {
+    display: none !important;
   }
 }
 
@@ -593,6 +786,11 @@ body, html {
   .container {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
+  }
+
+  /* Hide mobile-only elements on desktop */
+  .mobile-only {
+    display: none !important;
   }
 }
 

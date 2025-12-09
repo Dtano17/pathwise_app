@@ -127,7 +127,7 @@ function AppContent() {
         <Route path="/">
           {isAuthenticated ? (
             <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
-              <div className="flex h-screen w-full overflow-hidden">
+              <div className="flex h-screen w-full overflow-hidden" style={{ height: '100dvh' }}>
                 <AppSidebar
                   selectedTheme={selectedTheme}
                   onThemeSelect={setSelectedTheme}

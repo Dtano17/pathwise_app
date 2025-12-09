@@ -65,8 +65,8 @@ export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onTaskSnoo
   );
 
   return (
-    <div className="space-y-6 p-6 touch-pan-y">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-6 md:p-6 p-4 touch-pan-y">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <CheckSquare className="w-6 h-6 text-primary" />
           <h2 className="text-2xl font-bold text-foreground">Tasks</h2>
@@ -75,9 +75,10 @@ export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onTaskSnoo
           </Badge>
         </div>
         
-        <Button onClick={onAddTask} className="gap-2" data-testid="button-add-task">
+        <Button onClick={onAddTask} className="gap-2 w-full sm:w-auto" data-testid="button-add-task">
           <Plus className="w-4 h-4" />
-          Add Task
+          <span className="hidden sm:inline">Add Task</span>
+          <span className="sm:hidden">Add</span>
         </Button>
       </div>
 
