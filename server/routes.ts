@@ -2208,16 +2208,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             // Process each category and add venues
+            console.log(`[SAVE CONTENT] Processing ${categorized.venues.length} venues from source`);
+            
             for (const [category, venueItems] of Object.entries(venuesByCategory)) {
               const categoryItems = journalData[category] || [];
               const newItems: any[] = [];
+              
+              console.log(`[SAVE CONTENT] Category "${category}": ${venueItems.length} venues to process, ${categoryItems.length} existing items`);
               
               for (let venueIndex = 0; venueIndex < venueItems.length; venueIndex++) {
               const { venue } = venueItems[venueIndex];
               
               // Check for duplicates: same sourceUrl + same venue name (case-insensitive)
-              // Check both sourceUrl and originalUrl fields since items may have either
-              const isDuplicate = categoryItems.some((item: any) => {
+              // Check BOTH existing items AND items being added in this batch
+              const isDuplicateInExisting = categoryItems.some((item: any) => {
                 const itemSourceUrl = item.sourceUrl || item.originalUrl || '';
                 if (!itemSourceUrl) return false;
                 try {
@@ -2229,9 +2233,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   return false;
                 }
               });
+              
+              // Also check within the current batch to prevent within-batch duplicates
+              // Include location check to allow same-named venues at different locations (e.g., chain restaurants)
+              const isDuplicateInBatch = newItems.some((item: any) => {
+                const sameName = item.text?.toLowerCase().trim() === venue.name.toLowerCase().trim();
+                const sameLocation = (item.location?.toLowerCase().trim() || '') === (venue.location?.toLowerCase().trim() || venue.address?.toLowerCase().trim() || '');
+                return sameName && sameLocation;
+              });
+              
+              const isDuplicate = isDuplicateInExisting || isDuplicateInBatch;
                 
               if (isDuplicate) {
-                console.log(`[SAVE CONTENT] Skipping duplicate venue: ${venue.name} from ${sourceUrl}`);
+                console.log(`[SAVE CONTENT] Skipping duplicate venue #${venueIndex + 1}: "${venue.name}" (existingDup: ${isDuplicateInExisting}, batchDup: ${isDuplicateInBatch})`);
                 continue;
               }
                 
@@ -2259,7 +2273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               newItems.push(venueJournalItem);
               venueJournalIds.push(venueItemId);
               venuesAddedCount++;
-              console.log(`[SAVE CONTENT] Adding venue to journal: ${venue.name} → ${category}`);
+              console.log(`[SAVE CONTENT] Adding venue #${venueIndex + 1} to journal: "${venue.name}" → ${category} (total so far: ${venuesAddedCount})`);
             }
               
             // Update this category with new items at the beginning
@@ -2297,7 +2311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             const dynamicCatCount = Object.keys(newDynamicCategories).length;
             const primaryCatCount = Object.keys(newPrimaryCategories).length;
-            console.log(`[SAVE CONTENT] Added ${venuesAddedCount} venues to journal for user ${userId}`);
+            console.log(`[SAVE CONTENT] SUMMARY: ${categorized.venues.length} venues extracted → ${venuesAddedCount} added to journal for user ${userId}`);
             if (primaryCatCount > 0) {
               console.log(`[SAVE CONTENT] Created ${primaryCatCount} new primary categories: ${Object.values(newPrimaryCategories).map((c: any) => `${c.emoji} ${c.label}`).join(', ')}`);
             }
@@ -2583,10 +2597,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         importId = `import_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
         // Save all extracted venues to journalData with importId for alternatives
+        console.log(`[GOALS/PROCESS] Processing ${result.allExtractedVenues.length} venues from allExtractedVenues`);
         try {
           const preferences = await storage.getUserPreferences(userId);
           const currentJournalData = (preferences?.preferences as any)?.journalData || {};
           
+          let venuesSavedCount = 0;
           // Map venues to journal entries with importId
           for (const venue of result.allExtractedVenues) {
             const category = venue.category || 'restaurants';
@@ -2607,6 +2623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             
             currentJournalData[category] = entries;
+            venuesSavedCount++;
           }
           
           await storage.upsertUserPreferences(userId, {
@@ -2616,7 +2633,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           });
           
-          console.log(`[GOALS/PROCESS] Saved ${result.allExtractedVenues.length} venues with importId ${importId}`);
+          console.log(`[GOALS/PROCESS] SUMMARY: ${result.allExtractedVenues.length} venues extracted → ${venuesSavedCount} saved with importId ${importId}`);
         } catch (venueError) {
           console.error('[GOALS/PROCESS] Error saving venues:', venueError);
         }
