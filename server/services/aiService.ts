@@ -1508,8 +1508,8 @@ NEVER use generic titles like "Generated Plan", "Plan from URL", "New Activity",
   "allExtractedVenues": [
     {
       "venueName": "EXACT name of each venue/restaurant/place mentioned",
-      "venueType": "restaurant|bar|cafe|hotel|spa|activity|attraction|shopping",
-      "category": "restaurants|bars|cafes|hotels|activities|shopping|wellness",
+      "venueType": "restaurant|bar|cafe|hotel|spa|activity|attraction|shopping|book|course|class",
+      "category": "restaurants|bars|cafes|hotels|activities|shopping|wellness|books|learning",
       "location": { "city": "City name", "neighborhood": "Area if mentioned" },
       "priceRange": "Exact price or range mentioned (e.g., '₦50,000' or '$80-120')",
       "budgetTier": "budget|moderate|luxury|ultra_luxury",
