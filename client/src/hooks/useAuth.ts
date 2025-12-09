@@ -1,6 +1,7 @@
 // Replit Auth integration - from blueprint:javascript_log_in_with_replit
 import { useQuery, useMutation, useQueryClient, QueryClient } from "@tanstack/react-query";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useEffect, useRef } from "react";
 
 interface User {
   id: string;
@@ -56,6 +57,28 @@ export function useAuth() {
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  // Clear cache when user authentication state changes (sign in/out)
+  const prevUserIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const currentUserId = user?.id || null;
+
+    // If user ID changed (sign in or sign out occurred)
+    if (prevUserIdRef.current !== currentUserId) {
+      console.log('[AUTH] User authentication state changed, clearing cache');
+      console.log(`  - Previous user ID: ${prevUserIdRef.current}`);
+      console.log(`  - Current user ID: ${currentUserId}`);
+
+      // Clear all caches to ensure fresh data for new user
+      if (queryClient && prevUserIdRef.current !== null) {
+        // Don't clear on initial mount (prevUserIdRef is null)
+        // Only clear when switching between users or signing out
+        queryClient.clear();
+      }
+
+      prevUserIdRef.current = currentUserId;
+    }
+  }, [user?.id, queryClient]);
 
   // Logout mutation
   const logoutMutation = useMutation({

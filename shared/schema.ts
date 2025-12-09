@@ -1479,6 +1479,31 @@ export const userPreferences = pgTable("user_preferences", {
       }>
     }; // Personal journal entries by category with media support and venue data for swap alternatives
     customJournalCategories?: Array<{ id: string; name: string; color: string }>; // User-created journal categories
+    customPrimaryCategories?: {
+      [id: string]: {
+        id: string;
+        label: string;
+        emoji: string;
+        subcategories: {
+          [subcatId: string]: {
+            id: string;
+            label: string;
+            emoji: string;
+            color?: string;
+            usageCount?: number;
+            createdAt?: Date;
+          };
+        };
+        createdAt?: Date;
+        order?: number;
+      };
+    }; // TWO-LEVEL categorization: Primary categories containing subcategories
+    sharedURLs?: string[]; // URLs that have been shared to prevent duplicate content
+    deduplicationConfig?: {
+      categoryThreshold: number;
+      urlThreshold: number;
+      venueNameThreshold: number;
+    }; // User-configurable fuzzy matching thresholds
     dailyTheme?: {
       activityId: string;
       activityTitle: string;

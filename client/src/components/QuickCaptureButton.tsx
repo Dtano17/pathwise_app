@@ -96,7 +96,7 @@ export default function QuickCaptureButton({ onClick, className = '' }: QuickCap
         <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
           <div className="bg-slate-900 text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
             Quick Capture
-            <div className="text-[10px] text-slate-300 mt-0.5">Tap to journal</div>
+            <div className="text-xs text-slate-300 mt-0.5">Tap to journal</div>
           </div>
         </div>
       </div>

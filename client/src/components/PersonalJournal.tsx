@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
@@ -154,7 +155,8 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       if (!response.ok) throw new Error('Failed to load preferences');
       const data = await response.json();
       return data;
-    }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Sync local state with query data whenever it updates
@@ -182,19 +184,22 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   }, [userData]);
 
   // Merge default and custom categories (custom categories display with emoji if available)
-  const allCategories = [
+  const allCategories = useMemo(() => [
     ...categories.map(c => ({ ...c, isCustom: false, emoji: undefined as string | undefined })),
-    ...customCategories.map(c => ({ 
-      id: c.id, 
-      label: c.emoji ? `${c.emoji} ${c.label || c.name}` : (c.label || c.name), 
-      icon: Folder, 
-      color: c.color, 
+    ...customCategories.map(c => ({
+      id: c.id,
+      label: c.emoji ? `${c.emoji} ${c.label || c.name}` : (c.label || c.name),
+      icon: Folder,
+      color: c.color,
       isCustom: true,
       emoji: c.emoji
     }))
-  ];
+  ], [customCategories]);
 
-  const currentCategory = allCategories.find(c => c.id === activeCategory);
+  const currentCategory = useMemo(
+    () => allCategories.find(c => c.id === activeCategory),
+    [allCategories, activeCategory]
+  );
 
   // Save journal entry mutation
   const saveEntryMutation = useMutation({
@@ -276,16 +281,19 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const { data: packsData } = useQuery<{ packs: JournalPack[] }>({
     queryKey: ['/api/journal/packs'],
     enabled: activeTab === 'packs',
+    staleTime: 30 * 60 * 1000, // 30 minutes - packs rarely change
   });
 
   const { data: statsData, isLoading: statsLoading } = useQuery<JournalStats>({
     queryKey: ['/api/journal/stats'],
     enabled: activeTab === 'insights',
+    staleTime: 10 * 60 * 1000, // 10 minutes - stats update less frequently
   });
 
   const { data: templatesData } = useQuery<{ templates: JournalTemplate[] }>({
     queryKey: ['/api/journal/templates'],
     enabled: activeTab === 'templates',
+    staleTime: 30 * 60 * 1000, // 30 minutes - templates rarely change
   });
 
   // Generate prompt mutation
@@ -403,7 +411,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
 
   const CHART_COLORS = ['#8b5cf6', '#ec4899', '#f97316', '#22c55e', '#3b82f6', '#eab308', '#06b6d4'];
 
-  const handleAddCustomCategory = () => {
+  const handleAddCustomCategory = useCallback(() => {
     if (!newCategoryName.trim()) {
       toast({
         title: "Name Required",
@@ -423,41 +431,41 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     const updatedCategories = [...customCategories, newCategory];
     setCustomCategories(updatedCategories);
     saveCustomCategoryMutation.mutate(updatedCategories);
-    
+
     setNewCategoryName('');
     setSelectedColor('from-teal-500 to-cyan-500');
     setShowAddCategoryDialog(false);
     setActiveCategory(newCategory.id);
-  };
+  }, [newCategoryName, selectedColor, customCategories, saveCustomCategoryMutation, toast]);
 
-  const handleAddItem = () => {
+  const handleAddItem = useCallback(() => {
     if (!newItem.trim()) return;
-    
+
     const updatedItems = [...(journalData[activeCategory] || []), newItem.trim()];
     setJournalData(prev => ({ ...prev, [activeCategory]: updatedItems }));
     setNewItem('');
-    
+
     // Auto-save
     saveEntryMutation.mutate({ category: activeCategory, items: updatedItems });
-  };
+  }, [newItem, journalData, activeCategory, saveEntryMutation]);
 
-  const handleRemoveItem = (index: number) => {
+  const handleRemoveItem = useCallback((index: number) => {
     const updatedItems = journalData[activeCategory].filter((_, i) => i !== index);
     setJournalData(prev => ({ ...prev, [activeCategory]: updatedItems }));
-    
+
     // Auto-save
     saveEntryMutation.mutate({ category: activeCategory, items: updatedItems });
-  };
+  }, [journalData, activeCategory, saveEntryMutation]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleAddItem();
     }
-  };
+  }, [handleAddItem]);
 
   // Extract unique locations from all journal entries across all categories
-  const getUniqueLocations = (): string[] => {
+  const uniqueLocations = useMemo(() => {
     const locations = new Set<string>();
     Object.values(journalData).forEach(items => {
       items.forEach(item => {
@@ -469,9 +477,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       });
     });
     return Array.from(locations).sort();
-  };
-
-  const uniqueLocations = getUniqueLocations();
+  }, [journalData]);
 
   // Budget tier labels
   const budgetTierLabels: Record<string, string> = {
@@ -482,14 +488,14 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   };
 
   // Filter current category entries
-  const getFilteredEntries = (): JournalItem[] => {
+  const filteredEntries = useMemo(() => {
     const entries = journalData[activeCategory] || [];
     return entries.filter(item => {
       // String entries pass through if no filters are active
       if (typeof item === 'string') {
         return locationFilter === 'all' && budgetFilter === 'all';
       }
-      
+
       // Check location filter
       if (locationFilter !== 'all') {
         const location = item.location;
@@ -500,23 +506,22 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
         );
         if (!matchesLocation) return false;
       }
-      
+
       // Check budget filter
       if (budgetFilter !== 'all') {
         if (item.budgetTier !== budgetFilter) return false;
       }
-      
+
       return true;
     });
-  };
+  }, [journalData, activeCategory, locationFilter, budgetFilter]);
 
-  const filteredEntries = getFilteredEntries();
   const hasActiveFilters = locationFilter !== 'all' || budgetFilter !== 'all';
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setLocationFilter('all');
     setBudgetFilter('all');
-  };
+  }, []);
 
   return (
     <div className="h-full flex flex-col p-2 sm:p-4">
@@ -752,8 +757,20 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
             {/* Entries List */}
             <ScrollArea className="h-[300px] sm:h-[400px] lg:h-[calc(90vh-380px)]">
               {isLoading ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  Loading your journal...
+                <div className="space-y-3 pr-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="p-4">
+                      <div className="space-y-3">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-2/3" />
+                        <div className="flex gap-2">
+                          <Skeleton className="h-6 w-16" />
+                          <Skeleton className="h-6 w-20" />
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
               ) : filteredEntries.length > 0 ? (
                 <div className="space-y-2 pr-4">

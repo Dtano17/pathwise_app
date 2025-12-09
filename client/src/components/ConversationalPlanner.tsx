@@ -15,6 +15,7 @@ import { useLocation } from 'wouter';
 import TemplateSelector from './TemplateSelector';
 import JournalTimeline from './JournalTimeline';
 import JournalOnboarding from './JournalOnboarding';
+import { invalidateActivitiesCache, invalidateJournalCache } from '@/lib/cacheInvalidation';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -856,24 +857,30 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setShowCuratedQuestionsDialog(false);
       setCuratedQuestions([]);
       setCuratedQuestionsAnswers({});
       setExternalContent(null);
       setExternalSourceUrl(null);
-      
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/journal'] });
-      
-      const hasJournal = data.journalEntryId;
+
+      // CRITICAL: Invalidate activities cache (activities, tasks, progress)
+      await invalidateActivitiesCache();
+
+      // If venues were also journaled, invalidate journal cache too
+      if (data.journalEntryId || data.savedVenuesCount > 0) {
+        await invalidateJournalCache();
+      }
+
+      const hasJournal = data.journalEntryId || data.savedVenuesCount > 0;
       toast({
         title: hasJournal ? "Plan Created & Journaled!" : "Plan Created!",
-        description: data.message || `Created ${data.activity?.title} with ${data.createdTasks?.length} tasks`,
+        description: data.savedVenuesCount
+          ? `Created ${data.activity?.title} with ${data.createdTasks?.length} tasks + ${data.savedVenuesCount} venues journaled`
+          : data.message || `Created ${data.activity?.title} with ${data.createdTasks?.length} tasks`,
         action: data.activity?.id ? (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             variant="outline"
             onClick={() => setLocation(`/?tab=activities&activity=${data.activity.id}`)}
             data-testid="toast-view-activity"
@@ -907,24 +914,24 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       });
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setShowUrlActionDialog(false);
       setPendingUrlData(null);
       setExternalSourceUrl(null);
       setMessage('');
-      
-      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
-      
+
+      // Use centralized invalidation (entries, stats, preferences)
+      await invalidateJournalCache();
+
       const venueCount = data.venuesAddedCount || 0;
       toast({
         title: "Saved to Journal!",
-        description: venueCount > 0 
+        description: venueCount > 0
           ? `${venueCount} venue${venueCount > 1 ? 's' : ''} added to your journal`
           : "Content saved to your journal",
         action: (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             variant="outline"
             onClick={() => setLocation('/journal')}
             data-testid="toast-view-journal"
@@ -1711,7 +1718,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                         ))}
                       </div>
                       {keywordDetection.isGroupedExperience && (
-                        <p className="text-[10px] text-purple-600 dark:text-purple-400 mt-1.5">
+                        <p className="text-xs text-purple-600 dark:text-purple-400 mt-1.5">
                           Your entry will be saved to multiple categories for a complete memory
                         </p>
                       )}

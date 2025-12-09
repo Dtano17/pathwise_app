@@ -185,7 +185,7 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
 
           {/* Family & Friends Plan */}
           <div className="border rounded-lg p-4 sm:p-6 space-y-3 sm:space-y-4 hover-elevate transition-all relative" data-testid="card-family-plan">
-            <div className="absolute -top-3 right-2 sm:right-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium">
+            <div className="absolute -top-3 right-2 sm:right-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-medium">
               Best Value for Groups
             </div>
             
@@ -251,7 +251,7 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
           </div>
         </div>
 
-        <p className="text-[10px] sm:text-xs text-center text-muted-foreground mt-4">
+        <p className="text-xs text-center text-muted-foreground mt-4">
           7-day free trial included with both plans. Cancel anytime.
         </p>
       </DialogContent>

@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SiInstagram, SiTiktok, SiYoutube, SiX, SiFacebook, SiReddit, SiPinterest } from 'react-icons/si';
+import { invalidateJournalCache } from '@/lib/cacheInvalidation';
 
 // Helper to get friendly source label and icon from URL
 const getSourceLabel = (url?: string): { name: string; icon: JSX.Element; color: string } | null => {
@@ -509,12 +510,13 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
       const response = await apiRequest('POST', '/api/user/journal/batch', { entries });
       return response.json();
     },
-    onSuccess: (data: { success: boolean; count: number }) => {
+    onSuccess: async (data: { success: boolean; count: number }) => {
       toast({
         title: 'Saved to Journal',
         description: `${data.count} item${data.count !== 1 ? 's' : ''} saved to your Personal Journal.`,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      // Use centralized invalidation (entries, stats, preferences)
+      await invalidateJournalCache();
     },
     onError: (error: Error) => {
       toast({
@@ -909,12 +911,13 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
                             }
                           };
                           apiRequest('POST', '/api/user/journal/batch', { entries: [entry] })
-                            .then(() => {
+                            .then(async () => {
                               toast({
                                 title: 'Saved to Journal',
                                 description: `"${alternative.venueName}" added to your Personal Journal.`,
                               });
-                              queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+                              // Use centralized invalidation (entries, stats, preferences)
+                              await invalidateJournalCache();
                             })
                             .catch((err) => {
                               toast({
@@ -1045,7 +1048,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
                       style={{ width: `${progressPercent}%` }}
                     >
                       {progressPercent > 15 && (
-                        <span className="text-[10px] font-bold text-white">{Math.round(progressPercent)}%</span>
+                        <span className="text-xs font-bold text-white">{Math.round(progressPercent)}%</span>
                       )}
                     </div>
                   </div>

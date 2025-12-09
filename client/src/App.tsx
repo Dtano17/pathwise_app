@@ -27,6 +27,7 @@ import { UpgradeModal } from "@/components/UpgradeModal";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { initializeMobileFeatures } from "@/lib/mobile";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 interface SubscriptionStatus {
   tier: string;
@@ -208,11 +209,13 @@ function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AppContent />
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AppContent />
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -41,13 +41,24 @@ export interface CategorizationSuccess {
 
 export type CategorizationResult = CategorizationSuccess | CategorizationError;
 
+// NEW: Two-level category structure for hybrid AI categorization
+export interface PrimaryCategorySuggestion {
+  name: string;        // "Bars & Nightlife"
+  emoji: string;       // "🌙"
+}
+
+export interface SubcategorySuggestion {
+  name: string;        // "Rooftop Bars"
+  emoji: string;       // "🏙️"
+}
+
 export interface CategorizedContent {
   location: string | null;
   city: string | null;
   country: string | null;
   neighborhood: string | null;
-  category: ContentCategory;
-  subcategory: string | null;
+  primaryCategory: PrimaryCategorySuggestion;
+  subcategory: SubcategorySuggestion;
   venues: VenueInfo[];
   budgetTier: BudgetTier | null;
   estimatedCost: number | null;
@@ -82,7 +93,7 @@ export type ContentCategory =
 
 export type BudgetTier = "budget" | "moderate" | "luxury" | "ultra_luxury";
 
-const CATEGORIZATION_PROMPT = `You are a content categorization specialist. Analyze the extracted content from a social media post or article and categorize it.
+const CATEGORIZATION_PROMPT = `You are a content categorization specialist. Analyze the extracted content and suggest TWO-LEVEL categorization.
 
 CONTENT TO ANALYZE:
 ---
@@ -97,8 +108,17 @@ Extract and return a JSON object with the following structure:
   "city": "City name only (e.g., 'Lagos' or 'Los Angeles')",
   "country": "Country name (e.g., 'Nigeria' or 'USA')",
   "neighborhood": "Specific area/neighborhood if mentioned (e.g., 'Victoria Island' or 'Malibu')",
-  "category": "One of: restaurants, bars_nightlife, cafes, hotels_accommodation, attractions_activities, shopping, wellness_spa, outdoor_nature, entertainment, travel_itinerary, food_cooking, fitness, other",
-  "subcategory": "More specific type (e.g., 'rooftop bars', 'fine dining', 'beach clubs')",
+
+  "primaryCategory": {
+    "name": "Broad, stable category (e.g., 'Bars & Nightlife', 'Dining', 'Entertainment')",
+    "emoji": "Representative emoji for the primary category"
+  },
+
+  "subcategory": {
+    "name": "Specific specialization (e.g., 'Rooftop Bars', 'Cat Cafes', 'VR Arcades')",
+    "emoji": "Specific emoji for the subcategory"
+  },
+
   "venues": [
     {
       "name": "Exact venue name from content",
@@ -109,21 +129,33 @@ Extract and return a JSON object with the following structure:
       "description": "Brief description from content"
     }
   ],
-  "budgetTier": "One of: budget (under $50/person), moderate ($50-150/person), luxury ($150-400/person), ultra_luxury ($400+/person) - based on venues mentioned",
+  "budgetTier": "One of: budget, moderate, luxury, ultra_luxury",
   "estimatedCost": null or estimated cost per person in USD,
-  "title": "A descriptive title for this saved content (e.g., 'Lagos Rooftop Bars & Nightlife')",
+  "title": "A descriptive title for this saved content (e.g., 'Dubai Rooftop Bars & Sky Lounges')",
   "tags": ["array", "of", "relevant", "tags", "for", "searchability"]
 }
 
-RULES:
-1. Extract ONLY information explicitly mentioned in the content
-2. For venues, capture EXACT names as written (preserve spelling, capitalization)
-3. If price is mentioned (e.g., "$50 per person", "₦15,000"), include in priceAmount
-4. For multi-location content, use the PRIMARY destination
-5. Category should reflect the MAIN focus of the content
+RULES - TWO-LEVEL HIERARCHY:
+1. **Primary Category:** Choose broad, stable category that groups similar content
+   - Prefer existing primaries: "Dining", "Bars & Nightlife", "Travel", "Wellness", "Entertainment", "Shopping", "Lifestyle"
+   - Only suggest new primary if content truly doesn't fit any existing
+   - Examples: "Dining" (not "Restaurants"), "Bars & Nightlife" (not just "Bars")
+
+2. **Subcategory:** Be SPECIFIC and descriptive (unlimited creativity here)
+   - This is where you can be creative and detailed
+   - Examples: "Rooftop Bars", "Cat Cafes", "VR Arcades", "Jazz Lounges", "Michelin Restaurants"
+
+3. Extract ONLY information explicitly mentioned in the content
+4. For venues, capture EXACT names as written (preserve spelling, capitalization)
+5. Choose emojis that represent the specific subcategory
 6. Tags should include: city name, venue types, specific activities, cuisine types
-7. If information is not available, use null (don't guess)
-8. For social media content, venues are usually in OCR text or caption mentions
+
+EXAMPLES:
+✅ Primary: "Bars & Nightlife" 🌙 + Subcategory: "Rooftop Bars" 🏙️
+✅ Primary: "Dining" 🍽️ + Subcategory: "Cat Cafes" 🐱☕
+✅ Primary: "Entertainment" 🎭 + Subcategory: "Escape Rooms" 🔐
+✅ Primary: "Entertainment" 🎭 + Subcategory: "VR Arcades" 🥽
+✅ Primary: "Wellness" 🧘 + Subcategory: "Meditation Studios" 🧘‍♀️✨
 
 IMPORTANT: Return ONLY valid JSON, no markdown formatting or explanation.`;
 
@@ -294,16 +326,16 @@ function parseCategorizationResponse(response: string): CategorizedContent {
     if (jsonStr.startsWith('```')) {
       jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
     }
-    
+
     const parsed = JSON.parse(jsonStr);
-    
+
     return {
       location: parsed.location || null,
       city: parsed.city || null,
       country: parsed.country || null,
       neighborhood: parsed.neighborhood || null,
-      category: validateCategory(parsed.category),
-      subcategory: parsed.subcategory || null,
+      primaryCategory: validatePrimaryCategory(parsed.primaryCategory),
+      subcategory: validateSubcategory(parsed.subcategory),
       venues: Array.isArray(parsed.venues) ? parsed.venues.map(normalizeVenue) : [],
       budgetTier: validateBudgetTier(parsed.budgetTier),
       estimatedCost: typeof parsed.estimatedCost === 'number' ? parsed.estimatedCost : null,
@@ -314,6 +346,28 @@ function parseCategorizationResponse(response: string): CategorizedContent {
     console.error("Error parsing categorization response:", error, response);
     return getDefaultCategorization();
   }
+}
+
+function validatePrimaryCategory(primary: any): PrimaryCategorySuggestion {
+  if (!primary || typeof primary !== 'object') {
+    return { name: "Lifestyle", emoji: "✨" };
+  }
+
+  return {
+    name: primary.name || "Lifestyle",
+    emoji: primary.emoji || "✨"
+  };
+}
+
+function validateSubcategory(subcat: any): SubcategorySuggestion {
+  if (!subcat || typeof subcat !== 'object') {
+    return { name: "Other", emoji: "📌" };
+  }
+
+  return {
+    name: subcat.name || "Other",
+    emoji: subcat.emoji || "📌"
+  };
 }
 
 function validateCategory(category: string): ContentCategory {
@@ -352,8 +406,8 @@ function getDefaultCategorization(): CategorizedContent {
     city: null,
     country: null,
     neighborhood: null,
-    category: "other",
-    subcategory: null,
+    primaryCategory: { name: "Lifestyle", emoji: "✨" },
+    subcategory: { name: "Other", emoji: "📌" },
     venues: [],
     budgetTier: null,
     estimatedCost: null,
@@ -543,9 +597,23 @@ const CATEGORY_COLORS = [
 export function getDynamicCategoryInfo(subcategory: string | null, venueType?: string): DynamicCategoryInfo | null {
   const source = subcategory || venueType;
   if (!source) return null;
-  
+
   const normalized = source.toLowerCase().trim();
-  if (!normalized || normalized === 'other' || normalized === 'unknown') return null;
+  // Only block if truly empty or generic placeholders
+  // Allow creation for specific types even if they seem generic
+  if (!normalized || normalized === 'venue' || normalized === 'place') {
+    return null;
+  }
+
+  // If "other" or "unknown" from subcategory, try venueType instead
+  if ((normalized === 'other' || normalized === 'unknown') && subcategory && venueType && venueType !== subcategory) {
+    return getDynamicCategoryInfo(null, venueType);
+  }
+
+  // If still "other" or "unknown", block creation
+  if (normalized === 'other' || normalized === 'unknown') {
+    return null;
+  }
   
   // Create a URL-safe ID from the subcategory
   const id = `custom-${normalized.replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}`;
@@ -599,7 +667,7 @@ export function getBestJournalCategory(
   
   // For generic categories (notes, hobbies), try to create a dynamic category
   // First try from subcategory (e.g., "poolside lounges", "rooftop bars")
-  if (subcategory && subcategory !== 'other' && subcategory !== 'unknown') {
+  if (subcategory && !['other', 'unknown', ''].includes(subcategory.toLowerCase().trim())) {
     const dynamicInfo = getDynamicCategoryInfo(subcategory, venueType);
     if (dynamicInfo) {
       console.log(`[CATEGORIZATION] Created dynamic category from subcategory: ${dynamicInfo.id} (${dynamicInfo.emoji} ${dynamicInfo.label})`);

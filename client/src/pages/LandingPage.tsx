@@ -229,7 +229,7 @@ export default function LandingPage() {
               >
                 <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>Import</span>
-                <Badge className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[10px] px-1.5 py-0 h-4 border-0">
+                <Badge className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs px-1.5 py-0 h-4 border-0">
                   New
                 </Badge>
               </Button>

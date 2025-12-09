@@ -10,6 +10,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { invalidateActivitiesCache } from '@/lib/cacheInvalidation';
 
 // Simple markdown formatter for Claude-style responses
 const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
@@ -829,15 +830,17 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
 
       return { activity, tasks: createdTasks, activityId };
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data) {
         setCreatedActivityId(data.activityId);
       }
       setShowParsedContent(false);
       setParsedLLMContent(null);
       setModificationText('');
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+
+      // Use centralized invalidation (activities, tasks, progress)
+      await invalidateActivitiesCache();
+
       toast({
         title: "Content Imported!",
         description: data?.activityId && createdActivityId

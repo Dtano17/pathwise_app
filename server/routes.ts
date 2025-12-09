@@ -62,7 +62,8 @@ import { sendGroupNotification } from './services/notificationService';
 import { tavily } from '@tavily/core';
 import { socialMediaVideoService } from './services/socialMediaVideoService';
 import { apifyService } from './services/apifyService';
-import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory, mapVenueTypeToJournalCategory, getBestJournalCategory, getDynamicCategoryInfo, type VenueInfo, type DynamicCategoryInfo } from './services/contentCategorizationService';
+import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory, mapVenueTypeToJournalCategory, getBestJournalCategory, getDynamicCategoryInfo, type VenueInfo, type DynamicCategoryInfo, type PrimaryCategorySuggestion, type SubcategorySuggestion } from './services/contentCategorizationService';
+import { findSimilarCategory, findSimilarSubcategory, findDuplicateVenue, checkDuplicateURL, generatePrimaryCategoryId, generateSubcategoryId, generateColorGradient, type DeduplicationConfig, DEFAULT_DEDUP_CONFIG } from './services/categoryMatcher';
 import { scheduleRemindersForActivity, cancelRemindersForActivity } from './services/reminderProcessor';
 
 const tavilyClient = process.env.TAVILY_API_KEY ? tavily({ apiKey: process.env.TAVILY_API_KEY }) : null;
@@ -1977,22 +1978,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const platform = detectPlatform(sourceUrl);
-      
+
+      // STEP 0: Check URL deduplication FIRST (silent skip per user preference)
+      const userPrefs = await storage.getUserPreferences(userId);
+      const currentPrefs = userPrefs?.preferences || {};
+      const existingSharedURLs = currentPrefs.sharedURLs || [];
+
+      if (checkDuplicateURL(sourceUrl, existingSharedURLs, DEFAULT_DEDUP_CONFIG)) {
+        console.log(`[URL DEDUP] ⏭️  URL already shared, skipping silently: ${sourceUrl}`);
+        return res.status(200).json({
+          success: true,
+          message: "Content already saved",
+          skipped: true,
+          reason: "duplicate_url"
+        });
+      }
+
       // Categorize the content using AI
       console.log(`[SAVE CONTENT] Categorizing content from ${platform}: ${sourceUrl}`);
       const categorized = await categorizeContent(extractedContent, platform);
       
       // Log detailed categorization results
       console.log(`[SAVE CONTENT] AI Categorization result:`);
-      console.log(`  - category: "${categorized.category}"`);
-      console.log(`  - subcategory: "${categorized.subcategory}"`);
+      console.log(`  - primaryCategory: "${categorized.primaryCategory.name}" ${categorized.primaryCategory.emoji}`);
+      console.log(`  - subcategory: "${categorized.subcategory.name}" ${categorized.subcategory.emoji}`);
       console.log(`  - title: "${categorized.title}"`);
       console.log(`  - venues count: ${categorized.venues?.length || 0}`);
       if (categorized.venues && categorized.venues.length > 0) {
         console.log(`  - venue types: ${categorized.venues.map((v: any) => v.type).join(', ')}`);
       }
       
-      // Save to database
+      // Save to database (adapt new two-level structure to existing schema)
       const savedContent = await storage.createUserSavedContent({
         userId,
         sourceUrl,
@@ -2001,8 +2017,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         city: categorized.city,
         country: categorized.country,
         neighborhood: categorized.neighborhood,
-        category: categorized.category,
-        subcategory: categorized.subcategory,
+        category: categorized.primaryCategory.name,  // Store primary as category
+        subcategory: categorized.subcategory.name,   // Store subcategory name
         venues: categorized.venues,
         budgetTier: categorized.budgetTier,
         estimatedCost: categorized.estimatedCost,
@@ -2011,9 +2027,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tags: categorized.tags,
         userNotes: userNotes || null
       });
-      
+
       console.log(`[SAVE CONTENT] Saved content ${savedContent.id} for user ${userId}`);
-      console.log(`[SAVE CONTENT] Categorized: ${categorized.city}, ${categorized.category}, ${categorized.venues?.length || 0} venues`);
+      console.log(`[SAVE CONTENT] Categorized: ${categorized.city}, ${categorized.primaryCategory.name} → ${categorized.subcategory.name}, ${categorized.venues?.length || 0} venues`);
 
       // Auto-create journal entries if requested
       let journalEntryId = null;
@@ -2043,6 +2059,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const userPrefs = await storage.getUserPreferences(userId);
             const currentPrefs = userPrefs?.preferences || {};
             const journalData = currentPrefs.journalData || {};
+            const existingSharedURLs = currentPrefs.sharedURLs || [];
             
             // Track dynamic categories created during this save
             // Handle both array format (from manual creation) and object format (from smart categorization)
@@ -2061,28 +2078,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
               existingCustomCategories = currentPrefs.customJournalCategories;
             }
             const newDynamicCategories: Record<string, DynamicCategoryInfo> = {};
-            
-            // Group venues by their target journal category (using smart categorization)
+            const newPrimaryCategories: Record<string, any> = {};
+
+            // TWO-LEVEL CATEGORIZATION: Get AI suggestions
+            console.log(`[TWO-LEVEL] AI suggested Primary: "${categorized.primaryCategory.name}" ${categorized.primaryCategory.emoji}`);
+            console.log(`[TWO-LEVEL] AI suggested Subcategory: "${categorized.subcategory.name}" ${categorized.subcategory.emoji}`);
+
+            // STEP 1: Fuzzy match PRIMARY category
+            const existingPrimaryCategories = Object.values(currentPrefs.customPrimaryCategories || {})
+              .map((p: any) => ({ id: p.id, name: p.label }));
+
+            const similarPrimary = findSimilarCategory(
+              categorized.primaryCategory.name,
+              existingPrimaryCategories,
+              DEFAULT_DEDUP_CONFIG
+            );
+
+            let primaryCategoryId: string;
+            let primaryCategoryLabel: string;
+            let primaryCategoryEmoji: string;
+
+            if (similarPrimary) {
+              // Reuse existing primary category
+              primaryCategoryId = similarPrimary.id;
+              primaryCategoryLabel = similarPrimary.name;
+              const existingPrimary = currentPrefs.customPrimaryCategories?.[primaryCategoryId];
+              primaryCategoryEmoji = existingPrimary?.emoji || categorized.primaryCategory.emoji;
+              console.log(`[TWO-LEVEL] ✅ Reusing primary: "${primaryCategoryLabel}" (${primaryCategoryId})`);
+            } else {
+              // Create new primary category
+              primaryCategoryId = generatePrimaryCategoryId(categorized.primaryCategory.name);
+              primaryCategoryLabel = categorized.primaryCategory.name;
+              primaryCategoryEmoji = categorized.primaryCategory.emoji;
+
+              newPrimaryCategories[primaryCategoryId] = {
+                id: primaryCategoryId,
+                label: primaryCategoryLabel,
+                emoji: primaryCategoryEmoji,
+                subcategories: {},
+                createdAt: new Date(),
+                order: existingPrimaryCategories.length
+              };
+              console.log(`[TWO-LEVEL] ✨ Created primary: "${primaryCategoryLabel}" ${primaryCategoryEmoji} (${primaryCategoryId})`);
+            }
+
+            // STEP 2: Fuzzy match SUBCATEGORY within the primary category
+            const existingSubcategories = Object.values(
+              currentPrefs.customPrimaryCategories?.[primaryCategoryId]?.subcategories || {}
+            ).map((s: any) => ({ id: s.id, name: s.label }));
+
+            const similarSubcategory = findSimilarSubcategory(
+              categorized.subcategory.name,
+              existingSubcategories,
+              DEFAULT_DEDUP_CONFIG
+            );
+
+            let subcategoryId: string;
+            let subcategoryLabel: string;
+            let subcategoryEmoji: string;
+
+            if (similarSubcategory) {
+              // Reuse existing subcategory
+              subcategoryId = similarSubcategory.id;
+              subcategoryLabel = similarSubcategory.name;
+              const existingSubcat = currentPrefs.customPrimaryCategories?.[primaryCategoryId]?.subcategories?.[subcategoryId];
+              subcategoryEmoji = existingSubcat?.emoji || categorized.subcategory.emoji;
+              console.log(`[TWO-LEVEL] ✅ Reusing subcategory: "${subcategoryLabel}" (${subcategoryId})`);
+            } else {
+              // Create new subcategory under the primary
+              subcategoryId = generateSubcategoryId(categorized.subcategory.name);
+              subcategoryLabel = categorized.subcategory.name;
+              subcategoryEmoji = categorized.subcategory.emoji;
+
+              const subcategoryInfo = {
+                id: subcategoryId,
+                label: subcategoryLabel,
+                emoji: subcategoryEmoji,
+                color: generateColorGradient(),
+                usageCount: 0,
+                createdAt: new Date()
+              };
+
+              // Add to new or existing primary category
+              if (newPrimaryCategories[primaryCategoryId]) {
+                newPrimaryCategories[primaryCategoryId].subcategories[subcategoryId] = subcategoryInfo;
+              } else {
+                // Need to update existing primary category with new subcategory
+                if (!newPrimaryCategories[primaryCategoryId]) {
+                  newPrimaryCategories[primaryCategoryId] = {
+                    ...(currentPrefs.customPrimaryCategories?.[primaryCategoryId] || {}),
+                    subcategories: {
+                      ...(currentPrefs.customPrimaryCategories?.[primaryCategoryId]?.subcategories || {}),
+                      [subcategoryId]: subcategoryInfo
+                    }
+                  };
+                }
+              }
+
+              console.log(`[TWO-LEVEL] ✨ Created subcategory: "${subcategoryLabel}" ${subcategoryEmoji} under "${primaryCategoryLabel}"`);
+            }
+
+            // STEP 3: Use the subcategory ID as the journal category (maintains compatibility)
+            const finalJournalCategory = subcategoryId;
+
+            // Create dynamic category info for backward compatibility
+            const dynamicInfo: DynamicCategoryInfo = {
+              id: subcategoryId,
+              label: subcategoryLabel,
+              emoji: subcategoryEmoji,
+              color: generateColorGradient()
+            };
+
+            if (!existingCustomCategories[subcategoryId]) {
+              newDynamicCategories[subcategoryId] = dynamicInfo;
+            }
+
+            // Group venues by their target journal category (now using subcategory)
             const venuesByCategory: Record<string, { venue: VenueInfo; category: string; dynamicInfo: DynamicCategoryInfo | null }[]> = {};
-            
+
             for (const venue of categorized.venues) {
-              // Use smart categorization that creates dynamic categories when needed
-              const { category: venueCategory, dynamicInfo } = getBestJournalCategory(
-                venue.type, 
-                categorized.subcategory, 
-                categorized.category
-              );
-              
-              // Track new dynamic category for saving to user preferences
-              if (dynamicInfo && !existingCustomCategories[dynamicInfo.id]) {
-                newDynamicCategories[dynamicInfo.id] = dynamicInfo;
-                console.log(`[SAVE CONTENT] New dynamic category created: ${dynamicInfo.emoji} ${dynamicInfo.label} (${dynamicInfo.id})`);
+              if (!venuesByCategory[finalJournalCategory]) {
+                venuesByCategory[finalJournalCategory] = [];
               }
-              
-              if (!venuesByCategory[venueCategory]) {
-                venuesByCategory[venueCategory] = [];
-              }
-              venuesByCategory[venueCategory].push({ venue, category: venueCategory, dynamicInfo });
+              venuesByCategory[finalJournalCategory].push({
+                venue,
+                category: finalJournalCategory,
+                dynamicInfo
+              });
             }
             
             // Process each category and add venues
@@ -2146,25 +2268,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
             
-          // Batch update preferences with all venue entries and new custom categories
-          if (venuesAddedCount > 0 || Object.keys(newDynamicCategories).length > 0) {
+          // Batch update preferences with all venue entries, new custom categories, and primary categories
+          if (venuesAddedCount > 0 || Object.keys(newDynamicCategories).length > 0 || Object.keys(newPrimaryCategories).length > 0) {
             const updatedCustomCategories = {
               ...existingCustomCategories,
               ...newDynamicCategories
             };
-            
+
+            const updatedPrimaryCategories = {
+              ...(currentPrefs.customPrimaryCategories || {}),
+              ...newPrimaryCategories
+            };
+
+            // Add URL to shared URLs list for future deduplication
+            const updatedSharedURLs = [...existingSharedURLs, sourceUrl];
+
             await storage.upsertUserPreferences(userId, {
               preferences: {
                 ...currentPrefs,
                 journalData,
-                customJournalCategories: updatedCustomCategories
+                customJournalCategories: updatedCustomCategories,
+                customPrimaryCategories: updatedPrimaryCategories,
+                sharedURLs: updatedSharedURLs
               }
             });
-            
+
+            console.log(`[URL DEDUP] ✅ Added URL to shared history: ${sourceUrl}`);
+
             const dynamicCatCount = Object.keys(newDynamicCategories).length;
+            const primaryCatCount = Object.keys(newPrimaryCategories).length;
             console.log(`[SAVE CONTENT] Added ${venuesAddedCount} venues to journal for user ${userId}`);
+            if (primaryCatCount > 0) {
+              console.log(`[SAVE CONTENT] Created ${primaryCatCount} new primary categories: ${Object.values(newPrimaryCategories).map((c: any) => `${c.emoji} ${c.label}`).join(', ')}`);
+            }
             if (dynamicCatCount > 0) {
-              console.log(`[SAVE CONTENT] Created ${dynamicCatCount} new custom categories: ${Object.values(newDynamicCategories).map(c => `${c.emoji} ${c.label}`).join(', ')}`);
+              console.log(`[SAVE CONTENT] Created ${dynamicCatCount} new subcategories: ${Object.values(newDynamicCategories).map(c => `${c.emoji} ${c.label}`).join(', ')}`);
             }
           }
         }
@@ -2172,14 +2310,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Create summary journal entry for backward compatibility
           const journalContent = `Saved from ${platform}: ${categorized.title || 'Interesting content'}\n\n` +
             `Location: ${categorized.city || categorized.location || 'Unknown'}\n` +
-            `Category: ${formatCategoryForDisplay(categorized.category)}\n` +
+            `Category: ${categorized.primaryCategory.name} → ${categorized.subcategory.name}\n` +
             (categorized.venues?.length > 0 ? `Venues (${venuesAddedCount} added to journal): ${categorized.venues.map((v: any) => v.name).join(', ')}\n` : '') +
             (userNotes ? `\nMy notes: ${userNotes}` : '');
-          
+
           const journalEntry = await storage.createJournalEntry({
             userId,
             content: journalContent,
-            category: mapAiCategoryToJournalCategory(categorized.category),
+            category: mapAiCategoryToJournalCategory(categorized.primaryCategory.name),
             tags: categorized.tags,
             mood: 'excited'
           });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,19 +30,39 @@ export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onTaskSnoo
   const [filterPriority, setFilterPriority] = useState<'all' | 'low' | 'medium' | 'high'>('all');
   const [filterCategory, setFilterCategory] = useState('all');
 
-  const categories = Array.from(new Set(tasks.map(task => task.category)));
-  
-  const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesPriority = filterPriority === 'all' || task.priority === filterPriority;
-    const matchesCategory = filterCategory === 'all' || task.category === filterCategory;
-    const notCompleted = !task.completed;
-    
-    return matchesSearch && matchesPriority && matchesCategory && notCompleted;
-  });
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  }, []);
 
-  const completedTasks = tasks.filter(task => task.completed);
+  const handlePriorityFilter = useCallback((priority: 'all' | 'low' | 'medium' | 'high') => {
+    setFilterPriority(priority);
+  }, []);
+
+  const handleCategoryFilter = useCallback((category: string) => {
+    setFilterCategory(category);
+  }, []);
+
+  const categories = useMemo(
+    () => Array.from(new Set(tasks.map(task => task.category))),
+    [tasks]
+  );
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+      const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           task.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesPriority = filterPriority === 'all' || task.priority === filterPriority;
+      const matchesCategory = filterCategory === 'all' || task.category === filterCategory;
+      const notCompleted = !task.completed;
+
+      return matchesSearch && matchesPriority && matchesCategory && notCompleted;
+    });
+  }, [tasks, searchTerm, filterPriority, filterCategory]);
+
+  const completedTasks = useMemo(
+    () => tasks.filter(task => task.completed),
+    [tasks]
+  );
 
   return (
     <div className="space-y-6 p-6 touch-pan-y">
@@ -71,7 +91,7 @@ export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onTaskSnoo
               <Input
                 placeholder="Search tasks..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
                 className="pl-10"
                 data-testid="input-search-tasks"
               />
@@ -88,7 +108,7 @@ export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onTaskSnoo
                       key={priority}
                       variant={filterPriority === priority ? "default" : "outline"}
                       className="cursor-pointer hover-elevate text-xs"
-                      onClick={() => setFilterPriority(priority)}
+                      onClick={() => handlePriorityFilter(priority)}
                       data-testid={`filter-priority-${priority}`}
                     >
                       {priority}
@@ -104,7 +124,7 @@ export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onTaskSnoo
                     <Badge
                       variant={filterCategory === 'all' ? "default" : "outline"}
                       className="cursor-pointer hover-elevate text-xs"
-                      onClick={() => setFilterCategory('all')}
+                      onClick={() => handleCategoryFilter('all')}
                       data-testid="filter-category-all"
                     >
                       all
@@ -114,7 +134,7 @@ export default function TaskList({ tasks, onTaskComplete, onTaskSkip, onTaskSnoo
                         key={category}
                         variant={filterCategory === category ? "default" : "outline"}
                         className="cursor-pointer hover-elevate text-xs"
-                        onClick={() => setFilterCategory(category)}
+                        onClick={() => handleCategoryFilter(category)}
                         data-testid={`filter-category-${category}`}
                       >
                         {category}
