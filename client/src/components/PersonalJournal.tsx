@@ -18,8 +18,11 @@ import {
   Save, Plus, X, Utensils, Palette, Book, Sparkles,
   Plane, Home, ShoppingBag, Gamepad2, Folder, Wand2,
   Package, BarChart3, FileText, Target, Cloud, Users,
-  Loader2, TrendingUp, PenTool, Copy, Check, RefreshCw, Trash2
+  Loader2, TrendingUp, PenTool, Copy, Check, RefreshCw, Trash2,
+  Settings, Pencil, Merge, Link, Image, Eye, EyeOff
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
 
@@ -55,6 +58,16 @@ interface CustomCategory {
 
 interface PersonalJournalProps {
   onClose?: () => void;
+}
+
+interface JournalSettings {
+  showDeleteCategory: boolean;
+  showRenameCategory: boolean;
+  showMergeCategories: boolean;
+  showEditCategoryIcon: boolean;
+  showEntryCount: boolean;
+  showFilters: boolean;
+  showSubcategories: boolean;
 }
 
 // Types for new features
@@ -130,6 +143,23 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const [locationFilter, setLocationFilter] = useState<string>('all');
   const [budgetFilter, setBudgetFilter] = useState<string>('all');
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all');
+  
+  // Journal settings state
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [journalSettings, setJournalSettings] = useState<JournalSettings>({
+    showDeleteCategory: true,
+    showRenameCategory: true,
+    showMergeCategories: false,
+    showEditCategoryIcon: true,
+    showEntryCount: true,
+    showFilters: true,
+    showSubcategories: true,
+  });
+  
+  // Rename category states
+  const [showRenameCategoryDialog, setShowRenameCategoryDialog] = useState(false);
+  const [categoryToRename, setCategoryToRename] = useState<CustomCategory | null>(null);
+  const [newCategoryLabel, setNewCategoryLabel] = useState('');
 
   const categories = [
     { id: 'restaurants', label: 'Restaurants & Food', icon: Utensils, color: 'from-orange-500 to-red-500' },
@@ -184,6 +214,13 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
         }));
         setCustomCategories(categoriesArray);
       }
+    }
+    // Load journal settings from preferences
+    if (userData?.preferences?.journalSettings) {
+      setJournalSettings(prev => ({
+        ...prev,
+        ...userData.preferences.journalSettings
+      }));
     }
   }, [userData]);
 
@@ -317,6 +354,67 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       });
     }
   });
+
+  // Save journal settings mutation
+  const saveSettingsMutation = useMutation({
+    mutationFn: async (settings: JournalSettings) => {
+      const response = await apiRequest('PUT', '/api/user/journal/settings', {
+        journalSettings: settings
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      toast({
+        title: "Settings Saved",
+        description: "Your journal settings have been updated.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Failed to Save",
+        description: "Could not save settings. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Rename custom category mutation
+  const renameCategoryMutation = useMutation({
+    mutationFn: async ({ categoryId, newName }: { categoryId: string; newName: string }) => {
+      const updatedCategories = customCategories.map(c => 
+        c.id === categoryId ? { ...c, name: newName, label: newName } : c
+      );
+      const response = await apiRequest('PUT', '/api/user/journal/custom-categories', {
+        customJournalCategories: updatedCategories
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      setShowRenameCategoryDialog(false);
+      setCategoryToRename(null);
+      setNewCategoryLabel('');
+      toast({
+        title: "Category Renamed",
+        description: "The category has been updated.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Failed to Rename",
+        description: "Could not rename category. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Handle settings toggle
+  const handleSettingToggle = (setting: keyof JournalSettings) => {
+    const newSettings = { ...journalSettings, [setting]: !journalSettings[setting] };
+    setJournalSettings(newSettings);
+    saveSettingsMutation.mutate(newSettings);
+  };
 
   // New feature queries
   const { data: packsData } = useQuery<{ packs: JournalPack[] }>({
@@ -586,28 +684,39 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     <div className="h-full flex flex-col p-2 sm:p-4">
       {/* Feature Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <TabsList className="w-full flex-wrap h-auto gap-1 mb-4 p-1">
-          <TabsTrigger value="journal" className="flex-1 gap-2" data-testid="tab-journal">
-            <BookOpen className="w-4 h-4" />
-            <span className="hidden sm:inline">Journal</span>
-          </TabsTrigger>
-          <TabsTrigger value="prompts" className="flex-1 gap-2" data-testid="tab-prompts">
-            <Wand2 className="w-4 h-4" />
-            <span className="hidden sm:inline">AI Prompts</span>
-          </TabsTrigger>
-          <TabsTrigger value="packs" className="flex-1 gap-2" data-testid="tab-packs">
-            <Package className="w-4 h-4" />
-            <span className="hidden sm:inline">Packs</span>
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="flex-1 gap-2" data-testid="tab-templates">
-            <FileText className="w-4 h-4" />
-            <span className="hidden sm:inline">Templates</span>
-          </TabsTrigger>
-          <TabsTrigger value="insights" className="flex-1 gap-2" data-testid="tab-insights">
-            <BarChart3 className="w-4 h-4" />
-            <span className="hidden sm:inline">Insights</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center gap-2 mb-4">
+          <TabsList className="flex-1 flex-wrap h-auto gap-1 p-1">
+            <TabsTrigger value="journal" className="flex-1 gap-2" data-testid="tab-journal">
+              <BookOpen className="w-4 h-4" />
+              <span className="hidden sm:inline">Journal</span>
+            </TabsTrigger>
+            <TabsTrigger value="prompts" className="flex-1 gap-2" data-testid="tab-prompts">
+              <Wand2 className="w-4 h-4" />
+              <span className="hidden sm:inline">AI Prompts</span>
+            </TabsTrigger>
+            <TabsTrigger value="packs" className="flex-1 gap-2" data-testid="tab-packs">
+              <Package className="w-4 h-4" />
+              <span className="hidden sm:inline">Packs</span>
+            </TabsTrigger>
+            <TabsTrigger value="templates" className="flex-1 gap-2" data-testid="tab-templates">
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">Templates</span>
+            </TabsTrigger>
+            <TabsTrigger value="insights" className="flex-1 gap-2" data-testid="tab-insights">
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">Insights</span>
+            </TabsTrigger>
+          </TabsList>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSettingsDialog(true)}
+            className="flex-shrink-0"
+            data-testid="button-journal-settings"
+          >
+            <Settings className="w-5 h-5" />
+          </Button>
+        </div>
 
         {/* Journal Tab - Original journal content */}
         <TabsContent value="journal" className="flex-1 overflow-auto m-0">
@@ -649,12 +758,13 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                   const isActive = activeCategory === category.id;
                   const itemCount = journalData[category.id]?.length || 0;
                   const isCustom = 'isCustom' in category && category.isCustom;
+                  const showCategoryActions = isCustom && (journalSettings.showDeleteCategory || journalSettings.showRenameCategory);
                   
                   return (
                     <div key={category.id} className="relative group">
                       <Button
                         variant={isActive ? "secondary" : "ghost"}
-                        className={`w-full justify-start gap-3 h-auto py-3 px-3 ${isActive ? 'bg-primary/10' : ''} ${isCustom ? 'pr-10' : ''}`}
+                        className={`w-full justify-start gap-3 h-auto py-3 px-3 ${isActive ? 'bg-primary/10' : ''} ${showCategoryActions ? 'pr-16' : ''}`}
                         onClick={() => setActiveCategory(category.id)}
                         data-testid={`category-${category.id}`}
                       >
@@ -663,7 +773,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                         </div>
                         <div className="flex-1 text-left">
                           <div className="text-sm font-medium">{category.label}</div>
-                          {itemCount > 0 && (
+                          {journalSettings.showEntryCount && itemCount > 0 && (
                             <div className="text-xs text-muted-foreground">
                               {itemCount} {itemCount === 1 ? 'entry' : 'entries'}
                             </div>
@@ -671,22 +781,45 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                         </div>
                       </Button>
                       {isCustom && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const customCat = customCategories.find(c => c.id === category.id);
-                            if (customCat) {
-                              setCategoryToDelete(customCat);
-                              setShowDeleteCategoryDialog(true);
-                            }
-                          }}
-                          data-testid={`button-delete-category-${category.id}`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {journalSettings.showRenameCategory && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const customCat = customCategories.find(c => c.id === category.id);
+                                if (customCat) {
+                                  setCategoryToRename(customCat);
+                                  setNewCategoryLabel(customCat.label || customCat.name);
+                                  setShowRenameCategoryDialog(true);
+                                }
+                              }}
+                              data-testid={`button-rename-category-${category.id}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                          {journalSettings.showDeleteCategory && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const customCat = customCategories.find(c => c.id === category.id);
+                                if (customCat) {
+                                  setCategoryToDelete(customCat);
+                                  setShowDeleteCategoryDialog(true);
+                                }
+                              }}
+                              data-testid={`button-delete-category-${category.id}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
                   );
@@ -743,66 +876,68 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
               </div>
             </div>
             
-            {/* Filter Dropdowns */}
-            <div className="flex flex-wrap items-center gap-2 mt-3 sm:mt-4">
-              <Select value={locationFilter} onValueChange={setLocationFilter}>
-                <SelectTrigger className="w-[130px] sm:w-[160px] text-xs sm:text-sm" data-testid="select-location-filter">
-                  <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                  <SelectValue placeholder="Location" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Locations</SelectItem>
-                  {uniqueLocations.map((location) => (
-                    <SelectItem key={location} value={location}>
-                      {location}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={budgetFilter} onValueChange={setBudgetFilter}>
-                <SelectTrigger className="w-[130px] sm:w-[180px] text-xs sm:text-sm" data-testid="select-budget-filter">
-                  <SelectValue placeholder="Budget" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Budgets</SelectItem>
-                  <SelectItem value="budget">Budget ($)</SelectItem>
-                  <SelectItem value="moderate">Moderate ($$)</SelectItem>
-                  <SelectItem value="luxury">Luxury ($$$)</SelectItem>
-                  <SelectItem value="ultra_luxury">Ultra Luxury ($$$$)</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {uniqueSubcategories.length > 0 && (
-                <Select value={subcategoryFilter} onValueChange={setSubcategoryFilter}>
-                  <SelectTrigger className="w-[130px] sm:w-[160px] text-xs sm:text-sm" data-testid="select-subcategory-filter">
-                    <Folder className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                    <SelectValue placeholder="Type" />
+            {/* Filter Dropdowns - Only show if settings enabled */}
+            {journalSettings.showFilters && (
+              <div className="flex flex-wrap items-center gap-2 mt-3 sm:mt-4">
+                <Select value={locationFilter} onValueChange={setLocationFilter}>
+                  <SelectTrigger className="w-[130px] sm:w-[160px] text-xs sm:text-sm" data-testid="select-location-filter">
+                    <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                    <SelectValue placeholder="Location" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    {uniqueSubcategories.map((subcategory) => (
-                      <SelectItem key={subcategory} value={subcategory}>
-                        {subcategory.charAt(0).toUpperCase() + subcategory.slice(1).replace(/_/g, ' ')}
+                    <SelectItem value="all">All Locations</SelectItem>
+                    {uniqueLocations.map((location) => (
+                      <SelectItem key={location} value={location}>
+                        {location}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              )}
 
-              {hasActiveFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearFilters}
-                  className="gap-1"
-                  data-testid="button-clear-filters"
-                >
-                  <X className="w-3 h-3" />
-                  Clear Filters
-                </Button>
-              )}
-            </div>
+                <Select value={budgetFilter} onValueChange={setBudgetFilter}>
+                  <SelectTrigger className="w-[130px] sm:w-[180px] text-xs sm:text-sm" data-testid="select-budget-filter">
+                    <SelectValue placeholder="Budget" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Budgets</SelectItem>
+                    <SelectItem value="budget">Budget ($)</SelectItem>
+                    <SelectItem value="moderate">Moderate ($$)</SelectItem>
+                    <SelectItem value="luxury">Luxury ($$$)</SelectItem>
+                    <SelectItem value="ultra_luxury">Ultra Luxury ($$$$)</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {journalSettings.showSubcategories && uniqueSubcategories.length > 0 && (
+                  <Select value={subcategoryFilter} onValueChange={setSubcategoryFilter}>
+                    <SelectTrigger className="w-[130px] sm:w-[160px] text-xs sm:text-sm" data-testid="select-subcategory-filter">
+                      <Folder className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      {uniqueSubcategories.map((subcategory) => (
+                        <SelectItem key={subcategory} value={subcategory}>
+                          {subcategory.charAt(0).toUpperCase() + subcategory.slice(1).replace(/_/g, ' ')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="gap-1"
+                    data-testid="button-clear-filters"
+                  >
+                    <X className="w-3 h-3" />
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            )}
           </CardHeader>
 
           <CardContent className="space-y-4">
@@ -1476,6 +1611,181 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
           data-testid="button-confirm-delete-category"
         >
           {deleteCategoryMutation.isPending ? 'Deleting...' : 'Delete Category'}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* Journal Settings Dialog */}
+  <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
+    <DialogContent className="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <Settings className="w-5 h-5" />
+          Journal Settings
+        </DialogTitle>
+        <DialogDescription>
+          Customize which features are visible in your journal.
+        </DialogDescription>
+      </DialogHeader>
+      
+      <div className="space-y-4 py-4">
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium text-muted-foreground">Category Features</h4>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-muted-foreground" />
+              <Label htmlFor="show-delete" className="text-sm">Delete Categories</Label>
+            </div>
+            <Switch
+              id="show-delete"
+              checked={journalSettings.showDeleteCategory}
+              onCheckedChange={() => handleSettingToggle('showDeleteCategory')}
+              data-testid="switch-show-delete"
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-muted-foreground" />
+              <Label htmlFor="show-rename" className="text-sm">Rename Categories</Label>
+            </div>
+            <Switch
+              id="show-rename"
+              checked={journalSettings.showRenameCategory}
+              onCheckedChange={() => handleSettingToggle('showRenameCategory')}
+              data-testid="switch-show-rename"
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Image className="w-4 h-4 text-muted-foreground" />
+              <Label htmlFor="show-edit-icon" className="text-sm">Edit Category Icons</Label>
+            </div>
+            <Switch
+              id="show-edit-icon"
+              checked={journalSettings.showEditCategoryIcon}
+              onCheckedChange={() => handleSettingToggle('showEditCategoryIcon')}
+              data-testid="switch-show-edit-icon"
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Merge className="w-4 h-4 text-muted-foreground" />
+              <Label htmlFor="show-merge" className="text-sm">Merge Categories</Label>
+            </div>
+            <Switch
+              id="show-merge"
+              checked={journalSettings.showMergeCategories}
+              onCheckedChange={() => handleSettingToggle('showMergeCategories')}
+              data-testid="switch-show-merge"
+            />
+          </div>
+        </div>
+        
+        <Separator />
+        
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium text-muted-foreground">Display Options</h4>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-muted-foreground" />
+              <Label htmlFor="show-count" className="text-sm">Show Entry Counts</Label>
+            </div>
+            <Switch
+              id="show-count"
+              checked={journalSettings.showEntryCount}
+              onCheckedChange={() => handleSettingToggle('showEntryCount')}
+              data-testid="switch-show-count"
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-muted-foreground" />
+              <Label htmlFor="show-filters" className="text-sm">Show Filters</Label>
+            </div>
+            <Switch
+              id="show-filters"
+              checked={journalSettings.showFilters}
+              onCheckedChange={() => handleSettingToggle('showFilters')}
+              data-testid="switch-show-filters"
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Folder className="w-4 h-4 text-muted-foreground" />
+              <Label htmlFor="show-subcategories" className="text-sm">Show Subcategories</Label>
+            </div>
+            <Switch
+              id="show-subcategories"
+              checked={journalSettings.showSubcategories}
+              onCheckedChange={() => handleSettingToggle('showSubcategories')}
+              data-testid="switch-show-subcategories"
+            />
+          </div>
+        </div>
+      </div>
+      
+      <DialogFooter>
+        <Button
+          variant="outline"
+          onClick={() => setShowSettingsDialog(false)}
+        >
+          Done
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* Rename Category Dialog */}
+  <Dialog open={showRenameCategoryDialog} onOpenChange={setShowRenameCategoryDialog}>
+    <DialogContent className="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle>Rename Category</DialogTitle>
+        <DialogDescription>
+          Enter a new name for "{categoryToRename?.label || categoryToRename?.name}".
+        </DialogDescription>
+      </DialogHeader>
+      
+      <div className="py-4">
+        <Input
+          placeholder="New category name"
+          value={newCategoryLabel}
+          onChange={(e) => setNewCategoryLabel(e.target.value)}
+          data-testid="input-rename-category"
+        />
+      </div>
+      
+      <DialogFooter className="gap-2 sm:gap-0">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowRenameCategoryDialog(false);
+            setCategoryToRename(null);
+            setNewCategoryLabel('');
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={() => {
+            if (categoryToRename && newCategoryLabel.trim()) {
+              renameCategoryMutation.mutate({
+                categoryId: categoryToRename.id,
+                newName: newCategoryLabel.trim()
+              });
+            }
+          }}
+          disabled={!newCategoryLabel.trim() || renameCategoryMutation.isPending}
+          data-testid="button-confirm-rename-category"
+        >
+          {renameCategoryMutation.isPending ? 'Renaming...' : 'Rename'}
         </Button>
       </DialogFooter>
     </DialogContent>

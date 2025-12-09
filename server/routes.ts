@@ -10451,6 +10451,47 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
+  // Personal Journal - Save settings
+  app.put("/api/user/journal/settings", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { journalSettings } = req.body;
+      
+      // Validate settings schema
+      const settingsSchema = z.object({
+        showDeleteCategory: z.boolean().optional(),
+        showRenameCategory: z.boolean().optional(),
+        showMergeCategories: z.boolean().optional(),
+        showEditCategoryIcon: z.boolean().optional(),
+        showEntryCount: z.boolean().optional(),
+        showFilters: z.boolean().optional(),
+        showSubcategories: z.boolean().optional(),
+      });
+      
+      const parsed = settingsSchema.safeParse(journalSettings);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Invalid journalSettings format', details: parsed.error });
+      }
+
+      // Get existing preferences
+      let prefs = await storage.getUserPreferences(userId);
+      
+      // Update journal settings with validated data only
+      const currentPrefs = prefs?.preferences || {};
+      await storage.upsertUserPreferences(userId, {
+        preferences: {
+          ...currentPrefs,
+          journalSettings: parsed.data
+        }
+      });
+
+      res.json({ success: true, journalSettings: parsed.data });
+    } catch (error) {
+      console.error('Error saving journal settings:', error);
+      res.status(500).json({ error: 'Failed to save journal settings' });
+    }
+  });
+
   // Personal Journal - Batch save entries from AI plans
   app.post("/api/user/journal/batch", async (req: any, res) => {
     try {
