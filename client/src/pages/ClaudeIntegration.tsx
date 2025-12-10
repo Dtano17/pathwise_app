@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle2, Sparkles, MessageSquare } from "lucide-react";
 import { ImportMethods } from "@/components/ImportMethods";
 import { SEO, PAGE_SEO } from "@/components/SEO";
+import { Breadcrumb } from "@/components/Breadcrumb";
+import { RelatedLinks } from "@/components/RelatedLinks";
 
 export default function ClaudeIntegration() {
   const [, setLocation] = useLocation();
@@ -22,6 +24,14 @@ export default function ClaudeIntegration() {
           </Button>
         </div>
       </header>
+
+      {/* Breadcrumb Navigation */}
+      <div className="container mx-auto px-4 py-4">
+        <Breadcrumb items={[
+          { label: "Import Plans", href: "/import-plan" },
+          { label: "Claude AI Integration" }
+        ]} />
+      </div>
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-16 md:py-24">
@@ -170,6 +180,11 @@ export default function ClaudeIntegration() {
           ]
         })}
       </script>
+
+      {/* Related Links */}
+      <section className="container mx-auto px-4 py-8">
+        <RelatedLinks currentPath="/claude-ai-integration" />
+      </section>
 
       {/* CTA */}
       <section className="container mx-auto px-4 py-16 text-center">

@@ -195,7 +195,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-8 h-8 rounded-lg flex-shrink-0" />
+            <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate.ai - AI-powered plan tracker and journaling app" className="w-8 h-8 rounded-lg flex-shrink-0" loading="eager" data-testid="img-logo-header" />
             <span className="font-bold text-lg sm:text-xl truncate hidden sm:block">JournalMate</span>
           </div>
           
@@ -1275,7 +1275,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2">
-              <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-8 h-8 rounded-lg" />
+              <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate.ai logo - discover and share activity plans" className="w-8 h-8 rounded-lg" loading="lazy" data-testid="img-logo-footer" />
               <span className="font-bold text-xl">JournalMate</span>
             </div>
             

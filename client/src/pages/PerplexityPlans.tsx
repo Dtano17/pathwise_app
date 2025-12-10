@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle2, Sparkles, Search } from "lucide-react";
 import { ImportMethods } from "@/components/ImportMethods";
 import { SEO, PAGE_SEO } from "@/components/SEO";
+import { Breadcrumb } from "@/components/Breadcrumb";
+import { RelatedLinks } from "@/components/RelatedLinks";
 
 export default function PerplexityPlans() {
   const [, setLocation] = useLocation();
@@ -19,6 +21,14 @@ export default function PerplexityPlans() {
           <Button onClick={() => setLocation('/')} variant="outline">Go to App</Button>
         </div>
       </header>
+
+      {/* Breadcrumb Navigation */}
+      <div className="container mx-auto px-4 py-4">
+        <Breadcrumb items={[
+          { label: "Import Plans", href: "/import-plan" },
+          { label: "Perplexity AI Integration" }
+        ]} />
+      </div>
 
       <section className="container mx-auto px-4 py-16 md:py-24">
         <div className="max-w-4xl mx-auto text-center">
@@ -87,6 +97,11 @@ export default function PerplexityPlans() {
           ]
         })}
       </script>
+
+      {/* Related Links */}
+      <section className="container mx-auto px-4 py-8">
+        <RelatedLinks currentPath="/perplexity-plans" />
+      </section>
 
       <footer className="border-t bg-gray-50 py-8">
         <div className="container mx-auto px-4 text-center text-sm text-gray-500">

@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowRight, Sparkles, Instagram, Youtube, Link2, Heart, Bookmark, Camera } from "lucide-react";
 import { SEO, PAGE_SEO } from "@/components/SEO";
+import { Breadcrumb } from "@/components/Breadcrumb";
+import { RelatedLinks } from "@/components/RelatedLinks";
 
 export default function SocialMediaSaver() {
   const [, setLocation] = useLocation();
@@ -27,6 +29,13 @@ export default function SocialMediaSaver() {
           <Button onClick={() => setLocation('/')} variant="outline">Go to App</Button>
         </div>
       </header>
+
+      {/* Breadcrumb Navigation */}
+      <div className="container mx-auto px-4 py-4">
+        <Breadcrumb items={[
+          { label: "Save Content" }
+        ]} />
+      </div>
 
       {/* Hero */}
       <section className="container mx-auto px-4 py-16 md:py-24">
@@ -177,6 +186,11 @@ export default function SocialMediaSaver() {
           ]
         })}
       </script>
+
+      {/* Related Links */}
+      <section className="container mx-auto px-4 py-8">
+        <RelatedLinks currentPath="/save-social-media" />
+      </section>
 
       {/* CTA */}
       <section className="container mx-auto px-4 py-16 text-center">
