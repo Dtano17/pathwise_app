@@ -1352,10 +1352,6 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                               label={verificationLabel}
                               planId={plan.id}
                               plannerProfileId={plan.plannerProfileId}
-                              twitterPostUrl={plan.twitterPostUrl}
-                              instagramPostUrl={plan.instagramPostUrl}
-                              threadsPostUrl={plan.threadsPostUrl}
-                              linkedinPostUrl={plan.linkedinPostUrl}
                             />
                           )}
                         </div>

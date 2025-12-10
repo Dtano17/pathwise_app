@@ -1,5 +1,5 @@
 // Replit Auth integration - from blueprint:javascript_log_in_with_replit
-import { useQuery, useMutation, useQueryClient, QueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect, useRef } from "react";
 
@@ -17,31 +17,7 @@ interface User {
 }
 
 export function useAuth() {
-  let queryClient: QueryClient | null = null;
-  let hasProvider = true;
-  try {
-    queryClient = useQueryClient();
-  } catch {
-    // QueryClientProvider not yet mounted - during HMR/startup
-    hasProvider = false;
-  }
-
-  // If provider not available, return safe defaults (loading state)
-  if (!hasProvider) {
-    return {
-      user: null,
-      isAuthenticated: false,
-      isUnauthenticated: true,
-      isLoading: true,
-      error: null,
-      logout: () => {},
-      login: () => { window.location.href = '/api/login'; },
-      getUserDisplayName: () => 'Guest',
-      getUserInitials: () => 'G',
-      isUserLoading: true,
-      isLoggingOut: false,
-    };
-  }
+  const queryClient = useQueryClient();
 
   // Fetch user data using react-query
   const { data: user, isLoading, error } = useQuery<User | null>({
