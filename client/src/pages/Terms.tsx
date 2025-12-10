@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Home, FileText, Shield, Lock, Eye, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import { SEO, PAGE_SEO } from "@/components/SEO";
 
 export default function TermsPage() {
   const sections = [
@@ -31,6 +32,7 @@ export default function TermsPage() {
 
   return (
     <div className="h-screen overflow-auto bg-background text-foreground">
+      <SEO {...PAGE_SEO.terms} />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex gap-2 mb-6">
           <Link href="/">

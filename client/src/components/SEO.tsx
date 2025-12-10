@@ -169,6 +169,47 @@ export const PAGE_SEO = {
     url: '/support',
     keywords: ['support', 'help', 'contact', 'customer service'],
   },
+  privacy: {
+    title: 'Privacy Policy',
+    description: 'JournalMate privacy policy. Learn how we protect your data, what information we collect, and your rights.',
+    url: '/privacy',
+    keywords: ['privacy policy', 'data protection', 'GDPR', 'user rights'],
+  },
+  terms: {
+    title: 'Terms of Service',
+    description: 'JournalMate terms of service. Read our terms and conditions for using the platform.',
+    url: '/terms',
+    keywords: ['terms of service', 'terms and conditions', 'user agreement'],
+  },
+  updates: {
+    title: 'Product Updates & Changelog',
+    description: 'Stay up to date with the latest JournalMate features, improvements, and bug fixes. See what\'s new.',
+    url: '/updates',
+    keywords: ['updates', 'changelog', 'new features', 'release notes'],
+  },
+  login: {
+    title: 'Sign In',
+    description: 'Sign in to JournalMate to access your plans, track progress, and manage your activities.',
+    url: '/login',
+    noIndex: true,
+  },
+  signup: {
+    title: 'Create Account',
+    description: 'Join JournalMate for free. Create an account to start planning, tracking, and achieving your goals.',
+    url: '/signup',
+    keywords: ['sign up', 'create account', 'register', 'free account'],
+  },
+  groups: {
+    title: 'Group Goals & Collaborative Planning',
+    description: 'Plan and achieve goals together. Create groups, invite friends, and track progress as a team.',
+    url: '/groups',
+    keywords: ['group goals', 'collaborative planning', 'team goals', 'shared plans'],
+  },
+  sharedActivity: {
+    title: 'Shared Plan',
+    description: 'View and copy this shared plan. Import it into your JournalMate account to track your own progress.',
+    url: '/share',
+  },
 };
 
 export default SEO;

@@ -17,6 +17,7 @@ import {
   Zap
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { SEO, PAGE_SEO } from "@/components/SEO";
 
 interface UpdateEntry {
   id: string;
@@ -179,6 +180,7 @@ function UpdateCard({ update, index }: { update: UpdateEntry; index: number }) {
 export default function UpdatesPage() {
   return (
     <div className="h-screen overflow-auto bg-background text-foreground">
+      <SEO {...PAGE_SEO.updates} />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex gap-2 mb-6">
           <Link href="/">
