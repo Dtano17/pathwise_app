@@ -65,6 +65,11 @@ The application features a mobile-first responsive design with **Liquid Glass UI
   - Contextual enrichment with local tips via Tavily
   - Idempotent reminder scheduling (safe to reschedule when dates change)
   - API endpoints: GET/POST/DELETE /api/reminders/activities/:activityId
+- **AI Intellectual Property Protection**: Built-in safeguards in all AI system prompts to protect proprietary implementation details:
+  - Blocks probing questions about algorithms, AI models, or technical architecture
+  - Redirects users to feature usage guidance instead of revealing how features work
+  - Covers URL-to-plan conversion, content analysis, OCR, budget calculations, and database structure
+  - Applied across simpleConversationalPlanner.ts and aiService.ts
 
 ## External Dependencies
 - **Replit Auth**: Email and Google authentication (simplified from multi-provider).
