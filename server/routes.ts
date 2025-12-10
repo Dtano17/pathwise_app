@@ -4482,8 +4482,8 @@ ${allUrls.map(page => `  <url>
       for (const contact of contacts) {
         const { type, value } = contact;
 
-        // Create contact share record
-        const contactShare = await storage.createContactShare({
+        // Create group invite record
+        const contactShare = await storage.createGroupInvite({
           groupId,
           invitedBy: userId,
           contactType: type,
