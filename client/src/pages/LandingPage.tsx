@@ -43,6 +43,7 @@ import {
 import { SiApple, SiGoogleplay, SiTiktok, SiYoutube } from "react-icons/si";
 import { motion, AnimatePresence } from "framer-motion";
 import ThemeToggle from "@/components/ThemeToggle";
+import { SEO, PAGE_SEO } from "@/components/SEO";
 
 const features = [
   {
@@ -189,6 +190,7 @@ export default function LandingPage() {
 
   return (
     <div className="h-screen overflow-auto bg-background text-foreground">
+      <SEO {...PAGE_SEO.home} />
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-2">

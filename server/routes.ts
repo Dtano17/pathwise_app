@@ -967,22 +967,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ];
 
       // Fetch public community plans for dynamic URLs
-      const publicPlans = await db.query.activities.findMany({
-        where: eq(activities.communityStatus, 'live'),
-        limit: 1000,
-        columns: {
-          shareToken: true,
-          updatedAt: true,
-        }
-      });
+      const publicPlans = await db.select({
+        shareToken: activities.shareToken,
+        updatedAt: activities.updatedAt,
+      }).from(activities).where(eq(activities.communityStatus, 'live')).limit(1000);
 
-      // Build dynamic URLs from public plans
-      const dynamicUrls = publicPlans.map(plan => ({
-        url: `/share/${plan.shareToken}`,
-        priority: 0.6,
-        changefreq: 'weekly',
-        lastmod: plan.updatedAt instanceof Date ? plan.updatedAt.toISOString() : new Date(plan.updatedAt).toISOString()
-      }));
+      // Build dynamic URLs from public plans (filter out null shareTokens)
+      const dynamicUrls = publicPlans
+        .filter(plan => plan.shareToken)
+        .map(plan => ({
+          url: `/share/${plan.shareToken}`,
+          priority: 0.6,
+          changefreq: 'weekly',
+          lastmod: plan.updatedAt instanceof Date ? plan.updatedAt.toISOString() : (plan.updatedAt ? new Date(plan.updatedAt).toISOString() : undefined)
+        }));
 
       // Combine static and dynamic URLs
       const allUrls = [...staticPages, ...dynamicUrls];

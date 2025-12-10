@@ -2,10 +2,12 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home } from "lucide-react";
 import { Link } from "wouter";
 import DiscoverPlansView from "@/components/discover/DiscoverPlansView";
+import { SEO, PAGE_SEO } from "@/components/SEO";
 
 export default function CommunityPlansPage() {
   return (
     <div className="h-screen overflow-auto bg-background text-foreground">
+      <SEO {...PAGE_SEO.discover} />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Navigation Buttons */}
         <div className="flex gap-2 mb-6">

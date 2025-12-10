@@ -70,6 +70,12 @@ The application features a mobile-first responsive design with **Liquid Glass UI
   - Redirects users to feature usage guidance instead of revealing how features work
   - Covers URL-to-plan conversion, content analysis, OCR, budget calculations, and database structure
   - Applied across simpleConversationalPlanner.ts and aiService.ts
+- **SEO & AI Discovery Optimization**: Comprehensive SEO implementation for search engines and AI crawlers:
+  - Reusable SEO component (`client/src/components/SEO.tsx`) with react-helmet-async for per-page meta tags
+  - Dynamic sitemap.xml at `/sitemap.xml` with static and dynamic URLs (community plans)
+  - JSON-LD structured data (SoftwareApplication, FAQPage) for rich snippets
+  - Open Graph and Twitter Card meta tags for social sharing
+  - Page-specific SEO configurations in PAGE_SEO object covering all key pages
 
 ## External Dependencies
 - **Replit Auth**: Email and Google authentication (simplified from multi-provider).

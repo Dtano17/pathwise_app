@@ -2,12 +2,14 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle2, Sparkles, MessageSquare } from "lucide-react";
 import { ImportMethods } from "@/components/ImportMethods";
+import { SEO, PAGE_SEO } from "@/components/SEO";
 
 export default function ClaudeIntegration() {
   const [, setLocation] = useLocation();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-indigo-50">
+      <SEO {...PAGE_SEO.claudeIntegration} />
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
