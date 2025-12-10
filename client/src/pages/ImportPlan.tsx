@@ -26,6 +26,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { 
   Select,
   SelectContent,
@@ -51,13 +59,28 @@ function GlassCard({ children, className = '' }: { children: React.ReactNode; cl
 }
 
 
-function SourcePill({ icon: Icon, label, color }: { icon: any; label: string; color: string }) {
-  return (
-    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium ${color}`}>
+function SourcePill({ icon: Icon, label, color, tooltip }: { icon: any; label: string; color: string; tooltip?: string }) {
+  const pill = (
+    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium ${color} ${tooltip ? 'cursor-help' : ''}`}>
       <Icon className="w-3.5 h-3.5" />
       <span>{label}</span>
     </div>
   );
+
+  if (tooltip) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {pill}
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-xs">
+          <p className="text-xs">{tooltip}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return pill;
 }
 
 function LoadingState({ message }: { message?: string }) {
@@ -101,39 +124,140 @@ function EmptyState({ onPasteClick, isLoading }: { onPasteClick: () => void; isL
         </p>
       </div>
 
-      <div className="w-full max-w-md mb-6">
-        <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 text-center">
-          Supported Sources
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="space-y-2">
-            <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Social Media</div>
-            <div className="flex flex-wrap gap-1.5">
-              <SourcePill icon={SiInstagram} label="Instagram" color="bg-gradient-to-r from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30 text-pink-600 dark:text-pink-400" />
-              <SourcePill icon={SiTiktok} label="TikTok" color="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300" />
-              <SourcePill icon={SiYoutube} label="YouTube" color="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" />
-              <SourcePill icon={SiX} label="Twitter/X" color="bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400" />
-              <SourcePill icon={SiFacebook} label="Facebook" color="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" />
-              <SourcePill icon={SiReddit} label="Reddit" color="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400" />
+      <TooltipProvider>
+        <div className="w-full max-w-2xl mb-6">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 text-center">
+            Supported Sources
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Social Media</div>
+              <div className="flex flex-wrap gap-1.5">
+                <SourcePill icon={SiInstagram} label="Instagram" color="bg-gradient-to-r from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30 text-pink-600 dark:text-pink-400" tooltip="Paste URL like instagram.com/p/ABC123 or use share sheet" />
+                <SourcePill icon={SiTiktok} label="TikTok" color="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300" tooltip="Paste video URL or share from TikTok app" />
+                <SourcePill icon={SiYoutube} label="YouTube" color="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" tooltip="Paste video URL - we'll transcribe it" />
+                <SourcePill icon={SiX} label="Twitter/X" color="bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400" tooltip="Paste tweet URL" />
+                <SourcePill icon={SiFacebook} label="Facebook" color="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" tooltip="Paste post URL" />
+                <SourcePill icon={SiReddit} label="Reddit" color="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400" tooltip="Paste thread or comment URL" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">AI & Files</div>
+              <div className="flex flex-wrap gap-1.5">
+                <SourcePill icon={SiOpenai} label="ChatGPT" color="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" tooltip="Copy conversation or paste share URL" />
+                <SourcePill icon={SiAnthropic} label="Claude" color="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" tooltip="Copy conversation or paste share URL" />
+                <SourcePill icon={SiGooglegemini} label="Gemini" color="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" tooltip="Copy conversation or paste share URL" />
+                <SourcePill icon={Link} label="Articles" color="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" tooltip="Paste article URL" />
+                <SourcePill icon={FileText} label="Docs" color="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400" tooltip="Upload Word, PDF, or text files" />
+                <SourcePill icon={Image} label="Images" color="bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" tooltip="Upload images with text/plans" />
+                <SourcePill icon={FileText} label="PDFs" color="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400" tooltip="Upload PDF documents" />
+                <SourcePill icon={Video} label="Videos" color="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400" tooltip="Upload or paste video URLs" />
+              </div>
             </div>
           </div>
-          
-          <div className="space-y-2">
-            <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">AI & Files</div>
-            <div className="flex flex-wrap gap-1.5">
-              <SourcePill icon={SiOpenai} label="ChatGPT" color="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" />
-              <SourcePill icon={SiAnthropic} label="Claude" color="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" />
-              <SourcePill icon={SiGooglegemini} label="Gemini" color="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" />
-              <SourcePill icon={Link} label="Articles" color="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" />
-              <SourcePill icon={FileText} label="Docs" color="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400" />
-              <SourcePill icon={Image} label="Images" color="bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" />
-              <SourcePill icon={FileText} label="PDFs" color="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400" />
-              <SourcePill icon={Video} label="Videos" color="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400" />
-            </div>
-          </div>
+
+          {/* Collapsible Import Guide */}
+          <Accordion type="single" collapsible className="mb-4">
+            <AccordionItem value="import-guide" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-sm font-medium hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  <span>📘 How to Import from ChatGPT, Claude, Gemini & Social Media</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <Tabs defaultValue="chatgpt" className="w-full">
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="chatgpt" className="text-xs">ChatGPT</TabsTrigger>
+                    <TabsTrigger value="claude" className="text-xs">Claude</TabsTrigger>
+                    <TabsTrigger value="gemini" className="text-xs">Gemini</TabsTrigger>
+                    <TabsTrigger value="social" className="text-xs">Social</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="chatgpt" className="mt-4 space-y-3 text-sm">
+                    <div>
+                      <p className="font-semibold mb-2">Method 1: Copy & Paste</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <li>Go to your ChatGPT conversation</li>
+                        <li>Select all text (Ctrl+A / Cmd+A)</li>
+                        <li>Copy (Ctrl+C / Cmd+C)</li>
+                        <li>Click "Paste from Clipboard" below</li>
+                      </ol>
+                    </div>
+                    <div>
+                      <p className="font-semibold mb-2">Method 2: Share Link</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <li>Click Share button in ChatGPT</li>
+                        <li>Copy the share URL</li>
+                        <li>Paste URL below and click Parse</li>
+                      </ol>
+                      <code className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded mt-2 block">
+                        https://chat.openai.com/share/abc-123
+                      </code>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="claude" className="mt-4 space-y-3 text-sm">
+                    <div>
+                      <p className="font-semibold mb-2">Method 1: Copy & Paste</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <li>Go to your Claude conversation</li>
+                        <li>Select all text (Ctrl+A / Cmd+A)</li>
+                        <li>Copy (Ctrl+C / Cmd+C)</li>
+                        <li>Click "Paste from Clipboard" below</li>
+                      </ol>
+                    </div>
+                    <div>
+                      <p className="font-semibold mb-2">Method 2: Share Link</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <li>Click Share in Claude</li>
+                        <li>Copy the share URL</li>
+                        <li>Paste URL below and click Parse</li>
+                      </ol>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="gemini" className="mt-4 space-y-3 text-sm">
+                    <div>
+                      <p className="font-semibold mb-2">Copy & Paste from Gemini</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <li>Create your plan in Gemini (with images if needed)</li>
+                        <li>Copy the conversation text</li>
+                        <li>Click "Paste from Clipboard" below</li>
+                      </ol>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                        💡 Gemini's multimodal plans work great! We'll extract the action items.
+                      </p>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="social" className="mt-4 space-y-3 text-sm">
+                    <div>
+                      <p className="font-semibold mb-2">Instagram / TikTok / YouTube</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <li>Find the post/video you want to save</li>
+                        <li>Tap Share → Copy Link</li>
+                        <li>Paste the URL below</li>
+                        <li>We'll extract the recipe, workout, or tutorial</li>
+                      </ol>
+                    </div>
+                    <div className="bg-pink-50 dark:bg-pink-900/20 p-3 rounded-lg border border-pink-100 dark:border-pink-800">
+                      <p className="font-semibold text-xs mb-2">Example URLs:</p>
+                      <div className="space-y-1 text-xs font-mono">
+                        <div>instagram.com/p/ABC123</div>
+                        <div>tiktok.com/@user/video/123</div>
+                        <div>youtube.com/watch?v=ABC123</div>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
-      </div>
+      </TooltipProvider>
 
       <Button
         onClick={onPasteClick}

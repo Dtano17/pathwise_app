@@ -1,6 +1,7 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, CheckCircle2, Sparkles, MessageSquare, ListChecks, Bell } from "lucide-react";
+import { ArrowRight, CheckCircle2, Sparkles, MessageSquare } from "lucide-react";
+import { ImportMethods } from "@/components/ImportMethods";
 
 export default function ChatGPTPlanTracker() {
   const [, setLocation] = useLocation();
@@ -61,43 +62,13 @@ export default function ChatGPTPlanTracker() {
         </div>
       </section>
 
-      {/* How It Works */}
+      {/* How to Import */}
       <section className="container mx-auto px-4 py-16 bg-white rounded-3xl my-12 shadow-xl">
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
-          How It Works
-        </h2>
-
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <MessageSquare className="w-8 h-8 text-purple-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">1. Create Plan in ChatGPT</h3>
-            <p className="text-gray-600">
-              Ask ChatGPT to plan your trip, project, or goal. Get a detailed itinerary with action items.
-            </p>
-          </div>
-
-          <div className="text-center">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ListChecks className="w-8 h-8 text-blue-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">2. Import to JournalMate</h3>
-            <p className="text-gray-600">
-              Copy your ChatGPT conversation or use our browser extension for one-click import.
-            </p>
-          </div>
-
-          <div className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Bell className="w-8 h-8 text-green-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">3. Track Progress Automatically</h3>
-            <p className="text-gray-600">
-              Get reminders, check off tasks, and let JournalMate auto-journal your journey.
-            </p>
-          </div>
-        </div>
+        <ImportMethods
+          aiName="ChatGPT"
+          shareUrlExample="https://chat.openai.com/share/abc123-def456-789"
+          primaryColor="purple"
+        />
       </section>
 
       {/* Features */}

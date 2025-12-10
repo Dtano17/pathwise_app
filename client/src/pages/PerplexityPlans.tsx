@@ -1,6 +1,7 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, CheckCircle2, Sparkles, Search, ListChecks, Bell } from "lucide-react";
+import { ArrowRight, CheckCircle2, Sparkles, Search } from "lucide-react";
+import { ImportMethods } from "@/components/ImportMethods";
 
 export default function PerplexityPlans() {
   const [, setLocation] = useLocation();
@@ -43,31 +44,13 @@ export default function PerplexityPlans() {
         </div>
       </section>
 
+      {/* How to Import */}
       <section className="container mx-auto px-4 py-16 bg-white rounded-3xl my-12 shadow-xl">
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">How It Works</h2>
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="w-8 h-8 text-emerald-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">1. Research with Perplexity</h3>
-            <p className="text-gray-600">Use Perplexity AI to research with curated sources.</p>
-          </div>
-          <div className="text-center">
-            <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ListChecks className="w-8 h-8 text-teal-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">2. Import to JournalMate</h3>
-            <p className="text-gray-600">Copy your research. JournalMate extracts tasks automatically.</p>
-          </div>
-          <div className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Bell className="w-8 h-8 text-green-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">3. Execute & Track</h3>
-            <p className="text-gray-600">Get tasks, reminders, and automatic journaling.</p>
-          </div>
-        </div>
+        <ImportMethods
+          aiName="Perplexity"
+          shareUrlExample="https://www.perplexity.ai/search/abc123"
+          primaryColor="emerald"
+        />
       </section>
 
       <section className="container mx-auto px-4 py-16">

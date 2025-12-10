@@ -26,6 +26,7 @@ import WeekendPlans from "@/pages/WeekendPlans";
 import FAQ from "@/pages/FAQ";
 import PerplexityPlans from "@/pages/PerplexityPlans";
 import SocialMediaSaver from "@/pages/SocialMediaSaver";
+import GeminiPlanImporter from "@/pages/GeminiPlanImporter";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
 import { useAuth } from "@/hooks/useAuth";
@@ -132,6 +133,7 @@ function AppContent() {
         {/* SEO Landing Pages - AI Integration */}
         <Route path="/chatgpt-plan-tracker" component={ChatGPTPlanTracker} />
         <Route path="/claude-ai-integration" component={ClaudeIntegration} />
+        <Route path="/gemini-plan-importer" component={GeminiPlanImporter} />
         <Route path="/perplexity-plans" component={PerplexityPlans} />
 
         {/* SEO Landing Pages - Discovery */}
