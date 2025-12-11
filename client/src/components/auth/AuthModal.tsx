@@ -106,7 +106,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
       const credentials = await biometric.authenticate()
 
       if (!credentials) {
-        setLoading(false)
         return
       }
 
@@ -114,6 +113,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
       handleSuccess()
     } catch (err: any) {
       setError(err.message || 'Failed to sign in')
+    } finally {
       setLoading(false)
     }
   }
