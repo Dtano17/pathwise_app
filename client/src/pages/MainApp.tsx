@@ -1518,7 +1518,7 @@ export default function MainApp({
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-background overflow-x-hidden overflow-y-auto">
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
       {/* Header */}
       <header className="shrink-0 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
         <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
@@ -1533,7 +1533,7 @@ export default function MainApp({
                 data-testid="header-logo"
               >
                 <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center hover-elevate rounded-md">
-                  <img src="/journalmate-logo-transparent.png" alt="JournalMate.ai - Your AI-powered personal planner and journal" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" loading="eager" data-testid="img-logo-header" />
+                  <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
                 </div>
                 <div className="flex items-center gap-2">
                   <div>
@@ -2958,7 +2958,7 @@ export default function MainApp({
                 {/* Hero Section */}
                 <div className="text-center mb-12">
                   <div className="inline-flex items-center justify-center w-32 h-32 mb-6">
-                    <img src="/journalmate-logo-transparent.png" alt="JournalMate.ai about page - Transform your goals into reality with AI-powered planning and journaling" className="w-32 h-32 object-contain" loading="lazy" data-testid="img-logo-about" />
+                    <img src="/journalmate-logo-transparent.png" alt="AI Planner - Smart Goal Tracker and AI Journal for Life Planning" className="w-32 h-32 object-contain" />
                   </div>
                   <h2 className="text-4xl sm:text-5xl font-bold text-foreground mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
                     Plan Together. Reflect Together. Grow Together.

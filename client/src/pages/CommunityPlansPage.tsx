@@ -2,20 +2,11 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home } from "lucide-react";
 import { Link } from "wouter";
 import DiscoverPlansView from "@/components/discover/DiscoverPlansView";
-import { SEO, PAGE_SEO } from "@/components/SEO";
-import { Breadcrumb } from "@/components/Breadcrumb";
-import { RelatedLinks } from "@/components/RelatedLinks";
 
 export default function CommunityPlansPage() {
   return (
-    <div className="min-h-screen overflow-auto bg-background text-foreground">
-      <SEO {...PAGE_SEO.discover} />
+    <div className="h-screen overflow-auto bg-background text-foreground">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Breadcrumb Navigation */}
-        <Breadcrumb items={[
-          { label: "Community Plans" }
-        ]} className="mb-4" />
-
         {/* Navigation Buttons */}
         <div className="flex gap-2 mb-6">
           <Link href="/">
@@ -34,9 +25,6 @@ export default function CommunityPlansPage() {
 
         {/* Discover Plans View */}
         <DiscoverPlansView />
-
-        {/* Related Links */}
-        <RelatedLinks currentPath="/discover" />
       </div>
     </div>
   );

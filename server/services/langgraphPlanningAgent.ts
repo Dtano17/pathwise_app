@@ -125,6 +125,9 @@ const PlanningState = Annotation.Root({
 
   // Storage (for activity/task creation)
   storage: Annotation<IStorage | null>({ default: () => null }),
+
+  // Plan mode
+  planMode: Annotation<'quick' | 'smart'>({ default: () => 'quick' }),
 });
 
 type PlanningStateType = typeof PlanningState.State;

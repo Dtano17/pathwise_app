@@ -4,9 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Sparkles, Calendar, MapPin, Heart, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { SEO, PAGE_SEO } from "@/components/SEO";
-import { Breadcrumb } from "@/components/Breadcrumb";
-import { RelatedLinks } from "@/components/RelatedLinks";
 
 export default function WeekendPlans() {
   const [, setLocation] = useLocation();
@@ -50,7 +47,6 @@ export default function WeekendPlans() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-50 via-white to-yellow-50">
-      <SEO {...PAGE_SEO.weekendPlans} />
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
@@ -63,14 +59,6 @@ export default function WeekendPlans() {
           </Button>
         </div>
       </header>
-
-      {/* Breadcrumb Navigation */}
-      <div className="container mx-auto px-4 py-4">
-        <Breadcrumb items={[
-          { label: "Discover", href: "/discover" },
-          { label: "Weekend Plans" }
-        ]} />
-      </div>
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-16 md:py-24">
@@ -146,11 +134,6 @@ export default function WeekendPlans() {
             </Card>
           ))}
         </div>
-      </section>
-
-      {/* Related Links */}
-      <section className="container mx-auto px-4 py-8">
-        <RelatedLinks currentPath="/weekend-plans" />
       </section>
 
       {/* CTA */}

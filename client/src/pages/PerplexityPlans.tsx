@@ -2,16 +2,12 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle2, Sparkles, Search } from "lucide-react";
 import { ImportMethods } from "@/components/ImportMethods";
-import { SEO, PAGE_SEO } from "@/components/SEO";
-import { Breadcrumb } from "@/components/Breadcrumb";
-import { RelatedLinks } from "@/components/RelatedLinks";
 
 export default function PerplexityPlans() {
   const [, setLocation] = useLocation();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-white to-teal-50">
-      <SEO {...PAGE_SEO.perplexityPlans} />
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -21,14 +17,6 @@ export default function PerplexityPlans() {
           <Button onClick={() => setLocation('/')} variant="outline">Go to App</Button>
         </div>
       </header>
-
-      {/* Breadcrumb Navigation */}
-      <div className="container mx-auto px-4 py-4">
-        <Breadcrumb items={[
-          { label: "Import Plans", href: "/import-plan" },
-          { label: "Perplexity AI Integration" }
-        ]} />
-      </div>
 
       <section className="container mx-auto px-4 py-16 md:py-24">
         <div className="max-w-4xl mx-auto text-center">
@@ -97,11 +85,6 @@ export default function PerplexityPlans() {
           ]
         })}
       </script>
-
-      {/* Related Links */}
-      <section className="container mx-auto px-4 py-8">
-        <RelatedLinks currentPath="/perplexity-plans" />
-      </section>
 
       <footer className="border-t bg-gray-50 py-8">
         <div className="container mx-auto px-4 text-center text-sm text-gray-500">

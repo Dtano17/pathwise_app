@@ -2,9 +2,6 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowRight, Sparkles, Instagram, Youtube, Link2, Heart, Bookmark, Camera } from "lucide-react";
-import { SEO, PAGE_SEO } from "@/components/SEO";
-import { Breadcrumb } from "@/components/Breadcrumb";
-import { RelatedLinks } from "@/components/RelatedLinks";
 
 export default function SocialMediaSaver() {
   const [, setLocation] = useLocation();
@@ -18,7 +15,6 @@ export default function SocialMediaSaver() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-pink-50 via-white to-purple-50">
-      <SEO {...PAGE_SEO.socialMediaSaver} />
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
@@ -29,13 +25,6 @@ export default function SocialMediaSaver() {
           <Button onClick={() => setLocation('/')} variant="outline">Go to App</Button>
         </div>
       </header>
-
-      {/* Breadcrumb Navigation */}
-      <div className="container mx-auto px-4 py-4">
-        <Breadcrumb items={[
-          { label: "Save Content" }
-        ]} />
-      </div>
 
       {/* Hero */}
       <section className="container mx-auto px-4 py-16 md:py-24">
@@ -186,11 +175,6 @@ export default function SocialMediaSaver() {
           ]
         })}
       </script>
-
-      {/* Related Links */}
-      <section className="container mx-auto px-4 py-8">
-        <RelatedLinks currentPath="/save-social-media" />
-      </section>
 
       {/* CTA */}
       <section className="container mx-auto px-4 py-16 text-center">

@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Home, Newspaper, Users, Shield, FileText, Mail, HelpCircle } from "lucide-react";
 import { motion } from "framer-motion";
-import { SEO, PAGE_SEO } from "@/components/SEO";
 
 export default function SupportPage() {
   const resources = [
@@ -47,7 +46,6 @@ export default function SupportPage() {
 
   return (
     <div className="h-screen overflow-auto bg-background text-foreground">
-      <SEO {...PAGE_SEO.support} />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex gap-2 mb-6">
           <Link href="/">

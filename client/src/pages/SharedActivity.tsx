@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Helmet } from 'react-helmet-async';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -971,45 +970,8 @@ export default function SharedActivity() {
 
   const theme = categoryThemes[activity.category.toLowerCase()] || categoryThemes.other;
 
-  const generateStructuredData = () => {
-    const title = activity.shareTitle || activity.planSummary || activity.title;
-    const description = activity.description || `An activity plan on JournalMate`;
-    const baseUrl = 'https://journalmate.ai';
-    const currentUrl = `${baseUrl}/share/${token}`;
-    
-    const steps = tasks.map((task, index) => ({
-      "@type": "HowToStep",
-      "position": index + 1,
-      "name": task.title,
-      "text": task.description || task.title
-    }));
-    
-    return {
-      "@context": "https://schema.org",
-      "@type": "HowTo",
-      "name": title,
-      "description": description,
-      "step": steps,
-      "author": {
-        "@type": "Person",
-        "name": data.sharedBy?.name || "JournalMate User"
-      },
-      "datePublished": activity.createdAt,
-      "url": currentUrl,
-      "tool": {
-        "@type": "HowToTool",
-        "name": "JournalMate.ai"
-      }
-    };
-  };
-
   return (
     <div className={`min-h-screen ${previewTheme === 'dark' ? 'dark' : ''}`}>
-      <Helmet>
-        <script type="application/ld+json">
-          {JSON.stringify(generateStructuredData())}
-        </script>
-      </Helmet>
       <div className="min-h-screen bg-background">
         {/* Hero Section with Dynamic Themed Background Image */}
         <div 

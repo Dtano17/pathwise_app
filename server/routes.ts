@@ -936,58 +936,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
 
-  // ========== ROBOTS.TXT FOR SEO ==========
-  app.get('/robots.txt', (_req, res) => {
-    const lines = [
-      '# JournalMate.ai robots.txt',
-      'User-agent: *',
-      'Allow: /',
-      'Allow: /discover',
-      'Allow: /share/',
-      'Allow: /import-plan',
-      'Allow: /chatgpt-plan-tracker',
-      'Allow: /claude-ai-integration',
-      'Allow: /gemini-plan-importer',
-      'Allow: /perplexity-plans',
-      'Allow: /save-social-media',
-      'Allow: /weekend-plans',
-      'Allow: /date-night-ideas',
-      'Allow: /faq',
-      'Allow: /support',
-      'Allow: /terms',
-      'Allow: /updates',
-      '',
-      '# Disallow private/authenticated pages',
-      'Disallow: /api/',
-      'Disallow: /login',
-      'Disallow: /signup',
-      'Disallow: /dashboard',
-      'Disallow: /settings',
-      'Disallow: /profile',
-      'Disallow: /activities/',
-      'Disallow: /groups/',
-      'Disallow: /journal',
-      '',
-      '# AI Crawlers - Welcome!',
-      'User-agent: GPTBot',
-      'Allow: /',
-      '',
-      'User-agent: Claude-Web',
-      'Allow: /',
-      '',
-      'User-agent: Googlebot',
-      'Allow: /',
-      '',
-      'User-agent: Bingbot',
-      'Allow: /',
-      '',
-      '# Sitemap location',
-      'Sitemap: https://journalmate.ai/sitemap.xml'
-    ];
-    res.header('Content-Type', 'text/plain');
-    res.send(lines.join('\n'));
-  });
-
   // ========== SITEMAP FOR SEO ==========
   // Dynamic sitemap.xml for search engines and AI crawlers
   app.get('/sitemap.xml', async (_req, res) => {
@@ -998,35 +946,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const staticPages = [
         { url: '/', priority: 1.0, changefreq: 'weekly' },
         { url: '/discover', priority: 0.9, changefreq: 'daily' },
-        { url: '/import-plan', priority: 0.9, changefreq: 'weekly' },
         { url: '/chatgpt-plan-tracker', priority: 0.9, changefreq: 'monthly' },
         { url: '/claude-ai-integration', priority: 0.9, changefreq: 'monthly' },
         { url: '/perplexity-plans', priority: 0.9, changefreq: 'monthly' },
         { url: '/gemini-plan-importer', priority: 0.9, changefreq: 'monthly' },
         { url: '/save-social-media', priority: 0.9, changefreq: 'weekly' },
         { url: '/weekend-plans', priority: 0.85, changefreq: 'weekly' },
+        { url: '/plans-near-me', priority: 0.85, changefreq: 'weekly' },
+        { url: '/christmas-plans', priority: 0.8, changefreq: 'monthly' },
+        { url: '/new-year-activities', priority: 0.8, changefreq: 'monthly' },
+        { url: '/summer-adventures', priority: 0.8, changefreq: 'monthly' },
+        { url: '/winter-plans', priority: 0.8, changefreq: 'monthly' },
         { url: '/date-night-ideas', priority: 0.8, changefreq: 'weekly' },
+        { url: '/family-activities', priority: 0.8, changefreq: 'weekly' },
+        { url: '/trending-plans', priority: 0.85, changefreq: 'daily' },
         { url: '/faq', priority: 0.7, changefreq: 'monthly' },
+        { url: '/privacy', priority: 0.5, changefreq: 'yearly' },
         { url: '/terms', priority: 0.5, changefreq: 'yearly' },
         { url: '/support', priority: 0.6, changefreq: 'monthly' },
-        { url: '/updates', priority: 0.7, changefreq: 'weekly' },
       ];
 
       // Fetch public community plans for dynamic URLs
-      const publicPlans = await db.select({
-        shareToken: activities.shareToken,
-        updatedAt: activities.updatedAt,
-      }).from(activities).where(eq(activities.communityStatus, 'live')).limit(1000);
+      const publicPlans = await db.query.activities.findMany({
+        where: eq(activities.communityStatus, 'live'),
+        limit: 1000,
+        columns: {
+          shareToken: true,
+          updatedAt: true,
+        }
+      });
 
-      // Build dynamic URLs from public plans (filter out null shareTokens)
-      const dynamicUrls = publicPlans
-        .filter(plan => plan.shareToken)
-        .map(plan => ({
-          url: `/share/${plan.shareToken}`,
-          priority: 0.6,
-          changefreq: 'weekly',
-          lastmod: plan.updatedAt instanceof Date ? plan.updatedAt.toISOString() : (plan.updatedAt ? new Date(plan.updatedAt).toISOString() : undefined)
-        }));
+      // Build dynamic URLs from public plans
+      const dynamicUrls = publicPlans.map(plan => ({
+        url: `/share/${plan.shareToken}`,
+        priority: 0.6,
+        changefreq: 'weekly',
+        lastmod: plan.updatedAt instanceof Date ? plan.updatedAt.toISOString() : new Date(plan.updatedAt).toISOString()
+      }));
 
       // Combine static and dynamic URLs
       const allUrls = [...staticPages, ...dynamicUrls];
@@ -4482,8 +4438,8 @@ ${allUrls.map(page => `  <url>
       for (const contact of contacts) {
         const { type, value } = contact;
 
-        // Create group invite record
-        const contactShare = await storage.createGroupInvite({
+        // Create contact share record
+        const contactShare = await storage.createContactShare({
           groupId,
           invitedBy: userId,
           contactType: type,

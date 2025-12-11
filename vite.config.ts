@@ -34,8 +34,6 @@ export default defineConfig({
     minify: 'terser',
     cssCodeSplit: true,
     rollupOptions: {
-      // Fix for react-helmet-async build error
-      external: [],
       output: {
         // Improve caching with content hashing
         entryFileNames: 'assets/[name].[hash].js',

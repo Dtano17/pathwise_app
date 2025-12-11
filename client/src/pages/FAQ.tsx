@@ -2,7 +2,6 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Sparkles, HelpCircle } from "lucide-react";
-import { SEO, PAGE_SEO } from "@/components/SEO";
 
 export default function FAQ() {
   const [, setLocation] = useLocation();
@@ -52,7 +51,6 @@ export default function FAQ() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-blue-50">
-      <SEO {...PAGE_SEO.faq} />
       {/* JSON-LD FAQ Schema */}
       <script type="application/ld+json">
         {JSON.stringify({

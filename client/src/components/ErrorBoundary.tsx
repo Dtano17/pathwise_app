@@ -2,8 +2,6 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
-import { Capacitor } from '@capacitor/core';
-import { Haptics, NotificationType } from '@capacitor/haptics';
 
 interface Props {
   children: ReactNode;
@@ -35,28 +33,12 @@ class ErrorBoundary extends Component<Props, State> {
       errorInfo
     });
 
-    // Trigger error haptic on native platforms
-    if (Capacitor.isNativePlatform()) {
-      Haptics.notification({ type: NotificationType.Error }).catch(err =>
-        console.warn('[Haptics] Failed to trigger error haptic:', err)
-      );
-
-      // Log to native console with more context
-      console.error('[Mobile Error]', {
-        message: error.message,
-        stack: error.stack,
-        componentStack: errorInfo.componentStack,
-        platform: Capacitor.getPlatform()
-      });
-    }
-
     // Log to error reporting service (e.g., Sentry) in production
-    if (import.meta.env.PROD) {
+    if (process.env.NODE_ENV === 'production') {
       // TODO: Send to error reporting service
       console.error('Production error:', {
         error: error.toString(),
-        componentStack: errorInfo.componentStack,
-        platform: Capacitor.isNativePlatform() ? Capacitor.getPlatform() : 'web'
+        componentStack: errorInfo.componentStack
       });
     }
   }
@@ -98,16 +80,7 @@ class ErrorBoundary extends Component<Props, State> {
               </div>
             </div>
 
-            {/* Show platform info */}
-            <div className="text-xs text-muted-foreground text-center">
-              {Capacitor.isNativePlatform() ? (
-                <p>Platform: {Capacitor.getPlatform()} • Native App</p>
-              ) : (
-                <p>Platform: Web Browser</p>
-              )}
-            </div>
-
-            {import.meta.env.DEV && this.state.error && (
+            {process.env.NODE_ENV === 'development' && this.state.error && (
               <div className="bg-muted p-4 rounded-lg overflow-auto max-h-48 text-xs">
                 <p className="font-mono text-destructive font-semibold mb-2">
                   {this.state.error.toString()}
