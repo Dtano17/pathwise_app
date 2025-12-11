@@ -1518,7 +1518,7 @@ export default function MainApp({
   ];
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
+    <div className="flex flex-col min-h-screen bg-background overflow-x-hidden overflow-y-auto">
       {/* Header */}
       <header className="shrink-0 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
         <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
