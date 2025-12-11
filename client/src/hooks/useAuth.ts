@@ -2,6 +2,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect, useRef } from "react";
+import { NativeBiometric } from '@capgo/capacitor-native-biometric';
+import { Capacitor } from '@capacitor/core';
 
 interface User {
   id: string;
@@ -58,11 +60,24 @@ export function useAuth() {
 
   // Logout mutation
   const logoutMutation = useMutation({
-    mutationFn: () =>
-      fetch('/api/logout', { method: 'POST' }).then(res => {
-        if (!res.ok) throw new Error('Logout failed');
-        return res.json();
-      }),
+    mutationFn: async () => {
+      const res = await fetch('/api/logout', { method: 'POST' });
+      if (!res.ok) throw new Error('Logout failed');
+
+      // Delete biometric credentials on native platforms
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await NativeBiometric.deleteCredentials({
+            server: 'journalmate.ai'
+          });
+          console.log('[Auth] Biometric credentials deleted on logout');
+        } catch (error) {
+          console.warn('[Auth] Failed to delete biometric credentials:', error);
+        }
+      }
+
+      return res.json();
+    },
     onSuccess: () => {
       // Clear all queries and redirect
       if (queryClient) queryClient.clear();

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Mail, Lock, Phone, User, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Mail, Lock, Phone, User, Eye, EyeOff, Fingerprint } from 'lucide-react'
 import { FcGoogle } from 'react-icons/fc'
 import {
   signInWithEmail,
@@ -16,6 +16,8 @@ import {
   verifyPhoneOTP
 } from '@/lib/supabase'
 import { useToast } from '@/hooks/use-toast'
+import { useBiometricAuth } from '@/hooks/useBiometricAuth'
+import { Capacitor } from '@capacitor/core'
 
 interface AuthModalProps {
   isOpen: boolean
@@ -32,6 +34,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const [error, setError] = useState<string>('')
   const [success, setSuccess] = useState<string>('')
   const { toast } = useToast()
+  const biometric = useBiometricAuth()
 
   // Form state
   const [email, setEmail] = useState('')
@@ -75,10 +78,42 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
     try {
       await signInWithEmail(email, password)
+
+      // Save credentials for biometric auth if on native platform and available
+      if (Capacitor.isNativePlatform() && biometric.isAvailable && !biometric.hasCredentials) {
+        const saved = await biometric.saveCredentials(email, password)
+        if (saved) {
+          toast({
+            title: "Biometric Auth Enabled",
+            description: `${biometric.biometryTypeName} has been set up for faster sign-in`,
+          })
+        }
+      }
+
       handleSuccess()
     } catch (err: any) {
       setError(err.message || 'Failed to sign in')
     } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBiometricSignIn = async () => {
+    setLoading(true)
+    setError('')
+
+    try {
+      const credentials = await biometric.authenticate()
+
+      if (!credentials) {
+        setLoading(false)
+        return
+      }
+
+      await signInWithEmail(credentials.username, credentials.password)
+      handleSuccess()
+    } catch (err: any) {
+      setError(err.message || 'Failed to sign in')
       setLoading(false)
     }
   }
@@ -210,6 +245,20 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
             <Alert>
               <AlertDescription className="text-green-600">{success}</AlertDescription>
             </Alert>
+          )}
+
+          {/* Biometric Sign-in (only on native platforms with saved credentials) */}
+          {mode === 'signin' && Capacitor.isNativePlatform() && biometric.isAvailable && biometric.hasCredentials && (
+            <Button
+              variant="outline"
+              onClick={handleBiometricSignIn}
+              disabled={loading || biometric.isProcessing}
+              className="w-full border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950"
+              data-testid="button-biometric-signin"
+            >
+              <Fingerprint className="w-5 h-5 mr-2 text-purple-600 dark:text-purple-400" />
+              Sign in with {biometric.biometryTypeName}
+            </Button>
           )}
 
           {/* Social Sign-in Providers - Email and Google Only */}

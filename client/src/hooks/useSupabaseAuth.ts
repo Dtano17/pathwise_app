@@ -2,6 +2,17 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { User, Session } from '@supabase/supabase-js'
 import { useToast } from '@/hooks/use-toast'
+import { Capacitor } from '@capacitor/core'
+
+// Get the appropriate redirect URL based on the platform
+function getRedirectUrl(): string {
+  if (Capacitor.isNativePlatform()) {
+    // For native mobile apps, use the custom scheme
+    return 'ai.journalmate.app://auth/callback'
+  }
+  // For web, use the current origin
+  return `${window.location.origin}/auth/callback`
+}
 
 export function useSupabaseAuth() {
   const [user, setUser] = useState<User | null>(null)
@@ -47,15 +58,15 @@ export function useSupabaseAuth() {
   const signInWithFacebook = async () => {
     try {
       setIsProcessing(true)
-      
-      // Get the current domain for the redirect URL
-      const currentDomain = window.location.origin
-      console.log('Facebook login - redirect URL:', `${currentDomain}/auth/callback`)
-      
+
+      const redirectUrl = getRedirectUrl()
+      console.log('Facebook login - redirect URL:', redirectUrl)
+      console.log('Is native platform:', Capacitor.isNativePlatform())
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
         options: {
-          redirectTo: `${currentDomain}/auth/callback`,
+          redirectTo: redirectUrl,
           scopes: 'email public_profile'
         }
       })
@@ -82,11 +93,15 @@ export function useSupabaseAuth() {
   const signInWithGoogle = async () => {
     try {
       setIsProcessing(true)
-      
+
+      const redirectUrl = getRedirectUrl()
+      console.log('Google login - redirect URL:', redirectUrl)
+      console.log('Is native platform:', Capacitor.isNativePlatform())
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: redirectUrl,
           scopes: 'email profile'
         }
       })
@@ -155,13 +170,16 @@ export function useSupabaseAuth() {
   const signUpWithEmail = async (email: string, password: string, metadata?: any) => {
     try {
       setIsProcessing(true)
-      
+
+      const redirectUrl = getRedirectUrl()
+      console.log('Email sign-up - redirect URL:', redirectUrl)
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: metadata,
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: redirectUrl
         }
       })
 

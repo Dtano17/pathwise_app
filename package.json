@@ -10,7 +10,14 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "generate:icons": "node scripts/generate-icons.js",
-    "download:images": "node scripts/download-stock-images.js"
+    "download:images": "node scripts/download-stock-images.js",
+    "generate:mobile-assets": "node scripts/generate-mobile-assets.js",
+    "deploy:android-assets": "node scripts/deploy-android-assets.js",
+    "deploy:ios-assets": "node scripts/deploy-ios-assets.js",
+    "deploy:mobile-assets": "npm run deploy:android-assets && npm run deploy:ios-assets",
+    "build:android": "npm run build && npm run generate:mobile-assets && npm run deploy:android-assets && npx cap sync android",
+    "build:ios": "npm run build && npm run generate:mobile-assets && npm run deploy:ios-assets && npx cap sync ios",
+    "build:mobile": "npm run build && npm run generate:mobile-assets && npm run deploy:mobile-assets && npx cap sync"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.37.0",
