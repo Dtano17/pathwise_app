@@ -4,12 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { 
-  Sparkles, 
-  Target, 
-  BarChart3, 
-  Users, 
-  Share2, 
+import {
+  Sparkles,
+  Target,
+  BarChart3,
+  Users,
+  Share2,
   Smartphone,
   ArrowRight,
   CheckCircle2,
@@ -147,7 +147,7 @@ export default function LandingPage() {
 
   const handleImportSubmit = () => {
     if (!importUrl.trim()) return;
-    
+
     // Validate URL
     if (!isValidUrl(importUrl)) {
       setExtractionPhase('error');
@@ -177,7 +177,7 @@ export default function LandingPage() {
     // Save URL to localStorage for post-login processing
     localStorage.setItem('journalmate.pendingImportUrl', importUrl);
     localStorage.setItem('journalmate.pendingImportTimestamp', Date.now().toString());
-    
+
     // Redirect to login
     navigate('/login');
   };
@@ -189,7 +189,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="h-screen overflow-auto bg-background text-foreground">
+    <div className="min-h-dvh overflow-auto bg-background text-foreground">
       <SEO {...PAGE_SEO.home} />
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -198,13 +198,13 @@ export default function LandingPage() {
             <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate.ai - AI-powered plan tracker and journaling app" className="w-8 h-8 rounded-lg flex-shrink-0" loading="eager" data-testid="img-logo-header" />
             <span className="font-bold text-lg sm:text-xl truncate hidden sm:block">JournalMate</span>
           </div>
-          
+
           {/* Feature Navigation - Prominent pills with icons */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-1 justify-center max-w-lg">
             <Link href="/updates">
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="gap-1.5 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700 text-orange-700 dark:text-orange-300 text-xs sm:text-sm px-2.5 sm:px-3"
                 data-testid="link-updates"
               >
@@ -213,9 +213,9 @@ export default function LandingPage() {
               </Button>
             </Link>
             <Link href="/discover">
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="gap-1.5 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-200 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-700 text-blue-700 dark:text-blue-300 text-xs sm:text-sm px-2.5 sm:px-3"
                 data-testid="link-discover"
               >
@@ -224,8 +224,8 @@ export default function LandingPage() {
               </Button>
             </Link>
             <Link href="/import-plan">
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 className="gap-1.5 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white text-xs sm:text-sm px-2.5 sm:px-3 relative"
                 data-testid="link-import"
               >
@@ -253,7 +253,7 @@ export default function LandingPage() {
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-emerald-500/10" />
         <div className="container mx-auto px-4 py-20 md:py-32 relative">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-center max-w-4xl mx-auto"
@@ -261,12 +261,12 @@ export default function LandingPage() {
             <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-purple-600 via-violet-600 to-emerald-500 bg-clip-text text-transparent leading-tight py-1">
               Execute your plans, track and share your progress
             </h1>
-            
+
             <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Create plans with our AI agent, or import from ChatGPT, Claude, and social media. 
+              Create plans with our AI agent, or import from ChatGPT, Claude, and social media.
               JournalMate devises and tracks your plan to help you achieve your goals.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
               <Link href="/login">
                 <Button size="lg" className="gap-2 bg-gradient-to-r from-purple-500 to-violet-600 text-white" data-testid="button-get-started">
@@ -284,9 +284,9 @@ export default function LandingPage() {
 
             {/* App Store Badges */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <a 
-                href="https://apps.apple.com/app/journalmate" 
-                target="_blank" 
+              <a
+                href="https://apps.apple.com/app/journalmate"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block"
                 data-testid="link-app-store"
@@ -299,9 +299,9 @@ export default function LandingPage() {
                   </div>
                 </div>
               </a>
-              <a 
-                href="https://play.google.com/store/apps/details?id=ai.journalmate.app" 
-                target="_blank" 
+              <a
+                href="https://play.google.com/store/apps/details?id=ai.journalmate.app"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block"
                 data-testid="link-play-store"
@@ -324,7 +324,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
-              <motion.div 
+              <motion.div
                 key={stat.label}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -342,7 +342,7 @@ export default function LandingPage() {
       {/* Features Section */}
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -381,7 +381,7 @@ export default function LandingPage() {
       {/* How It Works Section */}
       <section className="py-20 bg-card/50">
         <div className="container mx-auto px-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -421,7 +421,7 @@ export default function LandingPage() {
       {/* Group Planning Section */}
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -435,26 +435,26 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
-              { 
-                step: "1", 
+              {
+                step: "1",
                 icon: Users,
-                title: "Plan as a Group", 
+                title: "Plan as a Group",
                 description: "Create a shared plan with team members or friends. Everyone contributes ideas and helps shape the perfect strategy.",
                 color: "text-emerald-500",
                 bgColor: "bg-emerald-100 dark:bg-emerald-900/30"
               },
-              { 
-                step: "2", 
+              {
+                step: "2",
                 icon: TrendingUp,
-                title: "Track Progress Together", 
+                title: "Track Progress Together",
                 description: "See real-time updates as group members complete tasks. Stay motivated with shared progress dashboards and achievements.",
                 color: "text-blue-500",
                 bgColor: "bg-blue-100 dark:bg-blue-900/30"
               },
-              { 
-                step: "3", 
+              {
+                step: "3",
                 icon: Share2,
-                title: "Share & Celebrate", 
+                title: "Share & Celebrate",
                 description: "Share your group's success with permanent links. Invite others to join and build an even larger community around your goals.",
                 color: "text-purple-500",
                 bgColor: "bg-purple-100 dark:bg-purple-900/30"
@@ -487,7 +487,7 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -510,7 +510,7 @@ export default function LandingPage() {
       {/* Dedicated AI Planning Agent Section */}
       <section className="py-20 bg-card/50">
         <div className="container mx-auto px-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -597,7 +597,7 @@ export default function LandingPage() {
           </div>
 
           {/* Integrations & Extension Section */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -664,7 +664,7 @@ export default function LandingPage() {
       {/* Feedback Section */}
       <section className="py-20 bg-card/50">
         <div className="container mx-auto px-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -690,7 +690,7 @@ export default function LandingPage() {
       {/* Pricing Section */}
       <section className="py-20" id="pricing">
         <div className="container mx-auto px-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -702,7 +702,7 @@ export default function LandingPage() {
                 Simple Pricing
               </span>
             </div>
-            
+
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Choose Your Plan</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto mb-4">
               Social media imports let you analyze, plan, and track progress with any post or inspiration online.
@@ -730,7 +730,7 @@ export default function LandingPage() {
                       <span className="text-muted-foreground">/forever</span>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-3 text-sm">
                     <div className="flex items-start gap-2">
                       <Upload className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
@@ -770,7 +770,7 @@ export default function LandingPage() {
                       <TrendingUp className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
                       <span>Create compelling plans, share to community, and earn rewards when used</span>
                     </div>
-                    
+
                     <div className="flex items-start gap-2 text-muted-foreground">
                       <X className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                       <span className="line-through">No group planning with friends</span>
@@ -805,7 +805,7 @@ export default function LandingPage() {
                       <span className="text-muted-foreground">/month</span>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-3 text-sm">
                     <div className="flex items-start gap-2">
                       <Upload className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
@@ -875,7 +875,7 @@ export default function LandingPage() {
                       ~$4.92/month
                     </p>
                   </div>
-                  
+
                   <div className="space-y-3 text-sm">
                     <div className="flex items-start gap-2 font-medium">
                       <InfinityIcon className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
@@ -933,7 +933,7 @@ export default function LandingPage() {
                       or $14.99/month
                     </p>
                   </div>
-                  
+
                   <div className="space-y-3 text-sm">
                     <div className="flex items-start gap-2 font-medium">
                       <InfinityIcon className="w-4 h-4 text-pink-500 flex-shrink-0 mt-0.5" />
@@ -977,7 +977,7 @@ export default function LandingPage() {
             </motion.div>
           </div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -994,7 +994,7 @@ export default function LandingPage() {
       {/* CTA Section */}
       <section className="py-20 bg-card/50">
         <div className="container mx-auto px-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -1027,7 +1027,7 @@ export default function LandingPage() {
       {/* Latest Features Section */}
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -1039,7 +1039,7 @@ export default function LandingPage() {
                 Latest Updates - November 2025
               </span>
             </div>
-            
+
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Smart Content Integration & Creative Planning</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Copy any content from social media or AI apps and JournalMate instantly transforms it into actionable plans.
@@ -1128,7 +1128,7 @@ export default function LandingPage() {
             </motion.div>
           </div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -1145,7 +1145,7 @@ export default function LandingPage() {
       {/* Mobile Apps Section */}
       <section className="py-20 bg-card/50">
         <div className="container mx-auto px-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -1157,7 +1157,7 @@ export default function LandingPage() {
                 Mobile App Exclusive
               </span>
             </div>
-            
+
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Experience JournalMate on iOS & Android</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto mb-4">
               Powerful mobile features designed to keep you productive on the go.
@@ -1229,7 +1229,7 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -1247,9 +1247,9 @@ export default function LandingPage() {
                   <div className="text-xl font-semibold -mt-1">App Store</div>
                 </div>
               </div>
-              <a 
-                href="https://play.google.com/store/apps/details?id=ai.journalmate.app" 
-                target="_blank" 
+              <a
+                href="https://play.google.com/store/apps/details?id=ai.journalmate.app"
+                target="_blank"
                 rel="noopener noreferrer"
                 data-testid="link-play-store-bottom"
               >
@@ -1262,7 +1262,7 @@ export default function LandingPage() {
                 </div>
               </a>
             </div>
-            
+
             <div className="mt-4 text-sm text-muted-foreground">
               <p>iOS App Store coming soon • Android app ready now</p>
             </div>
@@ -1278,7 +1278,7 @@ export default function LandingPage() {
               <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate.ai logo - discover and share activity plans" className="w-8 h-8 rounded-lg" loading="lazy" data-testid="img-logo-footer" />
               <span className="font-bold text-xl">JournalMate</span>
             </div>
-            
+
             <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
               <Link href="/updates">
                 <span className="hover:text-foreground cursor-pointer" data-testid="footer-link-updates">Updates</span>
@@ -1290,7 +1290,7 @@ export default function LandingPage() {
               <a href="/terms#terms-of-service" className="hover:text-foreground" data-testid="footer-link-terms">Terms</a>
               <a href="/support" className="hover:text-foreground" data-testid="footer-link-support">Support</a>
             </div>
-            
+
             <div className="text-sm text-muted-foreground">
               &copy; {new Date().getFullYear()} JournalMate. All rights reserved.
             </div>
