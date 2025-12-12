@@ -26,23 +26,36 @@ function getEffectiveTheme(mode: ThemeMode): 'light' | 'dark' {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>('dark');
   const [isDark, setIsDark] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   const applyTheme = useCallback((effectiveTheme: 'light' | 'dark') => {
-    const shouldBeDark = effectiveTheme === 'dark';
-    setIsDark(shouldBeDark);
-    if (shouldBeDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    try {
+      const shouldBeDark = effectiveTheme === 'dark';
+      setIsDark(shouldBeDark);
+      if (typeof document !== 'undefined' && document.documentElement) {
+        if (shouldBeDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }
+    } catch (error) {
+      console.warn('ThemeProvider: Error applying theme', error);
     }
   }, []);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme-mode') as ThemeMode | null;
-    // Default to dark mode unless user explicitly selected auto or light
-    const initialTheme = savedTheme || 'dark';
-    setThemeState(initialTheme);
-    applyTheme(getEffectiveTheme(initialTheme));
+    try {
+      const savedTheme = localStorage.getItem('theme-mode') as ThemeMode | null;
+      // Default to dark mode unless user explicitly selected auto or light
+      const initialTheme = savedTheme || 'dark';
+      setThemeState(initialTheme);
+      applyTheme(getEffectiveTheme(initialTheme));
+      setMounted(true);
+    } catch (error) {
+      console.warn('ThemeProvider: Error initializing theme', error);
+      setMounted(true);
+    }
   }, [applyTheme]);
 
   useEffect(() => {

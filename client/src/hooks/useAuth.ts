@@ -20,10 +20,10 @@ export function useAuth() {
   const queryClient = useQueryClient();
 
   // Fetch user data using react-query
-  const { data: user, isLoading, error } = useQuery<User | null>({
+  const { data: user, isLoading, error, refetch } = useQuery<User | null>({
     queryKey: ['/api/user'],
     queryFn: async () => {
-      const res = await fetch('/api/user');
+      const res = await fetch('/api/user', { credentials: 'include' });
       if (!res.ok) {
         if (res.status === 401) return null;
         throw new Error('Failed to fetch user');
@@ -31,7 +31,9 @@ export function useAuth() {
       return res.json();
     },
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 1000, // 30 seconds - much shorter for auth freshness
+    refetchOnWindowFocus: true, // Refetch when user returns to tab
+    refetchOnMount: true, // Always check auth on mount
   });
 
   // Clear cache when user authentication state changes (sign in/out)
@@ -110,6 +112,7 @@ export function useAuth() {
     // Helper functions
     logout,
     login,
+    refetch, // Expose refetch for manual auth refresh
     getUserDisplayName: () => getUserDisplayName(user),
     getUserInitials: () => getUserInitials(user),
 

@@ -229,37 +229,63 @@ export default function LandingPage() {
             </span>
           </div>
 
-          {/* Feature Navigation - Prominent pills with icons */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 justify-center max-w-lg">
+          {/* Feature Navigation - Icon-only on mobile, with text on sm+ screens */}
+          <div className="flex items-center gap-1 sm:gap-2 flex-1 justify-center">
             <Link href="/updates">
               <Button
                 variant="outline"
+                size="icon"
+                className="sm:hidden w-9 h-9 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700 text-orange-700 dark:text-orange-300"
+                data-testid="link-updates-mobile"
+              >
+                <Megaphone className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
                 size="sm"
-                className="gap-1.5 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700 text-orange-700 dark:text-orange-300 text-xs sm:text-sm px-2.5 sm:px-3"
+                className="hidden sm:flex gap-1.5 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700 text-orange-700 dark:text-orange-300 text-sm px-3"
                 data-testid="link-updates"
               >
-                <Megaphone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <Megaphone className="w-4 h-4" />
                 <span>Updates</span>
               </Button>
             </Link>
             <Link href="/discover">
               <Button
                 variant="outline"
+                size="icon"
+                className="sm:hidden w-9 h-9 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-200 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-700 text-blue-700 dark:text-blue-300"
+                data-testid="link-discover-mobile"
+              >
+                <Compass className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
                 size="sm"
-                className="gap-1.5 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-200 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-700 text-blue-700 dark:text-blue-300 text-xs sm:text-sm px-2.5 sm:px-3"
+                className="hidden sm:flex gap-1.5 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-200 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-700 text-blue-700 dark:text-blue-300 text-sm px-3"
                 data-testid="link-discover"
               >
-                <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <Compass className="w-4 h-4" />
                 <span>Discover</span>
               </Button>
             </Link>
             <Link href="/import-plan">
               <Button
+                size="icon"
+                className="sm:hidden w-9 h-9 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white relative"
+                data-testid="link-import-mobile"
+              >
+                <Upload className="w-4 h-4" />
+                <Badge className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[10px] px-1 py-0 h-4 border-0">
+                  New
+                </Badge>
+              </Button>
+              <Button
                 size="sm"
-                className="gap-1.5 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white text-xs sm:text-sm px-2.5 sm:px-3 relative"
+                className="hidden sm:flex gap-1.5 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white text-sm px-3 relative"
                 data-testid="link-import"
               >
-                <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <Upload className="w-4 h-4" />
                 <span>Import</span>
                 <Badge className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs px-1.5 py-0 h-4 border-0">
                   New
@@ -268,12 +294,13 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <ThemeToggle />
             <Link href="/login">
               <Button
                 size="sm"
                 variant="outline"
+                className="hidden xs:flex sm:flex"
                 data-testid="button-login-landing"
               >
                 Sign In
