@@ -874,4 +874,59 @@ body, html {
     animation: shimmer 3s linear infinite;
     background-size: 200% 100%;
   }
+
+  /* ========== MOBILE TOUCH TARGETS ========== */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* ========== MOBILE SCROLLING ========== */
+  .mobile-scroll {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
+/* ========== PREVENT IOS ZOOM ON INPUT FOCUS ========== */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+textarea,
+select {
+  font-size: 16px !important; /* Prevents iOS zoom on focus */
+}
+
+/* Restore smaller font sizes on desktop */
+@media (min-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 14px !important;
+  }
+}
+
+/* ========== MOBILE CONTAINER ADJUSTMENTS ========== */
+@media (max-width: 639px) {
+  .container {
+    padding-left: 0.75rem; /* 12px */
+    padding-right: 0.75rem;
+  }
+}
+
+/* ========== MOBILE DIALOG SPACING ========== */
+@media (max-width: 767px) {
+  [role="dialog"] {
+    margin: 0.5rem;
+    max-height: calc(100dvh - 1rem);
+  }
 }

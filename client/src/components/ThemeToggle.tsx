@@ -18,31 +18,31 @@ export default function ThemeToggle() {
           variant="ghost"
           size="icon"
           data-testid="button-theme-toggle"
-          className="hover-elevate"
+          className="hover-elevate min-h-[44px] min-w-[44px]"
         >
-          {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          {isDark ? <Moon className="w-4 h-4 sm:w-5 sm:h-5" /> : <Sun className="w-4 h-4 sm:w-5 sm:h-5" />}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={() => setTheme('light')}
-          className={theme === 'light' ? 'bg-accent' : ''}
+          className={`min-h-[44px] ${theme === 'light' ? 'bg-accent' : ''}`}
           data-testid="theme-light"
         >
           <Sun className="w-4 h-4 mr-2" />
           Light
         </DropdownMenuItem>
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={() => setTheme('dark')}
-          className={theme === 'dark' ? 'bg-accent' : ''}
+          className={`min-h-[44px] ${theme === 'dark' ? 'bg-accent' : ''}`}
           data-testid="theme-dark"
         >
           <Moon className="w-4 h-4 mr-2" />
           Dark
         </DropdownMenuItem>
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={() => setTheme('auto')}
-          className={theme === 'auto' ? 'bg-accent' : ''}
+          className={`min-h-[44px] ${theme === 'auto' ? 'bg-accent' : ''}`}
           data-testid="theme-auto"
         >
           <Monitor className="w-4 h-4 mr-2" />

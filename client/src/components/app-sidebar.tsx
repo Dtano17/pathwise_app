@@ -249,9 +249,9 @@ export function AppSidebar({
         <Collapsible open={isThemeExpanded} onOpenChange={setIsThemeExpanded}>
           <SidebarGroup>
             <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
+              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-3 -mx-2 min-h-[44px]">
                 <div className="flex items-center gap-2">
-                  <Target className="w-4 h-4" />
+                  <Target className="w-4 h-4 flex-shrink-0" />
                   Today's Theme
                 </div>
                 {isThemeExpanded ? (
@@ -285,12 +285,13 @@ export function AppSidebar({
               <SidebarMenu>
                 {themes.map((theme) => (
                   <SidebarMenuItem key={theme.id}>
-                    <SidebarMenuButton 
+                    <SidebarMenuButton
                       onClick={() => handleThemeSelect(theme.id)}
                       data-testid={`button-theme-${theme.id}-sidebar`}
+                      className="min-h-[44px] py-3"
                     >
-                      <theme.icon className="w-4 h-4" />
-                      <span>{theme.name}</span>
+                      <theme.icon className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{theme.name}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -305,9 +306,9 @@ export function AppSidebar({
         <Collapsible open={isJournalExpanded} onOpenChange={setIsJournalExpanded}>
           <SidebarGroup>
             <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
+              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-3 -mx-2 min-h-[44px]">
                 <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4" />
+                  <BookOpen className="w-4 h-4 flex-shrink-0" />
                   Personal Journal
                 </div>
                 {isJournalExpanded ? (
@@ -321,12 +322,13 @@ export function AppSidebar({
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton 
+                    <SidebarMenuButton
                       onClick={onShowLifestylePlanner}
                       data-testid="button-personal-journal-sidebar"
+                      className="min-h-[44px] py-3"
                     >
-                      <BookOpen className="w-4 h-4" />
-                      <span>Open Journal</span>
+                      <BookOpen className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">Open Journal</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>
@@ -339,9 +341,9 @@ export function AppSidebar({
         <Collapsible open={isQuickActionsExpanded} onOpenChange={setIsQuickActionsExpanded}>
           <SidebarGroup>
             <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
+              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-3 -mx-2 min-h-[44px]">
                 <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4" />
+                  <Zap className="w-4 h-4 flex-shrink-0" />
                   Quick Actions
                 </div>
                 <div className="flex items-center gap-1">
@@ -382,12 +384,13 @@ export function AppSidebar({
                       // Use callback-based navigation
                       return (
                         <SidebarMenuItem key={actionId}>
-                          <SidebarMenuButton 
+                          <SidebarMenuButton
                             onClick={handler}
                             data-testid={action.testId}
+                            className="min-h-[44px] py-3"
                           >
-                            <Icon className="w-4 h-4" />
-                            <span>{action.name}</span>
+                            <Icon className="w-4 h-4 flex-shrink-0" />
+                            <span className="truncate">{action.name}</span>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       );
@@ -407,9 +410,9 @@ export function AppSidebar({
         <Collapsible open={isFriendsExpanded} onOpenChange={setIsFriendsExpanded}>
           <SidebarGroup>
             <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
+              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-3 -mx-2 min-h-[44px]">
                 <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
+                  <Users className="w-4 h-4 flex-shrink-0" />
                   Friends & Family
                 </div>
                 {isFriendsExpanded ? (
@@ -423,12 +426,13 @@ export function AppSidebar({
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton 
+                    <SidebarMenuButton
                       onClick={onShowContacts}
                       data-testid="button-contacts-sidebar"
+                      className="min-h-[44px] py-3"
                     >
-                      <Users className="w-4 h-4" />
-                      <span>Manage Contacts</span>
+                      <Users className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">Manage Contacts</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>
@@ -441,9 +445,9 @@ export function AppSidebar({
         <Collapsible open={isHistoryExpanded} onOpenChange={setIsHistoryExpanded}>
           <SidebarGroup>
             <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
+              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-3 -mx-2 min-h-[44px]">
                 <div className="flex items-center gap-2">
-                  <History className="w-4 h-4" />
+                  <History className="w-4 h-4 flex-shrink-0" />
                   History
                 </div>
                 {isHistoryExpanded ? (
@@ -457,27 +461,43 @@ export function AppSidebar({
               <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton data-testid="button-recent-goals" onClick={onShowRecentGoals}>
-                  <Clock className="w-4 h-4" />
-                  <span>Recent Goals</span>
+                <SidebarMenuButton
+                  data-testid="button-recent-goals"
+                  onClick={onShowRecentGoals}
+                  className="min-h-[44px] py-3"
+                >
+                  <Clock className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">Recent Goals</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton data-testid="button-chat-history" onClick={onShowChatHistory}>
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Chat History</span>
+                <SidebarMenuButton
+                  data-testid="button-chat-history"
+                  onClick={onShowChatHistory}
+                  className="min-h-[44px] py-3"
+                >
+                  <MessageSquare className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">Chat History</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton data-testid="button-completed-tasks" onClick={onShowProgressReport}>
-                  <BarChart3 className="w-4 h-4" />
-                  <span>Progress Report</span>
+                <SidebarMenuButton
+                  data-testid="button-completed-tasks"
+                  onClick={onShowProgressReport}
+                  className="min-h-[44px] py-3"
+                >
+                  <BarChart3 className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">Progress Report</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton data-testid="button-end-of-day-review" onClick={onShowEndOfDayReview}>
-                  <Moon className="w-4 h-4" />
-                  <span>End of Day Review</span>
+                <SidebarMenuButton
+                  data-testid="button-end-of-day-review"
+                  onClick={onShowEndOfDayReview}
+                  className="min-h-[44px] py-3"
+                >
+                  <Moon className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">End of Day Review</span>
                   <Badge variant="secondary" className="ml-auto text-xs">New</Badge>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -517,9 +537,9 @@ export function AppSidebar({
         <Collapsible open={isSchedulerExpanded} onOpenChange={setIsSchedulerExpanded}>
           <SidebarGroup>
             <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-1 -mx-2">
+              <SidebarGroupLabel className="flex items-center justify-between gap-2 cursor-pointer hover-elevate rounded-md px-2 py-3 -mx-2 min-h-[44px]">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
+                  <Calendar className="w-4 h-4 flex-shrink-0" />
                   Smart Scheduler
                 </div>
                 {isSchedulerExpanded ? (
@@ -545,17 +565,23 @@ export function AppSidebar({
             <SidebarMenu>
               <SidebarMenuItem>
                 <Link href="/import-plan">
-                  <SidebarMenuButton data-testid="button-integration-sidebar">
-                    <Plug className="w-4 h-4" />
-                    <span>Integration</span>
+                  <SidebarMenuButton
+                    data-testid="button-integration-sidebar"
+                    className="min-h-[44px] py-3"
+                  >
+                    <Plug className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">Integration</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <Link href="/updates">
-                  <SidebarMenuButton data-testid="button-updates-sidebar">
-                    <Newspaper className="w-4 h-4" />
-                    <span>Updates & News</span>
+                  <SidebarMenuButton
+                    data-testid="button-updates-sidebar"
+                    className="min-h-[44px] py-3"
+                  >
+                    <Newspaper className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">Updates & News</span>
                     <Badge variant="secondary" className="ml-auto text-xs bg-gradient-to-r from-purple-500 to-violet-500 text-white">New</Badge>
                   </SidebarMenuButton>
                 </Link>
