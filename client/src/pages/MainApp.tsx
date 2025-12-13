@@ -1514,7 +1514,7 @@ export default function MainApp({
     { value: "progress", label: "Progress", shortLabel: "Stats", icon: BarChart3 },
     { value: "groups", label: "Groups", shortLabel: "Groups", icon: Users },
     { value: "sync", label: "Integrations", shortLabel: "Integrate", icon: Plug },
-    { value: "about", label: "About", shortLabel: "About", icon: Sparkles }
+    { value: "about", label: "About", shortLabel: "About", icon: Info }
   ];
 
   return (
@@ -1537,7 +1537,7 @@ export default function MainApp({
                 </div>
                 <div className="flex items-center gap-2">
                   <div>
-                    <h1 className="text-lg sm:text-2xl font-bold text-foreground">JournalMate</h1>
+                    <h1 className="text-base sm:text-2xl font-bold text-foreground">JournalMate</h1>
                     <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                       {currentPlanOutput ? "AI Action Plan Active" : "Transform Goals into Reality"}
                     </p>
@@ -1584,7 +1584,7 @@ export default function MainApp({
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
-        <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-6">
         <div className="max-w-6xl mx-auto">
           {/* Navigation */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -2637,13 +2637,13 @@ export default function MainApp({
 
             {/* Import Content Tab (replaces old Integrations) */}
             <TabsContent value="sync" className="h-full flex flex-col pb-20">
-              <div className="flex flex-col items-center justify-center py-8 px-6">
-                <div className="mt-2 mb-4 text-center">
-                  <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
-                    <Upload className="w-6 h-6" />
+              <div className="flex flex-col items-center justify-center py-4 sm:py-6 px-3 sm:px-6">
+                <div className="mb-4 text-center">
+                  <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
+                    <Upload className="w-5 h-5 sm:w-6 sm:h-6" />
                     Import Content to Plan
                   </h2>
-                  <p className="text-muted-foreground max-w-sm mx-auto">
+                  <p className="text-sm sm:text-base text-muted-foreground max-w-sm mx-auto">
                     Share or paste content from anywhere. We'll extract it, create an actionable plan, and add it to your journal.
                   </p>
                 </div>
@@ -2778,15 +2778,15 @@ export default function MainApp({
             </TabsContent>
 
             {/* Groups Tab */}
-            <TabsContent value="groups" className="space-y-6 pb-20">
+            <TabsContent value="groups" className="space-y-4 pb-20">
               <SignInGate feature="Group collaboration">
-                <div className="max-w-4xl mx-auto px-4">
-                  <div className="text-center mb-8">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center justify-center gap-2 mb-4">
-                      <Users className="w-6 h-6 sm:w-8 sm:h-8" />
+                <div className="max-w-4xl mx-auto px-2 sm:px-4">
+                  <div className="text-center mb-4 sm:mb-6">
+                    <h2 className="text-xl sm:text-2xl font-bold text-foreground flex items-center justify-center gap-2 mb-2">
+                      <Users className="w-5 h-5 sm:w-6 sm:h-6" />
                       Groups & Collaborative Planning
                     </h2>
-                    <p className="text-base sm:text-xl text-muted-foreground px-2">
+                    <p className="text-sm sm:text-base text-muted-foreground px-2">
                       Create groups, share activities, and plan together!
                     </p>
                   </div>
@@ -2950,17 +2950,17 @@ export default function MainApp({
             </TabsContent>
 
             {/* About Tab */}
-            <TabsContent value="about" className="space-y-8 pb-20">
-              <div className="max-w-4xl mx-auto">
+            <TabsContent value="about" className="space-y-4 pb-20">
+              <div className="max-w-4xl mx-auto px-2">
                 {/* Hero Section */}
-                <div className="text-center mb-12">
-                  <div className="inline-flex items-center justify-center w-32 h-32 mb-6">
-                    <img src="/journalmate-logo-transparent.png" alt="AI Planner - Smart Goal Tracker and AI Journal for Life Planning" className="w-32 h-32 object-contain" />
+                <div className="text-center mb-6 sm:mb-8">
+                  <div className="inline-flex items-center justify-center w-20 h-20 sm:w-28 sm:h-28 mb-4">
+                    <img src="/icons/web/android-chrome-192x192.png" alt="AI Planner - Smart Goal Tracker and AI Journal for Life Planning" className="w-20 h-20 sm:w-28 sm:h-28 object-contain" />
                   </div>
-                  <h2 className="text-4xl sm:text-5xl font-bold text-foreground mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
+                  <h2 className="text-2xl sm:text-4xl font-bold text-foreground mb-3 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
                     Plan Together. Reflect Together. Grow Together.
                   </h2>
-                  <p className="text-xl sm:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed mb-4">
+                  <p className="text-base sm:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed mb-3">
                     Watch your dreams become your reality with JournalMate's rhythm-aware planning engine
                   </p>
                   <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
