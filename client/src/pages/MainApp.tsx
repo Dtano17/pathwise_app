@@ -1518,27 +1518,32 @@ export default function MainApp({
   ];
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
+    <div className="flex flex-col h-dvh bg-background overflow-hidden">
       {/* Header */}
-      <header className="shrink-0 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
+      <header className="shrink-0 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50 safe-top">
         <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               {/* Sidebar toggle (keep visible even when plan is active) */}
-              {(isMobile || !open) && <SidebarTrigger data-testid="button-sidebar-toggle" />}
+              {(isMobile || !open) && (
+                <SidebarTrigger
+                  data-testid="button-sidebar-toggle"
+                  className="min-h-[44px] min-w-[44px]"
+                />
+              )}
               
-              <div 
-                className="flex items-center gap-2 sm:gap-3 cursor-pointer" 
+              <div
+                className="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0"
                 onClick={() => setActiveTab('input')}
                 data-testid="header-logo"
               >
-                <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center hover-elevate rounded-md">
-                  <img src="/journalmate-logo-transparent.png" alt="JournalMate.ai - Your AI-powered personal planner and journal" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" loading="eager" data-testid="img-logo-header" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 flex-shrink-0 flex items-center justify-center hover-elevate rounded-md">
+                  <img src="/journalmate-logo-transparent.png" alt="JournalMate.ai" className="w-full h-full object-contain" loading="eager" data-testid="img-logo-header" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <div>
-                    <h1 className="text-lg sm:text-2xl font-bold text-foreground">JournalMate</h1>
-                    <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="min-w-0">
+                    <h1 className="text-base sm:text-lg md:text-2xl font-bold text-foreground truncate">JournalMate</h1>
+                    <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block truncate">
                       {currentPlanOutput ? "AI Action Plan Active" : "Transform Goals into Reality"}
                     </p>
                   </div>
@@ -1550,7 +1555,7 @@ export default function MainApp({
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
               {/* Help/Tutorial Icon - Pulse for demo users who haven't seen it */}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1567,8 +1572,9 @@ export default function MainApp({
                       onClick={() => setShowTutorial(true)}
                       data-testid="button-tutorial"
                       aria-label={isAuthenticated && (user as any)?.id !== 'demo-user' ? 'Help & Tutorial' : 'Help & Live Demo'}
+                      className="min-h-[44px] min-w-[44px]"
                     >
-                      <Info className="w-4 h-4" />
+                      <Info className="w-4 h-4 sm:w-5 sm:h-5" />
                     </Button>
                   </div>
                 </TooltipTrigger>
@@ -1583,15 +1589,15 @@ export default function MainApp({
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto safe-bottom overscroll-contain">
         <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         <div className="max-w-6xl mx-auto">
           {/* Navigation */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             {/* Mobile Dropdown Navigation */}
-            <div className="sm:hidden mb-4">
+            <div className="md:hidden mb-3 sm:mb-4">
               <Select value={activeTab} onValueChange={setActiveTab}>
-                <SelectTrigger className="w-full" data-testid="mobile-nav-dropdown">
+                <SelectTrigger className="w-full min-h-[44px] text-sm sm:text-base" data-testid="mobile-nav-dropdown">
                   <div className="flex items-center gap-2">
                     {(() => {
                       const currentTab = tabOptions.find(tab => tab.value === activeTab);
@@ -1608,7 +1614,12 @@ export default function MainApp({
                                        option.value === 'tasks' ? `Tasks (${tasks.length})` :
                                        option.shortLabel;
                     return (
-                      <SelectItem key={option.value} value={option.value} data-testid={`mobile-nav-${option.value}`}>
+                      <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        data-testid={`mobile-nav-${option.value}`}
+                        className="min-h-[44px] py-3"
+                      >
                         {displayLabel}
                       </SelectItem>
                     );
@@ -1619,7 +1630,7 @@ export default function MainApp({
 
             {/* Desktop Tab Navigation */}
             <div className="w-full overflow-x-auto">
-              <TabsList className="hidden sm:inline-flex w-max min-w-full mb-4 sm:mb-8 bg-muted/30 p-1 h-12 flex-nowrap gap-2">
+              <TabsList className="hidden md:inline-flex w-max min-w-full mb-4 sm:mb-8 bg-muted/30 p-1 h-12 flex-nowrap gap-2">
                 <TabsTrigger value="input" className="gap-2 text-sm font-medium" data-testid="tab-input">
                   <Mic className="w-4 h-4" />
                   <span>Goal Input</span>
@@ -1865,10 +1876,10 @@ export default function MainApp({
 
               {/* Theme Selector Modal */}
               <Dialog open={showThemeSelector} onOpenChange={onShowThemeSelector}>
-                <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[85dvh] overflow-y-auto safe-all">
                   <DialogHeader backLabel="Back to Planning">
-                    <DialogTitle>Set Your Daily Theme</DialogTitle>
-                    <DialogDescription>
+                    <DialogTitle className="text-base sm:text-lg">Set Your Daily Theme</DialogTitle>
+                    <DialogDescription className="text-xs sm:text-sm">
                       Choose a focus area to get personalized goal suggestions and themed planning
                     </DialogDescription>
                   </DialogHeader>
@@ -1885,10 +1896,10 @@ export default function MainApp({
 
               {/* Location Date Planner Modal */}
               <Dialog open={showLocationDatePlanner} onOpenChange={onShowLocationDatePlanner}>
-                <DialogContent className="max-w-[95vw] sm:max-w-4xl">
+                <DialogContent className="max-w-[95vw] sm:max-w-4xl md:max-w-5xl max-h-[90dvh] overflow-y-auto safe-all">
                   <DialogHeader backLabel="Back to Planning">
-                    <DialogTitle>Plan Your Perfect Date</DialogTitle>
-                    <DialogDescription>
+                    <DialogTitle className="text-base sm:text-lg">Plan Your Perfect Date</DialogTitle>
+                    <DialogDescription className="text-xs sm:text-sm">
                       Let us help you find the perfect spots for your date based on your location
                     </DialogDescription>
                   </DialogHeader>
@@ -3329,10 +3340,10 @@ export default function MainApp({
       </Dialog>
 
       <Dialog open={showLifestylePlanner} onOpenChange={onShowLifestylePlanner}>
-        <DialogContent className="max-w-[95vw] sm:max-w-7xl h-[90vh] flex flex-col" data-testid="modal-lifestyle-planner">
+        <DialogContent className="max-w-[95vw] sm:max-w-5xl md:max-w-7xl h-[90dvh] flex flex-col safe-all" data-testid="modal-lifestyle-planner">
           <DialogHeader backLabel="Back to Home">
-            <DialogTitle className="text-2xl">Personal Journal</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base sm:text-lg md:text-2xl">Personal Journal</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               Capture your unique interests, preferences, and personal notes
             </DialogDescription>
           </DialogHeader>
