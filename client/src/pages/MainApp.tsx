@@ -1521,26 +1521,26 @@ export default function MainApp({
     <div className="flex flex-col h-dvh bg-background overflow-hidden">
       {/* Header */}
       <header className="shrink-0 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50 safe-top">
-        <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
               {/* Sidebar toggle (keep visible even when plan is active) */}
               {(isMobile || !open) && (
                 <SidebarTrigger
                   data-testid="button-sidebar-toggle"
-                  className="min-h-[44px] min-w-[44px]"
+                  className="min-h-[44px] min-w-[44px] flex-shrink-0"
                 />
               )}
-              
+
               <div
-                className="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0"
+                className="flex items-center gap-1.5 sm:gap-3 cursor-pointer min-w-0"
                 onClick={() => setActiveTab('input')}
                 data-testid="header-logo"
               >
-                <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 flex-shrink-0 flex items-center justify-center hover-elevate rounded-md">
+                <div className="w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 flex-shrink-0 flex items-center justify-center hover-elevate rounded-md">
                   <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-full h-full object-contain" loading="eager" data-testid="img-logo-header" />
                 </div>
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                   <div className="min-w-0">
                     <h1 className="text-base sm:text-lg md:text-2xl font-bold text-foreground truncate">JournalMate</h1>
                     <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block truncate">
@@ -3130,7 +3130,7 @@ export default function MainApp({
                   >
                     <Badge className="absolute top-2 right-2 bg-blue-600 text-white text-xs">CLOSE THE LOOP</Badge>
                     <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <BookOpen className="w-7 h-7 text-white" />
+                      <Sparkles className="w-7 h-7 text-white" />
                     </div>
                     <h3 className="text-lg font-semibold mb-2">Rhythm-Aware Journaling</h3>
                     <p className="text-sm text-muted-foreground">Close the loop with intelligent reflection that learns your patterns and enriches future planning</p>
@@ -3189,7 +3189,7 @@ export default function MainApp({
                       <p className="text-sm font-medium">Goal Plans</p>
                     </div>
                     <div className="p-4 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-white/40 dark:border-gray-700/40">
-                      <BookOpen className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
+                      <FileText className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
                       <p className="text-sm font-medium">Daily Journals</p>
                     </div>
                     <div className="p-4 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-white/40 dark:border-gray-700/40">

@@ -1031,11 +1031,11 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
       {/* Header */}
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-          <h1 className="text-2xl sm:text-4xl font-bold" data-testid="text-page-title">
+          <h1 className="text-xl sm:text-2xl md:text-4xl font-bold" data-testid="text-page-title">
             Discover & Use Community Plans
           </h1>
           <Badge variant="secondary" className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 w-fit" data-testid="badge-community-powered">
@@ -1071,7 +1071,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
               onClick={handleLocationToggle}
               disabled={isLoadingLocation}
               data-testid="button-location-toggle"
-              className="flex-shrink-0"
+              className="flex-shrink-0 min-h-[44px] min-w-[44px]"
             >
               <MapPin className="w-4 h-4" />
             </Button>
@@ -1091,7 +1091,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                 }
               }}
               data-testid="button-remix-toggle"
-              className={`flex-shrink-0 ${remixMode ? 'bg-gradient-to-r from-purple-500 to-violet-600 text-white' : ''}`}
+              className={`flex-shrink-0 min-h-[44px] min-w-[44px] ${remixMode ? 'bg-gradient-to-r from-purple-500 to-violet-600 text-white' : ''}`}
               title={remixMode ? 'Cancel remix' : 'Remix multiple plans'}
             >
               <Combine className="w-4 h-4" />

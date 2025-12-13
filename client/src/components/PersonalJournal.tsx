@@ -686,23 +686,23 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <div className="flex items-center gap-2 mb-4">
           <TabsList className="flex-1 flex-wrap h-auto gap-1 p-1">
-            <TabsTrigger value="journal" className="flex-1 gap-2" data-testid="tab-journal">
+            <TabsTrigger value="journal" className="flex-1 gap-2 min-h-[44px]" data-testid="tab-journal">
               <BookOpen className="w-4 h-4" />
               <span className="hidden sm:inline">Journal</span>
             </TabsTrigger>
-            <TabsTrigger value="prompts" className="flex-1 gap-2" data-testid="tab-prompts">
+            <TabsTrigger value="prompts" className="flex-1 gap-2 min-h-[44px]" data-testid="tab-prompts">
               <Wand2 className="w-4 h-4" />
               <span className="hidden sm:inline">AI Prompts</span>
             </TabsTrigger>
-            <TabsTrigger value="packs" className="flex-1 gap-2" data-testid="tab-packs">
+            <TabsTrigger value="packs" className="flex-1 gap-2 min-h-[44px]" data-testid="tab-packs">
               <Package className="w-4 h-4" />
               <span className="hidden sm:inline">Packs</span>
             </TabsTrigger>
-            <TabsTrigger value="templates" className="flex-1 gap-2" data-testid="tab-templates">
+            <TabsTrigger value="templates" className="flex-1 gap-2 min-h-[44px]" data-testid="tab-templates">
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Templates</span>
             </TabsTrigger>
-            <TabsTrigger value="insights" className="flex-1 gap-2" data-testid="tab-insights">
+            <TabsTrigger value="insights" className="flex-1 gap-2 min-h-[44px]" data-testid="tab-insights">
               <BarChart3 className="w-4 h-4" />
               <span className="hidden sm:inline">Insights</span>
             </TabsTrigger>
@@ -711,7 +711,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
             variant="ghost"
             size="icon"
             onClick={() => setShowSettingsDialog(true)}
-            className="flex-shrink-0"
+            className="flex-shrink-0 min-h-[44px] min-w-[44px]"
             data-testid="button-journal-settings"
           >
             <Settings className="w-5 h-5" />
@@ -741,6 +741,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                           description: "Journal data has been refreshed.",
                         });
                       }}
+                      className="min-h-[44px] min-w-[44px]"
                       data-testid="button-refresh-journal"
                     >
                       <RefreshCw className="w-4 h-4" />
@@ -764,7 +765,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                     <div key={category.id} className="relative group">
                       <Button
                         variant={isActive ? "secondary" : "ghost"}
-                        className={`w-full justify-start gap-3 h-auto py-3 px-3 ${isActive ? 'bg-primary/10' : ''} ${showCategoryActions ? 'pr-16' : ''}`}
+                        className={`w-full justify-start gap-3 h-auto py-3 px-3 min-h-[44px] ${isActive ? 'bg-primary/10' : ''} ${showCategoryActions ? 'pr-16' : ''}`}
                         onClick={() => setActiveCategory(category.id)}
                         data-testid={`category-${category.id}`}
                       >
@@ -786,7 +787,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              className="h-8 w-8 min-h-[32px] min-w-[32px] text-muted-foreground hover:text-foreground"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const customCat = customCategories.find(c => c.id === category.id);
@@ -798,14 +799,14 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                               }}
                               data-testid={`button-rename-category-${category.id}`}
                             >
-                              <Pencil className="w-3.5 h-3.5" />
+                              <Pencil className="w-4 h-4" />
                             </Button>
                           )}
                           {journalSettings.showDeleteCategory && (
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              className="h-8 w-8 min-h-[32px] min-w-[32px] text-muted-foreground hover:text-destructive"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const customCat = customCategories.find(c => c.id === category.id);
@@ -816,7 +817,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                               }}
                               data-testid={`button-delete-category-${category.id}`}
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           )}
                         </div>
@@ -829,7 +830,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                 
                 <Button
                   variant="outline"
-                  className="w-full justify-start gap-3 h-auto py-3 px-3 border-dashed"
+                  className="w-full justify-start gap-3 h-auto py-3 px-3 min-h-[44px] border-dashed"
                   onClick={() => setShowAddCategoryDialog(true)}
                   data-testid="button-add-category"
                 >
@@ -929,7 +930,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                     variant="ghost"
                     size="sm"
                     onClick={clearFilters}
-                    className="gap-1"
+                    className="gap-1 min-h-[44px]"
                     data-testid="button-clear-filters"
                   >
                     <X className="w-3 h-3" />
@@ -972,10 +973,10 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                   />
                 )}
               </div>
-              <Button 
+              <Button
                 onClick={handleAddItem}
                 disabled={!newItem.trim() || saveEntryMutation.isPending}
-                className="gap-2 flex-shrink-0"
+                className="gap-2 flex-shrink-0 min-h-[44px] min-w-[44px]"
                 data-testid="button-add-entry"
               >
                 <Plus className="w-4 h-4" />
@@ -1073,7 +1074,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
+                              className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity min-h-[44px] min-w-[44px] p-0"
                               onClick={() => handleRemoveItem(originalIndex)}
                               data-testid={`button-remove-${filteredIndex}`}
                             >
@@ -1096,7 +1097,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                       <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
                         No entries match your current filters. Try adjusting or clearing your filters.
                       </p>
-                      <Button variant="outline" size="sm" onClick={clearFilters} data-testid="button-clear-filters-empty">
+                      <Button variant="outline" size="sm" onClick={clearFilters} className="min-h-[44px]" data-testid="button-clear-filters-empty">
                         Clear Filters
                       </Button>
                     </>
@@ -1144,7 +1145,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
             <Button
               onClick={() => generatePromptMutation.mutate()}
               disabled={generatePromptMutation.isPending}
-              className="w-full gap-2"
+              className="w-full gap-2 min-h-[48px]"
               data-testid="button-generate-prompt"
             >
               {generatePromptMutation.isPending ? (
@@ -1169,7 +1170,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => handleCopyPrompt(generatedPrompt)}
-                      className="gap-2"
+                      className="gap-2 min-h-[44px]"
                     >
                       {copiedPrompt === generatedPrompt ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       Copy
@@ -1177,7 +1178,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                     <Button
                       size="sm"
                       onClick={() => handleUsePromptInJournal(generatedPrompt)}
-                      className="gap-2"
+                      className="gap-2 min-h-[44px]"
                     >
                       <PenTool className="w-4 h-4" />
                       Write Response
@@ -1279,7 +1280,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
             <h2 className="text-xl font-semibold">Custom Templates</h2>
             <p className="text-muted-foreground text-sm">Create reusable journal structures</p>
           </div>
-          <Button onClick={() => setShowTemplateDialog(true)} className="gap-2" data-testid="button-create-template">
+          <Button onClick={() => setShowTemplateDialog(true)} className="gap-2 min-h-[44px]" data-testid="button-create-template">
             <Plus className="w-4 h-4" />
             New Template
           </Button>
@@ -1299,6 +1300,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                       variant="ghost"
                       size="icon"
                       onClick={() => deleteTemplateMutation.mutate(template.id)}
+                      className="min-h-[44px] min-w-[44px]"
                       data-testid={`delete-template-${template.id}`}
                     >
                       <X className="w-4 h-4" />
@@ -1320,7 +1322,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="mt-3 w-full"
+                  className="mt-3 w-full min-h-[44px]"
                   onClick={() => {
                     template.prompts.forEach(p => handleUsePromptInJournal(p));
                   }}
@@ -1460,7 +1462,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                 <Button
                   onClick={() => getSummaryMutation.mutate()}
                   disabled={getSummaryMutation.isPending}
-                  className="w-full gap-2"
+                  className="w-full gap-2 min-h-[48px]"
                   data-testid="button-get-summary"
                 >
                   {getSummaryMutation.isPending ? (
