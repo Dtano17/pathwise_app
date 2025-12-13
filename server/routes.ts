@@ -1898,6 +1898,11 @@ ${allUrls.map(page => `  <url>
   // Main user endpoint (alias for /api/auth/user for backward compatibility)
   app.get('/api/user', async (req: any, res) => {
     try {
+      // Prevent caching of user data to ensure fresh auth state after sign-in
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       const user = await getUserFromRequest(req);
       res.json(user);
     } catch (error) {

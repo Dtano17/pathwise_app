@@ -115,8 +115,9 @@ export default function AuthCallback() {
             window.history.replaceState({}, document.title, window.location.pathname)
             
             // Redirect to the main app after a short delay
+            // Add cache busting query param to force fresh load
             setTimeout(() => {
-              window.location.href = '/'
+              window.location.href = '/?t=' + Date.now()
             }, 2000)
             return
           }
@@ -181,8 +182,9 @@ export default function AuthCallback() {
           window.history.replaceState({}, document.title, window.location.pathname)
           
           // Redirect to the main app after a short delay
+          // Add cache busting query param to force fresh load
           setTimeout(() => {
-            window.location.href = '/'
+            window.location.href = '/?t=' + Date.now()
           }, 2000)
         } else {
           console.log('AuthCallback: No session found after callback')
