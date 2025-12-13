@@ -1518,32 +1518,27 @@ export default function MainApp({
   ];
 
   return (
-    <div className="flex flex-col h-dvh bg-background overflow-hidden">
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
       {/* Header */}
-      <header className="shrink-0 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50 safe-top">
-        <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3">
-          <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-            <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
+      <header className="shrink-0 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
+        <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 sm:gap-3">
               {/* Sidebar toggle (keep visible even when plan is active) */}
-              {(isMobile || !open) && (
-                <SidebarTrigger
-                  data-testid="button-sidebar-toggle"
-                  className="min-h-[44px] min-w-[44px] flex-shrink-0"
-                />
-              )}
-
-              <div
-                className="flex items-center gap-1.5 sm:gap-3 cursor-pointer min-w-0"
+              {(isMobile || !open) && <SidebarTrigger data-testid="button-sidebar-toggle" />}
+              
+              <div 
+                className="flex items-center gap-2 sm:gap-3 cursor-pointer" 
                 onClick={() => setActiveTab('input')}
                 data-testid="header-logo"
               >
-                <div className="w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 flex-shrink-0 flex items-center justify-center hover-elevate rounded-md">
-                  <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-full h-full object-contain" loading="eager" data-testid="img-logo-header" />
+                <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center hover-elevate rounded-md">
+                  <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
                 </div>
-                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                  <div className="min-w-0">
-                    <h1 className="text-base sm:text-lg md:text-2xl font-bold text-foreground truncate">JournalMate</h1>
-                    <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block truncate">
+                <div className="flex items-center gap-2">
+                  <div>
+                    <h1 className="text-lg sm:text-2xl font-bold text-foreground">JournalMate</h1>
+                    <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                       {currentPlanOutput ? "AI Action Plan Active" : "Transform Goals into Reality"}
                     </p>
                   </div>
@@ -1555,7 +1550,7 @@ export default function MainApp({
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+            <div className="flex items-center gap-1 sm:gap-3">
               {/* Help/Tutorial Icon - Pulse for demo users who haven't seen it */}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1572,9 +1567,8 @@ export default function MainApp({
                       onClick={() => setShowTutorial(true)}
                       data-testid="button-tutorial"
                       aria-label={isAuthenticated && (user as any)?.id !== 'demo-user' ? 'Help & Tutorial' : 'Help & Live Demo'}
-                      className="min-h-[44px] min-w-[44px]"
                     >
-                      <Info className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <Info className="w-4 h-4" />
                     </Button>
                   </div>
                 </TooltipTrigger>
@@ -1589,15 +1583,15 @@ export default function MainApp({
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto safe-bottom overscroll-contain">
-        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4">
+      <main className="flex-1 overflow-y-auto">
+        <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         <div className="max-w-6xl mx-auto">
           {/* Navigation */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             {/* Mobile Dropdown Navigation */}
-            <div className="md:hidden mb-2 sm:mb-3">
+            <div className="sm:hidden mb-4">
               <Select value={activeTab} onValueChange={setActiveTab}>
-                <SelectTrigger className="w-full min-h-[44px] text-sm sm:text-base" data-testid="mobile-nav-dropdown">
+                <SelectTrigger className="w-full" data-testid="mobile-nav-dropdown">
                   <div className="flex items-center gap-2">
                     {(() => {
                       const currentTab = tabOptions.find(tab => tab.value === activeTab);
@@ -1614,12 +1608,7 @@ export default function MainApp({
                                        option.value === 'tasks' ? `Tasks (${tasks.length})` :
                                        option.shortLabel;
                     return (
-                      <SelectItem
-                        key={option.value}
-                        value={option.value}
-                        data-testid={`mobile-nav-${option.value}`}
-                        className="min-h-[44px] py-3"
-                      >
+                      <SelectItem key={option.value} value={option.value} data-testid={`mobile-nav-${option.value}`}>
                         {displayLabel}
                       </SelectItem>
                     );
@@ -1630,7 +1619,7 @@ export default function MainApp({
 
             {/* Desktop Tab Navigation */}
             <div className="w-full overflow-x-auto">
-              <TabsList className="hidden md:inline-flex w-max min-w-full mb-3 sm:mb-4 bg-muted/30 p-1 h-12 flex-nowrap gap-2">
+              <TabsList className="hidden sm:inline-flex w-max min-w-full mb-4 sm:mb-8 bg-muted/30 p-1 h-12 flex-nowrap gap-2">
                 <TabsTrigger value="input" className="gap-2 text-sm font-medium" data-testid="tab-input">
                   <Mic className="w-4 h-4" />
                   <span>Goal Input</span>
@@ -1763,7 +1752,7 @@ export default function MainApp({
                 </div>
               )}
               
-              <div className="text-left sm:text-center mb-6 px-4">
+              <div className="text-center mb-6 px-4">
                 <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
                   {editingActivity ? 'What would you like to change?' : 'What do you want to achieve?'}
                 </h2>
@@ -1788,7 +1777,7 @@ export default function MainApp({
               {!currentPlanOutput && !showThemeSelector && !showLocationDatePlanner && !showLifestylePlanner && (
                 <div className="max-w-4xl mx-auto space-y-6">
                   {/* Quick Action Buttons */}
-                  <div className="flex flex-col sm:flex-row justify-center gap-3 mb-6 px-2 sm:px-0">
+                  <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 mb-6">
                     <Button
                       onClick={() => {
                         if (isAuthenticated) {
@@ -1798,7 +1787,7 @@ export default function MainApp({
                         }
                       }}
                       variant="outline"
-                      className="gap-2 min-h-[48px] w-full sm:w-auto text-sm sm:text-base"
+                      className="gap-2"
                       data-testid="button-lifestyle-planner"
                     >
                       <BookOpen className="w-4 h-4" />
@@ -1807,7 +1796,7 @@ export default function MainApp({
                     <Button
                       onClick={() => onShowThemeSelector(true)}
                       variant="outline"
-                      className="gap-2 min-h-[48px] w-full sm:w-auto text-sm sm:text-base"
+                      className="gap-2"
                       data-testid="button-theme-selector"
                     >
                       <Target className="w-4 h-4" />
@@ -1816,7 +1805,7 @@ export default function MainApp({
                     <Button
                       onClick={() => onShowLocationDatePlanner(true)}
                       variant="outline"
-                      className="gap-2 min-h-[48px] w-full sm:w-auto text-sm sm:text-base"
+                      className="gap-2"
                       data-testid="button-date-planner"
                     >
                       <Heart className="w-4 h-4" />
@@ -1837,7 +1826,7 @@ export default function MainApp({
                   </div>
 
                   {/* Example goals */}
-                  <div className="max-w-2xl mx-auto px-2 sm:px-0">
+                  <div className="max-w-2xl mx-auto">
                     <p className="text-sm text-muted-foreground mb-4 text-center">Or try these quick examples:</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {[
@@ -1856,16 +1845,16 @@ export default function MainApp({
                             size="lg"
                             onClick={() => processGoalMutation.mutate(example.text)}
                             disabled={processGoalMutation.isPending}
-                            className="text-left justify-start h-auto p-4 flex-col items-start gap-2 min-h-[88px]"
+                            className="text-left justify-start h-auto p-3 flex-col items-start gap-2 min-h-[80px]"
                             data-testid={`button-example-${index}`}
                           >
                             <div className="flex items-center gap-2 w-full">
-                              <Icon className="w-5 h-5 text-primary flex-shrink-0" />
+                              <Icon className="w-4 h-4 text-primary flex-shrink-0" />
                               <Badge variant="secondary" className="text-xs">
                                 {example.theme}
                               </Badge>
                             </div>
-                            <span className="text-sm sm:text-base leading-tight">{example.text}</span>
+                            <span className="text-sm leading-tight overflow-hidden text-ellipsis">{example.text}</span>
                           </Button>
                         );
                       })}
@@ -1876,10 +1865,10 @@ export default function MainApp({
 
               {/* Theme Selector Modal */}
               <Dialog open={showThemeSelector} onOpenChange={onShowThemeSelector}>
-                <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[85dvh] overflow-y-auto safe-all">
+                <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[80vh] overflow-y-auto">
                   <DialogHeader backLabel="Back to Planning">
-                    <DialogTitle className="text-base sm:text-lg">Set Your Daily Theme</DialogTitle>
-                    <DialogDescription className="text-xs sm:text-sm">
+                    <DialogTitle>Set Your Daily Theme</DialogTitle>
+                    <DialogDescription>
                       Choose a focus area to get personalized goal suggestions and themed planning
                     </DialogDescription>
                   </DialogHeader>
@@ -1896,10 +1885,10 @@ export default function MainApp({
 
               {/* Location Date Planner Modal */}
               <Dialog open={showLocationDatePlanner} onOpenChange={onShowLocationDatePlanner}>
-                <DialogContent className="max-w-[95vw] sm:max-w-4xl md:max-w-5xl max-h-[90dvh] overflow-y-auto safe-all">
+                <DialogContent className="max-w-[95vw] sm:max-w-4xl">
                   <DialogHeader backLabel="Back to Planning">
-                    <DialogTitle className="text-base sm:text-lg">Plan Your Perfect Date</DialogTitle>
-                    <DialogDescription className="text-xs sm:text-sm">
+                    <DialogTitle>Plan Your Perfect Date</DialogTitle>
+                    <DialogDescription>
                       Let us help you find the perfect spots for your date based on your location
                     </DialogDescription>
                   </DialogHeader>
@@ -2025,7 +2014,7 @@ export default function MainApp({
 
             {/* Activities Tab - Primary Focus */}
             <TabsContent value="activities" className="space-y-6 pb-20">
-              <div className="text-left sm:text-center mb-6 px-4">
+              <div className="text-center mb-6 px-4">
                 <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Your Activities</h2>
                 <p className="text-sm sm:text-base text-muted-foreground">
                   Shareable activities with progress tracking and social features. Click an activity to view its tasks.
@@ -2053,15 +2042,12 @@ export default function MainApp({
                 </Link>
                 <Button
                   variant="outline"
-                  onClick={async () => {
-                    await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
-                  }}
-                  disabled={activitiesLoading}
+                  onClick={() => refetchActivities()}
                   className="gap-2"
                   data-testid="button-refresh-activities"
                 >
-                  <RefreshCw className={`w-4 h-4 ${activitiesLoading ? 'animate-spin' : ''}`} />
-                  {activitiesLoading ? 'Refreshing...' : 'Refresh'}
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh
                 </Button>
               </div>
 
@@ -2424,7 +2410,7 @@ export default function MainApp({
 
             {/* All Tasks Tab */}
             <TabsContent value="tasks" className="space-y-6 pb-20">
-              <div className="text-left sm:text-center mb-6 px-4">
+              <div className="text-center mb-6 px-4">
                 {selectedActivityId ? (
                   <>
                     <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Activity Tasks</h2>
@@ -2651,86 +2637,86 @@ export default function MainApp({
 
             {/* Import Content Tab (replaces old Integrations) */}
             <TabsContent value="sync" className="h-full flex flex-col pb-20">
-              <div className="flex flex-col items-center justify-center py-4 sm:py-6 px-4 sm:px-6">
-                <div className="mb-6 sm:mb-8 text-center">
-                  <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-2 sm:mb-3 flex items-center justify-center gap-2">
-                    <Upload className="w-6 h-6 sm:w-7 sm:h-7" />
+              <div className="flex flex-col items-center justify-center py-8 px-6">
+                <div className="mt-2 mb-4 text-center">
+                  <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
+                    <Upload className="w-6 h-6" />
                     Import Content to Plan
                   </h2>
-                  <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto px-2">
+                  <p className="text-muted-foreground max-w-sm mx-auto">
                     Share or paste content from anywhere. We'll extract it, create an actionable plan, and add it to your journal.
                   </p>
                 </div>
 
-                <div className="w-full max-w-3xl mb-6 sm:mb-8">
-                  <div className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 text-center">
+                <div className="w-full max-w-lg mb-6">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 text-center">
                     Supported Sources
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 mb-4">
-                    <div className="space-y-3">
-                      <div className="text-sm sm:text-base font-medium text-foreground mb-3">Social Media</div>
-                      <div className="flex flex-wrap gap-2">
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-gradient-to-r from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30 text-pink-600 dark:text-pink-400">
-                          <SiInstagram className="w-4 h-4" />
+                  
+                  <div className="grid grid-cols-2 gap-6 mb-4">
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium text-foreground mb-2">Social Media</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-gradient-to-r from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30 text-pink-600 dark:text-pink-400">
+                          <SiInstagram className="w-3.5 h-3.5" />
                           <span>Instagram</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                          <SiTiktok className="w-4 h-4" />
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          <SiTiktok className="w-3.5 h-3.5" />
                           <span>TikTok</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-                          <SiYoutube className="w-4 h-4" />
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                          <SiYoutube className="w-3.5 h-3.5" />
                           <span>YouTube</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400">
-                          <SiX className="w-4 h-4" />
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400">
+                          <SiX className="w-3.5 h-3.5" />
                           <span>Twitter/X</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                          <SiFacebook className="w-4 h-4" />
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                          <SiFacebook className="w-3.5 h-3.5" />
                           <span>Facebook</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
-                          <SiReddit className="w-4 h-4" />
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
+                          <SiReddit className="w-3.5 h-3.5" />
                           <span>Reddit</span>
                         </div>
                       </div>
                     </div>
-
-                    <div className="space-y-3">
-                      <div className="text-sm sm:text-base font-medium text-foreground mb-3">AI & Files</div>
-                      <div className="flex flex-wrap gap-2">
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
-                          <SiOpenai className="w-4 h-4" />
+                    
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium text-foreground mb-2">AI & Files</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+                          <SiOpenai className="w-3.5 h-3.5" />
                           <span>ChatGPT</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
-                          <SiAnthropic className="w-4 h-4" />
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                          <SiAnthropic className="w-3.5 h-3.5" />
                           <span>Claude</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                          <SiGooglegemini className="w-4 h-4" />
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                          <SiGooglegemini className="w-3.5 h-3.5" />
                           <span>Gemini</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
-                          <LinkIcon className="w-4 h-4" />
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                          <LinkIcon className="w-3.5 h-3.5" />
                           <span>Articles</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                          <FileText className="w-4 h-4" />
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                          <FileText className="w-3.5 h-3.5" />
                           <span>Docs</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400">
-                          <Image className="w-4 h-4" />
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400">
+                          <Image className="w-3.5 h-3.5" />
                           <span>Images</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400">
-                          <FileText className="w-4 h-4" />
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400">
+                          <FileText className="w-3.5 h-3.5" />
                           <span>PDFs</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
-                          <Video className="w-4 h-4" />
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
+                          <Video className="w-3.5 h-3.5" />
                           <span>Videos</span>
                         </div>
                       </div>
@@ -2738,84 +2724,29 @@ export default function MainApp({
                   </div>
                 </div>
 
-                {/* Import Methods */}
-                <div className="w-full max-w-3xl space-y-4 mb-6">
-                  {/* Mobile Share Sheet - Only on Mobile */}
-                  <Card className="md:hidden border-2 border-primary/20 bg-primary/5">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                        <Upload className="w-5 h-5 text-primary" />
-                        Mobile Share Sheet (Recommended)
-                      </CardTitle>
-                      <CardDescription className="text-xs sm:text-sm">
-                        Fastest way to import on mobile devices
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-start gap-3 p-3 bg-background rounded-lg">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                          1
-                        </div>
-                        <p className="text-sm">Open Instagram, TikTok, ChatGPT, or any app with content you want to track</p>
-                      </div>
-                      <div className="flex items-start gap-3 p-3 bg-background rounded-lg">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                          2
-                        </div>
-                        <p className="text-sm">Tap the Share button (usually <strong>⋮</strong> or <strong>↗</strong>)</p>
-                      </div>
-                      <div className="flex items-start gap-3 p-3 bg-background rounded-lg">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                          3
-                        </div>
-                        <p className="text-sm">Select <strong>JournalMate</strong> from the share menu</p>
-                      </div>
-                      <div className="flex items-start gap-3 p-3 bg-background rounded-lg">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                          4
-                        </div>
-                        <p className="text-sm">We'll automatically extract the content and create a plan!</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Copy & Paste - All Platforms */}
-                  <Card className="border border-border">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                        <ClipboardPaste className="w-5 h-5" />
-                        Copy & Paste
-                      </CardTitle>
-                      <CardDescription className="text-xs sm:text-sm">
-                        Works on all devices - desktop, mobile, and tablet
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Button
-                        onClick={handleImportPaste}
-                        disabled={importQueue.isProcessing || processGoalMutation.isPending}
-                        className="w-full bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-lg min-h-[48px]"
-                        size="lg"
-                        data-testid="button-paste-import"
-                      >
-                        {(importQueue.isProcessing || processGoalMutation.isPending) ? (
-                          <>
-                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <ClipboardPaste className="w-5 h-5 mr-2" />
-                            Paste from Clipboard
-                          </>
-                        )}
-                      </Button>
-                      <p className="text-xs text-muted-foreground mt-3 text-center">
-                        Copy any text, URL, or conversation and click the button above
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
+                <Button
+                  onClick={handleImportPaste}
+                  disabled={importQueue.isProcessing || processGoalMutation.isPending}
+                  className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-lg px-8"
+                  size="lg"
+                  data-testid="button-paste-import"
+                >
+                  {(importQueue.isProcessing || processGoalMutation.isPending) ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardPaste className="w-5 h-5 mr-2" />
+                      Paste from Clipboard
+                    </>
+                  )}
+                </Button>
+                
+                <p className="text-xs text-muted-foreground mt-4 text-center max-w-xs">
+                  On mobile, use the share button in any app to send content directly to JournalMate
+                </p>
 
                 {/* Recent Imports */}
                 {chatImports.length > 0 && (
@@ -2847,31 +2778,31 @@ export default function MainApp({
             </TabsContent>
 
             {/* Groups Tab */}
-            <TabsContent value="groups" className="space-y-4 sm:space-y-6 pb-20 px-3 sm:px-0">
+            <TabsContent value="groups" className="space-y-6 pb-20">
               <SignInGate feature="Group collaboration">
-                <div className="max-w-4xl mx-auto">
-                  <div className="text-left sm:text-center mb-4 sm:mb-6">
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground flex items-center sm:justify-center gap-2 mb-2 sm:mb-3">
+                <div className="max-w-4xl mx-auto px-4">
+                  <div className="text-center mb-8">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center justify-center gap-2 mb-4">
                       <Users className="w-6 h-6 sm:w-8 sm:h-8" />
                       Groups & Collaborative Planning
                     </h2>
-                    <p className="text-sm sm:text-base md:text-xl text-muted-foreground px-2">
+                    <p className="text-base sm:text-xl text-muted-foreground px-2">
                       Create groups, share activities, and plan together!
                     </p>
                   </div>
 
                   {/* Create and Join Group Cards */}
-                  <div className="grid gap-4 sm:gap-6 md:grid-cols-2 mb-6 sm:mb-8">
+                  <div className="grid gap-6 md:grid-cols-2 mb-8">
                     {/* Create New Group */}
-                    <Card className="p-4 sm:p-6">
+                    <Card className="p-6">
                       <div className="text-center">
-                        <Users className="w-10 h-10 sm:w-12 sm:h-12 text-primary mx-auto mb-3 sm:mb-4" />
-                        <h3 className="text-lg sm:text-xl font-semibold mb-2">Create New Group</h3>
-                        <p className="text-sm text-muted-foreground mb-4">
+                        <Users className="w-12 h-12 text-primary mx-auto mb-4" />
+                        <h3 className="text-xl font-semibold mb-2">Create New Group</h3>
+                        <p className="text-muted-foreground mb-4">
                           Start a new group for shared activities and collaborative planning
                         </p>
                         <Button
-                          className="w-full min-h-[48px]"
+                          className="w-full"
                           onClick={() => setShowCreateGroupDialog(true)}
                           data-testid="button-create-group"
                         >
@@ -2882,15 +2813,15 @@ export default function MainApp({
                     </Card>
 
                     {/* Join Existing Group */}
-                    <Card className="p-4 sm:p-6">
+                    <Card className="p-6">
                       <div className="text-center">
-                        <Target className="w-10 h-10 sm:w-12 sm:h-12 text-primary mx-auto mb-3 sm:mb-4" />
-                        <h3 className="text-lg sm:text-xl font-semibold mb-2">Join Group</h3>
-                        <p className="text-sm text-muted-foreground mb-4">
+                        <Target className="w-12 h-12 text-primary mx-auto mb-4" />
+                        <h3 className="text-xl font-semibold mb-2">Join Group</h3>
+                        <p className="text-muted-foreground mb-4">
                           Enter an invite code to join an existing group
                         </p>
                         <Button
-                          className="w-full min-h-[48px]"
+                          className="w-full"
                           variant="outline"
                           onClick={() => setShowJoinGroupDialog(true)}
                           data-testid="button-join-group"
@@ -3019,14 +2950,14 @@ export default function MainApp({
             </TabsContent>
 
             {/* About Tab */}
-            <TabsContent value="about" className="space-y-6 sm:space-y-8 pb-20 px-3 sm:px-0">
+            <TabsContent value="about" className="space-y-8 pb-20">
               <div className="max-w-4xl mx-auto">
                 {/* Hero Section */}
-                <div className="text-left sm:text-center mb-6 sm:mb-8">
-                  <div className="inline-flex items-center sm:justify-center w-24 h-24 sm:w-32 sm:h-32 mb-4 sm:mb-6">
-                    <img src="/journalmate-logo-transparent.png" alt="AI Planner - Smart Goal Tracker and AI Journal for Life Planning" className="w-full h-full object-contain" />
+                <div className="text-center mb-12">
+                  <div className="inline-flex items-center justify-center w-32 h-32 mb-6">
+                    <img src="/journalmate-logo-transparent.png" alt="AI Planner - Smart Goal Tracker and AI Journal for Life Planning" className="w-32 h-32 object-contain" />
                   </div>
-                  <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 sm:mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent px-2">
+                  <h2 className="text-4xl sm:text-5xl font-bold text-foreground mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
                     Plan Together. Reflect Together. Grow Together.
                   </h2>
                   <p className="text-xl sm:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed mb-4">
@@ -3068,7 +2999,7 @@ export default function MainApp({
                 </div>
 
                 {/* CTA Button */}
-                <div className="text-left sm:text-center mb-8">
+                <div className="text-center mb-8">
                   <Button 
                     size="lg" 
                     className="bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white text-lg px-8 py-6 h-auto"
@@ -3084,22 +3015,22 @@ export default function MainApp({
                 </div>
 
                 {/* Core Features */}
-                <div className="grid gap-4 sm:gap-6 md:grid-cols-3 mb-8 sm:mb-12">
+                <div className="grid gap-6 md:grid-cols-3 mb-12">
                   <p className="col-span-full text-center text-xs text-muted-foreground mb-2">
                     💡 Click on any feature to learn more
                   </p>
-
+                  
                   {/* PRIMARY: Smart Planning */}
-                  <div
-                    className="text-center p-4 sm:p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 rounded-xl border-2 border-purple-300 dark:border-purple-600 hover-elevate cursor-pointer transition-all duration-200 relative"
+                  <div 
+                    className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 rounded-xl border-2 border-purple-300 dark:border-purple-600 hover-elevate cursor-pointer transition-all duration-200 relative"
                     onClick={() => setExpandedFeature(expandedFeature === 'planning' ? null : 'planning')}
                     data-testid="feature-adaptive-planning"
                   >
                     <Badge className="absolute top-2 right-2 bg-purple-600 text-white text-xs">PRIMARY</Badge>
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                    <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <Sparkles className="w-7 h-7 text-white" />
                     </div>
-                    <h3 className="text-base sm:text-lg font-semibold mb-2">Adaptive Planning Engine</h3>
+                    <h3 className="text-lg font-semibold mb-2">Adaptive Planning Engine</h3>
                     <p className="text-sm text-muted-foreground">AI that learns your rhythm and adapts plans in real-time with emotional intelligence</p>
                     
                     {expandedFeature === 'planning' && (
@@ -3136,16 +3067,16 @@ export default function MainApp({
                   </div>
 
                   {/* SECONDARY: Activity Execution */}
-                  <div
-                    className="text-center p-4 sm:p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200 relative"
+                  <div 
+                    className="text-center p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200 relative"
                     onClick={() => setExpandedFeature(expandedFeature === 'execution' ? null : 'execution')}
                     data-testid="feature-activity-execution"
                   >
                     <Badge className="absolute top-2 right-2 bg-emerald-600 text-white text-xs">SECONDARY</Badge>
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      <CheckSquare className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                    <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <CheckSquare className="w-7 h-7 text-white" />
                     </div>
-                    <h3 className="text-base sm:text-lg font-semibold mb-2">Activity Execution & Progress Tracking</h3>
+                    <h3 className="text-lg font-semibold mb-2">Activity Execution & Progress Tracking</h3>
                     <p className="text-sm text-muted-foreground">Execute your plans with swipeable task cards, real-time analytics, and celebratory milestones</p>
                     
                     {expandedFeature === 'execution' && (
@@ -3178,16 +3109,16 @@ export default function MainApp({
                   </div>
 
                   {/* TERTIARY: Reflection & Journaling */}
-                  <div
-                    className="text-center p-4 sm:p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200 relative"
+                  <div 
+                    className="text-center p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200 relative"
                     onClick={() => setExpandedFeature(expandedFeature === 'reflection' ? null : 'reflection')}
                     data-testid="feature-rhythm-journaling"
                   >
                     <Badge className="absolute top-2 right-2 bg-blue-600 text-white text-xs">CLOSE THE LOOP</Badge>
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                    <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <BookOpen className="w-7 h-7 text-white" />
                     </div>
-                    <h3 className="text-base sm:text-lg font-semibold mb-2">Rhythm-Aware Journaling</h3>
+                    <h3 className="text-lg font-semibold mb-2">Rhythm-Aware Journaling</h3>
                     <p className="text-sm text-muted-foreground">Close the loop with intelligent reflection that learns your patterns and enriches future planning</p>
                     
                     {expandedFeature === 'reflection' && (
@@ -3244,7 +3175,7 @@ export default function MainApp({
                       <p className="text-sm font-medium">Goal Plans</p>
                     </div>
                     <div className="p-4 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-white/40 dark:border-gray-700/40">
-                      <FileText className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
+                      <BookOpen className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
                       <p className="text-sm font-medium">Daily Journals</p>
                     </div>
                     <div className="p-4 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-white/40 dark:border-gray-700/40">
@@ -3395,10 +3326,10 @@ export default function MainApp({
       </Dialog>
 
       <Dialog open={showLifestylePlanner} onOpenChange={onShowLifestylePlanner}>
-        <DialogContent className="max-w-[95vw] sm:max-w-5xl md:max-w-7xl h-[90dvh] flex flex-col safe-all" data-testid="modal-lifestyle-planner">
-          <DialogHeader backLabel="Back to Home">
-            <DialogTitle className="text-base sm:text-lg md:text-2xl">Personal Journal</DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm">
+        <DialogContent className="max-w-[95vw] sm:max-w-7xl h-[90vh] flex flex-col" data-testid="modal-lifestyle-planner">
+          <DialogHeader className="pb-2" backLabel="Back to Home">
+            <DialogTitle className="text-2xl">Personal Journal</DialogTitle>
+            <DialogDescription>
               Capture your unique interests, preferences, and personal notes
             </DialogDescription>
           </DialogHeader>
@@ -3414,7 +3345,7 @@ export default function MainApp({
           setJournalActivityContext(null);
         }
       }}>
-        <DialogContent className="max-w-[98vw] sm:max-w-4xl max-h-[95dvh] flex flex-col p-0 safe-all" data-testid="modal-journal-mode">
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl h-[90vh] flex flex-col p-0" data-testid="modal-journal-mode">
           <ConversationalPlanner
             initialMode="journal"
             onClose={() => {
@@ -3550,14 +3481,9 @@ export default function MainApp({
               }
             } catch (error) {
               console.error('Share error:', error);
-              const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
               toast({
                 title: "Share Failed",
-                description: errorMessage.includes('No share link') 
-                  ? "The share link was not generated. Please try again."
-                  : errorMessage.includes('network')
-                  ? "Network error. Please check your connection."
-                  : "Unable to copy share link. Please try again.",
+                description: "Unable to copy share link. Please try again.",
                 variant: "destructive"
               });
             }
