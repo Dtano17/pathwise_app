@@ -233,8 +233,15 @@ export function AppSidebar({
     <Sidebar>
       <SidebarContent>
         {/* Header */}
-        <div className="flex justify-between items-center p-3 border-b">
-          <span className="text-lg font-semibold text-foreground">JournalMate</span>
+        <div className="flex justify-between items-center p-2 border-b">
+          <div className="flex items-center gap-2">
+            <img
+              src="/icons/web/android-chrome-192x192.png"
+              alt="JournalMate"
+              className="w-7 h-7 rounded-lg flex-shrink-0"
+            />
+            <span className="text-base font-semibold text-foreground">JournalMate</span>
+          </div>
           <SidebarTrigger data-testid="button-sidebar-toggle-inside" />
         </div>
 
