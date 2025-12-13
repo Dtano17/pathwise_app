@@ -25,6 +25,12 @@
     <!-- Canonical URL -->
     <link rel="canonical" href="https://journalmate.ai/" />
 
+    <!-- Font Preloading for Performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" /></noscript>
+
     <!-- JSON-LD Structured Data for SEO & AI Discovery -->
     <script type="application/ld+json">
     {
@@ -92,10 +98,26 @@
           "mainEntity": [
             {
               "@type": "Question",
+              "name": "How do I share from Instagram or TikTok to JournalMate on mobile?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "On mobile, tap the Share button on any Instagram post, Reel, or TikTok video. Select 'JournalMate' from the share sheet. The app will automatically extract the content, create actionable tasks, and let you track your progress. Works with recipes, workouts, DIY projects, and any activity."
+              }
+            },
+            {
+              "@type": "Question",
               "name": "Can I import plans from ChatGPT into JournalMate?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Yes! JournalMate.ai automatically imports and tracks plans from ChatGPT, Claude AI, Google Gemini, and other AI chatbots. Simply copy your conversation or use our browser extension."
+                "text": "Yes! On mobile, use the Share button in ChatGPT and select JournalMate. On desktop, copy your ChatGPT conversation and paste it into JournalMate. The AI will automatically parse it into actionable tasks with deadlines and categories."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does JournalMate work on mobile phones and tablets?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! JournalMate is fully mobile-responsive and available as a Progressive Web App (PWA) on iOS and Android. Install it from your browser's menu for a native app experience. The mobile version has touch-friendly 44px buttons, safe-area support for notched devices, and works offline."
               }
             },
             {
@@ -103,7 +125,7 @@
               "name": "How does JournalMate track progress on AI-generated plans?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "JournalMate uses AI to parse your plan into actionable tasks, categorize them, and create a tracking dashboard. It journals your progress automatically based on your activities."
+                "text": "JournalMate uses AI to parse your plan into actionable tasks, categorize them, and create a tracking dashboard. It journals your progress automatically based on your activities, tracks completion streaks, and provides visual progress charts."
               }
             },
             {
@@ -111,7 +133,7 @@
               "name": "Can I import and track social media content like Instagram posts or TikTok videos?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Yes! JournalMate can import content from Instagram, TikTok, Pinterest, and YouTube. Just paste the URL and we'll extract recipes, workouts, DIY projects, or any activity to track. Perfect for saving content you want to try later."
+                "text": "Yes! On mobile, use the Share button to send Instagram posts, Reels, or TikTok videos directly to JournalMate. On desktop, paste the URL. We'll extract recipes, workouts, DIY projects, or any activity to track. Perfect for saving content you want to try later."
               }
             },
             {
@@ -128,6 +150,222 @@
               "acceptedAnswer": {
                 "@type": "Answer",
                 "text": "JournalMate supports importing from ANY AI engine including ChatGPT, Claude AI, Google Gemini, Perplexity, and social media platforms like Instagram, TikTok, Pinterest, and YouTube. You can also import from any URL or paste text directly."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How do I share from Claude AI to JournalMate?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Copy your Claude AI conversation and paste it into JournalMate, or use the mobile Share button. Our AI will automatically extract tasks, deadlines, and action items from Claude's detailed responses. Perfect for project plans, research summaries, and step-by-step guides."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I use JournalMate offline on mobile?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Install JournalMate as a PWA (Progressive Web App) by tapping 'Add to Home Screen' on iOS or 'Install' on Android. The app works offline, syncing your changes when you're back online. All your plans and tasks are cached locally."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How does the mobile share sheet integration work?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "When you tap Share on Instagram, TikTok, YouTube, or any app, JournalMate appears in your share sheet. Select it to send the content directly to JournalMate, where AI extracts actionable tasks. Works with text, URLs, images, and videos."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I import Pinterest pins to JournalMate?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Share Pinterest pins directly to JournalMate on mobile, or paste the URL on desktop. Perfect for recipe collections, home decor projects, wedding planning, and craft ideas. We'll extract steps and create a trackable plan."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does JournalMate work with YouTube videos?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Share YouTube videos to JournalMate to extract tutorials, recipes, and how-to content. Our AI analyzes the video transcript to create step-by-step tasks. Perfect for learning new skills, following workout programs, or cooking tutorials."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is JournalMate free to use?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! JournalMate offers a free plan with all core features including AI import, social media sharing, progress tracking, and community plans. Pro plans ($9.99/month) add unlimited AI imports, advanced analytics, and priority support."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How do I install JournalMate on my iPhone?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Open JournalMate.ai in Safari, tap the Share button (square with arrow), scroll down and tap 'Add to Home Screen'. The app will install like a native app with full offline support, push notifications, and appears in your share sheet for easy content import."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How do I install JournalMate on Android?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Open JournalMate.ai in Chrome, tap the menu (three dots), and select 'Install app' or 'Add to Home Screen'. The app installs as a PWA with offline support, home screen icon, and integration with Android's share menu."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I import Google Gemini (Bard) plans?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Copy your Google Gemini conversation and paste it into JournalMate. Our AI extracts tasks, research findings, and action items. Perfect for research projects, travel planning, and detailed analysis work."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does JournalMate work with Perplexity AI?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Import Perplexity AI research and answers with full source citations. JournalMate preserves references while creating actionable tasks from research findings. Perfect for academic projects, fact-checking, and in-depth research."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I share workout plans from fitness apps?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Share workout videos from Instagram, TikTok, or YouTube fitness creators directly to JournalMate. The app extracts exercises, sets, reps, and creates a trackable workout plan with progress charts and completion tracking."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How do I track recipes from social media?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Share recipe videos from Instagram, TikTok, or YouTube to JournalMate. We extract ingredients, steps, cooking times, and nutritional info. Track which recipes you've tried, save favorites, and plan weekly meals."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I collaborate on plans with my family?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Create group goals with family members, assign tasks, and track progress together. Perfect for vacation planning, home projects, event organization, and shared fitness goals. Everyone sees real-time updates."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does JournalMate have a browser extension?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! The JournalMate browser extension for Chrome, Firefox, and Edge lets you import content from any webpage with one click. Highlight text, click the extension icon, and automatically create tasks. Coming soon to Safari."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I import travel plans from AI?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Share travel itineraries from ChatGPT, Claude, or Gemini to JournalMate. We create day-by-day plans with activities, bookings, and reminders. Track what you've done, share with travel companions, and journal your trip."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How does AI auto-journaling work?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "As you complete tasks and activities, JournalMate automatically creates journal entries capturing your progress, achievements, and milestones. The AI summarizes your day, tracks patterns, and provides insights into your productivity and habits."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I discover plans created by others?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Browse the Discover page for trending community plans including workout routines, meal prep guides, travel itineraries, productivity systems, and hobby projects. Filter by category, location, and popularity. Copy any plan to your account."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does JournalMate work on iPad and tablets?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! JournalMate is fully optimized for iPad and Android tablets with responsive layouts, split-screen support, and touch-friendly controls. Install as a PWA for the best experience with offline support and home screen access."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I import text messages or emails?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Use the mobile share feature to send text messages or emails to JournalMate. The AI extracts action items, tasks, and deadlines from conversations. Perfect for following up on meeting notes, email action items, or group planning."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How do I share weekend plans with friends?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Create a weekend plan in JournalMate, tap Share, and send the link via text, email, or social media. Friends can view the plan, copy it to their account, and join as collaborators to track activities together."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does JournalMate support voice input on mobile?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Use your device's voice input to dictate goals, tasks, and journal entries. On mobile, tap the microphone icon in any text field. The AI processes your speech and creates structured plans with categorized tasks."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I track fitness goals with JournalMate?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Import workout plans from social media or AI, track exercise completion, log workouts, and monitor progress with visual charts. Share fitness goals with friends for accountability and motivation."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How do I import date night ideas?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Browse community date night plans, import from AI (ask ChatGPT for 'romantic date ideas'), or share Instagram/TikTok date inspiration. Track which dates you've done, rate them, and build a collection of favorites."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I plan events and parties with JournalMate?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Create event plans with task lists, shopping lists, timelines, and guest lists. Share with co-hosts for collaborative planning. Track RSVPs, budget, and completion progress. Perfect for birthdays, weddings, and gatherings."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does JournalMate work with Apple Watch or Wear OS?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Currently, JournalMate is optimized for phones and tablets. Smartwatch support is coming soon, allowing you to track task completion, view today's schedule, and receive activity reminders from your wrist."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How secure is my data in JournalMate?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Your data is encrypted in transit (HTTPS) and at rest. We use secure OAuth for social logins, don't sell your data, and comply with GDPR and CCPA. You can export or delete your data anytime. Private plans stay private unless you choose to share."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I export my journal entries and plans?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! Export your entire journal, individual plans, or activity history as PDF, Markdown, or JSON. Perfect for backing up your data, sharing with productivity apps, or keeping personal records offline."
               }
             }
           ]
