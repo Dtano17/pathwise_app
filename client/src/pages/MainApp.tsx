@@ -1788,7 +1788,7 @@ export default function MainApp({
               {!currentPlanOutput && !showThemeSelector && !showLocationDatePlanner && !showLifestylePlanner && (
                 <div className="max-w-4xl mx-auto space-y-6">
                   {/* Quick Action Buttons */}
-                  <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 mb-6">
+                  <div className="flex flex-col sm:flex-row justify-center gap-3 mb-6 px-2 sm:px-0">
                     <Button
                       onClick={() => {
                         if (isAuthenticated) {
@@ -1798,7 +1798,7 @@ export default function MainApp({
                         }
                       }}
                       variant="outline"
-                      className="gap-2"
+                      className="gap-2 min-h-[48px] w-full sm:w-auto text-sm sm:text-base"
                       data-testid="button-lifestyle-planner"
                     >
                       <BookOpen className="w-4 h-4" />
@@ -1807,7 +1807,7 @@ export default function MainApp({
                     <Button
                       onClick={() => onShowThemeSelector(true)}
                       variant="outline"
-                      className="gap-2"
+                      className="gap-2 min-h-[48px] w-full sm:w-auto text-sm sm:text-base"
                       data-testid="button-theme-selector"
                     >
                       <Target className="w-4 h-4" />
@@ -1816,7 +1816,7 @@ export default function MainApp({
                     <Button
                       onClick={() => onShowLocationDatePlanner(true)}
                       variant="outline"
-                      className="gap-2"
+                      className="gap-2 min-h-[48px] w-full sm:w-auto text-sm sm:text-base"
                       data-testid="button-date-planner"
                     >
                       <Heart className="w-4 h-4" />
@@ -1837,7 +1837,7 @@ export default function MainApp({
                   </div>
 
                   {/* Example goals */}
-                  <div className="max-w-2xl mx-auto">
+                  <div className="max-w-2xl mx-auto px-2 sm:px-0">
                     <p className="text-sm text-muted-foreground mb-4 text-center">Or try these quick examples:</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {[
@@ -1856,16 +1856,16 @@ export default function MainApp({
                             size="lg"
                             onClick={() => processGoalMutation.mutate(example.text)}
                             disabled={processGoalMutation.isPending}
-                            className="text-left justify-start h-auto p-3 flex-col items-start gap-2 min-h-[80px]"
+                            className="text-left justify-start h-auto p-4 flex-col items-start gap-2 min-h-[88px]"
                             data-testid={`button-example-${index}`}
                           >
                             <div className="flex items-center gap-2 w-full">
-                              <Icon className="w-4 h-4 text-primary flex-shrink-0" />
+                              <Icon className="w-5 h-5 text-primary flex-shrink-0" />
                               <Badge variant="secondary" className="text-xs">
                                 {example.theme}
                               </Badge>
                             </div>
-                            <span className="text-sm leading-tight overflow-hidden text-ellipsis">{example.text}</span>
+                            <span className="text-sm sm:text-base leading-tight">{example.text}</span>
                           </Button>
                         );
                       })}
@@ -2792,31 +2792,31 @@ export default function MainApp({
             </TabsContent>
 
             {/* Groups Tab */}
-            <TabsContent value="groups" className="space-y-6 pb-20">
+            <TabsContent value="groups" className="space-y-4 sm:space-y-6 pb-20 px-3 sm:px-0">
               <SignInGate feature="Group collaboration">
-                <div className="max-w-4xl mx-auto px-4">
-                  <div className="text-center mb-8">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center justify-center gap-2 mb-4">
+                <div className="max-w-4xl mx-auto">
+                  <div className="text-center mb-6 sm:mb-8">
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground flex items-center justify-center gap-2 mb-3 sm:mb-4">
                       <Users className="w-6 h-6 sm:w-8 sm:h-8" />
                       Groups & Collaborative Planning
                     </h2>
-                    <p className="text-base sm:text-xl text-muted-foreground px-2">
+                    <p className="text-sm sm:text-base md:text-xl text-muted-foreground px-2">
                       Create groups, share activities, and plan together!
                     </p>
                   </div>
 
                   {/* Create and Join Group Cards */}
-                  <div className="grid gap-6 md:grid-cols-2 mb-8">
+                  <div className="grid gap-4 sm:gap-6 md:grid-cols-2 mb-6 sm:mb-8">
                     {/* Create New Group */}
-                    <Card className="p-6">
+                    <Card className="p-4 sm:p-6">
                       <div className="text-center">
-                        <Users className="w-12 h-12 text-primary mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold mb-2">Create New Group</h3>
-                        <p className="text-muted-foreground mb-4">
+                        <Users className="w-10 h-10 sm:w-12 sm:h-12 text-primary mx-auto mb-3 sm:mb-4" />
+                        <h3 className="text-lg sm:text-xl font-semibold mb-2">Create New Group</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
                           Start a new group for shared activities and collaborative planning
                         </p>
                         <Button
-                          className="w-full"
+                          className="w-full min-h-[48px]"
                           onClick={() => setShowCreateGroupDialog(true)}
                           data-testid="button-create-group"
                         >
@@ -2827,15 +2827,15 @@ export default function MainApp({
                     </Card>
 
                     {/* Join Existing Group */}
-                    <Card className="p-6">
+                    <Card className="p-4 sm:p-6">
                       <div className="text-center">
-                        <Target className="w-12 h-12 text-primary mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold mb-2">Join Group</h3>
-                        <p className="text-muted-foreground mb-4">
+                        <Target className="w-10 h-10 sm:w-12 sm:h-12 text-primary mx-auto mb-3 sm:mb-4" />
+                        <h3 className="text-lg sm:text-xl font-semibold mb-2">Join Group</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
                           Enter an invite code to join an existing group
                         </p>
                         <Button
-                          className="w-full"
+                          className="w-full min-h-[48px]"
                           variant="outline"
                           onClick={() => setShowJoinGroupDialog(true)}
                           data-testid="button-join-group"
@@ -2964,14 +2964,14 @@ export default function MainApp({
             </TabsContent>
 
             {/* About Tab */}
-            <TabsContent value="about" className="space-y-8 pb-20">
+            <TabsContent value="about" className="space-y-6 sm:space-y-8 pb-20 px-3 sm:px-0">
               <div className="max-w-4xl mx-auto">
                 {/* Hero Section */}
-                <div className="text-center mb-12">
-                  <div className="inline-flex items-center justify-center w-32 h-32 mb-6">
-                    <img src="/journalmate-logo-transparent.png" alt="AI Planner - Smart Goal Tracker and AI Journal for Life Planning" className="w-32 h-32 object-contain" />
+                <div className="text-center mb-8 sm:mb-12">
+                  <div className="inline-flex items-center justify-center w-24 h-24 sm:w-32 sm:h-32 mb-4 sm:mb-6">
+                    <img src="/journalmate-logo-transparent.png" alt="AI Planner - Smart Goal Tracker and AI Journal for Life Planning" className="w-full h-full object-contain" />
                   </div>
-                  <h2 className="text-4xl sm:text-5xl font-bold text-foreground mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
+                  <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 sm:mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent px-2">
                     Plan Together. Reflect Together. Grow Together.
                   </h2>
                   <p className="text-xl sm:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed mb-4">
@@ -3029,22 +3029,22 @@ export default function MainApp({
                 </div>
 
                 {/* Core Features */}
-                <div className="grid gap-6 md:grid-cols-3 mb-12">
+                <div className="grid gap-4 sm:gap-6 md:grid-cols-3 mb-8 sm:mb-12">
                   <p className="col-span-full text-center text-xs text-muted-foreground mb-2">
                     💡 Click on any feature to learn more
                   </p>
-                  
+
                   {/* PRIMARY: Smart Planning */}
-                  <div 
-                    className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 rounded-xl border-2 border-purple-300 dark:border-purple-600 hover-elevate cursor-pointer transition-all duration-200 relative"
+                  <div
+                    className="text-center p-4 sm:p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 rounded-xl border-2 border-purple-300 dark:border-purple-600 hover-elevate cursor-pointer transition-all duration-200 relative"
                     onClick={() => setExpandedFeature(expandedFeature === 'planning' ? null : 'planning')}
                     data-testid="feature-adaptive-planning"
                   >
                     <Badge className="absolute top-2 right-2 bg-purple-600 text-white text-xs">PRIMARY</Badge>
-                    <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <Sparkles className="w-7 h-7 text-white" />
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">Adaptive Planning Engine</h3>
+                    <h3 className="text-base sm:text-lg font-semibold mb-2">Adaptive Planning Engine</h3>
                     <p className="text-sm text-muted-foreground">AI that learns your rhythm and adapts plans in real-time with emotional intelligence</p>
                     
                     {expandedFeature === 'planning' && (
@@ -3081,16 +3081,16 @@ export default function MainApp({
                   </div>
 
                   {/* SECONDARY: Activity Execution */}
-                  <div 
-                    className="text-center p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200 relative"
+                  <div
+                    className="text-center p-4 sm:p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200 relative"
                     onClick={() => setExpandedFeature(expandedFeature === 'execution' ? null : 'execution')}
                     data-testid="feature-activity-execution"
                   >
                     <Badge className="absolute top-2 right-2 bg-emerald-600 text-white text-xs">SECONDARY</Badge>
-                    <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <CheckSquare className="w-7 h-7 text-white" />
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <CheckSquare className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">Activity Execution & Progress Tracking</h3>
+                    <h3 className="text-base sm:text-lg font-semibold mb-2">Activity Execution & Progress Tracking</h3>
                     <p className="text-sm text-muted-foreground">Execute your plans with swipeable task cards, real-time analytics, and celebratory milestones</p>
                     
                     {expandedFeature === 'execution' && (
@@ -3123,16 +3123,16 @@ export default function MainApp({
                   </div>
 
                   {/* TERTIARY: Reflection & Journaling */}
-                  <div 
-                    className="text-center p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200 relative"
+                  <div
+                    className="text-center p-4 sm:p-6 bg-card rounded-xl border hover-elevate cursor-pointer transition-all duration-200 relative"
                     onClick={() => setExpandedFeature(expandedFeature === 'reflection' ? null : 'reflection')}
                     data-testid="feature-rhythm-journaling"
                   >
                     <Badge className="absolute top-2 right-2 bg-blue-600 text-white text-xs">CLOSE THE LOOP</Badge>
-                    <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <Sparkles className="w-7 h-7 text-white" />
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">Rhythm-Aware Journaling</h3>
+                    <h3 className="text-base sm:text-lg font-semibold mb-2">Rhythm-Aware Journaling</h3>
                     <p className="text-sm text-muted-foreground">Close the loop with intelligent reflection that learns your patterns and enriches future planning</p>
                     
                     {expandedFeature === 'reflection' && (
@@ -3359,7 +3359,7 @@ export default function MainApp({
           setJournalActivityContext(null);
         }
       }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-4xl h-[90vh] flex flex-col p-0" data-testid="modal-journal-mode">
+        <DialogContent className="max-w-[98vw] sm:max-w-4xl max-h-[95dvh] flex flex-col p-0 safe-all" data-testid="modal-journal-mode">
           <ConversationalPlanner
             initialMode="journal"
             onClose={() => {
