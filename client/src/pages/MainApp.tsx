@@ -2036,7 +2036,7 @@ export default function MainApp({
                     className="gap-2"
                     data-testid="button-discover-plans"
                   >
-                    <Sparkles className="w-4 h-4" />
+                    <Globe2 className="w-4 h-4" />
                     Discover Plans
                   </Button>
                 </Link>
@@ -2621,7 +2621,7 @@ export default function MainApp({
               {progressData?.lifestyleSuggestions && progressData.lifestyleSuggestions.length > 0 && (
                 <div className="max-w-2xl mx-auto">
                   <h3 className="text-lg font-semibold mb-4 text-center flex items-center justify-center gap-2">
-                    <Sparkles className="w-5 h-5 text-primary" />
+                    <Lightbulb className="w-5 h-5 text-primary" />
                     AI Lifestyle Suggestions
                   </h3>
                   <div className="grid gap-3">
@@ -2930,7 +2930,7 @@ export default function MainApp({
                   <Card className="p-6 bg-gradient-to-r from-purple-500/5 to-emerald-500/5 border-dashed">
                     <div className="text-center mb-4">
                       <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500/10 to-emerald-500/10 px-4 py-2 rounded-full mb-3">
-                        <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                         <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">Community Powered</span>
                       </div>
                       <h3 className="text-lg font-semibold mb-2">Discover & Use Community Plans</h3>
@@ -2939,7 +2939,7 @@ export default function MainApp({
                       </p>
                       <Link href="/discover">
                         <Button className="gap-2" data-testid="button-browse-community-plans">
-                          <Sparkles className="w-4 h-4" />
+                          <Globe2 className="w-4 h-4" />
                           Browse Community Plans
                         </Button>
                       </Link>
@@ -3006,7 +3006,7 @@ export default function MainApp({
                     onClick={() => setActiveTab('input')}
                     data-testid="button-plan-adventure"
                   >
-                    <Sparkles className="w-5 h-5 mr-2" />
+                    <Target className="w-5 h-5 mr-2" />
                     Plan Your Next Adventure
                   </Button>
                   <p className="text-sm text-muted-foreground mt-3">
