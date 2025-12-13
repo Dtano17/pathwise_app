@@ -1763,7 +1763,7 @@ export default function MainApp({
                 </div>
               )}
               
-              <div className="text-center mb-6 px-4">
+              <div className="text-left sm:text-center mb-6 px-4">
                 <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
                   {editingActivity ? 'What would you like to change?' : 'What do you want to achieve?'}
                 </h2>
@@ -2025,7 +2025,7 @@ export default function MainApp({
 
             {/* Activities Tab - Primary Focus */}
             <TabsContent value="activities" className="space-y-6 pb-20">
-              <div className="text-center mb-6 px-4">
+              <div className="text-left sm:text-center mb-6 px-4">
                 <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Your Activities</h2>
                 <p className="text-sm sm:text-base text-muted-foreground">
                   Shareable activities with progress tracking and social features. Click an activity to view its tasks.
@@ -2424,7 +2424,7 @@ export default function MainApp({
 
             {/* All Tasks Tab */}
             <TabsContent value="tasks" className="space-y-6 pb-20">
-              <div className="text-center mb-6 px-4">
+              <div className="text-left sm:text-center mb-6 px-4">
                 {selectedActivityId ? (
                   <>
                     <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Activity Tasks</h2>
@@ -2850,8 +2850,8 @@ export default function MainApp({
             <TabsContent value="groups" className="space-y-4 sm:space-y-6 pb-20 px-3 sm:px-0">
               <SignInGate feature="Group collaboration">
                 <div className="max-w-4xl mx-auto">
-                  <div className="text-center mb-4 sm:mb-6">
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground flex items-center justify-center gap-2 mb-2 sm:mb-3">
+                  <div className="text-left sm:text-center mb-4 sm:mb-6">
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground flex items-center sm:justify-center gap-2 mb-2 sm:mb-3">
                       <Users className="w-6 h-6 sm:w-8 sm:h-8" />
                       Groups & Collaborative Planning
                     </h2>
@@ -3022,8 +3022,8 @@ export default function MainApp({
             <TabsContent value="about" className="space-y-6 sm:space-y-8 pb-20 px-3 sm:px-0">
               <div className="max-w-4xl mx-auto">
                 {/* Hero Section */}
-                <div className="text-center mb-6 sm:mb-8">
-                  <div className="inline-flex items-center justify-center w-24 h-24 sm:w-32 sm:h-32 mb-4 sm:mb-6">
+                <div className="text-left sm:text-center mb-6 sm:mb-8">
+                  <div className="inline-flex items-center sm:justify-center w-24 h-24 sm:w-32 sm:h-32 mb-4 sm:mb-6">
                     <img src="/journalmate-logo-transparent.png" alt="AI Planner - Smart Goal Tracker and AI Journal for Life Planning" className="w-full h-full object-contain" />
                   </div>
                   <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 sm:mb-4 bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent px-2">
@@ -3068,7 +3068,7 @@ export default function MainApp({
                 </div>
 
                 {/* CTA Button */}
-                <div className="text-center mb-8">
+                <div className="text-left sm:text-center mb-8">
                   <Button 
                     size="lg" 
                     className="bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white text-lg px-8 py-6 h-auto"
