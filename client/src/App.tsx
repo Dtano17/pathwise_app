@@ -74,9 +74,10 @@ function AppContent() {
     staleTime: 60000, // Cache for 1 minute
   });
 
-  // Custom sidebar width for better content display
+  // Custom sidebar width for better content display (responsive)
+  const isMobileView = window.innerWidth < 768;
   const style = {
-    "--sidebar-width": "20rem",       // 320px for better content
+    "--sidebar-width": isMobileView ? "14rem" : "20rem",  // 224px on mobile, 320px on desktop
     "--sidebar-width-icon": "4rem",   // default icon width
   };
 
