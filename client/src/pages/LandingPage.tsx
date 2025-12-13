@@ -346,7 +346,7 @@ export default function LandingPage() {
               you achieve your goals.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
               <Link href="/login">
                 <Button
                   size="lg"
