@@ -2724,27 +2724,86 @@ export default function MainApp({
                   </div>
                 </div>
 
-                <Button
-                  onClick={handleImportPaste}
-                  disabled={importQueue.isProcessing || processGoalMutation.isPending}
-                  className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-lg px-8"
-                  size="lg"
-                  data-testid="button-paste-import"
-                >
-                  {(importQueue.isProcessing || processGoalMutation.isPending) ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <ClipboardPaste className="w-5 h-5 mr-2" />
-                      Paste from Clipboard
-                    </>
-                  )}
-                </Button>
+                {/* Desktop: Paste from Clipboard */}
+                <div className="hidden sm:block">
+                  <Button
+                    onClick={handleImportPaste}
+                    disabled={importQueue.isProcessing || processGoalMutation.isPending}
+                    className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-lg px-8"
+                    size="lg"
+                    data-testid="button-paste-import"
+                  >
+                    {(importQueue.isProcessing || processGoalMutation.isPending) ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <ClipboardPaste className="w-5 h-5 mr-2" />
+                        Paste from Clipboard
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Mobile: Share & Paste Options */}
+                <div className="w-full max-w-md space-y-4 sm:hidden">
+                  {/* Primary: Share Sheet */}
+                  <Card className="p-4 bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border-purple-200 dark:border-purple-800">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 text-white flex-shrink-0">
+                        <Share2 className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-foreground mb-1">Best Way: Use Share Sheet</h4>
+                        <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
+                          <li>Open content in any app (Instagram, TikTok, etc.)</li>
+                          <li>Tap the <span className="font-medium text-foreground">Share</span> button</li>
+                          <li>Select <span className="font-medium text-foreground">JournalMate</span> from the list</li>
+                          <li>Content imports automatically!</li>
+                        </ol>
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Alternative: Copy & Paste */}
+                  <Card className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-muted flex-shrink-0">
+                        <Copy className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-foreground mb-1">Alternative: Copy & Paste</h4>
+                        <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside mb-3">
+                          <li>Copy the link from any app</li>
+                          <li>Tap the button below to paste</li>
+                        </ol>
+                        <Button
+                          onClick={handleImportPaste}
+                          disabled={importQueue.isProcessing || processGoalMutation.isPending}
+                          className="w-full"
+                          variant="outline"
+                          data-testid="button-paste-import-mobile"
+                        >
+                          {(importQueue.isProcessing || processGoalMutation.isPending) ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <ClipboardPaste className="w-4 h-4 mr-2" />
+                              Paste Link
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
                 
-                <p className="text-xs text-muted-foreground mt-4 text-center max-w-xs">
+                <p className="text-xs text-muted-foreground mt-4 text-center max-w-xs hidden sm:block">
                   On mobile, use the share button in any app to send content directly to JournalMate
                 </p>
 
