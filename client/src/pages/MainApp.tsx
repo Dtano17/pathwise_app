@@ -1528,12 +1528,12 @@ export default function MainApp({
               {(isMobile || !open) && <SidebarTrigger data-testid="button-sidebar-toggle" />}
               
               <div 
-                className="flex items-center gap-2 sm:gap-3 cursor-pointer" 
+                className="flex items-center gap-2 sm:gap-3 cursor-pointer no-mobile-min" 
                 onClick={() => setActiveTab('input')}
                 data-testid="header-logo"
               >
-                <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center hover-elevate rounded-md">
-                  <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 flex items-center justify-center hover-elevate rounded-md no-mobile-min">
+                  <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-full h-full object-contain" loading="eager" data-testid="img-logo-header" />
                 </div>
                 <div className="flex items-center gap-2">
                   <div>

@@ -611,7 +611,13 @@ body, html {
     min-width: 44px;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
+  }
+  
+  /* Sidebar menu buttons should remain left-aligned (override mobile centering) */
+  [data-sidebar] button,
+  [data-sidebar] [role="button"],
+  [data-sidebar] a[href] {
+    justify-content: flex-start !important;
   }
 
   /* Adjust tab navigation for mobile */
