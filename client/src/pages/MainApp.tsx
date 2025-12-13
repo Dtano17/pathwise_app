@@ -1590,12 +1590,12 @@ export default function MainApp({
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto safe-bottom overscroll-contain">
-        <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4">
         <div className="max-w-6xl mx-auto">
           {/* Navigation */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             {/* Mobile Dropdown Navigation */}
-            <div className="md:hidden mb-3 sm:mb-4">
+            <div className="md:hidden mb-2 sm:mb-3">
               <Select value={activeTab} onValueChange={setActiveTab}>
                 <SelectTrigger className="w-full min-h-[44px] text-sm sm:text-base" data-testid="mobile-nav-dropdown">
                   <div className="flex items-center gap-2">
@@ -1630,7 +1630,7 @@ export default function MainApp({
 
             {/* Desktop Tab Navigation */}
             <div className="w-full overflow-x-auto">
-              <TabsList className="hidden md:inline-flex w-max min-w-full mb-4 sm:mb-8 bg-muted/30 p-1 h-12 flex-nowrap gap-2">
+              <TabsList className="hidden md:inline-flex w-max min-w-full mb-3 sm:mb-4 bg-muted/30 p-1 h-12 flex-nowrap gap-2">
                 <TabsTrigger value="input" className="gap-2 text-sm font-medium" data-testid="tab-input">
                   <Mic className="w-4 h-4" />
                   <span>Goal Input</span>
@@ -2651,86 +2651,86 @@ export default function MainApp({
 
             {/* Import Content Tab (replaces old Integrations) */}
             <TabsContent value="sync" className="h-full flex flex-col pb-20">
-              <div className="flex flex-col items-center justify-center py-8 px-6">
-                <div className="mt-2 mb-4 text-center">
-                  <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
-                    <Upload className="w-6 h-6" />
+              <div className="flex flex-col items-center justify-center py-4 sm:py-6 px-4 sm:px-6">
+                <div className="mb-6 sm:mb-8 text-center">
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-2 sm:mb-3 flex items-center justify-center gap-2">
+                    <Upload className="w-6 h-6 sm:w-7 sm:h-7" />
                     Import Content to Plan
                   </h2>
-                  <p className="text-muted-foreground max-w-sm mx-auto">
+                  <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto px-2">
                     Share or paste content from anywhere. We'll extract it, create an actionable plan, and add it to your journal.
                   </p>
                 </div>
 
-                <div className="w-full max-w-lg mb-6">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 text-center">
+                <div className="w-full max-w-3xl mb-6 sm:mb-8">
+                  <div className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 text-center">
                     Supported Sources
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-6 mb-4">
-                    <div className="space-y-2">
-                      <div className="text-xs font-medium text-foreground mb-2">Social Media</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-gradient-to-r from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30 text-pink-600 dark:text-pink-400">
-                          <SiInstagram className="w-3.5 h-3.5" />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 mb-4">
+                    <div className="space-y-3">
+                      <div className="text-sm sm:text-base font-medium text-foreground mb-3">Social Media</div>
+                      <div className="flex flex-wrap gap-2">
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-gradient-to-r from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30 text-pink-600 dark:text-pink-400">
+                          <SiInstagram className="w-4 h-4" />
                           <span>Instagram</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                          <SiTiktok className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          <SiTiktok className="w-4 h-4" />
                           <span>TikTok</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-                          <SiYoutube className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                          <SiYoutube className="w-4 h-4" />
                           <span>YouTube</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400">
-                          <SiX className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400">
+                          <SiX className="w-4 h-4" />
                           <span>Twitter/X</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                          <SiFacebook className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                          <SiFacebook className="w-4 h-4" />
                           <span>Facebook</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
-                          <SiReddit className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
+                          <SiReddit className="w-4 h-4" />
                           <span>Reddit</span>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="space-y-2">
-                      <div className="text-xs font-medium text-foreground mb-2">AI & Files</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
-                          <SiOpenai className="w-3.5 h-3.5" />
+
+                    <div className="space-y-3">
+                      <div className="text-sm sm:text-base font-medium text-foreground mb-3">AI & Files</div>
+                      <div className="flex flex-wrap gap-2">
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+                          <SiOpenai className="w-4 h-4" />
                           <span>ChatGPT</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
-                          <SiAnthropic className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                          <SiAnthropic className="w-4 h-4" />
                           <span>Claude</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                          <SiGooglegemini className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                          <SiGooglegemini className="w-4 h-4" />
                           <span>Gemini</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
-                          <LinkIcon className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                          <LinkIcon className="w-4 h-4" />
                           <span>Articles</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                          <FileText className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                          <FileText className="w-4 h-4" />
                           <span>Docs</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400">
-                          <Image className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400">
+                          <Image className="w-4 h-4" />
                           <span>Images</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400">
-                          <FileText className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400">
+                          <FileText className="w-4 h-4" />
                           <span>PDFs</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
-                          <Video className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
+                          <Video className="w-4 h-4" />
                           <span>Videos</span>
                         </div>
                       </div>
@@ -2738,29 +2738,84 @@ export default function MainApp({
                   </div>
                 </div>
 
-                <Button
-                  onClick={handleImportPaste}
-                  disabled={importQueue.isProcessing || processGoalMutation.isPending}
-                  className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-lg px-8"
-                  size="lg"
-                  data-testid="button-paste-import"
-                >
-                  {(importQueue.isProcessing || processGoalMutation.isPending) ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <ClipboardPaste className="w-5 h-5 mr-2" />
-                      Paste from Clipboard
-                    </>
-                  )}
-                </Button>
-                
-                <p className="text-xs text-muted-foreground mt-4 text-center max-w-xs">
-                  On mobile, use the share button in any app to send content directly to JournalMate
-                </p>
+                {/* Import Methods */}
+                <div className="w-full max-w-3xl space-y-4 mb-6">
+                  {/* Mobile Share Sheet - Only on Mobile */}
+                  <Card className="md:hidden border-2 border-primary/20 bg-primary/5">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                        <Upload className="w-5 h-5 text-primary" />
+                        Mobile Share Sheet (Recommended)
+                      </CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">
+                        Fastest way to import on mobile devices
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-start gap-3 p-3 bg-background rounded-lg">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                          1
+                        </div>
+                        <p className="text-sm">Open Instagram, TikTok, ChatGPT, or any app with content you want to track</p>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 bg-background rounded-lg">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                          2
+                        </div>
+                        <p className="text-sm">Tap the Share button (usually <strong>⋮</strong> or <strong>↗</strong>)</p>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 bg-background rounded-lg">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                          3
+                        </div>
+                        <p className="text-sm">Select <strong>JournalMate</strong> from the share menu</p>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 bg-background rounded-lg">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                          4
+                        </div>
+                        <p className="text-sm">We'll automatically extract the content and create a plan!</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Copy & Paste - All Platforms */}
+                  <Card className="border border-border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                        <ClipboardPaste className="w-5 h-5" />
+                        Copy & Paste
+                      </CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">
+                        Works on all devices - desktop, mobile, and tablet
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button
+                        onClick={handleImportPaste}
+                        disabled={importQueue.isProcessing || processGoalMutation.isPending}
+                        className="w-full bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white shadow-lg min-h-[48px]"
+                        size="lg"
+                        data-testid="button-paste-import"
+                      >
+                        {(importQueue.isProcessing || processGoalMutation.isPending) ? (
+                          <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <ClipboardPaste className="w-5 h-5 mr-2" />
+                            Paste from Clipboard
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-3 text-center">
+                        Copy any text, URL, or conversation and click the button above
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
 
                 {/* Recent Imports */}
                 {chatImports.length > 0 && (
@@ -2795,8 +2850,8 @@ export default function MainApp({
             <TabsContent value="groups" className="space-y-4 sm:space-y-6 pb-20 px-3 sm:px-0">
               <SignInGate feature="Group collaboration">
                 <div className="max-w-4xl mx-auto">
-                  <div className="text-center mb-6 sm:mb-8">
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground flex items-center justify-center gap-2 mb-3 sm:mb-4">
+                  <div className="text-center mb-4 sm:mb-6">
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground flex items-center justify-center gap-2 mb-2 sm:mb-3">
                       <Users className="w-6 h-6 sm:w-8 sm:h-8" />
                       Groups & Collaborative Planning
                     </h2>
@@ -2967,7 +3022,7 @@ export default function MainApp({
             <TabsContent value="about" className="space-y-6 sm:space-y-8 pb-20 px-3 sm:px-0">
               <div className="max-w-4xl mx-auto">
                 {/* Hero Section */}
-                <div className="text-center mb-8 sm:mb-12">
+                <div className="text-center mb-6 sm:mb-8">
                   <div className="inline-flex items-center justify-center w-24 h-24 sm:w-32 sm:h-32 mb-4 sm:mb-6">
                     <img src="/journalmate-logo-transparent.png" alt="AI Planner - Smart Goal Tracker and AI Journal for Life Planning" className="w-full h-full object-contain" />
                   </div>
