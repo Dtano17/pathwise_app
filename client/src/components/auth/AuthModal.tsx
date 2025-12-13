@@ -228,10 +228,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90dvh] overflow-y-auto safe-all">
         <DialogHeader backLabel="Back to Home">
-          <DialogTitle className="text-2xl font-bold">{getTitle()}</DialogTitle>
-          <DialogDescription>{getDescription()}</DialogDescription>
+          <DialogTitle className="text-lg sm:text-2xl font-bold">{getTitle()}</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">{getDescription()}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
