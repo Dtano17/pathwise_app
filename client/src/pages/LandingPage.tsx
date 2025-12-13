@@ -225,7 +225,7 @@ export default function LandingPage() {
               loading="eager"
               data-testid="img-logo-header"
             />
-            <span className="font-bold text-lg sm:text-xl truncate hidden sm:block">
+            <span className="font-bold text-lg sm:text-xl truncate">
               JournalMate
             </span>
           </div>
