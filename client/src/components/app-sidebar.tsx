@@ -233,7 +233,7 @@ export function AppSidebar({
     <Sidebar>
       <SidebarContent>
         {/* Header */}
-        <div className="flex justify-between items-center p-2 border-b gap-4">
+        <div className="relative flex items-center p-2 border-b">
           <div className="flex items-center gap-2">
             <img
               src="/icons/web/android-chrome-192x192.png"
@@ -242,7 +242,7 @@ export function AppSidebar({
             />
             <span className="text-base font-semibold text-foreground">JournalMate</span>
           </div>
-          <SidebarTrigger data-testid="button-sidebar-toggle-inside" className="flex-shrink-0" />
+          <SidebarTrigger data-testid="button-sidebar-toggle-inside" className="flex-shrink-0 absolute right-2" />
         </div>
 
         {/* Today's Theme Section */}

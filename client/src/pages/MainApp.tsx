@@ -1537,7 +1537,7 @@ export default function MainApp({
                 </div>
                 <div className="flex items-center gap-2">
                   <div>
-                    <h1 className="text-sm sm:text-lg md:text-2xl font-bold text-foreground">JournalMate</h1>
+                    <h1 className="text-xs sm:text-base md:text-xl font-bold text-foreground">JournalMate</h1>
                     <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                       {currentPlanOutput ? "AI Action Plan Active" : "Transform Goals into Reality"}
                     </p>
