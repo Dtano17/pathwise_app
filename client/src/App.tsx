@@ -74,19 +74,10 @@ function AppContent() {
     staleTime: 60000, // Cache for 1 minute
   });
 
-  // Responsive sidebar width - track window size changes
-  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobileView(window.innerWidth < 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Custom sidebar width for better content display (responsive)
+  // Custom sidebar width - adaptive based on content (fit-content)
+  // Sidebar width will expand/contract to fit the longest content (profile section)
   const style = {
-    "--sidebar-width": isMobileView ? "14rem" : "20rem",  // 224px on mobile, 320px on desktop
+    "--sidebar-width": "fit-content",  // Adapts to longest content
     "--sidebar-width-icon": "4rem",   // default icon width
   };
 
