@@ -74,10 +74,9 @@ function AppContent() {
     staleTime: 60000, // Cache for 1 minute
   });
 
-  // Custom sidebar width - adaptive based on content (fit-content)
-  // Sidebar width will expand/contract to fit the longest content (profile section)
+  // Custom sidebar width - narrower for mobile-friendly layout
   const style = {
-    "--sidebar-width": "fit-content",  // Adapts to longest content
+    "--sidebar-width": "15rem",  // 240px - narrower sidebar
     "--sidebar-width-icon": "4rem",   // default icon width
   };
 
