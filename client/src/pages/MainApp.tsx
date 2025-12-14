@@ -1527,17 +1527,17 @@ export default function MainApp({
               {/* Sidebar toggle (keep visible even when plan is active) */}
               {(isMobile || !open) && <SidebarTrigger data-testid="button-sidebar-toggle" />}
               
-              <div 
-                className="flex items-center gap-2 sm:gap-3 cursor-pointer no-mobile-min" 
+              <div
+                className="flex items-center gap-2 sm:gap-3 cursor-pointer no-mobile-min"
                 onClick={() => setActiveTab('input')}
                 data-testid="header-logo"
               >
-                <div className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 flex items-center justify-center hover-elevate rounded-md no-mobile-min">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 flex-shrink-0 flex items-center justify-center hover-elevate rounded-md no-mobile-min">
                   <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-full h-full object-contain" loading="eager" data-testid="img-logo-header" />
                 </div>
                 <div className="flex items-center gap-2">
                   <div>
-                    <h1 className="text-base sm:text-2xl font-bold text-foreground">JournalMate</h1>
+                    <h1 className="text-sm sm:text-lg md:text-2xl font-bold text-foreground">JournalMate</h1>
                     <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                       {currentPlanOutput ? "AI Action Plan Active" : "Transform Goals into Reality"}
                     </p>
