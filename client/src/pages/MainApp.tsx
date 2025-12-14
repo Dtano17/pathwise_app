@@ -1825,38 +1825,6 @@ export default function MainApp({
                     </Button>
                   </div>
 
-                  {/* Import Content Section */}
-                  <div className="max-w-md mx-auto">
-                    <Card className="p-4 bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 border-violet-200 dark:border-violet-800">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white flex-shrink-0">
-                          <Upload className="w-4 h-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground">Have a link to import?</p>
-                          <p className="text-xs text-muted-foreground">Turn Instagram, TikTok, YouTube, or article links into plans</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleImportPaste}
-                          disabled={importQueue.isProcessing || processGoalMutation.isPending}
-                          className="flex-shrink-0"
-                          data-testid="button-quick-import"
-                        >
-                          {(importQueue.isProcessing || processGoalMutation.isPending) ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <ClipboardPaste className="w-4 h-4 mr-1" />
-                              <span className="hidden sm:inline">Paste</span>
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </Card>
-                  </div>
-
                   {/* Example goals */}
                   <div className="max-w-2xl mx-auto">
                     <p className="text-sm text-muted-foreground mb-4 text-center">Or try these quick examples:</p>
