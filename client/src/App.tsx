@@ -74,9 +74,19 @@ function AppContent() {
     staleTime: 60000, // Cache for 1 minute
   });
 
-  // Custom sidebar width - narrower for mobile-friendly layout
+  // Responsive sidebar width - track window size changes
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileView(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Custom sidebar width for better content display (responsive)
   const style = {
-    "--sidebar-width": "15rem",  // 240px - narrower sidebar
+    "--sidebar-width": isMobileView ? "14rem" : "20rem",  // 224px on mobile, 320px on desktop
     "--sidebar-width-icon": "4rem",   // default icon width
   };
 

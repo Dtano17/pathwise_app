@@ -1527,17 +1527,17 @@ export default function MainApp({
               {/* Sidebar toggle (keep visible even when plan is active) */}
               {(isMobile || !open) && <SidebarTrigger data-testid="button-sidebar-toggle" />}
               
-              <div
-                className="flex items-center gap-2 sm:gap-3 cursor-pointer no-mobile-min"
+              <div 
+                className="flex items-center gap-2 sm:gap-3 cursor-pointer no-mobile-min" 
                 onClick={() => setActiveTab('input')}
                 data-testid="header-logo"
               >
-                <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 flex-shrink-0 flex items-center justify-center hover-elevate rounded-md no-mobile-min">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 flex items-center justify-center hover-elevate rounded-md no-mobile-min">
                   <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-full h-full object-contain" loading="eager" data-testid="img-logo-header" />
                 </div>
                 <div className="flex items-center gap-2">
                   <div>
-                    <h1 className="text-xs sm:text-base md:text-xl font-bold text-foreground">JournalMate</h1>
+                    <h1 className="text-base sm:text-2xl font-bold text-foreground">JournalMate</h1>
                     <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                       {currentPlanOutput ? "AI Action Plan Active" : "Transform Goals into Reality"}
                     </p>
@@ -1823,6 +1823,38 @@ export default function MainApp({
                         </Tooltip>
                       </span>
                     </Button>
+                  </div>
+
+                  {/* Import Content Section */}
+                  <div className="max-w-md mx-auto">
+                    <Card className="p-4 bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 border-violet-200 dark:border-violet-800">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white flex-shrink-0">
+                          <Upload className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground">Have a link to import?</p>
+                          <p className="text-xs text-muted-foreground">Turn Instagram, TikTok, YouTube, or article links into plans</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleImportPaste}
+                          disabled={importQueue.isProcessing || processGoalMutation.isPending}
+                          className="flex-shrink-0"
+                          data-testid="button-quick-import"
+                        >
+                          {(importQueue.isProcessing || processGoalMutation.isPending) ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <ClipboardPaste className="w-4 h-4 mr-1" />
+                              <span className="hidden sm:inline">Paste</span>
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </Card>
                   </div>
 
                   {/* Example goals */}
