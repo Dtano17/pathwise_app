@@ -1447,19 +1447,14 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       <div className="h-full flex flex-col bg-gradient-to-br from-purple-50 via-white to-emerald-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         {/* Header */}
         <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
-          <div className="px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center shadow-lg">
-                <BookOpen className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h2 className="font-bold text-lg bg-gradient-to-r from-purple-600 to-emerald-600 dark:from-purple-400 dark:to-emerald-400 bg-clip-text text-transparent">
-                  JournalMate
-                </h2>
-                <p className="text-xs text-slate-600 dark:text-slate-400">Your smart adaptive journal</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 sm:gap-2">
+          <div className="px-4 py-3">
+            {/* Top row: Logo and primary actions */}
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-bold text-xs sm:text-base bg-gradient-to-r from-purple-600 to-emerald-600 dark:from-purple-400 dark:to-emerald-400 bg-clip-text text-transparent truncate">
+                JournalMate
+              </h2>
+              <p className="text-xs text-slate-600 dark:text-slate-400 hidden sm:block">Smart journal</p>
+              {/* Mobile back button */}
               <Button
                 onClick={() => {
                   localStorage.removeItem('planner_session');
@@ -1473,32 +1468,53 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                   }
                 }}
                 variant="ghost"
-                size="sm"
-                className="gap-2"
+                size="icon"
+                className="sm:hidden ml-auto flex-shrink-0"
                 data-testid="button-exit-journal"
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Back</span>
+              </Button>
+            </div>
+            
+            {/* Bottom row: Action buttons */}
+            <div className="flex items-center gap-1 flex-wrap">
+              <Button
+                onClick={() => {
+                  localStorage.removeItem('planner_session');
+                  localStorage.removeItem('planner_mode');
+                  localStorage.removeItem('planner_chips');
+                  setJournalText('');
+                  setJournalMedia([]);
+                  lastAutoSavedTextRef.current = ''; // Clear auto-save tracking
+                  if (onClose) {
+                    onClose();
+                  }
+                }}
+                variant="ghost"
+                size="icon"
+                className="hidden sm:inline-flex"
+                title="Go back"
+                data-testid="button-exit-journal"
+              >
+                <ArrowLeft className="h-4 w-4" />
               </Button>
               <Button
                 onClick={() => setShowJournalTimeline(true)}
                 variant="ghost"
-                size="sm"
-                className="gap-2"
+                size="icon"
+                title="View timeline"
                 data-testid="button-view-timeline"
               >
                 <Calendar className="h-4 w-4" />
-                <span className="hidden sm:inline">Timeline</span>
               </Button>
               <Button
                 onClick={() => setShowTemplateSelector(true)}
                 variant="ghost"
-                size="sm"
-                className="gap-2"
+                size="icon"
+                title="Use templates"
                 data-testid="button-use-template"
               >
                 <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Templates</span>
               </Button>
               <Button
                 onClick={() => {
@@ -1511,7 +1527,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                   });
                 }}
                 variant="ghost"
-                size="sm"
+                size="icon"
                 title="Refresh entries"
                 data-testid="button-refresh-journal"
               >
@@ -1520,7 +1536,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
               <Button
                 onClick={() => setShowKeywordHelp(true)}
                 variant="ghost"
-                size="sm"
+                size="icon"
                 title="Learn about @keywords"
                 data-testid="button-keyword-help"
               >
@@ -1534,10 +1550,10 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           <div className="max-w-3xl mx-auto p-4 space-y-4">
             {/* Entry Form Card */}
             <Card className="border-none shadow-xl bg-white/95 dark:bg-slate-900/95 backdrop-blur">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
+              <CardHeader className="pb-3 px-4 sm:px-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="flex flex-col gap-2">
-                    <CardTitle className="text-base">Quick Capture</CardTitle>
+                    <CardTitle className="text-sm sm:text-base">Quick Capture</CardTitle>
                     {activityTitle && (
                       <Badge variant="outline" className="w-fit text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
                         <BookOpen className="h-3 w-3 mr-1" />
@@ -1547,7 +1563,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                   </div>
                   {/* Activity Progress Summary */}
                   {activityProgress && activityProgress.totalTasks > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs flex-shrink-0">
                       <Badge variant="secondary" className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
                         <Check className="h-3 w-3 mr-1" />
                         {activityProgress.completedTasks}/{activityProgress.totalTasks} done
@@ -1566,10 +1582,10 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                     </Badge>
                   )}
                 </div>
-                <CardDescription className="text-xs">
+                <CardDescription className="text-xs line-clamp-2">
                   {activityTitle
-                    ? "Capture your thoughts and experiences about this activity"
-                    : "Type freely. Use @keywords like @restaurants, @travel, @music for smart categorization"}
+                    ? "Capture your thoughts about this activity"
+                    : "Type freely. Use @keywords for smart categorization"}
                 </CardDescription>
                 
                 {/* Activity Task Breakdown for Journal */}
@@ -1625,22 +1641,22 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                   </div>
                 )}
               </CardHeader>
-              <CardContent className="space-y-3">
-            <div className="space-y-2 relative">
+              <CardContent className="space-y-3 overflow-x-hidden">
+            <div className="space-y-2 relative min-w-0">
               <textarea
                 ref={journalTextareaRef}
                 value={journalText}
                 onChange={handleJournalTextChange}
-                placeholder="What's on your mind? Use @keywords for quick categorization...&#10;Example: @restaurants had amazing ramen today!"
-                className="w-full min-h-32 p-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-pink-500"
+                placeholder="What's on your mind?&#10;Use @keywords like @restaurants, @travel..."
+                className="w-full min-h-24 sm:min-h-32 p-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
                 data-testid="input-journal-text"
               />
               
               {/* Autocomplete dropdown */}
               {showAutocomplete && filteredTags.length > 0 && (
                 <div 
-                  className="absolute z-50 mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto"
-                  style={{ top: '100%', left: 0 }}
+                  className="absolute z-50 mt-1 w-full sm:w-64 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                  style={{ top: '100%', left: 0, right: 0 }}
                 >
                   {filteredTags.map((tag) => (
                     <button
@@ -1655,10 +1671,10 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 </div>
               )}
               
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 w-full overflow-x-auto pb-1">
                 <Badge 
                   variant="outline" 
-                  className="text-xs cursor-pointer hover-elevate active-elevate-2"
+                  className="text-xs cursor-pointer hover-elevate active-elevate-2 flex-shrink-0"
                   onClick={() => insertTagAtCursor('@restaurants')}
                   data-testid="badge-restaurants"
                 >
@@ -1744,11 +1760,11 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
               <Button
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full"
+                className="w-full text-sm"
                 data-testid="button-upload-media"
               >
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Photos/Videos/Audio ({journalMedia.length} selected)
+                <Upload className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="truncate">Media ({journalMedia.length})</span>
               </Button>
               
               {journalMedia.length > 0 && (
@@ -1781,18 +1797,20 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 <Button
                   onClick={() => submitJournalEntry.mutate()}
                   disabled={!journalText.trim() || isUploadingJournal}
-                  className="w-full bg-gradient-to-r from-purple-500 to-emerald-500 hover:from-purple-600 hover:to-emerald-600 text-white shadow-lg"
+                  className="w-full bg-gradient-to-r from-purple-500 to-emerald-500 hover:from-purple-600 hover:to-emerald-600 text-white shadow-lg text-sm"
                   data-testid="button-save-journal"
                 >
                   {isUploadingJournal ? (
                     <>
-                      <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
-                      Saving...
+                      <RefreshCcw className="h-4 w-4 mr-2 animate-spin flex-shrink-0" />
+                      <span className="hidden sm:inline">Saving...</span>
+                      <span className="sm:hidden">Save</span>
                     </>
                   ) : (
                     <>
-                      <Send className="h-4 w-4 mr-2" />
-                      Save Entry
+                      <Send className="h-4 w-4 mr-2 flex-shrink-0" />
+                      <span className="hidden sm:inline">Save Entry</span>
+                      <span className="sm:hidden">Save</span>
                     </>
                   )}
                 </Button>

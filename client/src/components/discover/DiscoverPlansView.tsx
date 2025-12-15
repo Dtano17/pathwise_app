@@ -1196,7 +1196,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
               <HoverCard key={plan.id} openDelay={300} closeDelay={200}>
                 <HoverCardTrigger asChild>
                   <Card 
-                    className={`flex flex-col group hover-elevate cursor-pointer relative ${
+                    className={`flex flex-col group hover-elevate cursor-pointer relative overflow-hidden ${
                       remixMode && isSelected ? 'ring-2 ring-purple-500 ring-offset-2' : ''
                     }`}
                     onClick={() => {
@@ -1223,11 +1223,11 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                       </div>
                     )}
                 {stockImage && (
-                  <div className="relative h-48 overflow-hidden">
+                  <div className="relative h-56 sm:h-64 overflow-hidden -mx-6 -mt-6">
                     <img
                       src={stockImage}
                       alt={plan.title}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
                       data-testid={`img-plan-backdrop-${plan.id}`}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
@@ -1312,12 +1312,12 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                   </div>
                 )}
                 
-                <CardHeader className="pb-3">
-                  <div className="flex items-start gap-3">
+                <CardHeader className="p-3 pb-2">
+                  <div className="flex items-start gap-2">
                     {displayPrefs.showOwner && (
                       <HoverCard>
                         <HoverCardTrigger asChild>
-                          <Avatar className="w-10 h-10 cursor-pointer" data-testid={`avatar-creator-${plan.id}`}>
+                          <Avatar className="w-8 h-8 cursor-pointer" data-testid={`avatar-creator-${plan.id}`}>
                             <AvatarImage src={plan.creatorAvatar || undefined} alt={plan.creatorName || "User"} />
                             <AvatarFallback>{getInitials(plan.creatorName || "User")}</AvatarFallback>
                           </Avatar>
@@ -1337,7 +1337,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                       </HoverCard>
                     )}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-lg leading-tight mb-1 line-clamp-2" data-testid={`text-plan-title-${plan.id}`}>
+                      <h3 className="font-semibold text-sm leading-tight mb-0.5 line-clamp-2" data-testid={`text-plan-title-${plan.id}`}>
                         {plan.title}
                       </h3>
                       {displayPrefs.showOwner && (
@@ -1360,14 +1360,14 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                   </div>
                 </CardHeader>
                 
-                <CardContent className="flex-1 pb-3">
+                <CardContent className="flex-1 p-3 pt-0">
                   {plan.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-3 mb-3" data-testid={`text-plan-description-${plan.id}`}>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2" data-testid={`text-plan-description-${plan.id}`}>
                       {plan.description}
                     </p>
                   )}
                   
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     {displayPrefs.showLikes && (
                       <div className="flex items-center gap-1" data-testid={`stat-likes-${plan.id}`}>
                         <Heart className="w-3 h-3" />
@@ -1387,35 +1387,35 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                   </div>
                 </CardContent>
                 
-                <CardFooter className="gap-2 pt-3 border-t">
+                <CardFooter className="gap-2 p-3 pt-2 border-t">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1"
+                    className="flex-1 h-7 text-xs"
                     onClick={() => handlePreviewPlan(plan.id, plan.shareToken, plan.title)}
                     data-testid={`button-preview-${plan.id}`}
                   >
-                    <Eye className="w-4 h-4 mr-1" />
+                    <Eye className="w-3 h-3 mr-1" />
                     Preview
                   </Button>
                   <Button
                     size="sm"
-                    className="flex-1"
+                    className="flex-1 h-7 text-xs"
                     onClick={() => handleUsePlan(plan.id, plan.shareToken, plan.title)}
                     data-testid={`button-use-${plan.id}`}
                   >
-                    <Plus className="w-4 h-4 mr-1" />
+                    <Plus className="w-3 h-3 mr-1" />
                     Use Plan
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9"
+                    className="h-7 w-7"
                     onClick={(e) => handleReportPlan(plan.id, plan.title, e)}
                     title="Report plan"
                     data-testid={`button-report-${plan.id}`}
                   >
-                    <Flag className="w-4 h-4 text-muted-foreground" />
+                    <Flag className="w-3 h-3 text-muted-foreground" />
                   </Button>
                 </CardFooter>
               </Card>

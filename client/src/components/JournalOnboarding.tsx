@@ -142,7 +142,7 @@ export default function JournalOnboarding({ open, onOpenChange, onComplete }: Jo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl p-0 overflow-hidden">
+      <DialogContent className="w-full max-w-xl sm:max-w-2xl p-0 overflow-hidden mx-auto">
         <div className="relative">
           {/* Progress Bar */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-muted">
@@ -154,7 +154,7 @@ export default function JournalOnboarding({ open, onOpenChange, onComplete }: Jo
             />
           </div>
 
-          <div className="p-6 sm:p-8 pt-8">
+          <div className="p-4 sm:p-6 md:p-8 pt-6 sm:pt-8 overflow-y-auto max-h-[85vh]">
             <DialogHeader className="mb-6">
               {/* Icon */}
               <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center mb-4 mx-auto`}>
@@ -197,18 +197,19 @@ export default function JournalOnboarding({ open, onOpenChange, onComplete }: Jo
             </AnimatePresence>
 
             {/* Navigation */}
-            <div className="flex items-center justify-between mt-8">
+            <div className="flex flex-col sm:flex-row items-center justify-between mt-6 sm:mt-8 gap-3 sm:gap-0">
               <Button
                 variant="ghost"
+                size="sm"
                 onClick={handlePrevious}
                 disabled={currentStep === 0}
-                className="gap-2"
+                className="gap-2 w-full sm:w-auto"
               >
                 <ChevronLeft className="h-4 w-4" />
-                Previous
+                <span className="hidden sm:inline">Previous</span>
               </Button>
 
-              <div className="flex gap-1">
+              <div className="flex gap-1 order-2 sm:order-none">
                 {tutorialSteps.map((_, index) => (
                   <div
                     key={index}
@@ -223,20 +224,21 @@ export default function JournalOnboarding({ open, onOpenChange, onComplete }: Jo
                 ))}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                 {currentStep < tutorialSteps.length - 1 && (
-                  <Button variant="ghost" onClick={handleSkip}>
+                  <Button variant="ghost" size="sm" onClick={handleSkip} className="flex-1 sm:flex-initial">
                     Skip
                   </Button>
                 )}
                 <Button
                   onClick={handleNext}
-                  className={`gap-2 bg-gradient-to-r ${step.color} text-white hover:opacity-90`}
+                  size="sm"
+                  className={`flex-1 sm:flex-initial gap-2 bg-gradient-to-r ${step.color} text-white hover:opacity-90`}
                 >
                   {currentStep === tutorialSteps.length - 1 ? (
                     <>
-                      Get Started
                       <Sparkles className="h-4 w-4" />
+                      <span className="hidden sm:inline">Get Started</span>
                     </>
                   ) : (
                     <>

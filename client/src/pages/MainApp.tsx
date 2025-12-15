@@ -1521,36 +1521,32 @@ export default function MainApp({
     <div className="flex flex-col h-screen bg-background overflow-hidden">
       {/* Header */}
       <header className="shrink-0 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
-        <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 sm:gap-3">
-              {/* Sidebar toggle (keep visible even when plan is active) */}
-              {(isMobile || !open) && <SidebarTrigger data-testid="button-sidebar-toggle" />}
-              
-              <div 
-                className="flex items-center gap-2 sm:gap-3 cursor-pointer no-mobile-min" 
-                onClick={() => setActiveTab('input')}
-                data-testid="header-logo"
-              >
-                <div className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 flex items-center justify-center hover-elevate rounded-md no-mobile-min">
-                  <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-full h-full object-contain" loading="eager" data-testid="img-logo-header" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <div>
-                    <h1 className="text-base sm:text-2xl font-bold text-foreground">JournalMate</h1>
-                    <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                      {currentPlanOutput ? "AI Action Plan Active" : "Transform Goals into Reality"}
-                    </p>
-                  </div>
-                  {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
-                    <div className="hidden sm:block">
-                      <ProBadge size="lg" variant="full" />
-                    </div>
-                  )}
-                </div>
-              </div>
+        <div className="px-2 sm:px-4 py-2">
+          <div className="flex items-center justify-between w-full">
+            {/* Left: Sidebar toggle - fixed width */}
+            <div className="flex-shrink-0 w-9">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
             </div>
-            <div className="flex items-center gap-1 sm:gap-3">
+            
+            {/* Center: Logo and title - flex and centered */}
+            <div 
+              className="flex items-center justify-center gap-1 cursor-pointer min-w-0" 
+              onClick={() => setActiveTab('input')}
+              data-testid="header-logo"
+            >
+              <div className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0 flex items-center justify-center rounded-md">
+                <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-full h-full object-contain" loading="eager" data-testid="img-logo-header" />
+              </div>
+              <h1 className="text-xs sm:text-base font-bold text-foreground">JournalMate</h1>
+              {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
+                <div className="hidden sm:block">
+                  <ProBadge size="lg" variant="full" />
+                </div>
+              )}
+            </div>
+            
+            {/* Right: Help and theme controls - fixed width */}
+            <div className="flex-shrink-0 flex items-center gap-1 w-20 justify-end">
               {/* Help/Tutorial Icon - Pulse for demo users who haven't seen it */}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1823,38 +1819,6 @@ export default function MainApp({
                         </Tooltip>
                       </span>
                     </Button>
-                  </div>
-
-                  {/* Import Content Section */}
-                  <div className="max-w-md mx-auto">
-                    <Card className="p-4 bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 border-violet-200 dark:border-violet-800">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white flex-shrink-0">
-                          <Upload className="w-4 h-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground">Have a link to import?</p>
-                          <p className="text-xs text-muted-foreground">Turn Instagram, TikTok, YouTube, or article links into plans</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleImportPaste}
-                          disabled={importQueue.isProcessing || processGoalMutation.isPending}
-                          className="flex-shrink-0"
-                          data-testid="button-quick-import"
-                        >
-                          {(importQueue.isProcessing || processGoalMutation.isPending) ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <ClipboardPaste className="w-4 h-4 mr-1" />
-                              <span className="hidden sm:inline">Paste</span>
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </Card>
                   </div>
 
                   {/* Example goals */}
@@ -2142,7 +2106,7 @@ export default function MainApp({
                                 {activity.description || 'No description provided'}
                               </p>
                             </div>
-                            <div className="flex items-center gap-2 sm:ml-4 shrink-0">
+                            <div className="flex flex-wrap items-center gap-1 sm:gap-2 sm:ml-4">
                               <Button 
                                 variant="ghost" 
                                 size="sm"
@@ -2869,10 +2833,10 @@ export default function MainApp({
             </TabsContent>
 
             {/* Groups Tab */}
-            <TabsContent value="groups" className="space-y-4 pb-20">
+            <TabsContent value="groups" className="pb-20">
               <SignInGate feature="Group collaboration">
                 <div className="max-w-4xl mx-auto px-2 sm:px-4">
-                  <div className="text-center mb-4 sm:mb-6">
+                  <div className="text-center mb-6 sm:mb-8">
                     <h2 className="text-xl sm:text-2xl font-bold text-foreground flex items-center justify-center gap-2 mb-2">
                       <Users className="w-5 h-5 sm:w-6 sm:h-6" />
                       Groups & Collaborative Planning
@@ -2925,7 +2889,7 @@ export default function MainApp({
 
                   {/* My Groups Section */}
                   <div>
-                    <h3 className="text-2xl font-semibold mb-4">My Groups</h3>
+                    <h3 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4">My Groups</h3>
                     {groupsLoading ? (
                       <div className="text-center py-8 text-muted-foreground">
                         Loading groups...
@@ -2948,7 +2912,7 @@ export default function MainApp({
                         </div>
                       </Card>
                     ) : (
-                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+                      <div className="space-y-3 mb-8">
                         {groups.map((group) => (
                           <GroupCard
                             key={group.id}
@@ -2984,14 +2948,14 @@ export default function MainApp({
                           {groupActivities.map((activity) => (
                             <div 
                               key={activity.id} 
-                              className={`flex items-start gap-3 p-3 rounded-lg border ${getActivityBackground(activity.activityType)}`}
+                              className={`flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border ${getActivityBackground(activity.activityType)}`}
                               data-testid={`activity-${activity.id}`}
                             >
-                              <div className="mt-0.5">
+                              <div className="mt-0.5 flex-shrink-0">
                                 {getActivityIcon(activity.activityType)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm">
+                                <p className="text-sm break-words">
                                   {getActivityText(activity)}
                                 </p>
                                 {activity.groupName && (

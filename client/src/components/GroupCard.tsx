@@ -26,10 +26,10 @@ export default function GroupCard({ group, onClick }: GroupCardProps) {
 
   return (
     <Card className="hover-elevate cursor-pointer" data-testid={`card-group-${group.id}`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <CardTitle className="text-lg">{group.name}</CardTitle>
-          <Badge variant="secondary" className="text-xs shrink-0">
+      <CardHeader className="pb-2 sm:pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-2 mb-2">
+          <CardTitle className="text-base sm:text-lg break-words">{group.name}</CardTitle>
+          <Badge variant="secondary" className="text-xs shrink-0 w-fit">
             {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}
           </Badge>
         </div>
@@ -42,10 +42,10 @@ export default function GroupCard({ group, onClick }: GroupCardProps) {
       <CardContent className="space-y-3">
         {group.tasksTotal && group.tasksTotal > 0 ? (
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-sm">
               <span className="text-muted-foreground">Progress</span>
-              <span className="font-medium">
-                {group.tasksCompleted || 0}/{group.tasksTotal} tasks completed
+              <span className="font-medium text-xs sm:text-sm">
+                {group.tasksCompleted || 0}/{group.tasksTotal} tasks
               </span>
             </div>
             <Progress value={progress} className="h-2" />

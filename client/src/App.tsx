@@ -74,21 +74,8 @@ function AppContent() {
     staleTime: 60000, // Cache for 1 minute
   });
 
-  // Responsive sidebar width - track window size changes
-  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobileView(window.innerWidth < 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Custom sidebar width for better content display (responsive)
-  const style = {
-    "--sidebar-width": isMobileView ? "14rem" : "20rem",  // 224px on mobile, 320px on desktop
-    "--sidebar-width-icon": "4rem",   // default icon width
-  };
+  // Let sidebar.tsx handle responsive width (16rem mobile via SIDEBAR_WIDTH_MOBILE)
+  // No override needed - sidebar.tsx defaults work correctly
 
   // Save user ID for native widgets (Android)
   useEffect(() => {
@@ -154,7 +141,7 @@ function AppContent() {
         {/* Main App Route - Shows landing page for unauthenticated users, main app for authenticated */}
         <Route path="/">
           {isAuthenticated ? (
-            <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
+            <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={{ "--sidebar-width": window.innerWidth < 1024 ? "12rem" : "16rem" } as React.CSSProperties}>
               <div className="flex h-screen w-full overflow-hidden" style={{ height: '100dvh' }}>
                 <AppSidebar
                   selectedTheme={selectedTheme}
