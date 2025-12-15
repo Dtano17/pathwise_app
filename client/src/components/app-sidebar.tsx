@@ -233,16 +233,13 @@ export function AppSidebar({
     <Sidebar>
       <SidebarContent>
         {/* Header */}
-        <div className="flex justify-between items-center p-2 border-b gap-2">
-          <div className="flex items-center gap-2">
-            <img
-              src="/icons/web/android-chrome-192x192.png"
-              alt="JournalMate"
-              className="w-7 h-7 rounded-lg flex-shrink-0"
-            />
-            <span className="hidden sm:block text-base font-semibold text-foreground">JournalMate</span>
-          </div>
-          <SidebarTrigger data-testid="button-sidebar-toggle-inside" className="ml-auto" />
+        <div className="flex items-center justify-between p-2 border-b gap-1 w-full">
+          <img
+            src="/icons/web/android-chrome-192x192.png"
+            alt="JournalMate"
+            className="w-6 h-6 rounded-lg flex-shrink-0"
+          />
+          <SidebarTrigger data-testid="button-sidebar-toggle-inside" className="ml-auto h-6 w-6" />
         </div>
 
         {/* Today's Theme Section */}
