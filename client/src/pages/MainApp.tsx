@@ -1519,40 +1519,34 @@ export default function MainApp({
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      {/* Header - Production layout: Logo + Title + PRO badge on line 1, tagline on line 2 */}
+      {/* Header */}
       <header className="shrink-0 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
-        <div className="px-3 sm:px-4 py-2">
+        <div className="px-2 sm:px-4 py-2">
           <div className="flex items-center justify-between w-full">
-            {/* Left: Mobile toggle (only when sidebar closed) + Two-line title block */}
-            <div className="flex items-center gap-2 min-w-0">
-              {/* Mobile-only toggle: shows when sidebar is closed on mobile */}
-              {!open && isMobile && (
-                <SidebarTrigger data-testid="button-sidebar-toggle" className="flex-shrink-0" />
-              )}
-              <div 
-                className="flex items-center gap-3 cursor-pointer min-w-0" 
-                onClick={() => setActiveTab('input')}
-                data-testid="header-logo"
-              >
-              {/* Logo */}
-              <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-sidebar">
-                <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-8 h-8 object-contain" loading="eager" data-testid="img-logo-header" />
-              </div>
-              {/* Title + Tagline stacked */}
-              <div className="flex flex-col justify-center min-w-0">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base sm:text-lg font-bold text-foreground whitespace-nowrap">JournalMate</h1>
-                  {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
-                    <ProBadge size="lg" variant="full" />
-                  )}
-                </div>
-                <span className="text-xs text-muted-foreground hidden sm:block">Transform Goals into Reality</span>
-              </div>
-              </div>
+            {/* Left: Sidebar toggle - fixed width */}
+            <div className="flex-shrink-0 w-9">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
             </div>
             
-            {/* Right: Help and theme controls */}
-            <div className="flex-shrink-0 flex items-center gap-1">
+            {/* Center: Logo and title - flex and centered */}
+            <div 
+              className="flex items-center justify-center gap-1 cursor-pointer min-w-0" 
+              onClick={() => setActiveTab('input')}
+              data-testid="header-logo"
+            >
+              <div className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0 flex items-center justify-center rounded-md">
+                <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-full h-full object-contain" loading="eager" data-testid="img-logo-header" />
+              </div>
+              <h1 className="text-xs sm:text-base font-bold text-foreground">JournalMate</h1>
+              {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
+                <div className="hidden sm:block">
+                  <ProBadge size="lg" variant="full" />
+                </div>
+              )}
+            </div>
+            
+            {/* Right: Help and theme controls - fixed width */}
+            <div className="flex-shrink-0 flex items-center gap-1 w-20 justify-end">
               {/* Help/Tutorial Icon - Pulse for demo users who haven't seen it */}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1585,8 +1579,8 @@ export default function MainApp({
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto scrollbar-thin">
-        <div className="w-full px-2 sm:px-4 py-2 sm:py-6">
+      <main className="flex-1 overflow-y-auto">
+        <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-6">
         <div className="max-w-6xl mx-auto">
           {/* Navigation */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
