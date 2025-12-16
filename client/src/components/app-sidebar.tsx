@@ -231,16 +231,16 @@ export function AppSidebar({
 
   return (
     <Sidebar>
-      <SidebarContent>
-        {/* Header */}
-        <div className="flex justify-between items-center p-2 border-b gap-2">
+      <SidebarContent className="overflow-y-auto scrollbar-thin">
+        {/* Header - Icon only on mobile, full title on desktop (>=1024px) */}
+        <div className="flex justify-between items-center p-3 border-b gap-2">
           <div className="flex items-center gap-2">
             <img
               src="/icons/web/android-chrome-192x192.png"
               alt="JournalMate"
-              className="w-7 h-7 rounded-lg flex-shrink-0"
+              className="w-8 h-8 rounded-lg flex-shrink-0"
             />
-            <span className="hidden sm:block text-base font-semibold text-foreground">JournalMate</span>
+            <span className="hidden lg:block text-base font-semibold text-foreground">JournalMate</span>
           </div>
           <SidebarTrigger data-testid="button-sidebar-toggle-inside" className="ml-auto" />
         </div>

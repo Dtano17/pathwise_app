@@ -141,7 +141,7 @@ function AppContent() {
         {/* Main App Route - Shows landing page for unauthenticated users, main app for authenticated */}
         <Route path="/">
           {isAuthenticated ? (
-            <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={{ "--sidebar-width": window.innerWidth < 1024 ? "calc(75vw)" : "16rem" } as React.CSSProperties}>
+            <SidebarProvider defaultOpen={window.innerWidth >= 1024}>
               <div className="flex h-screen w-full overflow-hidden" style={{ height: '100dvh' }}>
                 <AppSidebar
                   selectedTheme={selectedTheme}
