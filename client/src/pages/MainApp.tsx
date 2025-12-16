@@ -121,6 +121,8 @@ export default function MainApp({
   const { open, openMobile, isMobile } = useSidebar();
   // Determine if sidebar is open based on device type
   const isSidebarOpen = isMobile ? openMobile : open;
+  // Show toggle when sidebar is closed on any screen that uses the mobile sheet (below lg breakpoint)
+  const showToggle = !isSidebarOpen && isMobile;
   
   // Chat sync form state
   const [chatText, setChatText] = useState('');
@@ -1525,10 +1527,10 @@ export default function MainApp({
       <header className="shrink-0 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
         <div className="px-3 lg:px-4 py-2">
           <div className="flex items-center justify-between w-full gap-2">
-            {/* Left: Toggle (when sidebar closed on mobile) + Logo/title */}
+            {/* Left: Toggle (when sidebar closed) + Logo/title */}
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              {/* Show toggle only when sidebar is closed on mobile */}
-              {!isSidebarOpen && isMobile && (
+              {/* Show toggle only when sidebar is closed - will display on mobile/tablet when sheet is not open */}
+              {showToggle && (
                 <SidebarTrigger data-testid="button-sidebar-toggle" className="flex-shrink-0" />
               )}
               
