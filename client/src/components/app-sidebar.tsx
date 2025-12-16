@@ -105,7 +105,7 @@ export function AppSidebar({
   const [isProfileExpanded, setIsProfileExpanded] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState<'profile' | 'settings' | 'priorities'>('profile');
-  
+
   // Collapsible section states
   const [isThemeExpanded, setIsThemeExpanded] = useState(false);
   const [isJournalExpanded, setIsJournalExpanded] = useState(false);
@@ -119,12 +119,12 @@ export function AppSidebar({
   // All actions now use href-based navigation, so all are always available
   const getAvailableActions = (): Set<string> => {
     const available = new Set<string>();
-    
+
     // All actions use href navigation now, so all are available
     Object.keys(AVAILABLE_QUICK_ACTIONS).forEach(id => {
       available.add(id);
     });
-    
+
     return available;
   };
 
@@ -135,13 +135,13 @@ export function AppSidebar({
     try {
       const saved = localStorage.getItem('quickActionsEnabled');
       if (!saved) return DEFAULT_QUICK_ACTIONS;
-      
+
       const parsed = JSON.parse(saved);
       // Sanitize: only keep valid action IDs that exist in AVAILABLE_QUICK_ACTIONS
       const validActions = parsed.filter((id: string) => 
         Object.keys(AVAILABLE_QUICK_ACTIONS).includes(id)
       );
-      
+
       // If no valid actions remain, reset to defaults
       return validActions.length > 0 ? validActions : DEFAULT_QUICK_ACTIONS;
     } catch (error) {
@@ -161,13 +161,13 @@ export function AppSidebar({
       // Clean up: remove any unavailable actions from persisted state
       const availableActions = getAvailableActions();
       const cleanedActions = enabledQuickActions.filter(id => availableActions.has(id));
-      
+
       // Only update if we actually removed unavailable actions
       if (cleanedActions.length !== enabledQuickActions.length && cleanedActions.length > 0) {
         setEnabledQuickActions(cleanedActions);
         return; // Will trigger this effect again with cleaned data
       }
-      
+
       localStorage.setItem('quickActionsEnabled', JSON.stringify(enabledQuickActions));
     } catch (error) {
       console.error('Failed to save quick actions to localStorage:', error);
@@ -181,7 +181,7 @@ export function AppSidebar({
 
   const toggleQuickAction = (actionId: string) => {
     const availableActions = getAvailableActions();
-    
+
     // Check if action is actually available (has handler or href)
     if (!availableActions.has(actionId) && !enabledQuickActions.includes(actionId)) {
       toast({
@@ -191,13 +191,13 @@ export function AppSidebar({
       });
       return;
     }
-    
+
     try {
       setEnabledQuickActions(prev => {
         const newActions = prev.includes(actionId) 
           ? prev.filter(id => id !== actionId)
           : [...prev, actionId];
-        
+
         // Ensure at least one action remains enabled
         return newActions.length > 0 ? newActions : prev;
       });
@@ -233,16 +233,16 @@ export function AppSidebar({
     <Sidebar>
       <SidebarContent>
         {/* Header */}
-        <div className="flex justify-between items-center p-2 border-b">
+        <div className="flex justify-between items-center p-2 border-b gap-2">
           <div className="flex items-center gap-2">
             <img
               src="/icons/web/android-chrome-192x192.png"
               alt="JournalMate"
               className="w-7 h-7 rounded-lg flex-shrink-0"
             />
-            <span className="text-base font-semibold text-foreground">JournalMate</span>
+            <span className="hidden sm:block text-base font-semibold text-foreground">JournalMate</span>
           </div>
-          <SidebarTrigger data-testid="button-sidebar-toggle-inside" />
+          <SidebarTrigger data-testid="button-sidebar-toggle-inside" className="ml-auto" />
         </div>
 
         {/* Today's Theme Section */}
@@ -641,7 +641,7 @@ export function AppSidebar({
                   </div>
                 </div>
               </CollapsibleTrigger>
-              
+
               <CollapsibleContent className="space-y-3 mt-3">
                 {isAuthenticated && user ? (
                   <>
@@ -660,7 +660,7 @@ export function AppSidebar({
                         <User className="w-4 h-4" />
                         View Profile
                       </Button>
-                      
+
                       <Button
                         variant="ghost"
                         size="sm"
@@ -675,7 +675,7 @@ export function AppSidebar({
                         Settings
                       </Button>
                     </div>
-                    
+
                     {/* Sign Out Button */}
                     <div className="border-t pt-3">
                       <Button
@@ -720,7 +720,7 @@ export function AppSidebar({
           </Collapsible>
         </div>
       </SidebarContent>
-      
+
       {/* Profile & Settings Modal */}
       <ProfileSettingsModal
         isOpen={isModalOpen}
@@ -747,7 +747,7 @@ export function AppSidebar({
               const isEnabled = enabledQuickActions.includes(action.id);
               const availableActions = getAvailableActions();
               const isAvailable = availableActions.has(action.id);
-              
+
               return (
                 <div key={action.id} className="flex items-center justify-between gap-3 p-2 rounded-md hover-elevate">
                   <div className="flex items-center gap-3 flex-1">
