@@ -118,7 +118,9 @@ export default function MainApp({
   }, [onTabChange]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { open, isMobile } = useSidebar();
+  const { open, openMobile, isMobile } = useSidebar();
+  // Determine if sidebar is open based on device type
+  const isSidebarOpen = isMobile ? openMobile : open;
   
   // Chat sync form state
   const [chatText, setChatText] = useState('');
@@ -1519,34 +1521,34 @@ export default function MainApp({
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      {/* Header - Toggle only shows when sidebar is closed on mobile */}
+      {/* Header - Optimized for all screen sizes */}
       <header className="shrink-0 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
-        <div className="px-3 sm:px-4 py-2">
-          <div className="flex items-center justify-between w-full">
-            {/* Left: Conditional sidebar toggle + Logo/title */}
-            <div className="flex items-center gap-2 min-w-0">
+        <div className="px-3 lg:px-4 py-2">
+          <div className="flex items-center justify-between w-full gap-2">
+            {/* Left: Toggle (when sidebar closed on mobile) + Logo/title */}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
               {/* Show toggle only when sidebar is closed on mobile */}
-              {!open && isMobile && (
+              {!isSidebarOpen && isMobile && (
                 <SidebarTrigger data-testid="button-sidebar-toggle" className="flex-shrink-0" />
               )}
               
-              {/* Logo and title */}
+              {/* Logo and title - left aligned, no truncation */}
               <div 
-                className="flex items-center gap-2 cursor-pointer min-w-0" 
+                className="flex items-center gap-2 cursor-pointer" 
                 onClick={() => setActiveTab('input')}
                 data-testid="header-logo"
               >
                 <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg bg-sidebar">
                   <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-6 h-6 object-contain" loading="eager" data-testid="img-logo-header" />
                 </div>
-                <div className="flex flex-col min-w-0">
+                <div className="flex flex-col items-start">
                   <div className="flex items-center gap-2">
-                    <h1 className="text-sm sm:text-base font-bold text-foreground whitespace-nowrap">JournalMate</h1>
+                    <h1 className="text-sm lg:text-base font-bold text-foreground">JournalMate</h1>
                     {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
                       <ProBadge size="lg" variant="full" />
                     )}
                   </div>
-                  <span className="text-xs text-muted-foreground hidden sm:block">Transform Goals into Reality</span>
+                  <span className="text-xs text-muted-foreground hidden lg:block">Transform Goals into Reality</span>
                 </div>
               </div>
             </div>
@@ -1584,8 +1586,8 @@ export default function MainApp({
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
+      {/* Main Content - with thin scrollbar */}
+      <main className="flex-1 overflow-y-auto scrollbar-thin">
         <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-6">
         <div className="max-w-6xl mx-auto">
           {/* Navigation */}
