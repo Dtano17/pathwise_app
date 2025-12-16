@@ -1521,63 +1521,61 @@ export default function MainApp({
     <div className="flex flex-col h-screen bg-background overflow-hidden">
       {/* Header */}
       <header className="shrink-0 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
-        <div className="px-2 sm:px-4 py-2">
-          {/* Line 1: Toggle, Logo, Title, PRO Badge */}
-          <div className="flex items-center justify-between w-full h-8">
-            <div className="flex items-center gap-2 min-w-0">
-              {/* Show toggle only when sidebar is closed */}
-              {!open && (
-                <SidebarTrigger data-testid="button-sidebar-toggle" />
-              )}
-              <div 
-                className="flex items-center gap-2 cursor-pointer min-w-0" 
-                onClick={() => setActiveTab('input')}
-                data-testid="header-logo"
-              >
-                <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-md">
-                  <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-full h-full object-contain" loading="eager" data-testid="img-logo-header" />
-                </div>
-                <h1 className="text-sm font-bold text-foreground whitespace-nowrap">JournalMate</h1>
-                {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
-                  <ProBadge size="lg" variant="full" />
-                )}
+        <div className="flex items-center justify-between px-2 sm:px-4 py-2 gap-2">
+          {/* Left: Toggle + Logo + Title/Tagline stack */}
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Show toggle only when sidebar is closed */}
+            {!open && (
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+            )}
+            <div 
+              className="flex items-center gap-2 cursor-pointer min-w-0" 
+              onClick={() => setActiveTab('input')}
+              data-testid="header-logo"
+            >
+              <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-md">
+                <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-full h-full object-contain" loading="eager" data-testid="img-logo-header" />
               </div>
-            </div>
-            
-            {/* Right: Help and theme controls */}
-            <div className="flex-shrink-0 flex items-center gap-1">
-              {/* Help/Tutorial Icon - Pulse for demo users who haven't seen it */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="relative">
-                    {(user as any)?.id === 'demo-user' && !localStorage.getItem('demo-tutorial-completed') && (
-                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-purple-500"></span>
-                      </span>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setShowTutorial(true)}
-                      data-testid="button-tutorial"
-                      aria-label={isAuthenticated && (user as any)?.id !== 'demo-user' ? 'Help & Tutorial' : 'Help & Live Demo'}
-                    >
-                      <Info className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{isAuthenticated && (user as any)?.id !== 'demo-user' ? 'Help & Tutorial' : 'Help & Live Demo'}</p>
-                </TooltipContent>
-              </Tooltip>
-              <ThemeToggle />
+              <div className="flex flex-col leading-tight">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base font-bold text-foreground whitespace-nowrap">JournalMate</h1>
+                  {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
+                    <ProBadge size="lg" variant="full" />
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground">Transform Goals into Reality</span>
+              </div>
             </div>
           </div>
           
-          {/* Line 2: Tagline */}
-          <div className="flex items-center h-5">
-            <span className="text-xs text-muted-foreground">Transform Goals into Reality</span>
+          {/* Right: Help and theme controls */}
+          <div className="flex-shrink-0 flex items-center gap-1">
+            {/* Help/Tutorial Icon - Pulse for demo users who haven't seen it */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="relative">
+                  {(user as any)?.id === 'demo-user' && !localStorage.getItem('demo-tutorial-completed') && (
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-purple-500"></span>
+                    </span>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowTutorial(true)}
+                    data-testid="button-tutorial"
+                    aria-label={isAuthenticated && (user as any)?.id !== 'demo-user' ? 'Help & Tutorial' : 'Help & Live Demo'}
+                  >
+                    <Info className="w-4 h-4" />
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{isAuthenticated && (user as any)?.id !== 'demo-user' ? 'Help & Tutorial' : 'Help & Live Demo'}</p>
+              </TooltipContent>
+            </Tooltip>
+            <ThemeToggle />
           </div>
         </div>
       </header>
