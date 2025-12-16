@@ -1522,31 +1522,33 @@ export default function MainApp({
       {/* Header */}
       <header className="shrink-0 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
         <div className="px-2 sm:px-4 py-2">
-          <div className="flex items-center justify-between w-full">
-            {/* Left: Sidebar toggle - fixed width */}
-            <div className="flex-shrink-0 w-9">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
-            </div>
-            
-            {/* Center: Logo and title - flex and centered */}
-            <div 
-              className="flex items-center justify-center gap-1 cursor-pointer min-w-0" 
-              onClick={() => setActiveTab('input')}
-              data-testid="header-logo"
-            >
-              <div className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0 flex items-center justify-center rounded-md">
-                <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-full h-full object-contain" loading="eager" data-testid="img-logo-header" />
-              </div>
-              <h1 className="text-xs sm:text-base font-bold text-foreground">JournalMate</h1>
-              {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
-                <div className="hidden sm:block">
-                  <ProBadge size="lg" variant="full" />
-                </div>
+          <div className="flex items-center justify-between w-full gap-2">
+            {/* Left: Sidebar toggle (only when collapsed) + Logo and title */}
+            <div className="flex items-center gap-2 min-w-0">
+              {/* Show toggle only when sidebar is closed */}
+              {!open && (
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
               )}
+              <div 
+                className="flex items-center gap-1 cursor-pointer min-w-0" 
+                onClick={() => setActiveTab('input')}
+                data-testid="header-logo"
+              >
+                <div className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0 flex items-center justify-center rounded-md">
+                  <img src="/icons/web/android-chrome-192x192.png" alt="JournalMate" className="w-full h-full object-contain" loading="eager" data-testid="img-logo-header" />
+                </div>
+                <h1 className="text-xs sm:text-base font-bold text-foreground">JournalMate</h1>
+                <span className="hidden sm:inline text-xs sm:text-sm text-muted-foreground">Transform Goals into Reality</span>
+                {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
+                  <div className="hidden sm:block">
+                    <ProBadge size="lg" variant="full" />
+                  </div>
+                )}
+              </div>
             </div>
             
-            {/* Right: Help and theme controls - fixed width */}
-            <div className="flex-shrink-0 flex items-center gap-1 w-20 justify-end">
+            {/* Right: Help and theme controls */}
+            <div className="flex-shrink-0 flex items-center gap-1">
               {/* Help/Tutorial Icon - Pulse for demo users who haven't seen it */}
               <Tooltip>
                 <TooltipTrigger asChild>

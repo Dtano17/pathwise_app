@@ -240,7 +240,7 @@ export function AppSidebar({
               alt="JournalMate"
               className="w-7 h-7 rounded-lg flex-shrink-0"
             />
-            <span className="hidden sm:block text-base font-semibold text-foreground">JournalMate</span>
+            <span className="hidden lg:block text-base font-semibold text-foreground">JournalMate</span>
           </div>
           <SidebarTrigger data-testid="button-sidebar-toggle-inside" className="ml-auto" />
         </div>
