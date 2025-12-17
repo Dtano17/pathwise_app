@@ -289,12 +289,16 @@ export default function UserProfile() {
                 />
               </div>
               
-              <h2 className="text-xl font-bold mb-1 inline-flex items-center justify-center gap-2 flex-wrap" data-testid="text-profile-name">
-                <span>{profile.nickname || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.username}</span>
-                {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
-                  <ProBadge size="sm" variant="full" />
-                )}
-              </h2>
+              <div className="flex flex-col items-center">
+                <h2 className="text-xl font-bold mb-1" data-testid="text-profile-name">
+                  {profile.nickname || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.username}
+                  {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
+                    <span className="ml-2 inline-block align-middle">
+                      <ProBadge size="sm" variant="full" />
+                    </span>
+                  )}
+                </h2>
+              </div>
               
               {profile.username && (profile.nickname || profile.firstName) && (
                 <p className="text-muted-foreground text-sm mb-2">@{profile.username}</p>
