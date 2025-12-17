@@ -93,6 +93,7 @@ export const users = pgTable("users", {
   
   // Subscription & Billing
   subscriptionTier: varchar("subscription_tier").default("free"), // 'free' | 'pro' | 'family'
+  subscriptionInterval: varchar("subscription_interval"), // 'monthly' | 'yearly' - null for free tier
   subscriptionStatus: varchar("subscription_status").default("active"), // 'active' | 'canceled' | 'past_due' | 'trialing'
   stripeCustomerId: varchar("stripe_customer_id").unique(),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
@@ -100,6 +101,9 @@ export const users = pgTable("users", {
   planCountResetDate: timestamp("plan_count_reset_date"), // When to reset planCount
   trialEndsAt: timestamp("trial_ends_at"), // 7-day trial end date
   subscriptionEndsAt: timestamp("subscription_ends_at"), // For canceled subscriptions
+  
+  // Import tracking for tier-based limits
+  discoveryBonusImports: integer("discovery_bonus_imports").default(0), // +2 bonus imports earned each time user publishes to Discovery
   
   // User role for special plan publishing (emergency/sponsored)
   userRole: varchar("user_role").default("standard"), // 'standard' | 'government' | 'sponsor' | 'admin'
@@ -258,6 +262,48 @@ export const groupActivities = pgTable("group_activities", {
 }, (table) => ({
   uniqueGroupActivity: uniqueIndex("unique_group_activity").on(table.groupId, table.activityId),
   groupActivityIndex: index("group_activity_index").on(table.groupId),
+}));
+
+// Permanent share links - persists share tokens and snapshots even if original activity is deleted
+export const shareLinks = pgTable("share_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  shareToken: varchar("share_token").unique().notNull(),
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "set null" }), // Nullable - activity may be deleted
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }).notNull(), // Who created the share
+  groupId: varchar("group_id").references(() => groups.id, { onDelete: "set null" }), // If shared to/from a group
+  snapshotData: jsonb("snapshot_data").$type<{
+    title: string;
+    description?: string;
+    category: string;
+    planSummary?: string;
+    backdrop?: string;
+    shareTitle?: string;
+    tasks: Array<{
+      id: string;
+      title: string;
+      description?: string;
+      category: string;
+      priority: string;
+      order: number;
+    }>;
+    groupInfo?: {
+      id: string;
+      name: string;
+      description?: string;
+      memberCount: number;
+    };
+  }>().notNull(),
+  snapshotAt: timestamp("snapshot_at").defaultNow().notNull(), // When the snapshot was taken
+  activityUpdatedAt: timestamp("activity_updated_at"), // Last known activity update time for comparison
+  isActivityDeleted: boolean("is_activity_deleted").default(false), // Track if original was deleted
+  viewCount: integer("view_count").default(0),
+  copyCount: integer("copy_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  shareTokenIndex: uniqueIndex("share_token_index").on(table.shareToken),
+  activityShareIndex: index("activity_share_index").on(table.activityId),
+  userShareIndex: index("user_share_index").on(table.userId),
 }));
 
 // Activity change proposals from group contributors
@@ -436,6 +482,14 @@ export const insertGroupActivitySchema = createInsertSchema(groupActivities).omi
   updatedAt: true,
 });
 
+export const insertShareLinkSchema = createInsertSchema(shareLinks).omit({
+  id: true,
+  viewCount: true,
+  copyCount: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertActivityChangeProposalSchema = createInsertSchema(activityChangeProposals).omit({
   id: true,
   proposedBy: true, // Set server-side from authenticated user
@@ -459,6 +513,8 @@ export const notificationPreferences = pgTable("notification_preferences", {
   enableTaskReminders: boolean("enable_task_reminders").default(true),
   enableDeadlineWarnings: boolean("enable_deadline_warnings").default(true),
   enableDailyPlanning: boolean("enable_daily_planning").default(false),
+  enableGroupNotifications: boolean("enable_group_notifications").default(true), // Group activity updates
+  notifyAdminOnChanges: boolean("notify_admin_on_changes").default(true), // When user makes changes to group activities
   reminderLeadTime: integer("reminder_lead_time").default(30), // minutes before task
   dailyPlanningTime: text("daily_planning_time").default("09:00"), // HH:MM format
   quietHoursStart: text("quiet_hours_start").default("22:00"), // HH:MM format
@@ -481,6 +537,30 @@ export const taskReminders = pgTable("task_reminders", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Scheduled reminders for activities/plans
+export const activityReminders = pgTable("activity_reminders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  reminderType: text("reminder_type").notNull(), // 'one_week' | 'three_days' | 'one_day' | 'morning_of' | 'custom'
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  title: text("title").notNull(),
+  message: text("message"),
+  metadata: jsonb("metadata").$type<{
+    activityTitle?: string;
+    location?: string;
+    weatherInfo?: string;
+    contextualTips?: string[];
+  }>().default({}),
+  isSent: boolean("is_sent").default(false),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  activityIdIndex: index("activity_reminders_activity_id_index").on(table.activityId),
+  userIdScheduledIndex: index("activity_reminders_user_scheduled_index").on(table.userId, table.scheduledAt),
+  pendingIndex: index("activity_reminders_pending_index").on(table.isSent, table.scheduledAt),
+}));
+
 // User notifications for in-app alerts
 export const userNotifications = pgTable("user_notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -500,6 +580,25 @@ export const userNotifications = pgTable("user_notifications", {
   readAt: timestamp("read_at"),
 }, (table) => ({
   userIdReadAtIndex: index("user_notifications_user_id_read_at_index").on(table.userId, table.readAt),
+}));
+
+// Device tokens for push notifications (FCM/APNs)
+export const deviceTokens = pgTable("device_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  token: text("token").notNull().unique(), // FCM/APNs device token
+  platform: text("platform").notNull(), // 'ios' | 'android' | 'web'
+  deviceInfo: jsonb("device_info").$type<{
+    model?: string;
+    osVersion?: string;
+    appVersion?: string;
+  }>(),
+  isActive: boolean("is_active").default(true),
+  lastUsedAt: timestamp("last_used_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("device_tokens_user_id_index").on(table.userId),
+  tokenIndex: index("device_tokens_token_index").on(table.token),
 }));
 
 // Smart scheduling suggestions
@@ -537,10 +636,25 @@ export const insertTaskReminderSchema = createInsertSchema(taskReminders).omit({
   sentAt: true,
 });
 
+export const insertActivityReminderSchema = createInsertSchema(activityReminders).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  sentAt: true,
+  isSent: true,
+});
+
 export const insertUserNotificationSchema = createInsertSchema(userNotifications).omit({
   id: true,
   createdAt: true,
   readAt: true,
+});
+
+export const insertDeviceTokenSchema = createInsertSchema(deviceTokens).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  lastUsedAt: true,
 });
 
 export const insertSchedulingSuggestionSchema = createInsertSchema(schedulingSuggestions).omit({
@@ -590,6 +704,9 @@ export type InsertSharedTask = z.infer<typeof insertSharedTaskSchema>;
 export type GroupActivity = typeof groupActivities.$inferSelect;
 export type InsertGroupActivity = z.infer<typeof insertGroupActivitySchema>;
 
+export type ShareLink = typeof shareLinks.$inferSelect;
+export type InsertShareLink = z.infer<typeof insertShareLinkSchema>;
+
 export type ActivityChangeProposal = typeof activityChangeProposals.$inferSelect;
 export type InsertActivityChangeProposal = z.infer<typeof insertActivityChangeProposalSchema>;
 
@@ -609,8 +726,14 @@ export type InsertNotificationPreferences = z.infer<typeof insertNotificationPre
 export type TaskReminder = typeof taskReminders.$inferSelect;
 export type InsertTaskReminder = z.infer<typeof insertTaskReminderSchema>;
 
+export type ActivityReminder = typeof activityReminders.$inferSelect;
+export type InsertActivityReminder = z.infer<typeof insertActivityReminderSchema>;
+
 export type UserNotification = typeof userNotifications.$inferSelect;
 export type InsertUserNotification = z.infer<typeof insertUserNotificationSchema>;
+
+export type DeviceToken = typeof deviceTokens.$inferSelect;
+export type InsertDeviceToken = z.infer<typeof insertDeviceTokenSchema>;
 
 export type SchedulingSuggestion = typeof schedulingSuggestions.$inferSelect;
 export type InsertSchedulingSuggestion = z.infer<typeof insertSchedulingSuggestionSchema>;
@@ -779,19 +902,26 @@ export const contacts = pgTable("contacts", {
 // Contact shares for tracking app invitations and shared activities
 export const contactShares = pgTable("contact_shares", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: "cascade" }).notNull(),
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: "cascade" }), // Nullable for external invites
+  invitedBy: varchar("invited_by").references(() => users.id, { onDelete: "cascade" }), // For group invites
   sharedBy: varchar("shared_by").references(() => users.id, { onDelete: "cascade" }).notNull(),
   shareType: text("share_type").notNull(), // 'app_invitation' | 'activity' | 'group'
+  
+  // External contact fields (for inviting non-users)
+  contactType: text("contact_type"), // 'email' | 'phone' - for external invites
+  contactValue: text("contact_value"), // Email address or phone number
+  
   activityId: varchar("activity_id").references(() => activities.id, { onDelete: "cascade" }), // Optional: specific activity shared
   groupId: varchar("group_id").references(() => groups.id, { onDelete: "cascade" }), // Optional: specific group shared
   status: text("status").notNull().default("pending"), // 'pending' | 'accepted' | 'declined' | 'expired'
   invitationMessage: text("invitation_message"),
+  inviteMessage: text("invite_message"), // Custom message for group invites
   sharedAt: timestamp("shared_at").defaultNow(),
   respondedAt: timestamp("responded_at"),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
-  contactShareIndex: index("contact_share_index").on(table.contactId, table.status),
+  contactValueIndex: index("contact_value_index").on(table.contactValue, table.status),
   sharedByIndex: index("shared_by_index").on(table.sharedBy, table.shareType),
 }));
 
@@ -919,6 +1049,10 @@ export const activities = pgTable("activities", {
   // Activity copy tracking
   copiedFromShareToken: varchar("copied_from_share_token"), // Track which share link this was copied from
   isArchived: boolean("is_archived").default(false), // Separate archive flag for history
+  
+  // Progress sharing with group
+  sharesProgressWithGroup: boolean("shares_progress_with_group").default(false), // Whether to share task completions back to the group
+  linkedGroupActivityId: varchar("linked_group_activity_id").references(() => groupActivities.id, { onDelete: "set null" }), // Link to group activity if sharing progress
   
   // Location and context
   location: text("location"),
@@ -1271,9 +1405,11 @@ export const userStatistics = pgTable("user_statistics", {
 export const userProfiles = pgTable("user_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  bio: text("bio"), // Personal bio/description
-  heightCm: integer("height_cm"), // Height in centimeters
-  weightKg: integer("weight_kg"), // Weight in kilograms
+  nickname: text("nickname"), // Display name / preferred name
+  publicBio: text("public_bio"), // Public bio visible to others
+  privateBio: text("private_bio"), // Private notes only visible to the user
+  height: text("height"), // Height as string (e.g., "5'10" or "178cm")
+  weight: text("weight"), // Weight as string (e.g., "170 lbs" or "77kg")
   birthDate: text("birth_date"), // YYYY-MM-DD format for age calculation
   sex: text("sex"), // 'male' | 'female' | 'other' | 'prefer_not_to_say'
   ethnicity: text("ethnicity"), // Self-identified ethnicity
@@ -1293,6 +1429,14 @@ export const userPreferences = pgTable("user_preferences", {
   usePersonalization: boolean("use_personalization").default(false), // Enable AI personalization using profile data
   userContextSummary: text("user_context_summary"), // AI-generated summary of user's profile, preferences, and journal for personalized planning
   contextGeneratedAt: timestamp("context_generated_at"), // When the user context summary was last generated
+  
+  // Device location permission and coordinates
+  locationEnabled: boolean("location_enabled").default(false), // User has granted location permission
+  deviceLatitude: real("device_latitude"), // Device GPS latitude
+  deviceLongitude: real("device_longitude"), // Device GPS longitude  
+  deviceCity: text("device_city"), // Reverse-geocoded city name
+  locationUpdatedAt: timestamp("location_updated_at"), // When location was last updated
+  
   preferences: jsonb("preferences").$type<{
     notificationWindows?: { start: string; end: string }[];
     preferredTaskTimes?: string[]; // ['morning', 'afternoon', 'evening']
@@ -1318,9 +1462,54 @@ export const userPreferences = pgTable("user_preferences", {
         activityId?: string; // Link to activity this journal entry reflects on
         linkedActivityTitle?: string; // Activity title for display (denormalized for performance)
         mood?: 'great' | 'good' | 'okay' | 'poor'; // Mood associated with this entry
+        venueName?: string; // Name of venue/restaurant/place extracted from content
+        venueType?: string; // Type of venue: restaurant, bar, cafe, hotel, attraction, etc.
+        location?: {
+          city?: string;
+          country?: string;
+          neighborhood?: string;
+          address?: string;
+        }; // Structured location data for filtering
+        priceRange?: string; // Price range like "$", "$$", "$$$", "$$$$" or "₦30,000-₦50,000"
+        budgetTier?: 'budget' | 'moderate' | 'luxury' | 'ultra_luxury'; // Normalized budget tier
+        estimatedCost?: number; // Numeric cost estimate in local currency
+        sourceUrl?: string; // URL of the reel/post this venue was extracted from
+        importId?: string; // Unique ID for the import session (groups venues from same reel)
+        selectedForPlan?: boolean; // True if this venue was selected for a plan task
       }>
-    }; // Personal journal entries by category with media support
+    }; // Personal journal entries by category with media support and venue data for swap alternatives
     customJournalCategories?: Array<{ id: string; name: string; color: string }>; // User-created journal categories
+    customPrimaryCategories?: {
+      [id: string]: {
+        id: string;
+        label: string;
+        emoji: string;
+        subcategories: {
+          [subcatId: string]: {
+            id: string;
+            label: string;
+            emoji: string;
+            color?: string;
+            usageCount?: number;
+            createdAt?: Date;
+          };
+        };
+        createdAt?: Date;
+        order?: number;
+      };
+    }; // TWO-LEVEL categorization: Primary categories containing subcategories
+    sharedURLs?: string[]; // URLs that have been shared to prevent duplicate content
+    deduplicationConfig?: {
+      categoryThreshold: number;
+      urlThreshold: number;
+      venueNameThreshold: number;
+    }; // User-configurable fuzzy matching thresholds
+    dailyTheme?: {
+      activityId: string;
+      activityTitle: string;
+      date: string; // YYYY-MM-DD format
+      tasks?: { title: string; completed: boolean }[];
+    }; // Daily focus theme - saved when user clicks "Set as Theme"
   }>().default({}),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -1513,3 +1702,429 @@ export const insertActivityReportSchema = createInsertSchema(activityReports).om
 
 export type ActivityReport = typeof activityReports.$inferSelect;
 export type InsertActivityReport = z.infer<typeof insertActivityReportSchema>;
+
+// Journal Templates for customizable journal entries
+export const journalTemplates = pgTable("journal_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(), // e.g., "Morning Pages", "Evening Reflection"
+  description: text("description"),
+  prompts: jsonb("prompts").$type<string[]>().default([]), // Array of prompts to answer
+  isDefault: boolean("is_default").default(false), // Whether this is the default template
+  category: text("category").notNull().default("general"), // 'general' | 'morning' | 'evening' | 'weekly' | 'custom'
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("journal_templates_user_id_index").on(table.userId),
+  categoryIndex: index("journal_templates_category_index").on(table.category),
+}));
+
+// Type exports for journal templates
+export const insertJournalTemplateSchema = createInsertSchema(journalTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type JournalTemplate = typeof journalTemplates.$inferSelect;
+export type InsertJournalTemplate = z.infer<typeof insertJournalTemplateSchema>;
+
+// Extension/Mobile AI Plan Imports - tracks imported plans from ChatGPT, Claude, etc.
+export const aiPlanImports = pgTable("ai_plan_imports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  source: text("source").notNull(), // 'chatgpt' | 'claude' | 'gemini' | 'perplexity' | 'clipboard' | 'share_sheet' | 'extension'
+  sourceDevice: text("source_device").notNull(), // 'web_extension' | 'ios' | 'android' | 'web'
+  
+  // Original content
+  rawText: text("raw_text").notNull(),
+  parsedTitle: text("parsed_title").notNull(),
+  parsedDescription: text("parsed_description"),
+  
+  // Parsed tasks before user edits
+  parsedTasks: jsonb("parsed_tasks").$type<Array<{
+    title: string;
+    description?: string;
+    category: string;
+    priority: 'low' | 'medium' | 'high';
+    dueDate?: string;
+    timeEstimate?: string;
+    order: number;
+  }>>().notNull(),
+  
+  // AI parsing confidence
+  confidence: real("confidence").default(0),
+  
+  // Resulting activity (after user confirms)
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "set null" }),
+  
+  // Status
+  status: text("status").notNull().default("pending"), // 'pending' | 'confirmed' | 'discarded'
+  confirmedAt: timestamp("confirmed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("ai_plan_imports_user_id_index").on(table.userId),
+  statusIndex: index("ai_plan_imports_status_index").on(table.status),
+  createdAtIndex: index("ai_plan_imports_created_at_index").on(table.createdAt),
+}));
+
+// Type exports for AI plan imports
+export const insertAiPlanImportSchema = createInsertSchema(aiPlanImports).omit({
+  id: true,
+  createdAt: true,
+  confirmedAt: true,
+  activityId: true,
+});
+
+export type AiPlanImport = typeof aiPlanImports.$inferSelect;
+export type InsertAiPlanImport = z.infer<typeof insertAiPlanImportSchema>;
+
+// Extension tokens for secure authentication between browser extension and API
+export const extensionTokens = pgTable("extension_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  token: varchar("token").notNull().unique(), // Secure random token
+  name: text("name").notNull().default("Browser Extension"), // User-friendly device name
+  platform: text("platform").notNull(), // 'chrome' | 'firefox' | 'edge' | 'safari'
+  isActive: boolean("is_active").default(true),
+  lastUsedAt: timestamp("last_used_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("extension_tokens_user_id_index").on(table.userId),
+  tokenIndex: index("extension_tokens_token_index").on(table.token),
+}));
+
+// Type exports for extension tokens
+export const insertExtensionTokenSchema = createInsertSchema(extensionTokens).omit({
+  id: true,
+  createdAt: true,
+  lastUsedAt: true,
+});
+
+export type ExtensionToken = typeof extensionTokens.$inferSelect;
+export type InsertExtensionToken = z.infer<typeof insertExtensionTokenSchema>;
+
+// Media imports - tracks social media content (images, videos) shared for plan extraction
+export const mediaImports = pgTable("media_imports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Source information
+  source: text("source").notNull(), // 'instagram' | 'tiktok' | 'reels' | 'youtube' | 'gallery' | 'camera'
+  sourceDevice: text("source_device").notNull(), // 'ios' | 'android' | 'web'
+  
+  // Media information
+  mediaType: text("media_type").notNull(), // 'image' | 'video'
+  mediaUrl: text("media_url"), // Temporary URL for processing (deleted after 24h)
+  thumbnailUrl: text("thumbnail_url"), // Preview thumbnail for UI
+  originalCaption: text("original_caption"), // Caption shared with the media
+  
+  // Processing results
+  extractedText: text("extracted_text"), // OCR result (images) or transcription (videos)
+  ocrConfidence: real("ocr_confidence"), // OCR confidence score 0-1
+  transcriptionDuration: integer("transcription_duration"), // Video duration in seconds
+  
+  // Merged content for plan parsing
+  mergedContent: text("merged_content"), // caption + extractedText combined
+  
+  // AI parsing results (same as aiPlanImports)
+  parsedTitle: text("parsed_title"),
+  parsedDescription: text("parsed_description"),
+  parsedTasks: jsonb("parsed_tasks").$type<Array<{
+    title: string;
+    description?: string;
+    category: string;
+    priority: 'low' | 'medium' | 'high';
+    dueDate?: string;
+    timeEstimate?: string;
+    order: number;
+  }>>(),
+  parsingConfidence: real("parsing_confidence"),
+  
+  // Resulting activity (after user confirms)
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "set null" }),
+  
+  // Status and lifecycle
+  status: text("status").notNull().default("pending"), // 'pending' | 'processing' | 'parsed' | 'confirmed' | 'failed' | 'discarded'
+  processingError: text("processing_error"), // Error message if failed
+  confirmedAt: timestamp("confirmed_at"),
+  
+  // Privacy: auto-delete raw media after 24 hours
+  mediaExpiresAt: timestamp("media_expires_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("media_imports_user_id_index").on(table.userId),
+  statusIndex: index("media_imports_status_index").on(table.status),
+  createdAtIndex: index("media_imports_created_at_index").on(table.createdAt),
+}));
+
+// Type exports for media imports
+export const insertMediaImportSchema = createInsertSchema(mediaImports).omit({
+  id: true,
+  createdAt: true,
+  confirmedAt: true,
+  activityId: true,
+  mediaExpiresAt: true,
+});
+
+export type MediaImport = typeof mediaImports.$inferSelect;
+export type InsertMediaImport = z.infer<typeof insertMediaImportSchema>;
+
+// Plan remixes - tracks when users combine multiple community plans
+export const planRemixes = pgTable("plan_remixes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Source plans (activity IDs)
+  sourcePlanIds: jsonb("source_plan_ids").$type<string[]>().notNull(),
+  
+  // Attribution (creator IDs and names for display)
+  attributions: jsonb("attributions").$type<Array<{
+    activityId: string;
+    activityTitle: string;
+    creatorId: string;
+    creatorName: string;
+    tasksUsed: number;
+  }>>().notNull(),
+  
+  // Merged result
+  mergedTitle: text("merged_title").notNull(),
+  mergedDescription: text("merged_description"),
+  mergedTasks: jsonb("merged_tasks").$type<Array<{
+    title: string;
+    description?: string;
+    category: string;
+    priority: 'low' | 'medium' | 'high';
+    dueDate?: string;
+    timeEstimate?: string;
+    order: number;
+    sourceActivityId?: string; // Which plan this came from
+    isDuplicate?: boolean; // Detected as duplicate
+  }>>().notNull(),
+  
+  // Deduplication stats
+  originalTaskCount: integer("original_task_count").default(0),
+  finalTaskCount: integer("final_task_count").default(0),
+  duplicatesRemoved: integer("duplicates_removed").default(0),
+  
+  // Resulting activity (after user confirms)
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "set null" }),
+  
+  // Status
+  status: text("status").notNull().default("draft"), // 'draft' | 'confirmed' | 'discarded'
+  confirmedAt: timestamp("confirmed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("plan_remixes_user_id_index").on(table.userId),
+  statusIndex: index("plan_remixes_status_index").on(table.status),
+}));
+
+// Type exports for plan remixes
+export const insertPlanRemixSchema = createInsertSchema(planRemixes).omit({
+  id: true,
+  createdAt: true,
+  confirmedAt: true,
+  activityId: true,
+});
+
+export type PlanRemix = typeof planRemixes.$inferSelect;
+export type InsertPlanRemix = z.infer<typeof insertPlanRemixSchema>;
+
+// URL Content Cache - permanent storage for extracted URL content
+export const urlContentCache = pgTable("url_content_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Normalized URL (without tracking params like ?igsh=...)
+  normalizedUrl: text("normalized_url").notNull().unique(),
+  
+  // Original URL as submitted
+  originalUrl: text("original_url").notNull(),
+  
+  // Platform detected (instagram, tiktok, youtube, etc.)
+  platform: text("platform"),
+  
+  // Full extracted content (combined caption + transcript + OCR)
+  extractedContent: text("extracted_content").notNull(),
+  
+  // Extraction source that succeeded
+  extractionSource: text("extraction_source").notNull(), // 'social_media_service' | 'tavily' | 'axios'
+  
+  // Word count for quick reference
+  wordCount: integer("word_count").default(0),
+  
+  // Metadata about the content
+  metadata: jsonb("metadata").$type<{
+    title?: string;
+    author?: string;
+    caption?: string;
+    hasAudioTranscript?: boolean;
+    hasOcrText?: boolean;
+    carouselItemCount?: number;
+  }>(),
+  
+  // When the content was extracted
+  extractedAt: timestamp("extracted_at").defaultNow(),
+}, (table) => ({
+  normalizedUrlIndex: uniqueIndex("url_content_cache_normalized_url_idx").on(table.normalizedUrl),
+  platformIndex: index("url_content_cache_platform_idx").on(table.platform),
+}));
+
+// Type exports for URL content cache
+export const insertUrlContentCacheSchema = createInsertSchema(urlContentCache).omit({
+  id: true,
+  extractedAt: true,
+});
+
+export type UrlContentCache = typeof urlContentCache.$inferSelect;
+export type InsertUrlContentCache = z.infer<typeof insertUrlContentCacheSchema>;
+
+// User Saved Content - stores categorized content from social media shares for personalized planning
+export const userSavedContent = pgTable("user_saved_content", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User who saved the content
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Source URL and platform
+  sourceUrl: text("source_url").notNull(),
+  platform: text("platform").notNull(), // 'instagram' | 'tiktok' | 'youtube' | 'other'
+  
+  // Location categorization
+  location: text("location"), // Full location string e.g. "Los Angeles, California"
+  city: text("city"), // Extracted city e.g. "Los Angeles"
+  country: text("country"), // Extracted country e.g. "USA"
+  neighborhood: text("neighborhood"), // Specific area e.g. "Beverly Hills"
+  
+  // Activity categorization
+  category: text("category"), // 'bars' | 'restaurants' | 'activities' | 'hotels' | 'shopping' | 'nightlife' | 'travel' | 'fitness' | 'other'
+  subcategory: text("subcategory"), // More specific e.g. 'wine_bars', 'rooftop_bars'
+  
+  // Extracted venue/place details
+  venues: jsonb("venues").$type<Array<{
+    name: string;
+    type?: string;
+    priceRange?: string; // '$' | '$$' | '$$$' | '$$$$'
+    address?: string;
+    notes?: string;
+  }>>().default([]),
+  
+  // Budget information
+  budgetTier: text("budget_tier"), // 'budget' | 'moderate' | 'upscale' | 'luxury'
+  estimatedCost: integer("estimated_cost"), // Estimated cost in cents if mentioned
+  
+  // Raw extracted content for reference
+  rawContent: text("raw_content"),
+  
+  // Author of the original content (for attribution in Discovery only)
+  authorHandle: text("author_handle"),
+  authorName: text("author_name"),
+  
+  // Content title/description
+  title: text("title"),
+  
+  // Reference to cached extraction (if available)
+  cacheId: varchar("cache_id").references(() => urlContentCache.id),
+  
+  // Tags for flexible categorization
+  tags: jsonb("tags").$type<string[]>().default([]),
+  
+  // User's notes about this saved content
+  userNotes: text("user_notes"),
+  
+  // Auto-journal entry ID if created
+  journalEntryId: varchar("journal_entry_id"),
+  
+  // Metadata
+  savedAt: timestamp("saved_at").defaultNow(),
+  lastReferencedAt: timestamp("last_referenced_at"), // When this was used in a plan
+  referenceCount: integer("reference_count").default(0), // How many times used in plans
+}, (table) => ({
+  userIdIndex: index("user_saved_content_user_id_idx").on(table.userId),
+  locationIndex: index("user_saved_content_location_idx").on(table.location),
+  cityIndex: index("user_saved_content_city_idx").on(table.city),
+  categoryIndex: index("user_saved_content_category_idx").on(table.category),
+  platformIndex: index("user_saved_content_platform_idx").on(table.platform),
+  userLocationIdx: index("user_saved_content_user_location_idx").on(table.userId, table.city),
+  userCategoryIdx: index("user_saved_content_user_category_idx").on(table.userId, table.category),
+}));
+
+// Type exports for user saved content
+export const insertUserSavedContentSchema = createInsertSchema(userSavedContent).omit({
+  id: true,
+  savedAt: true,
+  lastReferencedAt: true,
+  referenceCount: true,
+});
+
+export type UserSavedContent = typeof userSavedContent.$inferSelect;
+export type InsertUserSavedContent = z.infer<typeof insertUserSavedContentSchema>;
+
+// Content Imports - stores ALL extracted items from a URL for alternatives/swapping
+// When a URL is processed, ALL venues/items are stored here (not just the 6-9 selected for the plan)
+export const contentImports = pgTable("content_imports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User who imported the content
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Source URL information
+  sourceUrl: text("source_url").notNull(),
+  normalizedUrl: text("normalized_url").notNull(),
+  platform: text("platform"), // 'instagram' | 'tiktok' | 'youtube' | etc.
+  
+  // Friendly source name for display (e.g., "Instagram Reel", "TikTok Video")
+  sourceName: text("source_name"),
+  
+  // Content creator info (for attribution)
+  authorHandle: text("author_handle"),
+  authorName: text("author_name"),
+  
+  // Total items extracted from the content
+  totalItemsExtracted: integer("total_items_extracted").default(0),
+  
+  // ALL extracted items (venues, restaurants, activities, etc.)
+  extractedItems: jsonb("extracted_items").$type<Array<{
+    id: string; // Unique ID for this item within the import
+    venueName: string;
+    venueType: string; // 'restaurant' | 'bar' | 'hotel' | 'attraction' | etc.
+    location?: {
+      city?: string;
+      neighborhood?: string;
+      country?: string;
+      address?: string;
+    };
+    priceRange?: string; // '$' | '$$' | '$$$' | '$$$$' or "50-100"
+    budgetTier?: string; // 'budget' | 'moderate' | 'luxury' | 'ultra_luxury'
+    estimatedCost?: number; // In dollars
+    category?: string; // 'restaurants' | 'bars_nightlife' | 'hotels_accommodation' | etc.
+    description?: string;
+    notes?: string; // AI-extracted notes about this venue
+    selectedForPlan?: boolean; // Was this item selected for the generated plan?
+    taskId?: string; // ID of the task this item was used for (if selected)
+  }>>().default([]),
+  
+  // Reference to the generated activity (if plan was created)
+  activityId: varchar("activity_id").references(() => activities.id, { onDelete: "set null" }),
+  
+  // Cache reference for the raw content extraction
+  cacheId: varchar("cache_id").references(() => urlContentCache.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("content_imports_user_id_idx").on(table.userId),
+  normalizedUrlIndex: index("content_imports_normalized_url_idx").on(table.normalizedUrl),
+  activityIdIndex: index("content_imports_activity_id_idx").on(table.activityId),
+}));
+
+// Type exports for content imports
+export const insertContentImportSchema = createInsertSchema(contentImports).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ContentImport = typeof contentImports.$inferSelect;
+export type InsertContentImport = z.infer<typeof insertContentImportSchema>;
