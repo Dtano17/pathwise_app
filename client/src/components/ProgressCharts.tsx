@@ -155,7 +155,7 @@ export default function ProgressCharts({
                           />
                         </div>
                       </div>
-                      <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(point.date).toLocaleDateString('en-US', { weekday: 'short' })}
                       </span>
                     </div>

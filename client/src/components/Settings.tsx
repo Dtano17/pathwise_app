@@ -20,7 +20,8 @@ import {
   Moon,
   Globe,
   CreditCard,
-  Crown
+  Crown,
+  BookmarkCheck
 } from 'lucide-react';
 
 interface UserPreferences {
@@ -499,6 +500,7 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
           </div>
         </CardContent>
       </Card>
+
     </div>
   );
 }

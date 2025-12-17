@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ interface TaskCardProps {
   showConfetti?: boolean;
 }
 
-export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive, showConfetti = false }: TaskCardProps) {
+const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive, showConfetti = false }: TaskCardProps) {
   const [isCompleted, setIsCompleted] = useState(task.completed || false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [pendingAction, setPendingAction] = useState<'complete' | 'skip' | 'snooze' | 'archive' | null>(null);
@@ -322,49 +322,49 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
 
         {/* Action Buttons */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
-          <Button 
+          <Button
             onClick={handleComplete}
             disabled={isProcessing}
             size="default"
-            className="w-full bg-green-600 hover:bg-green-700 text-white"
+            className="w-full min-h-[44px] bg-green-600 hover:bg-green-700 text-white"
             data-testid={`button-complete-${task.id}`}
           >
             <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
             <span className="truncate">Complete</span>
           </Button>
-          
-          <Button 
+
+          <Button
             onClick={handleSnooze}
             disabled={isProcessing}
             variant="outline"
             size="default"
-            className="w-full"
+            className="w-full min-h-[44px]"
             data-testid={`button-snooze-${task.id}`}
           >
             <Pause className="w-4 h-4 mr-2 flex-shrink-0" />
             <span className="truncate">Snooze</span>
           </Button>
-          
+
           {onArchive && (
-            <Button 
+            <Button
               onClick={handleArchive}
               disabled={isProcessing}
               variant="outline"
               size="default"
-              className="w-full"
+              className="w-full min-h-[44px]"
               data-testid={`button-archive-${task.id}`}
             >
               <Archive className="w-4 h-4 mr-2 flex-shrink-0" />
               <span className="truncate">Archive</span>
             </Button>
           )}
-          
-          <Button 
+
+          <Button
             onClick={handleSkip}
             disabled={isProcessing}
             variant="outline"
             size="default"
-            className={`w-full text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950 ${onArchive ? '' : 'sm:col-start-2'}`}
+            className={`w-full min-h-[44px] text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950 ${onArchive ? '' : 'sm:col-start-2'}`}
             data-testid={`button-skip-${task.id}`}
           >
             <X className="w-4 h-4 mr-2 flex-shrink-0" />
@@ -381,4 +381,6 @@ export default function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive
       </Card>
     </div>
   );
-}
+});
+
+export default TaskCard;

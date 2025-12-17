@@ -1,6 +1,7 @@
 // Replit Auth integration - from blueprint:javascript_log_in_with_replit
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useEffect, useRef } from "react";
 
 interface User {
   id: string;
@@ -11,16 +12,18 @@ interface User {
   authenticated?: boolean;
   isGuest?: boolean;
   username?: string;
+  subscriptionTier?: 'free' | 'pro' | 'family';
+  subscriptionStatus?: 'active' | 'canceled' | 'past_due' | 'trialing';
 }
 
 export function useAuth() {
   const queryClient = useQueryClient();
 
   // Fetch user data using react-query
-  const { data: user, isLoading, error } = useQuery<User | null>({
+  const { data: user, isLoading, error, refetch } = useQuery<User | null>({
     queryKey: ['/api/user'],
     queryFn: async () => {
-      const res = await fetch('/api/user');
+      const res = await fetch('/api/user', { credentials: 'include' });
       if (!res.ok) {
         if (res.status === 401) return null;
         throw new Error('Failed to fetch user');
@@ -28,8 +31,32 @@ export function useAuth() {
       return res.json();
     },
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 1000, // 30 seconds - much shorter for auth freshness
+    refetchOnWindowFocus: true, // Refetch when user returns to tab
+    refetchOnMount: true, // Always check auth on mount
   });
+
+  // Clear cache when user authentication state changes (sign in/out)
+  const prevUserIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const currentUserId = user?.id || null;
+
+    // If user ID changed (sign in or sign out occurred)
+    if (prevUserIdRef.current !== currentUserId) {
+      console.log('[AUTH] User authentication state changed, clearing cache');
+      console.log(`  - Previous user ID: ${prevUserIdRef.current}`);
+      console.log(`  - Current user ID: ${currentUserId}`);
+
+      // Clear all caches to ensure fresh data for new user
+      if (queryClient && prevUserIdRef.current !== null) {
+        // Don't clear on initial mount (prevUserIdRef is null)
+        // Only clear when switching between users or signing out
+        queryClient.clear();
+      }
+
+      prevUserIdRef.current = currentUserId;
+    }
+  }, [user?.id, queryClient]);
 
   // Logout mutation
   const logoutMutation = useMutation({
@@ -40,7 +67,7 @@ export function useAuth() {
       }),
     onSuccess: () => {
       // Clear all queries and redirect
-      queryClient.clear();
+      if (queryClient) queryClient.clear();
       window.location.href = '/';
     }
   });
@@ -85,6 +112,7 @@ export function useAuth() {
     // Helper functions
     logout,
     login,
+    refetch, // Expose refetch for manual auth refresh
     getUserDisplayName: () => getUserDisplayName(user),
     getUserInitials: () => getUserInitials(user),
 

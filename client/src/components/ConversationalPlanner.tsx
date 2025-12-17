@@ -8,13 +8,14 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb, Calendar, ExternalLink } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb, Calendar, ExternalLink, Check, Loader2, Link } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useKeywordDetection, getCategoryColor } from '@/hooks/useKeywordDetection';
 import { useLocation } from 'wouter';
 import TemplateSelector from './TemplateSelector';
 import JournalTimeline from './JournalTimeline';
 import JournalOnboarding from './JournalOnboarding';
+import { invalidateActivitiesCache, invalidateJournalCache } from '@/lib/cacheInvalidation';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -93,6 +94,29 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const journalTextareaRef = useRef<HTMLTextAreaElement>(null);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastAutoSavedTextRef = useRef<string>('');
+  
+  // External Content & Curated Questions State
+  const [externalContent, setExternalContent] = useState<string | null>(null);
+  const [externalSourceUrl, setExternalSourceUrl] = useState<string | null>(null);
+  const [curatedQuestions, setCuratedQuestions] = useState<Array<{
+    id: string;
+    question: string;
+    type: 'text' | 'select' | 'multiselect';
+    options?: string[];
+    placeholder?: string;
+    required: boolean;
+  }>>([]);
+  const [curatedQuestionsAnswers, setCuratedQuestionsAnswers] = useState<Record<string, string | string[]>>({});
+  const [contentSummary, setContentSummary] = useState<string>('');
+  const [suggestedPlanTitle, setSuggestedPlanTitle] = useState<string>('');
+  const [showCuratedQuestionsDialog, setShowCuratedQuestionsDialog] = useState(false);
+  const [isLoadingCuratedQuestions, setIsLoadingCuratedQuestions] = useState(false);
+  const [isGeneratingFromContent, setIsGeneratingFromContent] = useState(false);
+  const plannerFileInputRef = useRef<HTMLInputElement>(null);
+  
+  // URL Action Choice State (for "Save to Journal" vs "Create Plan" option)
+  const [showUrlActionDialog, setShowUrlActionDialog] = useState(false);
+  const [pendingUrlData, setPendingUrlData] = useState<{ content: string; url: string; isVideoContent?: boolean; platform?: string } | null>(null);
   
   // Autocomplete state
   const [showAutocomplete, setShowAutocomplete] = useState(false);
@@ -173,6 +197,29 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   });
 
   const journalEntries = journalEntriesData?.entries || [];
+
+  // Fetch activity details when activityId is provided (for journal progress display)
+  const { data: activityDetails } = useQuery<{ 
+    id: string; 
+    title: string; 
+    description: string; 
+    status: string; 
+    userLiked?: boolean;
+    tasks: Array<{ id: string; title: string; completed: boolean; priority: string }>;
+  }>({
+    queryKey: ['/api/activities', activityId],
+    enabled: planningMode === 'journal' && !!activityId,
+  });
+
+  // Calculate activity progress for journal display
+  const activityProgress = activityDetails && activityDetails.tasks ? {
+    totalTasks: activityDetails.tasks.length,
+    completedTasks: activityDetails.tasks.filter((t: any) => t.completed).length,
+    incompleteTasks: activityDetails.tasks.filter((t: any) => !t.completed),
+    completedTasksList: activityDetails.tasks.filter((t: any) => t.completed),
+    isLiked: activityDetails.userLiked || false,
+    status: activityDetails.status || 'active'
+  } : null;
 
 
   // Calculate plan generation readiness (must be before useEffect that uses it)
@@ -682,6 +729,319 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     }
   });
 
+  // URL Detection Helper
+  const detectUrlInMessage = (text: string): string | null => {
+    const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/gi;
+    const match = text.match(urlRegex);
+    return match ? match[0] : null;
+  };
+
+  // Fetch URL content
+  const fetchUrlContent = async (url: string): Promise<string> => {
+    const response = await fetch('/api/parse-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch URL');
+    
+    // Handle video content responses with helpful guidance
+    if (data.isVideoContent) {
+      toast({
+        title: `${data.platform} Video Detected`,
+        description: "Video content can't be extracted directly. Please describe what's in the video to create a plan.",
+        duration: 8000
+      });
+    }
+    
+    return data.content || '';
+  };
+
+  // Handle file upload for document parsing
+  const handleDocumentUpload = async (file: File) => {
+    if (!file) return;
+    
+    setIsLoadingCuratedQuestions(true);
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+      
+      const response = await fetch('/api/upload/document', {
+        method: 'POST',
+        body: formData
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.suggestion || data.error || 'Failed to upload document');
+      }
+      
+      if (data.content) {
+        await processCuratedQuestionsFlow(data.content);
+      }
+    } catch (error: any) {
+      console.error('Document upload error:', error);
+      toast({
+        title: "Upload Error",
+        description: error.message || "Failed to process the uploaded document. Try pasting the text directly.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingCuratedQuestions(false);
+      // Reset file input
+      if (plannerFileInputRef.current) {
+        plannerFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Process curated questions flow for Smart/Quick Plan modes
+  const processCuratedQuestionsFlow = async (content: string) => {
+    setExternalContent(content);
+    setIsLoadingCuratedQuestions(true);
+    
+    try {
+      const response = await fetch('/api/planner/generate-curated-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          externalContent: content,
+          mode: planningMode === 'quick' ? 'quick' : 'smart'
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate questions');
+      }
+      
+      const data = await response.json();
+      setCuratedQuestions(data.questions || []);
+      setContentSummary(data.contentSummary || '');
+      setSuggestedPlanTitle(data.suggestedPlanTitle || '');
+      setCuratedQuestionsAnswers({});
+      setShowCuratedQuestionsDialog(true);
+    } catch (error) {
+      console.error('Curated questions error:', error);
+      toast({
+        title: "Analysis Error",
+        description: "Failed to analyze content. Try again or paste the content directly.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingCuratedQuestions(false);
+    }
+  };
+
+  // Generate plan from curated questions answers
+  const generatePlanFromCuratedAnswers = useMutation({
+    mutationFn: async () => {
+      if (!externalContent) throw new Error('No external content');
+      
+      const response = await fetch('/api/planner/generate-plan-from-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          externalContent,
+          userAnswers: curatedQuestionsAnswers,
+          mode: planningMode === 'quick' ? 'quick' : 'smart',
+          sourceUrl: externalSourceUrl
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to generate plan');
+      }
+      
+      return response.json();
+    },
+    onSuccess: async (data) => {
+      setShowCuratedQuestionsDialog(false);
+      setCuratedQuestions([]);
+      setCuratedQuestionsAnswers({});
+      setExternalContent(null);
+      setExternalSourceUrl(null);
+
+      // CRITICAL: Invalidate activities cache (activities, tasks, progress)
+      await invalidateActivitiesCache();
+
+      // If venues were also journaled, invalidate journal cache too
+      if (data.journalEntryId || data.savedVenuesCount > 0) {
+        await invalidateJournalCache();
+      }
+
+      const hasJournal = data.journalEntryId || data.savedVenuesCount > 0;
+      toast({
+        title: hasJournal ? "Plan Created & Journaled!" : "Plan Created!",
+        description: data.savedVenuesCount
+          ? `Created ${data.activity?.title} with ${data.createdTasks?.length} tasks + ${data.savedVenuesCount} venues journaled`
+          : data.message || `Created ${data.activity?.title} with ${data.createdTasks?.length} tasks`,
+        action: data.activity?.id ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setLocation(`/?tab=activities&activity=${data.activity.id}`)}
+            data-testid="toast-view-activity"
+          >
+            <ExternalLink className="w-3 h-3 mr-1" />
+            View
+          </Button>
+        ) : undefined
+      });
+    },
+    onError: (error: any) => {
+      console.error('Plan generation error:', error);
+      toast({
+        title: "Generation Error",
+        description: error.message || "Failed to create plan from your answers",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Save to Journal Only mutation (no planning)
+  const saveToJournalOnlyMutation = useMutation({
+    mutationFn: async () => {
+      if (!pendingUrlData) throw new Error('No URL data to save');
+      
+      const response = await apiRequest('POST', '/api/user/saved-content', {
+        sourceUrl: pendingUrlData.url,
+        extractedContent: pendingUrlData.content,
+        autoJournal: true,
+        userNotes: message || undefined
+      });
+      return response.json();
+    },
+    onSuccess: async (data) => {
+      setShowUrlActionDialog(false);
+      setPendingUrlData(null);
+      setExternalSourceUrl(null);
+      setMessage('');
+
+      // Use centralized invalidation (entries, stats, preferences)
+      await invalidateJournalCache();
+
+      const venueCount = data.venuesAddedCount || 0;
+      toast({
+        title: "Saved to Journal!",
+        description: venueCount > 0
+          ? `${venueCount} venue${venueCount > 1 ? 's' : ''} added to your journal`
+          : "Content saved to your journal",
+        action: (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setLocation('/journal')}
+            data-testid="toast-view-journal"
+          >
+            <BookOpen className="w-3 h-3 mr-1" />
+            View
+          </Button>
+        )
+      });
+    },
+    onError: (error: any) => {
+      console.error('Journal save error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save to journal",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Handle URL detection when sending message in Quick/Smart Plan modes
+  const handleMessageWithUrlDetection = async () => {
+    const detectedUrl = detectUrlInMessage(message);
+    
+    if (detectedUrl && (planningMode === 'quick' || planningMode === 'smart')) {
+      setIsLoadingCuratedQuestions(true);
+      
+      // Store the URL for auto-journaling if it's a social media URL
+      const isSocialMediaUrl = /instagram\.com|tiktok\.com|youtube\.com|youtu\.be/i.test(detectedUrl);
+      if (isSocialMediaUrl) {
+        setExternalSourceUrl(detectedUrl);
+      }
+      
+      try {
+        const response = await fetch('/api/parse-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: detectedUrl })
+        });
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to fetch URL');
+        }
+        
+        // Handle video content - show guidance and don't proceed to curated questions
+        if (data.isVideoContent) {
+          toast({
+            title: `${data.platform} Video Detected`,
+            description: "Video content can't be extracted directly. Please describe what's in the video to create a plan.",
+            duration: 10000
+          });
+          // Add guidance as a system message
+          const guidanceMessage: ConversationMessage = {
+            role: 'assistant',
+            content: data.guidance || `This appears to be a ${data.platform} video. Please describe what the video shows and what kind of plan you'd like to create from it.`,
+            timestamp: new Date().toISOString()
+          };
+          setCurrentSession(prev => prev ? {
+            ...prev,
+            conversationHistory: [...prev.conversationHistory, guidanceMessage]
+          } : null);
+          setMessage('');
+          setIsLoadingCuratedQuestions(false);
+          // Store URL data for potential journal save even for video content
+          setPendingUrlData({
+            content: data.guidance || `${data.platform} video content from ${detectedUrl}`,
+            url: detectedUrl,
+            isVideoContent: true,
+            platform: data.platform
+          });
+          setShowUrlActionDialog(true);
+          return;
+        }
+        
+        // Normal content - check if social media to show action choice
+        if (data.content) {
+          if (isSocialMediaUrl) {
+            // Social media URL - show action choice dialog (Save to Journal vs Create Plan)
+            setPendingUrlData({
+              content: data.content,
+              url: detectedUrl,
+              isVideoContent: false,
+              platform: data.platform
+            });
+            setShowUrlActionDialog(true);
+            setIsLoadingCuratedQuestions(false);
+          } else {
+            // Non-social URL (articles, blogs, etc.) - proceed directly to curated questions (old behavior)
+            await processCuratedQuestionsFlow(data.content);
+          }
+          setMessage('');
+          return;
+        }
+      } catch (error) {
+        console.error('URL processing error:', error);
+        toast({
+          title: "URL Error",
+          description: "Couldn't fetch the URL content. Try pasting the content directly.",
+          variant: "destructive"
+        });
+        setIsLoadingCuratedQuestions(false);
+        setExternalSourceUrl(null);
+      }
+    } else {
+      // Regular message flow
+      handleSendMessage();
+    }
+  };
+
   // Journal Mode submitJournalEntry mutation
   const submitJournalEntry = useMutation({
     mutationFn: async () => {
@@ -817,7 +1177,12 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      // Use URL detection for Quick/Smart Plan modes
+      if (planningMode === 'quick' || planningMode === 'smart') {
+        handleMessageWithUrlDetection();
+      } else {
+        handleSendMessage();
+      }
     }
   };
 
@@ -1082,19 +1447,14 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       <div className="h-full flex flex-col bg-gradient-to-br from-purple-50 via-white to-emerald-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         {/* Header */}
         <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
-          <div className="px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center shadow-lg">
-                <BookOpen className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h2 className="font-bold text-lg bg-gradient-to-r from-purple-600 to-emerald-600 dark:from-purple-400 dark:to-emerald-400 bg-clip-text text-transparent">
-                  JournalMate
-                </h2>
-                <p className="text-xs text-slate-600 dark:text-slate-400">Your smart adaptive journal</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 sm:gap-2">
+          <div className="px-4 py-3">
+            {/* Top row: Logo and primary actions */}
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-bold text-xs sm:text-base bg-gradient-to-r from-purple-600 to-emerald-600 dark:from-purple-400 dark:to-emerald-400 bg-clip-text text-transparent truncate">
+                JournalMate
+              </h2>
+              <p className="text-xs text-slate-600 dark:text-slate-400 hidden sm:block">Smart journal</p>
+              {/* Mobile back button */}
               <Button
                 onClick={() => {
                   localStorage.removeItem('planner_session');
@@ -1108,32 +1468,53 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                   }
                 }}
                 variant="ghost"
-                size="sm"
-                className="gap-2"
+                size="icon"
+                className="sm:hidden ml-auto flex-shrink-0"
                 data-testid="button-exit-journal"
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Back</span>
+              </Button>
+            </div>
+            
+            {/* Bottom row: Action buttons */}
+            <div className="flex items-center gap-1 flex-wrap">
+              <Button
+                onClick={() => {
+                  localStorage.removeItem('planner_session');
+                  localStorage.removeItem('planner_mode');
+                  localStorage.removeItem('planner_chips');
+                  setJournalText('');
+                  setJournalMedia([]);
+                  lastAutoSavedTextRef.current = ''; // Clear auto-save tracking
+                  if (onClose) {
+                    onClose();
+                  }
+                }}
+                variant="ghost"
+                size="icon"
+                className="hidden sm:inline-flex"
+                title="Go back"
+                data-testid="button-exit-journal"
+              >
+                <ArrowLeft className="h-4 w-4" />
               </Button>
               <Button
                 onClick={() => setShowJournalTimeline(true)}
                 variant="ghost"
-                size="sm"
-                className="gap-2"
+                size="icon"
+                title="View timeline"
                 data-testid="button-view-timeline"
               >
                 <Calendar className="h-4 w-4" />
-                <span className="hidden sm:inline">Timeline</span>
               </Button>
               <Button
                 onClick={() => setShowTemplateSelector(true)}
                 variant="ghost"
-                size="sm"
-                className="gap-2"
+                size="icon"
+                title="Use templates"
                 data-testid="button-use-template"
               >
                 <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Templates</span>
               </Button>
               <Button
                 onClick={() => {
@@ -1146,7 +1527,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                   });
                 }}
                 variant="ghost"
-                size="sm"
+                size="icon"
                 title="Refresh entries"
                 data-testid="button-refresh-journal"
               >
@@ -1155,7 +1536,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
               <Button
                 onClick={() => setShowKeywordHelp(true)}
                 variant="ghost"
-                size="sm"
+                size="icon"
                 title="Learn about @keywords"
                 data-testid="button-keyword-help"
               >
@@ -1169,10 +1550,10 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           <div className="max-w-3xl mx-auto p-4 space-y-4">
             {/* Entry Form Card */}
             <Card className="border-none shadow-xl bg-white/95 dark:bg-slate-900/95 backdrop-blur">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
+              <CardHeader className="pb-3 px-4 sm:px-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="flex flex-col gap-2">
-                    <CardTitle className="text-base">Quick Capture</CardTitle>
+                    <CardTitle className="text-sm sm:text-base">Quick Capture</CardTitle>
                     {activityTitle && (
                       <Badge variant="outline" className="w-fit text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
                         <BookOpen className="h-3 w-3 mr-1" />
@@ -1180,6 +1561,20 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                       </Badge>
                     )}
                   </div>
+                  {/* Activity Progress Summary */}
+                  {activityProgress && activityProgress.totalTasks > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs flex-shrink-0">
+                      <Badge variant="secondary" className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                        <Check className="h-3 w-3 mr-1" />
+                        {activityProgress.completedTasks}/{activityProgress.totalTasks} done
+                      </Badge>
+                      {activityProgress.isLiked && (
+                        <Badge variant="secondary" className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                          ❤️ Liked
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                   {isSavingJournal && (
                     <Badge variant="secondary" className="text-xs animate-pulse">
                       <RefreshCcw className="h-3 w-3 mr-1 animate-spin" />
@@ -1187,28 +1582,81 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                     </Badge>
                   )}
                 </div>
-                <CardDescription className="text-xs">
+                <CardDescription className="text-xs line-clamp-2">
                   {activityTitle
-                    ? "Capture your thoughts and experiences about this activity"
-                    : "Type freely. Use @keywords like @restaurants, @travel, @music for smart categorization"}
+                    ? "Capture your thoughts about this activity"
+                    : "Type freely. Use @keywords for smart categorization"}
                 </CardDescription>
+                
+                {/* Activity Task Breakdown for Journal */}
+                {activityProgress && activityProgress.totalTasks > 0 && (
+                  <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg space-y-2">
+                    <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Activity Summary</p>
+                    
+                    {/* Completed Tasks */}
+                    {activityProgress.completedTasksList.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
+                          <Check className="h-3 w-3" /> Completed ({activityProgress.completedTasksList.length})
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {activityProgress.completedTasksList.slice(0, 5).map((task: any) => (
+                            <Badge key={task.id} variant="secondary" className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                              {task.title.length > 25 ? task.title.substring(0, 25) + '...' : task.title}
+                            </Badge>
+                          ))}
+                          {activityProgress.completedTasksList.length > 5 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{activityProgress.completedTasksList.length - 5} more
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Incomplete Tasks */}
+                    {activityProgress.incompleteTasks.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> Still to do ({activityProgress.incompleteTasks.length})
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {activityProgress.incompleteTasks.slice(0, 3).map((task: any) => (
+                            <Badge key={task.id} variant="outline" className="text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700">
+                              {task.title.length > 25 ? task.title.substring(0, 25) + '...' : task.title}
+                            </Badge>
+                          ))}
+                          {activityProgress.incompleteTasks.length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{activityProgress.incompleteTasks.length - 3} more
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                      Reflect on what you completed and what you might do differently next time!
+                    </p>
+                  </div>
+                )}
               </CardHeader>
-              <CardContent className="space-y-3">
-            <div className="space-y-2 relative">
+              <CardContent className="space-y-3 overflow-x-hidden">
+            <div className="space-y-2 relative min-w-0">
               <textarea
                 ref={journalTextareaRef}
                 value={journalText}
                 onChange={handleJournalTextChange}
-                placeholder="What's on your mind? Use @keywords for quick categorization...&#10;Example: @restaurants had amazing ramen today!"
-                className="w-full min-h-32 p-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-pink-500"
+                placeholder="What's on your mind?&#10;Use @keywords like @restaurants, @travel..."
+                className="w-full min-h-24 sm:min-h-32 p-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
                 data-testid="input-journal-text"
               />
               
               {/* Autocomplete dropdown */}
               {showAutocomplete && filteredTags.length > 0 && (
                 <div 
-                  className="absolute z-50 mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto"
-                  style={{ top: '100%', left: 0 }}
+                  className="absolute z-50 mt-1 w-full sm:w-64 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                  style={{ top: '100%', left: 0, right: 0 }}
                 >
                   {filteredTags.map((tag) => (
                     <button
@@ -1223,10 +1671,10 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 </div>
               )}
               
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 w-full overflow-x-auto pb-1">
                 <Badge 
                   variant="outline" 
-                  className="text-xs cursor-pointer hover-elevate active-elevate-2"
+                  className="text-xs cursor-pointer hover-elevate active-elevate-2 flex-shrink-0"
                   onClick={() => insertTagAtCursor('@restaurants')}
                   data-testid="badge-restaurants"
                 >
@@ -1286,7 +1734,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                         ))}
                       </div>
                       {keywordDetection.isGroupedExperience && (
-                        <p className="text-[10px] text-purple-600 dark:text-purple-400 mt-1.5">
+                        <p className="text-xs text-purple-600 dark:text-purple-400 mt-1.5">
                           Your entry will be saved to multiple categories for a complete memory
                         </p>
                       )}
@@ -1300,7 +1748,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,video/*"
+                accept="image/*,video/*,audio/*,.jpg,.jpeg,.png,.gif,.webp,.mp4,.webm,.mov,.avi,.mp3,.wav,.m4a,.aac,.ogg"
                 multiple
                 className="hidden"
                 onChange={(e) => {
@@ -1312,11 +1760,11 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
               <Button
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full"
+                className="w-full text-sm"
                 data-testid="button-upload-media"
               >
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Photos/Videos ({journalMedia.length} selected)
+                <Upload className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="truncate">Media ({journalMedia.length})</span>
               </Button>
               
               {journalMedia.length > 0 && (
@@ -1324,7 +1772,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                   {journalMedia.map((file, idx) => (
                     <div key={idx} className="relative">
                       <Badge variant="secondary" className="pr-6">
-                        {file.type.startsWith('video/') ? '🎥' : '📷'} {file.name.slice(0, 15)}...
+                        {file.type.startsWith('video/') ? '🎥' : file.type.startsWith('audio/') ? '🎵' : '📷'} {file.name.slice(0, 15)}...
                       </Badge>
                       <button
                         onClick={() => setJournalMedia(journalMedia.filter((_, i) => i !== idx))}
@@ -1349,18 +1797,20 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 <Button
                   onClick={() => submitJournalEntry.mutate()}
                   disabled={!journalText.trim() || isUploadingJournal}
-                  className="w-full bg-gradient-to-r from-purple-500 to-emerald-500 hover:from-purple-600 hover:to-emerald-600 text-white shadow-lg"
+                  className="w-full bg-gradient-to-r from-purple-500 to-emerald-500 hover:from-purple-600 hover:to-emerald-600 text-white shadow-lg text-sm"
                   data-testid="button-save-journal"
                 >
                   {isUploadingJournal ? (
                     <>
-                      <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
-                      Saving...
+                      <RefreshCcw className="h-4 w-4 mr-2 animate-spin flex-shrink-0" />
+                      <span className="hidden sm:inline">Saving...</span>
+                      <span className="sm:hidden">Save</span>
                     </>
                   ) : (
                     <>
-                      <Send className="h-4 w-4 mr-2" />
-                      Save Entry
+                      <Send className="h-4 w-4 mr-2 flex-shrink-0" />
+                      <span className="hidden sm:inline">Save Entry</span>
+                      <span className="sm:hidden">Save</span>
                     </>
                   )}
                 </Button>
@@ -1783,31 +2233,97 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           {currentSession && !currentSession.isComplete && (
             <>
               <Separator />
-              <div className="p-4">
-                <div className="flex gap-3">
+              <div className="p-4 space-y-2">
+                {/* URL/Document hint for Quick/Smart Plan */}
+                {(planningMode === 'quick' || planningMode === 'smart') && (
+                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
+                    <Link className="h-3 w-3" />
+                    <span>Paste a URL, upload a video/audio/document, or combine multiple sources</span>
+                  </div>
+                )}
+                
+                <div className="flex gap-2">
+                  {/* File Upload Button for Quick/Smart Plan */}
+                  {(planningMode === 'quick' || planningMode === 'smart') && (
+                    <>
+                      <input
+                        ref={plannerFileInputRef}
+                        type="file"
+                        accept=".txt,.md,.json,.html,.xml,.csv,.pdf,.docx,.jpg,.jpeg,.png,.gif,.webp,.mp4,.webm,.mov,.avi,.mp3,.wav,.m4a"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const maxSize = 25 * 1024 * 1024;
+                            if (file.size > maxSize) {
+                              toast({
+                                title: "File Too Large",
+                                description: `Maximum file size is 25MB. Your file is ${Math.round(file.size / 1024 / 1024)}MB.`,
+                                variant: "destructive",
+                                duration: 5000
+                              });
+                              if (plannerFileInputRef.current) {
+                                plannerFileInputRef.current.value = '';
+                              }
+                              return;
+                            }
+                            if (file.type.startsWith('video/') || file.type.startsWith('audio/')) {
+                              toast({
+                                title: file.type.startsWith('video/') ? "Transcribing Video..." : "Transcribing Audio...",
+                                description: "Extracting spoken content using AI transcription. This may take a moment.",
+                                duration: 5000
+                              });
+                            }
+                            handleDocumentUpload(file);
+                          }
+                        }}
+                        data-testid="input-document-upload"
+                      />
+                      <Button
+                        onClick={() => plannerFileInputRef.current?.click()}
+                        disabled={isLoadingCuratedQuestions || sendMessageMutation.isPending}
+                        size="icon"
+                        variant="outline"
+                        className="shrink-0"
+                        title="Upload video, audio, image, or document"
+                        data-testid="button-upload-document"
+                      >
+                        {isLoadingCuratedQuestions ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </>
+                  )}
+                  
                   <div className="flex-1 relative">
                     <Input
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
                       onPaste={handlePaste}
-                      placeholder={planningMode === 'quick' ? "Describe your goals and/or journal your life... or paste a ChatGPT conversation/screenshot!" : "Describe your goals and/or journal your life... or paste a ChatGPT conversation/screenshot!"}
-                      disabled={sendMessageMutation.isPending || isParsingPaste}
+                      placeholder={
+                        (planningMode === 'quick' || planningMode === 'smart')
+                          ? "Type your goal, paste a URL, or upload a document..."
+                          : "Describe your goals and/or journal your life... or paste a ChatGPT conversation/screenshot!"
+                      }
+                      disabled={sendMessageMutation.isPending || isParsingPaste || isLoadingCuratedQuestions}
                       className="w-full"
                       data-testid="input-message"
                     />
-                    {isParsingPaste && (
+                    {(isParsingPaste || isLoadingCuratedQuestions) && (
                       <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex items-center justify-center rounded-md">
                         <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                           <Sparkles className="h-4 w-4 animate-pulse" />
-                          <span>Analyzing pasted content...</span>
+                          <span>{isLoadingCuratedQuestions ? 'Analyzing content...' : 'Analyzing pasted content...'}</span>
                         </div>
                       </div>
                     )}
                   </div>
                   <Button
-                    onClick={handleSendMessage}
-                    disabled={!message.trim() || sendMessageMutation.isPending}
+                    onClick={handleMessageWithUrlDetection}
+                    disabled={!message.trim() || sendMessageMutation.isPending || isLoadingCuratedQuestions}
                     size="icon"
                     className={planningMode === 'quick' 
                       ? 'bg-emerald-500 hover:bg-emerald-600' 
@@ -2015,6 +2531,221 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
             >
               <Target className="h-4 w-4 mr-2" />
               Go to Dashboard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Curated Questions Dialog */}
+      <Dialog open={showCuratedQuestionsDialog} onOpenChange={setShowCuratedQuestionsDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-purple-500" />
+              Let's Personalize Your Plan
+            </DialogTitle>
+            <DialogDescription>
+              {contentSummary || "We've analyzed your content. Answer a few questions to create a personalized action plan."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-6">
+            {suggestedPlanTitle && (
+              <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
+                <p className="text-sm text-purple-800 dark:text-purple-200">
+                  <span className="font-medium">Suggested Plan:</span> {suggestedPlanTitle}
+                </p>
+              </div>
+            )}
+
+            {curatedQuestions.map((q, idx) => (
+              <div key={q.id} className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 text-xs font-semibold">
+                    {idx + 1}
+                  </span>
+                  {q.question}
+                  {q.required && <span className="text-red-500">*</span>}
+                </label>
+                
+                {q.type === 'text' && (
+                  <textarea
+                    className="w-full min-h-[80px] p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder={q.placeholder || "Type your answer..."}
+                    value={(curatedQuestionsAnswers[q.id] as string) || ''}
+                    onChange={(e) => setCuratedQuestionsAnswers(prev => ({
+                      ...prev,
+                      [q.id]: e.target.value
+                    }))}
+                    data-testid={`curated-question-${q.id}`}
+                  />
+                )}
+                
+                {q.type === 'select' && q.options && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {q.options.map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        className={`p-3 rounded-lg border text-sm text-left transition-all ${
+                          curatedQuestionsAnswers[q.id] === opt
+                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-600'
+                        }`}
+                        onClick={() => setCuratedQuestionsAnswers(prev => ({
+                          ...prev,
+                          [q.id]: opt
+                        }))}
+                        data-testid={`curated-option-${q.id}-${opt}`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                
+                {q.type === 'multiselect' && q.options && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {q.options.map((opt) => {
+                      const selectedValues = (curatedQuestionsAnswers[q.id] as string[]) || [];
+                      const isSelected = selectedValues.includes(opt);
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          className={`p-3 rounded-lg border text-sm text-left transition-all ${
+                            isSelected
+                              ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500'
+                              : 'border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-600'
+                          }`}
+                          onClick={() => {
+                            setCuratedQuestionsAnswers(prev => {
+                              const current = (prev[q.id] as string[]) || [];
+                              const updated = isSelected
+                                ? current.filter(v => v !== opt)
+                                : [...current, opt];
+                              return { ...prev, [q.id]: updated };
+                            });
+                          }}
+                          data-testid={`curated-multiselect-${q.id}-${opt}`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className={`w-4 h-4 rounded border flex items-center justify-center ${
+                              isSelected ? 'bg-purple-500 border-purple-500' : 'border-slate-300 dark:border-slate-600'
+                            }`}>
+                              {isSelected && <Check className="w-3 h-3 text-white" />}
+                            </span>
+                            {opt}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCuratedQuestionsDialog(false);
+                setCuratedQuestions([]);
+                setCuratedQuestionsAnswers({});
+                setExternalContent(null);
+              }}
+              disabled={generatePlanFromCuratedAnswers.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => generatePlanFromCuratedAnswers.mutate()}
+              disabled={generatePlanFromCuratedAnswers.isPending || curatedQuestions.some(q => 
+                q.required && !curatedQuestionsAnswers[q.id]
+              )}
+              className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
+            >
+              {generatePlanFromCuratedAnswers.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generating Plan...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate My Plan
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* URL Action Choice Dialog */}
+      <Dialog open={showUrlActionDialog} onOpenChange={setShowUrlActionDialog}>
+        <DialogContent className="max-w-md" data-testid="dialog-url-action-choice">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link className="h-5 w-5 text-blue-500" />
+              URL Content Detected
+            </DialogTitle>
+            <DialogDescription>
+              {pendingUrlData?.isVideoContent 
+                ? "This appears to be a video. What would you like to do?"
+                : "We found content from this URL. What would you like to do?"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-3">
+            <Button
+              className="w-full justify-start gap-3 h-14"
+              variant="outline"
+              onClick={() => {
+                setShowUrlActionDialog(false);
+                if (pendingUrlData && !pendingUrlData.isVideoContent) {
+                  processCuratedQuestionsFlow(pendingUrlData.content);
+                }
+              }}
+              disabled={pendingUrlData?.isVideoContent}
+              data-testid="button-create-plan-from-url"
+            >
+              <Sparkles className="h-5 w-5 text-purple-500" />
+              <div className="text-left">
+                <div className="font-medium">Create a Plan</div>
+                <div className="text-xs text-muted-foreground">Generate tasks and activities from this content</div>
+              </div>
+            </Button>
+            
+            <Button
+              className="w-full justify-start gap-3 h-14"
+              variant="outline"
+              onClick={() => saveToJournalOnlyMutation.mutate()}
+              disabled={saveToJournalOnlyMutation.isPending}
+              data-testid="button-save-to-journal-only"
+            >
+              {saveToJournalOnlyMutation.isPending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <BookOpen className="h-5 w-5 text-green-500" />
+              )}
+              <div className="text-left">
+                <div className="font-medium">Save to Journal Only</div>
+                <div className="text-xs text-muted-foreground">Bookmark this for later without creating tasks</div>
+              </div>
+            </Button>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowUrlActionDialog(false);
+                setPendingUrlData(null);
+                setExternalSourceUrl(null);
+              }}
+            >
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -10,6 +10,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { invalidateActivitiesCache } from '@/lib/cacheInvalidation';
 
 // Simple markdown formatter for Claude-style responses
 const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
@@ -88,10 +89,9 @@ interface VoiceInputProps {
   onSubmit: (data: any) => void;
   isGenerating?: boolean;
   placeholder?: string;
-  onOpenJournalMode?: () => void;
 }
 
-const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "Describe your goals and/or journal your life...", onOpenJournalMode }) => {
+const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false, placeholder = "Plan your goals or paste URL to journal..." }) => {
   const [text, setText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -107,6 +107,15 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
   const [modificationText, setModificationText] = useState('');
   const [conversationProgress, setConversationProgress] = useState<{ progress: number; phase: string; domain: string } | null>(null);
   const [createdActivityId, setCreatedActivityId] = useState<string | null>(null);
+  
+  // URL detection and curated questions state - now conversational flow (no popup dialog)
+  const [isLoadingCuratedQuestions, setIsLoadingCuratedQuestions] = useState(false);
+  const [curatedQuestions, setCuratedQuestions] = useState<Array<{ id: string; question: string; type: 'text' | 'choice'; choices?: string[] }>>([]);
+  const [curatedQuestionsContent, setCuratedQuestionsContent] = useState<string>('');
+  const [curatedAnswers, setCuratedAnswers] = useState<Record<string, string>>({});
+  const [curatedQuestionsMode, setCuratedQuestionsMode] = useState<'quick' | 'smart'>('quick');
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
+  const [isInCuratedFlow, setIsInCuratedFlow] = useState(false);
 
   const recognitionRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -318,9 +327,172 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     createPlanMutation.mutate();
   };
 
-  const startConversationWithMode = (mode: 'quick' | 'smart') => {
+  // URL Detection Helper
+  const detectUrlInMessage = (inputText: string): string | null => {
+    const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/gi;
+    const match = inputText.match(urlRegex);
+    return match ? match[0] : null;
+  };
+
+  // Fetch URL content
+  const fetchUrlContent = async (url: string): Promise<string> => {
+    const response = await fetch('/api/parse-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch URL');
+    return data.content || '';
+  };
+
+  // Process curated questions flow - now uses conversational chat format instead of popup dialog
+  const processCuratedQuestionsFlow = async (content: string, mode: 'quick' | 'smart') => {
+    try {
+      const response = await apiRequest('POST', '/api/planner/generate-curated-questions', {
+        externalContent: content,
+        mode
+      });
+      const data = await response.json();
+      
+      if (data.questions && data.questions.length > 0) {
+        // Store questions and content for the conversational flow
+        setCuratedQuestions(data.questions);
+        setCuratedQuestionsContent(content);
+        setCuratedQuestionsMode(mode);
+        setCuratedAnswers({});
+        setCurrentQuestionIndex(0);
+        setIsInCuratedFlow(true);
+        
+        // Add intro message with content summary and first question in chat
+        const introMessage = data.contentSummary 
+          ? `**I've analyzed the content!** ${data.contentSummary}\n\nLet me ask you a few questions to personalize your ${mode === 'quick' ? 'Quick' : 'Smart'} Plan:\n\n**Question 1:** ${data.questions[0].question}`
+          : `**Content analyzed!** Let me ask you a few questions to personalize your ${mode === 'quick' ? 'Quick' : 'Smart'} Plan:\n\n**Question 1:** ${data.questions[0].question}`;
+        
+        setChatMessages(prev => [...prev.filter(m => !m.content.includes('Analyzing')), {
+          role: 'assistant',
+          content: introMessage,
+          timestamp: new Date()
+        }]);
+      } else {
+        toast({
+          title: "No Questions Generated",
+          description: "Couldn't generate questions from this content. Try a different URL.",
+          variant: "destructive"
+        });
+        setIsInCuratedFlow(false);
+      }
+    } catch (error) {
+      console.error('Failed to generate curated questions:', error);
+      toast({
+        title: "Question Generation Error",
+        description: "Failed to analyze the content. Please try again.",
+        variant: "destructive"
+      });
+      setIsInCuratedFlow(false);
+    } finally {
+      setIsLoadingCuratedQuestions(false);
+    }
+  };
+
+  // Handle curated answer in conversational chat flow
+  const handleCuratedAnswerInChat = async (answer: string) => {
+    if (!isInCuratedFlow || curatedQuestions.length === 0) return;
+    
+    const currentQuestion = curatedQuestions[currentQuestionIndex];
+    if (!currentQuestion) return;
+    
+    // Store the answer
+    const newAnswers = { ...curatedAnswers, [currentQuestion.id]: answer };
+    setCuratedAnswers(newAnswers);
+    
+    // Add user's answer to chat
+    setChatMessages(prev => [...prev, {
+      role: 'user',
+      content: answer,
+      timestamp: new Date()
+    }]);
+    
+    const nextIndex = currentQuestionIndex + 1;
+    
+    if (nextIndex < curatedQuestions.length) {
+      // More questions to ask
+      setCurrentQuestionIndex(nextIndex);
+      const nextQuestion = curatedQuestions[nextIndex];
+      
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `**Question ${nextIndex + 1}:** ${nextQuestion.question}`,
+        timestamp: new Date()
+      }]);
+    } else {
+      // All questions answered - generate the plan
+      setIsInCuratedFlow(false);
+      setIsLoadingCuratedQuestions(true);
+      
+      // Show generating message
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `**Great!** Generating your personalized ${curatedQuestionsMode === 'quick' ? 'Quick' : 'Smart'} Plan based on your answers...`,
+        timestamp: new Date()
+      }]);
+      
+      // Build userAnswers object from questions and answers
+      const userAnswers: Record<string, string> = {};
+      curatedQuestions.forEach(q => {
+        userAnswers[q.question] = newAnswers[q.id] || '';
+      });
+      
+      try {
+        const response = await apiRequest('POST', '/api/planner/generate-plan-from-content', {
+          externalContent: curatedQuestionsContent,
+          userAnswers,
+          mode: curatedQuestionsMode
+        });
+        const data = await response.json();
+        
+        if (data.success && data.activity) {
+          // Remove generating message and add final plan
+          setChatMessages(prev => [...prev.filter(m => !m.content.includes('Generating your personalized')), {
+            role: 'assistant',
+            content: `**Your Personalized ${curatedQuestionsMode === 'quick' ? 'Quick' : 'Smart'} Plan Created!**\n\n**${data.activity.title}**\n\n${data.createdTasks?.map((t: any, i: number) => `${i + 1}. **${t.title}**: ${t.description || ''}`).join('\n') || 'Plan created successfully!'}`,
+            timestamp: new Date(),
+            createdActivity: { id: data.activity.id, title: data.activity.title }
+          }]);
+          
+          queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+          toast({
+            title: "Plan Created!",
+            description: `Your personalized plan "${data.activity.title}" has been created with ${data.createdTasks?.length || 0} tasks.`
+          });
+        } else if (data.requiresAuth) {
+          toast({
+            title: "Sign In Required",
+            description: data.message || "Please sign in to save your plan.",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error('Failed to generate plan from answers:', error);
+        toast({
+          title: "Plan Generation Error",
+          description: "Failed to create the plan. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoadingCuratedQuestions(false);
+        setCuratedQuestions([]);
+        setCuratedQuestionsContent('');
+        setCuratedAnswers({});
+        setCurrentQuestionIndex(0);
+      }
+    }
+  };
+
+  const startConversationWithMode = async (mode: 'quick' | 'smart') => {
     // Prevent duplicate requests on rapid clicks
-    if (chatMutation.isPending) return;
+    if (chatMutation.isPending || isLoadingCuratedQuestions) return;
     
     // Toggle: if clicking the same mode again, deselect it
     if (currentMode === mode) {
@@ -329,16 +501,47 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     } else {
       setCurrentMode(mode);
       
-      // Check if user already typed something - if yes, use that as first message
+      // Check if user already typed something - if yes, check for URL first
       if (text.trim()) {
         const userMessage = text.trim();
-        setText(''); // Clear input immediately
-        chatMutation.mutate({ message: userMessage, mode }); // Send user's pre-typed message with explicit mode
+        const detectedUrl = detectUrlInMessage(userMessage);
+        
+        // If URL detected, trigger curated questions flow
+        if (detectedUrl) {
+          setText(''); // Clear input
+          setIsLoadingCuratedQuestions(true);
+          
+          // Show loading message in chat
+          setChatMessages([{
+            role: 'assistant',
+            content: `**${mode === 'quick' ? 'Quick' : 'Smart'} Plan activated!** Analyzing the URL content to generate personalized questions for you...`,
+            timestamp: new Date()
+          }]);
+          
+          try {
+            const content = await fetchUrlContent(detectedUrl);
+            await processCuratedQuestionsFlow(content, mode);
+          } catch (error) {
+            console.error('URL processing error:', error);
+            toast({
+              title: "URL Error",
+              description: "Couldn't fetch the URL content. Try pasting the content directly.",
+              variant: "destructive"
+            });
+            setIsLoadingCuratedQuestions(false);
+            // Fall back to regular chat flow
+            chatMutation.mutate({ message: userMessage, mode });
+          }
+        } else {
+          // No URL - use regular chat flow
+          setText(''); // Clear input immediately
+          chatMutation.mutate({ message: userMessage, mode }); // Send user's pre-typed message with explicit mode
+        }
       } else {
         // No pre-typed text - show welcome message
         const welcomeMessage = mode === 'quick' 
-          ? "**Quick Plan activated!** Let's create your action plan quickly. What would you like to accomplish?"
-          : "**Smart Plan activated!** I'll help you create a comprehensive action plan. What's your goal?";
+          ? "**Quick Plan activated!** Let's create your action plan quickly. What would you like to accomplish? You can also paste a URL to get personalized questions!"
+          : "**Smart Plan activated!** I'll help you create a comprehensive action plan. What's your goal? You can also paste a URL for a personalized experience!";
         
         setChatMessages([{
           role: 'assistant',
@@ -350,14 +553,59 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
     setShowCreatePlanButton(false);
   };
 
+  // Handle URL detection and message sending
+  const handleMessageWithUrlDetection = async () => {
+    if (!text.trim() || !currentMode) return;
+    
+    const userMessage = text.trim();
+    const detectedUrl = detectUrlInMessage(userMessage);
+    
+    // If URL detected in Quick/Smart mode, trigger curated questions flow
+    if (detectedUrl) {
+      setText('');
+      setIsLoadingCuratedQuestions(true);
+      
+      // Add user message to chat
+      setChatMessages(prev => [...prev, {
+        role: 'user',
+        content: userMessage,
+        timestamp: new Date()
+      }]);
+      
+      // Add processing message
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Analyzing the URL content to generate personalized questions for you...',
+        timestamp: new Date()
+      }]);
+      
+      try {
+        const content = await fetchUrlContent(detectedUrl);
+        await processCuratedQuestionsFlow(content, currentMode);
+      } catch (error) {
+        console.error('URL processing error:', error);
+        toast({
+          title: "URL Error",
+          description: "Couldn't fetch the URL content. Sending as regular message.",
+          variant: "destructive"
+        });
+        setIsLoadingCuratedQuestions(false);
+        // Fall back to regular chat
+        chatMutation.mutate({ message: userMessage, mode: currentMode });
+      }
+    } else {
+      // No URL - regular chat flow
+      setText('');
+      chatMutation.mutate({ message: userMessage, mode: currentMode });
+    }
+  };
+
   const handleSubmit = () => {
     if (!text.trim()) return;
     
-    // If in conversation mode, start the chat dialogue
+    // If in conversation mode, use URL detection
     if (currentMode) {
-      // Send the user's initial message directly - backend will handle welcome and response
-      chatMutation.mutate({ message: text.trim(), mode: currentMode });
-      setText('');
+      handleMessageWithUrlDetection();
       return;
     }
     
@@ -375,9 +623,8 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
         // Start conversation with welcome message (same as submit button)
         handleSubmit();
       } else if (currentMode) {
-        if (text.trim() && !chatMutation.isPending) {
-          chatMutation.mutate({ message: text.trim(), mode: currentMode });
-          setText('');
+        if (text.trim() && !chatMutation.isPending && !isLoadingCuratedQuestions) {
+          handleMessageWithUrlDetection();
         }
       } else if (!isGenerating) {
         handleSubmit();
@@ -583,15 +830,17 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
 
       return { activity, tasks: createdTasks, activityId };
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data) {
         setCreatedActivityId(data.activityId);
       }
       setShowParsedContent(false);
       setParsedLLMContent(null);
       setModificationText('');
-      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+
+      // Use centralized invalidation (activities, tasks, progress)
+      await invalidateActivitiesCache();
+
       toast({
         title: "Content Imported!",
         description: data?.activityId && createdActivityId
@@ -677,19 +926,8 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                             className="gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white"
                             data-testid="button-view-activity"
                             onClick={() => {
-                              // Exit conversation mode and switch to activities tab
-                              setChatMessages([]);
-                              setCurrentMode(null);
-                              setShowCreatePlanButton(false);
-                              setTimeout(() => {
-                                const tabsElement = document.querySelector('[data-testid="tab-activities"]') as HTMLElement;
-                                tabsElement?.click();
-                                // Scroll to top of main content
-                                const mainContent = document.querySelector('main');
-                                if (mainContent) {
-                                  mainContent.scrollTo({ top: 0, behavior: 'smooth' });
-                                }
-                              }, 100);
+                              // Navigate directly to the activity
+                              window.location.href = `/?activity=${message.createdActivity!.id}&tab=activities`;
                             }}
                           >
                             <Target className="w-4 h-4" />
@@ -769,12 +1007,18 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                 size="icon"
                 variant="ghost"
                 onClick={() => {
-                  if (text.trim() && !chatMutation.isPending) {
-                    chatMutation.mutate({ message: text.trim(), mode: currentMode });
-                    setText('');
+                  if (text.trim() && !chatMutation.isPending && !isLoadingCuratedQuestions) {
+                    if (isInCuratedFlow) {
+                      // Handle curated question answer in conversational flow
+                      handleCuratedAnswerInChat(text.trim());
+                      setText('');
+                    } else {
+                      chatMutation.mutate({ message: text.trim(), mode: currentMode });
+                      setText('');
+                    }
                   }
                 }}
-                disabled={!text.trim() || chatMutation.isPending}
+                disabled={!text.trim() || chatMutation.isPending || isLoadingCuratedQuestions}
                 className="absolute right-2 bottom-2 h-8 w-8 rounded-md hover-elevate"
                 data-testid="button-send-message"
               >
@@ -791,6 +1035,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
             </div>
           </div>
         </div>
+
       </div>
     );
   }
@@ -866,13 +1111,100 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                     <input
                       type="file"
                       ref={fileInputRef}
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files || []);
-                        setUploadedImages(prev => [...prev, ...files]);
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        
+                        // Check if file is an image for traditional flow, or document for curated questions flow
+                        const isImage = file.type.startsWith('image/');
+                        const isDocument = [
+                          'application/pdf',
+                          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                          'text/plain',
+                          'text/markdown',
+                          'text/csv',
+                          'application/json'
+                        ].includes(file.type);
+                        
+                        if (isDocument || isImage) {
+                          // Use curated questions flow for documents AND images
+                          setIsLoadingCuratedQuestions(true);
+                          
+                          try {
+                            const formData = new FormData();
+                            formData.append('document', file);
+                            
+                            const response = await fetch('/api/upload/document', {
+                              method: 'POST',
+                              body: formData
+                            });
+                            
+                            if (!response.ok) {
+                              const error = await response.json();
+                              throw new Error(error.error || 'Failed to upload document');
+                            }
+                            
+                            const { content, type: docType } = await response.json();
+                            
+                            // Now generate curated questions based on the document content
+                            const questionsResponse = await fetch('/api/planner/generate-curated-questions', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ 
+                                externalContent: content, 
+                                mode: 'smart'
+                              })
+                            });
+                            
+                            if (!questionsResponse.ok) {
+                              throw new Error('Failed to generate questions');
+                            }
+                            
+                            const questionsData = await questionsResponse.json();
+                            
+                            // Use conversational flow for document-based curated questions
+                            if (questionsData.questions && questionsData.questions.length > 0) {
+                              setCuratedQuestions(questionsData.questions);
+                              setCuratedQuestionsContent(content);
+                              setCuratedQuestionsMode('smart');
+                              setCuratedAnswers({});
+                              setCurrentQuestionIndex(0);
+                              setIsInCuratedFlow(true);
+                              setCurrentMode('smart');
+                              
+                              // Add intro message with first question
+                              const introMessage = questionsData.contentSummary 
+                                ? `**I've analyzed your ${docType === 'image' ? 'image' : 'document'}!** ${questionsData.contentSummary}\n\nLet me ask you a few questions to personalize your Smart Plan:\n\n**Question 1:** ${questionsData.questions[0].question}`
+                                : `**${docType === 'image' ? 'Image' : 'Document'} analyzed!** Let me ask you a few questions to personalize your Smart Plan:\n\n**Question 1:** ${questionsData.questions[0].question}`;
+                              
+                              setChatMessages([{
+                                role: 'assistant',
+                                content: introMessage,
+                                timestamp: new Date()
+                              }]);
+                            }
+                            
+                            toast({
+                              title: docType === 'image' ? "Image Analyzed!" : "Document Processed!",
+                              description: "Answer the questions in the chat to create your personalized plan.",
+                            });
+                          } catch (error) {
+                            console.error('Document processing error:', error);
+                            toast({
+                              title: "Processing Error",
+                              description: error instanceof Error ? error.message : "Failed to process document",
+                              variant: "destructive"
+                            });
+                          } finally {
+                            setIsLoadingCuratedQuestions(false);
+                            // Reset file input
+                            e.target.value = '';
+                          }
+                        }
                       }}
-                      accept="image/*"
-                      multiple
+                      accept=".pdf,.docx,.txt,.md,.csv,.json,.jpg,.jpeg,.png,.gif,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv,application/json,image/*"
                       className="hidden"
+                      data-testid="input-file-upload"
                     />
                   </div>
 
@@ -928,18 +1260,6 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                       <Brain className="w-3.5 h-3.5 flex-shrink-0" />
                       <span className="text-xs font-medium">Smart Plan</span>
                     </Button>
-                    {onOpenJournalMode && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={onOpenJournalMode}
-                        className="gap-1.5 px-3 py-1.5 bg-pink-600/5 border-pink-600/40 text-pink-700 dark:text-pink-400 dark:bg-pink-900/10 dark:border-pink-600/40"
-                        data-testid="button-journal-mode"
-                      >
-                        <BookOpen className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="text-xs font-medium">Journal</span>
-                      </Button>
-                    )}
                   </div>
                   
                   <Button
