@@ -10,7 +10,7 @@ import VoiceInput from '@/components/VoiceInput';
 import LiveChatInterface from '@/components/LiveChatInterface';
 import TaskCard from '@/components/TaskCard';
 import ProgressDashboard from '@/components/ProgressDashboard';
-import ClaudePlanOutput from '@/components/ClaudePlanOutput';
+import ClaudePlanOutput, { type ClaudePlanCommandRef } from '@/components/ClaudePlanOutput';
 import ThemeSelector from '@/components/ThemeSelector';
 import LocationDatePlanner from '@/components/LocationDatePlanner';
 import PersonalJournal from '@/components/PersonalJournal';
@@ -29,10 +29,10 @@ import RecentGoals from './RecentGoals';
 import ProgressReport from './ProgressReport';
 import { SocialLogin } from '@/components/SocialLogin';
 import { SignInPromptModal } from '@/components/SignInPromptModal';
-import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2, Circle, UserPlus, Globe2, Link2 } from 'lucide-react';
+import { Sparkles, Target, BarChart3, CheckSquare, Mic, Plus, RefreshCw, Upload, MessageCircle, Download, Copy, Users, Heart, Dumbbell, Briefcase, TrendingUp, BookOpen, Mountain, Activity, Menu, Bell, Calendar, Share, Contact, MessageSquare, Brain, Lightbulb, History, Music, Instagram, Facebook, Youtube, Star, Share2, MoreHorizontal, Check, Clock, X, Trash2, ArrowLeft, ArrowRight, Archive, Plug, Info, LogIn, Lock, Unlock, Eye, Edit, CheckCircle2, Circle, UserPlus, UserMinus, Globe2, Link2, ClipboardPaste, FileText, Image, Video, Link as LinkIcon, Loader2, Zap } from 'lucide-react';
 import DiscoverPlansView from '@/components/discover/DiscoverPlansView';
 import { Link } from 'wouter';
-import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX } from 'react-icons/si';
+import { SiOpenai, SiClaude, SiPerplexity, SiSpotify, SiApplemusic, SiYoutubemusic, SiFacebook, SiInstagram, SiX, SiTiktok, SiYoutube, SiReddit, SiAnthropic, SiGooglegemini } from 'react-icons/si';
 import { type Task, type Activity as ActivityType, type ChatImport } from '@shared/schema';
 import { formatDistanceToNow } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
@@ -50,6 +50,8 @@ import SmartScheduler from '@/components/SmartScheduler';
 import CelebrationModal from '@/components/CelebrationModal';
 import OnboardingTutorial from '@/components/OnboardingTutorial';
 import { UpgradeModal } from '@/components/UpgradeModal';
+import { ProBadge } from '@/components/ProBadge';
+import { useImportQueue } from '@/hooks/useImportQueue';
 import Confetti from 'react-confetti';
 
 interface ProgressData {
@@ -139,6 +141,15 @@ export default function MainApp({
   
   // Ref to track activityId to prevent race conditions during refinements
   const activityIdRef = useRef<string | undefined>(undefined);
+
+  // Import queue for handling pasted content
+  const importQueue = useImportQueue();
+
+  // Ref to track import source URL for auto-journaling
+  const importSourceUrlRef = useRef<string | undefined>(undefined);
+
+  // Ref for ClaudePlanOutput commands (for natural language control)
+  const planCommandRef = useRef<ClaudePlanCommandRef>(null);
 
   // Activity selection and delete dialog state
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
@@ -274,6 +285,57 @@ export default function MainApp({
     setActiveTab('tasks');
   };
 
+  // Natural language command parser for plan control
+  // Returns true if command was handled, false if should proceed to goal processing
+  const handlePlanCommand = (text: string): boolean => {
+    if (!currentPlanOutput || !planCommandRef.current) return false;
+
+    const lowerText = text.toLowerCase().trim();
+
+    // Journal commands: "journal this", "save to journal", "add to journal"
+    if (/\b(journal\s*this|save\s*(to\s*)?(my\s*)?journal|add\s*(to\s*)?(my\s*)?journal)\b/.test(lowerText)) {
+      planCommandRef.current.saveToJournal();
+      toast({
+        title: "Saving to Journal",
+        description: "Adding plan items to your personal journal...",
+      });
+      return true;
+    }
+
+    // Budget filter commands: "fit my budget", "match budget", "budget filter", "filter by budget"
+    if (/\b(fit\s*(my\s*)?budget|match\s*budget|budget\s*filter|filter\s*(by\s*)?budget|within\s*budget)\b/.test(lowerText)) {
+      planCommandRef.current.toggleBudgetFilter();
+      const state = planCommandRef.current.getState();
+      toast({
+        title: state.matchBudgetFilter ? "Budget Filter Disabled" : "Budget Filter Enabled",
+        description: state.matchBudgetFilter ? "Showing all alternatives" : "Filtering alternatives to match your budget",
+      });
+      return true;
+    }
+
+    // Expand alternatives commands: "show alternatives", "see alternatives", "see other options", "view alternatives"
+    if (/\b(show\s*alternatives|see\s*alternatives|see\s*other\s*options|view\s*alternatives|expand\s*alternatives)\b/.test(lowerText)) {
+      planCommandRef.current.expandAllAlternatives();
+      toast({
+        title: "Alternatives Expanded",
+        description: "Showing alternative options for all tasks",
+      });
+      return true;
+    }
+
+    // Collapse alternatives commands: "hide alternatives", "close alternatives", "collapse alternatives"
+    if (/\b(hide\s*alternatives|close\s*alternatives|collapse\s*alternatives)\b/.test(lowerText)) {
+      planCommandRef.current.collapseAllAlternatives();
+      toast({
+        title: "Alternatives Hidden",
+        description: "Alternative options collapsed",
+      });
+      return true;
+    }
+
+    return false;
+  };
+
   // Helper functions for group activity feed
   const getActivityIcon = (activityType: string) => {
     switch (activityType) {
@@ -285,6 +347,8 @@ export default function MainApp({
         return <Share2 className="w-5 h-5 text-purple-400" />;
       case "member_joined":
         return <UserPlus className="w-5 h-5 text-primary" />;
+      case "member_left":
+        return <UserMinus className="w-5 h-5 text-muted-foreground" />;
       default:
         return <Users className="w-5 h-5 text-muted-foreground" />;
     }
@@ -300,6 +364,8 @@ export default function MainApp({
         return "bg-purple-500/10 border-purple-500/20";
       case "member_joined":
         return "bg-primary/10 border-primary/20";
+      case "member_left":
+        return "bg-muted/50 border-muted-foreground/20";
       default:
         return "bg-background/40 border-border/50";
     }
@@ -333,6 +399,12 @@ export default function MainApp({
         return (
           <>
             <span className="font-medium">{userName}</span> joined the group
+          </>
+        );
+      case "member_left":
+        return (
+          <>
+            <span className="font-medium">{userName}</span> left the group
           </>
         );
       default:
@@ -1310,7 +1382,12 @@ export default function MainApp({
                   <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
                 </div>
                 <div>
-                  <h1 className="text-lg sm:text-2xl font-bold text-foreground">JournalMate</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-lg sm:text-2xl font-bold text-foreground">JournalMate</h1>
+                    {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
+                      <ProBadge size="sm" variant="compact" />
+                    )}
+                  </div>
                   <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                     {currentPlanOutput ? "AI Action Plan Active" : "Transform Goals into Reality"}
                   </p>
