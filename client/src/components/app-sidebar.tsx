@@ -20,6 +20,7 @@ import { Link } from 'wouter';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SocialLogin } from '@/components/SocialLogin';
 import ProfileSettingsModal from '@/components/ProfileSettingsModal';
+import { ProBadge } from '@/components/ProBadge';
 import NotificationManager from '@/components/NotificationManager';
 import SmartScheduler from '@/components/SmartScheduler';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -548,9 +549,14 @@ export function AppSidebar({
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium truncate">
+                            {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email}
+                          </p>
+                          {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
+                            <ProBadge size="sm" variant="full" />
+                          )}
+                        </div>
                         {user.firstName && user.email && (
                           <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                         )}

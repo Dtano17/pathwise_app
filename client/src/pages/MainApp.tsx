@@ -1385,7 +1385,7 @@ export default function MainApp({
                   <div className="flex items-center gap-2">
                     <h1 className="text-lg sm:text-2xl font-bold text-foreground">JournalMate</h1>
                     {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
-                      <ProBadge size="sm" variant="compact" />
+                      <ProBadge size="md" variant="full" />
                     )}
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">

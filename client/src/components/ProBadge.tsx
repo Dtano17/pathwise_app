@@ -24,10 +24,9 @@ export function ProBadge({ className, size = 'sm', variant = 'compact' }: ProBad
     <div
       className={cn(
         'inline-flex items-center justify-center font-bold rounded-md',
-        'bg-gradient-to-r from-purple-600 to-emerald-600',
+        'bg-emerald-500',
         'text-white',
-        'relative',
-        'pro-badge-neon',
+        'shadow-sm',
         sizeClasses[size],
         className
       )}
