@@ -445,3 +445,27 @@ body, html {
     padding-right: 1.5rem;
   }
 }
+
+/* PRO Badge Neon Glow Effect */
+.pro-badge-neon {
+  box-shadow: 
+    0 0 8px rgba(139, 92, 246, 0.5),
+    0 0 16px rgba(16, 185, 129, 0.4),
+    0 0 24px rgba(139, 92, 246, 0.3);
+  animation: pro-badge-pulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes pro-badge-pulse {
+  0% {
+    box-shadow: 
+      0 0 8px rgba(139, 92, 246, 0.5),
+      0 0 16px rgba(16, 185, 129, 0.4),
+      0 0 24px rgba(139, 92, 246, 0.3);
+  }
+  100% {
+    box-shadow: 
+      0 0 12px rgba(139, 92, 246, 0.6),
+      0 0 20px rgba(16, 185, 129, 0.5),
+      0 0 30px rgba(139, 92, 246, 0.4);
+  }
+}
