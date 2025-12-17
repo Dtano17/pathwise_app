@@ -22,6 +22,10 @@ import {
   type InsertNotificationPreferences,
   type TaskReminder,
   type InsertTaskReminder,
+  type ActivityReminder,
+  type InsertActivityReminder,
+  type DeviceToken,
+  type InsertDeviceToken,
   type SchedulingSuggestion,
   type InsertSchedulingSuggestion,
   type AuthIdentity,
@@ -65,8 +69,23 @@ import {
   type InsertGroupActivity,
   type GroupActivityFeedItem,
   type InsertGroupActivityFeedItem,
+  type ShareLink,
+  type InsertShareLink,
   type ActivityReport,
   type InsertActivityReport,
+  type UserNotification,
+  type JournalTemplate,
+  type InsertJournalTemplate,
+  type AiPlanImport,
+  type InsertAiPlanImport,
+  type ExtensionToken,
+  type InsertExtensionToken,
+  type UrlContentCache,
+  type InsertUrlContentCache,
+  type UserSavedContent,
+  type InsertUserSavedContent,
+  type ContentImport,
+  type InsertContentImport,
   users,
   goals,
   tasks,
@@ -76,6 +95,8 @@ import {
   priorities,
   notificationPreferences,
   taskReminders,
+  activityReminders,
+  deviceTokens,
   schedulingSuggestions,
   authIdentities,
   externalOAuthTokens,
@@ -97,7 +118,15 @@ import {
   groupMemberships,
   groupActivities,
   groupActivityFeed,
-  activityReports
+  shareLinks,
+  activityReports,
+  userNotifications,
+  journalTemplates,
+  aiPlanImports,
+  extensionTokens,
+  urlContentCache,
+  userSavedContent,
+  contentImports
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -114,6 +143,8 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByStripeSubscriptionId(subscriptionId: string): Promise<User | undefined>;
+  getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
   createUser(userData: Omit<InsertUser, 'id' | 'createdAt' | 'updatedAt'>): Promise<User>;
   updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
@@ -128,6 +159,7 @@ export interface IStorage {
 
   // Tasks
   createTask(task: InsertTask & { userId: string }): Promise<Task>;
+  getTask(taskId: string, userId: string): Promise<Task | undefined>;
   getUserTasks(userId: string): Promise<Task[]>;
   updateTask(taskId: string, updates: Partial<Task>, userId: string): Promise<Task | undefined>;
   completeTask(taskId: string, userId: string): Promise<Task | undefined>;
@@ -142,16 +174,26 @@ export interface IStorage {
   getActivityById(activityId: string): Promise<Activity | undefined>;
   getActivityByShareToken(shareToken: string): Promise<Activity | undefined>;
   getExistingCopyByShareToken(userId: string, shareToken: string): Promise<Activity | undefined>;
+  
+  // Share Links (permanent links with snapshots)
+  createShareLink(shareLink: InsertShareLink & { shareToken: string; userId: string }): Promise<ShareLink>;
+  getShareLink(shareToken: string): Promise<ShareLink | undefined>;
+  updateShareLinkSnapshot(shareToken: string, snapshotData: any, activityUpdatedAt: Date): Promise<ShareLink | undefined>;
+  markShareLinkActivityDeleted(shareToken: string): Promise<ShareLink | undefined>;
+  incrementShareLinkViewCount(shareToken: string): Promise<void>;
+  incrementShareLinkCopyCount(shareToken: string): Promise<void>;
+  
   updateActivity(activityId: string, updates: Partial<Activity>, userId: string): Promise<Activity | undefined>;
   deleteActivity(activityId: string, userId: string): Promise<void>;
   archiveActivity(activityId: string, userId: string): Promise<Activity | undefined>;
   getPublicActivities(limit?: number): Promise<Activity[]>;
-  generateShareableLink(activityId: string, userId: string): Promise<string | null>;
+  generateShareableLink(activityId: string, userId: string, groupId?: string): Promise<string | null>;
   
   // Activity Tasks
   addTaskToActivity(activityId: string, taskId: string, order?: number): Promise<ActivityTask>;
   getActivityTasks(activityId: string, userId: string): Promise<Task[]>;
   getTasksByActivity(activityId: string, userId: string): Promise<Task[]>; // Alias for getActivityTasks
+  getActivityTasksForTask(taskId: string): Promise<ActivityTask[]>; // Get all activity-task links for a given task
   removeTaskFromActivity(activityId: string, taskId: string): Promise<void>;
   updateActivityTaskOrder(activityId: string, taskId: string, order: number): Promise<void>;
 
@@ -212,6 +254,12 @@ export interface IStorage {
   getUserNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
   createNotificationPreferences(prefs: InsertNotificationPreferences & { userId: string }): Promise<NotificationPreferences>;
   updateNotificationPreferences(userId: string, updates: Partial<NotificationPreferences>): Promise<NotificationPreferences | undefined>;
+  getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>; // Alias for getUserNotificationPreferences
+  
+  // User Notifications (in-app notifications)
+  createUserNotification(notification: { userId: string; sourceGroupId: string | null; actorUserId: string | null; type: string; title: string; body: string | null; metadata: any }): Promise<any>;
+  getUserNotifications(userId: string, limit?: number): Promise<any[]>;
+  markNotificationRead(notificationId: string, userId: string): Promise<void>;
 
   // Task Reminders
   createTaskReminder(reminder: InsertTaskReminder & { userId: string }): Promise<TaskReminder>;
@@ -219,6 +267,23 @@ export interface IStorage {
   getPendingReminders(): Promise<TaskReminder[]>;
   markReminderSent(reminderId: string): Promise<void>;
   deleteTaskReminder(reminderId: string, userId: string): Promise<void>;
+
+  // Activity Reminders (for plan notifications)
+  createActivityReminder(reminder: InsertActivityReminder & { userId: string }): Promise<ActivityReminder>;
+  getActivityReminders(activityId: string): Promise<ActivityReminder[]>;
+  getUserActivityReminders(userId: string): Promise<ActivityReminder[]>;
+  getPendingActivityReminders(beforeTime: Date): Promise<ActivityReminder[]>;
+  markActivityReminderSent(reminderId: string): Promise<void>;
+  deleteActivityReminders(activityId: string): Promise<void>;
+  getUpcomingActivitiesForReminders(beforeDate: Date): Promise<Activity[]>;
+
+  // Device Tokens (for push notifications)
+  upsertDeviceToken(userId: string, token: InsertDeviceToken): Promise<DeviceToken>;
+  getUserDeviceTokens(userId: string): Promise<DeviceToken[]>;
+  getDeviceTokenByToken(token: string): Promise<DeviceToken | undefined>;
+  deleteDeviceToken(token: string, userId: string): Promise<void>;
+  deactivateDeviceToken(token: string): Promise<void>;
+  updateDeviceTokenActivity(token: string): Promise<void>;
 
   // Scheduling Suggestions
   createSchedulingSuggestion(suggestion: InsertSchedulingSuggestion & { userId: string }): Promise<SchedulingSuggestion>;
@@ -271,6 +336,10 @@ export interface IStorage {
   getUserPreferences(userId: string): Promise<UserPreferences | undefined>;
   upsertUserPreferences(userId: string, preferences: InsertUserPreferences): Promise<UserPreferences>;
   deleteUserPreferences(userId: string): Promise<void>;
+  
+  // Complete User Deletion (Admin only)
+  deleteCompleteUser(userId: string): Promise<void>;
+  deleteCompleteUserByEmail(email: string): Promise<void>;
   
   // Planner Profiles (for community plan verification)
   getPlannerProfile(userId: string): Promise<PlannerProfile | undefined>;
@@ -338,7 +407,69 @@ export interface IStorage {
   getGroupActivityFeed(groupId: string, limit?: number): Promise<GroupActivityFeedItem[]>;
   logGroupActivity(feedItem: InsertGroupActivityFeedItem): Promise<GroupActivityFeedItem>;
   getGroupActivityByTaskId(taskId: string): Promise<GroupActivity | null>;
+  getGroupActivityById(groupActivityId: string): Promise<GroupActivity | null>;
   logActivityChange(change: { groupActivityId: string; userId: string; changeType: string; changeDescription: string }): Promise<void>;
+  getMemberProgressForGroupActivity(groupActivityId: string): Promise<Array<{ userId: string; username: string; totalTasks: number; completedTasks: number }>>;
+
+  // Journal Templates
+  getUserJournalTemplates(userId: string): Promise<JournalTemplate[]>;
+  createJournalTemplate(template: InsertJournalTemplate): Promise<JournalTemplate>;
+  updateJournalTemplate(templateId: string, userId: string, updates: Partial<InsertJournalTemplate>): Promise<JournalTemplate | undefined>;
+  deleteJournalTemplate(templateId: string, userId: string): Promise<void>;
+
+  // AI Plan Imports (Extension/Mobile)
+  createAiPlanImport(planImport: InsertAiPlanImport & { userId: string }): Promise<AiPlanImport>;
+  getAiPlanImport(importId: string, userId: string): Promise<AiPlanImport | undefined>;
+  getUserAiPlanImports(userId: string, status?: string): Promise<AiPlanImport[]>;
+  updateAiPlanImport(importId: string, userId: string, updates: Partial<AiPlanImport>): Promise<AiPlanImport | undefined>;
+  confirmAiPlanImport(importId: string, userId: string, activityId: string): Promise<AiPlanImport | undefined>;
+  discardAiPlanImport(importId: string, userId: string): Promise<void>;
+  getUserMonthlyImportCount(userId: string): Promise<number>;
+
+  // Extension Tokens
+  createExtensionToken(token: InsertExtensionToken & { userId: string }): Promise<ExtensionToken>;
+  getExtensionToken(token: string): Promise<ExtensionToken | undefined>;
+  getUserExtensionTokens(userId: string): Promise<ExtensionToken[]>;
+  updateExtensionTokenActivity(token: string): Promise<void>;
+  revokeExtensionToken(tokenId: string, userId: string): Promise<void>;
+  revokeAllExtensionTokens(userId: string): Promise<void>;
+
+  // URL Content Cache (permanent storage for extracted URL content)
+  getUrlContentCache(normalizedUrl: string): Promise<UrlContentCache | undefined>;
+  createUrlContentCache(cache: InsertUrlContentCache): Promise<UrlContentCache>;
+
+  // User Saved Content (personalized content from social media shares)
+  createUserSavedContent(content: InsertUserSavedContent): Promise<UserSavedContent>;
+  getUserSavedContent(userId: string, filters?: {
+    city?: string;
+    location?: string;
+    category?: string;
+    platform?: string;
+    limit?: number;
+  }): Promise<UserSavedContent[]>;
+  getUserSavedContentById(contentId: string, userId: string): Promise<UserSavedContent | undefined>;
+  updateUserSavedContent(contentId: string, userId: string, updates: Partial<InsertUserSavedContent>): Promise<UserSavedContent | undefined>;
+  deleteUserSavedContent(contentId: string, userId: string): Promise<void>;
+  incrementContentReferenceCount(contentId: string): Promise<void>;
+  getUserSavedLocations(userId: string): Promise<Array<{ city: string; country: string | null; count: number }>>;
+  getUserSavedCategories(userId: string): Promise<Array<{ category: string; count: number }>>;
+
+  // Content Imports (stores ALL extracted items from URL for alternatives/swapping)
+  createContentImport(contentImport: InsertContentImport): Promise<ContentImport>;
+  getContentImport(importId: string, userId: string): Promise<ContentImport | undefined>;
+  getContentImportByNormalizedUrl(normalizedUrl: string, userId: string): Promise<ContentImport | undefined>;
+  getContentImportByActivityId(activityId: string): Promise<ContentImport | undefined>;
+  updateContentImport(importId: string, userId: string, updates: Partial<InsertContentImport>): Promise<ContentImport | undefined>;
+  getAlternativesFromImport(importId: string, excludeTaskIds?: string[]): Promise<Array<{
+    id: string;
+    venueName: string;
+    venueType: string;
+    location?: { city?: string; neighborhood?: string };
+    priceRange?: string;
+    budgetTier?: string;
+    estimatedCost?: number;
+    category?: string;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -357,6 +488,16 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async getUserByStripeSubscriptionId(subscriptionId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.stripeSubscriptionId, subscriptionId));
+    return user;
+  }
+
+  async getUserByStripeCustomerId(customerId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
     return user;
   }
 
@@ -439,6 +580,13 @@ export class DatabaseStorage implements IStorage {
   // Tasks
   async createTask(task: InsertTask & { userId: string }): Promise<Task> {
     const result = await db.insert(tasks).values(task).returning();
+    return result[0];
+  }
+
+  async getTask(taskId: string, userId: string): Promise<Task | undefined> {
+    const result = await db.select().from(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
+      .limit(1);
     return result[0];
   }
 
@@ -615,6 +763,59 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async createShareLink(shareLinkData: InsertShareLink & { shareToken: string; userId: string }): Promise<ShareLink> {
+    const [result] = await db.insert(shareLinks).values(shareLinkData).returning();
+    return result;
+  }
+
+  async getShareLink(shareToken: string): Promise<ShareLink | undefined> {
+    const [result] = await db.select().from(shareLinks)
+      .where(eq(shareLinks.shareToken, shareToken));
+    return result;
+  }
+
+  async updateShareLinkSnapshot(shareToken: string, snapshotData: any, activityUpdatedAt: Date): Promise<ShareLink | undefined> {
+    const [result] = await db.update(shareLinks)
+      .set({
+        snapshotData,
+        snapshotAt: new Date(),
+        activityUpdatedAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(shareLinks.shareToken, shareToken))
+      .returning();
+    return result;
+  }
+
+  async markShareLinkActivityDeleted(shareToken: string): Promise<ShareLink | undefined> {
+    const [result] = await db.update(shareLinks)
+      .set({
+        isActivityDeleted: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(shareLinks.shareToken, shareToken))
+      .returning();
+    return result;
+  }
+
+  async incrementShareLinkViewCount(shareToken: string): Promise<void> {
+    await db.update(shareLinks)
+      .set({
+        viewCount: sql`${shareLinks.viewCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(shareLinks.shareToken, shareToken));
+  }
+
+  async incrementShareLinkCopyCount(shareToken: string): Promise<void> {
+    await db.update(shareLinks)
+      .set({
+        copyCount: sql`${shareLinks.copyCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(shareLinks.shareToken, shareToken));
+  }
+
   async updateActivity(activityId: string, updates: Partial<Activity>, userId: string): Promise<Activity | undefined> {
     const result = await db.update(activities)
       .set({
@@ -689,8 +890,18 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async generateShareableLink(activityId: string, userId: string): Promise<string | null> {
+  async generateShareableLink(activityId: string, userId: string, groupId?: string): Promise<string | null> {
     const shareToken = crypto.randomUUID().replace(/-/g, '');
+    
+    // First get the activity to create a snapshot
+    const activity = await this.getActivity(activityId, userId);
+    if (!activity) {
+      return null;
+    }
+    
+    // Get activity tasks for the snapshot
+    const activityTasksList = await this.getActivityTasks(activityId, userId);
+    
     // Store the token and mark as public
     const result = await db.update(activities)
       .set({ 
@@ -704,6 +915,73 @@ export class DatabaseStorage implements IStorage {
     if (result.length === 0) {
       return null; // Activity not found or user doesn't own it
     }
+    
+    // Determine the groupId - from param, or check activity's targetGroupId, or check group_activities table
+    let resolvedGroupId = groupId || (activity as any).targetGroupId;
+    
+    if (!resolvedGroupId) {
+      // Check if activity is in any group via group_activities table
+      try {
+        const groupCheckResult = await db.execute(
+          sql`SELECT group_id FROM group_activities WHERE activity_id = ${activityId} LIMIT 1`
+        );
+        if (groupCheckResult.rows && groupCheckResult.rows.length > 0) {
+          resolvedGroupId = (groupCheckResult.rows[0] as any).group_id;
+        }
+      } catch (err) {
+        console.error('[generateShareableLink] Error checking group_activities:', err);
+      }
+    }
+    
+    // Create snapshot data - includes activity and tasks with completion state
+    const snapshotData = {
+      activity: {
+        id: activity.id,
+        title: activity.title,
+        description: activity.description,
+        category: activity.category,
+        status: activity.status,
+        planSummary: (activity as any).planSummary,
+        shareTitle: (activity as any).shareTitle,
+        socialText: (activity as any).socialText,
+        backdrop: (activity as any).backdrop,
+        isPublic: true, // Snapshots are always public since link was shared
+        authorName: (activity as any).authorName,
+        authorImage: (activity as any).authorImage,
+        sourceType: (activity as any).sourceType,
+      },
+      tasks: activityTasksList.map(t => ({
+        title: t.title,
+        description: t.description,
+        category: t.category,
+        priority: t.priority,
+        dueDate: t.dueDate,
+        timeEstimate: t.timeEstimate,
+        context: t.context,
+        completed: t.completed, // Preserve completion state in snapshot
+        completedAt: t.completedAt,
+      })),
+    };
+    
+    // Create the permanent share link record with groupId if available
+    const shareLinkData: any = {
+      shareToken,
+      activityId,
+      userId,
+      snapshotData,
+      snapshotAt: new Date(),
+      activityUpdatedAt: activity.updatedAt || activity.createdAt,
+      isActivityDeleted: false,
+      viewCount: 0,
+      copyCount: 0,
+    };
+    
+    if (resolvedGroupId) {
+      shareLinkData.groupId = resolvedGroupId;
+      console.log('[generateShareableLink] Storing groupId in share_link:', resolvedGroupId);
+    }
+    
+    await db.insert(shareLinks).values(shareLinkData);
     
     return shareToken;
   }
@@ -757,6 +1035,11 @@ export class DatabaseStorage implements IStorage {
     await db.update(activityTasks)
       .set({ order })
       .where(and(eq(activityTasks.activityId, activityId), eq(activityTasks.taskId, taskId)));
+  }
+
+  async getActivityTasksForTask(taskId: string): Promise<ActivityTask[]> {
+    return await db.select().from(activityTasks)
+      .where(eq(activityTasks.taskId, taskId));
   }
 
   // Activity Permission Requests
@@ -1249,6 +1532,30 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined> {
+    return this.getUserNotificationPreferences(userId);
+  }
+
+  // User Notifications (in-app notifications)
+  async createUserNotification(notification: { userId: string; sourceGroupId: string | null; actorUserId: string | null; type: string; title: string; body: string | null; metadata: any }): Promise<any> {
+    const [result] = await db.insert(userNotifications).values(notification).returning();
+    return result;
+  }
+
+  async getUserNotifications(userId: string, limit: number = 50): Promise<any[]> {
+    return await db.select()
+      .from(userNotifications)
+      .where(eq(userNotifications.userId, userId))
+      .orderBy(desc(userNotifications.createdAt))
+      .limit(limit);
+  }
+
+  async markNotificationRead(notificationId: string, userId: string): Promise<void> {
+    await db.update(userNotifications)
+      .set({ readAt: new Date() })
+      .where(and(eq(userNotifications.id, notificationId), eq(userNotifications.userId, userId)));
+  }
+
   // Task Reminders
   async createTaskReminder(reminder: InsertTaskReminder & { userId: string }): Promise<TaskReminder> {
     const result = await db.insert(taskReminders).values(reminder).returning();
@@ -1280,6 +1587,109 @@ export class DatabaseStorage implements IStorage {
   async deleteTaskReminder(reminderId: string, userId: string): Promise<void> {
     await db.delete(taskReminders)
       .where(and(eq(taskReminders.id, reminderId), eq(taskReminders.userId, userId)));
+  }
+
+  // Activity Reminders (for plan notifications)
+  async createActivityReminder(reminder: InsertActivityReminder & { userId: string }): Promise<ActivityReminder> {
+    const [result] = await db.insert(activityReminders).values(reminder).returning();
+    return result;
+  }
+
+  async getActivityReminders(activityId: string): Promise<ActivityReminder[]> {
+    return await db.select().from(activityReminders)
+      .where(eq(activityReminders.activityId, activityId))
+      .orderBy(activityReminders.scheduledAt);
+  }
+
+  async getUserActivityReminders(userId: string): Promise<ActivityReminder[]> {
+    return await db.select().from(activityReminders)
+      .where(and(
+        eq(activityReminders.userId, userId),
+        eq(activityReminders.isSent, false)
+      ))
+      .orderBy(activityReminders.scheduledAt);
+  }
+
+  async getPendingActivityReminders(beforeTime: Date): Promise<ActivityReminder[]> {
+    return await db.select().from(activityReminders)
+      .where(and(
+        eq(activityReminders.isSent, false),
+        lte(activityReminders.scheduledAt, beforeTime)
+      ))
+      .orderBy(activityReminders.scheduledAt);
+  }
+
+  async markActivityReminderSent(reminderId: string): Promise<void> {
+    await db.update(activityReminders)
+      .set({ isSent: true, sentAt: new Date() })
+      .where(eq(activityReminders.id, reminderId));
+  }
+
+  async deleteActivityReminders(activityId: string): Promise<void> {
+    await db.delete(activityReminders)
+      .where(eq(activityReminders.activityId, activityId));
+  }
+
+  async getUpcomingActivitiesForReminders(beforeDate: Date): Promise<Activity[]> {
+    const now = new Date();
+    return await db.select().from(activities)
+      .where(and(
+        sql`${activities.startDate} IS NOT NULL`,
+        sql`${activities.startDate} > ${now}`,
+        sql`${activities.startDate} <= ${beforeDate}`
+      ));
+  }
+
+  // Device Tokens (for push notifications)
+  async upsertDeviceToken(userId: string, token: InsertDeviceToken): Promise<DeviceToken> {
+    // Check if token already exists
+    const [existing] = await db.select().from(deviceTokens).where(eq(deviceTokens.token, token.token));
+    
+    if (existing) {
+      // Update existing token (refresh last used time, update device info, reactivate if inactive)
+      const [updated] = await db.update(deviceTokens)
+        .set({
+          userId,
+          deviceInfo: token.deviceInfo,
+          isActive: true,
+          lastUsedAt: new Date(),
+        })
+        .where(eq(deviceTokens.token, token.token))
+        .returning();
+      return updated;
+    } else {
+      // Create new token
+      const [created] = await db.insert(deviceTokens).values({ ...token, userId }).returning();
+      return created;
+    }
+  }
+
+  async getUserDeviceTokens(userId: string): Promise<DeviceToken[]> {
+    return await db.select()
+      .from(deviceTokens)
+      .where(and(eq(deviceTokens.userId, userId), eq(deviceTokens.isActive, true)));
+  }
+
+  async getDeviceTokenByToken(token: string): Promise<DeviceToken | undefined> {
+    const [result] = await db.select().from(deviceTokens).where(eq(deviceTokens.token, token));
+    return result;
+  }
+
+  async deleteDeviceToken(token: string, userId: string): Promise<void> {
+    await db.delete(deviceTokens)
+      .where(and(eq(deviceTokens.token, token), eq(deviceTokens.userId, userId)));
+  }
+
+  async deactivateDeviceToken(token: string): Promise<void> {
+    await db.update(deviceTokens)
+      .set({ isActive: false })
+      .where(eq(deviceTokens.token, token));
+  }
+
+  async updateDeviceTokenActivity(token: string): Promise<void> {
+    await db.update(deviceTokens)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(deviceTokens.token, token));
   }
 
   // Scheduling Suggestions
@@ -1485,6 +1895,153 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUserPreferences(userId: string): Promise<void> {
     await db.delete(userPreferences).where(eq(userPreferences.userId, userId));
+  }
+
+  // Complete User Deletion (Admin only)
+  async deleteCompleteUser(userId: string): Promise<void> {
+    console.log(`[STORAGE] Deleting complete user account: ${userId}`);
+    
+    // Delete all user-related data in the correct order (respecting foreign key constraints)
+    // Note: Many tables have ON DELETE CASCADE, but we'll be explicit for clarity
+    
+    // 1. Delete auth identities
+    await db.delete(authIdentities).where(eq(authIdentities.userId, userId));
+    console.log(`  - Deleted auth identities`);
+    
+    // 2. Delete OAuth tokens
+    await db.delete(externalOAuthTokens).where(eq(externalOAuthTokens.userId, userId));
+    console.log(`  - Deleted OAuth tokens`);
+    
+    // 3. Delete contacts
+    await db.delete(contacts).where(eq(contacts.ownerUserId, userId));
+    console.log(`  - Deleted contacts`);
+    
+    // 4. Delete contact shares
+    await db.delete(contactShares).where(eq(contactShares.sharedBy, userId));
+    console.log(`  - Deleted contact shares`);
+    
+    // 5. Delete user preferences
+    await db.delete(userPreferences).where(eq(userPreferences.userId, userId));
+    console.log(`  - Deleted user preferences`);
+    
+    // 6. Delete user profile
+    await db.delete(userProfiles).where(eq(userProfiles.userId, userId));
+    console.log(`  - Deleted user profile`);
+    
+    // 7. Delete planner profile
+    await db.delete(plannerProfiles).where(eq(plannerProfiles.userId, userId));
+    console.log(`  - Deleted planner profile`);
+    
+    // 8. Delete notification preferences
+    await db.delete(notificationPreferences).where(eq(notificationPreferences.userId, userId));
+    console.log(`  - Deleted notification preferences`);
+    
+    // 9. Delete task reminders
+    await db.delete(taskReminders).where(eq(taskReminders.userId, userId));
+    console.log(`  - Deleted task reminders`);
+    
+    // 10. Delete device tokens
+    await db.delete(deviceTokens).where(eq(deviceTokens.userId, userId));
+    console.log(`  - Deleted device tokens`);
+    
+    // 11. Delete scheduling suggestions
+    await db.delete(schedulingSuggestions).where(eq(schedulingSuggestions.userId, userId));
+    console.log(`  - Deleted scheduling suggestions`);
+    
+    // 11. Delete priorities
+    await db.delete(priorities).where(eq(priorities.userId, userId));
+    console.log(`  - Deleted priorities`);
+    
+    // 12. Delete chat imports
+    await db.delete(chatImports).where(eq(chatImports.userId, userId));
+    console.log(`  - Deleted chat imports`);
+    
+    // 13. Delete lifestyle planner sessions
+    await db.delete(lifestylePlannerSessions).where(eq(lifestylePlannerSessions.userId, userId));
+    console.log(`  - Deleted lifestyle planner sessions`);
+    
+    // 14. Delete activity feedback
+    await db.delete(activityFeedback).where(eq(activityFeedback.userId, userId));
+    console.log(`  - Deleted activity feedback`);
+    
+    // 15. Delete task feedback
+    await db.delete(taskFeedback).where(eq(taskFeedback.userId, userId));
+    console.log(`  - Deleted task feedback`);
+    
+    // 16. Delete activity bookmarks
+    await db.delete(activityBookmarks).where(eq(activityBookmarks.userId, userId));
+    console.log(`  - Deleted activity bookmarks`);
+    
+    // 17. Delete user pins
+    await db.delete(userPins).where(eq(userPins.userId, userId));
+    console.log(`  - Deleted user pins`);
+    
+    // 18. Delete plan engagement
+    await db.delete(planEngagement).where(eq(planEngagement.userId, userId));
+    console.log(`  - Deleted plan engagement`);
+    
+    // 19. Delete activity reports (reported by user)
+    await db.delete(activityReports).where(eq(activityReports.reportedBy, userId));
+    console.log(`  - Deleted activity reports`);
+    
+    // 20. Delete permission requests
+    await db.delete(activityPermissionRequests).where(
+      or(
+        eq(activityPermissionRequests.requestedBy, userId),
+        eq(activityPermissionRequests.ownerId, userId)
+      )
+    );
+    console.log(`  - Deleted activity permission requests`);
+    
+    // 21. Delete group memberships
+    await db.delete(groupMemberships).where(eq(groupMemberships.userId, userId));
+    console.log(`  - Deleted group memberships`);
+    
+    // 22. Delete group activities shared by user
+    await db.delete(groupActivities).where(eq(groupActivities.sharedBy, userId));
+    console.log(`  - Deleted group activities`);
+    
+    // 23. Delete group activity feed items
+    await db.delete(groupActivityFeed).where(eq(groupActivityFeed.actorUserId, userId));
+    console.log(`  - Deleted group activity feed items`);
+    
+    // 24. Delete groups created by user
+    await db.delete(groups).where(eq(groups.createdBy, userId));
+    console.log(`  - Deleted groups`);
+    
+    // 25. Delete tasks (will cascade delete activity_tasks)
+    await db.delete(tasks).where(eq(tasks.userId, userId));
+    console.log(`  - Deleted tasks`);
+    
+    // 26. Delete goals
+    await db.delete(goals).where(eq(goals.userId, userId));
+    console.log(`  - Deleted goals`);
+    
+    // 27. Delete activities (and their associated activity_tasks via cascade)
+    await db.delete(activities).where(eq(activities.userId, userId));
+    console.log(`  - Deleted activities`);
+    
+    // 28. Delete journal entries
+    await db.delete(journalEntries).where(eq(journalEntries.userId, userId));
+    console.log(`  - Deleted journal entries`);
+    
+    // 29. Delete progress stats
+    await db.delete(progressStats).where(eq(progressStats.userId, userId));
+    console.log(`  - Deleted progress stats`);
+    
+    // 30. Finally, delete the user record itself
+    await db.delete(users).where(eq(users.id, userId));
+    console.log(`  - Deleted user record`);
+    
+    console.log(`[STORAGE] Complete user deletion finished for: ${userId}`);
+  }
+
+  async deleteCompleteUserByEmail(email: string): Promise<void> {
+    const user = await this.getUserByEmail(email);
+    if (!user) {
+      throw new Error(`User with email ${email} not found`);
+    }
+    await this.deleteCompleteUser(user.id);
   }
 
   // Planner Profile operations (for community plan verification)
@@ -2534,11 +3091,21 @@ export class DatabaseStorage implements IStorage {
 
   // Join group by invite code
   async joinGroupByInviteCode(inviteCode: string, userId: string): Promise<any> {
-    // Find group by invite code
-    const [group] = await db
+    // Normalize invite code - remove dashes for comparison
+    const normalizedCode = inviteCode.toUpperCase().replace(/-/g, '');
+    
+    // Find group by invite code - need to find the code that matches with or without dashes
+    // Query all groups and filter manually since DB stores with dashes
+    const allGroups = await db
       .select()
-      .from(groups)
-      .where(eq(groups.inviteCode, inviteCode));
+      .from(groups);
+    
+    const group = allGroups.find(g => {
+      if (!g.inviteCode) return false;
+      // Normalize both for comparison
+      const dbCode = g.inviteCode.toUpperCase().replace(/-/g, '');
+      return dbCode === normalizedCode;
+    });
 
     if (!group) {
       return null;
@@ -2583,24 +3150,35 @@ export class DatabaseStorage implements IStorage {
     return membership;
   }
 
-  // Add member to group
+  // Add member to group (handles duplicates gracefully)
   async addGroupMember(groupId: string, userId: string, role: string): Promise<GroupMembership> {
-    // Check if already a member
+    // Check if already a member - return existing if so
     const existing = await this.getGroupMembership(groupId, userId);
     if (existing) {
-      throw new Error('User is already a member of this group');
+      return existing; // Idempotent - return existing membership instead of throwing
     }
 
-    const [membership] = await db
-      .insert(groupMemberships)
-      .values({
-        groupId,
-        userId,
-        role,
-      })
-      .returning();
+    try {
+      const [membership] = await db
+        .insert(groupMemberships)
+        .values({
+          groupId,
+          userId,
+          role,
+        })
+        .returning();
 
-    return membership;
+      return membership;
+    } catch (error: any) {
+      // Handle concurrent insert race condition (duplicate key)
+      if (error.code === '23505') { // PostgreSQL unique violation
+        const existingMembership = await this.getGroupMembership(groupId, userId);
+        if (existingMembership) {
+          return existingMembership;
+        }
+      }
+      throw error;
+    }
   }
 
   // Remove member from group
@@ -2842,6 +3420,16 @@ export class DatabaseStorage implements IStorage {
     return result.rows.length > 0 ? result.rows[0] : null;
   }
 
+  async getGroupActivityById(groupActivityId: string): Promise<GroupActivity | null> {
+    const [result] = await db
+      .select()
+      .from(groupActivities)
+      .where(eq(groupActivities.id, groupActivityId))
+      .limit(1);
+    
+    return result || null;
+  }
+
   async logActivityChange(change: { groupActivityId: string; userId: string; changeType: string; changeDescription: string }): Promise<void> {
     // Get the group activity details to populate the feed
     const groupActivityResult = await pool.query(
@@ -2883,6 +3471,42 @@ export class DatabaseStorage implements IStorage {
       taskTitle: change.changeDescription, // The task name
       groupActivityId: change.groupActivityId,
     });
+  }
+
+  async getMemberProgressForGroupActivity(groupActivityId: string): Promise<Array<{ userId: string; username: string; totalTasks: number; completedTasks: number }>> {
+    // Query all activities that are linked to this group activity with sharing enabled
+    const result = await pool.query(
+      `SELECT 
+        a.user_id as "userId",
+        u.username,
+        a.id as "activityId"
+      FROM activities a
+      INNER JOIN users u ON a.user_id = u.id
+      WHERE a.linked_group_activity_id = $1
+        AND a.shares_progress_with_group = true`,
+      [groupActivityId]
+    );
+
+    if (result.rows.length === 0) {
+      return [];
+    }
+
+    // For each linked activity, get task progress
+    const memberProgress = await Promise.all(
+      result.rows.map(async (row: any) => {
+        const tasks = await this.getActivityTasks(row.activityId, row.userId);
+        const completedTasks = tasks.filter(t => t.completed).length;
+
+        return {
+          userId: row.userId,
+          username: row.username || 'Unknown User',
+          totalTasks: tasks.length,
+          completedTasks,
+        };
+      })
+    );
+
+    return memberProgress;
   }
 
   // Get groups for a user with member count and their role
@@ -2951,6 +3575,8 @@ export class DatabaseStorage implements IStorage {
       .values({
         groupId: data.groupId,
         invitedBy: data.invitedBy,
+        sharedBy: data.invitedBy, // Same as invitedBy for group invites
+        shareType: 'group',
         contactType: data.contactType,
         contactValue: data.contactValue,
         inviteMessage: data.inviteMessage || null,
@@ -2994,6 +3620,429 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
 
     return invite || null;
+  }
+
+  // Journal Templates
+  async getUserJournalTemplates(userId: string): Promise<JournalTemplate[]> {
+    return await db
+      .select()
+      .from(journalTemplates)
+      .where(eq(journalTemplates.userId, userId))
+      .orderBy(desc(journalTemplates.createdAt));
+  }
+
+  async createJournalTemplate(template: InsertJournalTemplate): Promise<JournalTemplate> {
+    const [created] = await db
+      .insert(journalTemplates)
+      .values(template)
+      .returning();
+    return created;
+  }
+
+  async updateJournalTemplate(templateId: string, userId: string, updates: Partial<InsertJournalTemplate>): Promise<JournalTemplate | undefined> {
+    const [updated] = await db
+      .update(journalTemplates)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(
+        eq(journalTemplates.id, templateId),
+        eq(journalTemplates.userId, userId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deleteJournalTemplate(templateId: string, userId: string): Promise<void> {
+    await db
+      .delete(journalTemplates)
+      .where(and(
+        eq(journalTemplates.id, templateId),
+        eq(journalTemplates.userId, userId)
+      ));
+  }
+
+  // AI Plan Imports (Extension/Mobile)
+  async createAiPlanImport(planImport: InsertAiPlanImport & { userId: string }): Promise<AiPlanImport> {
+    const [created] = await db
+      .insert(aiPlanImports)
+      .values(planImport)
+      .returning();
+    return created;
+  }
+
+  async getAiPlanImport(importId: string, userId: string): Promise<AiPlanImport | undefined> {
+    const [result] = await db
+      .select()
+      .from(aiPlanImports)
+      .where(and(
+        eq(aiPlanImports.id, importId),
+        eq(aiPlanImports.userId, userId)
+      ));
+    return result;
+  }
+
+  async getUserAiPlanImports(userId: string, status?: string): Promise<AiPlanImport[]> {
+    if (status) {
+      return await db
+        .select()
+        .from(aiPlanImports)
+        .where(and(
+          eq(aiPlanImports.userId, userId),
+          eq(aiPlanImports.status, status)
+        ))
+        .orderBy(desc(aiPlanImports.createdAt));
+    }
+    return await db
+      .select()
+      .from(aiPlanImports)
+      .where(eq(aiPlanImports.userId, userId))
+      .orderBy(desc(aiPlanImports.createdAt));
+  }
+
+  async updateAiPlanImport(importId: string, userId: string, updates: Partial<AiPlanImport>): Promise<AiPlanImport | undefined> {
+    const [updated] = await db
+      .update(aiPlanImports)
+      .set(updates)
+      .where(and(
+        eq(aiPlanImports.id, importId),
+        eq(aiPlanImports.userId, userId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async confirmAiPlanImport(importId: string, userId: string, activityId: string): Promise<AiPlanImport | undefined> {
+    const [updated] = await db
+      .update(aiPlanImports)
+      .set({
+        status: 'confirmed',
+        activityId,
+        confirmedAt: new Date()
+      })
+      .where(and(
+        eq(aiPlanImports.id, importId),
+        eq(aiPlanImports.userId, userId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async discardAiPlanImport(importId: string, userId: string): Promise<void> {
+    await db
+      .update(aiPlanImports)
+      .set({ status: 'discarded' })
+      .where(and(
+        eq(aiPlanImports.id, importId),
+        eq(aiPlanImports.userId, userId)
+      ));
+  }
+
+  async getUserMonthlyImportCount(userId: string): Promise<number> {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(aiPlanImports)
+      .where(and(
+        eq(aiPlanImports.userId, userId),
+        sql`${aiPlanImports.createdAt} >= ${startOfMonth}`
+      ));
+    return result[0]?.count || 0;
+  }
+
+  // Extension Tokens
+  async createExtensionToken(token: InsertExtensionToken & { userId: string }): Promise<ExtensionToken> {
+    const [created] = await db
+      .insert(extensionTokens)
+      .values(token)
+      .returning();
+    return created;
+  }
+
+  async getExtensionToken(token: string): Promise<ExtensionToken | undefined> {
+    const [result] = await db
+      .select()
+      .from(extensionTokens)
+      .where(and(
+        eq(extensionTokens.token, token),
+        eq(extensionTokens.isActive, true)
+      ));
+    return result;
+  }
+
+  async getUserExtensionTokens(userId: string): Promise<ExtensionToken[]> {
+    return await db
+      .select()
+      .from(extensionTokens)
+      .where(eq(extensionTokens.userId, userId))
+      .orderBy(desc(extensionTokens.createdAt));
+  }
+
+  async updateExtensionTokenActivity(token: string): Promise<void> {
+    await db
+      .update(extensionTokens)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(extensionTokens.token, token));
+  }
+
+  async revokeExtensionToken(tokenId: string, userId: string): Promise<void> {
+    await db
+      .update(extensionTokens)
+      .set({ isActive: false })
+      .where(and(
+        eq(extensionTokens.id, tokenId),
+        eq(extensionTokens.userId, userId)
+      ));
+  }
+
+  async revokeAllExtensionTokens(userId: string): Promise<void> {
+    await db
+      .update(extensionTokens)
+      .set({ isActive: false })
+      .where(eq(extensionTokens.userId, userId));
+  }
+
+  // URL Content Cache
+  async getUrlContentCache(normalizedUrl: string): Promise<UrlContentCache | undefined> {
+    const [result] = await db
+      .select()
+      .from(urlContentCache)
+      .where(eq(urlContentCache.normalizedUrl, normalizedUrl));
+    return result;
+  }
+
+  async createUrlContentCache(cache: InsertUrlContentCache): Promise<UrlContentCache> {
+    const [created] = await db
+      .insert(urlContentCache)
+      .values(cache)
+      .onConflictDoUpdate({
+        target: urlContentCache.normalizedUrl,
+        set: {
+          extractedContent: cache.extractedContent,
+          extractionSource: cache.extractionSource,
+          wordCount: cache.wordCount,
+          metadata: cache.metadata,
+          extractedAt: new Date(),
+        }
+      })
+      .returning();
+    return created;
+  }
+
+  // User Saved Content
+  async createUserSavedContent(content: InsertUserSavedContent): Promise<UserSavedContent> {
+    const [created] = await db
+      .insert(userSavedContent)
+      .values(content)
+      .returning();
+    return created;
+  }
+
+  async getUserSavedContent(userId: string, filters?: {
+    city?: string;
+    location?: string;
+    category?: string;
+    platform?: string;
+    limit?: number;
+  }): Promise<UserSavedContent[]> {
+    const conditions = [eq(userSavedContent.userId, userId)];
+    
+    if (filters?.city) {
+      conditions.push(sql`LOWER(${userSavedContent.city}) LIKE LOWER(${'%' + filters.city + '%'})`);
+    }
+    if (filters?.location) {
+      conditions.push(sql`LOWER(${userSavedContent.location}) LIKE LOWER(${'%' + filters.location + '%'})`);
+    }
+    if (filters?.category) {
+      conditions.push(eq(userSavedContent.category, filters.category));
+    }
+    if (filters?.platform) {
+      conditions.push(eq(userSavedContent.platform, filters.platform));
+    }
+
+    let query = db
+      .select()
+      .from(userSavedContent)
+      .where(and(...conditions))
+      .orderBy(desc(userSavedContent.savedAt));
+    
+    if (filters?.limit) {
+      query = query.limit(filters.limit) as any;
+    }
+
+    return await query;
+  }
+
+  async getUserSavedContentById(contentId: string, userId: string): Promise<UserSavedContent | undefined> {
+    const [result] = await db
+      .select()
+      .from(userSavedContent)
+      .where(and(
+        eq(userSavedContent.id, contentId),
+        eq(userSavedContent.userId, userId)
+      ));
+    return result;
+  }
+
+  async updateUserSavedContent(contentId: string, userId: string, updates: Partial<InsertUserSavedContent>): Promise<UserSavedContent | undefined> {
+    const [updated] = await db
+      .update(userSavedContent)
+      .set(updates)
+      .where(and(
+        eq(userSavedContent.id, contentId),
+        eq(userSavedContent.userId, userId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deleteUserSavedContent(contentId: string, userId: string): Promise<void> {
+    await db
+      .delete(userSavedContent)
+      .where(and(
+        eq(userSavedContent.id, contentId),
+        eq(userSavedContent.userId, userId)
+      ));
+  }
+
+  async incrementContentReferenceCount(contentId: string): Promise<void> {
+    await db
+      .update(userSavedContent)
+      .set({
+        referenceCount: sql`${userSavedContent.referenceCount} + 1`,
+        lastReferencedAt: new Date()
+      })
+      .where(eq(userSavedContent.id, contentId));
+  }
+
+  async getUserSavedLocations(userId: string): Promise<Array<{ city: string; country: string | null; count: number }>> {
+    const results = await db
+      .select({
+        city: userSavedContent.city,
+        country: userSavedContent.country,
+        count: sql<number>`COUNT(*)::int`
+      })
+      .from(userSavedContent)
+      .where(and(
+        eq(userSavedContent.userId, userId),
+        sql`${userSavedContent.city} IS NOT NULL`
+      ))
+      .groupBy(userSavedContent.city, userSavedContent.country)
+      .orderBy(sql`COUNT(*) DESC`);
+    
+    return results.filter(r => r.city !== null) as Array<{ city: string; country: string | null; count: number }>;
+  }
+
+  async getUserSavedCategories(userId: string): Promise<Array<{ category: string; count: number }>> {
+    const results = await db
+      .select({
+        category: userSavedContent.category,
+        count: sql<number>`COUNT(*)::int`
+      })
+      .from(userSavedContent)
+      .where(and(
+        eq(userSavedContent.userId, userId),
+        sql`${userSavedContent.category} IS NOT NULL`
+      ))
+      .groupBy(userSavedContent.category)
+      .orderBy(sql`COUNT(*) DESC`);
+    
+    return results.filter(r => r.category !== null) as Array<{ category: string; count: number }>;
+  }
+
+  // Content Imports (stores ALL extracted items from URL for alternatives/swapping)
+  async createContentImport(contentImport: InsertContentImport): Promise<ContentImport> {
+    const [created] = await db
+      .insert(contentImports)
+      .values(contentImport)
+      .returning();
+    return created;
+  }
+
+  async getContentImport(importId: string, userId: string): Promise<ContentImport | undefined> {
+    const [result] = await db
+      .select()
+      .from(contentImports)
+      .where(and(
+        eq(contentImports.id, importId),
+        eq(contentImports.userId, userId)
+      ));
+    return result;
+  }
+
+  async getContentImportByNormalizedUrl(normalizedUrl: string, userId: string): Promise<ContentImport | undefined> {
+    const [result] = await db
+      .select()
+      .from(contentImports)
+      .where(and(
+        eq(contentImports.normalizedUrl, normalizedUrl),
+        eq(contentImports.userId, userId)
+      ))
+      .orderBy(desc(contentImports.createdAt))
+      .limit(1);
+    return result;
+  }
+
+  async getContentImportByActivityId(activityId: string): Promise<ContentImport | undefined> {
+    const [result] = await db
+      .select()
+      .from(contentImports)
+      .where(eq(contentImports.activityId, activityId));
+    return result;
+  }
+
+  async updateContentImport(importId: string, userId: string, updates: Partial<InsertContentImport>): Promise<ContentImport | undefined> {
+    const [updated] = await db
+      .update(contentImports)
+      .set(updates)
+      .where(and(
+        eq(contentImports.id, importId),
+        eq(contentImports.userId, userId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async getAlternativesFromImport(importId: string, excludeTaskIds?: string[]): Promise<Array<{
+    id: string;
+    venueName: string;
+    venueType: string;
+    location?: { city?: string; neighborhood?: string };
+    priceRange?: string;
+    budgetTier?: string;
+    estimatedCost?: number;
+    category?: string;
+  }>> {
+    const [importData] = await db
+      .select()
+      .from(contentImports)
+      .where(eq(contentImports.id, importId));
+    
+    if (!importData || !importData.extractedItems) {
+      return [];
+    }
+
+    // Filter out items that were selected for the plan (have a taskId in excludeTaskIds)
+    const alternatives = (importData.extractedItems as Array<any>).filter(item => {
+      // Exclude items that are linked to excluded tasks
+      if (excludeTaskIds && item.taskId && excludeTaskIds.includes(item.taskId)) {
+        return false;
+      }
+      // Include items that weren't selected for the plan
+      return !item.selectedForPlan || (excludeTaskIds && !excludeTaskIds.includes(item.taskId));
+    });
+
+    return alternatives.map(item => ({
+      id: item.id,
+      venueName: item.venueName,
+      venueType: item.venueType,
+      location: item.location,
+      priceRange: item.priceRange,
+      budgetTier: item.budgetTier,
+      estimatedCost: item.estimatedCost,
+      category: item.category
+    }));
   }
 }
 

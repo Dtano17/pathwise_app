@@ -49,26 +49,44 @@ interface OAuthUser {
 
 // Setup multi-provider OAuth strategies
 export async function setupMultiProviderAuth(app: Express) {
-  // Passport session serialization - store only user ID in session
+  // Passport session serialization - handle both OAuth providers and Replit Auth
+  // OAuth providers use user.id, Replit Auth uses user.claims.sub
   passport.serializeUser((user: any, done) => {
-    console.log('[Passport] Serializing user:', user.id);
-    done(null, user.id);
+    // For OAuth providers (Google, Facebook, etc.) - user has direct id
+    // For Replit Auth - user has claims.sub
+    const userId = user.id || user.claims?.sub;
+    console.log('[Passport] Serializing user:', userId, 'provider:', user.provider || 'replit');
+    
+    if (!userId) {
+      console.error('[Passport] Cannot serialize user - no ID found:', user);
+      return done(new Error('User ID not found'), null);
+    }
+    
+    done(null, userId);
   });
 
   // Deserialize user from session - retrieve full user from storage
   passport.deserializeUser(async (id: string, done) => {
     try {
-      console.log('[Passport] Deserializing user ID:', id);
-      const user = await storage.getUser(id);
+      // Handle case where id might be the full user object (backwards compatibility)
+      const userId = typeof id === 'object' ? (id as any).id || (id as any).claims?.sub : id;
+      
+      if (!userId) {
+        console.error('[Passport] Cannot deserialize - invalid ID:', id);
+        return done(null, false);
+      }
+      
+      console.log('[Passport] Deserializing user ID:', userId);
+      const user = await storage.getUser(userId);
       if (!user) {
-        console.error('[Passport] User not found:', id);
-        return done(new Error('User not found'), null);
+        console.error('[Passport] User not found:', userId);
+        return done(null, false); // Return false instead of error to allow graceful fallback
       }
       console.log('[Passport] Deserialized user:', user.id);
       done(null, { id: user.id, email: user.email });
     } catch (error) {
       console.error('[Passport] Deserialization error:', error);
-      done(error, null);
+      done(null, false); // Graceful fallback on error
     }
   });
 
@@ -476,15 +494,45 @@ export async function setupMultiProviderAuth(app: Express) {
       failureRedirect: '/?auth=error&provider=google',
       failureMessage: true 
     }),
-    (req, res) => {
-      console.log('[Google OAuth] Callback successful, user:', req.user);
-      // Get returnTo from session or default to home
-      const returnTo = req.session.returnTo || '/';
-      delete req.session.returnTo; // Clean up
+    (req: any, res) => {
+      const user = req.user as OAuthUser;
+      console.log('[Google OAuth] Callback successful, user:', user);
+      console.log('[Google OAuth] Session ID before regenerate:', req.sessionID);
       
-      // Append auth success parameter
-      const separator = returnTo.includes('?') ? '&' : '?';
-      res.redirect(`${returnTo}${separator}auth=success&provider=google`);
+      // Get returnTo from session before regenerating
+      const returnTo = req.session.returnTo || '/';
+      
+      // Regenerate session to prevent session fixation and ensure proper cookie setup
+      req.session.regenerate((regenerateErr: any) => {
+        if (regenerateErr) {
+          console.error('[Google OAuth] Session regenerate error:', regenerateErr);
+          return res.redirect('/?auth=error&reason=session');
+        }
+        
+        // Re-establish the user in the new session using passport login
+        req.login(user, (loginErr: any) => {
+          if (loginErr) {
+            console.error('[Google OAuth] Login error after regenerate:', loginErr);
+            return res.redirect('/?auth=error&reason=login');
+          }
+          
+          console.log('[Google OAuth] Session ID after regenerate:', req.sessionID);
+          console.log('[Google OAuth] Session passport user:', req.session?.passport?.user);
+          
+          // Append auth success parameter
+          const separator = returnTo.includes('?') ? '&' : '?';
+          const redirectUrl = `${returnTo}${separator}auth=success&provider=google`;
+          
+          // Explicitly save session before redirecting
+          req.session.save((saveErr: any) => {
+            if (saveErr) {
+              console.error('[Google OAuth] Session save error:', saveErr);
+            }
+            console.log('[Google OAuth] Redirecting to:', redirectUrl);
+            res.redirect(redirectUrl);
+          });
+        });
+      });
     }
   );
 

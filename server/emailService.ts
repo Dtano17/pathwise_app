@@ -120,8 +120,8 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 </tr>
                 <tr>
                   <td class="content-padding" style="padding:0 40px 20px">
-                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6"><strong>You're now part of a community that plans smarter, grows together, and never misses life's special moments.</strong></p>
-                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6">Welcome to JournalMate—where adaptive planning, emotional intelligence, and rhythm-aware journaling transform your dreams into reality. But that's not all...</p>
+                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6"><strong>You're now part of a community that turns social content into life experiences.</strong></p>
+                    <p style="margin:0 0 20px;padding:0;font-size:16px;padding-top:0.5em;padding-bottom:0.5em;color:#374151;line-height:1.6">Welcome to JournalMate—your journal-first planning companion. Share TikTok videos, Instagram Reels, posts, stories, and content from anywhere you get inspiration. We'll journal it for you so you can plan with it and track your progress. Get smart reminders with weather context, and celebrate your completed experiences.</p>
                   </td>
                 </tr>
 
@@ -189,14 +189,14 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
                 <!-- Getting Started CTA -->
                 <tr>
                   <td class="section-padding" style="padding:40px;background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)">
-                    <h3 style="margin:0 0 20px;padding:0;font-size:24px;line-height:1.08em;padding-top:0.389em;font-weight:700;color:#ffffff;text-align:center">🚀 Getting Started Is Easy</h3>
+                    <h3 style="margin:0 0 20px;padding:0;font-size:24px;line-height:1.08em;padding-top:0.389em;font-weight:700;color:#ffffff;text-align:center">🚀 The JournalMate Loop</h3>
                     <ol style="margin:0;padding:0;padding-left:25px;color:#ffffff;font-size:15px;line-height:1.8">
-                      <li style="margin:0 0 10px"><strong>Create Your First Plan</strong> → Try Quick Plan or Smart Plan</li>
-                      <li style="margin:0 0 10px"><strong>Explore Trending Plans</strong> near you for instant inspiration</li>
-                      <li style="margin:0 0 10px"><strong>Browse Community Plans</strong> and copy ones you love</li>
-                      <li style="margin:0 0 10px"><strong>Journal with @keywords</strong>, photos, or voice notes</li>
-                      <li style="margin:0 0 10px"><strong>Share your rhythm</strong> with friends or groups</li>
-                      <li style="margin:0"><strong>Swipe to complete</strong>, skip, or reflect on activities</li>
+                      <li style="margin:0 0 10px"><strong>Share Content</strong> → Paste a TikTok, Instagram, or YouTube link</li>
+                      <li style="margin:0 0 10px"><strong>Auto-Journal</strong> → AI creates a journal entry with your interests</li>
+                      <li style="margin:0 0 10px"><strong>Build Plans</strong> → Reference journals to create actionable plans</li>
+                      <li style="margin:0 0 10px"><strong>Smart Reminders</strong> → Get notified at optimal times with weather context</li>
+                      <li style="margin:0 0 10px"><strong>Experience & Celebrate</strong> → Complete activities and capture moments</li>
+                      <li style="margin:0"><strong>Review & Repeat</strong> → Reflect on experiences and discover more</li>
                     </ol>
                     <div style="padding:15px 0;text-align:center">
                       <a href="${appURL}/dashboard" style="color:#ffffff;text-decoration:none;display:inline-block;background:linear-gradient(135deg,#14B8A6 0%,#0D9488 100%);padding:16px 36px;border-radius:12px;font-size:17px;font-weight:700;box-shadow:0 4px 12px rgba(20,184,166,0.3)">Start Planning with JournalMate</a>
@@ -286,6 +286,153 @@ export function getWelcomeEmailHTML(firstName: string = 'there') {
 }
 
 
+// Pro subscription welcome email with benefits glossary
+export function getProWelcomeEmailHTML(firstName: string = 'there') {
+  const baseURL = getBaseURL();
+  const logoURL = baseURL ? `${baseURL}/icons/email/email-logo-512.png` : 'https://resend-attachments.s3.amazonaws.com/nx67BKRdxXaeFoH';
+  const appURL = baseURL || 'https://journalmate.ai';
+  
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html dir="ltr" lang="en">
+  <head>
+    <meta content="width=device-width" name="viewport" />
+    <link rel="preload" as="image" href="${logoURL}" />
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta content="IE=edge" http-equiv="X-UA-Compatible" />
+    <style type="text/css">
+      @media only screen and (max-width: 600px) {
+        .header-padding { padding: 30px 20px !important; }
+        .content-padding { padding: 25px 20px !important; }
+        .section-padding { padding: 30px 20px !important; }
+        h1 { font-size: 24px !important; line-height: 1.3 !important; }
+        h2 { font-size: 20px !important; }
+        .benefit-card { margin-bottom: 20px !important; }
+      }
+    </style>
+  </head>
+  <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','Ubuntu','Cantarell','Fira Sans','Droid Sans','Helvetica Neue',sans-serif;background-color:#f3f4f6">
+    <table border="0" width="100%" cellpadding="0" cellspacing="0" role="presentation" align="center" style="background-color:#f3f4f6;padding:30px 15px">
+      <tbody>
+        <tr>
+          <td align="center">
+            <table class="email-container" width="600" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:20px;box-shadow:0 10px 25px rgba(0,0,0,0.08)">
+              <tbody>
+                <!-- Header with Pro Badge -->
+                <tr>
+                  <td class="header-padding" align="center" style="padding:40px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%);text-align:center;border-radius:20px 20px 0 0">
+                    <img alt="JournalMate Logo" height="80" src="${logoURL}" style="display:block;outline:none;border:none;text-decoration:none;max-width:100%;border-radius:8px;margin:0 auto 15px" width="80" />
+                    <div style="margin-bottom:15px">
+                      <span style="background:rgba(255,255,255,0.25);color:#ffffff;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:0.8px;border:1px solid rgba(255,255,255,0.4)">PRO MEMBER</span>
+                    </div>
+                    <h1 style="margin:0;padding:0;font-size:28px;line-height:1.44em;font-weight:700;color:#ffffff;letter-spacing:0.5px">Welcome to JournalMate Pro!</h1>
+                    <p style="margin:8px 0 0;padding:0;font-size:16px;color:rgba(255,255,255,0.95);line-height:1.4">Thank you for upgrading. You're now unlocked!</p>
+                  </td>
+                </tr>
+
+                <!-- Personal Greeting -->
+                <tr>
+                  <td class="content-padding" style="padding:35px 40px 25px">
+                    <h2 style="margin:0 0 16px;padding:0;font-size:24px;line-height:1.3;font-weight:700;color:#111827">Hey ${firstName}!</h2>
+                    <p style="margin:0 0 16px;padding:0;font-size:16px;color:#374151;line-height:1.6">Thank you for upgrading to <strong style="color:#7C3AED">JournalMate Pro</strong>! You now have unlimited access to our most powerful planning features.</p>
+                    <p style="margin:0;padding:0;font-size:16px;color:#374151;line-height:1.6">Let's explore everything you can do now:</p>
+                  </td>
+                </tr>
+
+                <!-- Benefits Glossary -->
+                <tr>
+                  <td class="section-padding" style="padding:0 40px 30px">
+                    <h3 style="margin:0 0 24px;padding:0;font-size:22px;font-weight:700;color:#111827;text-align:center">Your Pro Benefits</h3>
+                    
+                    <!-- Benefit 1: Unlimited Plans -->
+                    <div class="benefit-card" style="margin-bottom:24px;padding:24px;background:linear-gradient(135deg,rgba(124,58,237,0.08) 0%,rgba(20,184,166,0.08) 100%);border-radius:12px;border:2px solid rgba(124,58,237,0.15)">
+                      <div style="margin-bottom:12px">
+                        <h4 style="margin:0 0 8px;padding:0;font-size:18px;font-weight:700;color:#7C3AED">Unlimited AI Plans</h4>
+                        <p style="margin:0;padding:0;font-size:15px;color:#374151;line-height:1.6">Create as many plans as you want with Quick Plan or Smart Plan. No monthly limits. Plan your entire life!</p>
+                      </div>
+                    </div>
+
+                    <!-- Benefit 2: Smart Favorites -->
+                    <div class="benefit-card" style="margin-bottom:24px;padding:24px;background:linear-gradient(135deg,rgba(245,158,11,0.08) 0%,rgba(251,191,36,0.08) 100%);border-radius:12px;border:2px solid rgba(245,158,11,0.15)">
+                      <div style="margin-bottom:12px">
+                        <h4 style="margin:0 0 8px;padding:0;font-size:18px;font-weight:700;color:#F59E0B">Smart Favorites</h4>
+                        <p style="margin:0;padding:0;font-size:15px;color:#374151;line-height:1.6">Save your favorite community plans and activities. Access them instantly whenever you need inspiration.</p>
+                      </div>
+                    </div>
+
+                    <!-- Benefit 3: Journal Insights -->
+                    <div class="benefit-card" style="margin-bottom:24px;padding:24px;background:linear-gradient(135deg,rgba(20,184,166,0.08) 0%,rgba(6,182,212,0.08) 100%);border-radius:12px;border:2px solid rgba(20,184,166,0.15)">
+                      <div style="margin-bottom:12px">
+                        <h4 style="margin:0 0 8px;padding:0;font-size:18px;font-weight:700;color:#14B8A6">AI-Powered Journal Insights</h4>
+                        <p style="margin:0;padding:0;font-size:15px;color:#374151;line-height:1.6">Get personalized insights from your journal entries. Discover patterns, track moods, and understand your growth over time.</p>
+                      </div>
+                    </div>
+
+                    <!-- Benefit 4: Export & Backup -->
+                    <div class="benefit-card" style="margin-bottom:24px;padding:24px;background:linear-gradient(135deg,rgba(99,102,241,0.08) 0%,rgba(139,92,246,0.08) 100%);border-radius:12px;border:2px solid rgba(99,102,241,0.15)">
+                      <div style="margin-bottom:12px">
+                        <h4 style="margin:0 0 8px;padding:0;font-size:18px;font-weight:700;color:#6366F1">Export & Backup</h4>
+                        <p style="margin:0;padding:0;font-size:15px;color:#374151;line-height:1.6">Download your plans, tasks, and journal entries in PDF or JSON format. Your data, your way.</p>
+                      </div>
+                    </div>
+
+                    <!-- Benefit 5: Group Planning -->
+                    <div class="benefit-card" style="margin-bottom:24px;padding:24px;background:linear-gradient(135deg,rgba(236,72,153,0.08) 0%,rgba(219,39,119,0.08) 100%);border-radius:12px;border:2px solid rgba(236,72,153,0.15)">
+                      <div style="margin-bottom:12px">
+                        <h4 style="margin:0 0 8px;padding:0;font-size:18px;font-weight:700;color:#EC4899">Group Planning & Collaboration</h4>
+                        <p style="margin:0;padding:0;font-size:15px;color:#374151;line-height:1.6">Create groups with friends, family, or teams. Share activities, track collective progress, and celebrate together!</p>
+                      </div>
+                    </div>
+
+                    <!-- Benefit 6: Priority Support -->
+                    <div class="benefit-card" style="padding:24px;background:linear-gradient(135deg,rgba(16,185,129,0.08) 0%,rgba(5,150,105,0.08) 100%);border-radius:12px;border:2px solid rgba(16,185,129,0.15)">
+                      <div style="margin-bottom:12px">
+                        <h4 style="margin:0 0 8px;padding:0;font-size:18px;font-weight:700;color:#10B981">Priority Support</h4>
+                        <p style="margin:0;padding:0;font-size:15px;color:#374151;line-height:1.6">Get faster responses from our support team. We're here to help you make the most of JournalMate!</p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Get Started CTA -->
+                <tr>
+                  <td class="section-padding" style="padding:35px 40px;background:linear-gradient(135deg,#7C3AED 0%,#14B8A6 100%)">
+                    <h3 style="margin:0 0 16px;padding:0;font-size:24px;font-weight:700;color:#ffffff;text-align:center">Ready to unlock your potential?</h3>
+                    <p style="margin:0 0 24px;padding:0;font-size:16px;color:rgba(255,255,255,0.95);line-height:1.6;text-align:center">Start using your Pro benefits today!</p>
+                    <div style="text-align:center">
+                      <a href="${appURL}/dashboard" style="color:#ffffff;text-decoration:none;display:inline-block;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.4);padding:16px 40px;border-radius:12px;font-size:17px;font-weight:700;backdrop-filter:blur(10px)">Start Planning Now</a>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Support -->
+                <tr>
+                  <td style="padding:30px 40px">
+                    <div style="padding:24px;background-color:#f9fafb;border-radius:12px;border:2px solid #e5e7eb;text-align:center">
+                      <p style="margin:0 0 8px;padding:0;font-size:16px;color:#374151;font-weight:600">Questions or feedback?</p>
+                      <p style="margin:0;padding:0;font-size:15px;color:#6b7280">We're here to help: <a href="mailto:support@journalmate.ai" style="color:#7C3AED;text-decoration:none;font-weight:600">support@journalmate.ai</a></p>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td align="center" style="padding:30px 40px;background-color:#f9fafb;text-align:center;border-top:1px solid #e5e7eb;border-radius:0 0 20px 20px">
+                    <p style="margin:0 0 8px;padding:0;font-size:18px;color:#111827;font-weight:600">Welcome to the Pro life.</p>
+                    <p style="margin:0;padding:0;font-size:15px;color:#6b7280">Made with love by <strong>JournalMate</strong></p>
+                    <p style="margin:16px 0 0;padding:0;font-size:13px;color:#9ca3af">© 2025 JournalMate. All rights reserved.</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`;
+}
+
 export async function sendWelcomeEmail(email: string, firstName: string = 'there') {
   try {
     const { client, fromEmail } = await getUncachableResendClient();
@@ -306,6 +453,30 @@ export async function sendWelcomeEmail(email: string, firstName: string = 'there
     return { success: true, emailId: data?.id };
   } catch (error) {
     console.error('[EMAIL] Error sending welcome email:', error);
+    return { success: false, error };
+  }
+}
+
+export async function sendProWelcomeEmail(email: string, firstName: string = 'there') {
+  try {
+    const { client, fromEmail } = await getUncachableResendClient();
+    
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: [email],
+      subject: `🎉 Welcome to JournalMate Pro, ${firstName}! Your Benefits Inside`,
+      html: getProWelcomeEmailHTML(firstName),
+    });
+
+    if (error) {
+      console.error('[EMAIL] Failed to send Pro welcome email:', error);
+      return { success: false, error };
+    }
+
+    console.log('[EMAIL] Pro welcome email sent successfully:', { email, emailId: data?.id });
+    return { success: true, emailId: data?.id };
+  } catch (error) {
+    console.error('[EMAIL] Error sending Pro welcome email:', error);
     return { success: false, error };
   }
 }

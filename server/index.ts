@@ -6,6 +6,11 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupMultiProviderAuth } from "./multiProviderAuth";
 import { initializeLLMProviders } from "./services/llmProviders";
+import { handleStripeWebhook } from "./stripeWebhook";
+import { runMigrations } from 'stripe-replit-sync';
+import { getStripeSync } from "./stripeClient";
+import { startReminderProcessor } from "./services/reminderProcessor";
+import { storage } from "./storage";
 
 // Validate critical environment variables
 function validateEnvironment() {
@@ -59,11 +64,33 @@ const app = express();
 // Disable ETags globally to prevent 304 Not Modified responses
 app.set('etag', false);
 
+// ⚠️ CRITICAL: Stripe webhook MUST be registered BEFORE express.json()
+// Stripe signature verification requires the RAW request body as a Buffer
+// express.json() would parse it into an object, breaking verification
+app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), handleStripeWebhook);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 // Serve static files from attached_assets directory
 app.use('/attached_assets', express.static('attached_assets'));
+
+// Cache control headers for production deployment (fixes browser caching after updates)
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production') {
+    // Force no-cache for HTML files and root to bust cache after deployments
+    if (req.path.endsWith('.html') || req.path === '/' || req.path === '') {
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+    }
+    // Long cache for versioned assets (Vite adds content hash)
+    else if (req.path.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
+      res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -95,6 +122,47 @@ app.use((req, res, next) => {
   next();
 });
 
+// Function to handle background initialization (non-blocking)
+async function initializeBackground() {
+  // Initialize Stripe schema and sync data in the background
+  // Only initialize if we have both DATABASE_URL and Stripe is configured
+  try {
+    const databaseUrl = process.env.DATABASE_URL;
+    const stripeApiKey = process.env.STRIPE_API_KEY; // Check for env variable first
+    
+    if (databaseUrl && (stripeApiKey || process.env.NODE_ENV === 'development')) {
+      try {
+        console.log('[STRIPE] Initializing schema...');
+        await runMigrations({ 
+          databaseUrl,
+          schema: 'stripe'
+        });
+        console.log('[STRIPE] Schema ready');
+
+        // Get StripeSync instance
+        const stripeSync = await getStripeSync();
+
+        // Start syncing data in background
+        stripeSync.syncBackfill()
+          .then(() => {
+            console.log('[STRIPE] Data synced');
+          })
+          .catch((err: any) => {
+            console.error('[STRIPE] Error syncing data:', err);
+          });
+      } catch (stripeError: any) {
+        console.warn('[STRIPE] Failed to initialize Stripe:', stripeError.message);
+        // Don't throw - Stripe is optional
+      }
+    } else if (process.env.NODE_ENV === 'production' && !stripeApiKey) {
+      console.log('[STRIPE] Stripe not configured for production - skipping initialization');
+    }
+  } catch (error: any) {
+    console.error('[STARTUP] Unexpected error during background initialization:', error.message);
+    // Don't throw - allow app to continue even if initialization fails
+  }
+}
+
 (async () => {
   const server = await registerRoutes(app);
 
@@ -105,6 +173,29 @@ app.use((req, res, next) => {
     res.status(status).json({ message });
     throw err;
   });
+
+  // Health check endpoint for deployment
+  app.get('/health', (req: Request, res: Response) => {
+    res.status(200).json({ status: 'ok' });
+  });
+
+  // Cache control middleware for production deployments
+  // This ensures users always get fresh HTML while caching hashed assets
+  if (app.get("env") !== "development") {
+    app.use((req, res, next) => {
+      // Hashed assets in /assets/ can be cached forever (immutable)
+      if (req.path.startsWith('/assets/')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+      // HTML and root paths should never be cached
+      else if (req.path === '/' || req.path.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+      next();
+    });
+  }
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
@@ -123,14 +214,24 @@ app.use((req, res, next) => {
     port,
     host: "0.0.0.0",
     reusePort: true,
-  }, async () => {
+  }, () => {
     log(`serving on port ${port}`);
     
-    // Seed sample groups for demo user on startup
-    try {
-      await seedSampleGroups();
-    } catch (error) {
+    // Fire background initialization tasks (non-blocking)
+    // These run in the background without blocking server startup
+    
+    // Initialize Stripe in background
+    initializeBackground().catch((err) => {
+      console.error('[STARTUP] Background initialization error:', err);
+    });
+    
+    // Seed sample groups for demo user (non-blocking)
+    seedSampleGroups().catch((error) => {
       console.error('[SEED] Failed to seed sample groups:', error);
-    }
+    });
+    
+    // Start the reminder processor for plan notifications (non-blocking)
+    startReminderProcessor(storage);
+    console.log('[REMINDER] Reminder processor started');
   });
 })();

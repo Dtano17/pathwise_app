@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
+import { sql as drizzleSql } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupMultiProviderAuth, isAuthenticatedGeneric } from "./multiProviderAuth";
 import { aiService } from "./services/aiService";
@@ -37,13 +38,15 @@ import {
   activityReports,
   users,
   authIdentities,
+  contactShares,
   type Task,
   type Activity,
   type ActivityTask,
   type NotificationPreferences,
   type SignupUser,
   type ProfileCompletion,
-  type LifestylePlannerSession
+  type LifestylePlannerSession,
+  type User
 } from "@shared/schema";
 import { eq, and, or, isNull, isNotNull, ne, sql } from "drizzle-orm";
 import bcrypt from 'bcrypt';
@@ -55,6 +58,15 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import Stripe from 'stripe';
+import { sendGroupNotification } from './services/notificationService';
+import { tavily } from '@tavily/core';
+import { socialMediaVideoService } from './services/socialMediaVideoService';
+import { apifyService } from './services/apifyService';
+import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory, mapVenueTypeToJournalCategory, getBestJournalCategory, getDynamicCategoryInfo, type VenueInfo, type DynamicCategoryInfo, type PrimaryCategorySuggestion, type SubcategorySuggestion } from './services/contentCategorizationService';
+import { findSimilarCategory, findSimilarSubcategory, findDuplicateVenue, checkDuplicateURL, generatePrimaryCategoryId, generateSubcategoryId, generateColorGradient, type DeduplicationConfig, DEFAULT_DEDUP_CONFIG } from './services/categoryMatcher';
+import { scheduleRemindersForActivity, cancelRemindersForActivity } from './services/reminderProcessor';
+
+const tavilyClient = process.env.TAVILY_API_KEY ? tavily({ apiKey: process.env.TAVILY_API_KEY }) : null;
 
 // Helper function to format plan preview for Smart mode
 function formatPlanPreview(plan: any): string {
@@ -147,6 +159,55 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Only images (JPEG, PNG, GIF) and videos (MP4, MOV, AVI) are allowed'));
+    }
+  }
+});
+
+// Configure multer for document uploads (disk storage for all document types including PDFs and images)
+const documentUploadDir = path.join(process.cwd(), 'attached_assets', 'document_uploads');
+if (!fs.existsSync(documentUploadDir)) {
+  fs.mkdirSync(documentUploadDir, { recursive: true });
+}
+
+const documentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, documentUploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'doc_' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const documentUpload = multer({
+  storage: documentStorage,
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit (Whisper API max)
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'text/plain',
+      'text/markdown',
+      'text/csv',
+      'application/json',
+      'video/mp4',
+      'video/webm',
+      'video/quicktime',
+      'video/x-msvideo',
+      'audio/mpeg',
+      'audio/wav',
+      'audio/mp4',
+      'audio/webm'
+    ];
+    
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type: ${file.mimetype}. Supported: PDF, Word (.docx), Images, Videos (MP4, WebM, MOV), Audio (MP3, WAV, M4A)`));
     }
   }
 });
@@ -874,6 +935,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
+
+  // ========== SITEMAP FOR SEO ==========
+  // Dynamic sitemap.xml for search engines and AI crawlers
+  app.get('/sitemap.xml', async (_req, res) => {
+    try {
+      const baseUrl = 'https://journalmate.ai';
+
+      // Static pages with SEO priority
+      const staticPages = [
+        { url: '/', priority: 1.0, changefreq: 'weekly' },
+        { url: '/discover', priority: 0.9, changefreq: 'daily' },
+        { url: '/chatgpt-plan-tracker', priority: 0.9, changefreq: 'monthly' },
+        { url: '/claude-ai-integration', priority: 0.9, changefreq: 'monthly' },
+        { url: '/perplexity-plans', priority: 0.9, changefreq: 'monthly' },
+        { url: '/gemini-plan-importer', priority: 0.9, changefreq: 'monthly' },
+        { url: '/save-social-media', priority: 0.9, changefreq: 'weekly' },
+        { url: '/weekend-plans', priority: 0.85, changefreq: 'weekly' },
+        { url: '/plans-near-me', priority: 0.85, changefreq: 'weekly' },
+        { url: '/christmas-plans', priority: 0.8, changefreq: 'monthly' },
+        { url: '/new-year-activities', priority: 0.8, changefreq: 'monthly' },
+        { url: '/summer-adventures', priority: 0.8, changefreq: 'monthly' },
+        { url: '/winter-plans', priority: 0.8, changefreq: 'monthly' },
+        { url: '/date-night-ideas', priority: 0.8, changefreq: 'weekly' },
+        { url: '/family-activities', priority: 0.8, changefreq: 'weekly' },
+        { url: '/trending-plans', priority: 0.85, changefreq: 'daily' },
+        { url: '/faq', priority: 0.7, changefreq: 'monthly' },
+        { url: '/privacy', priority: 0.5, changefreq: 'yearly' },
+        { url: '/terms', priority: 0.5, changefreq: 'yearly' },
+        { url: '/support', priority: 0.6, changefreq: 'monthly' },
+      ];
+
+      // Fetch public community plans for dynamic URLs
+      const publicPlans = await db.query.activities.findMany({
+        where: eq(activities.communityStatus, 'live'),
+        limit: 1000,
+        columns: {
+          shareToken: true,
+          updatedAt: true,
+        }
+      });
+
+      // Build dynamic URLs from public plans
+      const dynamicUrls = publicPlans.map(plan => ({
+        url: `/share/${plan.shareToken}`,
+        priority: 0.6,
+        changefreq: 'weekly',
+        lastmod: plan.updatedAt instanceof Date ? plan.updatedAt.toISOString() : new Date(plan.updatedAt).toISOString()
+      }));
+
+      // Combine static and dynamic URLs
+      const allUrls = [...staticPages, ...dynamicUrls];
+
+      // Generate XML sitemap
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${allUrls.map(page => `  <url>
+    <loc>${baseUrl}${page.url}</loc>
+    <changefreq>${page.changefreq}</changefreq>
+    <priority>${page.priority}</priority>${page.lastmod ? `
+    <lastmod>${page.lastmod}</lastmod>` : ''}
+  </url>`).join('\n')}
+</urlset>`;
+
+      res.header('Content-Type', 'application/xml');
+      res.send(xml);
+    } catch (error) {
+      console.error('Error generating sitemap:', error);
+      res.status(500).send('Error generating sitemap');
+    }
+  });
+
+  // ========== INTEGRATION STATUS ENDPOINT ==========
+  // Shows status of content extraction integrations (Apify, Tavily)
+  app.get("/api/integrations/status", async (_req, res) => {
+    const status = {
+      apify: apifyService.getStatus(),
+      tavily: {
+        configured: !!process.env.TAVILY_API_KEY,
+        message: process.env.TAVILY_API_KEY ? 'Tavily integration ready' : 'TAVILY_API_KEY not set'
+      },
+      openai: {
+        configured: !!process.env.OPENAI_API_KEY,
+        message: process.env.OPENAI_API_KEY ? 'OpenAI integration ready (Whisper + OCR)' : 'OPENAI_API_KEY not set'
+      },
+      extractionPipeline: {
+        instagramReels: apifyService.isAvailable() ? 'Apify → Whisper → OCR' : 'Direct extraction → yt-dlp → Whisper → OCR',
+        tiktokVideos: apifyService.isAvailable() ? 'Apify → Whisper → OCR' : 'Direct extraction → yt-dlp → Whisper → OCR',
+        youtube: 'yt-dlp → Whisper',
+        webContent: process.env.TAVILY_API_KEY ? 'Tavily Extract (advanced)' : 'Basic fetch',
+        documents: 'PDF/DOCX/Image parsing → OpenAI'
+      }
+    };
+    
+    res.json(status);
+  });
   
   // ========== DYNAMIC OPEN GRAPH IMAGE GENERATOR ==========
   // Serve dynamically generated OG images for share previews
@@ -1182,7 +1338,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUserById(userId);
       
       if (!user?.stripeCustomerId) {
-        return res.status(400).json({ error: 'No subscription found' });
+        console.error(`[PORTAL] User ${user?.email} missing stripeCustomerId - tier: ${user?.subscriptionTier}`);
+        return res.status(400).json({ 
+          error: 'Subscription data missing', 
+          details: 'Your subscription information is incomplete. Please contact support to resolve this issue.',
+          userEmail: user?.email,
+          userTier: user?.subscriptionTier
+        });
       }
 
       // Use production domain (journalmate.ai) for production, or dev domain for development
@@ -1198,11 +1360,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return_url: `${baseUrl}/settings`
         });
       } catch (portalError: any) {
-        // If customer doesn't exist (old test mode customer), return error
+        // If customer doesn't exist (stale/invalid customer ID), try to auto-recover
         if (portalError.code === 'resource_missing') {
-          return res.status(400).json({ error: 'Please create a subscription first' });
+          console.error(`[PORTAL] Customer ${user.stripeCustomerId} not found in Stripe for user ${user.email} - attempting auto-recovery`);
+          
+          // Try to find the user's customer in Stripe by email
+          try {
+            const customers = await stripe.customers.search({
+              query: `email:'${user.email}'`,
+              limit: 5
+            });
+            
+            if (customers.data.length === 0) {
+              console.error(`[PORTAL] No Stripe customer found for email ${user.email}`);
+              return res.status(400).json({ 
+                error: 'Unable to access subscription portal',
+                details: 'No subscription found for your email. Please contact support.',
+                userEmail: user.email
+              });
+            }
+            
+            // Get the first customer (should only be one per email)
+            const customer = customers.data[0];
+            
+            // Get their active subscriptions
+            const subscriptions = await stripe.subscriptions.list({
+              customer: customer.id,
+              status: 'active',
+              limit: 5
+            });
+            
+            // Also check for trialing subscriptions
+            const trialingSubscriptions = await stripe.subscriptions.list({
+              customer: customer.id,
+              status: 'trialing',
+              limit: 5
+            });
+            
+            const allSubscriptions = [...subscriptions.data, ...trialingSubscriptions.data];
+            const userSubscription = allSubscriptions[0]; // Take first active/trialing subscription
+            
+            if (userSubscription) {
+              const customerId = typeof userSubscription.customer === 'string' 
+                ? userSubscription.customer 
+                : userSubscription.customer.id;
+              
+              console.log(`[PORTAL] Found matching subscription for ${user.email}, updating customer ID to ${customerId}`);
+              
+              // Update user with correct IDs
+              await storage.updateUser(user.id, {
+                stripeCustomerId: customerId,
+                stripeSubscriptionId: userSubscription.id
+              });
+              
+              // Retry portal session with correct customer ID
+              session = await stripe.billingPortal.sessions.create({
+                customer: customerId,
+                return_url: `${baseUrl}/settings`
+              });
+              
+              console.log(`[PORTAL] Auto-recovery successful for ${user.email}`);
+            } else {
+              console.error(`[PORTAL] No active subscription found for ${user.email}`);
+              return res.status(400).json({ 
+                error: 'Unable to access subscription portal',
+                details: 'Your subscription data is out of sync. Please contact support to resolve this issue.',
+                userEmail: user.email,
+                userTier: user.subscriptionTier
+              });
+            }
+          } catch (recoveryError: any) {
+            console.error(`[PORTAL] Auto-recovery failed for ${user.email}:`, recoveryError.message);
+            return res.status(400).json({ 
+              error: 'Unable to access subscription portal',
+              details: 'Could not locate your subscription. Please contact support.',
+              userEmail: user.email
+            });
+          }
+        } else {
+          throw portalError;
         }
-        throw portalError;
       }
 
       res.json({ url: session.url });
@@ -1236,176 +1473,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Stripe webhooks
-  app.post('/api/webhook/stripe', async (req, res) => {
-    if (!stripe) {
-      return res.status(500).send('Stripe not configured');
-    }
-
-    const sig = req.headers['stripe-signature'];
-    let event;
-
-    try {
-      event = stripe.webhooks.constructEvent(
-        req.body,
-        sig as string,
-        process.env.STRIPE_WEBHOOK_SECRET || ''
-      );
-    } catch (err: any) {
-      console.error('Webhook signature verification failed:', err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    try {
-      switch (event.type) {
-        case 'checkout.session.completed': {
-          const session = event.data.object as any;
-          const userId = session.metadata?.userId;
-          const tier = session.metadata?.tier;
-          
-          if (userId && tier) {
-            await storage.updateUserField(userId, 'subscriptionTier', tier);
-            await storage.updateUserField(userId, 'subscriptionStatus', 'trialing');
-            await storage.updateUserField(userId, 'stripeSubscriptionId', session.subscription);
-            
-            // Set trial end date (7 days from now)
-            const trialEnd = new Date();
-            trialEnd.setDate(trialEnd.getDate() + 7);
-            await storage.updateUserField(userId, 'trialEndsAt', trialEnd);
-            
-            // Reset plan count
-            await storage.updateUserField(userId, 'planCount', 0);
-            const resetDate = new Date();
-            resetDate.setMonth(resetDate.getMonth() + 1);
-            await storage.updateUserField(userId, 'planCountResetDate', resetDate);
-          }
-          break;
-        }
-
-        case 'customer.subscription.updated':
-        case 'customer.subscription.created': {
-          const subscription = event.data.object as any;
-          const userId = subscription.metadata?.userId;
-          
-          if (userId) {
-            await storage.updateUserField(userId, 'subscriptionStatus', subscription.status);
-            
-            if (subscription.status === 'active') {
-              await storage.updateUserField(userId, 'trialEndsAt', null);
-            }
-          }
-          break;
-        }
-
-        case 'customer.subscription.deleted': {
-          const subscription = event.data.object as any;
-          const userId = subscription.metadata?.userId;
-          
-          if (userId) {
-            await storage.updateUserField(userId, 'subscriptionTier', 'free');
-            await storage.updateUserField(userId, 'subscriptionStatus', 'canceled');
-            await storage.updateUserField(userId, 'subscriptionEndsAt', new Date());
-            await storage.updateUserField(userId, 'planCount', 0);
-          }
-          break;
-        }
-
-        case 'invoice.payment_succeeded': {
-          const invoice = event.data.object as any;
-          const subscriptionId = invoice.subscription;
-          const billingReason = invoice.billing_reason; // 'subscription_create' or 'subscription_cycle'
-          
-          console.log('[WEBHOOK] invoice.payment_succeeded:', {
-            subscriptionId,
-            billingReason,
-            amount: invoice.amount_paid,
-            currency: invoice.currency
-          });
-          
-          if (subscriptionId) {
-            try {
-              // Find user by subscription ID
-              const users = await (storage as any).getAllUsers?.() || [];
-              const user = users.find((u: any) => u.stripeSubscriptionId === subscriptionId);
-              
-              if (user) {
-                // Update subscription status to active
-                await storage.updateUserField(user.id, 'subscriptionStatus', 'active');
-                
-                // If this is a renewal (subscription_cycle), reset monthly plan count
-                if (billingReason === 'subscription_cycle') {
-                  console.log('[WEBHOOK] Resetting plan count for renewal user:', user.id);
-                  await storage.updateUserField(user.id, 'planCount', 0);
-                  
-                  // Set next reset date to one month from now
-                  const nextResetDate = new Date();
-                  nextResetDate.setMonth(nextResetDate.getMonth() + 1);
-                  await storage.updateUserField(user.id, 'planCountResetDate', nextResetDate);
-                }
-                
-                // Clear trial end date on first payment
-                if (billingReason === 'subscription_create') {
-                  await storage.updateUserField(user.id, 'trialEndsAt', null);
-                }
-                
-                console.log('[WEBHOOK] Successfully processed payment for user:', user.id);
-              } else {
-                console.warn('[WEBHOOK] No user found for subscription:', subscriptionId);
-              }
-            } catch (err) {
-              console.error('[WEBHOOK] Error processing invoice.payment_succeeded:', err);
-              // Don't throw - continue processing other events
-            }
-          }
-          break;
-        }
-
-        case 'invoice.payment_failed': {
-          const invoice = event.data.object as any;
-          const subscriptionId = invoice.subscription;
-          const reason = invoice.last_payment_error?.message || 'Unknown payment failure';
-          
-          console.log('[WEBHOOK] invoice.payment_failed:', {
-            subscriptionId,
-            reason,
-            attemptsRemaining: invoice.attempt_count
-          });
-          
-          if (subscriptionId) {
-            try {
-              // Find user by subscription ID
-              const users = await (storage as any).getAllUsers?.() || [];
-              const user = users.find((u: any) => u.stripeSubscriptionId === subscriptionId);
-              
-              if (user) {
-                // Update subscription status to past_due
-                await storage.updateUserField(user.id, 'subscriptionStatus', 'past_due');
-                
-                console.log('[WEBHOOK] Payment failed for user:', user.id, 'Reason:', reason);
-                
-                // In a full implementation, you would:
-                // 1. Send email notification to user
-                // 2. Store failure details for admin review
-                // 3. Implement grace period logic (allow limited access while resolving)
-                // 4. Trigger retries via Stripe's built-in retry logic
-              } else {
-                console.warn('[WEBHOOK] No user found for failed payment subscription:', subscriptionId);
-              }
-            } catch (err) {
-              console.error('[WEBHOOK] Error processing invoice.payment_failed:', err);
-              // Don't throw - continue processing other events
-            }
-          }
-          break;
-        }
-      }
-
-      res.json({ received: true });
-    } catch (error: any) {
-      console.error('Webhook processing error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+  // ========== STRIPE WEBHOOK ==========
+  // NOTE: Webhook handler moved to server/stripeWebhook.ts and registered in server/index.ts
+  // It must be registered BEFORE express.json() to receive raw body buffer for signature verification
 
   // ========== END STRIPE ROUTES ==========
 
@@ -1716,19 +1786,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const getUserFromRequest = async (req: any) => {
     let userId: string | null = null;
     
+    // Debug logging for authentication state
+    console.log('[getUserFromRequest] Auth state:', {
+      isAuthenticatedFn: !!req.isAuthenticated,
+      isAuthenticated: req.isAuthenticated?.(),
+      hasUser: !!req.user,
+      userId: req.user?.id,
+      userClaims: req.user?.claims?.sub,
+      sessionUserId: req.session?.userId,
+      passportUser: req.session?.passport?.user,
+      sessionId: req.sessionID
+    });
+    
     // Check multiple authentication methods for session persistence
     if (req.isAuthenticated && req.isAuthenticated() && req.user?.id) {
       // Passport authentication (OAuth and manual login)
       userId = req.user.id;
+      console.log('[getUserFromRequest] Using req.user.id:', userId);
     } else if (req.session?.userId) {
       // Direct session-based authentication
       userId = req.session.userId;
-    } else if (req.session?.passport?.user?.id) {
-      // Passport session serialization
-      userId = req.session.passport.user.id;
+      console.log('[getUserFromRequest] Using session.userId:', userId);
+    } else if (req.session?.passport?.user) {
+      // Passport session serialization - handle both string ID and object formats
+      const passportUser = req.session.passport.user;
+      userId = typeof passportUser === 'string' ? passportUser : passportUser?.id;
+      console.log('[getUserFromRequest] Using session.passport.user:', userId);
     } else if (req.user?.claims?.sub) {
       // Replit auth user
       userId = req.user.claims.sub;
+      console.log('[getUserFromRequest] Using user.claims.sub:', userId);
     }
     
     if (userId) {
@@ -1737,8 +1824,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (user) {
           // Remove password from response and add authenticated flag
           const { password, ...userWithoutPassword } = user;
-          console.log('Authenticated user found:', { userId, username: user.username, email: user.email });
-          return { ...userWithoutPassword, authenticated: true, isGuest: false };
+          
+          // Check for profile image override from user_profiles table
+          // This allows user-uploaded images to take precedence over OAuth images
+          const userProfile = await storage.getUserProfile(userId);
+          const effectiveProfileImageUrl = userProfile?.profileImageUrlOverride || user.profileImageUrl;
+          
+          console.log('Authenticated user found:', { 
+            userId, 
+            username: user.username, 
+            email: user.email,
+            hasProfileImageOverride: !!userProfile?.profileImageUrlOverride 
+          });
+          
+          return { 
+            ...userWithoutPassword, 
+            profileImageUrl: effectiveProfileImageUrl,
+            authenticated: true, 
+            isGuest: false 
+          };
         }
       } catch (error) {
         console.error('Error fetching authenticated user:', error);
@@ -1794,6 +1898,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Main user endpoint (alias for /api/auth/user for backward compatibility)
   app.get('/api/user', async (req: any, res) => {
     try {
+      // Prevent caching of user data to ensure fresh auth state after sign-in
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       const user = await getUserFromRequest(req);
       res.json(user);
     } catch (error) {
@@ -1925,6 +2034,568 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // USER SAVED CONTENT / PREFERENCES API
+  // ============================================
+  
+  // Save content for later (from social media share or URL)
+  app.post('/api/user/saved-content', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { sourceUrl, extractedContent, userNotes, autoJournal } = req.body;
+      
+      if (!sourceUrl || !extractedContent) {
+        return res.status(400).json({ error: 'Source URL and extracted content are required' });
+      }
+
+      const platform = detectPlatform(sourceUrl);
+
+      // STEP 0: Check URL deduplication FIRST (silent skip per user preference)
+      const userPrefs = await storage.getUserPreferences(userId);
+      const currentPrefs = userPrefs?.preferences || {};
+      const existingSharedURLs = currentPrefs.sharedURLs || [];
+
+      if (checkDuplicateURL(sourceUrl, existingSharedURLs, DEFAULT_DEDUP_CONFIG)) {
+        console.log(`[URL DEDUP] ⏭️  URL already shared, skipping silently: ${sourceUrl}`);
+        return res.status(200).json({
+          success: true,
+          message: "Content already saved",
+          skipped: true,
+          reason: "duplicate_url"
+        });
+      }
+
+      // Categorize the content using AI
+      console.log(`[SAVE CONTENT] Categorizing content from ${platform}: ${sourceUrl}`);
+      const categorized = await categorizeContent(extractedContent, platform);
+      
+      // Log detailed categorization results
+      console.log(`[SAVE CONTENT] AI Categorization result:`);
+      console.log(`  - primaryCategory: "${categorized.primaryCategory.name}" ${categorized.primaryCategory.emoji}`);
+      console.log(`  - subcategory: "${categorized.subcategory.name}" ${categorized.subcategory.emoji}`);
+      console.log(`  - title: "${categorized.title}"`);
+      console.log(`  - venues count: ${categorized.venues?.length || 0}`);
+      if (categorized.venues && categorized.venues.length > 0) {
+        console.log(`  - venue types: ${categorized.venues.map((v: any) => v.type).join(', ')}`);
+      }
+      
+      // Save to database (adapt new two-level structure to existing schema)
+      const savedContent = await storage.createUserSavedContent({
+        userId,
+        sourceUrl,
+        platform,
+        location: categorized.location,
+        city: categorized.city,
+        country: categorized.country,
+        neighborhood: categorized.neighborhood,
+        category: categorized.primaryCategory.name,  // Store primary as category
+        subcategory: categorized.subcategory.name,   // Store subcategory name
+        venues: categorized.venues,
+        budgetTier: categorized.budgetTier,
+        estimatedCost: categorized.estimatedCost,
+        rawContent: extractedContent.substring(0, 10000), // Limit stored content
+        title: categorized.title,
+        tags: categorized.tags,
+        userNotes: userNotes || null
+      });
+
+      console.log(`[SAVE CONTENT] Saved content ${savedContent.id} for user ${userId}`);
+      console.log(`[SAVE CONTENT] Categorized: ${categorized.city}, ${categorized.primaryCategory.name} → ${categorized.subcategory.name}, ${categorized.venues?.length || 0} venues`);
+
+      // Auto-create journal entries if requested
+      let journalEntryId = null;
+      let venuesAddedCount = 0;
+      const venueJournalIds: string[] = [];
+      
+      if (autoJournal) {
+        try {
+          // Normalize source URL for duplicate checking
+          const normalizeUrlForDuplicateCheck = (urlString: string): string => {
+            try {
+              const url = new URL(urlString);
+              let normalized = url.hostname.replace(/^www\./, '') + url.pathname.replace(/\/$/, '');
+              normalized = normalized.replace(/\/p\/([^\/]+).*/, '/p/$1');
+              normalized = normalized.replace(/\?.*$/, '');
+              return normalized.toLowerCase();
+            } catch {
+              return urlString.toLowerCase().replace(/\/$/, '');
+            }
+          };
+          
+          const normalizedSourceUrl = normalizeUrlForDuplicateCheck(sourceUrl);
+          
+          // If there are venues, save EACH venue as its own journal item
+          if (categorized.venues && categorized.venues.length > 0) {
+            // Fetch user preferences once
+            const userPrefs = await storage.getUserPreferences(userId);
+            const currentPrefs = userPrefs?.preferences || {};
+            const journalData = currentPrefs.journalData || {};
+            const existingSharedURLs = currentPrefs.sharedURLs || [];
+            
+            // Track dynamic categories created during this save
+            // Handle both array format (from manual creation) and object format (from smart categorization)
+            let existingCustomCategories: Record<string, DynamicCategoryInfo> = {};
+            if (Array.isArray(currentPrefs.customJournalCategories)) {
+              // Convert array to object for consistent handling
+              for (const cat of currentPrefs.customJournalCategories) {
+                existingCustomCategories[cat.id] = {
+                  id: cat.id,
+                  label: cat.name || cat.label || cat.id,
+                  emoji: cat.emoji || '',
+                  color: cat.color || 'from-teal-500 to-cyan-500'
+                };
+              }
+            } else if (currentPrefs.customJournalCategories) {
+              existingCustomCategories = currentPrefs.customJournalCategories;
+            }
+            const newDynamicCategories: Record<string, DynamicCategoryInfo> = {};
+            const newPrimaryCategories: Record<string, any> = {};
+
+            // TWO-LEVEL CATEGORIZATION: Get AI suggestions
+            console.log(`[TWO-LEVEL] AI suggested Primary: "${categorized.primaryCategory.name}" ${categorized.primaryCategory.emoji}`);
+            console.log(`[TWO-LEVEL] AI suggested Subcategory: "${categorized.subcategory.name}" ${categorized.subcategory.emoji}`);
+
+            // STEP 1: Fuzzy match PRIMARY category
+            const existingPrimaryCategories = Object.values(currentPrefs.customPrimaryCategories || {})
+              .map((p: any) => ({ id: p.id, name: p.label }));
+
+            const similarPrimary = findSimilarCategory(
+              categorized.primaryCategory.name,
+              existingPrimaryCategories,
+              DEFAULT_DEDUP_CONFIG
+            );
+
+            let primaryCategoryId: string;
+            let primaryCategoryLabel: string;
+            let primaryCategoryEmoji: string;
+
+            if (similarPrimary) {
+              // Reuse existing primary category
+              primaryCategoryId = similarPrimary.id;
+              primaryCategoryLabel = similarPrimary.name;
+              const existingPrimary = currentPrefs.customPrimaryCategories?.[primaryCategoryId];
+              primaryCategoryEmoji = existingPrimary?.emoji || categorized.primaryCategory.emoji;
+              console.log(`[TWO-LEVEL] ✅ Reusing primary: "${primaryCategoryLabel}" (${primaryCategoryId})`);
+            } else {
+              // Create new primary category
+              primaryCategoryId = generatePrimaryCategoryId(categorized.primaryCategory.name);
+              primaryCategoryLabel = categorized.primaryCategory.name;
+              primaryCategoryEmoji = categorized.primaryCategory.emoji;
+
+              newPrimaryCategories[primaryCategoryId] = {
+                id: primaryCategoryId,
+                label: primaryCategoryLabel,
+                emoji: primaryCategoryEmoji,
+                subcategories: {},
+                createdAt: new Date(),
+                order: existingPrimaryCategories.length
+              };
+              console.log(`[TWO-LEVEL] ✨ Created primary: "${primaryCategoryLabel}" ${primaryCategoryEmoji} (${primaryCategoryId})`);
+            }
+
+            // STEP 2: Fuzzy match SUBCATEGORY within the primary category
+            const existingSubcategories = Object.values(
+              currentPrefs.customPrimaryCategories?.[primaryCategoryId]?.subcategories || {}
+            ).map((s: any) => ({ id: s.id, name: s.label }));
+
+            const similarSubcategory = findSimilarSubcategory(
+              categorized.subcategory.name,
+              existingSubcategories,
+              DEFAULT_DEDUP_CONFIG
+            );
+
+            let subcategoryId: string;
+            let subcategoryLabel: string;
+            let subcategoryEmoji: string;
+
+            if (similarSubcategory) {
+              // Reuse existing subcategory
+              subcategoryId = similarSubcategory.id;
+              subcategoryLabel = similarSubcategory.name;
+              const existingSubcat = currentPrefs.customPrimaryCategories?.[primaryCategoryId]?.subcategories?.[subcategoryId];
+              subcategoryEmoji = existingSubcat?.emoji || categorized.subcategory.emoji;
+              console.log(`[TWO-LEVEL] ✅ Reusing subcategory: "${subcategoryLabel}" (${subcategoryId})`);
+            } else {
+              // Create new subcategory under the primary
+              subcategoryId = generateSubcategoryId(categorized.subcategory.name);
+              subcategoryLabel = categorized.subcategory.name;
+              subcategoryEmoji = categorized.subcategory.emoji;
+
+              const subcategoryInfo = {
+                id: subcategoryId,
+                label: subcategoryLabel,
+                emoji: subcategoryEmoji,
+                color: generateColorGradient(),
+                usageCount: 0,
+                createdAt: new Date()
+              };
+
+              // Add to new or existing primary category
+              if (newPrimaryCategories[primaryCategoryId]) {
+                newPrimaryCategories[primaryCategoryId].subcategories[subcategoryId] = subcategoryInfo;
+              } else {
+                // Need to update existing primary category with new subcategory
+                if (!newPrimaryCategories[primaryCategoryId]) {
+                  newPrimaryCategories[primaryCategoryId] = {
+                    ...(currentPrefs.customPrimaryCategories?.[primaryCategoryId] || {}),
+                    subcategories: {
+                      ...(currentPrefs.customPrimaryCategories?.[primaryCategoryId]?.subcategories || {}),
+                      [subcategoryId]: subcategoryInfo
+                    }
+                  };
+                }
+              }
+
+              console.log(`[TWO-LEVEL] ✨ Created subcategory: "${subcategoryLabel}" ${subcategoryEmoji} under "${primaryCategoryLabel}"`);
+            }
+
+            // STEP 3: Use the subcategory ID as the journal category (maintains compatibility)
+            const finalJournalCategory = subcategoryId;
+
+            // Create dynamic category info for backward compatibility
+            const dynamicInfo: DynamicCategoryInfo = {
+              id: subcategoryId,
+              label: subcategoryLabel,
+              emoji: subcategoryEmoji,
+              color: generateColorGradient()
+            };
+
+            if (!existingCustomCategories[subcategoryId]) {
+              newDynamicCategories[subcategoryId] = dynamicInfo;
+            }
+
+            // Group venues by their target journal category (now using subcategory)
+            const venuesByCategory: Record<string, { venue: VenueInfo; category: string; dynamicInfo: DynamicCategoryInfo | null }[]> = {};
+
+            for (const venue of categorized.venues) {
+              if (!venuesByCategory[finalJournalCategory]) {
+                venuesByCategory[finalJournalCategory] = [];
+              }
+              venuesByCategory[finalJournalCategory].push({
+                venue,
+                category: finalJournalCategory,
+                dynamicInfo
+              });
+            }
+            
+            // Process each category and add venues
+            console.log(`[SAVE CONTENT] Processing ${categorized.venues.length} venues from source`);
+            
+            for (const [category, venueItems] of Object.entries(venuesByCategory)) {
+              const categoryItems = journalData[category] || [];
+              const newItems: any[] = [];
+              
+              console.log(`[SAVE CONTENT] Category "${category}": ${venueItems.length} venues to process, ${categoryItems.length} existing items`);
+              
+              for (let venueIndex = 0; venueIndex < venueItems.length; venueIndex++) {
+              const { venue } = venueItems[venueIndex];
+              
+              // Check for duplicates: same sourceUrl + same venue name (case-insensitive)
+              // Check BOTH existing items AND items being added in this batch
+              const isDuplicateInExisting = categoryItems.some((item: any) => {
+                const itemSourceUrl = item.sourceUrl || item.originalUrl || '';
+                if (!itemSourceUrl) return false;
+                try {
+                  const itemNormalized = normalizeUrlForDuplicateCheck(itemSourceUrl);
+                  const sameSource = itemNormalized === normalizedSourceUrl;
+                  const sameName = item.text?.toLowerCase().trim() === venue.name.toLowerCase().trim();
+                  return sameSource && sameName;
+                } catch {
+                  return false;
+                }
+              });
+              
+              // Also check within the current batch to prevent within-batch duplicates
+              // Include location check to allow same-named venues at different locations (e.g., chain restaurants)
+              const isDuplicateInBatch = newItems.some((item: any) => {
+                const sameName = item.text?.toLowerCase().trim() === venue.name.toLowerCase().trim();
+                const sameLocation = (item.location?.toLowerCase().trim() || '') === (venue.location?.toLowerCase().trim() || venue.address?.toLowerCase().trim() || '');
+                return sameName && sameLocation;
+              });
+              
+              const isDuplicate = isDuplicateInExisting || isDuplicateInBatch;
+                
+              if (isDuplicate) {
+                console.log(`[SAVE CONTENT] Skipping duplicate venue #${venueIndex + 1}: "${venue.name}" (existingDup: ${isDuplicateInExisting}, batchDup: ${isDuplicateInBatch})`);
+                continue;
+              }
+                
+              // Generate unique ID for the journal item with venue index for better uniqueness
+              const venueItemId = `venue-${Date.now()}-${venueIndex}-${Math.random().toString(36).substring(2, 9)}`;
+                
+              // Create journal item for this venue
+              const venueJournalItem = {
+                id: venueItemId,
+                text: venue.name,
+                date: new Date().toISOString().split('T')[0],
+                notes: venue.description || '',
+                sourceUrl: normalizedSourceUrl,
+                originalUrl: sourceUrl,
+                platform: platform.toLowerCase(),
+                venueType: venue.type,
+                priceRange: venue.priceRange,
+                priceAmount: venue.priceAmount,
+                location: venue.location || venue.address || categorized.city || '',
+                keywords: [platform.toLowerCase(), 'imported', venue.type].filter(Boolean),
+                aiConfidence: 0.85,
+                isImported: true
+              };
+                
+              newItems.push(venueJournalItem);
+              venueJournalIds.push(venueItemId);
+              venuesAddedCount++;
+              console.log(`[SAVE CONTENT] Adding venue #${venueIndex + 1} to journal: "${venue.name}" → ${category} (total so far: ${venuesAddedCount})`);
+            }
+              
+            // Update this category with new items at the beginning
+            if (newItems.length > 0) {
+              journalData[category] = [...newItems, ...categoryItems];
+            }
+          }
+            
+          // Batch update preferences with all venue entries, new custom categories, and primary categories
+          if (venuesAddedCount > 0 || Object.keys(newDynamicCategories).length > 0 || Object.keys(newPrimaryCategories).length > 0) {
+            const updatedCustomCategories = {
+              ...existingCustomCategories,
+              ...newDynamicCategories
+            };
+
+            const updatedPrimaryCategories = {
+              ...(currentPrefs.customPrimaryCategories || {}),
+              ...newPrimaryCategories
+            };
+
+            // Add URL to shared URLs list for future deduplication
+            const updatedSharedURLs = [...existingSharedURLs, sourceUrl];
+
+            await storage.upsertUserPreferences(userId, {
+              preferences: {
+                ...currentPrefs,
+                journalData,
+                customJournalCategories: updatedCustomCategories,
+                customPrimaryCategories: updatedPrimaryCategories,
+                sharedURLs: updatedSharedURLs
+              }
+            });
+
+            console.log(`[URL DEDUP] ✅ Added URL to shared history: ${sourceUrl}`);
+
+            const dynamicCatCount = Object.keys(newDynamicCategories).length;
+            const primaryCatCount = Object.keys(newPrimaryCategories).length;
+            console.log(`[SAVE CONTENT] SUMMARY: ${categorized.venues.length} venues extracted → ${venuesAddedCount} added to journal for user ${userId}`);
+            if (primaryCatCount > 0) {
+              console.log(`[SAVE CONTENT] Created ${primaryCatCount} new primary categories: ${Object.values(newPrimaryCategories).map((c: any) => `${c.emoji} ${c.label}`).join(', ')}`);
+            }
+            if (dynamicCatCount > 0) {
+              console.log(`[SAVE CONTENT] Created ${dynamicCatCount} new subcategories: ${Object.values(newDynamicCategories).map(c => `${c.emoji} ${c.label}`).join(', ')}`);
+            }
+          }
+        }
+          
+          // Create summary journal entry for backward compatibility
+          const journalContent = `Saved from ${platform}: ${categorized.title || 'Interesting content'}\n\n` +
+            `Location: ${categorized.city || categorized.location || 'Unknown'}\n` +
+            `Category: ${categorized.primaryCategory.name} → ${categorized.subcategory.name}\n` +
+            (categorized.venues?.length > 0 ? `Venues (${venuesAddedCount} added to journal): ${categorized.venues.map((v: any) => v.name).join(', ')}\n` : '') +
+            (userNotes ? `\nMy notes: ${userNotes}` : '');
+
+          const journalEntry = await storage.createJournalEntry({
+            userId,
+            content: journalContent,
+            category: mapAiCategoryToJournalCategory(categorized.primaryCategory.name),
+            tags: categorized.tags,
+            mood: 'excited'
+          });
+          journalEntryId = journalEntry.id;
+          
+          // Update saved content with journal entry reference
+          await storage.updateUserSavedContent(savedContent.id, userId, {
+            journalEntryId
+          });
+          
+          console.log(`[SAVE CONTENT] Created summary journal entry ${journalEntryId}, ${venuesAddedCount} venue items added`);
+        } catch (journalError) {
+          console.error('[SAVE CONTENT] Error creating journal entries:', journalError);
+        }
+      }
+
+      res.json({
+        success: true,
+        savedContent: {
+          ...savedContent,
+          categoryDisplay: formatCategoryForDisplay(categorized.category),
+          budgetDisplay: formatBudgetTierForDisplay(categorized.budgetTier)
+        },
+        journalEntryId,
+        venuesAddedCount,
+        venueJournalIds
+      });
+    } catch (error) {
+      console.error('Save content error:', error);
+      res.status(500).json({ error: 'Failed to save content' });
+    }
+  });
+
+  // Get user's saved content (with filters)
+  app.get('/api/user/saved-content', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { city, location, category, platform, limit } = req.query;
+      
+      const savedContent = await storage.getUserSavedContent(userId, {
+        city: city as string,
+        location: location as string,
+        category: category as string,
+        platform: platform as string,
+        limit: limit ? parseInt(limit as string) : undefined
+      });
+
+      res.json({
+        savedContent: savedContent.map((item: any) => ({
+          ...item,
+          categoryDisplay: formatCategoryForDisplay(item.category),
+          budgetDisplay: formatBudgetTierForDisplay(item.budgetTier)
+        }))
+      });
+    } catch (error) {
+      console.error('Get saved content error:', error);
+      res.status(500).json({ error: 'Failed to fetch saved content' });
+    }
+  });
+
+  // Get user's saved locations (for planning dropdown)
+  app.get('/api/user/saved-locations', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const locations = await storage.getUserSavedLocations(userId);
+      res.json({ locations });
+    } catch (error) {
+      console.error('Get saved locations error:', error);
+      res.status(500).json({ error: 'Failed to fetch saved locations' });
+    }
+  });
+
+  // Get user's saved categories
+  app.get('/api/user/saved-categories', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const categories = await storage.getUserSavedCategories(userId);
+      res.json({ 
+        categories: categories.map((c: any) => ({
+          ...c,
+          display: formatCategoryForDisplay(c.category)
+        }))
+      });
+    } catch (error) {
+      console.error('Get saved categories error:', error);
+      res.status(500).json({ error: 'Failed to fetch saved categories' });
+    }
+  });
+
+  // Get preferences for a specific location (used by planning agent)
+  app.get('/api/user/preferences', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { location, city, category } = req.query;
+      
+      if (!location && !city) {
+        return res.status(400).json({ error: 'Location or city parameter required' });
+      }
+
+      const savedContent = await storage.getUserSavedContent(userId, {
+        city: city as string,
+        location: location as string,
+        category: category as string,
+        limit: 20
+      });
+
+      // Format preferences for the planning agent
+      const preferences = {
+        location: city || location,
+        savedItems: savedContent.length,
+        venues: savedContent.flatMap((item: any) => item.venues || []),
+        categories: [...new Set(savedContent.map((item: any) => item.category))],
+        budgetTiers: [...new Set(savedContent.filter((item: any) => item.budgetTier).map((item: any) => item.budgetTier))],
+        summary: savedContent.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          venues: item.venues?.map((v: any) => v.name) || [],
+          budgetTier: item.budgetTier
+        }))
+      };
+
+      res.json({ preferences });
+    } catch (error) {
+      console.error('Get preferences error:', error);
+      res.status(500).json({ error: 'Failed to fetch preferences' });
+    }
+  });
+
+  // Delete saved content
+  app.delete('/api/user/saved-content/:contentId', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { contentId } = req.params;
+      
+      await storage.deleteUserSavedContent(contentId, userId);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete saved content error:', error);
+      res.status(500).json({ error: 'Failed to delete saved content' });
+    }
+  });
+
+  // Track when saved content is referenced in a plan
+  app.post('/api/user/saved-content/:contentId/reference', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { contentId } = req.params;
+      
+      // Verify ownership
+      const content = await storage.getUserSavedContentById(contentId, userId);
+      if (!content) {
+        return res.status(404).json({ error: 'Content not found' });
+      }
+      
+      await storage.incrementContentReferenceCount(contentId);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Reference content error:', error);
+      res.status(500).json({ error: 'Failed to track reference' });
+    }
+  });
+
   // Temporary user ID for demo - in real app this would come from authentication
   const DEMO_USER_ID = "demo-user";
   
@@ -1992,6 +2663,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use AI to process the goal into tasks - switched to Claude as default
       const result = await aiService.processGoalIntoTasks(goalText, 'claude', userId, existingActivity);
       
+      // Generate importId if goal contains URL and has extracted venues
+      let importId: string | undefined;
+      const urlMatch = goalText.match(/https?:\/\/[^\s]+/i);
+      const sourceUrl = urlMatch ? urlMatch[0] : undefined;
+      
+      if (sourceUrl && result.allExtractedVenues && result.allExtractedVenues.length > 0) {
+        importId = `import_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Save all extracted venues to journalData with importId for alternatives
+        console.log(`[GOALS/PROCESS] Processing ${result.allExtractedVenues.length} venues from allExtractedVenues`);
+        try {
+          const preferences = await storage.getUserPreferences(userId);
+          const currentJournalData = (preferences?.preferences as any)?.journalData || {};
+          
+          let venuesSavedCount = 0;
+          // Map venues to journal entries with importId
+          for (const venue of result.allExtractedVenues) {
+            const category = venue.category || 'restaurants';
+            const entries = currentJournalData[category] || [];
+            
+            entries.push({
+              id: `journal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              text: `${venue.venueName}${venue.description ? ` - ${venue.description}` : ''}`,
+              timestamp: new Date().toISOString(),
+              venueName: venue.venueName,
+              venueType: venue.venueType || category,
+              location: venue.location || result.planLocation,
+              budgetTier: venue.budgetTier,
+              priceRange: venue.priceRange,
+              estimatedCost: venue.estimatedCost,
+              sourceUrl: sourceUrl,
+              importId: importId
+            });
+            
+            currentJournalData[category] = entries;
+            venuesSavedCount++;
+          }
+          
+          await storage.upsertUserPreferences(userId, {
+            preferences: {
+              ...preferences?.preferences,
+              journalData: currentJournalData
+            }
+          });
+          
+          console.log(`[GOALS/PROCESS] SUMMARY: ${result.allExtractedVenues.length} venues extracted → ${venuesSavedCount} saved with importId ${importId}`);
+        } catch (venueError) {
+          console.error('[GOALS/PROCESS] Error saving venues:', venueError);
+        }
+      }
+      
       // Save or update conversation session for history
       if (sessionId) {
         await storage.updateLifestylePlannerSession(sessionId, {
@@ -2016,6 +2738,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         estimatedTimeframe: result.estimatedTimeframe,
         motivationalNote: result.motivationalNote,
         sessionId,
+        importId, // Include importId for alternatives lookup
+        sourceUrl, // Include sourceUrl for UI display
         message: `Generated ${result.tasks.length} task previews! Click "Create Activity" to save them.`
       });
     } catch (error) {
@@ -2218,6 +2942,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Widget API: Get compact task data for home screen widgets
+  app.get("/api/tasks/widget", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const allTasks = await storage.getUserTasks(userId);
+      
+      // Filter incomplete tasks and take first 3
+      const upcomingTasks = allTasks
+        .filter((task: any) => !task.completed && !task.skipped)
+        .slice(0, 3)
+        .map((task: any) => ({
+          id: task.id,
+          title: task.title,
+          completed: task.completed || false
+        }));
+      
+      // Calculate streak count from progress
+      let streakCount = 0;
+      try {
+        const progress = await storage.calculateProgress(userId);
+        if (progress && progress.dailyStreaks) {
+          streakCount = progress.dailyStreaks.current || 0;
+        }
+      } catch (error) {
+        console.error('Failed to calculate streak for widget:', error);
+        streakCount = 0;
+      }
+      
+      res.json({
+        tasks: upcomingTasks,
+        streakCount,
+        totalTasksToday: allTasks.filter((t: any) => !t.completed && !t.skipped).length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Widget data error:', error);
+      res.status(500).json({ error: 'Failed to fetch widget data' });
+    }
+  });
+
   // Complete a task (swipe right)
   app.post("/api/tasks/:taskId/complete", async (req, res) => {
     try {
@@ -2229,7 +2993,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Task not found' });
       }
 
-      // Check if this task belongs to a group activity and log completion
+      // Check if this task belongs to a group activity and log completion + notify
       try {
         const groupActivity = await storage.getGroupActivityByTaskId(taskId);
         if (groupActivity) {
@@ -2239,10 +3003,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
             changeType: 'task_completed',
             changeDescription: `completed "${task.title}"`,
           });
+          
+          // Send notification to group members
+          const completingUser = await storage.getUser(userId);
+          const activity = await storage.getActivity(groupActivity.activityId, userId);
+          
+          await sendGroupNotification(storage, {
+            groupId: groupActivity.groupId,
+            actorUserId: userId,
+            excludeUserIds: [userId], // Don't notify the person who completed the task
+            notificationType: 'task_completed',
+            payload: {
+              title: `Task completed in ${activity?.title || 'group activity'}`,
+              body: `${completingUser?.username || 'Someone'} completed "${task.title}"`,
+              data: { groupId: groupActivity.groupId, groupActivityId: groupActivity.id, taskId },
+              route: `/groups/${groupActivity.groupId}`,
+            },
+          });
         }
       } catch (logError) {
         console.error('Failed to log group activity:', logError);
         // Don't fail the request if logging fails
+      }
+
+      // ALSO check if this task belongs to a PERSONAL activity that shares progress with a group
+      try {
+        // Get all activities this task belongs to
+        const activityTasks = await storage.getActivityTasksForTask(taskId);
+        console.log('[TASK COMPLETE] Checking progress sharing for task:', taskId, '- Found', activityTasks.length, 'activity-task links');
+        
+        for (const at of activityTasks) {
+          const activity = await storage.getActivityById(at.activityId);
+          console.log('[TASK COMPLETE] Activity check:', {
+            activityId: at.activityId,
+            title: activity?.title,
+            sharesProgressWithGroup: activity?.sharesProgressWithGroup,
+            linkedGroupActivityId: activity?.linkedGroupActivityId,
+            targetGroupId: activity?.targetGroupId
+          });
+          
+          // If this activity shares progress with a group, log it to the group feed
+          if (activity && activity.sharesProgressWithGroup && activity.linkedGroupActivityId) {
+            const completingUser = await storage.getUser(userId);
+            const groupActivity = await storage.getGroupActivityById(activity.linkedGroupActivityId);
+            
+            if (groupActivity) {
+              // Log to group activity feed
+              await storage.logGroupActivity({
+                groupId: groupActivity.groupId,
+                userId,
+                userName: completingUser?.username || 'Someone',
+                activityType: 'task_completed',
+                activityTitle: activity.title,
+                taskTitle: task.title,
+                groupActivityId: groupActivity.id,
+              });
+
+              // Send notification to group members
+              await sendGroupNotification(storage, {
+                groupId: groupActivity.groupId,
+                actorUserId: userId,
+                excludeUserIds: [userId], // Don't notify the person who completed the task
+                notificationType: 'task_completed',
+                payload: {
+                  title: `Member progress update`,
+                  body: `${completingUser?.username || 'Someone'} completed "${task.title}" in ${activity.title}`,
+                  data: { groupId: groupActivity.groupId, groupActivityId: groupActivity.id, taskId, userId },
+                  route: `/groups/${groupActivity.groupId}`,
+                },
+              });
+            }
+          }
+        }
+      } catch (shareError) {
+        console.error('Failed to sync progress sharing:', shareError);
+        // Don't fail the request if sharing fails
       }
 
       res.json({ 
@@ -2442,6 +3277,264 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/alternatives - fetch alternative venues from journal or ContentImport based on location and budget tier
+  app.get("/api/alternatives", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { location, budgetTier, category, excludeIds, sourceUrl, importId, matchBudget } = req.query;
+      
+      // If importId is provided, fetch alternatives from ContentImport table
+      if (importId) {
+        try {
+          const contentImport = await storage.getContentImport(String(importId), String(userId));
+          if (contentImport && contentImport.extractedItems) {
+            const excludeIdList = excludeIds ? String(excludeIds).split(',').filter(Boolean) : [];
+            
+            // Filter to non-selected items not in exclude list
+            // Note: For imports, we allow all items to be swappable alternatives, don't filter by selectedForPlan
+            const alternatives = (contentImport.extractedItems as any[])
+              .filter((item: any) => {
+                if (excludeIdList.includes(item.id)) return false;
+                // Don't filter by selectedForPlan for imports - all items should be swappable
+                if (!item.venueName) return false;
+                return true;
+              })
+              .map((item: any) => ({
+                id: item.id,
+                venueName: item.venueName,
+                venueType: item.venueType,
+                location: item.location,
+                priceRange: item.priceRange,
+                budgetTier: item.budgetTier,
+                category: item.category,
+                sourceUrl: contentImport.sourceUrl,
+                importId: contentImport.id,
+                estimatedCost: item.estimatedCost
+              }));
+            
+            console.log(`[ALTERNATIVES] Found ${alternatives.length} from ContentImport ${importId}`);
+            return res.json({ alternatives, source: 'content_import' });
+          }
+        } catch (error) {
+          console.error('[ALTERNATIVES] ContentImport lookup failed:', error);
+          // Fall through to journal-based lookup
+        }
+      }
+      
+      // Fetch user's journal entries from preferences (fallback)
+      const preferences = await storage.getUserPreferences(userId);
+      const journalData = preferences?.preferences?.journalData || {};
+      
+      // Collect all journal entries across categories
+      const allEntries: any[] = [];
+      Object.keys(journalData).forEach(cat => {
+        const entries = journalData[cat] || [];
+        entries.forEach((entry: any) => {
+          allEntries.push({ ...entry, journalCategory: cat });
+        });
+      });
+      
+      // Parse excludeIds if provided
+      const excludeIdList = excludeIds ? String(excludeIds).split(',').filter(Boolean) : [];
+      
+      // Extract city from various location formats (string or object)
+      const getCity = (loc: any): string | null => {
+        if (!loc) return null;
+        if (typeof loc === 'string') {
+          // Parse "Austin, TX" or "Lagos, Nigeria" format - extract first part before comma
+          return loc.split(',')[0].trim().toLowerCase();
+        }
+        if (typeof loc === 'object') {
+          return (loc.city || loc.neighborhood || '').toLowerCase();
+        }
+        return null;
+      };
+      
+      // Helper: fuzzy city match (case-insensitive, partial match)
+      const cityMatches = (entryLocation: any, searchCity: string): boolean => {
+        if (!searchCity) return false;
+        const entryCity = getCity(entryLocation);
+        if (!entryCity) return false;
+        const searchLower = searchCity.toLowerCase();
+        return entryCity.includes(searchLower) || searchLower.includes(entryCity);
+      };
+      
+      // Helper: budget tier adjacency (budget ↔ moderate ↔ luxury ↔ ultra_luxury)
+      const budgetAdjacent = (entryTier: string, targetTier: string): boolean => {
+        if (!entryTier || !targetTier) return true; // If no tier specified, include all
+        const tiers = ['budget', 'moderate', 'luxury', 'ultra_luxury'];
+        const entryIdx = tiers.indexOf(entryTier);
+        const targetIdx = tiers.indexOf(targetTier);
+        if (entryIdx === -1 || targetIdx === -1) return true;
+        return Math.abs(entryIdx - targetIdx) <= 1;
+      };
+      
+      // Filter entries
+      let alternatives = allEntries.filter(entry => {
+        // Exclude entries by ID
+        if (excludeIdList.includes(entry.id)) return false;
+        
+        // Must have venue name
+        if (!entry.venueName) return false;
+        
+        // Don't filter by selectedForPlan - all venues from a source should be swappable
+        
+        // Filter by sourceUrl - show only venues from same source
+        if (sourceUrl && entry.sourceUrl !== String(sourceUrl)) return false;
+        
+        // Filter by importId - show only venues from same import batch
+        if (importId && entry.importId !== String(importId)) return false;
+        
+        // Filter by location if provided
+        if (location && !cityMatches(entry.location, String(location))) return false;
+        
+        // Filter by budget tier - if matchBudget=true, only exact match; otherwise include adjacent tiers
+        if (budgetTier) {
+          if (matchBudget === 'true') {
+            // Exact budget match only
+            if (entry.budgetTier !== String(budgetTier)) return false;
+          } else {
+            // Include adjacent budget tiers
+            if (!budgetAdjacent(entry.budgetTier, String(budgetTier))) return false;
+          }
+        }
+        
+        // Filter by category if provided
+        if (category) {
+          const entryCat = (entry.venueType || entry.journalCategory || '').toLowerCase();
+          const searchCat = String(category).toLowerCase();
+          if (!entryCat.includes(searchCat) && !searchCat.includes(entryCat)) return false;
+        }
+        
+        return true;
+      });
+      
+      // NO FALLBACK: Only return venues from the matching city
+      // If no alternatives found for the location, return empty array
+      
+      // Format response - return all alternatives (no hard limit)
+      const response = alternatives.map(entry => ({
+        id: entry.id,
+        venueName: entry.venueName,
+        venueType: entry.venueType || entry.journalCategory,
+        location: entry.location,
+        priceRange: entry.priceRange,
+        budgetTier: entry.budgetTier,
+        category: entry.journalCategory,
+        sourceUrl: entry.sourceUrl,
+        importId: entry.importId,
+        estimatedCost: entry.estimatedCost
+      }));
+      
+      res.json({ alternatives: response });
+    } catch (error) {
+      console.error('Fetch alternatives error:', error);
+      res.status(500).json({ error: 'Failed to fetch alternatives' });
+    }
+  });
+
+  // PATCH /api/tasks/:taskId/swap - swap task venue while preserving original task format
+  app.patch("/api/tasks/:taskId/swap", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { taskId } = req.params;
+      const { venueName, venueType, location, priceRange, budgetTier, contentItemId, estimatedCost, originalVenueName } = req.body;
+
+      if (!venueName) {
+        return res.status(400).json({ error: 'venueName is required' });
+      }
+
+      // Get the original task to preserve its format
+      const originalTask = await storage.getTask(taskId, userId);
+      if (!originalTask) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+
+      // Preserve original task format - only swap the venue name and update venue-specific fields
+      let newTitle = originalTask.title;
+      let newDescription = originalTask.description;
+
+      // If we know the original venue name, do a targeted replacement
+      if (originalVenueName && newTitle.includes(originalVenueName)) {
+        newTitle = newTitle.replace(originalVenueName, venueName);
+      } else {
+        // Fallback: Look for common patterns and replace venue-like words
+        // Pattern: "Book [Venue Name] for..." or "Visit [Venue Name]" or "[Venue Name] - ..."
+        const venuePatterns = [
+          /^(Book\s+)([^-–\n]+?)(\s+for\s+)/i,
+          /^(Visit\s+)([^-–\n]+?)(\s+[-–]|\s+in\s+|\s*$)/i,
+          /^(Try\s+)([^-–\n]+?)(\s+[-–]|\s+in\s+|\s*$)/i,
+          /^([^-–]+?)(\s+[-–]\s+)/
+        ];
+        
+        let matched = false;
+        for (const pattern of venuePatterns) {
+          const match = newTitle.match(pattern);
+          if (match) {
+            // Replace the venue portion (group 2) with new venue name
+            newTitle = match[1] + venueName + (match[3] || '');
+            matched = true;
+            break;
+          }
+        }
+        
+        // If no pattern matched, just prepend venue name with original title structure hint
+        if (!matched) {
+          // Keep original structure but update venue
+          const actionVerbs = ['Book', 'Visit', 'Try', 'Check out', 'Explore'];
+          const hasActionVerb = actionVerbs.some(v => newTitle.toLowerCase().startsWith(v.toLowerCase()));
+          if (!hasActionVerb) {
+            newTitle = venueName;
+          }
+        }
+      }
+
+      // Update description with venue details if it contains venue-related info
+      if (newDescription) {
+        // Add/update location in description
+        const locationStr = location?.city || location?.neighborhood || '';
+        if (locationStr && !newDescription.includes(locationStr)) {
+          // Append location if not present
+          newDescription = newDescription.replace(/\.$/, '') + ` in ${locationStr}.`;
+        }
+        
+        // Update price range if present
+        if (priceRange && estimatedCost) {
+          // Replace any existing price pattern or add new one
+          const pricePattern = /\$[\d,]+(?:\s*[-–]\s*\$?[\d,]+)?/g;
+          if (pricePattern.test(newDescription)) {
+            newDescription = newDescription.replace(pricePattern, priceRange);
+          }
+        }
+      }
+
+      const task = await storage.updateTask(taskId, {
+        title: newTitle,
+        description: newDescription,
+        contentItemId: contentItemId,
+        estimatedCost: estimatedCost
+      }, userId);
+
+      if (!task) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+
+      console.log(`[SWAP] Task ${taskId}: "${originalTask.title}" → "${newTitle}"`);
+      res.json({ task, message: `Task swapped to "${venueName}"` });
+    } catch (error) {
+      console.error('Swap task error:', error);
+      res.status(500).json({ error: 'Failed to swap task' });
+    }
+  });
+
   // ===== SUBSCRIPTION TIER ENFORCEMENT =====
   
   // Helper function to check if user has required subscription tier
@@ -2592,13 +3685,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
       
-      // Check subscription tier
-      const tierCheck = await checkSubscriptionTier(userId, 'family');
+      // Check subscription tier - Pro or Family required for Groups
+      const tierCheck = await checkSubscriptionTier(userId, 'pro');
       if (!tierCheck.allowed) {
         return res.status(403).json({ 
           error: 'Subscription required',
-          message: tierCheck.message,
-          requiredTier: 'family',
+          message: 'This feature requires a Pro subscription ($6.99/month) or higher. Upgrade for Groups, unlimited AI plans, and more!',
+          requiredTier: 'pro',
           currentTier: tierCheck.tier
         });
       }
@@ -2736,6 +3829,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Invalid invite code or group not found' });
       }
 
+      const joiningUser = await storage.getUser(userId);
+
+      // Check if user was invited via email/phone and mark invite as accepted
+      let inviterUserId: string | null = null;
+      try {
+        if (joiningUser?.email) {
+          const pendingInvite = await storage.findPendingInvite(joiningUser.email);
+          if (pendingInvite && pendingInvite.groupId === result.group.id) {
+            // Mark invite as accepted
+            await db.update(contactShares)
+              .set({
+                status: 'accepted',
+                respondedAt: new Date()
+              })
+              .where(eq(contactShares.id, pendingInvite.id));
+            
+            inviterUserId = pendingInvite.invitedBy;
+          }
+        }
+      } catch (inviteError) {
+        console.error('Error checking pending invites:', inviteError);
+        // Continue even if this fails
+      }
+
+      // Create activity feed entry for member joining
+      try {
+        console.log(`[JOIN GROUP] Creating activity feed entry for ${joiningUser?.username || 'Someone'} joining group ${result.group.id}`);
+        await storage.logGroupActivity({
+          groupId: result.group.id,
+          userId,
+          userName: joiningUser?.username || 'Someone',
+          activityType: 'member_joined',
+          activityTitle: `${joiningUser?.username || 'Someone'} joined the group`,
+          taskTitle: null,
+          groupActivityId: null,
+        });
+        console.log(`[JOIN GROUP] Activity feed entry created`);
+      } catch (feedError) {
+        console.error('Error creating activity feed entry:', feedError);
+        // Don't fail the operation if feed logging fails
+      }
+
+      // Send notification to admin and existing members
+      try {
+        console.log(`[JOIN GROUP] Sending notification for user ${userId} joining group ${result.group.id}`);
+        await sendGroupNotification(storage, {
+          groupId: result.group.id,
+          actorUserId: userId,
+          excludeUserIds: [userId], // Don't notify the person who joined
+          notificationType: 'member_added',
+          payload: {
+            title: 'New member joined',
+            body: `${joiningUser?.username || 'Someone'} joined "${result.group.name}" via invite code`,
+            data: { groupId: result.group.id, newMemberId: userId },
+            route: `/groups/${result.group.id}`,
+          },
+        });
+        console.log(`[JOIN GROUP] Notification sent successfully`);
+
+        // If this user was invited via email/phone, send special notification to inviter
+        if (inviterUserId) {
+          await storage.createUserNotification({
+            userId: inviterUserId,
+            sourceGroupId: result.group.id,
+            actorUserId: userId,
+            type: 'group_invite_accepted',
+            title: 'Invite accepted!',
+            body: `${joiningUser?.username || 'Someone'} accepted your invite and joined "${result.group.name}"`,
+            metadata: { groupId: result.group.id, newMemberId: userId, route: `/groups/${result.group.id}` }
+          });
+        }
+      } catch (notifError) {
+        console.error('Failed to send join notification:', notifError);
+        // Don't fail the operation if notification fails
+      }
+
       res.json({
         group: result.group,
         membership: result.membership,
@@ -2769,6 +3938,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const newMembership = await storage.addGroupMember(groupId, memberId, role || 'member');
 
+      // Send notification to new member and existing members
+      try {
+        const group = await storage.getGroupById(groupId, userId);
+        const addedUser = await storage.getUser(memberId);
+        
+        // Notify the new member
+        await sendGroupNotification(storage, {
+          groupId,
+          actorUserId: userId,
+          excludeUserIds: [userId], // Don't notify the admin who added
+          notificationType: 'member_added',
+          payload: {
+            title: `Welcome to ${group?.name || 'the group'}!`,
+            body: `You've been added to ${group?.name || 'a group'}`,
+            data: { groupId, groupName: group?.name },
+            route: `/groups/${groupId}`,
+          },
+        });
+        
+        // Notify existing members
+        await sendGroupNotification(storage, {
+          groupId,
+          actorUserId: userId,
+          excludeUserIds: [userId, memberId], // Don't notify admin or new member
+          notificationType: 'member_added',
+          payload: {
+            title: `New member joined`,
+            body: `${addedUser?.username || 'Someone'} joined ${group?.name || 'your group'}`,
+            data: { groupId, groupName: group?.name, newMemberId: memberId },
+            route: `/groups/${groupId}`,
+          },
+        });
+      } catch (notifError) {
+        console.error('Failed to send member added notification:', notifError);
+      }
+
       res.json({
         membership: newMembership,
         message: 'Member added successfully'
@@ -2799,7 +4004,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Only admins can remove other members' });
       }
 
+      // Get member and group info before removing
+      const leavingUser = await storage.getUser(memberId);
+      const group = await storage.getGroup(groupId);
+
       await storage.removeGroupMember(groupId, memberId);
+
+      // Create activity feed entry for member leaving
+      try {
+        console.log(`[LEAVE GROUP] Creating activity feed entry for ${leavingUser?.username || 'Someone'} leaving group ${groupId}`);
+        await storage.logGroupActivity({
+          groupId,
+          userId: memberId,
+          userName: leavingUser?.username || 'Someone',
+          activityType: 'member_left',
+          activityTitle: `${leavingUser?.username || 'Someone'} left the group`,
+          taskTitle: null,
+          groupActivityId: null,
+        });
+        console.log(`[LEAVE GROUP] Activity feed entry created`);
+      } catch (feedError) {
+        console.error('Error creating leave activity feed entry:', feedError);
+        // Don't fail the operation if feed logging fails
+      }
+
+      // Send notification to remaining group members
+      try {
+        console.log(`[LEAVE GROUP] Sending notification for user ${memberId} leaving group ${groupId}`);
+        await sendGroupNotification(storage, {
+          groupId,
+          actorUserId: memberId,
+          excludeUserIds: [memberId], // Don't notify the person who left
+          notificationType: 'member_removed',
+          payload: {
+            title: 'Member left',
+            body: `${leavingUser?.username || 'Someone'} left "${group?.name || 'the group'}"`,
+            data: { groupId, memberId },
+            route: `/groups/${groupId}`,
+          },
+        });
+        console.log(`[LEAVE GROUP] Notification sent successfully`);
+      } catch (notifError) {
+        console.error('Failed to send leave notification:', notifError);
+        // Don't fail the operation if notification fails
+      }
 
       res.json({ message: 'Member removed successfully' });
     } catch (error) {
@@ -2878,6 +4126,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const groupActivity = await storage.shareActivityToGroup(activityId, groupId, userId);
 
+      // Send notification to group members
+      try {
+        const activity = await storage.getActivity(activityId, userId);
+        const group = await storage.getGroupById(groupId, userId);
+        const sharingUser = await storage.getUser(userId);
+        
+        await sendGroupNotification(storage, {
+          groupId,
+          actorUserId: userId,
+          excludeUserIds: [userId], // Don't notify the person who shared
+          notificationType: 'activity_shared',
+          payload: {
+            title: `New activity shared`,
+            body: `${sharingUser?.username || 'Someone'} shared "${activity?.title}" in ${group?.name || 'your group'}`,
+            data: { groupId, activityId, groupActivityId: groupActivity.id },
+            route: `/groups/${groupId}`,
+          },
+        });
+      } catch (notifError) {
+        console.error('Failed to send activity shared notification:', notifError);
+      }
+
       res.json({
         groupActivity,
         message: 'Activity shared to group successfully'
@@ -2897,7 +4167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { groupId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
 
-      // Check if user is member
+      // Check if user is member (restore privacy check)
       const membership = await storage.getGroupMembership(groupId, userId);
       if (!membership) {
         return res.status(403).json({ error: 'Access denied' });
@@ -2909,6 +4179,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Get group activities error:', error);
       res.status(500).json({ error: 'Failed to fetch group activities' });
+    }
+  });
+
+  // Get member progress for a specific group activity
+  app.get("/api/groups/:groupId/activities/:groupActivityId/member-progress", async (req, res) => {
+    try {
+      const { groupId, groupActivityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Check if user is member
+      const membership = await storage.getGroupMembership(groupId, userId);
+      if (!membership) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const memberProgress = await storage.getMemberProgressForGroupActivity(groupActivityId);
+
+      res.json({ memberProgress });
+    } catch (error) {
+      console.error('Get member progress error:', error);
+      res.status(500).json({ error: 'Failed to fetch member progress' });
     }
   });
 
@@ -3006,6 +4297,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Remove activity error:', error);
       res.status(500).json({ error: 'Failed to remove activity' });
+    }
+  });
+
+  // Copy group activity to personal library ("Copy to My Plans")
+  app.post("/api/groups/:groupId/activities/:groupActivityId/copy", async (req, res) => {
+    try {
+      const { groupId, groupActivityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { joinGroup, shareProgress } = req.body; // Add shareProgress parameter
+
+      // Get group details first
+      const group = await storage.getGroup(groupId);
+      if (!group) {
+        return res.status(404).json({ error: 'Group not found' });
+      }
+
+      // Check if user is already a member
+      const existingMembership = await storage.getGroupMembership(groupId, userId);
+      
+      // SECURITY: Non-members must either join the group or use share links
+      // This endpoint is only for members and users opting to join
+      if (!existingMembership && !joinGroup) {
+        return res.status(403).json({ 
+          error: 'You must be a member of this group to copy activities. Use the share link to copy publicly shared activities.',
+          requiresMembership: true
+        });
+      }
+      
+      // If joinGroup is true and user is not a member, add them
+      let newMembership = null;
+      if (joinGroup && !existingMembership) {
+        newMembership = await storage.addGroupMember(
+          groupId,
+          userId,
+          'member'
+        );
+
+        // Get user info for notification
+        const joiningUser = await storage.getUser(userId);
+        
+        // Send notification to admin and existing members
+        try {
+          await sendGroupNotification(storage, {
+            groupId,
+            actorUserId: userId,
+            excludeUserIds: [userId], // Don't notify the person who joined
+            notificationType: 'member_added',
+            payload: {
+              title: 'New member joined',
+              body: `${joiningUser?.username || 'Someone'} joined "${group.name}" by copying an activity`,
+              data: { groupId, newMemberId: userId },
+              route: `/groups/${groupId}`,
+            },
+          });
+        } catch (notifError) {
+          console.error('Failed to send join notification:', notifError);
+          // Don't fail the operation if notification fails
+        }
+      }
+
+      // Get the group activity
+      const groupActivity = await storage.getGroupActivityById(groupActivityId);
+      if (!groupActivity || groupActivity.groupId !== groupId) {
+        return res.status(404).json({ error: 'Group activity not found' });
+      }
+
+      // Get the original activity and its tasks (use getActivityById to allow access regardless of ownership)
+      const originalActivity = await storage.getActivityById(groupActivity.activityId);
+      if (!originalActivity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      const tasks = await storage.getActivityTasks(groupActivity.activityId);
+
+      // Create a copy in user's personal library
+      const copiedActivity = await storage.createActivity({
+        userId,
+        title: `${originalActivity.title} (Copy)`,
+        planSummary: originalActivity.planSummary,
+        category: originalActivity.category,
+        notes: originalActivity.notes || null,
+        backdrop: originalActivity.backdrop,
+        shareTitle: originalActivity.shareTitle,
+        isPublic: false, // Personal copy is private by default
+        sharesProgressWithGroup: shareProgress === true, // Track progress sharing preference
+        linkedGroupActivityId: shareProgress === true ? groupActivityId : null, // Link to group activity if sharing
+      });
+
+      // Copy all tasks
+      for (const task of tasks) {
+        await storage.createActivityTask({
+          activityId: copiedActivity.id,
+          title: task.title,
+          description: task.description,
+          category: task.category,
+          priority: task.priority,
+          duration: task.duration,
+          notes: task.notes,
+          order: task.order,
+        });
+      }
+
+      res.json({
+        activity: copiedActivity,
+        membership: newMembership || existingMembership,
+        message: joinGroup && newMembership 
+          ? `Joined "${group.name}" and copied activity successfully!`
+          : 'Activity copied to your personal library successfully'
+      });
+    } catch (error) {
+      console.error('Copy activity error:', error);
+      res.status(500).json({ error: 'Failed to copy activity' });
     }
   });
 
@@ -3352,6 +4755,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...activityData,
         userId
       });
+      
+      // Schedule reminders if the activity has a start date
+      if (activity.startDate) {
+        try {
+          const result = await scheduleRemindersForActivity(storage, activity.id, userId);
+          console.log(`[ACTIVITY] Scheduled ${result.created} reminders for activity ${activity.id}`);
+        } catch (reminderError) {
+          console.error('[ACTIVITY] Failed to schedule reminders:', reminderError);
+        }
+      }
+      
       res.json(activity);
     } catch (error) {
       console.error('Create activity error:', error);
@@ -3412,6 +4826,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Activity not found' });
       }
 
+      // Reschedule reminders if startDate was updated
+      if ('startDate' in updates) {
+        try {
+          if (activity.startDate) {
+            const result = await scheduleRemindersForActivity(storage, activity.id, userId);
+            console.log(`[ACTIVITY] Rescheduled ${result.created} reminders for activity ${activity.id}`);
+          } else {
+            await cancelRemindersForActivity(storage, activityId);
+            console.log(`[ACTIVITY] Cancelled reminders for activity ${activity.id} (no start date)`);
+          }
+        } catch (reminderError) {
+          console.error('[ACTIVITY] Failed to reschedule reminders:', reminderError);
+        }
+      }
+
       res.json(activity);
     } catch (error) {
       console.error('Patch activity error:', error);
@@ -3424,11 +4853,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { activityId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Cancel reminders when activity is deleted
+      try {
+        await cancelRemindersForActivity(storage, activityId);
+      } catch (err) {
+        console.error('[ACTIVITY] Failed to cancel reminders on delete:', err);
+      }
+      
       await storage.deleteActivity(activityId, userId);
       res.json({ success: true });
     } catch (error) {
       console.error('Delete activity error:', error);
       res.status(500).json({ error: 'Failed to delete activity' });
+    }
+  });
+
+  // ==================== REMINDERS API ====================
+
+  // Get user's upcoming reminders
+  app.get("/api/reminders/activities/me", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const reminders = await storage.getUserActivityReminders(userId);
+      res.json({ reminders });
+    } catch (error) {
+      console.error('Get reminders error:', error);
+      res.status(500).json({ error: 'Failed to fetch reminders' });
+    }
+  });
+
+  // Get reminders for a specific activity
+  app.get("/api/reminders/activities/:activityId", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const reminders = await storage.getActivityReminders(activityId);
+      res.json({ reminders });
+    } catch (error) {
+      console.error('Get activity reminders error:', error);
+      res.status(500).json({ error: 'Failed to fetch activity reminders' });
+    }
+  });
+
+  // Manually trigger reminder scheduling for an activity
+  app.post("/api/reminders/activities/:activityId", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      const result = await scheduleRemindersForActivity(storage, activityId, userId);
+      res.json({ 
+        success: true, 
+        created: result.created,
+        skipped: result.skipped,
+        message: `Scheduled ${result.created} reminders for this activity`
+      });
+    } catch (error) {
+      console.error('Schedule reminders error:', error);
+      res.status(500).json({ error: 'Failed to schedule reminders' });
+    }
+  });
+
+  // Cancel all reminders for an activity
+  app.delete("/api/reminders/activities/:activityId", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      await cancelRemindersForActivity(storage, activityId);
+      res.json({ success: true, message: 'All reminders cancelled' });
+    } catch (error) {
+      console.error('Cancel reminders error:', error);
+      res.status(500).json({ error: 'Failed to cancel reminders' });
+    }
+  });
+
+  // Dismiss a specific reminder
+  app.patch("/api/reminders/:reminderId/dismiss", async (req, res) => {
+    try {
+      const { reminderId } = req.params;
+      await storage.markActivityReminderSent(reminderId);
+      res.json({ success: true, message: 'Reminder dismissed' });
+    } catch (error) {
+      console.error('Dismiss reminder error:', error);
+      res.status(500).json({ error: 'Failed to dismiss reminder' });
     }
   });
 
@@ -3915,11 +5422,24 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         return res.status(500).json({ error: 'Failed to publish activity' });
       }
 
+      // Grant Discovery Bonus: +2 extra imports EVERY time user publishes to Discovery
+      // This bonus accumulates and persists even if they unpublish later
+      if (user) {
+        const currentBonus = user.discoveryBonusImports || 0;
+        await db
+          .update(users)
+          .set({ discoveryBonusImports: currentBonus + 2 })
+          .where(eq(users.id, userId));
+        console.log(`[Discovery Bonus] Granted +2 to user ${userId} - now has ${currentBonus + 2} bonus imports`);
+      }
+
       res.json({
         success: true,
         publishedToCommunity: true,
         shareableLink,
-        activity: updatedActivity
+        activity: updatedActivity,
+        discoveryBonusGranted: true, // Always true since bonus is granted every publish
+        newBonusTotal: (user?.discoveryBonusImports || 0) + 2
       });
     } catch (error) {
       console.error('Publish activity error:', error);
@@ -4042,16 +5562,18 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
 
       let groupId;
       if (createGroup && groupName) {
-        // Create the group
+        // Create the group with generated invite code
+        const inviteCode = generateInviteCode();
         const group = await storage.createGroup({
           name: groupName.trim(),
           description: groupDescription?.trim() || null,
           isPrivate: false,
-          inviteCode: null,
+          inviteCode,
           createdBy: userId
         });
 
         groupId = group.id;
+        console.log('[SHARE] Created new group with invite code:', inviteCode);
 
         // Add creator as admin
         await storage.createGroupMembership({
@@ -4141,6 +5663,108 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       // Get owner info (without sensitive data)
       const owner = await storage.getUser(activity.userId);
       
+      // If activity is part of a group, include group info for join prompt
+      let groupInfo = null;
+      if (activity.targetGroupId) {
+        try {
+          const group = await storage.getGroup(activity.targetGroupId);
+          if (group) {
+            const members = await storage.getGroupMembers(activity.targetGroupId);
+            
+            // Check if current user (if authenticated) is already a member
+            const currentUserId = getUserId(req);
+            const isUserMember = currentUserId ? members.some(m => m.userId === currentUserId) : false;
+            
+            groupInfo = {
+              id: group.id,
+              name: group.name,
+              description: group.description,
+              memberCount: members.length,
+              isUserMember,
+              inviteCode: group.inviteCode || null
+            };
+          }
+        } catch (error) {
+          console.error('[SHARE] Error fetching group info from targetGroupId:', error);
+          // Don't fail the request if group fetch fails
+        }
+      }
+      
+      // FIRST check the share_links table - this is where the groupId is stored when sharing
+      if (!groupInfo) {
+        console.log('[SHARE] Checking share_links table for groupId:', shareToken);
+        try {
+          const shareLink = await storage.getShareLink(shareToken);
+          console.log('[SHARE] share_links result:', {
+            found: !!shareLink,
+            hasGroupId: !!shareLink?.groupId,
+            groupId: shareLink?.groupId
+          });
+          
+          if (shareLink?.groupId) {
+            const group = await storage.getGroup(shareLink.groupId);
+            if (group) {
+              const members = await storage.getGroupMembers(shareLink.groupId);
+              const currentUserId = getUserId(req);
+              const isUserMember = currentUserId ? members.some(m => m.userId === currentUserId) : false;
+              
+              groupInfo = {
+                id: group.id,
+                name: group.name,
+                description: group.description || null,
+                memberCount: members.length,
+                isUserMember,
+                inviteCode: group.inviteCode || null
+              };
+              console.log('[SHARE] ✅ Built groupInfo from share_links:', groupInfo);
+            }
+          }
+        } catch (shareLinkErr) {
+          console.error('[SHARE] Failed to get group info from share_links:', shareLinkErr);
+        }
+      }
+      
+      // If still no groupInfo, check if this activity is shared to any groups (in group_activities table)
+      if (!groupInfo) {
+        console.log('[SHARE] Checking group_activities table for activity:', activity.id);
+        try {
+          const groupActivitiesResult: any = await db.execute(drizzleSql.raw(`
+            SELECT ga.group_id, g.name, g.description, g.invite_code
+            FROM group_activities ga
+            INNER JOIN groups g ON ga.group_id = g.id
+            WHERE ga.activity_id = '${activity.id}'
+            LIMIT 1
+          `));
+          
+          console.log('[SHARE] group_activities query result:', {
+            hasRows: !!groupActivitiesResult.rows,
+            rowCount: groupActivitiesResult.rows?.length || 0,
+            firstRow: groupActivitiesResult.rows?.[0]
+          });
+          
+          if (groupActivitiesResult.rows && groupActivitiesResult.rows.length > 0) {
+            const groupRow = groupActivitiesResult.rows[0];
+            const members = await storage.getGroupMembers(groupRow.group_id);
+            
+            // Check if current user (if authenticated) is already a member
+            const currentUserId = getUserId(req);
+            const isUserMember = currentUserId ? members.some(m => m.userId === currentUserId) : false;
+            
+            groupInfo = {
+              id: groupRow.group_id,
+              name: groupRow.name,
+              description: groupRow.description || null,
+              memberCount: members.length,
+              isUserMember,
+              inviteCode: groupRow.invite_code || null
+            };
+            console.log('[SHARE] Built groupInfo from group_activities:', groupInfo);
+          }
+        } catch (groupErr) {
+          console.error('[SHARE] Failed to get group info from group_activities:', groupErr);
+        }
+      }
+
       res.json({
         activity: {
           id: activity.id,
@@ -4156,6 +5780,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
           status: activity.status,
           createdAt: activity.createdAt,
           updatedAt: activity.updatedAt,
+          targetGroupId: activity.targetGroupId,
         },
         tasks: tasks.map(task => ({
           id: task.id,
@@ -4171,7 +5796,8 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         requiresAuth: false,
         sharedBy: {
           name: owner?.firstName || owner?.username || 'Anonymous'
-        }
+        },
+        groupInfo
       });
     } catch (error) {
       console.error('Get shared activity error:', error);
@@ -4284,17 +5910,17 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
   app.post("/api/activities/:activityId/share", async (req, res) => {
     try {
       const { activityId } = req.params;
-      const { groupId, targetGroupId, createGroup, groupName, groupDescription } = req.body;
+      const { groupId, targetGroupId, createGroup, groupName, groupDescription, shareCaption } = req.body;
       const userId = getUserId(req) || DEMO_USER_ID;
       
-      // Check subscription tier if creating group
+      // Check subscription tier if creating group - Pro or Family required
       if (createGroup) {
-        const tierCheck = await checkSubscriptionTier(userId, 'family');
+        const tierCheck = await checkSubscriptionTier(userId, 'pro');
         if (!tierCheck.allowed) {
           return res.status(403).json({ 
             error: 'Subscription required',
-            message: tierCheck.message,
-            requiredTier: 'family',
+            message: 'This feature requires a Pro subscription ($6.99/month) or higher. Upgrade for Groups, unlimited AI plans, and more!',
+            requiredTier: 'pro',
             currentTier: tierCheck.tier
           });
         }
@@ -4346,16 +5972,18 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       let newGroupId;
       let newGroupShareToken;
       if (createGroup && groupName) {
-        // Create the group
+        // Create the group with generated invite code
+        const inviteCode = generateInviteCode();
         const group = await storage.createGroup({
           name: groupName.trim(),
           description: groupDescription?.trim() || null,
           isPrivate: false,
-          inviteCode: null,
+          inviteCode,
           createdBy: userId
         });
 
         newGroupId = group.id;
+        console.log('[SHARE] Created new group with invite code:', inviteCode);
 
         // Add creator as admin
         await storage.createGroupMembership({
@@ -4403,13 +6031,17 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         }
       }
       
-      // Generate share token and make activity public
-      const shareToken = await storage.generateShareableLink(activityId, userId);
+      // Generate share token and make activity public - pass targetGroupId to store in share_links
+      const shareToken = await storage.generateShareableLink(activityId, userId, targetGroupId || newGroupId);
       
-      // Update activity with isPublic, targetGroupId if provided
+      // Update activity with isPublic, targetGroupId if provided, and caption for OG tags
       const updateData: any = { isPublic: true };
       if (targetGroupId) {
         updateData.targetGroupId = targetGroupId;
+      }
+      // Store caption if provided for OG meta tags
+      if (shareCaption) {
+        updateData.shareCaption = shareCaption;
       }
       await storage.updateActivity(activityId, updateData, userId);
       
@@ -4491,13 +6123,16 @@ ${emoji} ${progressLine}
   app.post("/api/activities/copy/:shareToken", async (req, res) => {
     try {
       const { shareToken } = req.params;
-      const { forceUpdate } = req.body; // Client can request an update
+      const { forceUpdate, joinGroup, shareProgress } = req.body; // Client can request an update, opt into joining group, and enable progress sharing
       const currentUserId = getUserId(req);
       
-      console.log('[COPY ACTIVITY] Copy request received:', {
+      console.log('[COPY ACTIVITY] 📥 Copy request received:', {
         shareToken,
         currentUserId,
+        requestBody: req.body,
         forceUpdate,
+        joinGroup,
+        shareProgress,
         isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
         sessionID: req.sessionID,
         hasSession: !!req.session,
@@ -4572,7 +6207,8 @@ ${emoji} ${progressLine}
       }
       
       // Create a copy of the activity for the current user
-      const copiedActivity = await storage.createActivity({
+      // If shareProgress is enabled and activity has a targetGroupId, link to the group activity
+      const activityData: any = {
         userId: userId,
         title: sharedActivity.title,
         description: sharedActivity.description,
@@ -4584,7 +6220,109 @@ ${emoji} ${progressLine}
         endDate: sharedActivity.endDate,
         copiedFromShareToken: shareToken, // Track where it came from
         backdrop: sharedActivity.backdrop, // Preserve the stock image/backdrop
-      });
+      };
+      
+      // Check if activity belongs to any group (for progress sharing)
+      // Priority: 1. share_links.groupId (what user sees in dialog), 2. group_activities, 3. activity.targetGroupId
+      let activityGroupId: string | null = null;
+      let groupActivityRecordId: string | null = null;
+      
+      // FIRST check share_links table for groupId - this is what the user SEES in the join dialog!
+      // The share link's groupId is authoritative because it matches the group shown to the user
+      try {
+        const shareLink = await storage.getShareLink(shareToken);
+        if (shareLink?.groupId) {
+          activityGroupId = shareLink.groupId;
+          console.log('[COPY ACTIVITY] ✅ Found group from share_links (authoritative):', activityGroupId);
+          
+          // Now try to find the group_activities record for this group
+          const gaResult: any = await db.execute(drizzleSql.raw(`
+            SELECT id FROM group_activities WHERE activity_id = '${sharedActivity.id}' AND group_id = '${activityGroupId}' LIMIT 1
+          `));
+          if (gaResult.rows && gaResult.rows.length > 0) {
+            groupActivityRecordId = gaResult.rows[0].id;
+          }
+        }
+      } catch (err) {
+        console.error('[COPY ACTIVITY] Error checking share_links for groupId:', err);
+      }
+      
+      // Fallback: check group_activities table if no share_link groupId
+      if (!activityGroupId) {
+        try {
+          const groupCheckResult: any = await db.execute(drizzleSql.raw(`
+            SELECT id, group_id FROM group_activities WHERE activity_id = '${sharedActivity.id}' LIMIT 1
+          `));
+          if (groupCheckResult.rows && groupCheckResult.rows.length > 0) {
+            activityGroupId = groupCheckResult.rows[0].group_id;
+            groupActivityRecordId = groupCheckResult.rows[0].id;
+            console.log('[COPY ACTIVITY] ✅ Found group from group_activities (fallback):', { activityGroupId, groupActivityRecordId });
+          }
+        } catch (err) {
+          console.error('[COPY ACTIVITY] Error checking group_activities:', err);
+        }
+      }
+      
+      // Fallback to activity.targetGroupId if no group found from other sources
+      if (!activityGroupId && sharedActivity.targetGroupId) {
+        activityGroupId = sharedActivity.targetGroupId;
+        console.log('[COPY ACTIVITY] Using targetGroupId as fallback:', activityGroupId);
+        
+        // Try to find group_activities record
+        try {
+          const gaResult: any = await db.execute(drizzleSql.raw(`
+            SELECT id FROM group_activities WHERE activity_id = '${sharedActivity.id}' AND group_id = '${activityGroupId}' LIMIT 1
+          `));
+          if (gaResult.rows && gaResult.rows.length > 0) {
+            groupActivityRecordId = gaResult.rows[0].id;
+          }
+        } catch (err) {
+          console.error('[COPY ACTIVITY] Error getting group_activities record:', err);
+        }
+      }
+      
+      // If we have a group but no group_activities record and user wants progress sharing,
+      // create the group_activities record now (this enables tracking for newly shared activities)
+      if (shareProgress && activityGroupId && !groupActivityRecordId) {
+        console.log('[COPY ACTIVITY] 🔧 Creating group_activities record for progress sharing...');
+        try {
+          // Get the original activity owner for shared_by field
+          const originalOwner = sharedActivity.userId;
+          
+          // Create group_activities record using storage method
+          const newGroupActivity = await storage.shareActivityToGroup(
+            sharedActivity.id,
+            activityGroupId,
+            originalOwner,
+            true // forceUpdate = true to handle existing records gracefully
+          );
+          groupActivityRecordId = newGroupActivity.id;
+          console.log('[COPY ACTIVITY] ✅ Created group_activities record:', groupActivityRecordId);
+        } catch (err: any) {
+          console.error('[COPY ACTIVITY] ❌ Failed to create group_activities record:', err.message);
+          // Don't fail the copy - just disable progress sharing
+        }
+      }
+      
+      // Enable progress sharing if we have a valid group_activities record
+      if (shareProgress && groupActivityRecordId) {
+        activityData.sharesProgressWithGroup = true;
+        activityData.linkedGroupActivityId = groupActivityRecordId;
+        activityData.targetGroupId = activityGroupId;
+        console.log('[COPY ACTIVITY] ✅ Progress sharing enabled:', {
+          groupId: activityGroupId,
+          groupActivityRecordId,
+        });
+      } else if (shareProgress && activityGroupId && !groupActivityRecordId) {
+        // We have a group but couldn't create group_activities record - warn
+        console.warn('[COPY ACTIVITY] ⚠️ Progress sharing disabled: could not create/find group_activities record', {
+          groupId: activityGroupId,
+        });
+        // Still store targetGroupId for group join purposes
+        activityData.targetGroupId = activityGroupId;
+      }
+      
+      const copiedActivity = await storage.createActivity(activityData);
       console.log('[COPY ACTIVITY] Activity copied successfully:', {
         newActivityId: copiedActivity.id,
         userId: userId
@@ -4633,80 +6371,141 @@ ${emoji} ${progressLine}
       // Count preserved progress
       const preservedCompletions = copiedTasks.filter(t => t.completed).length;
       
-      // Auto-join group if activity has targetGroupId (and user is authenticated)
+      // Use the already-resolved activityGroupId for group join
+      // This was resolved earlier from: group_activities table -> share_links.groupId -> activity.targetGroupId
+      const groupIdToJoin = activityGroupId;
+      console.log('[COPY ACTIVITY] 🔍 Group join check:', {
+        groupIdToJoin,
+        joinGroupFlag: joinGroup,
+        currentUserId,
+        shareToken
+      });
+      
+      // Join group if user opted in (joinGroup=true) and we found a group
       let joinedGroup = null;
-      if (sharedActivity.targetGroupId && currentUserId) {
+      console.log('[COPY ACTIVITY] 🔍 Group join decision point:', {
+        hasGroupId: !!groupIdToJoin,
+        hasCurrentUserId: !!currentUserId,
+        joinGroupFlag: joinGroup,
+        willAttemptJoin: !!(groupIdToJoin && currentUserId && joinGroup)
+      });
+      
+      // CRITICAL: Log explicit warning if join was requested but we can't proceed
+      if (joinGroup && groupIdToJoin && !currentUserId) {
+        console.error('[COPY ACTIVITY] ⚠️ JOIN SKIPPED: User requested to join group but session not authenticated!', {
+          groupIdToJoin,
+          joinGroupRequested: true,
+          reason: 'currentUserId is null - session may not be properly hydrated'
+        });
+      } else if (joinGroup && !groupIdToJoin) {
+        console.warn('[COPY ACTIVITY] ⚠️ JOIN SKIPPED: User requested to join but no group found', {
+          joinGroupRequested: true,
+          targetGroupId: sharedActivity.targetGroupId,
+          reason: 'No group associated with this activity'
+        });
+      }
+      
+      if (groupIdToJoin && currentUserId && joinGroup) {
+        console.log('[COPY ACTIVITY] ✅ Attempting to join group:', groupIdToJoin);
         try {
           // Check if user is already a member
           const userGroups = await storage.getGroupsForUser(currentUserId);
-          const alreadyMember = userGroups.some(g => g.id === sharedActivity.targetGroupId);
+          const alreadyMember = userGroups.some(g => g.id === groupIdToJoin);
+          console.log('[COPY ACTIVITY] 🔍 Membership check:', {
+            userId: currentUserId,
+            groupId: groupIdToJoin,
+            userGroupsCount: userGroups.length,
+            alreadyMember
+          });
           
           if (!alreadyMember) {
+            console.log('[COPY ACTIVITY] 🚀 Adding user to group...');
             // Add user to the group
             await storage.addGroupMember(
-              sharedActivity.targetGroupId,
+              groupIdToJoin,
               currentUserId,
               'member'
             );
+            console.log('[COPY ACTIVITY] ✅ User added to group successfully');
             
-            // Get user info for activity feed
+            // Get user and group info
             const user = await storage.getUser(currentUserId);
-            const userName = user 
-              ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || 'Someone'
-              : 'Someone';
-            
-            // Log the activity in the group feed
-            await storage.logGroupActivity({
-              groupId: sharedActivity.targetGroupId,
-              userId: currentUserId,
-              userName,
-              activityType: 'member_joined',
-              activityTitle: sharedActivity.title,
-              taskTitle: `Joined via share link`
+            const group = await storage.getGroup(groupIdToJoin);
+            joinedGroup = group;
+            console.log('[COPY ACTIVITY] 📊 Join details:', {
+              userName: user?.username || user?.email,
+              groupName: group?.name,
+              groupId: group?.id
             });
             
-            // Get group info for response
-            const group = await storage.getGroup(sharedActivity.targetGroupId);
-            joinedGroup = group;
-            
-            // Notify all group admins
+            // Create activity feed entry for member joining (shows in "Recent Group Activity")
             try {
-              const groupMembers = await storage.getGroupMembers(sharedActivity.targetGroupId);
-              const admins = groupMembers.filter(m => m.role === 'admin');
-              
-              // Create notification for each admin
-              for (const admin of admins) {
-                // Skip notification if admin is the one who joined
-                if (admin.userId === currentUserId) continue;
-                
-                await db.insert(userNotifications).values({
-                  userId: admin.userId,
-                  sourceGroupId: sharedActivity.targetGroupId,
-                  actorUserId: currentUserId,
-                  type: 'group_member_joined',
-                  title: `New member joined ${group?.name || 'your group'}`,
-                  body: `${userName} joined via a shared activity link`,
-                  metadata: {
-                    activityTitle: sharedActivity.title,
-                    viaShareLink: true,
-                    groupName: group?.name || '',
-                  }
-                });
-              }
-              
-              console.log('[COPY ACTIVITY] Created notifications for', admins.length, 'admins');
-            } catch (notifError) {
-              console.error('[COPY ACTIVITY] Error creating admin notifications:', notifError);
-              // Don't fail the operation if notification creation fails
+              console.log(`[COPY ACTIVITY] 📝 Creating activity feed entry for ${user?.username || 'Someone'} joining group ${groupIdToJoin}`);
+              await storage.logGroupActivity({
+                groupId: groupIdToJoin,
+                userId: currentUserId,
+                userName: user?.username || 'Someone',
+                activityType: 'member_joined',
+                activityTitle: `${user?.username || 'Someone'} joined the group`,
+                taskTitle: null,
+                groupActivityId: null,
+              });
+              console.log(`[COPY ACTIVITY] ✅ Activity feed entry created`);
+            } catch (feedError) {
+              console.error('[COPY ACTIVITY] ❌ Error creating activity feed entry:', feedError);
+              // Don't fail the operation if feed logging fails
             }
             
-            console.log('[COPY ACTIVITY] User auto-joined group:', sharedActivity.targetGroupId);
+            // Send notification to admin and members using proper notification service
+            try {
+              console.log('[COPY ACTIVITY] 🔔 Sending group join notifications...');
+              await sendGroupNotification(storage, {
+                groupId: groupIdToJoin,
+                actorUserId: currentUserId,
+                excludeUserIds: [currentUserId], // Don't notify the person who joined
+                notificationType: 'member_added',
+                payload: {
+                  title: 'New member joined',
+                  body: `${user?.username || 'Someone'} joined "${group?.name || 'your group'}" via shared activity`,
+                  data: { 
+                    groupId: groupIdToJoin, 
+                    newMemberId: currentUserId,
+                    activityTitle: sharedActivity.title,
+                    viaShareLink: true
+                  },
+                  route: `/groups/${groupIdToJoin}`,
+                },
+              });
+              console.log('[COPY ACTIVITY] ✅ Group join notifications sent successfully');
+            } catch (notifError) {
+              console.error('[COPY ACTIVITY] ❌ Error sending group notifications:', notifError);
+              // Don't fail the operation if notification fails
+            }
+            
+            console.log('[COPY ACTIVITY] ✅ User joined group successfully:', groupIdToJoin);
+          } else {
+            console.log('[COPY ACTIVITY] ℹ️ User already member of group:', groupIdToJoin);
+            // Still set joinedGroup so we can show appropriate message
+            joinedGroup = await storage.getGroup(groupIdToJoin);
           }
         } catch (error) {
-          console.error('[COPY ACTIVITY] Error auto-joining group:', error);
+          console.error('[COPY ACTIVITY] ❌ CRITICAL ERROR joining group:', error);
+          console.error('[COPY ACTIVITY] Error stack:', (error as Error).stack);
           // Don't fail the whole copy operation if group join fails
         }
+      } else {
+        console.log('[COPY ACTIVITY] ⏭️ Skipping group join:', {
+          reason: !groupIdToJoin ? 'No group ID' : !currentUserId ? 'No user ID' : 'joinGroup flag is false',
+          groupIdToJoin,
+          currentUserId,
+          joinGroup
+        });
       }
+      
+      console.log('[COPY ACTIVITY] 📝 Final result:', {
+        joinedGroup: joinedGroup ? { id: joinedGroup.id, name: joinedGroup.name } : null,
+        willReturnJoinInfo: !!joinedGroup
+      });
       
       res.json({
         activity: copiedActivity,
@@ -4726,42 +6525,95 @@ ${emoji} ${progressLine}
     }
   });
 
-  // View shared activity by token
+  // View shared activity by token - PERMANENT LINKS that never expire
   app.get("/api/share/activity/:token", async (req, res) => {
     try {
       const { token } = req.params;
-      const activity = await storage.getActivityByShareToken(token);
+      const currentUserId = getUserId(req);
       
-      if (!activity) {
+      // First check for share_link record (permanent link with snapshot)
+      const shareLink = await storage.getShareLink(token);
+      
+      // Try to get the live activity
+      const liveActivity = await storage.getActivityByShareToken(token);
+      
+      // If no share_link AND no live activity, the link is truly invalid
+      if (!shareLink && !liveActivity) {
+        return res.status(404).json({ error: 'Shared activity not found or link has expired' });
+      }
+      
+      // Increment view count for permanent links
+      if (shareLink) {
+        await storage.incrementShareLinkViewCount(token);
+      }
+      
+      // Determine which data to use: live activity OR snapshot
+      let activity: any;
+      let activityTasks: any[] = [];
+      let isUsingSnapshot = false;
+      let hasUpdates = false;
+      let isActivityDeleted = false;
+      let snapshotAt: Date | null = null;
+      
+      if (liveActivity) {
+        // Live activity exists - use it
+        activity = liveActivity;
+        try {
+          activityTasks = await storage.getActivityTasks(activity.id, activity.userId);
+        } catch (taskError) {
+          console.error('Error fetching activity tasks:', taskError);
+          activityTasks = [];
+        }
+        
+        // Check if there are updates since the snapshot was created
+        if (shareLink && shareLink.activityUpdatedAt) {
+          const activityLastUpdated = activity.updatedAt || activity.createdAt;
+          hasUpdates = activityLastUpdated > shareLink.snapshotAt;
+          snapshotAt = shareLink.snapshotAt;
+        }
+      } else if (shareLink && shareLink.snapshotData) {
+        // Live activity was deleted - use snapshot (link NEVER breaks)
+        console.log('[SHARE] Activity deleted, using snapshot from share_link');
+        isUsingSnapshot = true;
+        isActivityDeleted = true;
+        snapshotAt = shareLink.snapshotAt;
+        
+        const snapshot = shareLink.snapshotData as { activity: any; tasks: any[] };
+        activity = {
+          ...snapshot.activity,
+          shareToken: token,
+          userId: shareLink.userId,
+          isPublic: true, // Snapshots are always publicly accessible - the link was shared
+        };
+        // Preserve task completion state from snapshot - don't force incomplete
+        activityTasks = snapshot.tasks.map((t: any, index: number) => ({
+          ...t,
+          id: `snapshot-task-${index}`,
+          userId: shareLink.userId,
+        }));
+        
+        // Mark the share link as having a deleted activity
+        if (!shareLink.isActivityDeleted) {
+          await storage.markShareLinkActivityDeleted(token);
+        }
+      } else {
+        // Fallback: old share links without snapshot data
         return res.status(404).json({ error: 'Shared activity not found or link has expired' });
       }
 
-      // Check if activity requires authentication (not public)
-      const requiresAuth = !activity.isPublic;
-      const currentUserId = getUserId(req);
-      
-      // If activity requires auth and user is not authenticated, return 401
-      if (requiresAuth && !currentUserId) {
-        return res.status(401).json({ 
-          error: 'Authentication required',
-          requiresAuth: true 
-        });
-      }
-
-      // Get the tasks for this activity (using the owner's userId)
-      let activityTasks: any[] = [];
-      try {
-        activityTasks = await storage.getActivityTasks(activity.id, activity.userId);
-      } catch (taskError) {
-        console.error('Error fetching activity tasks:', taskError);
-        // Continue with empty tasks array if there's an error
-        activityTasks = [];
-      }
+      // IMPORTANT: Share links NEVER require authentication since they were explicitly shared
+      // If we got here, the token is valid because:
+      // - We already returned 404 if both shareLink AND liveActivity were missing
+      // - So reaching this point means the token was found in the system
+      // The act of sharing (generating a share token) implies public access
+      // Share tokens are intentionally public - no auth required
+      const requiresAuth = false;
       
       // Get owner information for "sharedBy"
       let sharedBy = undefined;
+      const ownerUserId = shareLink?.userId || activity.userId;
       try {
-        const owner = await storage.getUser(activity.userId);
+        const owner = await storage.getUser(ownerUserId);
         if (owner) {
           const ownerName = owner.firstName && owner.lastName 
             ? `${owner.firstName} ${owner.lastName}`
@@ -4779,6 +6631,77 @@ ${emoji} ${progressLine}
       const planSummary = activity.socialText || 
         `${activity.title} - A ${activity.category} plan with ${activityTasks.length} tasks`;
       
+      // Check if this activity is shared to any group
+      let groupInfo = undefined;
+      let isGroupMember = false;
+      
+      // Use group ID from share_link if available
+      const groupId = shareLink?.groupId || activity.targetGroupId;
+      
+      // First check if activity has targetGroupId (for personal copies linked to groups)
+      if (groupId && currentUserId) {
+        try {
+          const group = await storage.getGroup(groupId);
+          if (group) {
+            const members = await storage.getGroupMembers(groupId);
+            isGroupMember = members.some(m => m.userId === currentUserId);
+            
+            groupInfo = {
+              id: group.id,
+              name: group.name,
+              description: group.description,
+              memberCount: members.length,
+              isUserMember: isGroupMember,
+              inviteCode: group.inviteCode || null
+            };
+          }
+        } catch (groupErr) {
+          console.error('Failed to get group info from targetGroupId:', groupErr);
+        }
+      }
+      
+      // If no targetGroupId, check if this activity is shared to any groups (in group_activities table)
+      if (!groupInfo && !isUsingSnapshot && activity.id) {
+        console.log('[SHARE] Checking group_activities table for activity:', activity.id);
+        try {
+          const groupActivitiesResult: any = await db.execute(drizzleSql.raw(`
+            SELECT ga.group_id, g.name, g.description, g.invite_code
+            FROM group_activities ga
+            INNER JOIN groups g ON ga.group_id = g.id
+            WHERE ga.activity_id = '${activity.id}'
+            LIMIT 1
+          `));
+          
+          console.log('[SHARE] group_activities query result:', {
+            hasRows: !!groupActivitiesResult.rows,
+            rowCount: groupActivitiesResult.rows?.length || 0,
+            firstRow: groupActivitiesResult.rows?.[0]
+          });
+          
+          if (groupActivitiesResult.rows && groupActivitiesResult.rows.length > 0) {
+            const groupRow = groupActivitiesResult.rows[0];
+            const members = await storage.getGroupMembers(groupRow.group_id);
+            
+            // Check membership only if user is authenticated
+            if (currentUserId) {
+              isGroupMember = members.some(m => m.userId === currentUserId);
+            }
+            
+            groupInfo = {
+              id: groupRow.group_id,
+              name: groupRow.name,
+              description: groupRow.description || null,
+              memberCount: members.length,
+              isUserMember: isGroupMember,
+              inviteCode: groupRow.invite_code || null
+            };
+            console.log('[SHARE] Built groupInfo:', groupInfo);
+          }
+        } catch (groupErr) {
+          console.error('[SHARE] Failed to get group info from group_activities:', groupErr);
+        }
+      }
+      
       res.json({
         activity: {
           ...activity,
@@ -4786,7 +6709,17 @@ ${emoji} ${progressLine}
         },
         tasks: activityTasks,
         requiresAuth,
-        sharedBy
+        sharedBy,
+        groupInfo,
+        // New fields for permanent link tracking
+        linkStatus: {
+          isUsingSnapshot,
+          isActivityDeleted,
+          hasUpdates,
+          snapshotAt: snapshotAt?.toISOString() || null,
+          viewCount: shareLink?.viewCount || 0,
+          copyCount: shareLink?.copyCount || 0,
+        }
       });
     } catch (error) {
       console.error('Get shared activity error:', error);
@@ -4856,7 +6789,7 @@ ${emoji} ${progressLine}
   // Send retroactive welcome emails to existing OAuth users
   app.post("/api/admin/send-oauth-welcome-emails", async (req, res) => {
     try {
-      const { adminSecret } = req.body;
+      const { adminSecret, excludeEmails } = req.body;
       
       // Verify admin secret
       if (adminSecret !== process.env.ADMIN_SECRET) {
@@ -4883,14 +6816,18 @@ ${emoji} ${progressLine}
         )
         .execute();
 
-      console.log(`[ADMIN] Found ${oauthUsers.length} OAuth users with emails`);
+      // Filter out excluded emails
+      const excludeSet = new Set((excludeEmails || []).map((e: string) => e.toLowerCase()));
+      const filteredUsers = oauthUsers.filter(u => !excludeSet.has(u.email!.toLowerCase()));
+
+      console.log(`[ADMIN] Found ${oauthUsers.length} OAuth users with emails, ${filteredUsers.length} after filtering`);
 
       let successCount = 0;
       let failedCount = 0;
       const errors: any[] = [];
 
       // Send emails in batches to avoid rate limiting
-      for (const user of oauthUsers) {
+      for (const user of filteredUsers) {
         try {
           const result = await sendWelcomeEmail(user.email!, user.firstName || 'there');
           if (result.success) {
@@ -4918,6 +6855,7 @@ ${emoji} ${progressLine}
         message: 'Retroactive welcome emails sent',
         stats: {
           total: oauthUsers.length,
+          filtered: filteredUsers.length,
           sent: successCount,
           failed: failedCount,
         },
@@ -4926,6 +6864,360 @@ ${emoji} ${progressLine}
     } catch (error: any) {
       console.error('[ADMIN] Retroactive email error:', error);
       res.status(500).json({ error: 'Failed to send retroactive welcome emails', details: error.message });
+    }
+  });
+
+  // Delete complete user account (for testing purposes)
+  app.delete("/api/admin/delete-user", async (req, res) => {
+    try {
+      const { adminSecret, email, userId } = req.body;
+      
+      // Verify admin secret
+      if (adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(403).json({ error: 'Invalid admin secret' });
+      }
+
+      if (!email && !userId) {
+        return res.status(400).json({ error: 'Either email or userId must be provided' });
+      }
+
+      console.log('[ADMIN] Deleting user account:', email || userId);
+      
+      if (email) {
+        await storage.deleteCompleteUserByEmail(email);
+        console.log('[ADMIN] User deleted successfully by email:', email);
+        res.json({
+          success: true,
+          message: `User account with email ${email} has been completely deleted`,
+        });
+      } else {
+        await storage.deleteCompleteUser(userId);
+        console.log('[ADMIN] User deleted successfully by ID:', userId);
+        res.json({
+          success: true,
+          message: `User account with ID ${userId} has been completely deleted`,
+        });
+      }
+    } catch (error: any) {
+      console.error('[ADMIN] Delete user error:', error);
+      if (error.message.includes('not found')) {
+        return res.status(404).json({ error: error.message });
+      }
+      res.status(500).json({ error: 'Failed to delete user account', details: error.message });
+    }
+  });
+
+  // Sync subscription tiers from Stripe (for existing Pro users stuck as "free")
+  app.post("/api/admin/sync-stripe-subscriptions", async (req, res) => {
+    try {
+      const { adminSecret } = req.body;
+      
+      // Verify admin secret
+      if (adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(403).json({ error: 'Invalid admin secret' });
+      }
+
+      if (!stripe) {
+        return res.status(500).json({ error: 'Stripe not configured' });
+      }
+
+      console.log('[ADMIN] Starting Stripe subscription sync...');
+      
+      // Get all users with stripe subscription IDs
+      const users = await (storage as any).getAllUsers?.() || [];
+      const usersWithSubscriptions = users.filter((u: any) => u.stripeSubscriptionId);
+      
+      console.log(`[ADMIN] Found ${usersWithSubscriptions.length} users with Stripe subscriptions`);
+      
+      let syncedCount = 0;
+      let errorCount = 0;
+      const syncResults: any[] = [];
+      
+      // Check each user's subscription status in Stripe
+      for (const user of usersWithSubscriptions) {
+        try {
+          const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+          
+          // Derive tier from price ID
+          let tier = null;
+          if (subscription.items?.data?.[0]?.price?.id) {
+            const priceId = subscription.items.data[0].price.id;
+            const proMonthly = process.env.VITE_STRIPE_PRICE_PRO_MONTHLY;
+            const proAnnual = process.env.VITE_STRIPE_PRICE_PRO_ANNUAL;
+            const familyMonthly = process.env.VITE_STRIPE_PRICE_FAMILY_MONTHLY;
+            const familyAnnual = process.env.VITE_STRIPE_PRICE_FAMILY_ANNUAL;
+            
+            if (priceId === proMonthly || priceId === proAnnual) {
+              tier = 'pro';
+            } else if (priceId === familyMonthly || priceId === familyAnnual) {
+              tier = 'family';
+            }
+          }
+          
+          // Update user if we found a tier and it's different from current
+          if (tier && tier !== user.subscriptionTier) {
+            await storage.updateUserField(user.id, 'subscriptionTier', tier);
+            await storage.updateUserField(user.id, 'subscriptionStatus', subscription.status);
+            syncedCount++;
+            syncResults.push({
+              email: user.email,
+              userId: user.id,
+              oldTier: user.subscriptionTier,
+              newTier: tier,
+              status: subscription.status
+            });
+            console.log(`[ADMIN] Synced ${user.email}: ${user.subscriptionTier} -> ${tier}`);
+          } else if (tier) {
+            console.log(`[ADMIN] No change needed for ${user.email}: already ${tier}`);
+          } else {
+            console.warn(`[ADMIN] Could not determine tier for ${user.email}`);
+          }
+        } catch (error: any) {
+          errorCount++;
+          console.error(`[ADMIN] Error syncing ${user.email}:`, error.message);
+          syncResults.push({
+            email: user.email,
+            userId: user.id,
+            error: error.message
+          });
+        }
+      }
+      
+      console.log(`[ADMIN] Sync complete: ${syncedCount} synced, ${errorCount} errors`);
+      
+      res.json({
+        success: true,
+        message: 'Stripe subscription sync complete',
+        stats: {
+          totalChecked: usersWithSubscriptions.length,
+          synced: syncedCount,
+          errors: errorCount
+        },
+        results: syncResults
+      });
+    } catch (error: any) {
+      console.error('[ADMIN] Sync error:', error);
+      res.status(500).json({ error: 'Failed to sync subscriptions', details: error.message });
+    }
+  });
+
+  // Backfill missing Stripe IDs by querying Stripe API directly
+  // This fixes users who have tier='pro' but NULL stripeCustomerId/stripeSubscriptionId
+  app.post("/api/admin/backfill-stripe-ids", async (req, res) => {
+    try {
+      const { adminSecret } = req.body;
+      
+      // Verify admin secret
+      if (adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(403).json({ error: 'Invalid admin secret' });
+      }
+
+      if (!stripe) {
+        return res.status(500).json({ error: 'Stripe not configured' });
+      }
+
+      console.log('[ADMIN] Starting Stripe ID backfill...');
+      
+      // Get ALL users (not just ones with Stripe IDs)
+      const users = await (storage as any).getAllUsers?.() || [];
+      console.log(`[ADMIN] Found ${users.length} total users in database`);
+      
+      let backfilledCount = 0;
+      let errorCount = 0;
+      const backfillResults: any[] = [];
+      
+      // Query Stripe for ALL subscriptions
+      const stripeSubscriptions = [];
+      let hasMore = true;
+      let startingAfter = undefined;
+      
+      while (hasMore) {
+        const result = await stripe.subscriptions.list({
+          limit: 100,
+          starting_after: startingAfter,
+          expand: ['data.customer']
+        });
+        
+        stripeSubscriptions.push(...result.data);
+        hasMore = result.has_more;
+        if (result.data.length > 0) {
+          startingAfter = result.data[result.data.length - 1].id;
+        }
+      }
+      
+      console.log(`[ADMIN] Found ${stripeSubscriptions.length} subscriptions in Stripe`);
+      
+      // Build a map of email -> Array of Stripe subscriptions (handles family plans with multiple users)
+      const emailToStripeData = new Map<string, Array<any>>();
+      for (const sub of stripeSubscriptions) {
+        const customer = sub.customer as any;
+        const email = customer?.email?.toLowerCase();
+        if (email) {
+          const data = {
+            subscriptionId: sub.id,
+            customerId: typeof customer === 'string' ? customer : customer.id,
+            status: sub.status,
+            priceId: sub.items?.data?.[0]?.price?.id
+          };
+          
+          if (!emailToStripeData.has(email)) {
+            emailToStripeData.set(email, []);
+          }
+          emailToStripeData.get(email)!.push(data);
+        }
+      }
+      
+      // Match users to Stripe data by email
+      // SAFETY: Only process users already marked as Pro/Family to avoid incorrect promotions
+      const proFamilyUsers = users.filter(u => u.subscriptionTier === 'pro' || u.subscriptionTier === 'family');
+      console.log(`[ADMIN] Found ${proFamilyUsers.length} Pro/Family users to check for missing Stripe IDs`);
+      
+      for (const user of proFamilyUsers) {
+        if (!user.email) continue;
+        
+        // SAFETY: Skip users who already have BOTH IDs - they're fine
+        if (user.stripeSubscriptionId && user.stripeCustomerId) {
+          console.log(`[ADMIN] Skipping ${user.email} - already has complete Stripe IDs`);
+          continue;
+        }
+        
+        const stripeSubs = emailToStripeData.get(user.email.toLowerCase());
+        if (!stripeSubs || stripeSubs.length === 0) {
+          console.warn(`[ADMIN] Pro/Family user ${user.email} has no Stripe subscriptions - manual review needed`);
+          backfillResults.push({
+            email: user.email,
+            userId: user.id,
+            warning: 'No Stripe subscription found for Pro/Family user - manual review required'
+          });
+          continue;
+        }
+        
+        try {
+          // Find the right subscription for this user
+          // Priority: 1) Match existing stripeSubscriptionId, 2) Match existing stripeCustomerId, 3) Use ONLY active subscription
+          let stripeData = null;
+          
+          if (user.stripeSubscriptionId) {
+            // Try to match existing subscription ID
+            stripeData = stripeSubs.find(s => s.subscriptionId === user.stripeSubscriptionId);
+          }
+          
+          if (!stripeData && user.stripeCustomerId) {
+            // Try to match existing customer ID
+            stripeData = stripeSubs.find(s => s.customerId === user.stripeCustomerId);
+          }
+          
+          if (!stripeData) {
+            // SAFETY: Only use active/trialing subscriptions for new matches
+            const activeSubs = stripeSubs.filter(s => s.status === 'active' || s.status === 'trialing');
+            if (activeSubs.length === 1) {
+              // Only auto-match if there's exactly ONE active subscription
+              stripeData = activeSubs[0];
+            } else if (activeSubs.length > 1) {
+              console.warn(`[ADMIN] User ${user.email} has ${activeSubs.length} active subscriptions - manual review needed`);
+              backfillResults.push({
+                email: user.email,
+                userId: user.id,
+                warning: `${activeSubs.length} active subscriptions found - manual disambiguation required`
+              });
+              continue;
+            } else {
+              console.warn(`[ADMIN] User ${user.email} has no active subscriptions - manual review needed`);
+              backfillResults.push({
+                email: user.email,
+                userId: user.id,
+                warning: 'No active Stripe subscription - manual review required'
+              });
+              continue;
+            }
+          }
+          
+          if (!stripeData) continue;
+          
+          // Derive tier from price ID
+          let tier = null;
+          if (stripeData.priceId) {
+            const proMonthly = process.env.VITE_STRIPE_PRICE_PRO_MONTHLY;
+            const proAnnual = process.env.VITE_STRIPE_PRICE_PRO_ANNUAL;
+            const familyMonthly = process.env.VITE_STRIPE_PRICE_FAMILY_MONTHLY;
+            const familyAnnual = process.env.VITE_STRIPE_PRICE_FAMILY_ANNUAL;
+            
+            if (stripeData.priceId === proMonthly || stripeData.priceId === proAnnual) {
+              tier = 'pro';
+            } else if (stripeData.priceId === familyMonthly || stripeData.priceId === familyAnnual) {
+              tier = 'family';
+            }
+          }
+          
+          // Build update object - always update IDs to fix stale data
+          const updates: any = {};
+          let needsUpdate = false;
+          
+          // Update subscription ID if missing or different
+          if (user.stripeSubscriptionId !== stripeData.subscriptionId) {
+            updates.stripeSubscriptionId = stripeData.subscriptionId;
+            needsUpdate = true;
+          }
+          
+          // Update customer ID if missing or different
+          if (user.stripeCustomerId !== stripeData.customerId) {
+            updates.stripeCustomerId = stripeData.customerId;
+            needsUpdate = true;
+          }
+          
+          // Update tier if we derived one and it's different
+          if (tier && user.subscriptionTier !== tier) {
+            updates.subscriptionTier = tier;
+            needsUpdate = true;
+          }
+          
+          // Update status if different
+          if (user.subscriptionStatus !== stripeData.status) {
+            updates.subscriptionStatus = stripeData.status;
+            needsUpdate = true;
+          }
+          
+          // Update if needed
+          if (needsUpdate) {
+            await storage.updateUser(user.id, updates);
+            backfilledCount++;
+            backfillResults.push({
+              email: user.email,
+              userId: user.id,
+              matchedBy: user.stripeSubscriptionId ? 'subscriptionId' : (user.stripeCustomerId ? 'customerId' : 'newMatch'),
+              updates: updates
+            });
+            console.log(`[ADMIN] Backfilled ${user.email}:`, updates);
+          }
+        } catch (error: any) {
+          errorCount++;
+          console.error(`[ADMIN] Error backfilling ${user.email}:`, error.message);
+          backfillResults.push({
+            email: user.email,
+            userId: user.id,
+            error: error.message
+          });
+        }
+      }
+      
+      console.log(`[ADMIN] Backfill complete: ${backfilledCount} updated, ${errorCount} errors`);
+      
+      res.json({
+        success: true,
+        message: 'Stripe ID backfill complete',
+        stats: {
+          totalUsers: users.length,
+          proFamilyUsers: proFamilyUsers.length,
+          totalStripeSubscriptions: stripeSubscriptions.length,
+          backfilled: backfilledCount,
+          errors: errorCount,
+          warnings: backfillResults.filter(r => r.warning).length
+        },
+        results: backfillResults
+      });
+    } catch (error: any) {
+      console.error('[ADMIN] Backfill error:', error);
+      res.status(500).json({ error: 'Failed to backfill Stripe IDs', details: error.message });
     }
   });
 
@@ -5507,9 +7799,253 @@ ${emoji} ${progressLine}
         req.session.demoActivityCount += 1;
       }
 
+      // Auto-journal if the description contains a URL source (imported content)
+      let journalEntryId = null;
+      const urlMatch = description?.match(/https?:\/\/[^\s]+/i);
+      const isSocialMedia = urlMatch && /instagram\.com|tiktok\.com|youtube\.com|youtu\.be|twitter\.com|x\.com|facebook\.com|reddit\.com/i.test(urlMatch[0]);
+      
+      if (isSocialMedia && isAuthenticated) {
+        try {
+          const sourceUrl = urlMatch[0];
+          
+          // Normalize URL for consistent duplicate detection
+          const normalizeUrlForDuplicateCheck = (urlString: string): string => {
+            try {
+              const parsed = new URL(urlString);
+              if (parsed.hostname.includes('instagram.com')) {
+                const pathMatch = parsed.pathname.match(/\/(reel|p|stories)\/([^\/]+)/);
+                if (pathMatch) {
+                  return `https://www.instagram.com/${pathMatch[1]}/${pathMatch[2]}/`;
+                }
+              }
+              if (parsed.hostname.includes('tiktok.com')) {
+                const pathMatch = parsed.pathname.match(/\/@?[^\/]+\/video\/(\d+)/);
+                if (pathMatch) {
+                  return `https://www.tiktok.com/video/${pathMatch[1]}`;
+                }
+              }
+              if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) {
+                const videoId = parsed.searchParams.get('v') || parsed.pathname.split('/').pop();
+                if (videoId) {
+                  return `https://www.youtube.com/watch?v=${videoId}`;
+                }
+              }
+              parsed.search = '';
+              parsed.hash = '';
+              return parsed.toString();
+            } catch {
+              return urlString;
+            }
+          };
+          
+          const normalizedSourceUrl = normalizeUrlForDuplicateCheck(sourceUrl);
+          
+          // Check for duplicate in journalData preferences (primary source of truth)
+          const prefs = await storage.getUserPreferences(userId);
+          const journalData = prefs?.preferences?.journalData || {};
+          let existsInPreferences = false;
+          
+          for (const categoryKey of Object.keys(journalData)) {
+            const items = journalData[categoryKey] || [];
+            if (items.some((item: any) => {
+              if (!item.sourceUrl) return false;
+              const itemNormalizedUrl = normalizeUrlForDuplicateCheck(item.sourceUrl);
+              return itemNormalizedUrl === normalizedSourceUrl;
+            })) {
+              existsInPreferences = true;
+              console.log(`[AUTO-JOURNAL] Entry already exists in journalData.${categoryKey} for normalized URL: ${normalizedSourceUrl}`);
+              break;
+            }
+          }
+          
+          if (existsInPreferences) {
+            console.log(`[AUTO-JOURNAL] Skipping duplicate - URL already exists in journal preferences`);
+          } else {
+            const platform = sourceUrl.includes('instagram') ? 'Instagram' : 
+                           sourceUrl.includes('tiktok') ? 'TikTok' : 
+                           sourceUrl.includes('youtube') || sourceUrl.includes('youtu.be') ? 'YouTube' :
+                           sourceUrl.includes('twitter') || sourceUrl.includes('x.com') ? 'Twitter/X' :
+                           sourceUrl.includes('facebook') ? 'Facebook' :
+                           sourceUrl.includes('reddit') ? 'Reddit' : 'Social Media';
+            
+            // Map category to journal category using centralized function
+            // For AI-categorized content, try to use ContentCategory format first
+            const contentCategoryMap: Record<string, string> = {
+              'food_dining': 'restaurants',
+              'entertainment': 'entertainment', 
+              'travel_adventure': 'travel_itinerary',
+              'fitness_wellness': 'fitness',
+              'reading': 'other',
+              'shopping': 'shopping',
+              'nightlife': 'bars_nightlife',
+              'creative': 'other',
+              'productivity': 'other',
+              'general': 'other'
+            };
+            const contentCategory = contentCategoryMap[category] || category;
+            const journalCategory = mapAiCategoryToJournalCategory(contentCategory as any);
+            
+            // Try to look up cached content for enrichment
+            let cachedContent: any = null;
+            let thumbnailUrl: string | null = null;
+            let extractedDescription: string | null = null;
+            
+            try {
+              // Normalize URL for cache lookup
+              const normalizeUrlForCache = (urlString: string): string => {
+                try {
+                  const parsed = new URL(urlString);
+                  if (parsed.hostname.includes('instagram.com')) {
+                    const pathMatch = parsed.pathname.match(/\/(reel|p|stories)\/([^\/]+)/);
+                    if (pathMatch) {
+                      return `https://www.instagram.com/${pathMatch[1]}/${pathMatch[2]}/`;
+                    }
+                  }
+                  if (parsed.hostname.includes('tiktok.com')) {
+                    const pathMatch = parsed.pathname.match(/\/@?[^\/]+\/video\/(\d+)/);
+                    if (pathMatch) {
+                      return `https://www.tiktok.com/video/${pathMatch[1]}`;
+                    }
+                  }
+                  parsed.search = '';
+                  parsed.hash = '';
+                  return parsed.toString();
+                } catch {
+                  return urlString;
+                }
+              };
+              
+              const normalizedUrl = normalizeUrlForCache(sourceUrl);
+              cachedContent = await storage.getUrlContentCache(normalizedUrl);
+              
+              if (cachedContent) {
+                console.log(`[AUTO-JOURNAL] Found cached content for URL: ${normalizedUrl}`);
+                thumbnailUrl = cachedContent.metadata?.thumbnail || null;
+                extractedDescription = cachedContent.extractedContent?.substring(0, 500) || null;
+              }
+            } catch (cacheError) {
+              console.warn('[AUTO-JOURNAL] Cache lookup failed:', cacheError);
+            }
+            
+            // First, add to journalData in user preferences (primary source of truth)
+            // This is checked FIRST before creating journal entry to minimize race window
+            try {
+              // Re-fetch preferences to get latest state
+              const latestPrefs = await storage.getUserPreferences(userId);
+              const currentPrefs = latestPrefs?.preferences || {};
+              const journalData = currentPrefs.journalData || {};
+              const categoryItems = journalData[journalCategory] || [];
+              
+              // Final duplicate check with freshly fetched data
+              const alreadyExists = categoryItems.some((item: any) => {
+                if (!item.sourceUrl) return false;
+                try {
+                  const itemNormalized = normalizeUrlForDuplicateCheck(item.sourceUrl);
+                  return itemNormalized === normalizedSourceUrl;
+                } catch {
+                  return item.sourceUrl === sourceUrl;
+                }
+              });
+              
+              if (alreadyExists) {
+                console.log(`[AUTO-JOURNAL] Duplicate detected on final check, skipping all journal creation`);
+              } else {
+                // Build media array with proper null checks
+                const cachedMedia = Array.isArray(cachedContent?.metadata?.media) 
+                  ? cachedContent.metadata.media.filter((m: any) => m && (m.type === 'image' || m.type === 'video') && m.url)
+                  : [];
+                const mediaItems = cachedMedia.length > 0 
+                  ? cachedMedia 
+                  : (thumbnailUrl ? [{ type: 'image', url: thumbnailUrl }] : []);
+                
+                // Generate a temporary ID for the journal item (will be updated after journal_entries creation)
+                const tempId = `pending-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+                
+                // Create new journal item with enriched data and normalized URL
+                const newJournalItem = {
+                  id: tempId,
+                  text: title,
+                  date: new Date().toISOString().split('T')[0],
+                  notes: description || '',
+                  sourceUrl: normalizedSourceUrl,
+                  originalUrl: sourceUrl,
+                  platform: platform.toLowerCase(),
+                  thumbnail: thumbnailUrl || null,
+                  media: mediaItems,
+                  keywords: [platform.toLowerCase(), 'imported', journalCategory].filter(Boolean),
+                  aiConfidence: 0.9,
+                  isImported: true,
+                  activityId: activity.id
+                };
+                
+                // Add to the beginning of the category items
+                const updatedItems = [newJournalItem, ...categoryItems];
+                
+                // Reserve the slot in preferences first
+                await storage.upsertUserPreferences(userId, {
+                  preferences: {
+                    ...currentPrefs,
+                    journalData: {
+                      ...journalData,
+                      [journalCategory]: updatedItems
+                    }
+                  }
+                });
+                
+                console.log(`[AUTO-JOURNAL] Reserved slot in journalData.${journalCategory} for user ${userId}`);
+                
+                // Now create the journal entry in the database
+                const tasksList = tasks?.map((t: any) => t.title).join('\n- ') || '';
+                const journalReflection = `## Saved from ${platform}: ${title}\n\n` +
+                  `**Source:** ${sourceUrl}\n\n` +
+                  (extractedDescription ? `### Content\n${extractedDescription}\n\n` : '') +
+                  `### Plan Summary\n${description || 'No summary available'}\n\n` +
+                  `### Tasks\n- ${tasksList}`;
+                
+                const journalEntry = await storage.createJournalEntry({
+                  userId,
+                  date: new Date().toISOString().split('T')[0],
+                  mood: 'great',
+                  reflection: journalReflection
+                });
+                journalEntryId = journalEntry.id;
+                
+                // Update the temporary ID with the real journal entry ID
+                const finalPrefs = await storage.getUserPreferences(userId);
+                const finalCurrentPrefs = finalPrefs?.preferences || {};
+                const finalJournalData = finalCurrentPrefs.journalData || {};
+                const finalCategoryItems = finalJournalData[journalCategory] || [];
+                
+                // Find and update the pending item with the real ID
+                const updatedFinalItems = finalCategoryItems.map((item: any) => 
+                  item.id === tempId ? { ...item, id: journalEntryId } : item
+                );
+                
+                await storage.upsertUserPreferences(userId, {
+                  preferences: {
+                    ...finalCurrentPrefs,
+                    journalData: {
+                      ...finalJournalData,
+                      [journalCategory]: updatedFinalItems
+                    }
+                  }
+                });
+                
+                console.log(`[AUTO-JOURNAL] Created journal entry ${journalEntryId} from ${platform} URL for activity ${activity.id} in category: ${journalCategory}`);
+              }
+            } catch (prefError) {
+              console.warn('[AUTO-JOURNAL] Failed to create journal entry:', prefError);
+            }
+          }
+        } catch (journalError) {
+          console.error('[AUTO-JOURNAL] Error creating journal entry:', journalError);
+          // Don't fail the whole request if journaling fails
+        }
+      }
+
       // Get the complete activity with tasks
       const activityTasks = await storage.getActivityTasks(activity.id, userId);
-      res.json({ ...activity, tasks: activityTasks });
+      res.json({ ...activity, tasks: activityTasks, journalEntryId });
     } catch (error) {
       console.error('Create activity from dialogue error:', error);
       res.status(500).json({ error: 'Failed to create activity from dialogue' });
@@ -5682,18 +8218,9 @@ ${emoji} ${progressLine}
       res.status(500).json({ error: 'Failed to fetch journal entries' });
     }
   });
-  
-  app.get("/api/journal/:date", async (req, res) => {
-    try {
-      const { date } = req.params;
-      const userId = getUserId(req) || DEMO_USER_ID;
-      const entry = await storage.getUserJournalEntry(userId, date);
-      res.json(entry || null);
-    } catch (error) {
-      console.error('Get journal error:', error);
-      res.status(500).json({ error: 'Failed to fetch journal entry' });
-    }
-  });
+
+  // NOTE: The /api/journal/:date parameterized route is defined AFTER all specific routes
+  // to prevent route matching issues. See end of journal features section.
 
   app.post("/api/journal", async (req, res) => {
     try {
@@ -5743,6 +8270,591 @@ ${emoji} ${progressLine}
     } catch (error) {
       console.error('Update journal error:', error);
       res.status(500).json({ error: 'Failed to update journal entry' });
+    }
+  });
+
+  // ============================================
+  // JOURNAL FEATURES - 5 New Features
+  // ============================================
+
+  // 1. One-Click Journal Prompts - Generate personalized prompts based on user activities
+  app.post("/api/journal/generate-prompt", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Get user's activities and tasks
+      const activities = await storage.getUserActivities(userId);
+      const tasks = await storage.getUserTasks(userId);
+      
+      // Get completed and uncompleted tasks
+      const completedTasks = tasks.filter((t: any) => t.completed);
+      const incompleteTasks = tasks.filter((t: any) => !t.completed && !t.archived);
+      
+      // Get recent journal entries for context
+      const prefs = await storage.getPersonalJournalEntries(userId);
+      const journalData = prefs?.preferences?.journalData || {};
+      const recentEntries: string[] = [];
+      
+      for (const [category, entries] of Object.entries(journalData)) {
+        if (Array.isArray(entries)) {
+          entries.slice(-3).forEach((entry: any) => {
+            if (typeof entry === 'string') {
+              recentEntries.push(entry);
+            } else if (entry.text) {
+              recentEntries.push(entry.text);
+            }
+          });
+        }
+      }
+      
+      // Build context for AI
+      const context = {
+        totalActivities: activities.length,
+        completedTasksCount: completedTasks.length,
+        incompleteTasksCount: incompleteTasks.length,
+        recentCompletedTasks: completedTasks.slice(-5).map((t: any) => t.title),
+        upcomingTasks: incompleteTasks.slice(0, 5).map((t: any) => t.title),
+        activityCategories: [...new Set(activities.map((a: any) => a.category))],
+        recentJournalTopics: recentEntries.slice(-5),
+      };
+      
+      // Generate personalized prompt using AI
+      const systemPrompt = `You are a thoughtful journaling coach. Based on the user's activity data, generate ONE personalized journal prompt that helps them reflect on their progress, challenges, or feelings. The prompt should be:
+- Personal and specific to their activities
+- Thought-provoking but not overwhelming
+- Encouraging self-reflection
+
+User Context:
+- Total activities: ${context.totalActivities}
+- Tasks completed: ${context.completedTasksCount}
+- Tasks pending: ${context.incompleteTasksCount}
+- Recently completed: ${context.recentCompletedTasks.join(', ') || 'None'}
+- Upcoming tasks: ${context.upcomingTasks.join(', ') || 'None'}
+- Categories they work on: ${context.activityCategories.join(', ') || 'Various'}
+- Recent journal topics: ${context.recentJournalTopics.join(', ') || 'New to journaling'}
+
+Generate a single, thoughtful journal prompt (1-2 sentences). Just the prompt, no explanation.`;
+
+      const { getProvider } = await import('./services/llmProvider');
+      const provider = getProvider('openai');
+      
+      if (!provider) {
+        // Fallback prompts if AI unavailable
+        const fallbackPrompts = [
+          `You've completed ${context.completedTasksCount} tasks recently. What's one thing you've learned about yourself through this progress?`,
+          `Looking at your upcoming tasks, what excites you most? What feels challenging?`,
+          `Reflect on your journey with ${context.activityCategories[0] || 'your goals'}. How have you grown?`,
+          `What's one small win you're proud of this week?`,
+          `If you could give advice to yourself from last month, what would it be?`,
+        ];
+        return res.json({
+          prompt: fallbackPrompts[Math.floor(Math.random() * fallbackPrompts.length)],
+          context: { type: 'fallback' }
+        });
+      }
+      
+      const response = await provider.generateCompletion(
+        systemPrompt,
+        'Generate a personalized journal prompt.',
+        { maxTokens: 150, temperature: 0.8 }
+      );
+      
+      res.json({
+        prompt: response.content.trim(),
+        context: {
+          completedTasks: context.completedTasksCount,
+          pendingTasks: context.incompleteTasksCount,
+          categories: context.activityCategories
+        }
+      });
+    } catch (error) {
+      console.error('Generate prompt error:', error);
+      res.status(500).json({ error: 'Failed to generate prompt' });
+    }
+  });
+
+  // 2. Themed Journal Packs - Curated prompt collections
+  const themedJournalPacks = [
+    {
+      id: 'gratitude',
+      name: 'Gratitude Practice',
+      description: 'Cultivate appreciation and positivity through daily gratitude reflection',
+      icon: 'heart',
+      color: 'from-pink-500 to-rose-500',
+      prompts: [
+        'What are three things you\'re grateful for today?',
+        'Who made a positive impact on your life recently? How did they help?',
+        'What small moment brought you joy this week?',
+        'What ability or skill are you thankful to have?',
+        'Describe a challenge that taught you something valuable.',
+        'What part of your daily routine are you grateful for?',
+        'Who is someone you\'ve never thanked properly? What would you say?',
+      ]
+    },
+    {
+      id: 'self-reflection',
+      name: 'Self-Reflection',
+      description: 'Deep dive into self-awareness and personal understanding',
+      icon: 'sparkles',
+      color: 'from-purple-500 to-indigo-500',
+      prompts: [
+        'What emotion did you feel most strongly today? Why?',
+        'What would your ideal day look like?',
+        'What belief about yourself would you like to change?',
+        'When do you feel most like yourself?',
+        'What are you avoiding right now? Why?',
+        'Describe a moment when you felt truly proud of yourself.',
+        'What does success mean to you personally?',
+      ]
+    },
+    {
+      id: 'goal-setting',
+      name: 'Goal Setting & Planning',
+      description: 'Clarify your vision and create actionable steps forward',
+      icon: 'target',
+      color: 'from-emerald-500 to-teal-500',
+      prompts: [
+        'What\'s one goal you want to achieve in the next 30 days?',
+        'What\'s holding you back from your biggest dream?',
+        'If you could master one skill, what would it be and why?',
+        'What does your life look like in 5 years?',
+        'What small step can you take today toward a big goal?',
+        'What goal have you been procrastinating on? What\'s the first action?',
+        'How will you celebrate when you achieve your current goal?',
+      ]
+    },
+    {
+      id: 'stress-relief',
+      name: 'Stress Relief & Calm',
+      description: 'Process difficult emotions and find inner peace',
+      icon: 'cloud',
+      color: 'from-sky-500 to-blue-500',
+      prompts: [
+        'What\'s weighing on your mind right now? Write it out.',
+        'Describe a place where you feel completely at peace.',
+        'What would you tell a friend who\'s feeling the way you are?',
+        'What are three things within your control right now?',
+        'What can you let go of today?',
+        'Describe how your body feels right now. Where do you hold tension?',
+        'What activity helps you feel grounded and calm?',
+      ]
+    },
+    {
+      id: 'creativity',
+      name: 'Creative Exploration',
+      description: 'Unlock imagination and explore new ideas',
+      icon: 'palette',
+      color: 'from-orange-500 to-amber-500',
+      prompts: [
+        'If you could create anything without limitations, what would it be?',
+        'Describe a dream you had recently in vivid detail.',
+        'What inspires you most? Describe why.',
+        'Write a short story starting with: "The door opened and..."',
+        'If your life was a book, what would this chapter be titled?',
+        'What creative project have you been wanting to start?',
+        'Describe an ordinary object as if seeing it for the first time.',
+      ]
+    },
+    {
+      id: 'relationships',
+      name: 'Relationships & Connection',
+      description: 'Strengthen bonds and reflect on meaningful connections',
+      icon: 'users',
+      color: 'from-violet-500 to-purple-500',
+      prompts: [
+        'Who do you want to spend more time with? Why?',
+        'Describe your ideal friendship. What qualities matter most?',
+        'What relationship in your life needs more attention?',
+        'Write a thank you note to someone who influenced you.',
+        'How do you show love to the people who matter most?',
+        'What boundary do you need to set in a relationship?',
+        'Describe a meaningful conversation you had recently.',
+      ]
+    },
+  ];
+
+  app.get("/api/journal/packs", async (req, res) => {
+    try {
+      res.json({ packs: themedJournalPacks });
+    } catch (error) {
+      console.error('Get journal packs error:', error);
+      res.status(500).json({ error: 'Failed to fetch journal packs' });
+    }
+  });
+
+  app.get("/api/journal/packs/:packId", async (req, res) => {
+    try {
+      const { packId } = req.params;
+      const pack = themedJournalPacks.find(p => p.id === packId);
+      
+      if (!pack) {
+        return res.status(404).json({ error: 'Pack not found' });
+      }
+      
+      res.json({ pack });
+    } catch (error) {
+      console.error('Get journal pack error:', error);
+      res.status(500).json({ error: 'Failed to fetch journal pack' });
+    }
+  });
+
+  // 3. AI-Powered Journal Summaries - Analyze entries for themes and patterns
+  app.post("/api/journal/summary", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Get all journal entries
+      const prefs = await storage.getPersonalJournalEntries(userId);
+      const journalData = prefs?.preferences?.journalData || {};
+      
+      // Collect all entries with timestamps
+      const allEntries: { text: string; category: string; timestamp: string }[] = [];
+      
+      for (const [category, entries] of Object.entries(journalData)) {
+        if (Array.isArray(entries)) {
+          entries.forEach((entry: any) => {
+            const text = typeof entry === 'string' ? entry : entry.text;
+            const timestamp = typeof entry === 'string' ? new Date().toISOString() : entry.timestamp;
+            if (text) {
+              allEntries.push({ text, category, timestamp });
+            }
+          });
+        }
+      }
+      
+      if (allEntries.length === 0) {
+        return res.json({
+          summary: {
+            totalEntries: 0,
+            themes: [],
+            emotions: [],
+            insights: 'Start journaling to see insights about your thoughts and patterns!',
+            recommendations: ['Try the Gratitude Pack to get started', 'Use the Generate Prompt feature for inspiration'],
+          }
+        });
+      }
+      
+      // Sort by timestamp and get recent entries
+      allEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      const recentEntries = allEntries.slice(0, 20);
+      
+      // Build context for AI analysis
+      const entriesText = recentEntries.map(e => `[${e.category}]: ${e.text}`).join('\n');
+      
+      const systemPrompt = `Analyze these journal entries and provide insights. Return a JSON object with:
+- themes: array of 3-5 recurring themes (strings)
+- emotions: array of detected emotions with frequency (e.g., [{emotion: "hopeful", count: 3}])
+- insights: 2-3 sentence summary of patterns you notice
+- recommendations: array of 2-3 actionable suggestions based on the entries
+
+Journal entries:
+${entriesText}
+
+Return ONLY valid JSON, no markdown or explanation.`;
+
+      const { getProvider } = await import('./services/llmProvider');
+      const provider = getProvider('openai');
+      
+      if (!provider) {
+        // Fallback analysis
+        const categories = [...new Set(allEntries.map(e => e.category))];
+        return res.json({
+          summary: {
+            totalEntries: allEntries.length,
+            themes: categories,
+            emotions: [{ emotion: 'reflective', count: allEntries.length }],
+            insights: `You have ${allEntries.length} journal entries across ${categories.length} categories. Keep up the great journaling habit!`,
+            recommendations: ['Continue your daily journaling practice', 'Try exploring new categories'],
+          }
+        });
+      }
+      
+      const response = await provider.generateCompletion(
+        systemPrompt,
+        'Analyze these journal entries',
+        { maxTokens: 500, temperature: 0.3 }
+      );
+      
+      try {
+        const analysis = JSON.parse(response.content);
+        res.json({
+          summary: {
+            totalEntries: allEntries.length,
+            ...analysis
+          }
+        });
+      } catch (parseError) {
+        // If JSON parsing fails, return a basic analysis
+        res.json({
+          summary: {
+            totalEntries: allEntries.length,
+            themes: [...new Set(allEntries.map(e => e.category))],
+            emotions: [{ emotion: 'reflective', count: allEntries.length }],
+            insights: response.content.slice(0, 200),
+            recommendations: ['Continue journaling regularly', 'Explore different themed packs'],
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Journal summary error:', error);
+      res.status(500).json({ error: 'Failed to generate journal summary' });
+    }
+  });
+
+  // 4. Customizable Journal Templates - CRUD operations
+  app.get("/api/journal/templates", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Get user's custom templates
+      const templates = await storage.getUserJournalTemplates(userId);
+      
+      // Add default templates
+      const defaultTemplates = [
+        {
+          id: 'default-morning',
+          userId: null,
+          name: 'Morning Pages',
+          description: 'Start your day with intention and clarity',
+          prompts: [
+            'What are you grateful for this morning?',
+            'What\'s your main intention for today?',
+            'What might get in your way? How will you handle it?',
+          ],
+          isDefault: true,
+          category: 'morning',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'default-evening',
+          userId: null,
+          name: 'Evening Reflection',
+          description: 'Wind down and reflect on your day',
+          prompts: [
+            'What went well today?',
+            'What did you learn?',
+            'What will you do differently tomorrow?',
+          ],
+          isDefault: true,
+          category: 'evening',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'default-weekly',
+          userId: null,
+          name: 'Weekly Review',
+          description: 'Reflect on your week and plan ahead',
+          prompts: [
+            'What were your biggest wins this week?',
+            'What challenges did you face? How did you handle them?',
+            'What are your top 3 priorities for next week?',
+            'What self-care did you practice?',
+          ],
+          isDefault: true,
+          category: 'weekly',
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      
+      res.json({ templates: [...defaultTemplates, ...templates] });
+    } catch (error) {
+      console.error('Get templates error:', error);
+      res.status(500).json({ error: 'Failed to fetch templates' });
+    }
+  });
+
+  app.post("/api/journal/templates", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      if (isDemoUser(userId)) {
+        return res.status(403).json({ error: 'Demo users cannot create templates' });
+      }
+      
+      const { name, description, prompts, category } = req.body;
+      
+      if (!name || !prompts || !Array.isArray(prompts)) {
+        return res.status(400).json({ error: 'Name and prompts array are required' });
+      }
+      
+      const template = await storage.createJournalTemplate({
+        userId,
+        name,
+        description: description || '',
+        prompts,
+        category: category || 'custom',
+        isDefault: false,
+      });
+      
+      res.json({ template });
+    } catch (error) {
+      console.error('Create template error:', error);
+      res.status(500).json({ error: 'Failed to create template' });
+    }
+  });
+
+  app.put("/api/journal/templates/:templateId", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { templateId } = req.params;
+      
+      if (isDemoUser(userId)) {
+        return res.status(403).json({ error: 'Demo users cannot update templates' });
+      }
+      
+      const { name, description, prompts, category } = req.body;
+      
+      const template = await storage.updateJournalTemplate(templateId, userId, {
+        name,
+        description,
+        prompts,
+        category,
+      });
+      
+      if (!template) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+      
+      res.json({ template });
+    } catch (error) {
+      console.error('Update template error:', error);
+      res.status(500).json({ error: 'Failed to update template' });
+    }
+  });
+
+  app.delete("/api/journal/templates/:templateId", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { templateId } = req.params;
+      
+      if (isDemoUser(userId)) {
+        return res.status(403).json({ error: 'Demo users cannot delete templates' });
+      }
+      
+      await storage.deleteJournalTemplate(templateId, userId);
+      
+      res.json({ message: 'Template deleted successfully' });
+    } catch (error) {
+      console.error('Delete template error:', error);
+      res.status(500).json({ error: 'Failed to delete template' });
+    }
+  });
+
+  // 5. Journal Stats for Visualizations
+  app.get("/api/journal/stats", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      // Get journal entries
+      const prefs = await storage.getPersonalJournalEntries(userId);
+      const journalData = prefs?.preferences?.journalData || {};
+      
+      // Get tasks for completion data
+      const tasks = await storage.getUserTasks(userId);
+      const activities = await storage.getUserActivities(userId);
+      
+      // Calculate journal stats
+      const entriesByCategory: Record<string, number> = {};
+      const entriesByDate: Record<string, number> = {};
+      let totalEntries = 0;
+      
+      for (const [category, entries] of Object.entries(journalData)) {
+        if (Array.isArray(entries)) {
+          entriesByCategory[category] = entries.length;
+          totalEntries += entries.length;
+          
+          entries.forEach((entry: any) => {
+            const timestamp = typeof entry === 'string' ? new Date().toISOString() : entry.timestamp;
+            const date = timestamp.split('T')[0];
+            entriesByDate[date] = (entriesByDate[date] || 0) + 1;
+          });
+        }
+      }
+      
+      // Calculate task completion stats
+      const completedTasks = tasks.filter((t: any) => t.completed);
+      const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
+      
+      // Calculate activity progress
+      const activityProgress = activities.map((a: any) => {
+        const activityTasks = tasks.filter((t: any) => t.activityId === a.id || t.goalId === a.id);
+        const completed = activityTasks.filter((t: any) => t.completed).length;
+        return {
+          name: a.title,
+          category: a.category,
+          total: activityTasks.length,
+          completed,
+          progress: activityTasks.length > 0 ? Math.round((completed / activityTasks.length) * 100) : 0,
+        };
+      }).filter(a => a.total > 0);
+      
+      // Calculate journaling streak
+      const dates = Object.keys(entriesByDate).sort().reverse();
+      let streak = 0;
+      const today = new Date().toISOString().split('T')[0];
+      
+      for (let i = 0; i < 30; i++) {
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() - i);
+        const dateStr = checkDate.toISOString().split('T')[0];
+        
+        if (entriesByDate[dateStr]) {
+          streak++;
+        } else if (i > 0) {
+          break;
+        }
+      }
+      
+      // Prepare chart data (last 7 days)
+      const last7Days: { date: string; entries: number; tasks: number }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        const dayTasks = completedTasks.filter((t: any) => 
+          t.completedAt && t.completedAt.toISOString().split('T')[0] === dateStr
+        );
+        
+        last7Days.push({
+          date: dateStr,
+          entries: entriesByDate[dateStr] || 0,
+          tasks: dayTasks.length,
+        });
+      }
+      
+      res.json({
+        stats: {
+          totalEntries,
+          totalCategories: Object.keys(entriesByCategory).length,
+          journalingStreak: streak,
+          completionRate,
+          totalActivities: activities.length,
+          completedTasks: completedTasks.length,
+          pendingTasks: tasks.length - completedTasks.length,
+        },
+        charts: {
+          entriesByCategory: Object.entries(entriesByCategory).map(([name, value]) => ({ name, value })),
+          activityProgress,
+          last7Days,
+        }
+      });
+    } catch (error) {
+      console.error('Journal stats error:', error);
+      res.status(500).json({ error: 'Failed to fetch journal stats' });
+    }
+  });
+
+  // IMPORTANT: This parameterized route MUST come AFTER all specific /api/journal/* routes
+  // to prevent route matching issues (e.g., /api/journal/packs would match :date as "packs")
+  app.get("/api/journal/:date", async (req, res) => {
+    try {
+      const { date } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const entry = await storage.getUserJournalEntry(userId, date);
+      res.json(entry || null);
+    } catch (error) {
+      console.error('Get journal error:', error);
+      res.status(500).json({ error: 'Failed to fetch journal entry' });
     }
   });
 
@@ -5904,6 +9016,100 @@ ${emoji} ${progressLine}
     } catch (error) {
       console.error('Error updating notification preferences:', error);
       res.status(500).json({ error: 'Failed to update notification preferences' });
+    }
+  });
+
+  // Device Token Management (for push notifications)
+  app.post("/api/notifications/register-device", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { token, platform, deviceInfo } = req.body;
+      
+      if (!token || !platform) {
+        return res.status(400).json({ error: 'Token and platform are required' });
+      }
+
+      console.log(`[PUSH] Registering device token for user ${userId}, platform: ${platform}`);
+      
+      const deviceToken = await storage.upsertDeviceToken(userId, {
+        token,
+        platform,
+        deviceInfo,
+      });
+      
+      res.json({ 
+        success: true, 
+        message: 'Device registered for push notifications',
+        deviceId: deviceToken.id 
+      });
+    } catch (error) {
+      console.error('Error registering device token:', error);
+      res.status(500).json({ error: 'Failed to register device for push notifications' });
+    }
+  });
+
+  app.post("/api/notifications/unregister-device", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { token } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ error: 'Token is required' });
+      }
+
+      console.log(`[PUSH] Unregistering device token for user ${userId}`);
+      
+      await storage.deleteDeviceToken(token, userId);
+      
+      res.json({ 
+        success: true, 
+        message: 'Device unregistered from push notifications' 
+      });
+    } catch (error) {
+      console.error('Error unregistering device token:', error);
+      res.status(500).json({ error: 'Failed to unregister device from push notifications' });
+    }
+  });
+
+  app.get("/api/notifications/devices", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const devices = await storage.getUserDeviceTokens(userId);
+      res.json({ devices });
+    } catch (error) {
+      console.error('Error fetching user devices:', error);
+      res.status(500).json({ error: 'Failed to fetch registered devices' });
+    }
+  });
+
+  // Get user notifications
+  app.get("/api/user/notifications", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+      const notifications = await storage.getUserNotifications(userId, limit);
+      res.json({ notifications });
+    } catch (error) {
+      console.error('Error fetching user notifications:', error);
+      res.status(500).json({ error: 'Failed to fetch notifications' });
+    }
+  });
+
+  // Mark notification as read
+  app.patch("/api/user/notifications/:notificationId/read", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { notificationId } = req.params;
+      
+      if (!notificationId) {
+        return res.status(400).json({ error: 'Notification ID is required' });
+      }
+
+      await storage.markNotificationRead(notificationId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      res.status(500).json({ error: 'Failed to mark notification as read' });
     }
   });
 
@@ -6875,8 +10081,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         return await handleSimplePlanConversation(req, res, message, conversationHistory, userId, 'quick');
       }
 
-      // Create a conversation with the AI
-      const aiResponse = await aiService.chatConversation(message, conversationHistory);
+      // Create a conversation with the AI (pass userId for personalization)
+      const aiResponse = await aiService.chatConversation(message, conversationHistory, userId);
       
       // Check if the message contains goals that we should turn into actionable tasks
       const containsGoals = aiService.detectGoalsInMessage(message);
@@ -7005,6 +10211,71 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
+  // Get today's daily theme
+  app.get("/api/user/daily-theme", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const preferences = await storage.getUserPreferences(userId);
+      
+      if (!preferences?.preferences?.dailyTheme) {
+        return res.json({ dailyTheme: null });
+      }
+      
+      const dailyTheme = preferences.preferences.dailyTheme;
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Only return theme if it's from today
+      if (dailyTheme.date === today) {
+        return res.json({ dailyTheme });
+      }
+      
+      return res.json({ dailyTheme: null });
+    } catch (error) {
+      console.error('[DAILY THEME] Error fetching daily theme:', error);
+      res.status(500).json({ error: 'Failed to fetch daily theme' });
+    }
+  });
+
+  // Set daily theme
+  app.post("/api/user/daily-theme", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const { activityId, activityTitle, tasks } = req.body;
+      
+      if (!activityId || !activityTitle) {
+        return res.status(400).json({ error: 'activityId and activityTitle are required' });
+      }
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      const dailyTheme = {
+        activityId,
+        activityTitle,
+        date: today,
+        tasks: tasks || []
+      };
+      
+      // Get current preferences and update with new daily theme
+      const currentPrefs = await storage.getUserPreferences(userId);
+      const updatedPrefs = {
+        ...(currentPrefs?.preferences || {}),
+        dailyTheme
+      };
+      
+      await storage.upsertUserPreferences(userId, { preferences: updatedPrefs });
+      
+      console.log('[DAILY THEME] Set daily theme for user:', userId, 'activity:', activityTitle);
+      res.json({ success: true, dailyTheme });
+    } catch (error) {
+      console.error('[DAILY THEME] Error setting daily theme:', error);
+      res.status(500).json({ error: 'Failed to set daily theme' });
+    }
+  });
+
   // User Profile Management
   app.get("/api/user/profile", async (req: any, res) => {
     try {
@@ -7012,30 +10283,58 @@ You can find these tasks in your task list and start working on them right away!
       const userId = getUserId(req) || DEMO_USER_ID;
       console.log('Fetching profile for user:', userId);
       
+      // Get user data for OAuth profile image and basic info
+      const user = await storage.getUser(userId);
+      
       // Try to get existing profile
       let profile = await storage.getUserProfile(userId);
       console.log('Existing profile:', profile);
       
-      // If no profile exists for authenticated user, create one from user data
-      if (!profile && userId !== DEMO_USER_ID) {
-        const user = await storage.getUser(userId);
+      // If no profile exists for authenticated user, create one
+      if (!profile && userId !== DEMO_USER_ID && user) {
         console.log('User data for profile creation:', user);
-        if (user) {
-          profile = await storage.upsertUserProfile(userId, {
-            firstName: user.firstName || '',
-            lastName: user.lastName || '',
-            email: user.email || '',
-            profileImageUrl: user.profileImageUrl || undefined
-          });
-          console.log('Created new profile:', profile);
-        }
+        // Note: We don't set profileImageUrlOverride here - that's only for user uploads
+        // The OAuth profile image is stored on the users table (profileImageUrl)
+        profile = await storage.upsertUserProfile(userId, {});
+        console.log('Created new profile:', profile);
       }
       
       // Also fetch user preferences for journal data
       const preferences = await storage.getUserPreferences(userId);
       
-      console.log('Returning profile with preferences:', { profile, preferences });
-      res.json({ ...profile, preferences: preferences?.preferences });
+      // Compute the effective profileImageUrl:
+      // - Use profileImageUrlOverride if user uploaded a custom image
+      // - Otherwise fall back to user's OAuth profile image
+      const profileImageUrl = profile?.profileImageUrlOverride || user?.profileImageUrl || null;
+      
+      console.log('Returning profile with computed image:', { 
+        hasOverride: !!profile?.profileImageUrlOverride, 
+        hasUserImage: !!user?.profileImageUrl,
+        imageLength: profileImageUrl?.length || 0
+      });
+      
+      // Merge user table fields with profile table fields for unified response
+      res.json({ 
+        ...profile, 
+        // User table fields (firstName, lastName, email, location, occupation)
+        firstName: user?.firstName || null,
+        lastName: user?.lastName || null,
+        email: user?.email || null,
+        location: user?.location || null,
+        occupation: user?.occupation || null,
+        username: user?.username || null,
+        // Computed fields
+        profileImageUrl, // Add computed field for frontend compatibility
+        preferences: preferences?.preferences,
+        // Gamification fields from user
+        smartScore: user?.creatorPoints || 0,
+        totalTasksCompleted: user?.totalPlansCreated || 0,
+        streakDays: 0, // This would need to be calculated
+        interests: user?.interests || [],
+        lifeGoals: user?.currentChallenges || [],
+        createdAt: user?.createdAt || null,
+        lastActiveDate: user?.updatedAt || new Date().toISOString(),
+      });
     } catch (error) {
       console.error('Error fetching user profile:', error);
       res.status(500).json({ error: 'Failed to fetch user profile' });
@@ -7045,9 +10344,48 @@ You can find these tasks in your task list and start working on them right away!
   app.put("/api/user/profile", async (req: any, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
-      const profileData = insertUserProfileSchema.parse(req.body);
-      const profile = await storage.upsertUserProfile(userId, profileData);
-      res.json(profile);
+      const body = req.body;
+      
+      // Fields that belong to the users table
+      const userFields = ['firstName', 'lastName', 'email', 'location', 'occupation'];
+      // Fields that belong to the user_profiles table
+      const profileFields = ['nickname', 'publicBio', 'privateBio', 'height', 'weight', 'birthDate', 'sex', 'ethnicity', 'profileVisibility'];
+      
+      // Split the incoming data
+      const userUpdate: any = {};
+      const profileUpdate: any = {};
+      
+      for (const key of Object.keys(body)) {
+        if (userFields.includes(key) && body[key] !== undefined) {
+          userUpdate[key] = body[key];
+        } else if (profileFields.includes(key) && body[key] !== undefined) {
+          profileUpdate[key] = body[key];
+        }
+      }
+      
+      console.log('[PROFILE UPDATE] User fields:', userUpdate);
+      console.log('[PROFILE UPDATE] Profile fields:', profileUpdate);
+      
+      // Update users table if there are user fields to update
+      if (Object.keys(userUpdate).length > 0) {
+        await storage.updateUser(userId, userUpdate);
+        console.log('[PROFILE UPDATE] Updated user table');
+      }
+      
+      // Update user_profiles table
+      const profile = await storage.upsertUserProfile(userId, profileUpdate);
+      console.log('[PROFILE UPDATE] Updated profile table');
+      
+      // Return the merged profile data
+      const user = await storage.getUser(userId);
+      res.json({
+        ...profile,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        email: user?.email,
+        location: user?.location,
+        occupation: user?.occupation,
+      });
     } catch (error) {
       console.error('Error updating user profile:', error);
       res.status(500).json({ error: 'Failed to update user profile' });
@@ -7060,23 +10398,30 @@ You can find these tasks in your task list and start working on them right away!
       const userId = getUserId(req) || DEMO_USER_ID;
       const { imageData } = req.body;
       
+      console.log(`[PROFILE IMAGE] Upload request for user: ${userId}, data length: ${imageData?.length || 0}`);
+      
       if (!imageData || typeof imageData !== 'string') {
+        console.log('[PROFILE IMAGE] Error: Invalid image data - not a string');
         return res.status(400).json({ error: 'Invalid image data' });
       }
 
       // Validate it's a data URL
       if (!imageData.startsWith('data:image/')) {
+        console.log('[PROFILE IMAGE] Error: Invalid image format - not a data URL');
         return res.status(400).json({ error: 'Invalid image format' });
       }
 
-      // Update profile with the new image
+      // Update user_profiles table with the override image
+      // Note: profileImageUrlOverride is used to override OAuth profile images
+      console.log('[PROFILE IMAGE] Saving to userProfiles.profileImageUrlOverride...');
       const profile = await storage.upsertUserProfile(userId, {
-        profileImageUrl: imageData
+        profileImageUrlOverride: imageData
       });
+      console.log(`[PROFILE IMAGE] Saved successfully, profile ID: ${profile?.id}`);
 
       res.json({ success: true, profileImageUrl: imageData });
     } catch (error) {
-      console.error('Error uploading profile image:', error);
+      console.error('[PROFILE IMAGE] Error uploading profile image:', error);
       res.status(500).json({ error: 'Failed to upload profile image' });
     }
   });
@@ -7178,6 +10523,174 @@ You can find these tasks in your task list and start working on them right away!
     } catch (error) {
       console.error('Error saving custom categories:', error);
       res.status(500).json({ error: 'Failed to save custom categories' });
+    }
+  });
+
+  // Personal Journal - Save settings
+  app.put("/api/user/journal/settings", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { journalSettings } = req.body;
+      
+      // Validate settings schema
+      const settingsSchema = z.object({
+        showDeleteCategory: z.boolean().optional(),
+        showRenameCategory: z.boolean().optional(),
+        showMergeCategories: z.boolean().optional(),
+        showEditCategoryIcon: z.boolean().optional(),
+        showEntryCount: z.boolean().optional(),
+        showFilters: z.boolean().optional(),
+        showSubcategories: z.boolean().optional(),
+      });
+      
+      const parsed = settingsSchema.safeParse(journalSettings);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Invalid journalSettings format', details: parsed.error });
+      }
+
+      // Get existing preferences
+      let prefs = await storage.getUserPreferences(userId);
+      
+      // Update journal settings with validated data only
+      const currentPrefs = prefs?.preferences || {};
+      await storage.upsertUserPreferences(userId, {
+        preferences: {
+          ...currentPrefs,
+          journalSettings: parsed.data
+        }
+      });
+
+      res.json({ success: true, journalSettings: parsed.data });
+    } catch (error) {
+      console.error('Error saving journal settings:', error);
+      res.status(500).json({ error: 'Failed to save journal settings' });
+    }
+  });
+
+  // Personal Journal - Batch save entries from AI plans
+  app.post("/api/user/journal/batch", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { entries, subcategory } = req.body;
+      
+      const batchEntrySchema = z.object({
+        category: z.string(),
+        entry: z.union([
+          z.string(),
+          z.object({
+            id: z.string(),
+            text: z.string(),
+            timestamp: z.string(),
+            location: z.object({
+              city: z.string().optional(),
+              country: z.string().optional(),
+              neighborhood: z.string().optional()
+            }).optional(),
+            budgetTier: z.enum(['budget', 'moderate', 'luxury', 'ultra_luxury']).optional(),
+            estimatedCost: z.number().optional(),
+            sourceUrl: z.string().optional(),
+            venueName: z.string().optional(),
+            venueType: z.string().optional(),
+            subcategory: z.string().optional()
+          })
+        ])
+      });
+      
+      const batchSchema = z.array(batchEntrySchema);
+      
+      const parsed = batchSchema.safeParse(entries);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Invalid entries format', details: parsed.error });
+      }
+      
+      let prefs = await storage.getUserPreferences(userId);
+      const currentPrefs = prefs?.preferences || {};
+      const journalData: Record<string, any[]> = { ...(currentPrefs.journalData || {}) };
+      
+      // Track custom categories for smart categorization
+      let existingCustomCategories: Record<string, DynamicCategoryInfo> = {};
+      if (Array.isArray(currentPrefs.customJournalCategories)) {
+        for (const cat of currentPrefs.customJournalCategories) {
+          existingCustomCategories[cat.id] = {
+            id: cat.id,
+            label: cat.name || cat.label || cat.id,
+            emoji: cat.emoji || '',
+            color: cat.color || 'from-teal-500 to-cyan-500'
+          };
+        }
+      } else if (currentPrefs.customJournalCategories) {
+        existingCustomCategories = currentPrefs.customJournalCategories;
+      }
+      const newDynamicCategories: Record<string, DynamicCategoryInfo> = {};
+      
+      for (const { category, entry } of parsed.data) {
+        let finalCategory = category;
+        
+        // Apply smart categorization when venueType is provided and category is generic
+        if (typeof entry === 'object' && entry.venueType) {
+          const venueType = entry.venueType;
+          const entrySubcategory = subcategory || venueType;
+          
+          console.log(`[JOURNAL BATCH] Smart categorizing: venueType="${venueType}", subcategory="${entrySubcategory}", original category="${category}"`);
+          
+          // Only apply smart categorization for generic categories
+          if (category === 'notes' || category === 'hobbies') {
+            const { category: smartCategory, dynamicInfo } = getBestJournalCategory(
+              venueType,
+              entrySubcategory,
+              'other' as any
+            );
+            
+            if (dynamicInfo && !existingCustomCategories[dynamicInfo.id]) {
+              newDynamicCategories[dynamicInfo.id] = dynamicInfo;
+              console.log(`[JOURNAL BATCH] Created dynamic category: ${dynamicInfo.emoji} ${dynamicInfo.label}`);
+            }
+            
+            finalCategory = smartCategory;
+            console.log(`[JOURNAL BATCH] Smart category result: "${finalCategory}"`);
+          }
+        }
+        
+        if (!journalData[finalCategory]) {
+          journalData[finalCategory] = [];
+        }
+        
+        // Ensure subcategory is stored in the entry for filtering
+        let entryToStore = entry;
+        if (typeof entry === 'object') {
+          const entrySubcat = entry.subcategory || subcategory || entry.venueType;
+          if (entrySubcat) {
+            entryToStore = { ...entry, subcategory: entrySubcat };
+          }
+        }
+        journalData[finalCategory].push(entryToStore);
+      }
+      
+      // Merge new dynamic categories
+      const updatedCustomCategories = {
+        ...existingCustomCategories,
+        ...newDynamicCategories
+      };
+      
+      await storage.upsertUserPreferences(userId, {
+        preferences: { 
+          ...currentPrefs, 
+          journalData,
+          customJournalCategories: updatedCustomCategories
+        }
+      });
+      
+      if (Object.keys(newDynamicCategories).length > 0) {
+        console.log(`[JOURNAL BATCH] Created ${Object.keys(newDynamicCategories).length} new custom categories`);
+      }
+      
+      // Invalidate user context cache
+      aiService.invalidateUserContext(userId);
+      
+      res.json({ success: true, count: parsed.data.length });
+    } catch (error) {
+      console.error('Journal batch save error:', error);
+      res.status(500).json({ error: 'Failed to save journal entries' });
     }
   });
 
@@ -8492,12 +12005,53 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         }
       }
 
+      // Try to extract location from user input to query preferences
+      let userPreferences = undefined;
+      const locationPatterns = [
+        /(?:trip to|visit(?:ing)?|going to|plan(?:ning)? for|in)\s+([A-Z][a-zA-Z\s,]+)/i,
+        /\b(lagos|paris|london|dubai|new york|tokyo|marrakech|barcelona|rome|amsterdam|bali|la|los angeles|miami|nyc|sf|san francisco)\b/i
+      ];
+      
+      for (const pattern of locationPatterns) {
+        const match = userInput.match(pattern);
+        if (match) {
+          const detectedCity = match[1].trim().replace(/,.*$/, '').trim();
+          console.log(`[DIRECT PLAN] Detected destination: ${detectedCity}, checking for saved preferences...`);
+          
+          try {
+            const savedContent = await storage.getUserSavedContent(userId, {
+              city: detectedCity,
+              limit: 20
+            });
+            
+            if (savedContent.length > 0) {
+              userPreferences = {
+                location: detectedCity,
+                savedItems: savedContent.length,
+                venues: savedContent.flatMap((item: any) => (item.venues || []).map((v: any) => ({
+                  name: v.name,
+                  type: v.type,
+                  priceRange: v.priceRange
+                }))),
+                categories: [...new Set(savedContent.map((item: any) => item.category))] as string[],
+                budgetTiers: [...new Set(savedContent.filter((item: any) => item.budgetTier).map((item: any) => item.budgetTier))] as string[]
+              };
+              console.log(`[DIRECT PLAN] Found ${userPreferences.savedItems} saved items for ${detectedCity} with ${userPreferences.venues.length} venues`);
+            }
+          } catch (prefsError) {
+            console.warn('[DIRECT PLAN] Error fetching preferences:', prefsError);
+          }
+          break;
+        }
+      }
+
       // Generate plan directly - no questions!
       const plan = await directPlanGenerator.generatePlan(
         userInput,
         contentType || 'text',
         user,
-        existingPlan
+        existingPlan,
+        userPreferences
       );
 
       // Create or update session
@@ -8552,7 +12106,473 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
+  // Upload and parse document content (for curated questions flow)
+  // Supports PDF, Word, images, and text files
+  app.post("/api/upload/document", documentUpload.single('document'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const { documentParser } = await import('./services/documentParser');
+      
+      console.log(`[UPLOAD] Processing ${req.file.mimetype}: ${req.file.originalname}`);
+      
+      // Parse the document using the document parser
+      const result = await documentParser.parseFile(req.file.path, req.file.mimetype);
+      
+      // Clean up the temp file after parsing
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (cleanupError) {
+        console.error('[UPLOAD] Failed to cleanup temp file:', cleanupError);
+      }
+      
+      if (!result.success) {
+        return res.status(400).json({ 
+          error: result.error || "Failed to parse document"
+        });
+      }
+
+      // Check if content is valid
+      if (!result.content || result.content.length < 10) {
+        return res.status(400).json({ 
+          error: "The document appears to be empty or contains very little extractable text."
+        });
+      }
+
+      // Limit content length for AI processing
+      const content = result.content.substring(0, 15000);
+
+      res.json({ 
+        success: true,
+        content,
+        filename: req.file.originalname,
+        type: result.type,
+        charCount: content.length,
+        metadata: result.metadata
+      });
+    } catch (error: any) {
+      console.error('Document upload error:', error);
+      res.status(500).json({ error: `Failed to process document: ${error.message}` });
+    }
+  });
+
   // Parse pasted LLM content into actionable tasks (OLD - keeping for backwards compatibility)
+  // Parse URL and extract content - uses Tavily Extract API for JavaScript-rendered pages
+  app.post("/api/parse-url", async (req, res) => {
+    try {
+      const { url } = req.body;
+      if (!url) {
+        return res.status(400).json({ error: "URL is required" });
+      }
+
+      console.log(`[PARSE-URL] Extracting content from: ${url}`);
+      let extractedContent = '';
+      let resolvedUrl = url;
+
+      // Detect video-based social media platforms
+      const isVideoSocialMedia = (urlString: string): { isVideo: boolean; platform: string } => {
+        const videoPatterns = [
+          { pattern: /tiktok\.com/i, platform: 'TikTok' },
+          { pattern: /youtube\.com\/watch|youtu\.be\//i, platform: 'YouTube' },
+          { pattern: /instagram\.com\/(reel|p)\//i, platform: 'Instagram' },
+          { pattern: /twitter\.com\/.*\/status|x\.com\/.*\/status/i, platform: 'X/Twitter' },
+          { pattern: /facebook\.com\/.*\/videos/i, platform: 'Facebook' },
+          { pattern: /vimeo\.com/i, platform: 'Vimeo' },
+        ];
+        
+        for (const { pattern, platform } of videoPatterns) {
+          if (pattern.test(urlString)) {
+            return { isVideo: true, platform };
+          }
+        }
+        return { isVideo: false, platform: '' };
+      };
+
+      // Resolve shortened URLs (like TikTok's t/ format)
+      const resolveShortUrl = async (shortUrl: string): Promise<string> => {
+        try {
+          // Check if it's a shortened URL pattern
+          const shortenedPatterns = [
+            /tiktok\.com\/t\//i,
+            /bit\.ly\//i,
+            /t\.co\//i,
+            /goo\.gl\//i,
+            /ow\.ly\//i,
+            /tiny\.cc\//i,
+          ];
+          
+          const isShortened = shortenedPatterns.some(p => p.test(shortUrl));
+          if (!isShortened) return shortUrl;
+          
+          console.log(`[PARSE-URL] Resolving shortened URL: ${shortUrl}`);
+          
+          // Try HEAD first, fallback to GET (some servers block HEAD)
+          let finalUrl = shortUrl;
+          try {
+            const headResponse = await fetch(shortUrl, {
+              method: 'HEAD',
+              redirect: 'follow',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              }
+            });
+            finalUrl = headResponse.url || shortUrl;
+          } catch (headError) {
+            console.log(`[PARSE-URL] HEAD request failed, trying GET...`);
+            // Fallback to GET request which follows redirects
+            const getResponse = await fetch(shortUrl, {
+              method: 'GET',
+              redirect: 'follow',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              }
+            });
+            finalUrl = getResponse.url || shortUrl;
+          }
+          
+          console.log(`[PARSE-URL] Resolved to: ${finalUrl}`);
+          return finalUrl;
+        } catch (error) {
+          console.log(`[PARSE-URL] Could not resolve shortened URL, using original`);
+          return shortUrl;
+        }
+      };
+
+      // Resolve shortened URLs first
+      resolvedUrl = await resolveShortUrl(url);
+      
+      // URL normalization helper for consistent cache keys
+      const normalizeUrlForCache = (urlString: string): string => {
+        try {
+          const parsed = new URL(urlString);
+          
+          if (parsed.hostname.includes('instagram.com')) {
+            const pathMatch = parsed.pathname.match(/\/(reel|p|stories)\/([^\/]+)/);
+            if (pathMatch) {
+              return `https://www.instagram.com/${pathMatch[1]}/${pathMatch[2]}/`;
+            }
+          }
+          
+          if (parsed.hostname.includes('tiktok.com')) {
+            const pathMatch = parsed.pathname.match(/\/@[^\/]+\/video\/(\d+)/);
+            if (pathMatch) {
+              const username = parsed.pathname.split('/')[1];
+              return `https://www.tiktok.com/${username}/video/${pathMatch[1]}`;
+            }
+          }
+          
+          if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) {
+            let videoId: string | null = null;
+            if (parsed.hostname.includes('youtu.be')) {
+              videoId = parsed.pathname.slice(1);
+            } else if (parsed.pathname.includes('/shorts/')) {
+              videoId = parsed.pathname.split('/shorts/')[1]?.split('/')[0];
+            } else {
+              videoId = parsed.searchParams.get('v');
+            }
+            if (videoId) {
+              return `https://www.youtube.com/watch?v=${videoId}`;
+            }
+          }
+          
+          const paramsToRemove = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid', 'ref', 'source', 'igsh'];
+          paramsToRemove.forEach(param => parsed.searchParams.delete(param));
+          
+          return parsed.toString();
+        } catch {
+          return urlString;
+        }
+      };
+
+      // Check if it's a video-based social media platform
+      const videoCheck = isVideoSocialMedia(resolvedUrl);
+      if (videoCheck.isVideo) {
+        console.log(`[PARSE-URL] Detected ${videoCheck.platform} video content`);
+        
+        // For Instagram Reels and TikTok, use our full extraction pipeline (Apify → Whisper → OCR)
+        const platform = socialMediaVideoService.detectPlatform(resolvedUrl);
+        if (platform === 'instagram' || platform === 'tiktok') {
+          const normalizedUrl = normalizeUrlForCache(resolvedUrl);
+          console.log(`[PARSE-URL] Normalized URL for cache: ${normalizedUrl}`);
+          
+          // Step 1: CHECK CACHE FIRST - this is FREE and instant!
+          try {
+            const cached = await storage.getUrlContentCache(normalizedUrl);
+            if (cached) {
+              console.log(`[PARSE-URL] 💾 CACHE HIT! Returning ${cached.wordCount} words (source: ${cached.extractionSource})`);
+              return res.json({ 
+                content: cached.extractedContent,
+                isVideoContent: true,
+                platform: videoCheck.platform,
+                resolvedUrl: resolvedUrl,
+                fromCache: true,
+                metadata: cached.metadata || {}
+              });
+            }
+            console.log(`[PARSE-URL] Cache MISS for ${normalizedUrl} - will extract fresh`);
+          } catch (cacheError) {
+            console.warn('[PARSE-URL] Cache lookup failed:', cacheError);
+          }
+          
+          // Step 2: Extract fresh content via Apify/Whisper/OCR
+          console.log(`[PARSE-URL] Using socialMediaVideoService for ${platform} (Apify → Whisper → OCR)`);
+          
+          try {
+            const socialResult = await socialMediaVideoService.extractContent(resolvedUrl);
+            
+            if (socialResult.success) {
+              const combinedContent = socialMediaVideoService.combineExtractedContent(socialResult);
+              console.log(`[PARSE-URL] Full extraction complete: ${combinedContent.length} chars`);
+              
+              // Step 3: CACHE the successful extraction for future use
+              try {
+                const wordCount = combinedContent.split(/\s+/).length;
+                await storage.createUrlContentCache({
+                  normalizedUrl,
+                  originalUrl: resolvedUrl,
+                  platform: platform,
+                  extractedContent: combinedContent,
+                  extractionSource: 'social_media_service',
+                  wordCount,
+                  metadata: {
+                    hasAudioTranscript: !!socialResult.audioTranscript,
+                    hasOcrText: !!socialResult.ocrText,
+                    hasCaption: !!socialResult.caption,
+                    author: socialResult.metadata?.author
+                  }
+                });
+                console.log(`[PARSE-URL] ✅ Cached content for future use: ${normalizedUrl} (${wordCount} words)`);
+              } catch (cacheError) {
+                console.warn('[PARSE-URL] Failed to cache extraction:', cacheError);
+              }
+              
+              return res.json({ 
+                content: combinedContent,
+                isVideoContent: true,
+                platform: videoCheck.platform,
+                resolvedUrl: resolvedUrl,
+                fromCache: false,
+                metadata: {
+                  hasAudioTranscript: !!socialResult.audioTranscript,
+                  hasOcrText: !!socialResult.ocrText,
+                  hasCaption: !!socialResult.caption,
+                  author: socialResult.metadata?.author
+                }
+              });
+            } else {
+              console.log(`[PARSE-URL] Social media extraction failed: ${socialResult.error}`);
+            }
+          } catch (e: any) {
+            console.log(`[PARSE-URL] Social media extraction error: ${e.message}`);
+          }
+        }
+        
+        // Fallback to Tavily for other video platforms or if social media extraction failed
+        if (tavilyClient) {
+          try {
+            console.log(`[PARSE-URL] Attempting to extract ${videoCheck.platform} metadata with Tavily...`);
+            const tavilyResponse = await tavilyClient.extract([resolvedUrl], {
+              extractDepth: "advanced"
+            });
+            
+            if (tavilyResponse.results && tavilyResponse.results.length > 0 && tavilyResponse.results[0].rawContent) {
+              extractedContent = tavilyResponse.results[0].rawContent;
+              console.log(`[PARSE-URL] Extracted ${extractedContent.length} chars from ${videoCheck.platform}`);
+            }
+          } catch (e) {
+            console.log(`[PARSE-URL] Tavily extraction failed for ${videoCheck.platform}`);
+          }
+        }
+        
+        // If we couldn't extract meaningful content, provide helpful guidance
+        if (!extractedContent || extractedContent.length < 50) {
+          const guidance = `[${videoCheck.platform} Video Content]\n\nThis appears to be a ${videoCheck.platform} video. Video content cannot be directly extracted.\n\nTo create a plan from this video, please:\n1. Describe what the video is about\n2. Share the key points or ideas from the video\n3. Tell us what aspect you want to turn into an actionable plan\n\nFor example: "The video shows a 5-day Marrakech travel itinerary with visits to the Medina, Jardin Majorelle, and local food tours. I want to recreate this trip."`;
+          
+          return res.json({ 
+            content: guidance,
+            isVideoContent: true,
+            platform: videoCheck.platform,
+            resolvedUrl: resolvedUrl,
+            guidance: guidance
+          });
+        }
+      }
+
+      // Try Tavily Extract first (handles JavaScript-rendered pages like Copilot, SPAs, etc.)
+      if (!extractedContent && tavilyClient) {
+        try {
+          console.log(`[PARSE-URL] Using Tavily Extract with advanced depth...`);
+          const tavilyResponse = await tavilyClient.extract([resolvedUrl], {
+            extractDepth: "advanced" // Execute JavaScript, handle anti-bot measures
+          });
+          
+          if (tavilyResponse.results && tavilyResponse.results.length > 0 && tavilyResponse.results[0].rawContent) {
+            extractedContent = tavilyResponse.results[0].rawContent;
+            console.log(`[PARSE-URL] Tavily extracted ${extractedContent.length} chars successfully`);
+          } else if (tavilyResponse.failedResults && tavilyResponse.failedResults.length > 0) {
+            console.log(`[PARSE-URL] Tavily failed: ${tavilyResponse.failedResults[0]}, falling back to basic fetch`);
+          }
+        } catch (tavilyError: any) {
+          console.log(`[PARSE-URL] Tavily error: ${tavilyError.message}, falling back to basic fetch`);
+        }
+      }
+
+      // Fallback to basic fetch if Tavily didn't work
+      if (!extractedContent) {
+        console.log(`[PARSE-URL] Using basic fetch fallback...`);
+        const response = await fetch(resolvedUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+
+        if (!response.ok) {
+          return res.status(400).json({ error: `Failed to fetch URL: ${response.statusText}` });
+        }
+
+        const html = await response.text();
+        
+        // Extract text content: remove scripts, styles, and HTML tags
+        extractedContent = html
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        console.log(`[PARSE-URL] Basic fetch extracted ${extractedContent.length} chars`);
+      }
+
+      // Limit content to 15000 characters (increased for better context)
+      extractedContent = extractedContent.substring(0, 15000);
+
+      res.json({ content: extractedContent, resolvedUrl });
+    } catch (error: any) {
+      console.error(`[PARSE-URL] Error: ${error.message}`);
+      res.status(500).json({ error: `Failed to parse URL: ${error.message}` });
+    }
+  });
+
+  app.post("/api/planner/orchestrate-sources", documentUpload.array('files', 10), async (req: any, res) => {
+    const cleanupFiles = () => {
+      if (req.files) {
+        req.files.forEach((file: any) => {
+          try {
+            if (fs.existsSync(file.path)) {
+              fs.unlinkSync(file.path);
+            }
+          } catch (e) {}
+        });
+      }
+    };
+    
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { urls, textContent, userGoal } = req.body;
+      
+      console.log(`[ORCHESTRATE] User ${userId} submitted multi-source request`);
+      
+      const { contentOrchestrator } = await import('./services/contentOrchestrator');
+      
+      const sources: Array<{
+        id: string;
+        type: 'url' | 'file' | 'text';
+        source: string;
+        mimeType?: string;
+        filePath?: string;
+        originalName?: string;
+      }> = [];
+      
+      if (urls) {
+        let urlList: string[] = [];
+        if (Array.isArray(urls)) {
+          urlList = urls;
+        } else if (typeof urls === 'string') {
+          try {
+            urlList = JSON.parse(urls);
+          } catch {
+            urlList = [urls];
+          }
+        }
+        urlList.forEach((url: string, i: number) => {
+          if (typeof url === 'string' && url.trim()) {
+            sources.push({
+              id: `url-${i}`,
+              type: 'url',
+              source: url.trim()
+            });
+          }
+        });
+      }
+      
+      if (req.files && req.files.length > 0) {
+        req.files.forEach((file: any, i: number) => {
+          sources.push({
+            id: `file-${i}`,
+            type: 'file',
+            source: file.originalname,
+            mimeType: file.mimetype,
+            filePath: file.path,
+            originalName: file.originalname
+          });
+        });
+      }
+      
+      if (textContent && typeof textContent === 'string' && textContent.trim()) {
+        sources.push({
+          id: 'text-0',
+          type: 'text',
+          source: textContent.trim()
+        });
+      }
+      
+      if (sources.length === 0) {
+        cleanupFiles();
+        return res.status(400).json({ error: 'At least one content source is required (URL, file, or text)' });
+      }
+      
+      console.log(`[ORCHESTRATE] Processing ${sources.length} sources`);
+      
+      let orchestratorResult;
+      try {
+        orchestratorResult = await contentOrchestrator.parseMultipleSources(sources);
+      } finally {
+        cleanupFiles();
+      }
+      
+      if (!orchestratorResult.success) {
+        return res.status(400).json({ 
+          error: orchestratorResult.error || 'Failed to process content sources',
+          sources: orchestratorResult.sources
+        });
+      }
+      
+      let plan = null;
+      if (userGoal) {
+        try {
+          plan = await contentOrchestrator.generateUnifiedPlan(orchestratorResult, userGoal);
+        } catch (planError: any) {
+          console.error('[ORCHESTRATE] Plan generation failed:', planError.message);
+        }
+      }
+      
+      res.json({
+        success: true,
+        sources: orchestratorResult.sources,
+        unifiedContent: orchestratorResult.unifiedContent,
+        extractedVenues: orchestratorResult.extractedVenues,
+        extractedLocations: orchestratorResult.extractedLocations,
+        suggestedCategory: orchestratorResult.suggestedCategory,
+        plan
+      });
+    } catch (error: any) {
+      console.error('[ORCHESTRATE] Error:', error);
+      res.status(500).json({ error: error.message || 'Failed to orchestrate content sources' });
+    }
+  });
+
   app.post("/api/planner/parse-llm-content", async (req, res) => {
     try {
       const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
@@ -8580,6 +12600,243 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     } catch (error) {
       console.error('Error parsing LLM content:', error);
       res.status(500).json({ error: 'Failed to parse LLM content' });
+    }
+  });
+
+  // Generate curated questions from external content (URL/document) for Smart/Quick Plan
+  app.post("/api/planner/generate-curated-questions", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      const { externalContent, mode } = req.body;
+
+      if (!externalContent || typeof externalContent !== 'string') {
+        return res.status(400).json({ error: 'External content is required' });
+      }
+
+      const validMode = mode === 'quick' ? 'quick' : 'smart';
+
+      // Generate curated questions based on content + user profile
+      const result = await aiService.generateCuratedQuestions(
+        externalContent,
+        userId,
+        validMode
+      );
+
+      res.json({
+        success: true,
+        ...result
+      });
+    } catch (error) {
+      console.error('Error generating curated questions:', error);
+      res.status(500).json({ error: 'Failed to generate curated questions' });
+    }
+  });
+
+  // Generate personalized plan from external content + user answers
+  app.post("/api/planner/generate-plan-from-content", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub || DEMO_USER_ID;
+      const { externalContent, userAnswers, mode, sourceUrl } = req.body;
+
+      if (!externalContent || typeof externalContent !== 'string') {
+        return res.status(400).json({ error: 'External content is required' });
+      }
+
+      if (!userAnswers || typeof userAnswers !== 'object') {
+        return res.status(400).json({ error: 'User answers are required' });
+      }
+
+      // SECURITY: Block demo users from creating activities/tasks
+      if (isDemoUser(userId)) {
+        return res.status(403).json({
+          error: 'Demo users cannot create activities. Please sign in to save your plan.',
+          requiresAuth: true,
+          message: 'Sign in to save your plan and track your progress!'
+        });
+      }
+
+      const validMode = mode === 'quick' ? 'quick' : 'smart';
+
+      // Generate personalized plan from content + answers
+      const planResult = await aiService.generatePlanFromExternalContent(
+        externalContent,
+        userAnswers,
+        userId,
+        validMode
+      );
+
+      // Check if source is a social media URL
+      const isSocialMedia = sourceUrl && typeof sourceUrl === 'string' && 
+        /instagram\.com|tiktok\.com|youtube\.com|youtu\.be/i.test(sourceUrl);
+      
+      // Build activity description including source URL if from social media
+      let activityDescription = planResult.summary || 'Generated plan';
+      if (isSocialMedia) {
+        const platform = sourceUrl.includes('instagram') ? 'Instagram' : 
+                        sourceUrl.includes('tiktok') ? 'TikTok' : 
+                        sourceUrl.includes('youtube') || sourceUrl.includes('youtu.be') ? 'YouTube' : 'Social Media';
+        activityDescription = `${activityDescription}\n\nSource: ${platform} - ${sourceUrl}`;
+      }
+      
+      // Create activity and tasks
+      const activity = await storage.createActivity({
+        title: planResult.planTitle || 'Plan from External Content',
+        description: activityDescription,
+        category: planResult.goalCategory || 'personal',
+        status: 'planning',
+        userId,
+        planSummary: planResult.summary || undefined
+      });
+
+      // Create tasks
+      const createdTasks = [];
+      if (planResult.tasks && Array.isArray(planResult.tasks)) {
+        for (let i = 0; i < planResult.tasks.length; i++) {
+          const taskData = planResult.tasks[i];
+          const task = await storage.createTask({
+            title: taskData.title,
+            description: taskData.description,
+            category: taskData.category,
+            priority: taskData.priority,
+            timeEstimate: taskData.timeEstimate,
+            userId
+          });
+          await storage.addTaskToActivity(activity.id, task.id, i);
+          createdTasks.push(task);
+        }
+      }
+
+      // Auto-journal if source is a social media URL
+      let journalEntryId = null;
+      let savedVenuesCount = 0;
+      
+      // Generate unique import ID for this batch of venues
+      const importId = `import_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      if (isSocialMedia) {
+        try {
+          const platform = sourceUrl.includes('instagram') ? 'Instagram' : 
+                         sourceUrl.includes('tiktok') ? 'TikTok' : 
+                         sourceUrl.includes('youtube') || sourceUrl.includes('youtu.be') ? 'YouTube' : 'Social Media';
+          
+          // Create journal entry with the FULL extracted content (caption, audio transcript, OCR, venues)
+          // plus the generated plan summary and tasks
+          const tasksList = createdTasks.map((t: any) => t.title).join('\n- ');
+          
+          // Build comprehensive journal content that includes:
+          // 1. The full raw extracted content (caption, audio transcript, OCR text)
+          // 2. The AI-generated summary
+          // 3. The task breakdown
+          const extractedContentPreview = externalContent.length > 2000 
+            ? externalContent.substring(0, 2000) + '...' 
+            : externalContent;
+          
+          const journalContent = `## Saved from ${platform}: ${activity.title}\n\n` +
+            `**Source:** ${sourceUrl}\n\n` +
+            `### Plan Summary\n${planResult.summary || 'No summary available'}\n\n` +
+            `### Tasks\n- ${tasksList}\n\n` +
+            `### Extracted Content\n${extractedContentPreview}`;
+          
+          const journalEntry = await storage.createJournalEntry({
+            userId,
+            date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+            content: journalContent,
+            category: 'travel_adventure',
+            tags: [platform.toLowerCase(), planResult.goalCategory || 'planning'],
+            mood: 'excited'
+          });
+          journalEntryId = journalEntry.id;
+          
+          console.log(`[AUTO-JOURNAL] Created journal entry ${journalEntryId} from ${platform} URL for activity ${activity.id}`);
+          
+          // CRITICAL: Save ALL extracted venues as structured journal entries for swap alternatives
+          const allExtractedVenues = (planResult as any).allExtractedVenues || [];
+          if (allExtractedVenues.length > 0) {
+            try {
+              // Get user preferences to update journalData
+              const preferences = await storage.getUserPreferences(userId);
+              const currentJournalData = preferences?.preferences?.journalData || {};
+              
+              // Track which venue names are used in tasks
+              const taskVenueNames = new Set(
+                planResult.tasks
+                  .filter((t: any) => t.venueName)
+                  .map((t: any) => t.venueName)
+              );
+              
+              // Group venues by category and create structured journal entries
+              const venuesByCategory: Record<string, any[]> = {};
+              const timestamp = new Date().toISOString();
+              
+              for (const venue of allExtractedVenues) {
+                const category = venue.category || 'restaurants';
+                if (!venuesByCategory[category]) {
+                  venuesByCategory[category] = [];
+                }
+                
+                // Create structured journal entry with all venue data
+                venuesByCategory[category].push({
+                  id: `venue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  text: venue.description || `${venue.venueName} - ${venue.venueType || 'venue'}`,
+                  timestamp,
+                  venueName: venue.venueName,
+                  venueType: venue.venueType,
+                  location: venue.location || (planResult as any).planLocation || {},
+                  priceRange: venue.priceRange,
+                  budgetTier: venue.budgetTier,
+                  estimatedCost: venue.estimatedCost,
+                  sourceUrl: sourceUrl,
+                  importId: importId,
+                  selectedForPlan: taskVenueNames.has(venue.venueName),
+                  activityId: activity.id,
+                  linkedActivityTitle: activity.title,
+                  aiConfidence: 0.9,
+                });
+              }
+              
+              // Merge with existing journal data
+              for (const [category, venues] of Object.entries(venuesByCategory)) {
+                const existingEntries = currentJournalData[category] || [];
+                currentJournalData[category] = [...existingEntries, ...venues];
+              }
+              
+              // Update user preferences with new journal data
+              await storage.upsertUserPreferences(userId, {
+                preferences: {
+                  ...preferences?.preferences,
+                  journalData: currentJournalData
+                }
+              });
+              
+              savedVenuesCount = allExtractedVenues.length;
+              console.log(`[AUTO-JOURNAL] Saved ${savedVenuesCount} venues to journalData from ${platform} URL for activity ${activity.id}`);
+            } catch (venueError) {
+              console.error('[AUTO-JOURNAL] Error saving venues to journalData:', venueError);
+            }
+          }
+        } catch (journalError) {
+          console.error('[AUTO-JOURNAL] Error creating journal entry:', journalError);
+          // Don't fail the whole request if journaling fails
+        }
+      }
+
+      res.json({
+        success: true,
+        plan: planResult,
+        activity: {
+          id: activity.id,
+          title: activity.title,
+          sourceUrl: sourceUrl
+        },
+        createdTasks,
+        journalEntryId,
+        savedVenuesCount,
+        importId,
+        message: `Created "${activity.title}" with ${createdTasks.length} tasks${journalEntryId ? ' and added to journal' : ''}${savedVenuesCount ? ` (${savedVenuesCount} venues saved for alternatives)` : ''}`
+      });
+    } catch (error) {
+      console.error('Error generating plan from content:', error);
+      res.status(500).json({ error: 'Failed to generate plan from content' });
     }
   });
 
@@ -8644,6 +12901,100 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     } catch (error) {
       console.error('Error deleting user preferences:', error);
       res.status(500).json({ error: 'Failed to delete user preferences' });
+    }
+  });
+
+  // Device Location Permission Management
+  app.get("/api/user/location", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      if (!userId || userId === DEMO_USER_ID) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      const preferences = await storage.getUserPreferences(userId);
+      res.json({
+        locationEnabled: preferences?.locationEnabled ?? false,
+        latitude: preferences?.deviceLatitude ?? null,
+        longitude: preferences?.deviceLongitude ?? null,
+        city: preferences?.deviceCity ?? null,
+        updatedAt: preferences?.locationUpdatedAt ?? null,
+      });
+    } catch (error) {
+      console.error('Error fetching user location:', error);
+      res.status(500).json({ error: 'Failed to fetch user location' });
+    }
+  });
+
+  // Zod schema for location update validation - prevents empty strings and null being coerced to 0
+  const strictNumber = z.preprocess((val) => {
+    // Reject null, undefined, and empty strings explicitly - don't coerce to 0
+    if (val === null || val === undefined || val === '') return undefined;
+    // Ensure it's a valid number type before parsing
+    if (typeof val === 'number' && !isNaN(val)) return val;
+    if (typeof val === 'string') {
+      const num = Number(val);
+      if (!isNaN(num)) return num;
+    }
+    // Return undefined for invalid inputs - will fail validation
+    return undefined;
+  }, z.number());
+
+  const locationUpdateSchema = z.object({
+    enabled: z.boolean(),
+    latitude: strictNumber.refine(n => n >= -90 && n <= 90, { message: 'Latitude must be between -90 and 90' }).optional(),
+    longitude: strictNumber.refine(n => n >= -180 && n <= 180, { message: 'Longitude must be between -180 and 180' }).optional(),
+    city: z.string().max(200).optional().nullable(),
+  }).refine((data) => {
+    // If enabling location, latitude and longitude must be valid numbers (not null/undefined)
+    if (data.enabled) {
+      return typeof data.latitude === 'number' && typeof data.longitude === 'number' &&
+             !isNaN(data.latitude) && !isNaN(data.longitude);
+    }
+    return true;
+  }, {
+    message: 'Valid latitude and longitude are required when enabling location',
+  });
+
+  app.put("/api/user/location", async (req, res) => {
+    try {
+      const userId = (req as any).user?.id || (req as any).user?.claims?.sub;
+      if (!userId || userId === DEMO_USER_ID) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Validate request body with Zod
+      const validationResult = locationUpdateSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: 'Invalid location data', 
+          details: validationResult.error.flatten().fieldErrors 
+        });
+      }
+
+      const { enabled, latitude, longitude, city } = validationResult.data;
+
+      // Update preferences with validated location data
+      const preferences = await storage.upsertUserPreferences(userId, {
+        locationEnabled: enabled,
+        deviceLatitude: enabled ? latitude : null,
+        deviceLongitude: enabled ? longitude : null,
+        deviceCity: enabled ? city : null,
+        locationUpdatedAt: enabled ? new Date() : null,
+      });
+
+      console.log('[Location] Updated location for user:', userId, { enabled, city });
+
+      res.json({
+        locationEnabled: preferences.locationEnabled ?? false,
+        latitude: preferences.deviceLatitude ?? null,
+        longitude: preferences.deviceLongitude ?? null,
+        city: preferences.deviceCity ?? null,
+        updatedAt: preferences.locationUpdatedAt ?? null,
+      });
+    } catch (error) {
+      console.error('Error updating user location:', error);
+      res.status(500).json({ error: 'Failed to update user location' });
     }
   });
 
@@ -9545,6 +13896,965 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       console.error('[ADMIN] Failed to backfill content hashes:', error);
       res.status(500).json({ 
         error: 'Failed to backfill content hashes',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // ========== AI PLAN IMPORT ROUTES (Extension/Mobile) ==========
+  // These routes handle importing AI-generated plans from ChatGPT, Claude, etc.
+
+  // Helper function to get import limit based on subscription tier
+  // Returns null for unlimited, or the numeric limit
+  function getImportLimit(user: User): number | null {
+    const tier = user.subscriptionTier || 'free';
+    const interval = user.subscriptionInterval;
+    
+    if (tier === 'free') {
+      // Base 3 + discoveryBonusImports (earned by publishing to Discovery, +2 each time)
+      const bonusImports = user.discoveryBonusImports || 0;
+      return 3 + bonusImports;
+    } else if (tier === 'pro') {
+      if (interval === 'yearly') return null; // Pro Yearly = Unlimited
+      return 10; // Pro Monthly = 10 imports/month
+    } else if (tier === 'family') {
+      return null; // Family = Unlimited for all members
+    }
+    return 3; // Default fallback
+  }
+
+  // Parse and import AI plan text
+  app.post("/api/extensions/import-plan", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { text, source, sourceDevice } = req.body;
+      
+      if (!text || typeof text !== 'string' || text.trim().length < 10) {
+        return res.status(400).json({ error: "Plan text is required (minimum 10 characters)" });
+      }
+
+      // Check subscription tier for import limits
+      const monthlyImports = await storage.getUserMonthlyImportCount(user.id);
+      const importLimit = getImportLimit(user);
+      
+      if (importLimit !== null && monthlyImports >= importLimit) {
+        return res.status(403).json({ 
+          error: "Monthly import limit reached",
+          limit: importLimit,
+          used: monthlyImports,
+          upgrade: true,
+          tier: user.subscriptionTier || 'free',
+          subscriptionInterval: user.subscriptionInterval || null,
+          discoveryBonusImports: user.discoveryBonusImports || 0
+        });
+      }
+
+      // Import the AI plan parser
+      const { parseAIPlan, validateParsedPlan } = await import('./services/aiPlanParser');
+      
+      // Parse the AI plan text
+      const parsedPlan = await parseAIPlan(text.trim());
+      
+      // Validate parsed plan
+      const validation = validateParsedPlan(parsedPlan);
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: "Failed to parse plan",
+          details: validation.errors 
+        });
+      }
+
+      // Create the import record
+      const planImport = await storage.createAiPlanImport({
+        userId: user.id,
+        source: source || parsedPlan.source || 'other',
+        sourceDevice: sourceDevice || 'web',
+        rawText: text.trim(),
+        parsedTitle: parsedPlan.title,
+        parsedDescription: parsedPlan.description || null,
+        parsedTasks: parsedPlan.tasks,
+        confidence: parsedPlan.confidence,
+        status: 'pending'
+      });
+
+      res.json({
+        success: true,
+        import: planImport,
+        parsed: {
+          title: parsedPlan.title,
+          description: parsedPlan.description,
+          tasks: parsedPlan.tasks,
+          confidence: parsedPlan.confidence
+        },
+        limits: {
+          used: monthlyImports + 1,
+          limit: importLimit
+        }
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error importing plan:', error);
+      res.status(500).json({ 
+        error: "Failed to import plan",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get user's pending plan imports
+  app.get("/api/extensions/imports", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const status = req.query.status as string | undefined;
+      const imports = await storage.getUserAiPlanImports(user.id, status);
+      
+      res.json({ imports });
+    } catch (error) {
+      console.error('[EXTENSION] Error fetching imports:', error);
+      res.status(500).json({ error: "Failed to fetch imports" });
+    }
+  });
+
+  // Confirm a plan import and create an activity
+  app.post("/api/extensions/imports/:importId/confirm", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { importId } = req.params;
+      const { tasks, title, description } = req.body;
+
+      // Get the import
+      const planImport = await storage.getAiPlanImport(importId, user.id);
+      if (!planImport) {
+        return res.status(404).json({ error: "Import not found" });
+      }
+
+      if (planImport.status !== 'pending') {
+        return res.status(400).json({ error: "Import already processed" });
+      }
+
+      // Use provided tasks or fall back to parsed tasks
+      const finalTasks = tasks || planImport.parsedTasks;
+      const finalTitle = title || planImport.parsedTitle;
+      const finalDescription = description || planImport.parsedDescription;
+
+      // Create the activity
+      const activity = await storage.createActivity({
+        userId: user.id,
+        title: finalTitle,
+        description: finalDescription || undefined,
+        category: 'personal',
+        status: 'planning',
+        planSummary: `Imported from ${planImport.source}`,
+        tags: ['imported', planImport.source]
+      });
+
+      // Create tasks for the activity
+      let order = 0;
+      for (const task of finalTasks) {
+        order++;
+        await storage.createActivityTask({
+          activityId: activity.id,
+          title: task.title,
+          description: task.description || undefined,
+          category: task.category || 'personal',
+          priority: task.priority || 'medium',
+          completed: false,
+          order
+        });
+      }
+
+      // Confirm the import
+      await storage.confirmAiPlanImport(importId, user.id, activity.id);
+
+      res.json({
+        success: true,
+        activity,
+        tasksCreated: finalTasks.length
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error confirming import:', error);
+      res.status(500).json({ 
+        error: "Failed to confirm import",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Discard a plan import
+  app.delete("/api/extensions/imports/:importId", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { importId } = req.params;
+      await storage.discardAiPlanImport(importId, user.id);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[EXTENSION] Error discarding import:', error);
+      res.status(500).json({ error: "Failed to discard import" });
+    }
+  });
+
+  // Generate extension token for browser extension authentication
+  app.post("/api/extensions/tokens", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { platform, name } = req.body;
+      
+      if (!platform || !['chrome', 'firefox', 'edge', 'safari'].includes(platform)) {
+        return res.status(400).json({ error: "Valid platform required (chrome, firefox, edge, safari)" });
+      }
+
+      // Generate a secure random token
+      const token = crypto.randomBytes(32).toString('hex');
+      
+      // Set expiry to 1 year from now
+      const expiresAt = new Date();
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+      const extensionToken = await storage.createExtensionToken({
+        userId: user.id,
+        token,
+        name: name || `${platform.charAt(0).toUpperCase() + platform.slice(1)} Extension`,
+        platform,
+        isActive: true,
+        expiresAt
+      });
+
+      res.json({
+        success: true,
+        token: extensionToken.token,
+        expiresAt: extensionToken.expiresAt
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error creating token:', error);
+      res.status(500).json({ error: "Failed to create extension token" });
+    }
+  });
+
+  // List user's extension tokens
+  app.get("/api/extensions/tokens", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const tokens = await storage.getUserExtensionTokens(user.id);
+      
+      // Don't expose the actual token values
+      const safeTokens = tokens.map(t => ({
+        id: t.id,
+        name: t.name,
+        platform: t.platform,
+        isActive: t.isActive,
+        lastUsedAt: t.lastUsedAt,
+        createdAt: t.createdAt,
+        expiresAt: t.expiresAt
+      }));
+      
+      res.json({ tokens: safeTokens });
+    } catch (error) {
+      console.error('[EXTENSION] Error fetching tokens:', error);
+      res.status(500).json({ error: "Failed to fetch tokens" });
+    }
+  });
+
+  // Revoke an extension token
+  app.delete("/api/extensions/tokens/:tokenId", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { tokenId } = req.params;
+      await storage.revokeExtensionToken(tokenId, user.id);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[EXTENSION] Error revoking token:', error);
+      res.status(500).json({ error: "Failed to revoke token" });
+    }
+  });
+
+  // Extension authentication endpoint (using token instead of session)
+  app.post("/api/extensions/auth", async (req, res) => {
+    try {
+      const { token } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ error: "Token required" });
+      }
+
+      const extensionToken = await storage.getExtensionToken(token);
+      
+      if (!extensionToken) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      // Check if token is expired
+      if (extensionToken.expiresAt && new Date(extensionToken.expiresAt) < new Date()) {
+        return res.status(401).json({ error: "Token expired" });
+      }
+
+      // Update last used time
+      await storage.updateExtensionTokenActivity(token);
+
+      // Get user info
+      const user = await storage.getUser(extensionToken.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          subscriptionTier: user.subscriptionTier
+        }
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error authenticating:', error);
+      res.status(500).json({ error: "Authentication failed" });
+    }
+  });
+
+  // Extension-authenticated import endpoint (using token instead of session)
+  app.post("/api/extensions/import-with-token", async (req, res) => {
+    try {
+      const { token, text, source, sourceDevice } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ error: "Token required" });
+      }
+
+      const extensionToken = await storage.getExtensionToken(token);
+      
+      if (!extensionToken) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      if (extensionToken.expiresAt && new Date(extensionToken.expiresAt) < new Date()) {
+        return res.status(401).json({ error: "Token expired" });
+      }
+
+      const user = await storage.getUser(extensionToken.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      if (!text || typeof text !== 'string' || text.trim().length < 10) {
+        return res.status(400).json({ error: "Plan text is required (minimum 10 characters)" });
+      }
+
+      // Check subscription tier for import limits
+      const monthlyImports = await storage.getUserMonthlyImportCount(user.id);
+      const importLimit = getImportLimit(user);
+      
+      if (importLimit !== null && monthlyImports >= importLimit) {
+        return res.status(403).json({ 
+          error: "Monthly import limit reached",
+          limit: importLimit,
+          used: monthlyImports,
+          upgrade: true,
+          tier: user.subscriptionTier || 'free',
+          subscriptionInterval: user.subscriptionInterval || null,
+          discoveryBonusImports: user.discoveryBonusImports || 0
+        });
+      }
+
+      // Update token activity
+      await storage.updateExtensionTokenActivity(token);
+
+      // Import the AI plan parser
+      const { parseAIPlan, validateParsedPlan } = await import('./services/aiPlanParser');
+      
+      // Parse the AI plan text
+      const parsedPlan = await parseAIPlan(text.trim());
+      
+      // Validate parsed plan
+      const validation = validateParsedPlan(parsedPlan);
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: "Failed to parse plan",
+          details: validation.errors 
+        });
+      }
+
+      // Create the import record
+      const planImport = await storage.createAiPlanImport({
+        userId: user.id,
+        source: source || parsedPlan.source || 'extension',
+        sourceDevice: sourceDevice || 'web_extension',
+        rawText: text.trim(),
+        parsedTitle: parsedPlan.title,
+        parsedDescription: parsedPlan.description || null,
+        parsedTasks: parsedPlan.tasks,
+        confidence: parsedPlan.confidence,
+        status: 'pending'
+      });
+
+      res.json({
+        success: true,
+        import: planImport,
+        parsed: {
+          title: parsedPlan.title,
+          description: parsedPlan.description,
+          tasks: parsedPlan.tasks,
+          confidence: parsedPlan.confidence
+        },
+        limits: {
+          used: monthlyImports + 1,
+          limit: importLimit
+        }
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error importing plan with token:', error);
+      res.status(500).json({ 
+        error: "Failed to import plan",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get import usage stats
+  app.get("/api/extensions/usage", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const monthlyImports = await storage.getUserMonthlyImportCount(user.id);
+      const importLimit = getImportLimit(user);
+
+      res.json({
+        tier: user.subscriptionTier || 'free',
+        subscriptionInterval: user.subscriptionInterval || null,
+        discoveryBonusImports: user.discoveryBonusImports || 0,
+        monthlyImports,
+        limit: importLimit,
+        remaining: importLimit !== null ? Math.max(0, importLimit - monthlyImports) : null
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error fetching usage:', error);
+      res.status(500).json({ error: "Failed to fetch usage stats" });
+    }
+  });
+
+  // Extension Authentication Flow
+  // Step 1: User opens this page from extension popup to authenticate
+  app.get("/extension-auth", async (req, res) => {
+    try {
+      const state = req.query.state as string;
+      
+      if (!state || state.length < 32) {
+        return res.status(400).send("Invalid state parameter");
+      }
+      
+      // Store state in session for verification
+      if (req.session) {
+        (req.session as any).extensionAuthState = state;
+      }
+      
+      // Render a page that asks user to login if not authenticated
+      // or proceed to create token if authenticated
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Connect JournalMate Extension</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+              }
+              .container {
+                background: white;
+                border-radius: 20px;
+                padding: 40px;
+                max-width: 400px;
+                width: 100%;
+                text-align: center;
+                box-shadow: 0 10px 40px rgba(124, 58, 237, 0.15);
+              }
+              .logo {
+                width: 64px;
+                height: 64px;
+                background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+                border-radius: 16px;
+                margin: 0 auto 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              }
+              .logo svg { width: 32px; height: 32px; }
+              h1 { color: #1e293b; font-size: 24px; margin-bottom: 12px; }
+              p { color: #64748b; font-size: 16px; margin-bottom: 32px; line-height: 1.5; }
+              .btn {
+                display: inline-block;
+                padding: 14px 32px;
+                background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+                color: white;
+                text-decoration: none;
+                border-radius: 12px;
+                font-weight: 600;
+                font-size: 16px;
+                transition: transform 0.2s, box-shadow 0.2s;
+              }
+              .btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
+              }
+              .status { margin-top: 24px; color: #94a3b8; font-size: 14px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                  <path d="M6 8h12M6 12h12M6 16h8" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <h1>Connect Browser Extension</h1>
+              <p>Link your JournalMate account to the browser extension for one-click AI plan imports.</p>
+              <a href="/extension-auth/connect?state=${encodeURIComponent(state)}" class="btn">
+                Connect Account
+              </a>
+              <p class="status">You may be asked to log in first.</p>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error('[EXTENSION AUTH] Error:', error);
+      res.status(500).send("An error occurred");
+    }
+  });
+
+  // Step 2: Verify user is authenticated and create extension token
+  app.get("/extension-auth/connect", isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const state = req.query.state as string;
+      const user = req.user as User;
+      
+      if (!state || !user) {
+        return res.redirect("/extension-auth?error=invalid_state");
+      }
+      
+      // Generate a secure token for the extension
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
+      
+      // Store the token in database
+      await storage.createExtensionToken({
+        userId: user.id,
+        token,
+        name: 'Browser Extension',
+        platform: 'chrome',
+        expiresAt
+      });
+      
+      // Calculate expires_in in seconds
+      const expiresInSeconds = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
+      
+      // Redirect to callback page that extension is listening for
+      res.redirect(`/extension-auth/callback?token=${token}&state=${state}&expires_in=${expiresInSeconds}`);
+    } catch (error) {
+      console.error('[EXTENSION AUTH] Error creating token:', error);
+      res.status(500).send("Failed to create extension token");
+    }
+  });
+
+  // Step 3: Callback page that the extension popup intercepts
+  app.get("/extension-auth/callback", async (req, res) => {
+    const token = req.query.token as string;
+    const state = req.query.state as string;
+    
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Extension Connected!</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+              background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding: 20px;
+            }
+            .container {
+              background: white;
+              border-radius: 20px;
+              padding: 40px;
+              max-width: 400px;
+              width: 100%;
+              text-align: center;
+              box-shadow: 0 10px 40px rgba(16, 185, 129, 0.15);
+            }
+            .success-icon {
+              width: 80px;
+              height: 80px;
+              background: #10b981;
+              border-radius: 50%;
+              margin: 0 auto 24px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .success-icon svg { width: 40px; height: 40px; }
+            h1 { color: #166534; font-size: 24px; margin-bottom: 12px; }
+            p { color: #4b5563; font-size: 16px; line-height: 1.5; }
+            .note { margin-top: 24px; color: #94a3b8; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="success-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+                <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <h1>Extension Connected!</h1>
+            <p>Your JournalMate account is now linked to the browser extension.</p>
+            <p class="note">You can close this tab and start importing AI plans.</p>
+          </div>
+          <script>
+            // Notify extension if in popup context
+            try {
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'JOURNALMATE_AUTH_SUCCESS',
+                  token: '${token}',
+                  state: '${state}'
+                }, '*');
+              }
+            } catch (e) {}
+          </script>
+        </body>
+      </html>
+    `);
+  });
+
+  // Revoke extension token
+  app.post("/api/extensions/revoke-token", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: "No token provided" });
+      }
+      
+      const token = authHeader.substring(7);
+      const tokenRecord = await storage.getExtensionTokenByToken(token);
+      
+      if (!tokenRecord) {
+        return res.status(404).json({ error: "Token not found" });
+      }
+      
+      await storage.deactivateExtensionToken(token);
+      
+      res.json({ success: true, message: "Token revoked" });
+    } catch (error) {
+      console.error('[EXTENSION] Error revoking token:', error);
+      res.status(500).json({ error: "Failed to revoke token" });
+    }
+  });
+
+  // List user's active extension tokens
+  app.get("/api/extensions/tokens", isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const tokens = await storage.getUserExtensionTokens(user.id);
+      
+      res.json({
+        tokens: tokens.map(t => ({
+          id: t.id,
+          name: t.name,
+          platform: t.platform,
+          createdAt: t.createdAt,
+          lastUsedAt: t.lastUsedAt,
+          expiresAt: t.expiresAt,
+          isActive: t.isActive
+        }))
+      });
+    } catch (error) {
+      console.error('[EXTENSION] Error listing tokens:', error);
+      res.status(500).json({ error: "Failed to list tokens" });
+    }
+  });
+
+  // Delete/deactivate an extension token
+  app.delete("/api/extensions/tokens/:tokenId", isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const tokenId = req.params.tokenId;
+      const tokens = await storage.getUserExtensionTokens(user.id);
+      const token = tokens.find(t => t.id === tokenId);
+      
+      if (!token) {
+        return res.status(404).json({ error: "Token not found" });
+      }
+      
+      await storage.deactivateExtensionToken(token.token);
+      
+      res.json({ success: true, message: "Token deleted" });
+    } catch (error) {
+      console.error('[EXTENSION] Error deleting token:', error);
+      res.status(500).json({ error: "Failed to delete token" });
+    }
+  });
+
+  // ========== MEDIA IMPORT ROUTES (Social Media Content) ==========
+  // These routes handle importing plans from images and videos (Instagram, TikTok, etc.)
+
+  // Process media import (image OCR or video transcription)
+  app.post("/api/extensions/import-media", async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { mediaType, caption, source, sourceDevice, imageBase64 } = req.body;
+      
+      if (!mediaType || !['image', 'video'].includes(mediaType)) {
+        return res.status(400).json({ error: "Valid media type required (image or video)" });
+      }
+
+      // Check subscription tier for import limits
+      const monthlyImports = await storage.getUserMonthlyImportCount(user.id);
+      const importLimit = getImportLimit(user);
+      
+      if (importLimit !== null && monthlyImports >= importLimit) {
+        return res.status(403).json({ 
+          error: "Monthly import limit reached",
+          limit: importLimit,
+          used: monthlyImports,
+          upgrade: true,
+          tier: user.subscriptionTier || 'free',
+          subscriptionInterval: user.subscriptionInterval || null,
+          discoveryBonusImports: user.discoveryBonusImports || 0
+        });
+      }
+
+      // Import services
+      const { extractTextFromImage, mergeMediaContent, detectMediaSource } = await import('./services/mediaInterpretationService');
+      const { parseAIPlan, validateParsedPlan } = await import('./services/aiPlanParser');
+      
+      let extractedText = '';
+      let ocrConfidence = 0;
+      let imageDescription = '';
+      
+      if (mediaType === 'image' && imageBase64) {
+        const ocrResult = await extractTextFromImage(imageBase64, 'image/jpeg');
+        extractedText = ocrResult.extractedText;
+        ocrConfidence = ocrResult.confidence;
+        imageDescription = ocrResult.imageDescription || '';
+      }
+
+      // Merge caption with extracted text
+      const mergedContent = mergeMediaContent(caption, extractedText, imageDescription);
+      
+      if (mergedContent.length < 20) {
+        return res.status(400).json({ 
+          error: "Not enough content to create a plan",
+          details: "Please share content that includes tasks, goals, or actionable items"
+        });
+      }
+
+      // Parse the merged content as a plan
+      const parsedPlan = await parseAIPlan(mergedContent);
+      
+      const validation = validateParsedPlan(parsedPlan);
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: "Failed to extract actionable plan",
+          details: validation.errors 
+        });
+      }
+
+      // Create the import record
+      const planImport = await storage.createAiPlanImport({
+        userId: user.id,
+        source: source || detectMediaSource('', caption || ''),
+        sourceDevice: sourceDevice || 'android',
+        rawText: mergedContent,
+        parsedTitle: parsedPlan.title,
+        parsedDescription: parsedPlan.description || null,
+        parsedTasks: parsedPlan.tasks,
+        confidence: parsedPlan.confidence,
+        status: 'pending'
+      });
+
+      res.json({
+        success: true,
+        import: planImport,
+        parsed: {
+          title: parsedPlan.title,
+          description: parsedPlan.description,
+          tasks: parsedPlan.tasks,
+          confidence: parsedPlan.confidence,
+          mediaProcessing: {
+            extractedText,
+            ocrConfidence,
+            imageDescription
+          }
+        },
+        limits: {
+          used: monthlyImports + 1,
+          limit: importLimit
+        }
+      });
+    } catch (error) {
+      console.error('[MEDIA IMPORT] Error processing media:', error);
+      res.status(500).json({ 
+        error: "Failed to process media",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // ========== PLAN REMIX ROUTES (Combine Multiple Plans) ==========
+  // These routes handle combining multiple community plans into one
+
+  // Preview a remix of selected plans
+  app.post("/api/community-plans/remix/preview", async (req, res) => {
+    try {
+      const { activityIds } = req.body;
+      
+      if (!activityIds || !Array.isArray(activityIds) || activityIds.length < 2) {
+        return res.status(400).json({ error: "At least 2 activities required for remix" });
+      }
+
+      if (activityIds.length > 10) {
+        return res.status(400).json({ error: "Maximum 10 activities can be remixed at once" });
+      }
+
+      const { createRemix } = await import('./services/planRemixService');
+      const remixResult = await createRemix(activityIds);
+
+      res.json({
+        success: true,
+        preview: remixResult
+      });
+    } catch (error) {
+      console.error('[PLAN REMIX] Error creating preview:', error);
+      res.status(500).json({ 
+        error: "Failed to create remix preview",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Confirm and save a plan remix
+  app.post("/api/community-plans/remix/confirm", async (req, res) => {
+    try {
+      const user = req.user || (req as any).user || null;
+      
+      // Allow demo users or authenticated users
+      const userId = user?.id || 'demo-user';
+
+      const { 
+        activityIds, 
+        mergedTitle, 
+        mergedDescription, 
+        mergedTasks, 
+        attributions 
+      } = req.body;
+      
+      if (!activityIds || !mergedTitle || !mergedTasks) {
+        return res.status(400).json({ error: "Missing required remix data" });
+      }
+
+      // Create the new activity from the remix
+      const activity = await storage.createActivity({
+        userId: userId,
+        title: mergedTitle,
+        description: mergedDescription || `Remixed from ${activityIds.length} community plans`,
+        category: mergedTasks[0]?.category || 'personal',
+        status: 'planning',
+        planSummary: `Remixed plan combining ${activityIds.length} community plans`,
+        tags: ['remix', 'community']
+      });
+
+      // Create tasks and link them to the activity
+      const createdTasks = [];
+      for (let i = 0; i < mergedTasks.length; i++) {
+        const taskData = mergedTasks[i];
+        
+        // First create the actual task in the tasks table
+        const task = await storage.createTask({
+          title: taskData.title,
+          description: taskData.description || undefined,
+          category: taskData.category || 'personal',
+          priority: taskData.priority || 'medium',
+          userId: userId
+        });
+        
+        // Then link it to the activity with proper ordering
+        await storage.addTaskToActivity(activity.id, task.id, i);
+        createdTasks.push(task);
+      }
+
+      console.log(`[PLAN REMIX] Created ${createdTasks.length} tasks for remixed activity ${activity.id}`);
+
+      res.json({
+        success: true,
+        activity,
+        tasksCreated: createdTasks.length,
+        stats: {
+          sourcePlans: activityIds.length,
+          attributions
+        }
+      });
+    } catch (error) {
+      console.error('[PLAN REMIX] Error confirming remix:', error);
+      res.status(500).json({ 
+        error: "Failed to save remixed plan",
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
