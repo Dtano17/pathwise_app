@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap, Moon, LineChart, Mail, CheckSquare, Globe2, Plug, SettingsIcon } from 'lucide-react';
+import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap, Moon, LineChart, Mail, CheckSquare, Globe2, Plug, SettingsIcon, Newspaper, FileText } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
@@ -531,6 +531,26 @@ export function AppSidebar({
             </CollapsibleContent>
           </SidebarGroup>
         </Collapsible>
+
+        {/* Updates & News Section */}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <Link href="/?tab=updates">
+                  <SidebarMenuButton
+                    data-testid="button-updates-sidebar"
+                    className="min-h-[44px] py-3"
+                  >
+                    <Newspaper className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">Updates & News</span>
+                    <Badge variant="secondary" className="ml-auto text-xs bg-gradient-to-r from-purple-500 to-violet-500 text-white">New</Badge>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
         {/* Settings Section - Bottom */}
         <div className="mt-auto">
