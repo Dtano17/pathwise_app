@@ -1152,7 +1152,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
 
       {/* Plans Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:px-4 lg:px-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Card key={i} className="overflow-hidden">
               <Skeleton className="h-48 w-full" />
@@ -1177,7 +1177,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
           </div>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:px-4 lg:px-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {plans.map((plan) => {
             const stockImage = getStockImage(plan.backdrop);
             const planTypeBadge = getPlanTypeBadge(plan.planType, plan.trendingScore);
