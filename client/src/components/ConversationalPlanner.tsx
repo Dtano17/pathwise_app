@@ -1448,13 +1448,62 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
         {/* Header */}
         <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
           <div className="px-4 py-3">
-            {/* Top row: Logo and primary actions */}
+            {/* Single row: Logo, action buttons, and back button */}
             <div className="flex items-center justify-between gap-2">
-              <h2 className="font-bold text-xs sm:text-base bg-gradient-to-r from-purple-600 to-emerald-600 dark:from-purple-400 dark:to-emerald-400 bg-clip-text text-transparent truncate">
+              {/* Left: Logo */}
+              <h2 className="font-bold text-sm sm:text-base bg-gradient-to-r from-purple-600 to-emerald-600 dark:from-purple-400 dark:to-emerald-400 bg-clip-text text-transparent flex-shrink-0">
                 JournalMate
               </h2>
-              <p className="text-xs text-slate-600 dark:text-slate-400 hidden sm:block">Smart journal</p>
-              {/* Mobile back button */}
+              
+              {/* Center: Action buttons */}
+              <div className="flex items-center gap-1 flex-1 justify-center">
+                <Button
+                  onClick={() => setShowJournalTimeline(true)}
+                  variant="ghost"
+                  size="icon"
+                  title="View timeline"
+                  data-testid="button-view-timeline"
+                >
+                  <Calendar className="h-4 w-4" />
+                </Button>
+                <Button
+                  onClick={() => setShowTemplateSelector(true)}
+                  variant="ghost"
+                  size="icon"
+                  title="Use templates"
+                  data-testid="button-use-template"
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+                <Button
+                  onClick={() => {
+                    queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+                    refetchJournalEntries();
+                    toast({
+                      title: "Refreshed",
+                      description: "Journal entries reloaded",
+                      duration: 2000,
+                    });
+                  }}
+                  variant="ghost"
+                  size="icon"
+                  title="Refresh entries"
+                  data-testid="button-refresh-journal"
+                >
+                  <RefreshCcw className="h-4 w-4" />
+                </Button>
+                <Button
+                  onClick={() => setShowKeywordHelp(true)}
+                  variant="ghost"
+                  size="icon"
+                  title="Learn about @keywords"
+                  data-testid="button-keyword-help"
+                >
+                  <Lightbulb className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {/* Right: Back/Close button */}
               <Button
                 onClick={() => {
                   localStorage.removeItem('planner_session');
@@ -1462,85 +1511,18 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                   localStorage.removeItem('planner_chips');
                   setJournalText('');
                   setJournalMedia([]);
-                  lastAutoSavedTextRef.current = ''; // Clear auto-save tracking
+                  lastAutoSavedTextRef.current = '';
                   if (onClose) {
                     onClose();
                   }
                 }}
                 variant="ghost"
                 size="icon"
-                className="sm:hidden ml-auto flex-shrink-0"
-                data-testid="button-exit-journal"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            {/* Bottom row: Action buttons */}
-            <div className="flex items-center gap-1 flex-wrap">
-              <Button
-                onClick={() => {
-                  localStorage.removeItem('planner_session');
-                  localStorage.removeItem('planner_mode');
-                  localStorage.removeItem('planner_chips');
-                  setJournalText('');
-                  setJournalMedia([]);
-                  lastAutoSavedTextRef.current = ''; // Clear auto-save tracking
-                  if (onClose) {
-                    onClose();
-                  }
-                }}
-                variant="ghost"
-                size="icon"
-                className="hidden sm:inline-flex"
+                className="flex-shrink-0"
                 title="Go back"
                 data-testid="button-exit-journal"
               >
                 <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                onClick={() => setShowJournalTimeline(true)}
-                variant="ghost"
-                size="icon"
-                title="View timeline"
-                data-testid="button-view-timeline"
-              >
-                <Calendar className="h-4 w-4" />
-              </Button>
-              <Button
-                onClick={() => setShowTemplateSelector(true)}
-                variant="ghost"
-                size="icon"
-                title="Use templates"
-                data-testid="button-use-template"
-              >
-                <FileText className="h-4 w-4" />
-              </Button>
-              <Button
-                onClick={() => {
-                  queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
-                  refetchJournalEntries();
-                  toast({
-                    title: "Refreshed",
-                    description: "Journal entries reloaded",
-                    duration: 2000,
-                  });
-                }}
-                variant="ghost"
-                size="icon"
-                title="Refresh entries"
-                data-testid="button-refresh-journal"
-              >
-                <RefreshCcw className="h-4 w-4" />
-              </Button>
-              <Button
-                onClick={() => setShowKeywordHelp(true)}
-                variant="ghost"
-                size="icon"
-                title="Learn about @keywords"
-                data-testid="button-keyword-help"
-              >
-                <Lightbulb className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -1648,7 +1630,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 value={journalText}
                 onChange={handleJournalTextChange}
                 placeholder="What's on your mind?&#10;Use @keywords like @restaurants, @travel..."
-                className="w-full min-h-24 sm:min-h-32 p-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                className="w-full min-h-32 sm:min-h-40 p-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm sm:text-base"
                 data-testid="input-journal-text"
               />
               
