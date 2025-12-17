@@ -397,13 +397,13 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
                           {entry.keywords && entry.keywords.length > 0 && (
                             <div className="flex items-center gap-1 flex-wrap">
                               {entry.keywords.slice(0, 8).map((keyword, idx) => (
-                                <Badge key={idx} variant="secondary" className="text-[10px] px-1.5 py-0 flex-shrink-0">
+                                <Badge key={idx} variant="secondary" className="text-xs px-1.5 py-0 flex-shrink-0">
                                   <Tag className="h-2.5 w-2.5 mr-0.5" />
                                   {keyword}
                                 </Badge>
                               ))}
                               {entry.keywords.length > 8 && (
-                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                <Badge variant="secondary" className="text-xs px-1.5 py-0">
                                   +{entry.keywords.length - 8}
                                 </Badge>
                               )}

@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles } from "lucide-react";
+import { Check, Sparkles, Upload, Infinity as InfinityIcon, Zap, Compass, Users } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -29,7 +29,9 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
       case 'planLimit':
         return {
           title: "Plan Limit Reached",
-          description: `You've used ${planCount} of ${planLimit} AI plans this month on the free tier.`
+          description: planLimit !== undefined 
+            ? `You've used ${planCount ?? 0} of ${planLimit} AI plans this month on the free tier.`
+            : `Upgrade for unlimited AI plans and premium features.`
         };
       case 'favorites':
         return {
@@ -144,7 +146,15 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
             </div>
 
             <ul className="space-y-1.5 sm:space-y-2">
-              {['Unlimited AI plans', 'Smart favorites organization', 'Journal insights & analytics', 'Export all your data', 'Priority support', '7-day free trial'].map((feature) => (
+              <li className="flex items-start gap-2">
+                <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                <span className="text-xs sm:text-sm font-medium">10 social media imports/month (Monthly)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <InfinityIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                <span className="text-xs sm:text-sm font-medium text-purple-700 dark:text-purple-300">Unlimited social media imports (Yearly)</span>
+              </li>
+              {['Unlimited AI plans', 'Remix social plans with your flavor', 'Plan using inspiration from imports', 'Task progress & analytics', 'Journal insights', 'Export all your data', 'Priority support'].map((feature) => (
                 <li key={feature} className="flex items-start gap-2">
                   <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 mt-0.5 flex-shrink-0" />
                   <span className="text-xs sm:text-sm">{feature}</span>
@@ -175,27 +185,43 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
 
           {/* Family & Friends Plan */}
           <div className="border rounded-lg p-4 sm:p-6 space-y-3 sm:space-y-4 hover-elevate transition-all relative" data-testid="card-family-plan">
-            <div className="absolute -top-3 right-2 sm:right-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium">
-              Best Value
+            <div className="absolute -top-3 right-2 sm:right-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-medium">
+              Best Value for Groups
             </div>
             
             <div>
               <h3 className="font-bold text-lg sm:text-xl">Family & Friends</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground">For up to 5 users</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Plan, track & share together</p>
             </div>
             
             <div>
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl sm:text-3xl font-bold">$14.99</span>
-                <span className="text-sm sm:text-base text-muted-foreground">/month</span>
+                <span className="text-2xl sm:text-3xl font-bold">$125.99</span>
+                <span className="text-sm sm:text-base text-muted-foreground">/year</span>
               </div>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                or $125.99/year <span className="text-green-600 font-medium">(save 30%)</span>
+                or $14.99/month
               </p>
             </div>
 
             <ul className="space-y-1.5 sm:space-y-2">
-              {['Everything in Pro', 'Up to 5 family & friends', 'Shared plans & activities', 'Group progress tracking', 'Collaborative planning', '7-day free trial'].map((feature) => (
+              <li className="flex items-start gap-2">
+                <InfinityIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-500 mt-0.5 flex-shrink-0" />
+                <span className="text-xs sm:text-sm font-medium text-pink-700 dark:text-pink-300">Unlimited social media imports</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-500 mt-0.5 flex-shrink-0" />
+                <span className="text-xs sm:text-sm">Plan, track & share for 5+ family & friends</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-500 mt-0.5 flex-shrink-0" />
+                <span className="text-xs sm:text-sm">Real-time group feeds (cancellations, weather, traffic)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-500 mt-0.5 flex-shrink-0" />
+                <span className="text-xs sm:text-sm">Discover & remix inspiration from others' plans</span>
+              </li>
+              {['Everything in Pro', 'Group progress tracking with live updates', 'Collaborative planning'].map((feature) => (
                 <li key={feature} className="flex items-start gap-2">
                   <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 mt-0.5 flex-shrink-0" />
                   <span className="text-xs sm:text-sm">{feature}</span>
@@ -225,7 +251,7 @@ export function UpgradeModal({ open, onOpenChange, trigger, planCount, planLimit
           </div>
         </div>
 
-        <p className="text-[10px] sm:text-xs text-center text-muted-foreground mt-4">
+        <p className="text-xs text-center text-muted-foreground mt-4">
           7-day free trial included with both plans. Cancel anytime.
         </p>
       </DialogContent>
