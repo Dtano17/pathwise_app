@@ -1201,7 +1201,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
               <HoverCard key={plan.id} openDelay={300} closeDelay={200}>
                 <HoverCardTrigger asChild>
                   <Card 
-                    className={`flex flex-col group hover-elevate cursor-pointer relative overflow-hidden ${
+                    className={`flex flex-col group hover-elevate cursor-pointer relative ${
                       remixMode && isSelected ? 'ring-2 ring-purple-500 ring-offset-2' : ''
                     }`}
                     onClick={() => {
@@ -1219,7 +1219,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                   >
                     {/* Remix mode selection overlay */}
                     {remixMode && (
-                      <div className={`absolute top-3 right-3 z-10 w-6 h-6 rounded-full flex items-center justify-center ${
+                      <div className={`absolute top-3 right-3 z-20 w-6 h-6 rounded-full flex items-center justify-center ${
                         isSelected 
                           ? 'bg-purple-500 text-white' 
                           : 'bg-white/80 backdrop-blur-sm border-2 border-purple-300'
@@ -1228,7 +1228,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                       </div>
                     )}
                 {stockImage && (
-                  <div className="relative h-56 sm:h-64 overflow-hidden -mx-6 -mt-6">
+                  <div className="relative h-56 sm:h-64 overflow-hidden rounded-t-md">
                     <img
                       src={stockImage}
                       alt={plan.title}
