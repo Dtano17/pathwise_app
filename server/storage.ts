@@ -2396,7 +2396,10 @@ export class DatabaseStorage implements IStorage {
         twitterPostUrl: r.plannerProfile?.twitterPostUrl || null,
         instagramPostUrl: r.plannerProfile?.instagramPostUrl || null,
         threadsPostUrl: r.plannerProfile?.threadsPostUrl || null,
-        linkedinPostUrl: r.plannerProfile?.linkedinPostUrl || null
+        linkedinPostUrl: r.plannerProfile?.linkedinPostUrl || null,
+        // Include social handles for profile links
+        instagramHandle: r.plannerProfile?.instagramHandle || null,
+        twitterHandle: r.plannerProfile?.twitterHandle || null
       }));
       
       return this.applyFiltersAndSort(results, userId, search, budgetRange, category, limit);
@@ -2418,7 +2421,10 @@ export class DatabaseStorage implements IStorage {
       twitterPostUrl: r.plannerProfile?.twitterPostUrl || null,
       instagramPostUrl: r.plannerProfile?.instagramPostUrl || null,
       threadsPostUrl: r.plannerProfile?.threadsPostUrl || null,
-      linkedinPostUrl: r.plannerProfile?.linkedinPostUrl || null
+      linkedinPostUrl: r.plannerProfile?.linkedinPostUrl || null,
+      // Include social handles for profile links
+      instagramHandle: r.plannerProfile?.instagramHandle || null,
+      twitterHandle: r.plannerProfile?.twitterHandle || null
     }));
     
     return this.applyFiltersAndSort(results, userId, search, budgetRange, category, limit);

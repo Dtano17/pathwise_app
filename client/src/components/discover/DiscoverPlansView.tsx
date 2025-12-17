@@ -220,7 +220,9 @@ function VerificationIcon({
   twitterPostUrl,
   instagramPostUrl,
   threadsPostUrl,
-  linkedinPostUrl
+  linkedinPostUrl,
+  instagramHandle,
+  twitterHandle
 }: {
   verificationBadge: string | null | undefined;
   sourceType: string | null | undefined;
@@ -231,24 +233,27 @@ function VerificationIcon({
   instagramPostUrl?: string | null;
   threadsPostUrl?: string | null;
   linkedinPostUrl?: string | null;
+  instagramHandle?: string | null;
+  twitterHandle?: string | null;
 }) {
   const IconComponent = getVerificationIconComponent(verificationBadge);
   const iconColor = sourceType === 'brand_partnership' ? 'text-blue-500' : 'text-green-500';
 
   // Get the appropriate social link based on verification badge
+  // Prefer profile handle links over post URLs for user profile navigation
   const getSocialLink = (): string | null => {
     switch (verificationBadge) {
       case 'twitter':
-        return twitterPostUrl || null;
+        return twitterHandle || twitterPostUrl || null;
       case 'instagram':
-        return instagramPostUrl || null;
+        return instagramHandle || instagramPostUrl || null;
       case 'threads':
         return threadsPostUrl || null;
       case 'linkedin':
         return linkedinPostUrl || null;
       case 'multi':
-        // Return first available link
-        return twitterPostUrl || instagramPostUrl || threadsPostUrl || linkedinPostUrl || null;
+        // Return first available profile link, then fallback to post URLs
+        return instagramHandle || twitterHandle || instagramPostUrl || twitterPostUrl || threadsPostUrl || linkedinPostUrl || null;
       default:
         return null;
     }
@@ -266,7 +271,7 @@ function VerificationIcon({
           rel="noopener noreferrer"
           className={`inline-flex hover:scale-110 transition-transform ${iconColor}`}
           onClick={(e) => e.stopPropagation()}
-          title={`View creator's post on ${label.split(' ').pop()}`}
+          title={`View creator on ${label.split(' ').pop()}`}
         >
           <IconComponent
             className="w-3 h-3"
@@ -282,7 +287,7 @@ function VerificationIcon({
         />
       )}
       <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-100 dark:text-gray-900 rounded opacity-0 group-hover/verify:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-        {isClickable ? `View post on ${label.split(' ').pop()} →` : label}
+        {isClickable ? `View profile →` : label}
       </span>
     </div>
   );
@@ -1352,6 +1357,12 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
                               label={verificationLabel}
                               planId={plan.id}
                               plannerProfileId={plan.plannerProfileId}
+                              twitterPostUrl={(plan as any).twitterPostUrl}
+                              instagramPostUrl={(plan as any).instagramPostUrl}
+                              threadsPostUrl={(plan as any).threadsPostUrl}
+                              linkedinPostUrl={(plan as any).linkedinPostUrl}
+                              instagramHandle={(plan as any).instagramHandle}
+                              twitterHandle={(plan as any).twitterHandle}
                             />
                           )}
                         </div>
