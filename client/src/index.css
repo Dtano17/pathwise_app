@@ -240,6 +240,62 @@
   }
 }
 
+/* ===================================
+   Liquid Glass (Glassmorphism) Effects
+   =================================== */
+
+@layer utilities {
+  /* Base Glass Effects */
+  .glass-light {
+    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-lg;
+  }
+
+  .glass-dark {
+    @apply bg-slate-900/80 backdrop-blur-md border border-slate-700/30 shadow-lg;
+  }
+
+  /* Premium Glass Card */
+  .glass-card {
+    @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl;
+    @apply border border-white/20 dark:border-slate-700/30;
+    @apply rounded-2xl shadow-xl;
+  }
+
+  /* Glass Overlay (for dialogs, modals) */
+  .glass-overlay {
+    @apply bg-black/60 dark:bg-black/80 backdrop-blur-sm;
+  }
+
+  /* Interactive Glass Elements (buttons, tabs) */
+  .glass-interactive {
+    @apply bg-white/60 dark:bg-slate-900/60 backdrop-blur-lg;
+    @apply border border-white/30 dark:border-slate-700/40;
+    @apply hover:bg-white/70 hover:dark:bg-slate-900/70;
+    @apply transition-all duration-200;
+  }
+
+  /* Mobile Performance Optimizations */
+  @media (max-width: 768px) {
+    .glass-card {
+      @apply backdrop-blur-sm;
+    }
+    .glass-interactive {
+      @apply backdrop-blur-sm;
+    }
+  }
+
+  /* Accessibility: Reduced Motion */
+  @media (prefers-reduced-motion: reduce) {
+    .glass-card,
+    .glass-interactive,
+    .glass-light,
+    .glass-dark {
+      backdrop-filter: none;
+      background: hsl(var(--card));
+    }
+  }
+}
+
 /**
  * Using the elevate system.
  * Automatic contrast adjustment.
