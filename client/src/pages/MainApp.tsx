@@ -2450,7 +2450,7 @@ export default function MainApp({
               <SignInGate feature="App integrations">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
-                    <Sparkles className="w-6 h-6" />
+                    <Plug className="w-6 h-6" />
                     App Integrations
                   </h2>
                 <p className="text-muted-foreground">

@@ -537,7 +537,7 @@ export function AppSidebar({
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <Link href="/?tab=updates">
+                <Link href="/updates">
                   <SidebarMenuButton
                     data-testid="button-updates-sidebar"
                     className="min-h-[44px] py-3"

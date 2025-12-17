@@ -14,6 +14,7 @@ import CommunityPlansPage from "@/pages/CommunityPlansPage";
 import GroupGoalsPage from "@/pages/GroupGoalsPage";
 import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import SubscriptionCanceled from "@/pages/SubscriptionCanceled";
+import Updates from "@/pages/Updates";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
 import { useAuth } from "@/hooks/useAuth";
@@ -73,7 +74,10 @@ function AppContent() {
         
         {/* Subscription Canceled Page (no sidebar) */}
         <Route path="/subscription/canceled" component={SubscriptionCanceled} />
-        
+
+        {/* Product Updates & News Page (no sidebar) */}
+        <Route path="/updates" component={Updates} />
+
         {/* Main App with Sidebar */}
         <Route>
           <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
