@@ -1012,8 +1012,8 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       </div>
 
       {/* Main Content - Journal Entries */}
-      <div className="flex-1 min-w-0">
-        <Card className="border-none shadow-sm h-full">
+      <div className="flex-1 min-w-0 flex flex-col">
+        <Card className="border-none shadow-sm h-full flex flex-col">
           <CardHeader className="pb-3 sm:pb-4 p-3 sm:p-6">
             <div className="flex items-start justify-between gap-3 sm:gap-4">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -1119,7 +1119,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
             )}
           </CardHeader>
 
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 flex-1 flex flex-col min-h-0">
             {/* Add New Entry */}
             <div className="flex gap-2">
               <div className="flex-1">
@@ -1165,7 +1165,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
             <Separator />
 
             {/* Entries List */}
-            <ScrollArea className="h-[300px] sm:h-[400px] lg:h-[calc(90vh-380px)]">
+            <ScrollArea className="flex-1 min-h-0">
               {isLoading ? (
                 <div className="space-y-3 pr-4">
                   {[...Array(3)].map((_, i) => (
