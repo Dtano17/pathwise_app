@@ -10983,6 +10983,126 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     }
   });
 
+  // Create activity with AI-generated tasks from a journal entry
+  app.post("/api/journal/entries/:entryId/create-activity", async (req, res) => {
+    try {
+      const { entryId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      
+      console.log(`[JOURNAL-TO-ACTIVITY] Creating activity from journal entry ${entryId} for user ${userId}`);
+      
+      // Get the journal entry
+      const prefs = await storage.getPersonalJournalEntries(userId);
+      if (!prefs || !prefs.preferences?.journalData) {
+        return res.status(404).json({ error: 'No journal entries found' });
+      }
+      
+      // Find the entry across all categories
+      let foundEntry: any = null;
+      let foundCategory: string = '';
+      const journalData = prefs.preferences.journalData;
+      
+      for (const [category, entries] of Object.entries(journalData)) {
+        if (Array.isArray(entries)) {
+          const entry = entries.find((e: any) => e.id === entryId);
+          if (entry) {
+            foundEntry = entry;
+            foundCategory = category;
+            break;
+          }
+        }
+      }
+      
+      if (!foundEntry) {
+        return res.status(404).json({ error: 'Journal entry not found' });
+      }
+      
+      // Check if already linked to an activity
+      if (foundEntry.activityId) {
+        return res.status(400).json({ error: 'This journal entry is already linked to an activity' });
+      }
+      
+      const entryText = foundEntry.text || '';
+      const entryNotes = foundEntry.notes || '';
+      const fullContent = entryText + (entryNotes ? `\n\n${entryNotes}` : '');
+      
+      console.log(`[JOURNAL-TO-ACTIVITY] Processing text with AI: "${fullContent.substring(0, 100)}..."`);
+      
+      // Use AI to break down the journal content into actionable tasks
+      const goalResult = await aiService.processGoalIntoTasks(fullContent, 'openai', userId);
+      
+      // Generate a smart title from the AI result or entry text
+      const title = goalResult.planTitle || 
+        (entryText.length > 60 ? entryText.substring(0, 57) + '...' : entryText.split('\n')[0] || 'Untitled Activity');
+      
+      // Create the activity
+      const activity = await storage.createActivity({
+        userId,
+        title,
+        description: goalResult.summary || entryText,
+        category: foundCategory,
+        status: 'planning',
+        planSummary: goalResult.summary,
+        estimatedTimeframe: goalResult.estimatedTimeframe,
+        motivationalNote: goalResult.motivationalNote
+      });
+      
+      console.log(`[JOURNAL-TO-ACTIVITY] Created activity ${activity.id} with title: ${title}`);
+      
+      // Create tasks from AI-generated breakdown
+      const createdTasks = [];
+      if (goalResult.tasks && goalResult.tasks.length > 0) {
+        for (let i = 0; i < goalResult.tasks.length; i++) {
+          const taskData = goalResult.tasks[i];
+          // First create the task
+          const task = await storage.createTask({
+            title: taskData.title,
+            description: taskData.description || '',
+            category: foundCategory,
+            priority: 'medium',
+            userId
+          });
+          // Then link it to the activity
+          await storage.addTaskToActivity(activity.id, task.id, i);
+          createdTasks.push(task);
+        }
+        console.log(`[JOURNAL-TO-ACTIVITY] Created ${createdTasks.length} tasks for activity ${activity.id}`);
+      } else {
+        // If AI couldn't generate tasks, create a default task
+        const defaultTask = await storage.createTask({
+          title: 'Complete: ' + title,
+          description: 'Work on this item from your journal',
+          category: foundCategory,
+          priority: 'medium',
+          userId
+        });
+        await storage.addTaskToActivity(activity.id, defaultTask.id, 0);
+        createdTasks.push(defaultTask);
+        console.log(`[JOURNAL-TO-ACTIVITY] Created default task for activity ${activity.id}`);
+      }
+      
+      // Link the journal entry to the activity
+      await storage.updatePersonalJournalEntry(userId, foundCategory, entryId, {
+        activityId: activity.id,
+        linkedActivityTitle: title
+      });
+      
+      console.log(`[JOURNAL-TO-ACTIVITY] Linked journal entry ${entryId} to activity ${activity.id}`);
+      
+      res.json({
+        success: true,
+        activity: {
+          ...activity,
+          tasks: createdTasks
+        },
+        tasksCreated: createdTasks.length
+      });
+    } catch (error) {
+      console.error('[JOURNAL-TO-ACTIVITY] Error:', error);
+      res.status(500).json({ error: 'Failed to create activity from journal entry' });
+    }
+  });
+
   // Create demo journal data (for testing enrichment)
   app.post("/api/journal/demo-data", async (req, res) => {
     try {

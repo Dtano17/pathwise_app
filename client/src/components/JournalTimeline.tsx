@@ -100,30 +100,18 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
     queryKey: ['/api/journal/entries'],
   });
 
-  // Mutation to create activity from journal entry
+  // Mutation to create activity from journal entry with AI-generated tasks
   const createActivityMutation = useMutation({
     mutationFn: async (entry: JournalEntry & { category: string }) => {
-      // Generate smart title from entry text
-      const title = entry.text.length > 60 
-        ? entry.text.substring(0, 57) + '...' 
-        : entry.text.split('\n')[0] || 'Untitled Activity';
+      // Call the AI-powered endpoint that breaks down journal content into actionable tasks
+      const response = await apiRequest('POST', `/api/journal/entries/${entry.id}/create-activity`, {});
+      const result = await response.json();
       
-      const response = await apiRequest('POST', '/api/activities', {
-        title,
-        description: entry.text,
-        category: entry.category,
-        status: 'planning'
-      });
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create activity');
+      }
       
-      const activity = await response.json();
-      
-      // Link the journal entry to the created activity
-      await apiRequest('PATCH', `/api/journal/entries/${entry.id}`, {
-        activityId: activity.id,
-        linkedActivityTitle: activity.title
-      });
-      
-      return activity;
+      return result;
     },
     onMutate: (entry) => {
       setCreatingActivityId(entry.id);
@@ -131,9 +119,10 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+      const tasksCount = data.tasksCreated || 0;
       toast({
-        title: "Activity Created!",
-        description: "Your journal entry has been converted to an activity. Check the Activities tab to start tracking tasks.",
+        title: "Activity Created with Action Steps!",
+        description: `Created ${tasksCount} actionable task${tasksCount !== 1 ? 's' : ''} from your journal entry. Check the Activities tab to start tracking progress.`,
       });
       setCreatingActivityId(null);
     },
@@ -515,7 +504,7 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
                           data-testid={`button-create-activity-${entry.id}`}
                         >
                           <PlusCircle className="h-4 w-4" />
-                          {creatingActivityId === entry.id ? 'Creating...' : 'Create Activity from Journal'}
+                          {creatingActivityId === entry.id ? 'Creating tasks...' : 'Break into Action Steps'}
                         </Button>
                       )}
 
