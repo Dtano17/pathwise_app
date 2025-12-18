@@ -458,10 +458,14 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
   const mapCategoryToJournalCategory = (category: string): string => {
     const cat = category.toLowerCase();
     if (['restaurants', 'cafes', 'food_cooking', 'food', 'dining'].includes(cat)) return 'restaurants';
-    if (['travel_itinerary', 'hotels_accommodation', 'attractions_activities', 'outdoor_nature', 'travel', 'vacation'].includes(cat)) return 'travel';
+    if (['movies', 'movie', 'film', 'films', 'cinema', 'theater', 'theatre', 'streaming', 'tv', 'television', 'shows', 'series', 'documentary', 'documentaries', 'animation', 'anime'].includes(cat)) return 'movies';
+    if (['music', 'concert', 'concerts', 'artist', 'artists', 'album', 'albums', 'song', 'songs', 'band', 'bands', 'spotify', 'playlist'].includes(cat)) return 'music';
+    if (['books', 'book', 'reading', 'novel', 'novels', 'literature', 'author', 'authors', 'library', 'audiobook', 'ebook'].includes(cat)) return 'books';
+    if (['travel_itinerary', 'hotels_accommodation', 'attractions_activities', 'outdoor_nature', 'travel', 'vacation', 'trip', 'destination'].includes(cat)) return 'travel';
+    if (['style', 'fashion', 'clothing', 'outfit', 'outfits', 'wardrobe', 'accessories'].includes(cat)) return 'style';
     if (['bars_nightlife', 'entertainment', 'nightlife', 'bars'].includes(cat)) return 'hobbies';
-    if (['wellness_spa', 'fitness', 'wellness', 'health'].includes(cat)) return 'hobbies';
-    if (['shopping', 'retail'].includes(cat)) return 'favorites';
+    if (['wellness_spa', 'fitness', 'wellness', 'health', 'gym', 'workout', 'exercise'].includes(cat)) return 'hobbies';
+    if (['shopping', 'retail', 'purchases', 'favorites', 'wishlist'].includes(cat)) return 'favorites';
     return 'notes';
   };
 
