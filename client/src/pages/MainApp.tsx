@@ -2460,9 +2460,70 @@ export default function MainApp({
                     </p>
                   </div>
 
-                  {/* Paste from Clipboard */}
+                  {/* Supported Sources */}
                   <Card className="p-6">
-                    <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground text-center mb-4 tracking-wider">SUPPORTED SOURCES</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Social Media Column */}
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-3">Social Media</p>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge className="bg-gradient-to-r from-pink-500 to-purple-500 text-white border-0 gap-1.5">
+                            <SiInstagram className="w-3 h-3" /> Instagram
+                          </Badge>
+                          <Badge className="bg-black text-white border-0 gap-1.5">
+                            <SiTiktok className="w-3 h-3" /> TikTok
+                          </Badge>
+                          <Badge className="bg-red-600 text-white border-0 gap-1.5">
+                            <Youtube className="w-3 h-3" /> YouTube
+                          </Badge>
+                          <Badge className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-0 gap-1.5">
+                            <SiX className="w-3 h-3" /> Twitter/X
+                          </Badge>
+                          <Badge className="bg-blue-600 text-white border-0 gap-1.5">
+                            <SiFacebook className="w-3 h-3" /> Facebook
+                          </Badge>
+                          <Badge className="bg-orange-600 text-white border-0 gap-1.5">
+                            <SiReddit className="w-3 h-3" /> Reddit
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* AI & Files Column */}
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-3">AI & Files</p>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge className="bg-green-600 text-white border-0 gap-1.5">
+                            <SiOpenai className="w-3 h-3" /> ChatGPT
+                          </Badge>
+                          <Badge className="bg-purple-600 text-white border-0 gap-1.5">
+                            <SiClaude className="w-3 h-3" /> Claude
+                          </Badge>
+                          <Badge className="bg-blue-500 text-white border-0 gap-1.5">
+                            <SiGooglegemini className="w-3 h-3" /> Gemini
+                          </Badge>
+                          <Badge className="bg-emerald-600 text-white border-0 gap-1.5">
+                            <FileText className="w-3 h-3" /> Articles
+                          </Badge>
+                          <Badge className="bg-blue-700 text-white border-0 gap-1.5">
+                            <FileText className="w-3 h-3" /> Docs
+                          </Badge>
+                          <Badge className="bg-pink-600 text-white border-0 gap-1.5">
+                            <Image className="w-3 h-3" /> Images
+                          </Badge>
+                          <Badge className="bg-red-700 text-white border-0 gap-1.5">
+                            <FileText className="w-3 h-3" /> PDFs
+                          </Badge>
+                          <Badge className="bg-violet-600 text-white border-0 gap-1.5">
+                            <Video className="w-3 h-3" /> Videos
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Paste from Clipboard Button */}
+                    <div className="mt-6 space-y-3">
                       <Button 
                         onClick={async () => {
                           try {
