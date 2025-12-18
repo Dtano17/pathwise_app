@@ -158,6 +158,14 @@ class ApifyService {
       };
     } catch (error: any) {
       console.error(`[APIFY] Instagram extraction failed:`, error.message);
+      
+      // Log full error details for debugging
+      console.error(`[APIFY] Full error details:`, {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        headers: error.response?.headers,
+      });
 
       if (error.response?.status === 402) {
         return {
@@ -167,6 +175,9 @@ class ApifyService {
       }
       if (error.response?.status === 401) {
         return { success: false, error: "Invalid Apify API token" };
+      }
+      if (error.response?.status === 400) {
+        console.error(`[APIFY] 400 Bad Request - Actor may be deprecated or input format changed:`, error.response?.data);
       }
 
       // Try alternative actor on other errors
@@ -228,6 +239,12 @@ class ApifyService {
         `[APIFY] Alternative Instagram extraction also failed:`,
         error.message,
       );
+      // Log full error details for debugging
+      console.error(`[APIFY] Alternative actor full error:`, {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+      });
       return { success: false, error: error.message };
     }
   }
