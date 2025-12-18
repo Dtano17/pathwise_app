@@ -1860,6 +1860,15 @@ export default function MainApp({
                     Discover Plans
                   </Button>
                 </Link>
+                <Button
+                  variant="outline"
+                  onClick={() => refetchActivities()}
+                  className="gap-2"
+                  data-testid="button-refresh-activities"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh
+                </Button>
               </div>
 
               {activitiesLoading ? (

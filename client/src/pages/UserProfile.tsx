@@ -14,13 +14,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { ProBadge } from '@/components/ProBadge';
-import { 
-  User, 
-  Calendar, 
-  MapPin, 
-  Briefcase, 
-  Heart, 
-  Trophy, 
+import { useDeviceLocation } from '@/hooks/useDeviceLocation';
+import {
+  User,
+  Calendar,
+  MapPin,
+  Briefcase,
+  Heart,
+  Trophy,
   Target,
   Activity,
   Edit3,
@@ -30,7 +31,11 @@ import {
   TrendingUp,
   Clock,
   Upload,
-  Camera
+  Camera,
+  Navigation,
+  Loader2,
+  Check,
+  AlertCircle
 } from 'lucide-react';
 
 interface UserProfile {
@@ -70,6 +75,61 @@ export default function UserProfile() {
     queryKey: ['/api/user/profile'],
     enabled: isAuthenticated,
   });
+
+  // Device location state
+  const deviceLocation = useDeviceLocation();
+
+  // Get current location settings
+  interface LocationData {
+    locationEnabled: boolean;
+    latitude: number | null;
+    longitude: number | null;
+    city: string | null;
+    updatedAt: string | null;
+  }
+
+  const { data: locationData, isLoading: locationLoading } = useQuery<LocationData>({
+    queryKey: ['/api/user/location'],
+    enabled: isAuthenticated,
+  });
+
+  // Location update mutation
+  const updateLocationMutation = useMutation({
+    mutationFn: (data: { enabled: boolean; latitude?: number; longitude?: number; city?: string }) =>
+      apiRequest('PUT', '/api/user/location', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user/location'] });
+      toast({
+        title: "Location updated",
+        description: "Your location settings have been saved.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update location settings.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle enabling location
+  const handleEnableLocation = async () => {
+    const location = await deviceLocation.requestLocation();
+    if (location) {
+      updateLocationMutation.mutate({
+        enabled: true,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        city: location.city,
+      });
+    }
+  };
+
+  // Handle disabling location
+  const handleDisableLocation = () => {
+    updateLocationMutation.mutate({ enabled: false });
+  };
 
   const updateProfileMutation = useMutation({
     mutationFn: (updates: Partial<UserProfile>) => 
@@ -583,6 +643,136 @@ export default function UserProfile() {
                   </div>
                 )}
               </ProfileEditSection>
+
+              {/* Device Location Permission Section */}
+              <Card data-testid="card-device-location">
+                <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <Navigation className="w-4 h-4" />
+                    Device Location
+                  </CardTitle>
+                  {locationLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  ) : locationData?.locationEnabled ? (
+                    <Badge variant="secondary" className="gap-1">
+                      <Check className="w-3 h-3" />
+                      Enabled
+                    </Badge>
+                  ) : null}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Enable device location for personalized plan recommendations based on your current location.
+                    This helps us suggest nearby venues, activities, and experiences.
+                  </p>
+
+                  {locationData?.locationEnabled ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        <div>
+                          <p className="text-sm font-medium" data-testid="text-current-city">
+                            {locationData.city || 'Location detected'}
+                          </p>
+                          {locationData.updatedAt && (
+                            <p className="text-xs text-muted-foreground">
+                              Last updated: {new Date(locationData.updatedAt).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleEnableLocation}
+                          disabled={deviceLocation.isRequesting || updateLocationMutation.isPending}
+                          data-testid="button-refresh-location"
+                        >
+                          {deviceLocation.isRequesting ? (
+                            <>
+                              <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                              Updating...
+                            </>
+                          ) : (
+                            <>
+                              <Navigation className="w-3 h-3 mr-2" />
+                              Refresh Location
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleDisableLocation}
+                          disabled={updateLocationMutation.isPending}
+                          data-testid="button-disable-location"
+                        >
+                          <X className="w-3 h-3 mr-2" />
+                          Disable
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {deviceLocation.isDenied && (
+                        <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive" data-testid="alert-location-denied">
+                          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <div className="text-sm">
+                            <p className="font-medium">Location access denied</p>
+                            <p className="text-xs mt-1">To enable location features:</p>
+                            <ul className="text-xs mt-1 ml-4 list-disc space-y-0.5">
+                              <li>Open your browser or device settings</li>
+                              <li>Find location/privacy permissions</li>
+                              <li>Allow location access for this site</li>
+                              <li>Return here and try again</li>
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+
+                      {deviceLocation.isInsecure && (
+                        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400" data-testid="alert-location-insecure">
+                          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <div className="text-sm">
+                            <p className="font-medium">Secure connection recommended</p>
+                            <p className="text-xs mt-1">Location access works best with HTTPS. You can still try enabling location, but it may not work on all browsers. For best results, use the mobile app.</p>
+                          </div>
+                        </div>
+                      )}
+
+                      <Button
+                        onClick={handleEnableLocation}
+                        disabled={deviceLocation.isRequesting || updateLocationMutation.isPending}
+                        className="w-full"
+                        data-testid="button-enable-location"
+                      >
+                        {deviceLocation.isRequesting || updateLocationMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Getting Location...
+                          </>
+                        ) : deviceLocation.isDenied ? (
+                          <>
+                            <Navigation className="w-4 h-4 mr-2" />
+                            Try Again
+                          </>
+                        ) : (
+                          <>
+                            <Navigation className="w-4 h-4 mr-2" />
+                            Enable Device Location
+                          </>
+                        )}
+                      </Button>
+
+                      <p className="text-xs text-muted-foreground text-center">
+                        Your location is only used for plan suggestions and is stored securely.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* Interests & Goals Tab */}
