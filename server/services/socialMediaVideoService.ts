@@ -243,7 +243,7 @@ class SocialMediaVideoService {
 
       const files: Array<{ path: string; type: "video" | "image" }> = [];
 
-      for (let i = 0; i < Math.min(apifyResult.carouselItems.length, 10); i++) {
+      for (let i = 0; i < apifyResult.carouselItems.length; i++) {
         const item = apifyResult.carouselItems[i];
         if (!item.url) continue;
 
@@ -365,7 +365,7 @@ class SocialMediaVideoService {
 
       for (
         let i = 0;
-        i < Math.min(apifyResult.slideshowImages.length, 10);
+        i < apifyResult.slideshowImages.length;
         i++
       ) {
         const imageUrl = apifyResult.slideshowImages[i];
@@ -720,7 +720,7 @@ class SocialMediaVideoService {
 
       const files: Array<{ path: string; type: "video" | "image" }> = [];
 
-      for (let i = 0; i < Math.min(sidecar.length, 10); i++) {
+      for (let i = 0; i < sidecar.length; i++) {
         const item = sidecar[i]?.node || sidecar[i];
         const isVideo = item.is_video || item.video_versions;
         const mediaUrl = isVideo
@@ -878,7 +878,7 @@ class SocialMediaVideoService {
 
         const files: Array<{ path: string; type: "video" | "image" }> = [];
 
-        for (let i = 0; i < Math.min(images.length, 10); i++) {
+        for (let i = 0; i < images.length; i++) {
           const imageUrl =
             images[i]?.imageURL?.urlList?.find((u: string) =>
               u.includes(".jpeg"),
