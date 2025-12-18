@@ -7961,18 +7961,71 @@ ${emoji} ${progressLine}
                 // Generate a temporary ID for the journal item (will be updated after journal_entries creation)
                 const tempId = `pending-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
                 
+                // Get platform emoji for visual formatting
+                const platformEmojis: Record<string, string> = {
+                  instagram: '📸',
+                  tiktok: '🎵',
+                  youtube: '📺',
+                  twitter: '🐦',
+                  x: '𝕏',
+                  facebook: '📘',
+                  reddit: '🔗',
+                  chatgpt: '🤖',
+                  claude: '🧠',
+                  gemini: '✨'
+                };
+                const platformEmoji = platformEmojis[platform.toLowerCase()] || '📌';
+                
+                // Extract hashtags from title and description
+                const hashtagRegex = /#\w+/g;
+                const extractedHashtags = [
+                  ...(title?.match(hashtagRegex) || []),
+                  ...(description?.match(hashtagRegex) || []),
+                  ...(extractedDescription?.match(hashtagRegex) || [])
+                ].map(tag => tag.toLowerCase());
+                const uniqueHashtags = [...new Set(extractedHashtags)];
+                
+                // Get category emoji
+                const categoryEmojis: Record<string, string> = {
+                  restaurants: '🍽️',
+                  travel: '✈️',
+                  music: '🎵',
+                  movies: '🎬',
+                  books: '📚',
+                  products: '🛍️',
+                  workouts: '💪',
+                  fitness: '💪',
+                  personal: '✨',
+                  'custom-exercise': '🏋️'
+                };
+                const categoryEmoji = categoryEmojis[journalCategory] || '📝';
+                
+                // Create enriched text with emojis and source reference
+                const enrichedText = `${categoryEmoji} ${title}\n\n${platformEmoji} Saved from ${platform}`;
+                
+                // Build enhanced keywords with hashtags and platform info
+                const enhancedKeywords = [
+                  platform.toLowerCase(),
+                  'imported',
+                  journalCategory,
+                  ...uniqueHashtags.slice(0, 5) // Include up to 5 hashtags as keywords
+                ].filter(Boolean);
+                
                 // Create new journal item with enriched data and normalized URL
                 const newJournalItem = {
                   id: tempId,
-                  text: title,
+                  text: enrichedText,
                   date: new Date().toISOString().split('T')[0],
                   notes: description || '',
                   sourceUrl: normalizedSourceUrl,
                   originalUrl: sourceUrl,
                   platform: platform.toLowerCase(),
+                  platformEmoji,
+                  categoryEmoji,
                   thumbnail: thumbnailUrl || null,
                   media: mediaItems,
-                  keywords: [platform.toLowerCase(), 'imported', journalCategory].filter(Boolean),
+                  keywords: enhancedKeywords,
+                  hashtags: uniqueHashtags,
                   aiConfidence: 0.9,
                   isImported: true,
                   activityId: activity.id
@@ -10908,8 +10961,11 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
               linkedActivityTitle
             };
             
-            // Save back to storage
-            await storage.savePersonalJournalEntry(userId, category, entries[entryIndex]);
+            // Save back to storage using updatePersonalJournalEntry
+            await storage.updatePersonalJournalEntry(userId, category, entryId, {
+              activityId,
+              linkedActivityTitle
+            });
             found = true;
             break;
           }
@@ -11040,17 +11096,15 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
             });
 
             // Save the enriched entry
-            await storage.savePersonalJournalEntry(userId, category, {
+            await storage.addPersonalJournalEntry(userId, category, {
               ...entry,
               keywords: enrichedData.keywords,
-              aiConfidence: enrichedData.aiConfidence,
-              extractedData: enrichedData.extractedData,
-              suggestions: enrichedData.suggestions
+              aiConfidence: enrichedData.aiConfidence
             });
           } catch (error) {
             console.error(`[JOURNAL DEMO] Failed to enrich entry for ${category}:`, error);
             // Save without enrichment if AI fails
-            await storage.savePersonalJournalEntry(userId, category, entry);
+            await storage.addPersonalJournalEntry(userId, category, entry);
           }
         }
       }

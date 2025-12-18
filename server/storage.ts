@@ -359,6 +359,8 @@ export interface IStorage {
   updatePersonalJournalEntry(userId: string, category: string, entryId: string, updates: Partial<{
     text: string;
     media?: Array<{ url: string; type: 'image' | 'video'; thumbnail?: string }>;
+    activityId?: string;
+    linkedActivityTitle?: string;
   }>): Promise<UserPreferences>;
   deletePersonalJournalEntry(userId: string, category: string, entryId: string): Promise<UserPreferences>;
 
@@ -2171,6 +2173,8 @@ export class DatabaseStorage implements IStorage {
   async updatePersonalJournalEntry(userId: string, category: string, entryId: string, updates: Partial<{
     text: string;
     media?: Array<{ url: string; type: 'image' | 'video'; thumbnail?: string }>;
+    activityId?: string;
+    linkedActivityTitle?: string;
   }>): Promise<UserPreferences> {
     const prefs = await this.getUserPreferences(userId);
     const currentPrefs = prefs?.preferences || {};

@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Search, Filter, RefreshCw, Image as ImageIcon, Smile, MapPin, Tag, Download, ArrowLeft, Sparkles, PlusCircle } from 'lucide-react';
+import { Calendar, Search, Filter, RefreshCw, Image as ImageIcon, Smile, MapPin, Tag, Download, ArrowLeft, Sparkles, PlusCircle, ExternalLink, Hash } from 'lucide-react';
+import { SiInstagram, SiTiktok, SiYoutube, SiFacebook, SiReddit, SiX, SiOpenai } from 'react-icons/si';
 import { getCategoryColor } from '@/hooks/useKeywordDetection';
 import ExportDialog from './ExportDialog';
 import { ImageGalleryModal } from './ImageGalleryModal';
@@ -23,6 +24,13 @@ interface JournalEntry {
   activityId?: string;
   linkedActivityTitle?: string;
   mood?: 'great' | 'good' | 'okay' | 'poor';
+  sourceUrl?: string;
+  originalUrl?: string;
+  platform?: string;
+  platformEmoji?: string;
+  categoryEmoji?: string;
+  hashtags?: string[];
+  isImported?: boolean;
 }
 
 interface JournalData {
@@ -45,6 +53,34 @@ const moodColors = {
   good: 'text-blue-600 bg-blue-50 border-blue-200',
   okay: 'text-yellow-600 bg-yellow-50 border-yellow-200',
   poor: 'text-red-600 bg-red-50 border-red-200'
+};
+
+const getPlatformIcon = (platform?: string) => {
+  if (!platform) return null;
+  const iconClass = "w-3.5 h-3.5";
+  switch (platform.toLowerCase()) {
+    case 'instagram': return <SiInstagram className={`${iconClass} text-pink-500`} />;
+    case 'tiktok': return <SiTiktok className={iconClass} />;
+    case 'youtube': return <SiYoutube className={`${iconClass} text-red-500`} />;
+    case 'facebook': return <SiFacebook className={`${iconClass} text-blue-600`} />;
+    case 'reddit': return <SiReddit className={`${iconClass} text-orange-500`} />;
+    case 'twitter':
+    case 'x': return <SiX className={iconClass} />;
+    case 'chatgpt': return <SiOpenai className={`${iconClass} text-green-500`} />;
+    default: return null;
+  }
+};
+
+const platformColors: Record<string, string> = {
+  instagram: 'bg-gradient-to-r from-pink-500 to-purple-500 text-white border-0',
+  tiktok: 'bg-black text-white border-0',
+  youtube: 'bg-red-500 text-white border-0',
+  facebook: 'bg-blue-600 text-white border-0',
+  reddit: 'bg-orange-500 text-white border-0',
+  twitter: 'bg-sky-500 text-white border-0',
+  x: 'bg-black text-white border-0',
+  chatgpt: 'bg-green-500 text-white border-0',
+  claude: 'bg-amber-500 text-white border-0'
 };
 
 export default function JournalTimeline({ onClose }: JournalTimelineProps) {
@@ -379,6 +415,16 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
                               {entry.category}
                             </Badge>
 
+                            {entry.platform && entry.isImported && (
+                              <Badge 
+                                className={`${platformColors[entry.platform.toLowerCase()] || 'bg-muted text-muted-foreground'} text-xs flex-shrink-0`}
+                                data-testid={`badge-platform-${entry.id}`}
+                              >
+                                {getPlatformIcon(entry.platform)}
+                                <span className="ml-1 capitalize">{entry.platform}</span>
+                              </Badge>
+                            )}
+
                             {entry.mood && (
                               <Badge variant="outline" className={`${moodColors[entry.mood]} text-xs flex-shrink-0`}>
                                 <Smile className="h-3 w-3 mr-1" />
@@ -418,6 +464,46 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <p className="text-sm whitespace-pre-wrap break-words">{entry.text}</p>
+
+                      {/* Source link for imported content */}
+                      {entry.isImported && entry.sourceUrl && (
+                        <a 
+                          href={entry.originalUrl || entry.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                          data-testid={`link-source-${entry.id}`}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          <span>View original on {entry.platform}</span>
+                        </a>
+                      )}
+
+                      {/* Hashtags for imported content */}
+                      {entry.hashtags && entry.hashtags.length > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap" data-testid={`hashtags-container-${entry.id}`}>
+                          {entry.hashtags.slice(0, 6).map((tag, idx) => (
+                            <Badge 
+                              key={idx} 
+                              variant="outline" 
+                              className="text-xs px-1.5 py-0 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+                              data-testid={`badge-hashtag-${entry.id}-${idx}`}
+                            >
+                              <Hash className="h-2.5 w-2.5 mr-0.5" />
+                              {tag.replace('#', '')}
+                            </Badge>
+                          ))}
+                          {entry.hashtags.length > 6 && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs px-1.5 py-0 text-muted-foreground"
+                              data-testid={`badge-hashtag-overflow-${entry.id}`}
+                            >
+                              +{entry.hashtags.length - 6}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
 
                       {!entry.linkedActivityTitle && (
                         <Button
