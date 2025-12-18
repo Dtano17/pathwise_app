@@ -62,7 +62,7 @@ import { sendGroupNotification } from './services/notificationService';
 import { tavily } from '@tavily/core';
 import { socialMediaVideoService } from './services/socialMediaVideoService';
 import { apifyService } from './services/apifyService';
-import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory, mapVenueTypeToJournalCategory, getBestJournalCategory, getDynamicCategoryInfo, type VenueInfo, type DynamicCategoryInfo, type PrimaryCategorySuggestion, type SubcategorySuggestion } from './services/contentCategorizationService';
+import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory, mapAiCategoryNameToJournalCategory, mapVenueTypeToJournalCategory, getBestJournalCategory, getDynamicCategoryInfo, type VenueInfo, type DynamicCategoryInfo, type PrimaryCategorySuggestion, type SubcategorySuggestion } from './services/contentCategorizationService';
 import { findSimilarCategory, findSimilarSubcategory, findDuplicateVenue, checkDuplicateURL, generatePrimaryCategoryId, generateSubcategoryId, generateColorGradient, type DeduplicationConfig, DEFAULT_DEDUP_CONFIG } from './services/categoryMatcher';
 import { scheduleRemindersForActivity, cancelRemindersForActivity } from './services/reminderProcessor';
 
@@ -2406,7 +2406,7 @@ ${allUrls.map(page => `  <url>
           const journalEntry = await storage.createJournalEntry({
             userId,
             content: journalContent,
-            category: mapAiCategoryToJournalCategory(categorized.primaryCategory.name),
+            category: mapAiCategoryNameToJournalCategory(categorized.primaryCategory.name),
             tags: categorized.tags,
             mood: 'excited'
           });
@@ -7883,7 +7883,7 @@ ${emoji} ${progressLine}
               'general': 'other'
             };
             const contentCategory = contentCategoryMap[category] || category;
-            const journalCategory = mapAiCategoryToJournalCategory(contentCategory as any);
+            const journalCategory = mapAiCategoryNameToJournalCategory(contentCategory);
             
             // Try to look up cached content for enrichment
             let cachedContent: any = null;
@@ -10716,7 +10716,35 @@ You can find these tasks in your task list and start working on them right away!
             entryToStore = { ...entry, subcategory: entrySubcat };
           }
         }
-        journalData[finalCategory].push(entryToStore);
+        
+        // Deduplication check - skip if similar entry already exists
+        const entryText = typeof entryToStore === 'string' ? entryToStore : entryToStore.text || '';
+        const entrySourceUrl = typeof entryToStore === 'object' ? entryToStore.sourceUrl : undefined;
+        const normalizedText = entryText.toLowerCase().trim().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ');
+        
+        const isDuplicate = journalData[finalCategory].some((existing: any) => {
+          const existingText = typeof existing === 'string' ? existing : existing.text || '';
+          const existingSourceUrl = typeof existing === 'object' ? existing.sourceUrl : undefined;
+          const normalizedExisting = existingText.toLowerCase().trim().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ');
+          
+          // Check for text similarity (exact match after normalization)
+          if (normalizedText === normalizedExisting && normalizedText.length > 0) {
+            console.log(`[JOURNAL DEDUP] Skipping duplicate text: "${normalizedText.substring(0, 50)}..."`);
+            return true;
+          }
+          
+          // Check for same source URL
+          if (entrySourceUrl && existingSourceUrl && entrySourceUrl === existingSourceUrl) {
+            console.log(`[JOURNAL DEDUP] Skipping duplicate sourceUrl: ${entrySourceUrl}`);
+            return true;
+          }
+          
+          return false;
+        });
+        
+        if (!isDuplicate) {
+          journalData[finalCategory].push(entryToStore);
+        }
       }
       
       // Merge new dynamic categories

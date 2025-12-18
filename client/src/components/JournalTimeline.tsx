@@ -14,6 +14,179 @@ import { ImageGalleryModal } from './ImageGalleryModal';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 
+// Category icons for smart rendering
+const categoryIcons: Record<string, string> = {
+  books: '📚',
+  reading: '📚',
+  'books-reading': '📚',
+  restaurants: '🍽️',
+  food: '🍽️',
+  movies: '🎬',
+  'movies-tv': '🎬',
+  music: '🎵',
+  travel: '✈️',
+  fitness: '💪',
+  health: '🏥',
+  learning: '📖',
+  career: '💼',
+  finance: '💰',
+  relationships: '❤️',
+  creativity: '🎨',
+  hobbies: '⭐',
+  style: '👗',
+  favorites: '⭐',
+  notes: '📝',
+};
+
+// Smart text renderer that extracts and highlights titles, authors, etc.
+function SmartTextRenderer({ text, category, sourceUrl }: { text: string; category?: string; sourceUrl?: string }) {
+  // Get category icon
+  const categoryKey = category?.toLowerCase().replace(/[^a-z]/g, '-') || '';
+  const icon = categoryIcons[categoryKey] || categoryIcons[category?.split('-')[0] || ''] || '';
+  
+  // Pattern: "Title" by Author - Description
+  // Or: Read 'Title' by Author - Description
+  // Or: Title by Author (Recommender's choice) - Description
+  // Or: Inspired by ...
+  
+  // Check for "Inspired by" pattern
+  const inspiredByMatch = text.match(/^Inspired\s+by\s+(.+?)(?:\s*[-–—]\s*(.*))?$/i);
+  
+  // Try to extract title in quotes
+  const quotedTitleMatch = text.match(/^(Read |Study |Complete |Watch |Listen to )?['"]([^'"]+)['"]/i);
+  
+  // Try to extract "by Author" pattern
+  const byAuthorMatch = text.match(/\bby\s+([A-Z][a-zA-Z\s&.'-]+?)(?:\s*[-–—]\s*|\s*\(|\s*$)/i);
+  
+  // Try to extract parenthetical recommendation like "(Warren Buffett's choice)"
+  const recommenderMatch = text.match(/\(([A-Z][a-zA-Z\s.']+(?:'s)?\s*(?:choice|pick|recommendation|favorite))\)/i);
+  
+  // Split on " - " to separate title/author from description
+  const dashSplit = text.split(/\s*[-–—]\s*/);
+  const hasDescription = dashSplit.length > 1;
+  
+  // Handle "Inspired by" pattern
+  if (inspiredByMatch) {
+    const inspiredText = inspiredByMatch[1].trim();
+    const descriptionPart = inspiredByMatch[2]?.trim() || '';
+    
+    return (
+      <div className="space-y-1">
+        <div className="flex items-start gap-2">
+          {icon && <span className="text-lg flex-shrink-0">{icon}</span>}
+          <div className="flex-1">
+            <p className="text-sm sm:text-base">
+              <span className="text-muted-foreground">Inspired by </span>
+              {sourceUrl ? (
+                <a
+                  href={sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-primary hover:underline"
+                  data-testid="link-inspired-by"
+                >
+                  {inspiredText}
+                  <ExternalLink className="w-3 h-3 inline ml-1" />
+                </a>
+              ) : (
+                <span className="font-semibold text-foreground">{inspiredText}</span>
+              )}
+            </p>
+          </div>
+        </div>
+        {descriptionPart && (
+          <p className="text-sm text-muted-foreground pl-7">{descriptionPart}</p>
+        )}
+      </div>
+    );
+  }
+  
+  if (quotedTitleMatch || byAuthorMatch) {
+    let titlePart = '';
+    let authorPart = '';
+    let descriptionPart = '';
+    let prefix = '';
+    
+    if (quotedTitleMatch) {
+      prefix = quotedTitleMatch[1] || '';
+      titlePart = quotedTitleMatch[2];
+      
+      // Get the rest after the quoted title
+      const afterTitle = text.slice(quotedTitleMatch[0].length);
+      
+      // Extract author from the rest
+      const authorInRest = afterTitle.match(/^\s*by\s+([A-Z][a-zA-Z\s&.'-]+?)(?:\s*[-–—]\s*|\s*\(|\s*$)/i);
+      if (authorInRest) {
+        authorPart = authorInRest[1].trim();
+        const afterAuthor = afterTitle.slice(authorInRest[0].length);
+        descriptionPart = afterAuthor.replace(/^\s*[-–—]\s*/, '').trim();
+      } else if (hasDescription) {
+        descriptionPart = dashSplit.slice(1).join(' - ').trim();
+      }
+    } else if (byAuthorMatch && hasDescription) {
+      // Format: "Title by Author - Description"
+      const beforeBy = text.split(/\s+by\s+/i)[0];
+      titlePart = beforeBy.replace(/^(Read |Study |Complete |Watch |Listen to )/i, '');
+      prefix = text.match(/^(Read |Study |Complete |Watch |Listen to )/i)?.[1] || '';
+      authorPart = byAuthorMatch[1].trim();
+      
+      // Get description after the dash
+      const dashIndex = text.indexOf(' - ');
+      if (dashIndex > -1) {
+        descriptionPart = text.slice(dashIndex + 3).trim();
+      }
+    }
+    
+    // Clean up recommender info from description if present
+    const recommenderInDesc = descriptionPart.match(/\(([A-Z][a-zA-Z\s.']+(?:'s)?\s*(?:choice|pick|recommendation|favorite))\)/i);
+    let recommender = '';
+    if (recommenderInDesc) {
+      recommender = recommenderInDesc[1];
+      descriptionPart = descriptionPart.replace(recommenderInDesc[0], '').trim();
+    } else if (recommenderMatch) {
+      recommender = recommenderMatch[1];
+    }
+    
+    return (
+      <div className="space-y-1">
+        <div className="flex items-start gap-2">
+          {icon && <span className="text-lg flex-shrink-0">{icon}</span>}
+          <div className="flex-1">
+            <p className="text-sm sm:text-base">
+              {prefix && <span className="text-muted-foreground">{prefix}</span>}
+              <span className="font-semibold text-foreground">{titlePart}</span>
+              {authorPart && (
+                <>
+                  <span className="text-muted-foreground"> by </span>
+                  <span className="font-medium text-primary/80">{authorPart}</span>
+                </>
+              )}
+            </p>
+            {recommender && (
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                ⭐ {recommender}
+              </p>
+            )}
+          </div>
+        </div>
+        {descriptionPart && (
+          <p className="text-sm text-muted-foreground pl-7">
+            {descriptionPart}
+          </p>
+        )}
+      </div>
+    );
+  }
+  
+  // Fallback: just show the text with icon
+  return (
+    <div className="flex items-start gap-2">
+      {icon && <span className="text-lg flex-shrink-0">{icon}</span>}
+      <p className="text-sm whitespace-pre-wrap break-words flex-1">{text}</p>
+    </div>
+  );
+}
+
 interface JournalEntry {
   id: string;
   text: string;
@@ -452,7 +625,7 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <p className="text-sm whitespace-pre-wrap break-words">{entry.text}</p>
+                      <SmartTextRenderer text={entry.text} category={entry.category} sourceUrl={entry.sourceUrl} />
 
                       {/* Source link for imported content */}
                       {entry.isImported && entry.sourceUrl && (
