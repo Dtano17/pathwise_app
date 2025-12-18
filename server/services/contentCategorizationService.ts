@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
+import { resolveToStandardCategory, mapToStandardCategoryId, STANDARD_CATEGORIES, CATEGORY_ID_TO_NAME } from './categorySynonyms';
 
 // Lazy initialization of clients - only create when API keys are available
 let openaiClient: OpenAI | null = null;
@@ -488,8 +489,23 @@ export type JournalCategory =
   | "favorites"
   | "notes";
 
-export function mapAiCategoryToJournalCategory(aiCategory: ContentCategory): JournalCategory {
-  switch (aiCategory) {
+export function mapAiCategoryToJournalCategory(aiCategory: ContentCategory | string): JournalCategory {
+  const normalized = typeof aiCategory === 'string' ? aiCategory.toLowerCase() : aiCategory;
+  
+  // Try synonym-based resolution first for string inputs
+  if (typeof aiCategory === 'string') {
+    const synonymMatch = mapToStandardCategoryId(aiCategory);
+    if (synonymMatch) {
+      // synonymMatch is already a canonical JournalCategoryId
+      const validJournalCategories: JournalCategory[] = ['restaurants', 'movies', 'music', 'books', 'hobbies', 'travel', 'style', 'favorites', 'notes'];
+      if (validJournalCategories.includes(synonymMatch as JournalCategory)) {
+        return synonymMatch as JournalCategory;
+      }
+    }
+  }
+  
+  // ContentCategory-based mapping with proper collapsing to canonical JournalCategory
+  switch (normalized) {
     case "restaurants":
     case "cafes":
     case "food_cooking":
@@ -503,13 +519,71 @@ export function mapAiCategoryToJournalCategory(aiCategory: ContentCategory): Jou
     case "entertainment":
     case "wellness_spa":
     case "fitness":
-      return "hobbies";
+      return "hobbies"; // fitness/wellness collapse to hobbies
     case "shopping":
-      return "favorites";
+      return "favorites"; // shopping collapses to favorites
     case "other":
     default:
       return "notes";
   }
+}
+
+/**
+ * Collapse any category ID to a valid JournalCategory value
+ * Maps extended category IDs like "fitness", "activities", "shopping" to canonical values
+ */
+function collapseToJournalCategory(categoryId: string): JournalCategory {
+  const collapseMap: Record<string, JournalCategory> = {
+    'restaurants': 'restaurants',
+    'movies': 'movies',
+    'music': 'music', 
+    'books': 'books',
+    'hobbies': 'hobbies',
+    'travel': 'travel',
+    'style': 'style',
+    'favorites': 'favorites',
+    'notes': 'notes',
+    // Collapse extended categories to canonical JournalCategory values
+    'fitness': 'hobbies',
+    'activities': 'hobbies',
+    'shopping': 'favorites',
+  };
+  return collapseMap[categoryId] || 'notes';
+}
+
+/**
+ * Map any AI-generated category string to a standard journal category ID
+ * Uses synonym matching to resolve categories like "Entertainment" -> "movies"
+ * 
+ * @param aiCategoryName - The AI-generated category name (e.g., "Entertainment", "Movies & Films")
+ * @returns The standard journal category ID (e.g., "movies", "restaurants")
+ */
+export function mapAiCategoryNameToJournalCategory(aiCategoryName: string): JournalCategory {
+  // First, try synonym-based resolution
+  const standardCategoryId = mapToStandardCategoryId(aiCategoryName);
+  if (standardCategoryId) {
+    const collapsed = collapseToJournalCategory(standardCategoryId);
+    console.log(`[CATEGORIZATION] Synonym match: "${aiCategoryName}" -> "${standardCategoryId}" -> "${collapsed}"`);
+    return collapsed;
+  }
+  
+  // If no synonym match, try the old ContentCategory-based mapping
+  const normalized = aiCategoryName.toLowerCase().replace(/[^a-z_]/g, '_');
+  const contentCategory = normalized as ContentCategory;
+  
+  // Check if it's a valid ContentCategory
+  const validCategories: ContentCategory[] = [
+    "restaurants", "bars_nightlife", "cafes", "hotels_accommodation",
+    "attractions_activities", "shopping", "wellness_spa", "outdoor_nature",
+    "entertainment", "travel_itinerary", "food_cooking", "fitness", "other"
+  ];
+  
+  if (validCategories.includes(contentCategory)) {
+    return mapAiCategoryToJournalCategory(contentCategory);
+  }
+  
+  console.log(`[CATEGORIZATION] No match for "${aiCategoryName}", defaulting to notes`);
+  return "notes";
 }
 
 export function mapVenueTypeToJournalCategory(venueType: string, fallbackCategory: ContentCategory): JournalCategory {
@@ -661,6 +735,29 @@ export function getDynamicCategoryInfo(subcategory: string | null, venueType?: s
 }
 
 /**
+ * Collapse any category ID to a valid JournalCategory value
+ * Maps extended category IDs like "fitness", "activities", "shopping" to canonical values
+ * (Duplicate declaration for scope - also defined earlier for mapAiCategoryNameToJournalCategory)
+ */
+function collapseToJournalCategoryForBestCategory(categoryId: string): JournalCategory {
+  const collapseMap: Record<string, JournalCategory> = {
+    'restaurants': 'restaurants',
+    'movies': 'movies',
+    'music': 'music', 
+    'books': 'books',
+    'hobbies': 'hobbies',
+    'travel': 'travel',
+    'style': 'style',
+    'favorites': 'favorites',
+    'notes': 'notes',
+    'fitness': 'hobbies',
+    'activities': 'hobbies',
+    'shopping': 'favorites',
+  };
+  return collapseMap[categoryId] || 'notes';
+}
+
+/**
  * Gets the best category for a venue, using dynamic category if standard mapping returns generic
  * @param venueType - The venue type string
  * @param subcategory - The subcategory from AI categorization
@@ -677,6 +774,27 @@ export function getBestJournalCategory(
   console.log(`  - subcategory: "${subcategory}"`);
   console.log(`  - fallbackCategory: "${fallbackCategory}"`);
   
+  // PRIORITY 1: Try synonym-based resolution from subcategory first
+  if (subcategory) {
+    const synonymMatch = mapToStandardCategoryId(subcategory);
+    if (synonymMatch) {
+      const collapsed = collapseToJournalCategoryForBestCategory(synonymMatch);
+      console.log(`[CATEGORIZATION] Synonym match from subcategory: "${subcategory}" -> "${synonymMatch}" -> "${collapsed}"`);
+      return { category: collapsed, dynamicInfo: null };
+    }
+  }
+  
+  // PRIORITY 2: Try synonym-based resolution from venue type
+  if (venueType) {
+    const synonymMatch = mapToStandardCategoryId(venueType);
+    if (synonymMatch) {
+      const collapsed = collapseToJournalCategoryForBestCategory(synonymMatch);
+      console.log(`[CATEGORIZATION] Synonym match from venueType: "${venueType}" -> "${synonymMatch}" -> "${collapsed}"`);
+      return { category: collapsed, dynamicInfo: null };
+    }
+  }
+  
+  // PRIORITY 3: Try the old venue type mapping
   const standardCategory = mapVenueTypeToJournalCategory(venueType, fallbackCategory);
   console.log(`  - standardCategory result: "${standardCategory}"`);
   

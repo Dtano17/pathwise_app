@@ -62,7 +62,7 @@ import { sendGroupNotification } from './services/notificationService';
 import { tavily } from '@tavily/core';
 import { socialMediaVideoService } from './services/socialMediaVideoService';
 import { apifyService } from './services/apifyService';
-import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory, mapVenueTypeToJournalCategory, getBestJournalCategory, getDynamicCategoryInfo, type VenueInfo, type DynamicCategoryInfo, type PrimaryCategorySuggestion, type SubcategorySuggestion } from './services/contentCategorizationService';
+import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory, mapAiCategoryNameToJournalCategory, mapVenueTypeToJournalCategory, getBestJournalCategory, getDynamicCategoryInfo, type VenueInfo, type DynamicCategoryInfo, type PrimaryCategorySuggestion, type SubcategorySuggestion } from './services/contentCategorizationService';
 import { findSimilarCategory, findSimilarSubcategory, findDuplicateVenue, checkDuplicateURL, generatePrimaryCategoryId, generateSubcategoryId, generateColorGradient, type DeduplicationConfig, DEFAULT_DEDUP_CONFIG } from './services/categoryMatcher';
 import { scheduleRemindersForActivity, cancelRemindersForActivity } from './services/reminderProcessor';
 
@@ -2406,7 +2406,7 @@ ${allUrls.map(page => `  <url>
           const journalEntry = await storage.createJournalEntry({
             userId,
             content: journalContent,
-            category: mapAiCategoryToJournalCategory(categorized.primaryCategory.name),
+            category: mapAiCategoryNameToJournalCategory(categorized.primaryCategory.name),
             tags: categorized.tags,
             mood: 'excited'
           });
@@ -7883,7 +7883,7 @@ ${emoji} ${progressLine}
               'general': 'other'
             };
             const contentCategory = contentCategoryMap[category] || category;
-            const journalCategory = mapAiCategoryToJournalCategory(contentCategory as any);
+            const journalCategory = mapAiCategoryNameToJournalCategory(contentCategory);
             
             // Try to look up cached content for enrichment
             let cachedContent: any = null;
