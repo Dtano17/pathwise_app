@@ -9,6 +9,7 @@ import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Ed
 const journalMateLogo = '/journalmate-logo-transparent.png';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
+import { useTheme } from '@/components/ThemeProvider';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -134,11 +135,8 @@ export default function SharedActivity() {
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [confirmationData, setConfirmationData] = useState<any>(null);
   
-  // Initialize theme from localStorage or default to dark
-  const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>(() => {
-    const savedTheme = localStorage.getItem('theme');
-    return savedTheme === 'light' ? 'light' : 'dark';
-  });
+  // Use shared theme from ThemeProvider
+  const { isDark, toggleTheme } = useTheme();
 
   const { data: user } = useQuery({
     queryKey: ['/api/user'],
@@ -147,19 +145,6 @@ export default function SharedActivity() {
   useEffect(() => {
     setIsAuthenticated(!!user && typeof user === 'object' && 'id' in user && user.id !== 'demo-user');
   }, [user]);
-
-  // Apply initial theme to document on mount
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', previewTheme === 'dark');
-  }, []);
-
-  // Toggle theme and sync with localStorage and document class
-  const togglePreviewTheme = () => {
-    const newTheme = previewTheme === 'light' ? 'dark' : 'light';
-    setPreviewTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
-  };
 
   const { data, isLoading, error: queryError } = useQuery<SharedActivityData>({
     queryKey: ['/api/share', token],
@@ -648,7 +633,7 @@ export default function SharedActivity() {
   const theme = categoryThemes[activity.category.toLowerCase()] || categoryThemes.other;
 
   return (
-    <div className={`min-h-screen ${previewTheme === 'dark' ? 'dark' : ''}`}>
+    <div className="min-h-screen">
       <div className="min-h-screen bg-background">
         {/* Hero Section with Dynamic Themed Background Image */}
         <div 
@@ -688,12 +673,12 @@ export default function SharedActivity() {
                 <Button 
                   variant="outline" 
                   size="icon" 
-                  onClick={togglePreviewTheme}
+                  onClick={toggleTheme}
                   data-testid="button-theme-toggle"
                   className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800"
-                  title={`Switch to ${previewTheme === 'light' ? 'dark' : 'light'} mode preview`}
+                  title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
                 >
-                  {previewTheme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                  {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 </Button>
               </div>
               <div className="flex items-center gap-2 flex-wrap justify-center">
