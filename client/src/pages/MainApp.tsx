@@ -1397,8 +1397,8 @@ export default function MainApp({
     { value: "tasks", label: `All Tasks (${tasks.length})`, shortLabel: "Tasks", icon: Target },
     { value: "progress", label: "Progress", shortLabel: "Stats", icon: BarChart3 },
     { value: "groups", label: "Groups", shortLabel: "Groups", icon: Users },
-    { value: "sync", label: "Integrations", shortLabel: "Apps", icon: Sparkles },
-    { value: "about", label: "About", shortLabel: "About", icon: Sparkles }
+    { value: "sync", label: "Integrations", shortLabel: "Apps", icon: Plug },
+    { value: "about", label: "About", shortLabel: "About", icon: Info }
   ];
 
   return (
@@ -1593,7 +1593,6 @@ export default function MainApp({
               <VoiceInput
                 onSubmit={(text) => processGoalMutation.mutate(text)}
                 isGenerating={processGoalMutation.isPending}
-                onOpenJournalMode={() => setShowJournalMode(true)}
               />
 
               {/* Interactive Options */}
@@ -2594,7 +2593,7 @@ export default function MainApp({
                             </SelectItem>
                             <SelectItem value="perplexity">
                               <div className="flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-blue-600" />
+                                <SiPerplexity className="w-4 h-4 text-blue-600" />
                                 Perplexity
                               </div>
                             </SelectItem>
