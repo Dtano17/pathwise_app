@@ -540,9 +540,43 @@ class SocialMediaVideoService {
     const response = await axios.get(embedUrl, {
       headers: INSTAGRAM_HEADERS,
       timeout: 15000,
+      maxRedirects: 5,
+      validateStatus: (status) => status < 500, // Accept 2xx, 3xx, 4xx to log them
     });
 
+    // Log response details for debugging
+    console.log(`[INSTAGRAM] Embed response:`, {
+      status: response.status,
+      statusText: response.statusText,
+      contentType: response.headers['content-type'],
+      contentLength: response.data?.length || 0,
+      isLoginPage: response.data?.includes('login') || response.data?.includes('Log in'),
+      hasEmbedData: response.data?.includes('"init"'),
+    });
+
+    // Check for blocked/redirected responses
+    if (response.status === 302 || response.status === 301) {
+      console.log(`[INSTAGRAM] Detected redirect (${response.status}) - likely blocked/login required`);
+      return { success: false, error: `Instagram redirect detected (${response.status}) - content may require login` };
+    }
+
+    if (response.status === 403 || response.status === 401) {
+      console.log(`[INSTAGRAM] Access denied (${response.status}) - blocked by Instagram`);
+      return { success: false, error: `Instagram access denied (${response.status}) - IP may be blocked` };
+    }
+
+    if (response.status !== 200) {
+      console.log(`[INSTAGRAM] Unexpected status: ${response.status}`);
+      return { success: false, error: `Unexpected Instagram response: ${response.status}` };
+    }
+
     const html = response.data;
+
+    // Check if we got a login page instead of actual content
+    if (html.includes('loginForm') || html.includes('/accounts/login/')) {
+      console.log(`[INSTAGRAM] Got login page instead of content - blocked by Instagram`);
+      return { success: false, error: 'Instagram returned login page - content blocked without authentication' };
+    }
 
     const jsonMatch = html.match(/"init",\[\],\[(.*?)\]\],/);
     if (!jsonMatch) {
@@ -610,9 +644,33 @@ class SocialMediaVideoService {
     const pageResponse = await axios.get(pageUrl, {
       headers: INSTAGRAM_HEADERS,
       timeout: 15000,
+      maxRedirects: 5,
+      validateStatus: (status) => status < 500,
     });
 
+    // Log response details for debugging
+    console.log(`[INSTAGRAM] GraphQL page response:`, {
+      status: pageResponse.status,
+      statusText: pageResponse.statusText,
+      contentType: pageResponse.headers['content-type'],
+      contentLength: pageResponse.data?.length || 0,
+      isLoginPage: pageResponse.data?.includes('loginForm') || pageResponse.data?.includes('/accounts/login/'),
+      hasSharedData: pageResponse.data?.includes('_sharedData'),
+    });
+
+    // Check for blocked responses
+    if (pageResponse.status !== 200) {
+      console.log(`[INSTAGRAM] GraphQL page returned status ${pageResponse.status}`);
+      return { success: false, error: `Instagram page returned ${pageResponse.status}` };
+    }
+
     const pageHtml = pageResponse.data;
+
+    // Check if we got a login page
+    if (pageHtml.includes('loginForm') || pageHtml.includes('/accounts/login/')) {
+      console.log(`[INSTAGRAM] GraphQL got login page - blocked by Instagram`);
+      return { success: false, error: 'Instagram returned login page - content blocked' };
+    }
 
     const scriptMatch = pageHtml.match(
       /<script[^>]*>window\._sharedData\s*=\s*(\{[\s\S]*?\});<\/script>/,

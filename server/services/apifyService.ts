@@ -415,3 +415,13 @@ class ApifyService {
 }
 
 export const apifyService = new ApifyService();
+
+// Log Apify status on startup
+const apifyStatus = apifyService.getStatus();
+console.log(`[APIFY] Startup check:`, {
+  available: apifyService.isAvailable(),
+  tokenConfigured: apifyStatus.configured,
+  tokenLength: process.env.APIFY_API_TOKEN?.length || 0,
+  tokenPrefix: process.env.APIFY_API_TOKEN?.substring(0, 8) || 'not-set',
+  message: apifyStatus.message
+});

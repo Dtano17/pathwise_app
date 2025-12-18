@@ -6786,6 +6786,79 @@ ${emoji} ${progressLine}
     }
   });
 
+  // Debug endpoint to test Instagram/social media URL extraction
+  app.post("/api/debug/test-extraction", async (req, res) => {
+    try {
+      const { url } = req.body;
+      
+      if (!url) {
+        return res.status(400).json({ error: 'URL is required' });
+      }
+
+      console.log(`[DEBUG] Testing extraction for URL: ${url}`);
+      
+      // Check Apify status
+      const apifyStatus = {
+        available: apifyService.isAvailable(),
+        status: apifyService.getStatus(),
+      };
+      console.log(`[DEBUG] Apify status:`, apifyStatus);
+
+      // Detect platform
+      const platform = socialMediaVideoService.detectPlatform(url);
+      console.log(`[DEBUG] Detected platform: ${platform}`);
+
+      if (!platform) {
+        return res.json({
+          success: false,
+          apifyStatus,
+          platform: null,
+          error: 'Unsupported platform',
+          supportedPlatforms: ['instagram', 'tiktok', 'youtube', 'twitter/x', 'facebook', 'reddit'],
+        });
+      }
+
+      // Attempt extraction
+      const startTime = Date.now();
+      const result = await socialMediaVideoService.extractContent(url);
+      const extractionTime = Date.now() - startTime;
+
+      console.log(`[DEBUG] Extraction result:`, {
+        success: result.success,
+        platform: result.platform,
+        hasCaption: !!result.caption,
+        hasMetadata: !!result.metadata,
+        hasTranscript: !!result.audioTranscript,
+        hasOcr: !!result.ocrText,
+        error: result.error,
+        extractionTimeMs: extractionTime,
+      });
+
+      return res.json({
+        success: result.success,
+        apifyStatus,
+        platform,
+        extractionTimeMs: extractionTime,
+        result: {
+          caption: result.caption?.substring(0, 500),
+          metadata: result.metadata,
+          hasTranscript: !!result.audioTranscript,
+          transcriptPreview: result.audioTranscript?.substring(0, 200),
+          hasOcr: !!result.ocrText,
+          ocrPreview: result.ocrText?.substring(0, 200),
+          error: result.error,
+        },
+      });
+    } catch (error: any) {
+      console.error('[DEBUG] Extraction test error:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      });
+    }
+  });
+
   // Send retroactive welcome emails to existing OAuth users
   app.post("/api/admin/send-oauth-welcome-emails", async (req, res) => {
     try {
