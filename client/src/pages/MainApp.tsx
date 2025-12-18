@@ -1397,7 +1397,7 @@ export default function MainApp({
     { value: "tasks", label: `All Tasks (${tasks.length})`, shortLabel: "Tasks", icon: Target },
     { value: "progress", label: "Progress", shortLabel: "Stats", icon: BarChart3 },
     { value: "groups", label: "Groups", shortLabel: "Groups", icon: Users },
-    { value: "sync", label: "Integrations", shortLabel: "Apps", icon: Plug },
+    { value: "sync", label: "Integrations", shortLabel: "Integrations", icon: Plug },
     { value: "about", label: "About", shortLabel: "About", icon: Info }
   ];
 
@@ -2552,6 +2552,43 @@ export default function MainApp({
                       <p className="text-xs text-muted-foreground text-center">
                         On mobile, use the share button in any app to send content directly to JournalMate
                       </p>
+                    </div>
+                  </Card>
+
+                  {/* How to Share on Mobile */}
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Share2 className="w-5 h-5 text-purple-600" />
+                      How to Share on Mobile
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex gap-3 items-start p-3 bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20 rounded-lg">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 flex items-center justify-center shrink-0">
+                          <SiInstagram className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">Found a workout routine on Instagram?</p>
+                          <p className="text-xs text-muted-foreground">Tap Share → Select JournalMate → Get your personalized workout plan!</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3 items-start p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                        <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+                          <SiOpenai className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">Had a trip planning chat with ChatGPT?</p>
+                          <p className="text-xs text-muted-foreground">Copy the conversation → Paste here → Get actionable travel tasks!</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3 items-start p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                        <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center shrink-0">
+                          <Youtube className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">Watching a cooking tutorial on YouTube?</p>
+                          <p className="text-xs text-muted-foreground">Tap Share → JournalMate → We extract ingredients and steps!</p>
+                        </div>
+                      </div>
                     </div>
                   </Card>
 
