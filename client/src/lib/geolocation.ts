@@ -79,7 +79,7 @@ export async function getCurrentLocation(
 
     const position: Position = await Geolocation.getCurrentPosition({
       enableHighAccuracy: options.enableHighAccuracy !== false,
-      timeout: options.timeout || 10000,
+      timeout: options.timeout || 30000,
       maximumAge: options.maximumAge || 0,
     });
 

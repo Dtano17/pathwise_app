@@ -73,10 +73,10 @@ export function useDeviceLocation() {
           }
         }
 
-        // Get current position
+        // Get current position - use longer timeout for high accuracy GPS
         const position = await Geolocation.getCurrentPosition({
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 30000,
         });
 
         const locationData: LocationData = {
@@ -105,7 +105,7 @@ export function useDeviceLocation() {
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: true,
-            timeout: 10000,
+            timeout: 30000,
             maximumAge: 60000,
           });
         });
