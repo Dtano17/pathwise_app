@@ -67,17 +67,20 @@ class ApifyService {
 
     console.log(`[APIFY] Extracting Instagram Reel: ${url}`);
 
-    // Use the official Instagram Reel Scraper actor (most reliable)
+    // Use the general Instagram scraper (apify/instagram-scraper) as primary
+    // This is free and supports direct post/reel URLs
     try {
-      const actorId = "apify~instagram-reel-scraper";
+      const actorId = "apify~instagram-scraper";
       const runUrl = `${APIFY_BASE_URL}/acts/${actorId}/run-sync-get-dataset-items?token=${APIFY_API_TOKEN}`;
 
-      console.log(`[APIFY] Using official instagram-reel-scraper actor...`);
+      console.log(`[APIFY] Using apify/instagram-scraper actor...`);
       const response = await axios.post(
         runUrl,
         {
           directUrls: [url],
+          resultsType: "posts",
           resultsLimit: 1,
+          addParentData: false,
         },
         {
           headers: { "Content-Type": "application/json" },
@@ -180,9 +183,9 @@ class ApifyService {
         console.error(`[APIFY] 400 Bad Request - Actor may be deprecated or input format changed:`, error.response?.data);
       }
 
-      // Try alternative actor on other errors
-      console.log(`[APIFY] Trying alternative Instagram actor...`);
-      return await this.extractInstagramReelAlternative(url);
+      // Try official instagram-reel-scraper with updated input format
+      console.log(`[APIFY] Trying official instagram-reel-scraper actor...`);
+      return await this.extractInstagramReelOfficial(url);
     }
   }
 
@@ -246,6 +249,68 @@ class ApifyService {
         data: error.response?.data,
       });
       return { success: false, error: error.message };
+    }
+  }
+
+  private async extractInstagramReelOfficial(
+    url: string,
+  ): Promise<ApifyInstagramResult> {
+    try {
+      // Try official instagram-reel-scraper with directUrls input
+      const actorId = "apify~instagram-reel-scraper";
+      const runUrl = `${APIFY_BASE_URL}/acts/${actorId}/run-sync-get-dataset-items?token=${APIFY_API_TOKEN}`;
+
+      console.log(`[APIFY] Using official instagram-reel-scraper with directUrls...`);
+      const response = await axios.post(
+        runUrl,
+        {
+          directUrls: [url],
+          resultsLimit: 1,
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+          timeout: 90000,
+        },
+      );
+
+      const items = response.data;
+
+      if (!items || items.length === 0) {
+        console.log(`[APIFY] Official scraper returned no results, trying general scraper...`);
+        return await this.extractInstagramReelAlternative(url);
+      }
+
+      const item = items[0];
+      console.log(`[APIFY] Official scraper successful:`, {
+        hasVideo: !!item.videoUrl,
+        caption: item.caption?.substring(0, 50),
+      });
+
+      return {
+        success: true,
+        videoUrl: item.videoUrl,
+        thumbnailUrl: item.thumbnailUrl || item.displayUrl,
+        caption: item.caption,
+        hashtags: item.hashtags,
+        mentions: item.mentions,
+        likesCount: item.likesCount,
+        viewsCount: item.videoViewCount || item.viewsCount || item.playsCount,
+        commentsCount: item.commentsCount,
+        duration: item.videoDuration || item.duration,
+        author: {
+          username: item.ownerUsername,
+          fullName: item.ownerFullName,
+        },
+        audioInfo: item.audioInfo,
+      };
+    } catch (error: any) {
+      console.error(`[APIFY] Official instagram-reel-scraper also failed:`, error.message);
+      console.error(`[APIFY] Error details:`, {
+        status: error.response?.status,
+        data: error.response?.data,
+      });
+      // Final fallback to general instagram-scraper
+      return await this.extractInstagramReelAlternative(url);
     }
   }
 
