@@ -18,7 +18,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2, Pin, MapPin, Settings, Flag, Combine, X, Check, Loader2 } from "lucide-react";
+import { Heart, Eye, Search, Sparkles, TrendingUp, Plane, Dumbbell, ListTodo, PartyPopper, Briefcase, HomeIcon, BookOpen, DollarSign, Plus, ChevronDown, ChevronRight, Bookmark, ShieldAlert, Megaphone, Users, CheckCircle2, Pin, MapPin, Settings, Flag, Combine, X, Check, Loader2 } from "lucide-react";
 import { SiLinkedin, SiInstagram, SiX } from "react-icons/si";
 import type { Activity } from "@shared/schema";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
@@ -1109,21 +1109,31 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
           </div>
         </div>
 
-        {/* Category Tabs - Fully Visible on Mobile */}
+        {/* Category Tabs - Horizontally Scrollable on Mobile */}
         <Tabs value={filters.category} onValueChange={(value) => updateFilter("category", value)} className="w-full">
-          <TabsList data-testid="tabs-categories" className="flex flex-wrap gap-1 w-full justify-start">
-            {categories.map((cat) => (
-              <TabsTrigger
-                key={cat.value}
-                value={cat.value}
-                data-testid={`tab-${cat.value}`}
-                className="flex-shrink-0"
-                aria-label={`Filter by ${cat.label}`}
-              >
-                {cat.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          <div className="relative">
+            <div className="overflow-x-auto scrollbar-hide">
+              <TabsList data-testid="tabs-categories" className="inline-flex gap-1 w-max min-w-full justify-start">
+                {categories.map((cat) => (
+                  <TabsTrigger
+                    key={cat.value}
+                    value={cat.value}
+                    data-testid={`tab-${cat.value}`}
+                    className="flex-shrink-0"
+                    aria-label={`Filter by ${cat.label}`}
+                  >
+                    {cat.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+            {/* Scroll indicator arrow for mobile */}
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none sm:hidden">
+              <div className="flex items-center bg-gradient-to-l from-background via-background to-transparent pl-6 pr-1">
+                <ChevronRight className="w-4 h-4 text-muted-foreground animate-pulse" />
+              </div>
+            </div>
+          </div>
         </Tabs>
 
         {/* Budget Filter */}
