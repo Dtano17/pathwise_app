@@ -2523,7 +2523,7 @@ export default function MainApp({
                     </div>
 
                     {/* Paste from Clipboard Button */}
-                    <div className="mt-6">
+                    <div className="mt-6 space-y-3">
                       <Button 
                         onClick={async () => {
                           try {
@@ -2549,43 +2549,9 @@ export default function MainApp({
                         <ClipboardPaste className="w-4 h-4 mr-2" />
                         Paste from Clipboard
                       </Button>
-                    </div>
-                  </Card>
-
-                  {/* How to Import - Tutorial Section */}
-                  <Card className="p-6">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <Lightbulb className="w-5 h-5 text-yellow-500" />
-                      How to Import Content
-                    </h3>
-                    <div className="space-y-4">
-                      <div className="flex gap-3 items-start p-3 bg-muted/50 rounded-lg">
-                        <div className="w-8 h-8 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center shrink-0">
-                          <SiInstagram className="w-4 h-4 text-pink-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">Found a workout routine on Instagram?</p>
-                          <p className="text-xs text-muted-foreground">Tap Share → JournalMate → Get your personalized workout plan!</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-3 items-start p-3 bg-muted/50 rounded-lg">
-                        <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
-                          <SiOpenai className="w-4 h-4 text-green-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">Had a trip planning chat with ChatGPT?</p>
-                          <p className="text-xs text-muted-foreground">Copy the conversation → Paste here → Get actionable travel tasks!</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-3 items-start p-3 bg-muted/50 rounded-lg">
-                        <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
-                          <Youtube className="w-4 h-4 text-red-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">Watching a cooking tutorial on YouTube?</p>
-                          <p className="text-xs text-muted-foreground">Share the link → We extract ingredients and steps → Start cooking!</p>
-                        </div>
-                      </div>
+                      <p className="text-xs text-muted-foreground text-center">
+                        On mobile, use the share button in any app to send content directly to JournalMate
+                      </p>
                     </div>
                   </Card>
 
