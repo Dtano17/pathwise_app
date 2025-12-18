@@ -15,6 +15,11 @@ import GroupGoalsPage from "@/pages/GroupGoalsPage";
 import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import SubscriptionCanceled from "@/pages/SubscriptionCanceled";
 import Updates from "@/pages/Updates";
+import LandingPageWrapper from "@/pages/LandingPageWrapper";
+import ChatGPTPlanTracker from "@/pages/ChatGPTPlanTracker";
+import PerplexityPlans from "@/pages/PerplexityPlans";
+import WeekendPlans from "@/pages/WeekendPlans";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
 import { useAuth } from "@/hooks/useAuth";
@@ -79,60 +84,135 @@ function AppContent() {
         {/* Product Updates & News Page (no sidebar) */}
         <Route path="/updates" component={Updates} />
 
-        {/* Main App with Sidebar */}
-        <Route>
-          <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
-            <div className="flex h-screen w-full overflow-auto">
-              <AppSidebar
-                selectedTheme={selectedTheme}
-                onThemeSelect={setSelectedTheme}
-                onShowThemeSelector={() => setShowThemeSelector(true)}
-                onShowDatePlanner={() => setShowLocationDatePlanner(true)}
-                onShowContacts={() => setShowContacts(true)}
-                onShowChatHistory={() => setShowChatHistory(true)}
-                onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
-                onShowRecentGoals={() => setShowRecentGoals(true)}
-                onShowProgressReport={() => setShowProgressReport(true)}
-                onShowEndOfDayReview={() => setShowEndOfDayReview(true)}
-                onOpenUpgradeModal={(trigger) => {
-                  setUpgradeTrigger(trigger);
-                  setShowUpgradeModal(true);
-                }}
-                onShowGoalInput={() => mainAppTabRef.current('input')}
-                onShowDiscover={() => mainAppTabRef.current('discover')}
-                onShowActivities={() => mainAppTabRef.current('activities')}
-                onShowAllTasks={() => mainAppTabRef.current('tasks')}
-                onShowProgress={() => mainAppTabRef.current('progress')}
-                onShowGroups={() => mainAppTabRef.current('groups')}
-                onShowIntegrations={() => mainAppTabRef.current('sync')}
-              />
-              <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-                <MainApp
+        {/* Marketing Pages (no sidebar) */}
+        <Route path="/chatgpt-plan-tracker" component={ChatGPTPlanTracker} />
+        <Route path="/perplexity-plans" component={PerplexityPlans} />
+        <Route path="/weekend-plans" component={WeekendPlans} />
+
+        {/* Main App Route - Protected with Sidebar */}
+        <Route path="/app">
+          <ProtectedRoute>
+            <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
+              <div className="flex h-screen w-full overflow-auto">
+                <AppSidebar
                   selectedTheme={selectedTheme}
                   onThemeSelect={setSelectedTheme}
-                  showThemeSelector={showThemeSelector}
-                  onShowThemeSelector={setShowThemeSelector}
-                  showLocationDatePlanner={showLocationDatePlanner}
-                  onShowLocationDatePlanner={setShowLocationDatePlanner}
-                  showContacts={showContacts}
-                  onShowContacts={setShowContacts}
-                  showChatHistory={showChatHistory}
-                  onShowChatHistory={setShowChatHistory}
-                  showLifestylePlanner={showLifestylePlanner}
-                  onShowLifestylePlanner={setShowLifestylePlanner}
-                  showRecentGoals={showRecentGoals}
-                  onShowRecentGoals={setShowRecentGoals}
-                  showProgressReport={showProgressReport}
-                  onShowProgressReport={setShowProgressReport}
-                  showEndOfDayReview={showEndOfDayReview}
-                  onShowEndOfDayReview={setShowEndOfDayReview}
-                  onTabChange={(setter) => {
-                    mainAppTabRef.current = setter;
+                  onShowThemeSelector={() => setShowThemeSelector(true)}
+                  onShowDatePlanner={() => setShowLocationDatePlanner(true)}
+                  onShowContacts={() => setShowContacts(true)}
+                  onShowChatHistory={() => setShowChatHistory(true)}
+                  onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
+                  onShowRecentGoals={() => setShowRecentGoals(true)}
+                  onShowProgressReport={() => setShowProgressReport(true)}
+                  onShowEndOfDayReview={() => setShowEndOfDayReview(true)}
+                  onOpenUpgradeModal={(trigger) => {
+                    setUpgradeTrigger(trigger);
+                    setShowUpgradeModal(true);
                   }}
+                  onShowGoalInput={() => mainAppTabRef.current('input')}
+                  onShowDiscover={() => mainAppTabRef.current('discover')}
+                  onShowActivities={() => mainAppTabRef.current('activities')}
+                  onShowAllTasks={() => mainAppTabRef.current('tasks')}
+                  onShowProgress={() => mainAppTabRef.current('progress')}
+                  onShowGroups={() => mainAppTabRef.current('groups')}
+                  onShowIntegrations={() => mainAppTabRef.current('sync')}
                 />
+                <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+                  <MainApp
+                    selectedTheme={selectedTheme}
+                    onThemeSelect={setSelectedTheme}
+                    showThemeSelector={showThemeSelector}
+                    onShowThemeSelector={setShowThemeSelector}
+                    showLocationDatePlanner={showLocationDatePlanner}
+                    onShowLocationDatePlanner={setShowLocationDatePlanner}
+                    showContacts={showContacts}
+                    onShowContacts={setShowContacts}
+                    showChatHistory={showChatHistory}
+                    onShowChatHistory={setShowChatHistory}
+                    showLifestylePlanner={showLifestylePlanner}
+                    onShowLifestylePlanner={setShowLifestylePlanner}
+                    showRecentGoals={showRecentGoals}
+                    onShowRecentGoals={setShowRecentGoals}
+                    showProgressReport={showProgressReport}
+                    onShowProgressReport={setShowProgressReport}
+                    showEndOfDayReview={showEndOfDayReview}
+                    onShowEndOfDayReview={setShowEndOfDayReview}
+                    onTabChange={(setter) => {
+                      mainAppTabRef.current = setter;
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          </SidebarProvider>
+            </SidebarProvider>
+          </ProtectedRoute>
+        </Route>
+
+        {/* Root Route - Environment-Aware with Smart Routing */}
+        <Route>
+          {(() => {
+            const isProduction = import.meta.env.PROD;
+            const forceLanding = import.meta.env.VITE_FORCE_LANDING_PAGE === 'true';
+            const showLandingAtRoot = isProduction || forceLanding;
+
+            // Production: Show landing page, let LandingPageWrapper handle auth redirect
+            // Development: Show MainApp directly for faster iteration
+            return showLandingAtRoot ? (
+              <LandingPageWrapper />
+            ) : (
+              <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
+                <div className="flex h-screen w-full overflow-auto">
+                  <AppSidebar
+                    selectedTheme={selectedTheme}
+                    onThemeSelect={setSelectedTheme}
+                    onShowThemeSelector={() => setShowThemeSelector(true)}
+                    onShowDatePlanner={() => setShowLocationDatePlanner(true)}
+                    onShowContacts={() => setShowContacts(true)}
+                    onShowChatHistory={() => setShowChatHistory(true)}
+                    onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
+                    onShowRecentGoals={() => setShowRecentGoals(true)}
+                    onShowProgressReport={() => setShowProgressReport(true)}
+                    onShowEndOfDayReview={() => setShowEndOfDayReview(true)}
+                    onOpenUpgradeModal={(trigger) => {
+                      setUpgradeTrigger(trigger);
+                      setShowUpgradeModal(true);
+                    }}
+                    onShowGoalInput={() => mainAppTabRef.current('input')}
+                    onShowDiscover={() => mainAppTabRef.current('discover')}
+                    onShowActivities={() => mainAppTabRef.current('activities')}
+                    onShowAllTasks={() => mainAppTabRef.current('tasks')}
+                    onShowProgress={() => mainAppTabRef.current('progress')}
+                    onShowGroups={() => mainAppTabRef.current('groups')}
+                    onShowIntegrations={() => mainAppTabRef.current('sync')}
+                  />
+                  <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+                    <MainApp
+                      selectedTheme={selectedTheme}
+                      onThemeSelect={setSelectedTheme}
+                      showThemeSelector={showThemeSelector}
+                      onShowThemeSelector={setShowThemeSelector}
+                      showLocationDatePlanner={showLocationDatePlanner}
+                      onShowLocationDatePlanner={setShowLocationDatePlanner}
+                      showContacts={showContacts}
+                      onShowContacts={setShowContacts}
+                      showChatHistory={showChatHistory}
+                      onShowChatHistory={setShowChatHistory}
+                      showLifestylePlanner={showLifestylePlanner}
+                      onShowLifestylePlanner={setShowLifestylePlanner}
+                      showRecentGoals={showRecentGoals}
+                      onShowRecentGoals={setShowRecentGoals}
+                      showProgressReport={showProgressReport}
+                      onShowProgressReport={setShowProgressReport}
+                      showEndOfDayReview={showEndOfDayReview}
+                      onShowEndOfDayReview={setShowEndOfDayReview}
+                      onTabChange={(setter) => {
+                        mainAppTabRef.current = setter;
+                      }}
+                    />
+                  </div>
+                </div>
+              </SidebarProvider>
+            );
+          })()}
         </Route>
       </Switch>
       {user?.id && <NotificationService userId={user.id} />}
