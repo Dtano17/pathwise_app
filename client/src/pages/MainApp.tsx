@@ -2447,245 +2447,308 @@ export default function MainApp({
             {/* App Integrations Tab */}
             <TabsContent value="sync" className="h-full flex flex-col pb-20">
               <SignInGate feature="App integrations">
-                <div className="text-center mb-6">
-                  <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
-                    <Plug className="w-6 h-6" />
-                    App Integrations
-                  </h2>
-                <p className="text-muted-foreground">
-                  Connect your favorite AI assistants, music platforms, and social media to create personalized life plans
-                </p>
-              </div>
-
-              <div className="max-w-4xl mx-auto space-y-8">
-                {/* AI Assistants */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Brain className="w-5 h-5" />
-                    AI Assistants
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-chatgpt">
-                      <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiOpenai className="w-6 h-6 text-green-600" />
-                      </div>
-                      <p className="text-sm font-medium">ChatGPT</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Connected</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-claude">
-                      <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiClaude className="w-6 h-6 text-purple-600" />
-                      </div>
-                      <p className="text-sm font-medium">Claude</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Connected</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-perplexity">
-                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiPerplexity className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <p className="text-sm font-medium">Perplexity</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Available</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-other-ai">
-                      <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <Lightbulb className="w-6 h-6 text-orange-600" />
-                      </div>
-                      <p className="text-sm font-medium">Other AI</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Available</Badge>
-                    </Card>
-                  </div>
-                </div>
-
-                {/* Music Platforms */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Music className="w-5 h-5" />
-                    Music Platforms
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-spotify">
-                      <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiSpotify className="w-6 h-6 text-green-600" />
-                      </div>
-                      <p className="text-sm font-medium">Spotify</p>
-                      <Badge variant="default" className="mt-1 text-xs bg-green-600 text-white">Connected</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-apple-music">
-                      <div className="w-12 h-12 bg-gray-100 dark:bg-gray-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiApplemusic className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-                      </div>
-                      <p className="text-sm font-medium">Apple Music</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-youtube-music">
-                      <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiYoutubemusic className="w-6 h-6 text-red-600" />
-                      </div>
-                      <p className="text-sm font-medium">YouTube Music</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
-                    </Card>
-                  </div>
-                </div>
-
-                {/* Social Media */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    Social Media
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-facebook">
-                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiFacebook className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <p className="text-sm font-medium">Facebook</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-instagram">
-                      <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiInstagram className="w-6 h-6 text-pink-600" />
-                      </div>
-                      <p className="text-sm font-medium">Instagram</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-twitter">
-                      <div className="w-12 h-12 bg-gray-100 dark:bg-gray-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <SiX className="w-6 h-6 text-gray-900 dark:text-gray-100" />
-                      </div>
-                      <p className="text-sm font-medium">Twitter/X</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
-                    </Card>
-                    <Card className="p-4 text-center hover-elevate cursor-pointer" data-testid="card-integration-youtube">
-                      <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-xl flex items-center justify-center mx-auto mb-2">
-                        <Youtube className="w-6 h-6 text-red-600" />
-                      </div>
-                      <p className="text-sm font-medium">YouTube</p>
-                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
-                    </Card>
-                  </div>
-                </div>
-
-                {/* Chat Import Form */}
-                <Card className="p-6">
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">AI Source</label>
-                        <Select 
-                          value={chatSource} 
-                          onValueChange={setChatSource}
-                        >
-                          <SelectTrigger data-testid="select-chat-source">
-                            <SelectValue placeholder="Select AI source..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="chatgpt">
-                              <div className="flex items-center gap-2">
-                                <MessageSquare className="w-4 h-4 text-green-600" />
-                                ChatGPT
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="claude">
-                              <div className="flex items-center gap-2">
-                                <Brain className="w-4 h-4 text-purple-600" />
-                                Claude
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="perplexity">
-                              <div className="flex items-center gap-2">
-                                <SiPerplexity className="w-4 h-4 text-blue-600" />
-                                Perplexity
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="other">
-                              <div className="flex items-center gap-2">
-                                <Lightbulb className="w-4 h-4 text-orange-600" />
-                                Other AI
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Conversation Title (optional)</label>
-                        <Input
-                          value={chatTitle}
-                          onChange={(e) => setChatTitle(e.target.value)}
-                          placeholder="e.g., Planning my health goals..."
-                          data-testid="input-chat-title"
-                        />
-                      </div>
+                <div className="max-w-4xl mx-auto space-y-8">
+                  
+                  {/* Import Content to Plan - Hero Section */}
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-2 mb-3">
+                      <Upload className="w-7 h-7 text-primary" />
+                      <h2 className="text-2xl font-bold text-foreground">Import Content to Plan</h2>
                     </div>
-
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Chat Conversation</label>
-                      <Textarea
-                        value={chatText}
-                        onChange={(e) => setChatText(e.target.value)}
-                        placeholder="Paste your full conversation here. Include both your messages and the AI's responses.
-
-Example format:
-User: I want to get healthier and work out more
-Assistant: That's a great goal! Here's a plan to help you...
-User: What about my diet?
-Assistant: For nutrition, I recommend..."
-                        className="min-h-[250px] resize-none"
-                        data-testid="textarea-chat-content"
-                      />
-                    </div>
-
-                    <Button
-                      onClick={handleChatImport}
-                      disabled={importChatMutation.isPending || !chatText.trim()}
-                      className="w-full"
-                      data-testid="button-import-chat"
-                    >
-                      {importChatMutation.isPending ? (
-                        <>
-                          <Upload className="w-4 h-4 mr-2 animate-spin" />
-                          Importing & Processing...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4 mr-2" />
-                          Import & Extract Goals
-                        </>
-                      )}
-                    </Button>
+                    <p className="text-muted-foreground max-w-lg mx-auto">
+                      Share or paste content from anywhere. We'll extract it, create an actionable plan, and add it to your journal.
+                    </p>
                   </div>
-                </Card>
 
-                {/* Recent Imports */}
-                {chatImports.length > 0 && (
+                  {/* Supported Sources */}
                   <Card className="p-6">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <History className="w-5 h-5" />
-                      Recent Chat Imports
-                    </h3>
-                    <div className="space-y-3">
-                      {chatImports.slice(0, 5).map((chatImport) => (
-                        <div key={chatImport.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover-elevate">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{chatImport.conversationTitle || 'Untitled Conversation'}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {chatImport.extractedGoals?.length || 0} goals extracted • {chatImport.processedAt ? new Date(chatImport.processedAt).toLocaleDateString() : 'Processing...'}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 ml-4">
-                            <Badge variant="outline" className="text-xs">
-                              {chatImport.source}
-                            </Badge>
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Target className="w-3 h-3" />
-                              {chatImport.extractedGoals?.length || 0}
-                            </div>
-                          </div>
+                    <p className="text-xs font-semibold text-muted-foreground text-center mb-4 tracking-wider">SUPPORTED SOURCES</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Social Media Column */}
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-3">Social Media</p>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge className="bg-gradient-to-r from-pink-500 to-purple-500 text-white border-0 gap-1.5">
+                            <SiInstagram className="w-3 h-3" /> Instagram
+                          </Badge>
+                          <Badge className="bg-black text-white border-0 gap-1.5">
+                            <SiTiktok className="w-3 h-3" /> TikTok
+                          </Badge>
+                          <Badge className="bg-red-600 text-white border-0 gap-1.5">
+                            <Youtube className="w-3 h-3" /> YouTube
+                          </Badge>
+                          <Badge className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-0 gap-1.5">
+                            <SiX className="w-3 h-3" /> Twitter/X
+                          </Badge>
+                          <Badge className="bg-blue-600 text-white border-0 gap-1.5">
+                            <SiFacebook className="w-3 h-3" /> Facebook
+                          </Badge>
+                          <Badge className="bg-orange-600 text-white border-0 gap-1.5">
+                            <SiReddit className="w-3 h-3" /> Reddit
+                          </Badge>
                         </div>
-                      ))}
+                      </div>
+
+                      {/* AI & Files Column */}
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-3">AI & Files</p>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge className="bg-green-600 text-white border-0 gap-1.5">
+                            <SiOpenai className="w-3 h-3" /> ChatGPT
+                          </Badge>
+                          <Badge className="bg-purple-600 text-white border-0 gap-1.5">
+                            <SiClaude className="w-3 h-3" /> Claude
+                          </Badge>
+                          <Badge className="bg-blue-500 text-white border-0 gap-1.5">
+                            <SiGooglegemini className="w-3 h-3" /> Gemini
+                          </Badge>
+                          <Badge className="bg-emerald-600 text-white border-0 gap-1.5">
+                            <FileText className="w-3 h-3" /> Articles
+                          </Badge>
+                          <Badge className="bg-blue-700 text-white border-0 gap-1.5">
+                            <FileText className="w-3 h-3" /> Docs
+                          </Badge>
+                          <Badge className="bg-pink-600 text-white border-0 gap-1.5">
+                            <Image className="w-3 h-3" /> Images
+                          </Badge>
+                          <Badge className="bg-red-700 text-white border-0 gap-1.5">
+                            <FileText className="w-3 h-3" /> PDFs
+                          </Badge>
+                          <Badge className="bg-violet-600 text-white border-0 gap-1.5">
+                            <Video className="w-3 h-3" /> Videos
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Paste from Clipboard Button */}
+                    <div className="mt-6">
+                      <Button 
+                        onClick={async () => {
+                          try {
+                            const text = await navigator.clipboard.readText();
+                            if (text) {
+                              setChatText(text);
+                              toast({
+                                title: "Content pasted",
+                                description: "Content from clipboard has been added. Click Import to create your plan."
+                              });
+                            }
+                          } catch (err) {
+                            toast({
+                              title: "Clipboard access denied",
+                              description: "Please paste your content manually in the text area below.",
+                              variant: "destructive"
+                            });
+                          }
+                        }}
+                        className="w-full bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white"
+                        data-testid="button-paste-clipboard"
+                      >
+                        <ClipboardPaste className="w-4 h-4 mr-2" />
+                        Paste from Clipboard
+                      </Button>
                     </div>
                   </Card>
-                )}
-              </div>
+
+                  {/* How to Import - Tutorial Section */}
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Lightbulb className="w-5 h-5 text-yellow-500" />
+                      How to Import Content
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex gap-3 items-start p-3 bg-muted/50 rounded-lg">
+                        <div className="w-8 h-8 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center shrink-0">
+                          <SiInstagram className="w-4 h-4 text-pink-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">Found a workout routine on Instagram?</p>
+                          <p className="text-xs text-muted-foreground">Tap Share → JournalMate → Get your personalized workout plan!</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3 items-start p-3 bg-muted/50 rounded-lg">
+                        <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
+                          <SiOpenai className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">Had a trip planning chat with ChatGPT?</p>
+                          <p className="text-xs text-muted-foreground">Copy the conversation → Paste here → Get actionable travel tasks!</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3 items-start p-3 bg-muted/50 rounded-lg">
+                        <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                          <Youtube className="w-4 h-4 text-red-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">Watching a cooking tutorial on YouTube?</p>
+                          <p className="text-xs text-muted-foreground">Share the link → We extract ingredients and steps → Start cooking!</p>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Manual Import Form */}
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <MessageSquare className="w-5 h-5" />
+                      Manual Import
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Source Type</label>
+                          <Select value={chatSource} onValueChange={setChatSource}>
+                            <SelectTrigger data-testid="select-chat-source">
+                              <SelectValue placeholder="Select source..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="chatgpt">
+                                <div className="flex items-center gap-2">
+                                  <SiOpenai className="w-4 h-4 text-green-600" />
+                                  ChatGPT
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="claude">
+                                <div className="flex items-center gap-2">
+                                  <SiClaude className="w-4 h-4 text-purple-600" />
+                                  Claude
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="gemini">
+                                <div className="flex items-center gap-2">
+                                  <SiGooglegemini className="w-4 h-4 text-blue-500" />
+                                  Gemini
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="instagram">
+                                <div className="flex items-center gap-2">
+                                  <SiInstagram className="w-4 h-4 text-pink-600" />
+                                  Instagram
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="youtube">
+                                <div className="flex items-center gap-2">
+                                  <Youtube className="w-4 h-4 text-red-600" />
+                                  YouTube
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="other">
+                                <div className="flex items-center gap-2">
+                                  <Lightbulb className="w-4 h-4 text-orange-600" />
+                                  Other
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Title (optional)</label>
+                          <Input
+                            value={chatTitle}
+                            onChange={(e) => setChatTitle(e.target.value)}
+                            placeholder="e.g., My fitness plan..."
+                            data-testid="input-chat-title"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Content</label>
+                        <Textarea
+                          value={chatText}
+                          onChange={(e) => setChatText(e.target.value)}
+                          placeholder="Paste your content here - conversations, links, articles, or any text you want to turn into a plan..."
+                          className="min-h-[150px] resize-none"
+                          data-testid="textarea-chat-content"
+                        />
+                      </div>
+
+                      <Button
+                        onClick={handleChatImport}
+                        disabled={importChatMutation.isPending || !chatText.trim()}
+                        className="w-full"
+                        data-testid="button-import-chat"
+                      >
+                        {importChatMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Creating Your Plan...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-4 h-4 mr-2" />
+                            Import & Create Plan
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </Card>
+
+                  {/* Recent Imports */}
+                  {chatImports.length > 0 && (
+                    <Card className="p-6">
+                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <History className="w-5 h-5" />
+                        Recent Imports
+                      </h3>
+                      <div className="space-y-3">
+                        {chatImports.slice(0, 5).map((chatImport) => (
+                          <div key={chatImport.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover-elevate">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{chatImport.conversationTitle || 'Untitled Import'}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {chatImport.extractedGoals?.length || 0} goals extracted • {chatImport.processedAt ? new Date(chatImport.processedAt).toLocaleDateString() : 'Processing...'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 ml-4">
+                              <Badge variant="outline" className="text-xs">{chatImport.source}</Badge>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" data-testid={`button-view-import-${chatImport.id}`}>
+                                <Eye className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* Coming Soon Integrations - Bottom */}
+                  <div className="pt-4">
+                    <div className="flex items-center gap-2 mb-4 text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      <span className="text-sm font-medium">Coming Soon Integrations</span>
+                    </div>
+                    <div className="flex flex-wrap gap-3 justify-center">
+                      <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-muted/30 min-w-[80px]">
+                        <SiPerplexity className="w-6 h-6 text-blue-600" />
+                        <span className="text-xs text-muted-foreground">Perplexity</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-muted/30 min-w-[80px]">
+                        <SiApplemusic className="w-6 h-6 text-pink-500" />
+                        <span className="text-xs text-muted-foreground">Apple Music</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-muted/30 min-w-[80px]">
+                        <SiYoutubemusic className="w-6 h-6 text-red-600" />
+                        <span className="text-xs text-muted-foreground">YT Music</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-muted/30 min-w-[80px]">
+                        <SiFacebook className="w-6 h-6 text-blue-600" />
+                        <span className="text-xs text-muted-foreground">Facebook</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-muted/30 min-w-[80px]">
+                        <SiInstagram className="w-6 h-6 text-pink-600" />
+                        <span className="text-xs text-muted-foreground">Instagram</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-muted/30 min-w-[80px]">
+                        <SiX className="w-6 h-6" />
+                        <span className="text-xs text-muted-foreground">X/Twitter</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
               </SignInGate>
             </TabsContent>
 
