@@ -19,7 +19,7 @@ import {
   Plane, Home, ShoppingBag, Gamepad2, Folder, Wand2,
   Package, BarChart3, FileText, Target, Cloud, Users,
   Loader2, TrendingUp, PenTool, Copy, Check, RefreshCw, Trash2,
-  Settings, Pencil, Merge, Link, Image, Eye, EyeOff, Calendar
+  Settings, Pencil, Merge, Link, Image, Eye, EyeOff, Calendar, ExternalLink
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -42,8 +42,11 @@ const categoryIcons: Record<string, string> = {
 };
 
 // Smart text renderer that extracts and highlights titles, authors, etc.
-function SmartTextRenderer({ text, category }: { text: string; category?: string }) {
+function SmartTextRenderer({ text, category, sourceUrl }: { text: string; category?: string; sourceUrl?: string }) {
   const icon = categoryIcons[category || ''] || '';
+  
+  // Check for "Inspired by" pattern
+  const inspiredByMatch = text.match(/^Inspired\s+by\s+(.+?)(?:\s*[-–—]\s*(.*))?$/i);
   
   // Pattern: "Title" by Author - Description
   const quotedTitleMatch = text.match(/^(Read |Study |Complete |Watch |Listen to )?['"]([^'"]+)['"]/i);
@@ -51,6 +54,42 @@ function SmartTextRenderer({ text, category }: { text: string; category?: string
   const recommenderMatch = text.match(/\(([A-Z][a-zA-Z\s.']+(?:'s)?\s*(?:choice|pick|recommendation|favorite))\)/i);
   const dashSplit = text.split(/\s*[-–—]\s*/);
   const hasDescription = dashSplit.length > 1;
+  
+  // Handle "Inspired by" pattern
+  if (inspiredByMatch) {
+    const inspiredText = inspiredByMatch[1].trim();
+    const descriptionPart = inspiredByMatch[2]?.trim() || '';
+    
+    return (
+      <div className="space-y-1">
+        <div className="flex items-start gap-2">
+          {icon && <span className="text-lg flex-shrink-0">{icon}</span>}
+          <div className="flex-1">
+            <p className="text-sm sm:text-base">
+              <span className="text-muted-foreground">Inspired by </span>
+              {sourceUrl ? (
+                <a
+                  href={sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-primary hover:underline"
+                  data-testid="link-inspired-by"
+                >
+                  {inspiredText}
+                  <ExternalLink className="w-3 h-3 inline ml-1" />
+                </a>
+              ) : (
+                <span className="font-semibold text-foreground">{inspiredText}</span>
+              )}
+            </p>
+          </div>
+        </div>
+        {descriptionPart && (
+          <p className="text-sm text-muted-foreground pl-7">{descriptionPart}</p>
+        )}
+      </div>
+    );
+  }
   
   if (quotedTitleMatch || byAuthorMatch) {
     let titlePart = '';
@@ -1152,6 +1191,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                     const media = isRichEntry ? item.media : null;
                     const timestamp = isRichEntry ? item.timestamp : null;
                     const keywords = isRichEntry ? item.keywords : null;
+                    const sourceUrl = isRichEntry ? item.sourceUrl || undefined : undefined;
                     
                     // Find original index for removal
                     const originalIndex = journalData[activeCategory]?.indexOf(item) ?? -1;
@@ -1176,7 +1216,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                   })}
                                 </div>
                               )}
-                              <SmartTextRenderer text={text} category={activeCategory} />
+                              <SmartTextRenderer text={text} category={activeCategory} sourceUrl={sourceUrl} />
                               {media && media.length > 0 && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mt-3 sm:mt-4">
                                   {media.map((m, idx) => (

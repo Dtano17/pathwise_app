@@ -39,7 +39,7 @@ const categoryIcons: Record<string, string> = {
 };
 
 // Smart text renderer that extracts and highlights titles, authors, etc.
-function SmartTextRenderer({ text, category }: { text: string; category?: string }) {
+function SmartTextRenderer({ text, category, sourceUrl }: { text: string; category?: string; sourceUrl?: string }) {
   // Get category icon
   const categoryKey = category?.toLowerCase().replace(/[^a-z]/g, '-') || '';
   const icon = categoryIcons[categoryKey] || categoryIcons[category?.split('-')[0] || ''] || '';
@@ -47,6 +47,10 @@ function SmartTextRenderer({ text, category }: { text: string; category?: string
   // Pattern: "Title" by Author - Description
   // Or: Read 'Title' by Author - Description
   // Or: Title by Author (Recommender's choice) - Description
+  // Or: Inspired by ...
+  
+  // Check for "Inspired by" pattern
+  const inspiredByMatch = text.match(/^Inspired\s+by\s+(.+?)(?:\s*[-–—]\s*(.*))?$/i);
   
   // Try to extract title in quotes
   const quotedTitleMatch = text.match(/^(Read |Study |Complete |Watch |Listen to )?['"]([^'"]+)['"]/i);
@@ -60,6 +64,42 @@ function SmartTextRenderer({ text, category }: { text: string; category?: string
   // Split on " - " to separate title/author from description
   const dashSplit = text.split(/\s*[-–—]\s*/);
   const hasDescription = dashSplit.length > 1;
+  
+  // Handle "Inspired by" pattern
+  if (inspiredByMatch) {
+    const inspiredText = inspiredByMatch[1].trim();
+    const descriptionPart = inspiredByMatch[2]?.trim() || '';
+    
+    return (
+      <div className="space-y-1">
+        <div className="flex items-start gap-2">
+          {icon && <span className="text-lg flex-shrink-0">{icon}</span>}
+          <div className="flex-1">
+            <p className="text-sm sm:text-base">
+              <span className="text-muted-foreground">Inspired by </span>
+              {sourceUrl ? (
+                <a
+                  href={sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-primary hover:underline"
+                  data-testid="link-inspired-by"
+                >
+                  {inspiredText}
+                  <ExternalLink className="w-3 h-3 inline ml-1" />
+                </a>
+              ) : (
+                <span className="font-semibold text-foreground">{inspiredText}</span>
+              )}
+            </p>
+          </div>
+        </div>
+        {descriptionPart && (
+          <p className="text-sm text-muted-foreground pl-7">{descriptionPart}</p>
+        )}
+      </div>
+    );
+  }
   
   if (quotedTitleMatch || byAuthorMatch) {
     let titlePart = '';
@@ -585,7 +625,7 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <SmartTextRenderer text={entry.text} category={entry.category} />
+                      <SmartTextRenderer text={entry.text} category={entry.category} sourceUrl={entry.sourceUrl} />
 
                       {/* Source link for imported content */}
                       {entry.isImported && entry.sourceUrl && (
