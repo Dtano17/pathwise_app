@@ -19,12 +19,110 @@ import {
   Plane, Home, ShoppingBag, Gamepad2, Folder, Wand2,
   Package, BarChart3, FileText, Target, Cloud, Users,
   Loader2, TrendingUp, PenTool, Copy, Check, RefreshCw, Trash2,
-  Settings, Pencil, Merge, Link, Image, Eye, EyeOff
+  Settings, Pencil, Merge, Link, Image, Eye, EyeOff, Calendar
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
+
+// Category icons for smart rendering
+const categoryIcons: Record<string, string> = {
+  books: '📚',
+  reading: '📚',
+  restaurants: '🍽️',
+  food: '🍽️',
+  movies: '🎬',
+  music: '🎵',
+  travel: '✈️',
+  hobbies: '⭐',
+  style: '👗',
+  favorites: '⭐',
+  notes: '📝',
+};
+
+// Smart text renderer that extracts and highlights titles, authors, etc.
+function SmartTextRenderer({ text, category }: { text: string; category?: string }) {
+  const icon = categoryIcons[category || ''] || '';
+  
+  // Pattern: "Title" by Author - Description
+  const quotedTitleMatch = text.match(/^(Read |Study |Complete |Watch |Listen to )?['"]([^'"]+)['"]/i);
+  const byAuthorMatch = text.match(/\bby\s+([A-Z][a-zA-Z\s&.'-]+?)(?:\s*[-–—]\s*|\s*\(|\s*$)/i);
+  const recommenderMatch = text.match(/\(([A-Z][a-zA-Z\s.']+(?:'s)?\s*(?:choice|pick|recommendation|favorite))\)/i);
+  const dashSplit = text.split(/\s*[-–—]\s*/);
+  const hasDescription = dashSplit.length > 1;
+  
+  if (quotedTitleMatch || byAuthorMatch) {
+    let titlePart = '';
+    let authorPart = '';
+    let descriptionPart = '';
+    let prefix = '';
+    
+    if (quotedTitleMatch) {
+      prefix = quotedTitleMatch[1] || '';
+      titlePart = quotedTitleMatch[2];
+      const afterTitle = text.slice(quotedTitleMatch[0].length);
+      const authorInRest = afterTitle.match(/^\s*by\s+([A-Z][a-zA-Z\s&.'-]+?)(?:\s*[-–—]\s*|\s*\(|\s*$)/i);
+      if (authorInRest) {
+        authorPart = authorInRest[1].trim();
+        descriptionPart = afterTitle.slice(authorInRest[0].length).replace(/^\s*[-–—]\s*/, '').trim();
+      } else if (hasDescription) {
+        descriptionPart = dashSplit.slice(1).join(' - ').trim();
+      }
+    } else if (byAuthorMatch && hasDescription) {
+      const beforeBy = text.split(/\s+by\s+/i)[0];
+      titlePart = beforeBy.replace(/^(Read |Study |Complete |Watch |Listen to )/i, '');
+      prefix = text.match(/^(Read |Study |Complete |Watch |Listen to )/i)?.[1] || '';
+      authorPart = byAuthorMatch[1].trim();
+      const dashIndex = text.indexOf(' - ');
+      if (dashIndex > -1) descriptionPart = text.slice(dashIndex + 3).trim();
+    }
+    
+    const recommenderInDesc = descriptionPart.match(/\(([A-Z][a-zA-Z\s.']+(?:'s)?\s*(?:choice|pick|recommendation|favorite))\)/i);
+    let recommender = '';
+    if (recommenderInDesc) {
+      recommender = recommenderInDesc[1];
+      descriptionPart = descriptionPart.replace(recommenderInDesc[0], '').trim();
+    } else if (recommenderMatch) {
+      recommender = recommenderMatch[1];
+    }
+    
+    return (
+      <div className="space-y-1">
+        <div className="flex items-start gap-2">
+          {icon && <span className="text-lg flex-shrink-0">{icon}</span>}
+          <div className="flex-1">
+            <p className="text-sm sm:text-base">
+              {prefix && <span className="text-muted-foreground">{prefix}</span>}
+              <span className="font-semibold text-foreground">{titlePart}</span>
+              {authorPart && (
+                <>
+                  <span className="text-muted-foreground"> by </span>
+                  <span className="font-medium text-primary/80">{authorPart}</span>
+                </>
+              )}
+            </p>
+            {recommender && (
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                <Star className="w-3 h-3 inline mr-1" />{recommender}
+              </p>
+            )}
+          </div>
+        </div>
+        {descriptionPart && (
+          <p className="text-sm text-muted-foreground pl-7">{descriptionPart}</p>
+        )}
+      </div>
+    );
+  }
+  
+  return (
+    <div className="flex items-start gap-2">
+      {icon && <span className="text-lg flex-shrink-0">{icon}</span>}
+      <p className="text-sm sm:text-base break-words whitespace-pre-wrap flex-1">{text}</p>
+    </div>
+  );
+}
 
 interface RichJournalEntry {
   id: string;
@@ -143,6 +241,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const [locationFilter, setLocationFilter] = useState<string>('all');
   const [budgetFilter, setBudgetFilter] = useState<string>('all');
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');
   
   // Journal settings state
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
@@ -644,7 +743,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     return entries.filter(item => {
       // String entries pass through if no filters are active
       if (typeof item === 'string') {
-        return locationFilter === 'all' && budgetFilter === 'all' && subcategoryFilter === 'all';
+        return locationFilter === 'all' && budgetFilter === 'all' && subcategoryFilter === 'all' && dateFilter === 'all';
       }
 
       // Check location filter
@@ -668,16 +767,42 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
         if (item.subcategory !== subcategoryFilter) return false;
       }
 
+      // Check date filter
+      if (dateFilter !== 'all' && item.timestamp) {
+        const entryDate = new Date(item.timestamp);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (dateFilter === 'today') {
+          const entryDay = new Date(entryDate);
+          entryDay.setHours(0, 0, 0, 0);
+          if (entryDay.getTime() !== today.getTime()) return false;
+        } else if (dateFilter === 'week') {
+          const weekAgo = new Date(today);
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          if (entryDate < weekAgo) return false;
+        } else if (dateFilter === 'month') {
+          const monthAgo = new Date(today);
+          monthAgo.setMonth(monthAgo.getMonth() - 1);
+          if (entryDate < monthAgo) return false;
+        } else if (dateFilter === 'year') {
+          const yearAgo = new Date(today);
+          yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+          if (entryDate < yearAgo) return false;
+        }
+      }
+
       return true;
     });
-  }, [journalData, activeCategory, locationFilter, budgetFilter, subcategoryFilter]);
+  }, [journalData, activeCategory, locationFilter, budgetFilter, subcategoryFilter, dateFilter]);
 
-  const hasActiveFilters = locationFilter !== 'all' || budgetFilter !== 'all' || subcategoryFilter !== 'all';
+  const hasActiveFilters = locationFilter !== 'all' || budgetFilter !== 'all' || subcategoryFilter !== 'all' || dateFilter !== 'all';
 
   const clearFilters = useCallback(() => {
     setLocationFilter('all');
     setBudgetFilter('all');
     setSubcategoryFilter('all');
+    setDateFilter('all');
   }, []);
 
   return (
@@ -925,6 +1050,20 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                   </Select>
                 )}
 
+                <Select value={dateFilter} onValueChange={setDateFilter}>
+                  <SelectTrigger className="w-[130px] sm:w-[140px] text-xs sm:text-sm" data-testid="select-date-filter">
+                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                    <SelectValue placeholder="Date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="week">Past Week</SelectItem>
+                    <SelectItem value="month">Past Month</SelectItem>
+                    <SelectItem value="year">Past Year</SelectItem>
+                  </SelectContent>
+                </Select>
+
                 {hasActiveFilters && (
                   <Button
                     variant="ghost"
@@ -1037,9 +1176,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                   })}
                                 </div>
                               )}
-                              <p className="text-sm sm:text-base break-words whitespace-pre-wrap">
-                                {text}
-                              </p>
+                              <SmartTextRenderer text={text} category={activeCategory} />
                               {media && media.length > 0 && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mt-3 sm:mt-4">
                                   {media.map((m, idx) => (
