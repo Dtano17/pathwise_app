@@ -1397,7 +1397,7 @@ export default function MainApp({
     { value: "tasks", label: `All Tasks (${tasks.length})`, shortLabel: "Tasks", icon: Target },
     { value: "progress", label: "Progress", shortLabel: "Stats", icon: BarChart3 },
     { value: "groups", label: "Groups", shortLabel: "Groups", icon: Users },
-    { value: "sync", label: "Integrations", shortLabel: "Apps", icon: Plug },
+    { value: "sync", label: "Integrations", shortLabel: "Integrations", icon: Plug },
     { value: "about", label: "About", shortLabel: "About", icon: Info }
   ];
 
@@ -2444,115 +2444,31 @@ export default function MainApp({
               )}
             </TabsContent>
 
-            {/* App Integrations Tab */}
+            {/* Integrations Tab */}
             <TabsContent value="sync" className="h-full flex flex-col pb-20">
-              <SignInGate feature="App integrations">
+              <SignInGate feature="Integrations">
                 <div className="max-w-4xl mx-auto space-y-8">
                   
-                  {/* Import Content to Plan - Hero Section */}
+                  {/* Header */}
                   <div className="text-center">
                     <div className="flex items-center justify-center gap-2 mb-3">
-                      <Upload className="w-7 h-7 text-primary" />
-                      <h2 className="text-2xl font-bold text-foreground">Import Content to Plan</h2>
+                      <Plug className="w-7 h-7 text-primary" />
+                      <h2 className="text-2xl font-bold text-foreground">Integrations</h2>
                     </div>
                     <p className="text-muted-foreground max-w-lg mx-auto">
-                      Share or paste content from anywhere. We'll extract it, create an actionable plan, and add it to your journal.
+                      Connect your favorite apps and services to JournalMate.
                     </p>
                   </div>
 
-                  {/* Supported Sources */}
-                  <Card className="p-6">
-                    <p className="text-xs font-semibold text-muted-foreground text-center mb-4 tracking-wider">SUPPORTED SOURCES</p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Social Media Column */}
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground mb-3">Social Media</p>
-                        <div className="flex flex-wrap gap-2">
-                          <Badge className="bg-gradient-to-r from-pink-500 to-purple-500 text-white border-0 gap-1.5">
-                            <SiInstagram className="w-3 h-3" /> Instagram
-                          </Badge>
-                          <Badge className="bg-black text-white border-0 gap-1.5">
-                            <SiTiktok className="w-3 h-3" /> TikTok
-                          </Badge>
-                          <Badge className="bg-red-600 text-white border-0 gap-1.5">
-                            <Youtube className="w-3 h-3" /> YouTube
-                          </Badge>
-                          <Badge className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-0 gap-1.5">
-                            <SiX className="w-3 h-3" /> Twitter/X
-                          </Badge>
-                          <Badge className="bg-blue-600 text-white border-0 gap-1.5">
-                            <SiFacebook className="w-3 h-3" /> Facebook
-                          </Badge>
-                          <Badge className="bg-orange-600 text-white border-0 gap-1.5">
-                            <SiReddit className="w-3 h-3" /> Reddit
-                          </Badge>
-                        </div>
-                      </div>
-
-                      {/* AI & Files Column */}
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground mb-3">AI & Files</p>
-                        <div className="flex flex-wrap gap-2">
-                          <Badge className="bg-green-600 text-white border-0 gap-1.5">
-                            <SiOpenai className="w-3 h-3" /> ChatGPT
-                          </Badge>
-                          <Badge className="bg-purple-600 text-white border-0 gap-1.5">
-                            <SiClaude className="w-3 h-3" /> Claude
-                          </Badge>
-                          <Badge className="bg-blue-500 text-white border-0 gap-1.5">
-                            <SiGooglegemini className="w-3 h-3" /> Gemini
-                          </Badge>
-                          <Badge className="bg-emerald-600 text-white border-0 gap-1.5">
-                            <FileText className="w-3 h-3" /> Articles
-                          </Badge>
-                          <Badge className="bg-blue-700 text-white border-0 gap-1.5">
-                            <FileText className="w-3 h-3" /> Docs
-                          </Badge>
-                          <Badge className="bg-pink-600 text-white border-0 gap-1.5">
-                            <Image className="w-3 h-3" /> Images
-                          </Badge>
-                          <Badge className="bg-red-700 text-white border-0 gap-1.5">
-                            <FileText className="w-3 h-3" /> PDFs
-                          </Badge>
-                          <Badge className="bg-violet-600 text-white border-0 gap-1.5">
-                            <Video className="w-3 h-3" /> Videos
-                          </Badge>
-                        </div>
-                      </div>
+                  {/* Coming Soon Message */}
+                  <Card className="p-8 text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/50 flex items-center justify-center">
+                      <Plug className="w-8 h-8 text-muted-foreground" />
                     </div>
-
-                    {/* Paste from Clipboard Button */}
-                    <div className="mt-6 space-y-3">
-                      <Button 
-                        onClick={async () => {
-                          try {
-                            const text = await navigator.clipboard.readText();
-                            if (text) {
-                              setChatText(text);
-                              toast({
-                                title: "Content pasted",
-                                description: "Content from clipboard has been added. Click Import to create your plan."
-                              });
-                            }
-                          } catch (err) {
-                            toast({
-                              title: "Clipboard access denied",
-                              description: "Please paste your content manually in the text area below.",
-                              variant: "destructive"
-                            });
-                          }
-                        }}
-                        className="w-full bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white"
-                        data-testid="button-paste-clipboard"
-                      >
-                        <ClipboardPaste className="w-4 h-4 mr-2" />
-                        Paste from Clipboard
-                      </Button>
-                      <p className="text-xs text-muted-foreground text-center">
-                        On mobile, use the share button in any app to send content directly to JournalMate
-                      </p>
-                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Integrations Coming Soon</h3>
+                    <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                      We're working on bringing you powerful integrations with your favorite apps and services. Stay tuned!
+                    </p>
                   </Card>
 
                   {/* Recent Imports */}
