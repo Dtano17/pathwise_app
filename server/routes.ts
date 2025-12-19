@@ -3281,7 +3281,7 @@ ${allUrls.map(page => `  <url>
   // GET /api/alternatives - fetch alternative venues from journal or ContentImport based on location and budget tier
   app.get("/api/alternatives", async (req: any, res) => {
     try {
-      const userId = getUserId(req);
+      const userId = getUserId(req) || getDemoUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
