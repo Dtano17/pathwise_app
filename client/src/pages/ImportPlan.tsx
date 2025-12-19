@@ -293,13 +293,6 @@ function SignInPrompt({ planPreview, onSignIn }: { planPreview: any; onSignIn: (
       animate={{ opacity: 1, scale: 1 }}
       className="flex flex-col items-center justify-center py-8 px-6"
     >
-      {/* Transparent logo - works for both light and dark themes */}
-      <img 
-        src="/journalmate-logo-transparent.png" 
-        alt="JournalMate" 
-        className="h-16 w-auto mb-4"
-      />
-      
       {planPreview && (
         <div className="w-full mb-6">
           <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800/30">
