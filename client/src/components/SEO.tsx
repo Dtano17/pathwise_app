@@ -177,6 +177,7 @@ export function SEO({
       <meta name="keywords" content={allKeywords.join(', ')} />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <meta name="theme-color" content="#5B21B6" />
+      <meta name="google-site-verification" content="Wx6Fja6gSxhMT7IokfvL0UmfI9LbFZCzQDZkVA9hngQ" />
       <link rel="icon" href="/favicon.ico" />
       <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
