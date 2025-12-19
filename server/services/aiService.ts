@@ -1496,13 +1496,20 @@ You may ONLY add tasks for:
 ❌ DO NOT substitute source venues with your own recommendations
 ❌ DO NOT add "Shiro", "Sky Restaurant" or ANY venue not explicitly in the OCR/caption
 
-**SCAN THE CONTENT NOW AND LIST ALL VENUES/ACTIVITIES:**
-Before generating tasks, mentally list every venue, activity, and price from the OCR and caption. Each one MUST become a task.
+**SPECIAL HANDLING FOR CAROUSEL POSTS (MOVIES, BOOKS, ETC):**
+Carousel posts often contain items formatted as descriptions or sentence fragments:
+- "A gripping psychological thriller set in Victorian London" = a movie title/description
+- "The unforgettable story of unlikely friendship" = a book title/description  
+- "Jazz fusion masterpiece from the 1970s" = music/album
+These are STILL separate items and MUST be extracted as individual entries.
+When you see descriptive text in carousel format, treat each paragraph/line break as a separate item.
 
 **STEP 1 - COUNT ALL ITEMS FIRST:**
 Scan the entire content and COUNT how many venues/restaurants/places/items are mentioned.
+Look for: explicit names, numbered lists, separated paragraphs, line breaks, bullet points, OCR text blocks
+For carousel posts: Each carousel slide typically = 1 item (even if described as a sentence)
+If you count 8 items, you MUST output exactly 8 entries in allExtractedVenues.
 If you count 10 items, you MUST output exactly 10 entries in allExtractedVenues.
-If you count 18 items, you MUST output exactly 18 entries in allExtractedVenues.
 NEVER skip any item. NEVER output fewer items than you counted.
 ` : "";
 
@@ -1564,22 +1571,36 @@ NEVER use generic titles like "Generated Plan", "Plan from URL", "New Activity",
 ## ⚠️ CRITICAL: EXTRACT 100% OF ALL VENUES - NO EXCEPTIONS ⚠️
 
 **VERIFICATION STEP (DO THIS FIRST):**
-1. Count every single venue/restaurant/bar/cafe/hotel/attraction mentioned in the content
-2. Write down the total count
-3. Your allExtractedVenues array MUST have EXACTLY that many entries
+1. Count every single venue/restaurant/bar/cafe/hotel/attraction/movie/book/item mentioned in the content
+2. Look at carousel slides individually - each slide with text = 1 item
+3. Count descriptive text blocks as separate items if they appear on different slides
+4. Write down the total count
+5. Your allExtractedVenues array MUST have EXACTLY that many entries
 
 **RULES:**
+- If content mentions 8 items → allExtractedVenues must have exactly 8 entries
 - If content mentions 10 items → allExtractedVenues must have exactly 10 entries
 - If content mentions 18 items → allExtractedVenues must have exactly 18 entries
 - If content mentions 59 items → allExtractedVenues must have exactly 59 entries
+- For carousel posts with movie/book titles as descriptions, count the slides = count items
 - NEVER output fewer venues than mentioned in the source content
 - The tasks array can have 6-9 selected items, but allExtractedVenues captures EVERYTHING
 
+**MOVIE/MEDIA EXTRACTION RULES:**
+For carousel posts with movies, books, music:
+- Extract the movie/book NAME (or main description if no clear name)
+- Use "movie", "book", "music" as venueType
+- Category should match: movies, books, music
+- Description: Use the exact text/description from the carousel slide
+- If the slide shows "A gripping tale of..." that IS the movie/book being referenced
+- Count: If carousel has 8 slides about movies = 8 movies to extract, not fewer
+
 **COMMON MISTAKES TO AVOID:**
-- Stopping at 8-10 venues when there are more
-- Skipping venues that appear at the end of the content
+- Stopping at 7 venues when there are 8 slides
+- Skipping the last carousel slide
 - Only extracting "top" or "main" venues instead of ALL venues
-- Summarizing multiple venues into one entry` : ''}
+- Summarizing multiple venues into one entry
+- Missing movies just because they're formatted as descriptions instead of titles` : ''}
 
 CRITICAL - Generate 6-9 specific, actionable tasks (occasionally 5 for very simple goals):
 - ALWAYS include a "timeEstimate" for every single task - never omit this field
