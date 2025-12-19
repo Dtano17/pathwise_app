@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Switch, Route } from "wouter";
+import { HelmetProvider } from "react-helmet-async";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -176,9 +177,11 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AppContent />
-      </ThemeProvider>
+      <HelmetProvider>
+        <ThemeProvider>
+          <AppContent />
+        </ThemeProvider>
+      </HelmetProvider>
     </QueryClientProvider>
   );
 }

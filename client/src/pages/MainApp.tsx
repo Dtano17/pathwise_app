@@ -164,13 +164,33 @@ export default function MainApp({
   const [promptedActivities, setPromptedActivities] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem('journalmate_prompted_activities');
-      return saved ? new Set(JSON.parse(saved)) : new Set();
+      if (!saved) return new Set();
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return new Set(parsed);
+      }
+      throw new Error('Invalid format');
     } catch (error) {
       console.error('Failed to parse promptedActivities from localStorage:', error);
       localStorage.removeItem('journalmate_prompted_activities');
       return new Set();
     }
   });
+
+  // Clean up localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('journalmate_prompted_activities');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (!Array.isArray(parsed)) {
+          localStorage.removeItem('journalmate_prompted_activities');
+        }
+      }
+    } catch {
+      localStorage.removeItem('journalmate_prompted_activities');
+    }
+  }, []);
 
   // Handle URL query parameters for activity selection from shared links and tab navigation
   useEffect(() => {
