@@ -113,39 +113,59 @@ class ApifyService {
         duration: item.duration || item.video_duration,
       });
 
-      if (item.carousel_media && item.carousel_media.length > 0) {
-        const carouselItems = item.carousel_media
-          .map((media: any) => ({
-            type: media.video_url ? "video" : "image",
-            url:
-              media.video_url ||
-              media.display_url ||
-              media.image_versions2?.candidates?.[0]?.url,
-          }))
-          .filter((m: any) => m.url);
+      // Handle carousel posts - API can return childPosts, images, or carousel_media
+      const carouselData = item.childPosts || item.carousel_media || [];
+      const imagesList = item.images || [];
+      
+      if ((carouselData.length > 0) || (imagesList.length > 1)) {
+        // Extract carousel items from various API formats
+        let carouselItems: Array<{ type: 'video' | 'image', url: string }> = [];
+        
+        if (carouselData.length > 0) {
+          carouselItems = carouselData
+            .map((media: any) => ({
+              type: (media.video_url || media.videoUrl || media.type === 'video') ? "video" as const : "image" as const,
+              url: media.video_url || media.videoUrl || media.display_url || media.displayUrl || 
+                   media.image_versions2?.candidates?.[0]?.url || media.url,
+            }))
+            .filter((m: any) => m.url);
+        } else if (imagesList.length > 1) {
+          // Use images array for carousel
+          carouselItems = imagesList.map((imgUrl: string) => ({
+            type: "image" as const,
+            url: imgUrl,
+          }));
+        }
 
-        return {
-          success: true,
-          isCarousel: true,
-          carouselItems,
-          caption: item.caption,
-          hashtags: item.hashtags,
-          mentions: item.mentions,
-          likesCount: item.likesCount,
-          viewsCount: item.viewsCount || item.playsCount,
-          commentsCount: item.commentsCount,
-          author: {
-            username: item.ownerUsername,
-            fullName: item.ownerFullName,
-          },
-          audioInfo: item.audioInfo,
-        };
+        if (carouselItems.length > 0) {
+          return {
+            success: true,
+            isCarousel: true,
+            carouselItems,
+            caption: item.caption,
+            hashtags: item.hashtags,
+            mentions: item.mentions,
+            likesCount: item.likesCount,
+            viewsCount: item.viewsCount || item.playsCount,
+            commentsCount: item.commentsCount,
+            author: {
+              username: item.ownerUsername,
+              fullName: item.ownerFullName,
+            },
+            audioInfo: item.audioInfo,
+          };
+        }
       }
+
+      // Handle single post - check various field names for video/thumbnail URLs
+      const videoUrl = item.videoUrl || item.video_url || item.video;
+      const thumbnailUrl = item.thumbnailUrl || item.displayUrl || item.display_url || 
+                          (item.images && item.images[0]);
 
       return {
         success: true,
-        videoUrl: item.videoUrl,
-        thumbnailUrl: item.thumbnailUrl,
+        videoUrl,
+        thumbnailUrl,
         caption: item.caption,
         hashtags: item.hashtags,
         mentions: item.mentions,
