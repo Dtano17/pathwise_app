@@ -162,8 +162,14 @@ export default function MainApp({
   const [journalActivityContext, setJournalActivityContext] = useState<{ activityId: string; title: string } | null>(null);
   const [postActivityPrompt, setPostActivityPrompt] = useState<{ open: boolean; activity: ActivityType | null }>({ open: false, activity: null });
   const [promptedActivities, setPromptedActivities] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem('journalmate_prompted_activities');
-    return saved ? new Set(JSON.parse(saved)) : new Set();
+    try {
+      const saved = localStorage.getItem('journalmate_prompted_activities');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch (error) {
+      console.error('Failed to parse promptedActivities from localStorage:', error);
+      localStorage.removeItem('journalmate_prompted_activities');
+      return new Set();
+    }
   });
 
   // Handle URL query parameters for activity selection from shared links and tab navigation
