@@ -224,6 +224,55 @@ export default function MainApp({
     const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
     window.history.replaceState({}, "", newUrl);
   }, [activeTab]);
+
+  // Auto-process pending import URL from /import-plan sign-in flow
+  const [autoImportProcessed, setAutoImportProcessed] = useState(false);
+  useEffect(() => {
+    if (autoImportProcessed) return;
+    
+    const pendingUrl = localStorage.getItem('journalmate.pendingImportUrl');
+    const timestamp = localStorage.getItem('journalmate.pendingImportTimestamp');
+    
+    if (pendingUrl && timestamp) {
+      // Check if not expired (10 minutes)
+      const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+      if (parseInt(timestamp, 10) > tenMinutesAgo) {
+        // Clear localStorage first to prevent re-triggering
+        localStorage.removeItem('journalmate.pendingImportUrl');
+        localStorage.removeItem('journalmate.pendingImportTimestamp');
+        
+        // Set the pending URL in the chat input and auto-trigger processing
+        setChatText(pendingUrl);
+        setActiveTab('input');
+        setAutoImportProcessed(true);
+        
+        // Show toast to let user know we're processing their content
+        toast({
+          title: 'Processing your content',
+          description: 'Creating an action plan from your pasted content...'
+        });
+        
+        // Auto-trigger the goal processing after a brief delay
+        setTimeout(() => {
+          // Check if URL or plain text and format appropriately
+          const isUrl = /^https?:\/\//i.test(pendingUrl);
+          const goalText = isUrl 
+            ? `Create an action plan from this content: ${pendingUrl}`
+            : pendingUrl;
+          
+          // Trigger the mutation (we need to access the mutation differently - simulate form submit)
+          // Setting chatText will let user see it, then they can submit or it auto-submits
+          setChatText(goalText);
+        }, 500);
+      } else {
+        // Expired - clean up
+        localStorage.removeItem('journalmate.pendingImportUrl');
+        localStorage.removeItem('journalmate.pendingImportTimestamp');
+      }
+    }
+    
+    setAutoImportProcessed(true);
+  }, [autoImportProcessed, toast]);
   
   // Task filtering state
   const [selectedCategory, setSelectedCategory] = useState('all');

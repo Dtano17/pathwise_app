@@ -817,13 +817,13 @@ export default function ImportPlan() {
   };
 
   const handleSignIn = (urlToStore?: string) => {
-    // Store the pending URL so we can auto-process after login (consistent with MainApp.tsx)
+    // Store the pending URL so we can auto-process after login in MainApp
     if (urlToStore) {
       localStorage.setItem('journalmate.pendingImportUrl', urlToStore);
       localStorage.setItem('journalmate.pendingImportTimestamp', Date.now().toString());
     }
-    // Redirect to login with returnTo parameter
-    setLocation('/login?returnTo=/import-plan');
+    // Redirect to login, then to main app where the URL will be auto-processed
+    setLocation('/login?returnTo=/app');
   };
 
   const isProcessing = isLoading || extractingContent || generatePlanMutation.isPending;
