@@ -8,11 +8,8 @@ export default function LandingPageWrapper() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    // In production, redirect authenticated users to /app
-    const isProduction = import.meta.env.PROD;
-    const forceLanding = import.meta.env.VITE_FORCE_LANDING_PAGE === 'true';
-
-    if (!isLoading && isAuthenticated && (isProduction || forceLanding)) {
+    // Redirect authenticated users to /app
+    if (!isLoading && isAuthenticated) {
       setLocation('/app');
     }
   }, [isAuthenticated, isLoading, setLocation]);
