@@ -20,6 +20,7 @@ import LandingPageWrapper from "@/pages/LandingPageWrapper";
 import ChatGPTPlanTracker from "@/pages/ChatGPTPlanTracker";
 import PerplexityPlans from "@/pages/PerplexityPlans";
 import WeekendPlans from "@/pages/WeekendPlans";
+import ImportPlan from "@/pages/ImportPlan";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
@@ -89,6 +90,9 @@ function AppContent() {
         <Route path="/chatgpt-plan-tracker" component={ChatGPTPlanTracker} />
         <Route path="/perplexity-plans" component={PerplexityPlans} />
         <Route path="/weekend-plans" component={WeekendPlans} />
+
+        {/* Import Plan Page (publicly accessible with sign-in wall) */}
+        <Route path="/import-plan" component={ImportPlan} />
 
         {/* Main App Route - Protected with Sidebar */}
         <Route path="/app">

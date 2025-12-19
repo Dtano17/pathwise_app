@@ -293,37 +293,47 @@ function SignInPrompt({ planPreview, onSignIn }: { planPreview: any; onSignIn: (
       animate={{ opacity: 1, scale: 1 }}
       className="flex flex-col items-center justify-center py-8 px-6"
     >
+      {/* Transparent logo - works for both light and dark themes */}
+      <img 
+        src="/journalmate-logo-transparent.png" 
+        alt="JournalMate" 
+        className="h-16 w-auto mb-4"
+      />
       
-      <div className="w-full mt-6 mb-6">
-        <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800/30">
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-4 h-4 text-purple-500" />
-            <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">Your Plan is Ready!</span>
-          </div>
-          
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">
-            {planPreview?.title || 'Generated Plan'}
-          </h3>
-          
-          {planPreview?.description && (
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">
-              {planPreview.description}
-            </p>
-          )}
-          
-          <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-            <Check className="w-4 h-4 text-emerald-500" />
-            <span>{planPreview?.taskCount || 0} actionable tasks created</span>
+      {planPreview && (
+        <div className="w-full mb-6">
+          <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800/30">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-purple-500" />
+              <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">Your Plan is Ready!</span>
+            </div>
+            
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">
+              {planPreview?.title || 'Generated Plan'}
+            </h3>
+            
+            {planPreview?.description && (
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">
+                {planPreview.description}
+              </p>
+            )}
+            
+            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+              <Check className="w-4 h-4 text-emerald-500" />
+              <span>{planPreview?.taskCount || 0} actionable tasks created</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="text-center mb-6">
-        <h4 className="font-semibold text-slate-800 dark:text-white mb-2">
-          Sign in to save your plan
+        <h4 className="text-xl font-bold text-slate-800 dark:text-white mb-2">
+          {planPreview ? 'Sign in to save your plan' : 'Sign in to import plans'}
         </h4>
         <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
-          Create an account to track your progress, get reminders, and access your plans anywhere.
+          {planPreview 
+            ? 'Create an account to track your progress, get reminders, and access your plans anywhere.'
+            : 'Import plans from ChatGPT, Claude, Instagram, TikTok, and more. Track your progress and celebrate your wins.'}
         </p>
       </div>
 
@@ -871,7 +881,22 @@ export default function ImportPlan() {
 
         <GlassCard>
           <AnimatePresence mode="wait">
-            {showSignIn && planPreview && (
+            {/* Show loading while checking auth */}
+            {authLoading && (
+              <LoadingState key="auth-loading" message="Loading..." />
+            )}
+
+            {/* Show sign-in wall for unauthenticated users */}
+            {!authLoading && !isAuthenticated && !isProcessing && (
+              <SignInPrompt 
+                key="signin-wall" 
+                planPreview={planPreview} 
+                onSignIn={handleSignIn} 
+              />
+            )}
+
+            {/* Show sign-in prompt after plan preview for unauthenticated users */}
+            {!authLoading && showSignIn && planPreview && (
               <SignInPrompt 
                 key="signin" 
                 planPreview={planPreview} 
@@ -879,7 +904,8 @@ export default function ImportPlan() {
               />
             )}
 
-            {!showSignIn && state.status === 'idle' && !isProcessing && (
+            {/* Show empty state for authenticated users */}
+            {!authLoading && isAuthenticated && !showSignIn && state.status === 'idle' && !isProcessing && (
               <EmptyState key="empty" onPasteClick={handlePaste} isLoading={isProcessing} />
             )}
 
