@@ -838,7 +838,9 @@ export default function MainApp({
         tasks: data.tasks || [],
         estimatedTimeframe: data.estimatedTimeframe,
         motivationalNote: data.motivationalNote,
-        activityId: preservedActivityId // Preserve activity ID if it exists
+        activityId: preservedActivityId, // Preserve activity ID if it exists
+        sourceUrl: data.sourceUrl,
+        importId: data.importId
       };
       
       console.log('📋 New plan output:', { ...newPlanOutput, tasks: `${newPlanOutput.tasks.length} tasks` });
@@ -860,7 +862,9 @@ export default function MainApp({
           tasks: data.tasks || [],
           estimatedTimeframe: data.estimatedTimeframe,
           motivationalNote: data.motivationalNote,
-          activityId: preservedActivityId
+          activityId: preservedActivityId,
+          sourceUrl: data.sourceUrl,
+          importId: data.importId
         };
 
         if (currentSessionId) {
