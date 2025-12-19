@@ -17,5 +17,7 @@ export default function LandingPageWrapper() {
     }
   }, [isAuthenticated, isLoading, setLocation]);
 
+  // Always render the landing page, even while loading
+  // The useEffect will handle redirects once auth state is determined
   return <LandingPage />;
 }
