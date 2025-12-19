@@ -7,6 +7,7 @@ export interface ApifyInstagramResult {
   success: boolean;
   videoUrl?: string;
   thumbnailUrl?: string;
+  firstImageUrl?: string;
   caption?: string;
   hashtags?: string[];
   mentions?: string[];
@@ -138,10 +139,16 @@ class ApifyService {
         }
 
         if (carouselItems.length > 0) {
+          const firstImage = carouselItems.find(c => c.type === 'image');
+          const firstImageUrl = firstImage?.url || item.displayUrl || item.thumbnailUrl || 
+                               (item.images && item.images[0]);
+          
           return {
             success: true,
             isCarousel: true,
             carouselItems,
+            firstImageUrl,
+            thumbnailUrl: firstImageUrl,
             caption: item.caption,
             hashtags: item.hashtags,
             mentions: item.mentions,
@@ -161,11 +168,13 @@ class ApifyService {
       const videoUrl = item.videoUrl || item.video_url || item.video;
       const thumbnailUrl = item.thumbnailUrl || item.displayUrl || item.display_url || 
                           (item.images && item.images[0]);
+      const firstImageUrl = thumbnailUrl || (item.images && item.images[0]);
 
       return {
         success: true,
         videoUrl,
         thumbnailUrl,
+        firstImageUrl,
         caption: item.caption,
         hashtags: item.hashtags,
         mentions: item.mentions,

@@ -42,6 +42,7 @@ export interface SocialMediaContent {
   audioTranscript?: string;
   ocrText?: string;
   caption?: string;
+  firstImageUrl?: string;
   metadata?: {
     title?: string;
     author?: string;
@@ -174,19 +175,37 @@ class SocialMediaVideoService {
         success: true,
         metadata: downloadResult.metadata,
         caption: downloadResult.caption,
+        firstImageUrl: downloadResult.firstImageUrl || downloadResult.metadata?.firstImageUrl,
       };
 
       if (downloadResult.isCarousel && downloadResult.carouselFiles) {
-        result.carouselItems = [];
-        for (const file of downloadResult.carouselFiles) {
-          const itemResult = await this.processMediaFile(file.path, file.type);
-          result.carouselItems.push({
-            type: file.type,
-            ocrText: itemResult.ocrText,
-            transcript: itemResult.transcript,
-          });
-          this.cleanupFile(file.path);
-        }
+        console.log(`[SOCIAL_MEDIA] Processing ${downloadResult.carouselFiles.length} carousel items in PARALLEL`);
+        
+        // Process ALL carousel items in parallel with error handling per-item
+        const processPromises = downloadResult.carouselFiles.map(async (file, idx) => {
+          try {
+            const itemResult = await this.processMediaFile(file.path, file.type);
+            return {
+              type: file.type,
+              ocrText: itemResult.ocrText,
+              transcript: itemResult.transcript,
+            };
+          } catch (e: any) {
+            console.error(`[SOCIAL_MEDIA] Error processing carousel item ${idx}:`, e.message);
+            return {
+              type: file.type,
+              ocrText: undefined,
+              transcript: undefined,
+            };
+          } finally {
+            // Always cleanup file regardless of success/failure
+            this.cleanupFile(file.path);
+          }
+        });
+        
+        result.carouselItems = await Promise.all(processPromises);
+        const successCount = result.carouselItems.filter(i => i.ocrText || i.transcript).length;
+        console.log(`[SOCIAL_MEDIA] Completed parallel OCR: ${successCount}/${result.carouselItems.length} items successful`);
       } else if (downloadResult.filePath) {
         const mediaType = downloadResult.mediaType || "video";
         const processed = await this.processMediaFile(
@@ -218,6 +237,7 @@ class SocialMediaVideoService {
     carouselFiles?: Array<{ path: string; type: "video" | "image" }>;
     caption?: string;
     metadata?: any;
+    firstImageUrl?: string;
     error?: string;
   }> {
     const apifyResult = await apifyService.extractInstagramReel(url);
@@ -227,6 +247,7 @@ class SocialMediaVideoService {
     }
 
     const caption = apifyResult.caption;
+    const firstImageUrl = apifyResult.firstImageUrl || apifyResult.thumbnailUrl;
     const metadata = {
       author: apifyResult.author?.username,
       title: apifyResult.caption?.substring(0, 100),
@@ -234,19 +255,18 @@ class SocialMediaVideoService {
       likes: apifyResult.likesCount,
       views: apifyResult.viewsCount,
       audioInfo: apifyResult.audioInfo,
+      firstImageUrl,
     };
 
     if (apifyResult.isCarousel && apifyResult.carouselItems) {
       console.log(
-        `[APIFY] Instagram carousel with ${apifyResult.carouselItems.length} items`,
+        `[APIFY] Instagram carousel with ${apifyResult.carouselItems.length} items - downloading ALL in parallel`,
       );
 
-      const files: Array<{ path: string; type: "video" | "image" }> = [];
-
-      for (let i = 0; i < apifyResult.carouselItems.length; i++) {
-        const item = apifyResult.carouselItems[i];
-        if (!item.url) continue;
-
+      // Download ALL carousel items in parallel for complete content capture
+      const downloadPromises = apifyResult.carouselItems.map(async (item, i) => {
+        if (!item.url) return null;
+        
         const ext = item.type === "video" ? "mp4" : "jpg";
         const filePath = path.join(
           this.tempDir,
@@ -256,15 +276,18 @@ class SocialMediaVideoService {
         try {
           await this.downloadMediaFile(item.url, filePath);
           if (fs.existsSync(filePath)) {
-            files.push({ path: filePath, type: item.type });
+            return { path: filePath, type: item.type };
           }
         } catch (e: any) {
-          console.log(
-            `[APIFY] Failed to download carousel item ${i}:`,
-            e.message,
-          );
+          console.log(`[APIFY] Failed to download carousel item ${i}: ${e.message}`);
         }
-      }
+        return null;
+      });
+
+      const results = await Promise.all(downloadPromises);
+      const files = results.filter((f): f is { path: string; type: "video" | "image" } => f !== null);
+
+      console.log(`[APIFY] Downloaded ${files.length}/${apifyResult.carouselItems.length} carousel items`);
 
       if (files.length > 0) {
         return {
@@ -275,6 +298,7 @@ class SocialMediaVideoService {
           mediaType: files.length === 1 ? files[0].type : undefined,
           caption,
           metadata: { ...metadata, mediaCount: files.length },
+          firstImageUrl,
         };
       }
     }
@@ -298,6 +322,7 @@ class SocialMediaVideoService {
             mediaType: "video",
             caption,
             metadata,
+            firstImageUrl,
           };
         }
       } catch (e: any) {
@@ -319,6 +344,7 @@ class SocialMediaVideoService {
             mediaType: "image",
             caption,
             metadata,
+            firstImageUrl,
           };
         }
       } catch (e: any) {
@@ -326,7 +352,7 @@ class SocialMediaVideoService {
       }
     }
 
-    return { success: false, error: "No downloadable media from Apify" };
+    return { success: false, error: "No downloadable media from Apify", firstImageUrl };
   }
 
   private async extractViaApifyTikTok(url: string): Promise<{

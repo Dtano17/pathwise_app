@@ -63,6 +63,7 @@ import { tavily } from '@tavily/core';
 import { socialMediaVideoService } from './services/socialMediaVideoService';
 import { apifyService } from './services/apifyService';
 import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory, mapAiCategoryNameToJournalCategory, mapVenueTypeToJournalCategory, getBestJournalCategory, getDynamicCategoryInfo, type VenueInfo, type DynamicCategoryInfo, type PrimaryCategorySuggestion, type SubcategorySuggestion } from './services/contentCategorizationService';
+import { mapToStandardCategoryId } from './services/categorySynonyms';
 import { findSimilarCategory, findSimilarSubcategory, findDuplicateVenue, checkDuplicateURL, generatePrimaryCategoryId, generateSubcategoryId, generateColorGradient, type DeduplicationConfig, DEFAULT_DEDUP_CONFIG } from './services/categoryMatcher';
 import { scheduleRemindersForActivity, cancelRemindersForActivity } from './services/reminderProcessor';
 
@@ -12583,6 +12584,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
                 platform: videoCheck.platform,
                 resolvedUrl: resolvedUrl,
                 fromCache: true,
+                firstImageUrl: cached.metadata?.firstImageUrl,
                 metadata: cached.metadata || {}
               });
             }
@@ -12601,9 +12603,10 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
               const combinedContent = socialMediaVideoService.combineExtractedContent(socialResult);
               console.log(`[PARSE-URL] Full extraction complete: ${combinedContent.length} chars`);
               
-              // Step 3: CACHE the successful extraction for future use
+              // Step 3: CACHE the successful extraction for future use (including firstImageUrl)
               try {
                 const wordCount = combinedContent.split(/\s+/).length;
+                const firstImgUrl = socialResult.firstImageUrl || socialResult.metadata?.firstImageUrl;
                 await storage.createUrlContentCache({
                   normalizedUrl,
                   originalUrl: resolvedUrl,
@@ -12615,7 +12618,8 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
                     hasAudioTranscript: !!socialResult.audioTranscript,
                     hasOcrText: !!socialResult.ocrText,
                     hasCaption: !!socialResult.caption,
-                    author: socialResult.metadata?.author
+                    author: socialResult.metadata?.author,
+                    firstImageUrl: firstImgUrl
                   }
                 });
                 console.log(`[PARSE-URL] ✅ Cached content for future use: ${normalizedUrl} (${wordCount} words)`);
@@ -12629,11 +12633,13 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
                 platform: videoCheck.platform,
                 resolvedUrl: resolvedUrl,
                 fromCache: false,
+                firstImageUrl: socialResult.firstImageUrl || socialResult.metadata?.firstImageUrl,
                 metadata: {
                   hasAudioTranscript: !!socialResult.audioTranscript,
                   hasOcrText: !!socialResult.ocrText,
                   hasCaption: !!socialResult.caption,
-                  author: socialResult.metadata?.author
+                  author: socialResult.metadata?.author,
+                  firstImageUrl: socialResult.firstImageUrl
                 }
               });
             } else {
@@ -12953,25 +12959,33 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         activityDescription = `${activityDescription}\n\nSource: ${platform} - ${sourceUrl}`;
       }
       
+      // Normalize category to standard JournalCategoryId (restaurants, movies, music, books, hobbies, travel, style, favorites, notes)
+      const rawCategory = planResult.goalCategory || 'personal';
+      const normalizedCategory = mapToStandardCategoryId(rawCategory) || rawCategory;
+      
       // Create activity and tasks
       const activity = await storage.createActivity({
         title: planResult.planTitle || 'Plan from External Content',
         description: activityDescription,
-        category: planResult.goalCategory || 'personal',
+        category: normalizedCategory,
         status: 'planning',
         userId,
         planSummary: planResult.summary || undefined
       });
 
-      // Create tasks
+      // Create tasks with normalized categories
       const createdTasks = [];
       if (planResult.tasks && Array.isArray(planResult.tasks)) {
         for (let i = 0; i < planResult.tasks.length; i++) {
           const taskData = planResult.tasks[i];
+          // Normalize task category
+          const taskRawCategory = taskData.category || normalizedCategory;
+          const taskNormalizedCategory = mapToStandardCategoryId(taskRawCategory) || taskRawCategory;
+          
           const task = await storage.createTask({
             title: taskData.title,
             description: taskData.description,
-            category: taskData.category,
+            category: taskNormalizedCategory,
             priority: taskData.priority,
             timeEstimate: taskData.timeEstimate,
             userId
