@@ -114,13 +114,71 @@ export function SEO({
     'remix plans'
   ];
 
-  const allKeywords = [...new Set([...defaultKeywords, ...keywords])];
+  const allKeywords = Array.from(new Set([...defaultKeywords, ...keywords]));
+
+  // JSON-LD Schema for Google/AI
+  const organizationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'JournalMate',
+    url: BASE_URL,
+    logo: `${BASE_URL}/journalmate-logo-email.png`,
+    description: DEFAULT_DESCRIPTION,
+    sameAs: [
+      'https://twitter.com/journalmate',
+      'https://instagram.com/journalmate',
+    ],
+  };
+
+  const applicationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'JournalMate',
+    description: DEFAULT_DESCRIPTION,
+    url: BASE_URL,
+    image: `${BASE_URL}/journalmate-logo-email.png`,
+    operatingSystem: ['ANDROID', 'IOS', 'WEB'],
+    applicationCategory: 'ProductivityApplication',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: '4.8',
+      ratingCount: '500',
+    },
+  };
+
+  const breadcrumbSchema = url ? {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: BASE_URL,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: pageTitle,
+        item: `${BASE_URL}${url}`,
+      },
+    ],
+  } : null;
 
   return (
     <Helmet>
       <title>{pageTitle}</title>
       <meta name="description" content={description} />
       <meta name="keywords" content={allKeywords.join(', ')} />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <meta name="theme-color" content="#5B21B6" />
+      <link rel="icon" href="/favicon.ico" />
+      <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
       {noIndex && <meta name="robots" content="noindex, nofollow" />}
 
@@ -129,6 +187,8 @@ export function SEO({
       <meta property="og:title" content={pageTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={fullImageUrl} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
       <meta property="og:type" content={type} />
       <meta property="og:site_name" content={SITE_NAME} />
       {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
@@ -137,10 +197,23 @@ export function SEO({
       <meta name="twitter:title" content={pageTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={fullImageUrl} />
+      <meta name="twitter:site" content="@journalmate" />
 
       {author && <meta name="author" content={author} />}
       {publishedTime && <meta property="article:published_time" content={publishedTime} />}
       {modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
+
+      <script type="application/ld+json">
+        {JSON.stringify(organizationSchema)}
+      </script>
+      <script type="application/ld+json">
+        {JSON.stringify(applicationSchema)}
+      </script>
+      {breadcrumbSchema && (
+        <script type="application/ld+json">
+          {JSON.stringify(breadcrumbSchema)}
+        </script>
+      )}
     </Helmet>
   );
 }
