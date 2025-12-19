@@ -50,3 +50,8 @@ args = "cd mobile && npx expo start --tunnel --clear"
 
 [agent]
 integrations = ["javascript_websocket:1.0.0", "javascript_openai:1.0.0", "outlook:1.0.0", "javascript_anthropic:1.0.0", "javascript_log_in_with_replit:1.0.0", "spotify:1.0.0", "resend:1.0.0", "javascript_stripe:1.0.0"]
+
+[userenv]
+
+[userenv.development]
+VITE_FORCE_LANDING_PAGE = "true"
