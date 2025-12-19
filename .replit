@@ -54,3 +54,4 @@ integrations = ["javascript_websocket:1.0.0", "javascript_openai:1.0.0", "outloo
 [userenv]
 
 [userenv.development]
+VITE_FORCE_LANDING_PAGE = "true"
