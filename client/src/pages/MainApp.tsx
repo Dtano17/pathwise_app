@@ -133,6 +133,7 @@ export default function MainApp({
     motivationalNote?: string;
     activityId?: string;
     sourceUrl?: string;
+    importId?: string;
   } | null>(null);
 
   // Conversation history for contextual plan regeneration
@@ -258,7 +259,8 @@ export default function MainApp({
           estimatedTimeframe: session.generatedPlan.estimatedTimeframe,
           motivationalNote: session.generatedPlan.motivationalNote,
           activityId: activityId, // Restore activityId from saved session
-          sourceUrl: session.generatedPlan.sourceUrl
+          sourceUrl: session.generatedPlan.sourceUrl,
+          importId: session.generatedPlan.importId
         });
       }
       
@@ -774,7 +776,8 @@ export default function MainApp({
             estimatedTimeframe: data.estimatedTimeframe,
             motivationalNote: data.motivationalNote,
             activityId: data.activityId,
-            sourceUrl: data.sourceUrl
+            sourceUrl: data.sourceUrl,
+            importId: data.importId
           });
           activityIdRef.current = data.activityId;
         })
@@ -1782,6 +1785,7 @@ export default function MainApp({
                     motivationalNote={currentPlanOutput.motivationalNote}
                     activityId={currentPlanOutput.activityId}
                     sourceUrl={currentPlanOutput.sourceUrl}
+                    importId={currentPlanOutput.importId}
                     onCompleteTask={(taskId) => completeTaskMutation.mutate(taskId)}
                     onCreateActivity={(planData) => {
                       if (!createActivityMutation.isPending) {
