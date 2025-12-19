@@ -734,8 +734,8 @@ export default function ImportPlan() {
       const trimmedText = text.trim();
       const url = extractUrlFromText(trimmedText);
       
-      // Auth check: redirect to sign in if not authenticated
-      // Store content for auto-processing after login
+      // Auth check: show processing animation then sign-in wall for unauthenticated users
+      // This builds anticipation before prompting to sign in
       if (!isAuthenticated) {
         const previewTitle = url 
           ? `Plan from ${detectPlatform(url)}`
@@ -748,13 +748,21 @@ export default function ImportPlan() {
         localStorage.setItem('journalmate.pendingImportUrl', url || trimmedText);
         localStorage.setItem('journalmate.pendingImportTimestamp', Date.now().toString());
         
-        setPlanPreview({
-          title: previewTitle,
-          description: previewDesc,
-          taskCount: '6-9',
-          sourceUrl: url || trimmedText
-        });
-        setShowSignIn(true);
+        // Show loading animation to build anticipation
+        setExtractingContent(true);
+        
+        // Brief delay to show processing animation before sign-in wall
+        setTimeout(() => {
+          setExtractingContent(false);
+          setPlanPreview({
+            title: previewTitle,
+            description: previewDesc,
+            taskCount: '6-9',
+            sourceUrl: url || trimmedText
+          });
+          setShowSignIn(true);
+        }, 1500);
+        
         return;
       }
       
@@ -886,17 +894,8 @@ export default function ImportPlan() {
               <LoadingState key="auth-loading" message="Loading..." />
             )}
 
-            {/* Show sign-in wall for unauthenticated users */}
-            {!authLoading && !isAuthenticated && !isProcessing && (
-              <SignInPrompt 
-                key="signin-wall" 
-                planPreview={planPreview} 
-                onSignIn={handleSignIn} 
-              />
-            )}
-
-            {/* Show sign-in prompt after plan preview for unauthenticated users */}
-            {!authLoading && showSignIn && planPreview && (
+            {/* Show sign-in prompt ONLY after plan preview is ready for unauthenticated users */}
+            {!authLoading && !isAuthenticated && showSignIn && planPreview && (
               <SignInPrompt 
                 key="signin" 
                 planPreview={planPreview} 
@@ -904,8 +903,8 @@ export default function ImportPlan() {
               />
             )}
 
-            {/* Show empty state for authenticated users */}
-            {!authLoading && isAuthenticated && !showSignIn && state.status === 'idle' && !isProcessing && (
+            {/* Show empty state (integration page) for ALL users - let them try the feature first */}
+            {!authLoading && !showSignIn && state.status === 'idle' && !isProcessing && (
               <EmptyState key="empty" onPasteClick={handlePaste} isLoading={isProcessing} />
             )}
 
