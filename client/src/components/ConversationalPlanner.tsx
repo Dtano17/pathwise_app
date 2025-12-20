@@ -2173,19 +2173,24 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                         </div>
                       </div>
                       
-                      {/* Activity shortcut button */}
+                      {/* Activity link with target icon - prominent linked title */}
                       {msg.role === 'assistant' && activityMeta && (
-                        <div className="flex justify-start pl-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
+                        <div className="flex justify-start pl-2 mt-2">
+                          <button
                             onClick={() => setLocation(`/?tab=activities&activity=${activityMeta.activityId}`)}
-                            className="gap-2 text-xs bg-white dark:bg-slate-800 hover-elevate"
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                              planningMode === 'quick'
+                                ? 'bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950 dark:to-green-950 border border-emerald-200 dark:border-emerald-800 hover:shadow-md'
+                                : 'bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950 dark:to-indigo-950 border border-purple-200 dark:border-purple-800 hover:shadow-md'
+                            }`}
                             data-testid={`button-view-activity-${index}`}
                           >
-                            <Target className="w-3 h-3 text-emerald-500" />
-                            View "{activityMeta.activityTitle}"
-                          </Button>
+                            <Target className={`w-4 h-4 ${planningMode === 'quick' ? 'text-emerald-600 dark:text-emerald-400' : 'text-purple-600 dark:text-purple-400'}`} />
+                            <span className={`font-medium ${planningMode === 'quick' ? 'text-emerald-700 dark:text-emerald-300' : 'text-purple-700 dark:text-purple-300'}`}>
+                              {activityMeta.activityTitle}
+                            </span>
+                            <ExternalLink className={`w-3 h-3 ${planningMode === 'quick' ? 'text-emerald-500 dark:text-emerald-400' : 'text-purple-500 dark:text-purple-400'}`} />
+                          </button>
                         </div>
                       )}
 

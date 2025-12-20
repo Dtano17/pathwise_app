@@ -1979,6 +1979,51 @@ export class SimpleConversationalPlanner {
       } else if (response.readyToGenerate) {
         const trigger = createPlanTrigger ? ' (user-triggered)' : '';
         console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked${trigger}, generating plan`);
+        
+        // VALIDATION: Check for phantom/unvalidated slot data
+        const extractedInfo = response.extractedInfo || {};
+        console.log(`[SIMPLE_PLANNER] 🔍 DEBUG - Plan extractedInfo:`, JSON.stringify(extractedInfo, null, 2));
+        
+        // For travel domain, validate that origin was actually provided by user
+        // IMPORTANT: Only check USER messages (not assistant examples like "Austin, TX")
+        // AND include the current userMessage since it might contain the origin
+        if (extractedInfo.domain === 'travel') {
+          // Collect ONLY user messages from history + current message
+          const userMessages = conversationHistory
+            .filter(m => m.role === 'user')
+            .map(m => m.content.toLowerCase());
+          userMessages.push(userMessage.toLowerCase()); // Include current message
+          
+          const allUserText = userMessages.join(' ');
+          const origin = extractedInfo.origin?.toLowerCase() || '';
+          
+          // Check if origin was mentioned by the USER (not in assistant examples)
+          if (origin && !allUserText.includes(origin)) {
+            console.warn(`[SIMPLE_PLANNER] ⚠️ PHANTOM DATA DETECTED - Origin "${origin}" not found in user messages`);
+            console.log(`[SIMPLE_PLANNER] User messages scanned:`, userMessages);
+            // Clear phantom origin and plan to force re-asking
+            delete extractedInfo.origin;
+            delete response.plan; // Clear stray plan preview
+            response.readyToGenerate = false;
+            response.message = `I want to make sure I have your details correct. Where are you traveling from?`;
+          } else if (origin) {
+            console.log(`[SIMPLE_PLANNER] ✅ Origin "${origin}" confirmed in user messages`);
+          }
+        }
+        
+        // Log the plan content for debugging
+        if (response.plan) {
+          console.log(`[SIMPLE_PLANNER] 📋 Generated plan:`, {
+            title: response.plan.title,
+            description: response.plan.description?.substring(0, 100),
+            taskCount: response.plan.tasks?.length,
+            hasBudget: !!response.plan.budget,
+            hasWeather: !!response.plan.weather
+          });
+        }
+        
+        // Log message content for debugging
+        console.log(`[SIMPLE_PLANNER] 📝 Message length: ${response.message?.length}, has markdown headers: ${response.message?.includes('##')}`);
       }
       
       // Progress tracking disabled per user request
@@ -2144,6 +2189,51 @@ export class SimpleConversationalPlanner {
       } else if (response.readyToGenerate) {
         const trigger = createPlanTrigger ? ' (user-triggered)' : '';
         console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked${trigger}, generating plan`);
+        
+        // VALIDATION: Check for phantom/unvalidated slot data
+        const extractedInfo = response.extractedInfo || {};
+        console.log(`[SIMPLE_PLANNER] 🔍 DEBUG - Plan extractedInfo:`, JSON.stringify(extractedInfo, null, 2));
+        
+        // For travel domain, validate that origin was actually provided by user
+        // IMPORTANT: Only check USER messages (not assistant examples like "Austin, TX")
+        // AND include the current userMessage since it might contain the origin
+        if (extractedInfo.domain === 'travel') {
+          // Collect ONLY user messages from history + current message
+          const userMessages = conversationHistory
+            .filter(m => m.role === 'user')
+            .map(m => m.content.toLowerCase());
+          userMessages.push(userMessage.toLowerCase()); // Include current message
+          
+          const allUserText = userMessages.join(' ');
+          const origin = extractedInfo.origin?.toLowerCase() || '';
+          
+          // Check if origin was mentioned by the USER (not in assistant examples)
+          if (origin && !allUserText.includes(origin)) {
+            console.warn(`[SIMPLE_PLANNER] ⚠️ PHANTOM DATA DETECTED - Origin "${origin}" not found in user messages`);
+            console.log(`[SIMPLE_PLANNER] User messages scanned:`, userMessages);
+            // Clear phantom origin and plan to force re-asking
+            delete extractedInfo.origin;
+            delete response.plan; // Clear stray plan preview
+            response.readyToGenerate = false;
+            response.message = `I want to make sure I have your details correct. Where are you traveling from?`;
+          } else if (origin) {
+            console.log(`[SIMPLE_PLANNER] ✅ Origin "${origin}" confirmed in user messages`);
+          }
+        }
+        
+        // Log the plan content for debugging
+        if (response.plan) {
+          console.log(`[SIMPLE_PLANNER] 📋 Generated plan:`, {
+            title: response.plan.title,
+            description: response.plan.description?.substring(0, 100),
+            taskCount: response.plan.tasks?.length,
+            hasBudget: !!response.plan.budget,
+            hasWeather: !!response.plan.weather
+          });
+        }
+        
+        // Log message content for debugging
+        console.log(`[SIMPLE_PLANNER] 📝 Message length: ${response.message?.length}, has markdown headers: ${response.message?.includes('##')}`);
       }
       
       // Progress tracking disabled per user request

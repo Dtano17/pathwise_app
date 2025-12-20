@@ -9591,11 +9591,14 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
         return res.json({
           message: isUpdate 
-            ? `♻️ **Activity "${activity.title}" updated!**\n\n📋 I've updated the plan with ${createdTasks.length} new tasks!\n\n→ [View Your Plan](${activityUrl})`
-            : `✨ **Activity "${activity.title}" created!**\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](${activityUrl})`,
+            ? `♻️ **Activity updated!**\n\n📋 I've updated the plan with ${createdTasks.length} new tasks!`
+            : `✨ **Activity created!**\n\n📋 I've created ${createdTasks.length} tasks for you.`,
           activityCreated: !isUpdate,
           activityUpdated: isUpdate,
           activity,
+          activityId: activity.id,
+          activityTitle: activity.title,
+          activityUrl: activityUrl,
           createdTasks,
           planComplete: true
         });
@@ -9648,6 +9651,29 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
       // Check if planner just generated a new plan
       if (plannerResponse.readyToGenerate && plannerResponse.plan) {
+        // VALIDATION: Check if plan has actual content (not empty)
+        const planMessage = plannerResponse.message || '';
+        const hasActualPlanContent = planMessage.length > 100 && 
+          (planMessage.includes('##') || planMessage.includes('**') || planMessage.includes('1.') || planMessage.includes('-'));
+        
+        if (!hasActualPlanContent) {
+          console.error('[SIMPLE PLAN] Plan generation returned empty/invalid content:', {
+            messageLength: planMessage.length,
+            hasHeaders: planMessage.includes('##'),
+            preview: planMessage.substring(0, 200)
+          });
+          
+          // Return error message instead of empty confirmation
+          return res.json({
+            message: "I apologize, but I encountered an issue generating your plan. Let me try again - could you tell me a bit more about what you're planning?",
+            planGenerated: false,
+            sessionId: session.id,
+            conversationHistory: updatedHistory,
+            conversationHints: ["Start over", "Add more details", "Try a different approach"],
+            error: 'plan_generation_failed'
+          });
+        }
+        
         // Check if AI already asked for confirmation (case-insensitive, flexible matching)
         const messageLower = plannerResponse.message.toLowerCase();
         const alreadyAskedConfirmation = messageLower.includes("are you comfortable") || 
@@ -9665,18 +9691,20 @@ Return ONLY valid JSON, no markdown or explanation.`;
           plan: plannerResponse.plan,
           readyToGenerate: true,
           sessionId: session.id,
-          conversationHistory: updatedHistory
+          conversationHistory: updatedHistory,
+          conversationHints: plannerResponse.conversationHints || ["Yes, create it!", "Make some changes", "Start over"]
         });
       }
 
-      // Regular response (still gathering information)
+      // Regular response (still gathering information) - include hints for user guidance
       return res.json({
         message: plannerResponse.message,
         planGenerated: false,
         sessionId: session.id,
         conversationHistory: updatedHistory,
         domain: plannerResponse.domain,
-        questionCount: plannerResponse.questionCount
+        questionCount: plannerResponse.questionCount,
+        conversationHints: plannerResponse.conversationHints || []
       });
 
     } catch (error) {
@@ -9698,23 +9726,25 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
     let isFirstMessage;
     
     if (isNewConversation) {
-      // New conversation - create fresh session and clear old one
-      console.log('[QUICK PLAN] NEW conversation detected - creating fresh session');
+      // New conversation - create fresh session and FULLY clear old one
+      console.log('[QUICK PLAN] NEW conversation detected - creating fresh session with CLEAN STATE');
       
       const existingSession = await storage.getActiveLifestylePlannerSession(userId);
       if (existingSession) {
         console.log('[QUICK PLAN] Completing old session:', existingSession.id, 'with', (existingSession.conversationHistory || []).length, 'messages');
+        console.log('[QUICK PLAN] Old session slots being cleared:', Object.keys(existingSession.slots || {}));
         await storage.updateLifestylePlannerSession(existingSession.id, {
           isComplete: true,
-          sessionState: 'completed'
+          sessionState: 'completed',
+          slots: {} // CRITICAL: Clear slots to prevent phantom data inheritance
         }, userId);
       }
       
-      // Create fresh new session for Quick Plan mode
+      // Create fresh new session for Quick Plan mode with EMPTY slots
       session = await storage.createLifestylePlannerSession({
         userId,
         sessionState: 'intake',
-        slots: {},
+        slots: {}, // Explicitly empty - no inheritance from previous sessions
         conversationHistory: [],
         externalContext: {
           currentMode: 'quick',
