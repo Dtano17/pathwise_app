@@ -2229,15 +2229,15 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 
                 {(sendMessageMutation.isPending || generatePlanMutation.isPending) && (
                   <div className="flex justify-start">
-                    <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-xl">
-                      <div className="flex items-center space-x-2">
-                        <div className="animate-pulse flex space-x-1">
-                          <div className="h-2 w-2 bg-slate-400 rounded-full animate-bounce"></div>
-                          <div className="h-2 w-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                          <div className="h-2 w-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                    <div className="bg-gradient-to-r from-purple-100 to-emerald-100 dark:from-purple-900 dark:to-emerald-900 p-4 rounded-xl shadow-md border border-purple-200 dark:border-purple-800 animate-pulse">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex space-x-1">
+                          <div className="h-3 w-3 bg-purple-500 rounded-full animate-bounce"></div>
+                          <div className="h-3 w-3 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                          <div className="h-3 w-3 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
                         </div>
-                        <span className="text-sm text-slate-600 dark:text-slate-400">
-                          {isGenerating ? 'Generating your plan...' : 'Thinking...'}
+                        <span className="text-sm font-medium bg-gradient-to-r from-purple-600 to-emerald-600 dark:from-purple-300 dark:to-emerald-300 bg-clip-text text-transparent">
+                          {isGenerating ? '⚡ Generating your plan...' : '🧠 Thinking...'}
                         </span>
                       </div>
                     </div>
@@ -2255,9 +2255,16 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
               <div className="p-4 space-y-2">
                 {/* URL/Document hint for Quick/Smart Plan */}
                 {(planningMode === 'quick' || planningMode === 'smart') && (
-                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
-                    <Link className="h-3 w-3" />
-                    <span>Paste a URL, upload a video/audio/document, or combine multiple sources</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                      <Link className="h-3 w-3" />
+                      <span>Paste a URL, upload a video/audio/document, or combine multiple sources</span>
+                    </div>
+                    {currentSession?.conversationHistory && currentSession.conversationHistory.length > 0 && (
+                      <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">💡 Hint: Say "continue" to answer more questions, or "create plan" to generate now</span>
+                      </div>
+                    )}
                   </div>
                 )}
                 
