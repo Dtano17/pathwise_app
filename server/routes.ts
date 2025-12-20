@@ -9457,6 +9457,12 @@ Return ONLY valid JSON, no markdown or explanation.`;
           console.log(`[SIMPLE PLAN] Completed old session: ${oldSession.id}`);
         }
 
+        // CRITICAL: Clear search cache to prevent phantom data from old conversations
+        // The cache persists globally and contains old destination/location search results
+        const { globalSearchCache } = await import('../services/simpleConversationalPlanner');
+        globalSearchCache.clear();
+        console.log(`[SIMPLE PLAN] ✨ Cleared search cache for new conversation`);
+
         // Create fresh new session with ZERO inherited state
         session = await storage.createLifestylePlannerSession({
           userId,

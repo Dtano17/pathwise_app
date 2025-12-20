@@ -2525,5 +2525,6 @@ export class SimpleConversationalPlanner {
 
 const provider = (process.env.LLM_PROVIDER || 'openai') as 'openai' | 'claude';
 export const simpleConversationalPlanner = new SimpleConversationalPlanner(provider);
+export { globalSearchCache };
 
 console.log(`[SIMPLE_PLANNER] Initialized with ${provider} provider`);
