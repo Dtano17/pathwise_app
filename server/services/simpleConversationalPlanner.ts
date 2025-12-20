@@ -230,6 +230,12 @@ interface PlanningResponse {
   questionCount?: number;
   redirectToPlanning?: boolean;
   conversationHints?: string[]; // NEW: Context-aware suggestions for user
+  journalContext?: {  // NEW: Info about journal entries used for context
+    found: boolean;
+    count: number;
+    location?: string;
+    summaries?: string[];  // Brief summaries of what was found
+  };
 }
 
 interface GeneratedPlan {
@@ -855,6 +861,22 @@ ${recentJournal && recentJournal.length > 0 ? `**Recent Journal Entries:**\n${re
     priorityContext += `\n\n## ⚡ PRIORITY CONTEXT - User Mentioned Location\n\n`;
     priorityContext += `**Location Detected:** ${context.detectedLocation}\n`;
     priorityContext += `**Relevant Journal Entries:** ${recentJournal?.length || 0} entries found mentioning this location\n`;
+    
+    // Add journal entry details if found
+    if (recentJournal && recentJournal.length > 0) {
+      priorityContext += `\n### 📔 JOURNAL INSIGHTS - USE THESE DETAILS!\n`;
+      priorityContext += `**CRITICAL:** The user has journaled about ${context.detectedLocation} before. Reference this in your response!\n\n`;
+      recentJournal.slice(0, 3).forEach((entry, i) => {
+        priorityContext += `**Entry ${i + 1}** (${entry.date || 'recent'}):\n`;
+        priorityContext += `- Text: "${entry.text?.substring(0, 200)}${entry.text && entry.text.length > 200 ? '...' : ''}"\n`;
+        if (entry.mood) priorityContext += `- Mood: ${entry.mood}\n`;
+        if (entry.reflection) priorityContext += `- Reflection: ${entry.reflection}\n`;
+        priorityContext += '\n';
+      });
+      priorityContext += `**ACTION:** In your FIRST response, acknowledge: "I see you've journaled about ${context.detectedLocation} before - let me use those details to personalize your plan!"\n`;
+      priorityContext += `**SKIP questions that the journal entries already answer** (e.g., if they mention a hotel, don't ask about accommodation preferences).\n`;
+    }
+    
     priorityContext += `\n**Use this location as the PRIMARY context for planning.** The user has already specified where they want to plan for.\n`;
   }
 
@@ -1874,6 +1896,19 @@ export class SimpleConversationalPlanner {
         mode
       );
 
+      // 5.5. Add journal context to response for frontend display
+      if (context.detectedLocation && context.recentJournal && context.recentJournal.length > 0) {
+        response.journalContext = {
+          found: true,
+          count: context.recentJournal.length,
+          location: context.detectedLocation,
+          summaries: context.recentJournal.slice(0, 3).map(j => 
+            j.text?.substring(0, 100) + (j.text && j.text.length > 100 ? '...' : '')
+          ).filter(Boolean) as string[]
+        };
+        console.log(`[SIMPLE_PLANNER] 📔 Found ${context.recentJournal.length} journal entries about "${context.detectedLocation}"`);
+      }
+
       // 5. ENFORCE cumulative questionCount based on conversation turns
       // Don't trust AI to track this - calculate it based on user responses received
       const minimum = mode === 'quick' ? 5 : 10;
@@ -2106,6 +2141,19 @@ export class SimpleConversationalPlanner {
           context,
           mode
         );
+      }
+
+      // 5.5. Add journal context to response for frontend display (same as non-streaming)
+      if (context.detectedLocation && context.recentJournal && context.recentJournal.length > 0) {
+        response.journalContext = {
+          found: true,
+          count: context.recentJournal.length,
+          location: context.detectedLocation,
+          summaries: context.recentJournal.slice(0, 3).map(j => 
+            j.text?.substring(0, 100) + (j.text && j.text.length > 100 ? '...' : '')
+          ).filter(Boolean) as string[]
+        };
+        console.log(`[SIMPLE_PLANNER_STREAM] 📔 Found ${context.recentJournal.length} journal entries about "${context.detectedLocation}"`);
       }
 
       // Use AI's reported questionCount directly (same as non-streaming version)

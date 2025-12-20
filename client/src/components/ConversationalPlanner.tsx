@@ -83,6 +83,12 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const [createdActivityId, setCreatedActivityId] = useState<string | null>(null);
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
   const [messageActivities, setMessageActivities] = useState<Map<number, { activityId: string; activityTitle: string }>>(new Map());
+  const [journalContextInfo, setJournalContextInfo] = useState<{
+    found: boolean;
+    count: number;
+    location?: string;
+    summaries?: string[];
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Journal Mode State
@@ -363,6 +369,11 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           timestamp: new Date().toISOString(),
           conversationHints: finalData.conversationHints || [] // Add hints from backend
         };
+
+        // Store journal context info for UI display
+        if (finalData.journalContext?.found) {
+          setJournalContextInfo(finalData.journalContext);
+        }
 
         const finalHistory = [
           ...messageData.conversationHistory,
@@ -1165,6 +1176,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     setShowPlanConfirmation(false);
     setShowPlanDetails(false);
     setShowAgreementPrompt(false);
+    setJournalContextInfo(null); // Clear journal context on reset
     toast({
       title: "Session Cleared",
       description: "Starting fresh!",
@@ -2125,6 +2137,35 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       {/* Chat Interface */}
       <Card className="flex-1 border-none shadow-lg bg-white/80 dark:bg-slate-900/80 backdrop-blur flex flex-col">
         <CardContent className="p-0 flex-1 flex flex-col">
+          {/* Journal Context Banner - Shows when journal entries found for location */}
+          {journalContextInfo?.found && (
+            <div className="px-4 py-3 bg-gradient-to-r from-purple-50 to-emerald-50 dark:from-purple-950/50 dark:to-emerald-950/50 border-b border-purple-200 dark:border-purple-800">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-emerald-500 flex items-center justify-center">
+                  <BookOpen className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                      Using your journal entries
+                    </span>
+                    <Badge variant="secondary" className="bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-xs">
+                      {journalContextInfo.count} {journalContextInfo.count === 1 ? 'entry' : 'entries'} about {journalContextInfo.location}
+                    </Badge>
+                  </div>
+                  {journalContextInfo.summaries && journalContextInfo.summaries.length > 0 && (
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">
+                      {journalContextInfo.summaries[0]}
+                    </p>
+                  )}
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                    Your preferences will be used to personalize questions and skip what you've already shared.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Messages */}
           <ScrollArea className="flex-1 p-4">
             {!currentSession ? (
