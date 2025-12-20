@@ -9440,20 +9440,24 @@ Return ONLY valid JSON, no markdown or explanation.`;
       console.log(`✨ [SIMPLE PLANNER - ${mode.toUpperCase()} MODE] Processing message for user ${userId}`);
       console.log(`📝 [SIMPLE PLANNER] Message: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}}"`);
 
-      // Get or create session
-      let session = await storage.getActiveLifestylePlannerSession(userId);
-
       const isNewConversation = !conversationHistory || conversationHistory.length === 0;
+      let session;
 
       if (isNewConversation) {
-        // New conversation - create fresh session
-        if (session) {
-          await storage.updateLifestylePlannerSession(session.id, {
+        // NEW CONVERSATION: Always start fresh with zero old data
+        // Don't fetch old session - create new one immediately
+        const oldSession = await storage.getActiveLifestylePlannerSession(userId);
+        if (oldSession) {
+          // Mark old session as complete immediately
+          await storage.updateLifestylePlannerSession(oldSession.id, {
             isComplete: true,
-            sessionState: 'completed'
+            sessionState: 'completed',
+            slots: {} // CRITICAL: Clear slots
           }, userId);
+          console.log(`[SIMPLE PLAN] Completed old session: ${oldSession.id}`);
         }
 
+        // Create fresh new session with ZERO inherited state
         session = await storage.createLifestylePlannerSession({
           userId,
           sessionState: 'gathering',
@@ -9462,16 +9466,20 @@ Return ONLY valid JSON, no markdown or explanation.`;
           externalContext: { currentMode: mode }
         });
 
-        console.log(`[SIMPLE PLAN] Created new session: ${session.id}`);
-      } else if (!session) {
-        // Session lost - recreate
-        session = await storage.createLifestylePlannerSession({
-          userId,
-          sessionState: 'gathering',
-          slots: {},
-          conversationHistory: conversationHistory,
-          externalContext: { currentMode: mode }
-        });
+        console.log(`[SIMPLE PLAN] Created brand new session: ${session.id}`);
+      } else {
+        // CONTINUING CONVERSATION: Use existing session or recreate if lost
+        session = await storage.getActiveLifestylePlannerSession(userId);
+        if (!session) {
+          // Session lost - recreate with frontend's conversation history
+          session = await storage.createLifestylePlannerSession({
+            userId,
+            sessionState: 'gathering',
+            slots: {},
+            conversationHistory: conversationHistory,
+            externalContext: { currentMode: mode }
+          });
+        }
       }
 
       // 🚨 CRITICAL FIX: Check confirmation BEFORE calling planner to avoid loop
