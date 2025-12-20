@@ -939,14 +939,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ========== SITEMAP FOR SEO ==========
   // Dynamic sitemap.xml for search engines and AI crawlers
-  app.get('/sitemap.xml', async (_req, res) => {
+  // Supports both journalmate.ai and planmate360.ai domains
+  app.get('/sitemap.xml', async (req, res) => {
     try {
-      const baseUrl = 'https://journalmate.ai';
+      // Detect domain from request host header for multi-domain support
+      const host = req.get('host') || '';
+      let baseUrl = 'https://journalmate.ai';
+      if (host.includes('planmate360')) {
+        baseUrl = 'https://planmate360.ai';
+      }
 
-      // Static pages with SEO priority
+      // Static pages with SEO priority - optimized for Google and AI crawlers
       const staticPages = [
         { url: '/', priority: 1.0, changefreq: 'weekly' },
         { url: '/discover', priority: 0.9, changefreq: 'daily' },
+        { url: '/import-plan', priority: 0.9, changefreq: 'weekly' },
         { url: '/chatgpt-plan-tracker', priority: 0.9, changefreq: 'monthly' },
         { url: '/claude-ai-integration', priority: 0.9, changefreq: 'monthly' },
         { url: '/perplexity-plans', priority: 0.9, changefreq: 'monthly' },
@@ -961,49 +968,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { url: '/date-night-ideas', priority: 0.8, changefreq: 'weekly' },
         { url: '/family-activities', priority: 0.8, changefreq: 'weekly' },
         { url: '/trending-plans', priority: 0.85, changefreq: 'daily' },
+        { url: '/about', priority: 0.7, changefreq: 'monthly' },
         { url: '/faq', priority: 0.7, changefreq: 'monthly' },
         { url: '/privacy', priority: 0.5, changefreq: 'yearly' },
         { url: '/terms', priority: 0.5, changefreq: 'yearly' },
         { url: '/support', priority: 0.6, changefreq: 'monthly' },
       ];
 
-      // Fetch public community plans for dynamic URLs
-      const publicPlans = await db.query.activities.findMany({
-        where: eq(activities.communityStatus, 'live'),
-        limit: 1000,
-        columns: {
-          shareToken: true,
-          updatedAt: true,
-        }
-      });
+      // Fetch public community plans for dynamic URLs - wrapped in try/catch for resilience
+      let dynamicUrls: Array<{ url: string; priority: number; changefreq: string; lastmod?: string }> = [];
+      try {
+        const publicPlans = await db.query.activities.findMany({
+          where: eq(activities.communityStatus, 'live'),
+          limit: 1000,
+          columns: {
+            shareToken: true,
+            updatedAt: true,
+          }
+        });
 
-      // Build dynamic URLs from public plans
-      const dynamicUrls = publicPlans.map(plan => ({
-        url: `/share/${plan.shareToken}`,
-        priority: 0.6,
-        changefreq: 'weekly',
-        lastmod: plan.updatedAt instanceof Date ? plan.updatedAt.toISOString() : new Date(plan.updatedAt).toISOString()
-      }));
+        // Build dynamic URLs from public plans with null-safe date handling
+        dynamicUrls = publicPlans
+          .filter(plan => plan.shareToken) // Only include plans with valid share tokens
+          .map(plan => {
+            let lastmod: string | undefined;
+            try {
+              if (plan.updatedAt) {
+                lastmod = plan.updatedAt instanceof Date 
+                  ? plan.updatedAt.toISOString() 
+                  : new Date(plan.updatedAt).toISOString();
+              }
+            } catch {
+              // Skip invalid dates
+            }
+            return {
+              url: `/share/${plan.shareToken}`,
+              priority: 0.6,
+              changefreq: 'weekly' as const,
+              lastmod
+            };
+          });
+      } catch (dbError) {
+        console.error('[SITEMAP] Database error fetching community plans:', dbError);
+        // Continue with static pages only
+      }
 
       // Combine static and dynamic URLs
       const allUrls = [...staticPages, ...dynamicUrls];
+      const today = new Date().toISOString().split('T')[0];
 
-      // Generate XML sitemap
+      // Generate XML sitemap following Google Sitemap Protocol
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+                            http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
 ${allUrls.map(page => `  <url>
     <loc>${baseUrl}${page.url}</loc>
+    <lastmod>${page.lastmod || today}</lastmod>
     <changefreq>${page.changefreq}</changefreq>
-    <priority>${page.priority}</priority>${page.lastmod ? `
-    <lastmod>${page.lastmod}</lastmod>` : ''}
+    <priority>${page.priority}</priority>
   </url>`).join('\n')}
 </urlset>`;
 
       res.header('Content-Type', 'application/xml');
+      res.header('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
       res.send(xml);
     } catch (error) {
-      console.error('Error generating sitemap:', error);
-      res.status(500).send('Error generating sitemap');
+      console.error('[SITEMAP] Error generating sitemap:', error);
+      // Return a minimal valid sitemap on error
+      const fallbackXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://journalmate.ai/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>`;
+      res.header('Content-Type', 'application/xml');
+      res.status(200).send(fallbackXml);
     }
   });
 

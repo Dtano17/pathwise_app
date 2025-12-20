@@ -1,3 +1,6 @@
+# JournalMate & PlanMate360 robots.txt
+# Supports: journalmate.ai, planmate360.ai
+
 # Allow all crawlers
 User-agent: *
 Allow: /
@@ -7,10 +10,13 @@ Disallow: /api/
 Disallow: /auth/
 Disallow: /dashboard
 Disallow: /settings
+Disallow: /profile
 
 # AI Crawlers - Explicitly allow SEO-optimized pages
 User-agent: GPTBot
 Allow: /
+Allow: /discover
+Allow: /import-plan
 Allow: /chatgpt-plan-tracker
 Allow: /claude-ai-integration
 Allow: /gemini-plan-importer
@@ -20,7 +26,9 @@ Allow: /weekend-plans
 Allow: /christmas-plans
 Allow: /date-night-ideas
 Allow: /family-activities
-Allow: /discover
+Allow: /trending-plans
+Allow: /plans-near-me
+Allow: /about
 Allow: /faq
 
 User-agent: Claude-Web
@@ -32,5 +40,12 @@ Allow: /
 User-agent: Perplexity-Bot
 Allow: /
 
-# Sitemap location
+User-agent: Amazonbot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+# Sitemap locations for both domains
 Sitemap: https://journalmate.ai/sitemap.xml
+Sitemap: https://planmate360.ai/sitemap.xml
