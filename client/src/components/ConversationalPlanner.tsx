@@ -262,6 +262,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       setCurrentSession(data.session);
       setContextChips([]);
       setShowAgreementPrompt(false);
+      setJournalContextInfo(null); // Clear journal context on new session
     },
     onError: (error) => {
       console.error('Failed to start session:', error);
@@ -2063,6 +2064,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 setPlanningMode(null);
                 setCurrentSession(null);
                 setContextChips([]);
+                setJournalContextInfo(null); // Clear journal context when changing modes
               }}
               variant="outline"
               size="sm"
