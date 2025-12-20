@@ -269,6 +269,9 @@ interface PlanningContext {
   profile?: UserProfile;
   preferences?: UserPreferences;
   recentJournal?: JournalEntry[];
+  detectedLocation?: string | null;
+  detectedBudget?: number | null;
+  fallbackLocation?: string;
 }
 
 // ============================================================================
@@ -403,9 +406,9 @@ class OpenAIProvider implements LLMProvider {
       const isPreviewTurn = mode === 'quick' ? currentTurn >= 3 : currentTurn >= 4;
       
       // MODEL SELECTION: Use mini for question gathering, full for preview
-      // Turn 1-2: gpt-4o-mini (faster, cheaper, good for questions)
-      // Turn 3+: gpt-4o (smarter, better with web data and enrichment)
-      const model = isPreviewTurn ? 'gpt-4o' : 'gpt-4o-mini';
+      // Turn 1-2: gpt-4o-mini-2024-07-18 (faster, cheaper, good for questions)
+      // Turn 3+: gpt-4o-2024-11-20 (smarter, better with web data and enrichment)
+      const model = isPreviewTurn ? 'gpt-4o-2024-11-20' : 'gpt-4o-mini-2024-07-18';
       console.log(`[SIMPLE_PLANNER] Turn ${currentTurn}: Using ${model} (${isPreviewTurn ? 'preview' : 'question gathering'})`);
       
       if (this.tavilyClient && isPreviewTurn) {
@@ -608,7 +611,7 @@ class OpenAIProvider implements LLMProvider {
       const isPreviewTurn = mode === 'quick' ? currentTurn >= 3 : currentTurn >= 4;
       
       // MODEL SELECTION: Use mini for question gathering, full for preview
-      const model = isPreviewTurn ? 'gpt-4o' : 'gpt-4o-mini';
+      const model = isPreviewTurn ? 'gpt-4o-2024-11-20' : 'gpt-4o-mini-2024-07-18';
       console.log(`[SIMPLE_PLANNER_STREAM] Turn ${currentTurn}: Using ${model} (${isPreviewTurn ? 'preview' : 'question gathering'})`);
       
       if (this.tavilyClient && isPreviewTurn) {
@@ -763,15 +766,20 @@ class AnthropicProvider implements LLMProvider {
       // (Only OpenAI provider has Tavily integration)
 
       const response = await this.client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 4096,
+        model: 'claude-opus-4-5-20251101', // Updated to Claude 4.5 Opus for best reasoning
+        max_tokens: 8192, // Increased for better responses
         system: systemPrompt,
         messages: messages.map(m => ({
           role: m.role,
           content: m.content
         })),
         tools: anthropicTools,
-        tool_choice: { type: 'tool', name: 'respond_with_structure' }
+        tool_choice: { type: 'tool', name: 'respond_with_structure' },
+        thinking: {
+          type: 'enabled' as const,
+          budget_tokens: 2000 // Extended thinking for complex planning
+        },
+        temperature: 0.7, // Balanced creativity and consistency
       });
 
       const toolUse = response.content.find(block => block.type === 'tool_use');
@@ -1801,8 +1809,8 @@ export class SimpleConversationalPlanner {
     console.log(`[SIMPLE_PLANNER] Processing message for user ${userId} in ${mode} mode`);
 
     try {
-      // 1. Gather user context
-      const context = await this.gatherUserContext(userId, storage);
+      // 1. Gather user context (pass user message for smart extraction)
+      const context = await this.gatherUserContext(userId, storage, userMessage);
 
       // 2. Build conversation history
       const messages = [
@@ -1965,8 +1973,8 @@ export class SimpleConversationalPlanner {
     console.log(`[SIMPLE_PLANNER] Processing message with streaming for user ${userId} in ${mode} mode`);
 
     try {
-      // 1. Gather user context
-      const context = await this.gatherUserContext(userId, storage);
+      // 1. Gather user context (pass user message for smart extraction)
+      const context = await this.gatherUserContext(userId, storage, userMessage);
 
       // 2. Build conversation history
       const messages = [
@@ -2103,26 +2111,137 @@ export class SimpleConversationalPlanner {
   }
 
   /**
+   * Extract location from user message using regex patterns
+   */
+  private extractLocationFromMessage(userMessage: string): string | null {
+    const patterns = [
+      /(?:in|at|to|for|near|around)\s+([A-Z][a-zA-Z\s]+(?:,\s*[A-Z]{2})?)/,
+      /(?:visit|trip to|going to|planning for|traveling to|heading to)\s+([A-Z][a-zA-Z\s]+)/,
+      /(?:weekend in|vacation in|holiday in|getaway to)\s+([A-Z][a-zA-Z\s]+)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = userMessage.match(pattern);
+      if (match && match[1]) {
+        const location = match[1].trim();
+        // Filter out common false positives
+        if (location.length > 2 && !['the', 'a', 'an', 'my', 'our'].includes(location.toLowerCase())) {
+          console.log(`[CONTEXT] Detected location from message: "${location}"`);
+          return location;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract budget from user message using regex patterns
+   */
+  private extractBudgetFromMessage(userMessage: string): number | null {
+    const patterns = [
+      /\$(\d+(?:,\d{3})*(?:\.\d{2})?)/,
+      /(\d+(?:,\d{3})*)\s*(?:dollars|bucks|USD|usd)/i,
+      /budget\s+(?:of|is|around|about)?\s*\$?(\d+(?:,\d{3})*)/i,
+      /(\d+(?:,\d{3})*)\s*dollar\s+budget/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = userMessage.match(pattern);
+      if (match && match[1]) {
+        const amount = match[1].replace(/,/g, '');
+        const budget = parseFloat(amount);
+        if (!isNaN(budget) && budget > 0) {
+          console.log(`[CONTEXT] Detected budget from message: $${budget}`);
+          return budget;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Scan journal for location-specific entries
+   */
+  private async scanJournalForLocation(
+    userId: string,
+    location: string,
+    storage: IStorage
+  ): Promise<JournalEntry[]> {
+    try {
+      const allJournal = await storage.getUserJournalEntries(userId, 30); // Last 30 days
+
+      if (!allJournal || allJournal.length === 0) {
+        return [];
+      }
+
+      const locationLower = location.toLowerCase();
+      const relevant = allJournal.filter(entry =>
+        entry.text?.toLowerCase().includes(locationLower) ||
+        (entry as any).location?.toLowerCase().includes(locationLower)
+      );
+
+      if (relevant.length > 0) {
+        console.log(`[CONTEXT] Found ${relevant.length} journal entries mentioning "${location}"`);
+      }
+
+      return relevant;
+    } catch (error) {
+      console.error('[CONTEXT] Error scanning journal for location:', error);
+      return [];
+    }
+  }
+
+  /**
    * Gather full user context for personalization
    */
-  private async gatherUserContext(userId: string, storage: IStorage): Promise<PlanningContext> {
+  private async gatherUserContext(
+    userId: string,
+    storage: IStorage,
+    userMessage?: string // NEW: Optional user message for smart extraction
+  ): Promise<PlanningContext> {
     try {
-      const [user, profile, preferences, recentJournal] = await Promise.all([
+      const [user, profile, preferences] = await Promise.all([
         storage.getUser(userId),
         storage.getUserProfile(userId),
         storage.getUserPreferences(userId),
-        storage.getUserJournalEntries(userId, 7) // Last 7 days
       ]);
 
       if (!user) {
         throw new Error(`User ${userId} not found`);
       }
 
+      let recentJournal: JournalEntry[] = [];
+      let detectedLocation: string | null = null;
+      let detectedBudget: number | null = null;
+
+      // Smart extraction from user message if provided
+      if (userMessage) {
+        detectedLocation = this.extractLocationFromMessage(userMessage);
+        detectedBudget = this.extractBudgetFromMessage(userMessage);
+      }
+
+      // Scan journal with location priority
+      if (detectedLocation) {
+        // User mentioned a location - scan journal for that specific location
+        recentJournal = await this.scanJournalForLocation(userId, detectedLocation, storage);
+      } else {
+        // No location mentioned - get recent journal entries (last 7 days)
+        recentJournal = await storage.getUserJournalEntries(userId, 7) || [];
+      }
+
+      // Determine fallback location from profile
+      const fallbackLocation = user.location || (profile as any)?.location;
+
       return {
         user,
         profile: profile || undefined,
         preferences: preferences || undefined,
-        recentJournal: recentJournal || []
+        recentJournal,
+        detectedLocation,
+        detectedBudget,
+        fallbackLocation,
       };
     } catch (error) {
       console.error('[SIMPLE_PLANNER] Error gathering user context:', error);
