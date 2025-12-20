@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { SocialLogin } from '@/components/SocialLogin';
 import { useAuth } from '@/hooks/useAuth';
-// Using public logo path instead of missing asset
-const journalMateLogo = '/journalmate-logo-final.png';
+// Using transparent logo for light/dark mode compatibility
+const journalMateLogo = '/journalmate-logo-transparent.png';
 
 export default function Login() {
   const [, setLocation] = useLocation();
