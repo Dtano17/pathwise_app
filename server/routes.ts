@@ -9442,7 +9442,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
       // CRITICAL: Always clear search cache at start to prevent stale data leaks
       // This is necessary even for continuing conversations in case frontend history is stale
-      const { globalSearchCache } = await import('../services/simpleConversationalPlanner');
+      const { globalSearchCache } = await import('./services/simpleConversationalPlanner');
       const cacheStatsBefore = globalSearchCache.getStats();
       globalSearchCache.clear();
       if (cacheStatsBefore.size > 0) {
