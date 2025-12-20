@@ -229,6 +229,7 @@ interface PlanningResponse {
   domain?: string;
   questionCount?: number;
   redirectToPlanning?: boolean;
+  conversationHints?: string[]; // NEW: Context-aware suggestions for user
 }
 
 interface GeneratedPlan {
@@ -847,10 +848,37 @@ ${user.sleepSchedule ? `**Sleep Schedule:** ${user.sleepSchedule.bedtime} - ${us
 ${recentJournal && recentJournal.length > 0 ? `**Recent Journal Entries:**\n${recentJournal.map(j => `- ${j.date}: Mood ${j.mood}, ${j.reflection || 'No reflection'}`).join('\n')}` : ''}
 `.trim();
 
+  // Build priority context section (NEW)
+  let priorityContext = '';
+
+  if (context.detectedLocation) {
+    priorityContext += `\n\n## ⚡ PRIORITY CONTEXT - User Mentioned Location\n\n`;
+    priorityContext += `**Location Detected:** ${context.detectedLocation}\n`;
+    priorityContext += `**Relevant Journal Entries:** ${recentJournal?.length || 0} entries found mentioning this location\n`;
+    priorityContext += `\n**Use this location as the PRIMARY context for planning.** The user has already specified where they want to plan for.\n`;
+  }
+
+  if (context.detectedBudget) {
+    priorityContext += `\n\n## ⚡ PRIORITY CONTEXT - User Specified Budget\n\n`;
+    priorityContext += `**Budget Detected:** $${context.detectedBudget}\n`;
+    priorityContext += `\n**CRITICAL:** Optimize ALL suggestions to fit within this budget.\n`;
+    priorityContext += `Provide detailed budget breakdown in your plan.\n`;
+    priorityContext += `Never exceed $${context.detectedBudget} total.\n`;
+  }
+
+  if (!context.detectedLocation && context.fallbackLocation) {
+    priorityContext += `\n\n## 📍 Default Location - MUST ASK FIRST\n\n`;
+    priorityContext += `**User's Home Location:** ${context.fallbackLocation}\n`;
+    priorityContext += `\n**⚠️ CRITICAL:** User hasn't specified a location in their message.\n`;
+    priorityContext += `You MUST ask them explicitly:\n`;
+    priorityContext += `"Where would you like to plan for? (You can say 'use my current location' or specify a city)"\n`;
+    priorityContext += `\n**DO NOT assume the home location without asking first.**\n`;
+  }
+
   // COMPRESSED BUDGET-FIRST SYSTEM PROMPT
   return `You are JournalMate Planning Agent - an expert planner specializing in budget-conscious, personalized plans.
 
-${userContext}
+${userContext}${priorityContext}
 
 ## Mission
 Help ${user.firstName || 'the user'} plan ANY activity via smart questions and actionable plans. **${mode.toUpperCase()} MODE** - ${modeDescription}.
@@ -1775,6 +1803,13 @@ function getPlanningTool(mode: 'quick' | 'smart') {
         redirectToPlanning: {
           type: 'boolean',
           description: 'True if the user asked something off-topic and you are redirecting them to planning'
+        },
+        conversationHints: {
+          type: 'array',
+          description: 'Contextual hints to guide the user (e.g., "continue", "I don\'t know", "create plan"). These will be shown as clickable chips.',
+          items: {
+            type: 'string'
+          }
         }
       },
       required: ['message', 'extractedInfo', 'readyToGenerate']
@@ -1949,6 +1984,17 @@ export class SimpleConversationalPlanner {
       // Progress tracking disabled per user request
       // Users found it confusing and it was causing localStorage persistence issues
 
+      // 6. Generate conversation hints to guide user
+      if (!response.conversationHints || response.conversationHints.length === 0) {
+        response.conversationHints = this.generateConversationHints(
+          response.extractedInfo,
+          mode,
+          response.readyToGenerate,
+          questionCount
+        );
+        console.log(`[SIMPLE_PLANNER] Generated ${response.conversationHints.length} conversation hints`);
+      }
+
       console.log(`[SIMPLE_PLANNER] Response generated - readyToGenerate: ${response.readyToGenerate}, domain: ${response.domain || response.extractedInfo.domain}`);
       return response;
 
@@ -2103,6 +2149,17 @@ export class SimpleConversationalPlanner {
       // Progress tracking disabled per user request
       // Users found it confusing and it was causing localStorage persistence issues
 
+      // 6. Generate conversation hints to guide user
+      if (!response.conversationHints || response.conversationHints.length === 0) {
+        response.conversationHints = this.generateConversationHints(
+          response.extractedInfo,
+          mode,
+          response.readyToGenerate,
+          questionCount
+        );
+        console.log(`[SIMPLE_PLANNER] Generated ${response.conversationHints.length} conversation hints`);
+      }
+
       return response;
     } catch (error) {
       console.error('[SIMPLE_PLANNER] Error processing streaming message:', error);
@@ -2159,6 +2216,74 @@ export class SimpleConversationalPlanner {
     }
 
     return null;
+  }
+
+  /**
+   * Generate contextual conversation hints to guide user
+   */
+  private generateConversationHints(
+    extractedInfo: Record<string, any>,
+    mode: 'quick' | 'smart',
+    readyToGenerate: boolean,
+    questionCount: number
+  ): string[] {
+    const hints: string[] = [];
+
+    // If plan is ready to generate
+    if (readyToGenerate) {
+      hints.push("yes");
+      hints.push("create plan");
+      hints.push("change something");
+      hints.push("start over");
+      return hints;
+    }
+
+    // Default helpful hints based on conversation state
+    const hasLocation = extractedInfo.location || extractedInfo.detectedLocation;
+    const hasBudget = extractedInfo.budget || extractedInfo.detectedBudget;
+    const hasDate = extractedInfo.date || extractedInfo.startDate || extractedInfo.when;
+
+    // Smart mode gets more detailed hints
+    if (mode === 'smart') {
+      if (questionCount < 3) {
+        // Early stage hints
+        hints.push("continue");
+        hints.push("I don't know");
+        hints.push("skip this");
+      } else {
+        // Mid-stage hints
+        hints.push("continue");
+        hints.push("create plan now");
+        hints.push("tell me more");
+      }
+    } else {
+      // Quick mode hints
+      hints.push("continue");
+      hints.push("create plan");
+      if (!hasLocation) {
+        hints.push("use my current location");
+      }
+    }
+
+    // Context-specific hints
+    if (!hasLocation) {
+      hints.push("assume a reasonable location");
+    }
+
+    if (!hasBudget) {
+      hints.push("flexible budget");
+    }
+
+    if (!hasDate) {
+      hints.push("this weekend");
+    }
+
+    // Always offer escape hatches
+    if (questionCount > 2) {
+      hints.push("I'll provide details later");
+    }
+
+    return hints.slice(0, 5); // Limit to 5 hints for clean UI
   }
 
   /**
