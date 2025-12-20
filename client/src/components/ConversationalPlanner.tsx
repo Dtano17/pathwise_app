@@ -21,6 +21,7 @@ interface ConversationMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  conversationHints?: string[]; // Contextual hints for user guidance
 }
 
 interface ContextChip {
@@ -359,9 +360,10 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
         const assistantMessage: ConversationMessage = {
           role: 'assistant',
           content: finalData.message || accumulatedMessage,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          conversationHints: finalData.conversationHints || [] // Add hints from backend
         };
-        
+
         const finalHistory = [
           ...messageData.conversationHistory,
           newMessage,
@@ -404,13 +406,13 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
               title: "Activity Created! 🎉",
               description: `"${finalData.activity.title}" is ready with ${finalData.createdTasks.length} tasks`,
               action: (
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => setLocation(`/?tab=activities&activity=${finalData.activity.id}`)}
                   data-testid="toast-view-activity"
                 >
-                  <ExternalLink className="w-3 h-3 mr-1" />
+                  <Target className="w-3 h-3 mr-1 text-emerald-500" />
                   View
                 </Button>
               )
@@ -885,7 +887,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
             onClick={() => setLocation(`/?tab=activities&activity=${data.activity.id}`)}
             data-testid="toast-view-activity"
           >
-            <ExternalLink className="w-3 h-3 mr-1" />
+            <Target className="w-3 h-3 mr-1 text-emerald-500" />
             View
           </Button>
         ) : undefined
@@ -2181,9 +2183,39 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                             className="gap-2 text-xs bg-white dark:bg-slate-800 hover-elevate"
                             data-testid={`button-view-activity-${index}`}
                           >
-                            <ExternalLink className="w-3 h-3" />
+                            <Target className="w-3 h-3 text-emerald-500" />
                             View "{activityMeta.activityTitle}"
                           </Button>
+                        </div>
+                      )}
+
+                      {/* Conversation hints - clickable chips that auto-send */}
+                      {msg.role === 'assistant' && msg.conversationHints && msg.conversationHints.length > 0 && index === currentSession.conversationHistory.length - 1 && (
+                        <div className="flex flex-wrap gap-2 pl-2 mt-2">
+                          <span className="text-xs text-slate-500 dark:text-slate-400">Quick actions:</span>
+                          {msg.conversationHints.map((hint, hintIdx) => (
+                            <button
+                              key={hintIdx}
+                              onClick={() => {
+                                setUserInput(hint);
+                                // Auto-submit the hint message
+                                setTimeout(() => {
+                                  const submitButton = document.querySelector('[data-testid="button-send-message"]') as HTMLButtonElement;
+                                  if (submitButton) {
+                                    submitButton.click();
+                                  }
+                                }, 100);
+                              }}
+                              className={`text-xs px-3 py-1.5 rounded-full transition-all border ${
+                                planningMode === 'quick'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950 hover:bg-emerald-100 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                  : 'bg-purple-50 dark:bg-purple-950 hover:bg-purple-100 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                              } hover:shadow-sm`}
+                              disabled={sendMessageMutation.isPending}
+                            >
+                              💡 {hint}
+                            </button>
+                          ))}
                         </div>
                       )}
                     </div>
