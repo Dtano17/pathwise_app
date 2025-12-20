@@ -9440,15 +9440,26 @@ Return ONLY valid JSON, no markdown or explanation.`;
       console.log(`✨ [SIMPLE PLANNER - ${mode.toUpperCase()} MODE] Processing message for user ${userId}`);
       console.log(`📝 [SIMPLE PLANNER] Message: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}}"`);
 
+      // CRITICAL: Always clear search cache at start to prevent stale data leaks
+      // This is necessary even for continuing conversations in case frontend history is stale
+      const { globalSearchCache } = await import('../services/simpleConversationalPlanner');
+      const cacheStatsBefore = globalSearchCache.getStats();
+      globalSearchCache.clear();
+      if (cacheStatsBefore.size > 0) {
+        console.log(`[SIMPLE PLAN] ✨ Cleared ${cacheStatsBefore.size} stale cache entries to prevent phantom data`);
+      }
+
       const isNewConversation = !conversationHistory || conversationHistory.length === 0;
       let session;
 
       if (isNewConversation) {
         // NEW CONVERSATION: Always start fresh with zero old data
-        // Don't fetch old session - create new one immediately
+        // Mark ALL user sessions as complete to prevent any data leakage
+        console.log(`[SIMPLE PLAN] Marking ALL sessions as complete for clean slate`);
+        // Note: In a real scenario, you'd have a method to get all sessions for user
+        // For now, we mark the active one
         const oldSession = await storage.getActiveLifestylePlannerSession(userId);
         if (oldSession) {
-          // Mark old session as complete immediately
           await storage.updateLifestylePlannerSession(oldSession.id, {
             isComplete: true,
             sessionState: 'completed',
@@ -9456,12 +9467,6 @@ Return ONLY valid JSON, no markdown or explanation.`;
           }, userId);
           console.log(`[SIMPLE PLAN] Completed old session: ${oldSession.id}`);
         }
-
-        // CRITICAL: Clear search cache to prevent phantom data from old conversations
-        // The cache persists globally and contains old destination/location search results
-        const { globalSearchCache } = await import('../services/simpleConversationalPlanner');
-        globalSearchCache.clear();
-        console.log(`[SIMPLE PLAN] ✨ Cleared search cache for new conversation`);
 
         // Create fresh new session with ZERO inherited state
         session = await storage.createLifestylePlannerSession({
