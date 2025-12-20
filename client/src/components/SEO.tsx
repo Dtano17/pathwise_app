@@ -40,15 +40,23 @@ export function SEO({
     'JournalMate',
     'JournalMate.ai',
 
-    // Plan Tracking Keywords
+    // Core Features: Plan, Track, Discover
     'plan tracker',
-    'AI plan tracker',
     'track plans',
+    'discover plans',
+    'AI plan tracker',
     'plan tracking app',
+    'plan and track',
+    'track shared plans',
+    'track birthday plans',
+    'track group activities',
+
+    // Goal & Activity Tracking
     'goal tracker',
     'activity planner',
     'task tracker',
     'progress tracker',
+    'activity tracker',
 
     // Sharing & Collaboration
     'share plan',
@@ -59,6 +67,8 @@ export function SEO({
     'share goals with friends',
     'group goals',
     'team planning app',
+    'group activities',
+    'track group activities',
 
     // AI Integration Keywords
     'AI integration',
@@ -74,6 +84,8 @@ export function SEO({
     'Perplexity AI tracker',
     'AI conversation import',
     'AI task generator',
+    'use AI plan online',
+    'AI plan iterations',
 
     // Travel & Budget
     'AI travel planner',
@@ -92,6 +104,8 @@ export function SEO({
     'YouTube content saver',
     'save social media content',
     'Instagram saver app',
+    'use online post to plan',
+    'plan from social media',
 
     // Journaling
     'AI journaling',
@@ -106,12 +120,73 @@ export function SEO({
     'date night planner',
     'weekend plans',
     'lifestyle planner',
+    'birthday plans',
+    'birthday plan tracker',
+    'anniversary planner',
 
     // Discovery
     'discover plans',
     'community plans',
     'plan templates',
-    'remix plans'
+    'remix plans',
+
+    // Major Holidays & Events (All Year)
+    // Q1
+    'New Year plans',
+    'New Year activities',
+    'track New Year plans',
+    'Valentine Day plans',
+    'Valentine plans',
+    'Presidents Day activities',
+    'St Patrick Day plans',
+    'Easter plans',
+    'spring plans',
+
+    // Q2
+    'Mother Day plans',
+    'Memorial Day activities',
+    'Father Day plans',
+    'Independence Day plans',
+    'July 4th plans',
+    'summer vacation plans',
+    'summer activities',
+
+    // Q3
+    'Labor Day plans',
+    'back to school planning',
+    'summer adventure ideas',
+    'Halloween plans',
+    'Halloween party ideas',
+    'fall activities',
+
+    // Q4
+    'Veterans Day activities',
+    'Thanksgiving plans',
+    'Black Friday plans',
+    'Christmas plans',
+    'track Christmas plans',
+    'Christmas activity ideas',
+    'Hanukkah plans',
+    'New Years Eve plans',
+    'holiday planning',
+    'winter plans',
+
+    // Special Occasions
+    'birthday party planning',
+    'wedding planning',
+    'baby shower ideas',
+    'graduation celebration',
+    'anniversary ideas',
+    'reunion planning',
+
+    // Activity Types
+    'family activities',
+    'family vacation planning',
+    'game day planning',
+    'concert planning',
+    'festival planning',
+    'road trip planning',
+    'weekend getaway ideas'
   ];
 
   const allKeywords = Array.from(new Set([...defaultKeywords, ...keywords]));
@@ -148,6 +223,21 @@ export function SEO({
       '@type': 'AggregateRating',
       ratingValue: '4.8',
       ratingCount: '500',
+    },
+  };
+
+  const websiteSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'JournalMate',
+    url: BASE_URL,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${BASE_URL}/discover?search={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
     },
   };
 
@@ -204,11 +294,17 @@ export function SEO({
       {publishedTime && <meta property="article:published_time" content={publishedTime} />}
       {modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
 
+      <link rel="alternate" type="application/rss+xml" title="JournalMate Plans Feed" href="/feed.xml" />
+      <link rel="search" type="application/opensearchdescription+xml" title="Search JournalMate" href="/opensearch.xml" />
+
       <script type="application/ld+json">
         {JSON.stringify(organizationSchema)}
       </script>
       <script type="application/ld+json">
         {JSON.stringify(applicationSchema)}
+      </script>
+      <script type="application/ld+json">
+        {JSON.stringify(websiteSchema)}
       </script>
       {breadcrumbSchema && (
         <script type="application/ld+json">

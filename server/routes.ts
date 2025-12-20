@@ -1050,6 +1050,157 @@ ${allUrls.map(page => `  <url>
     }
   });
 
+  // ========== RSS FEED FOR COMMUNITY PLANS ==========
+  // Atom feed for trending and new community plans
+  app.get('/feed.xml', async (_req, res) => {
+    try {
+      const today = new Date().toISOString();
+      
+      // Fetch recent public community plans
+      const recentPlans = await db.query.activities.findMany({
+        where: eq(activities.communityStatus, 'live'),
+        limit: 50,
+        orderBy: (activities, { desc }) => [desc(activities.updatedAt)],
+        columns: {
+          id: true,
+          title: true,
+          description: true,
+          shareToken: true,
+          updatedAt: true,
+        }
+      });
+
+      const feedItems = recentPlans.map(plan => `  <entry>
+    <title>${plan.title || 'Untitled Plan'}</title>
+    <link href="https://journalmate.ai/share/${plan.shareToken}" />
+    <id>https://journalmate.ai/share/${plan.shareToken}</id>
+    <updated>${plan.updatedAt instanceof Date ? plan.updatedAt.toISOString() : new Date(plan.updatedAt).toISOString()}</updated>
+    <summary>${plan.description || 'A community plan on JournalMate'}</summary>
+    <content type="html"><![CDATA[<p>${plan.description || 'A community plan on JournalMate'}</p><p><a href="https://journalmate.ai/share/${plan.shareToken}">View Plan</a></p>]]></content>
+  </entry>`).join('\n');
+
+      const atom = `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>JournalMate Community Plans</title>
+  <subtitle>Discover and share plans for any goal, event, or activity</subtitle>
+  <link href="https://journalmate.ai/" />
+  <link href="https://journalmate.ai/feed.xml" rel="self" />
+  <id>https://journalmate.ai/feed.xml</id>
+  <updated>${today}</updated>
+  <author>
+    <name>JournalMate Team</name>
+    <email>hello@journalmate.ai</email>
+  </author>
+${feedItems}
+</feed>`;
+
+      res.header('Content-Type', 'application/atom+xml');
+      res.header('Cache-Control', 'public, max-age=3600');
+      res.send(atom);
+    } catch (error) {
+      console.error('[FEED] Error generating Atom feed:', error);
+      res.status(200).send(`<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>JournalMate Community Plans</title>
+  <id>https://journalmate.ai/feed.xml</id>
+  <updated>${new Date().toISOString()}</updated>
+</feed>`);
+    }
+  });
+
+  // ========== IMAGE SITEMAP ==========
+  // Image sitemap for plan backdrop images and share previews
+  app.get('/image-sitemap.xml', async (_req, res) => {
+    try {
+      // Fetch plans with image data
+      const plansWithImages = await db.query.activities.findMany({
+        where: eq(activities.communityStatus, 'live'),
+        limit: 1000,
+        columns: {
+          shareToken: true,
+          backdropImageUrl: true,
+        }
+      });
+
+      const imageUrls = plansWithImages
+        .filter(plan => plan.backdropImageUrl || plan.shareToken)
+        .map(plan => {
+          const images = [];
+          if (plan.backdropImageUrl) {
+            images.push(`    <image:loc>${plan.backdropImageUrl}</image:loc>`);
+          }
+          images.push(`    <image:loc>https://journalmate.ai/api/og-image/${plan.shareToken}</image:loc>`);
+          
+          return `  <url>
+    <loc>https://journalmate.ai/share/${plan.shareToken}</loc>
+${images.join('\n')}
+  </url>`;
+        });
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+${imageUrls.join('\n')}
+</urlset>`;
+
+      res.header('Content-Type', 'application/xml');
+      res.header('Cache-Control', 'public, max-age=3600');
+      res.send(xml);
+    } catch (error) {
+      console.error('[IMAGE SITEMAP] Error generating image sitemap:', error);
+      res.status(200).send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+</urlset>`);
+    }
+  });
+
+  // ========== SITEMAP INDEX ==========
+  // Master sitemap index for all sitemaps
+  app.get('/sitemap-index.xml', (_req, res) => {
+    const sitemaps = [
+      { url: 'https://journalmate.ai/sitemap.xml', priority: 'daily' },
+      { url: 'https://journalmate.ai/image-sitemap.xml', priority: 'weekly' },
+    ];
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${sitemaps.map(sitemap => `  <sitemap>
+    <loc>${sitemap.url}</loc>
+  </sitemap>`).join('\n')}
+</sitemapindex>`;
+
+    res.header('Content-Type', 'application/xml');
+    res.header('Cache-Control', 'public, max-age=3600');
+    res.send(xml);
+  });
+
+  // ========== OPENSEARCH DESCRIPTION ==========
+  // Allow browsers to add JournalMate as a search engine
+  app.get('/opensearch.xml', (_req, res) => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+  <ShortName>JournalMate</ShortName>
+  <Description>Discover and plan goals, activities, and events with JournalMate</Description>
+  <Url type="text/html" template="https://journalmate.ai/discover?search={searchTerms}" />
+  <Url type="application/x-suggestions+json" template="https://journalmate.ai/api/search-suggestions?q={searchTerms}" />
+  <Image height="16" width="16" type="image/x-icon">https://journalmate.ai/favicon.ico</Image>
+  <Image height="64" width="64" type="image/png">https://journalmate.ai/journalmate-logo-email.png</Image>
+  <Contact>hello@journalmate.ai</Contact>
+  <Tags>plan tracker discover activity journaling ai</Tags>
+  <LongName>JournalMate - Plan, Track, Discover</LongName>
+  <SyndicationRight>open</SyndicationRight>
+  <Developer>JournalMate Team</Developer>
+  <Attribution>Search results powered by JournalMate</Attribution>
+  <InputEncoding>UTF-8</InputEncoding>
+  <OutputEncoding>UTF-8</OutputEncoding>
+</OpenSearchDescription>`;
+
+    res.header('Content-Type', 'application/xml');
+    res.header('Cache-Control', 'public, max-age=86400');
+    res.send(xml);
+  });
+
   // ========== INTEGRATION STATUS ENDPOINT ==========
   // Shows status of content extraction integrations (Apify, Tavily)
   app.get("/api/integrations/status", async (_req, res) => {

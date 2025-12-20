@@ -47,5 +47,11 @@ User-agent: anthropic-ai
 Allow: /
 
 # Sitemap locations for both domains
+Sitemap: https://journalmate.ai/sitemap-index.xml
 Sitemap: https://journalmate.ai/sitemap.xml
+Sitemap: https://journalmate.ai/image-sitemap.xml
+Sitemap: https://journalmate.ai/feed.xml
+Sitemap: https://planmate360.ai/sitemap-index.xml
 Sitemap: https://planmate360.ai/sitemap.xml
+Sitemap: https://planmate360.ai/image-sitemap.xml
+Sitemap: https://planmate360.ai/feed.xml
