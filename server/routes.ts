@@ -9651,16 +9651,15 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
       // Check if planner just generated a new plan
       if (plannerResponse.readyToGenerate && plannerResponse.plan) {
-        // VALIDATION: Check if plan has actual content (not empty)
-        const planMessage = plannerResponse.message || '';
-        const hasActualPlanContent = planMessage.length > 100 && 
-          (planMessage.includes('##') || planMessage.includes('**') || planMessage.includes('1.') || planMessage.includes('-'));
+        // VALIDATION: Check if plan has actual content (title, tasks, etc)
+        const plan = plannerResponse.plan || {};
+        const hasValidPlan = plan.title && (plan.tasks?.length > 0);
         
-        if (!hasActualPlanContent) {
-          console.error('[SIMPLE PLAN] Plan generation returned empty/invalid content:', {
-            messageLength: planMessage.length,
-            hasHeaders: planMessage.includes('##'),
-            preview: planMessage.substring(0, 200)
+        if (!hasValidPlan) {
+          console.error('[SIMPLE PLAN] Plan missing required content:', {
+            hasTitle: !!plan.title,
+            taskCount: plan.tasks?.length || 0,
+            plan: JSON.stringify(plan).substring(0, 200)
           });
           
           // Return error message instead of empty confirmation

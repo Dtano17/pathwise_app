@@ -963,12 +963,16 @@ ${mode === 'quick' ? `
 **Quick Mode - STRICT 2-Batch System (5 total questions):**
 
 **🚨 CRITICAL BATCHING RULES:**
-- **Batch 1 (Turn 1):** Ask EXACTLY 3 questions together in a numbered list. End: "(Say 'create plan' anytime!)"
+- **Batch 1 (Turn 1):** Ask EXACTLY 3 questions together in a numbered list IN THIS RESPONSE. End: "(Say 'create plan' anytime!)"
+  - **DO NOT announce** "Let me ask questions" - just ask them immediately
+  - **Questions must appear** in this first message, not delayed
 - **Batch 2 (Turn 2):** Ask EXACTLY 2 MORE questions together in a numbered list. NO preview yet!
 - **Turn 3+:** Show COMPLETE PLAN PREVIEW with real-time data from web_search. Wait for confirmation.
 
+**❌ NEVER just announce questions without asking them**
 **❌ NEVER ask 1 question alone**
 **❌ NEVER ask budget by itself**
+**✅ ALWAYS ask questions IMMEDIATELY in the same message**
 **✅ ALWAYS batch questions together (3, then 2)**
 
 **Example Flow:**
