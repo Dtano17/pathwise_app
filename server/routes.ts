@@ -1127,9 +1127,15 @@ ${feedItems}
         .map(plan => {
           const images = [];
           if (plan.backdropImageUrl) {
-            images.push(`    <image:loc>${plan.backdropImageUrl}</image:loc>`);
+            images.push(`    <image:image>
+      <image:loc>${plan.backdropImageUrl}</image:loc>
+    </image:image>`);
           }
-          images.push(`    <image:loc>https://journalmate.ai/api/og-image/${plan.shareToken}</image:loc>`);
+          if (plan.shareToken) {
+            images.push(`    <image:image>
+      <image:loc>https://journalmate.ai/api/og-image/${plan.shareToken}</image:loc>
+    </image:image>`);
+          }
           
           return `  <url>
     <loc>https://journalmate.ai/share/${plan.shareToken}</loc>
