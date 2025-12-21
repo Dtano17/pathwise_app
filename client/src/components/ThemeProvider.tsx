@@ -41,7 +41,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme-mode') as ThemeMode | null;
-    const initialTheme = savedTheme || 'auto';
+    // Validate the saved theme and default to 'auto' if invalid
+    const validThemes: ThemeMode[] = ['light', 'dark', 'auto'];
+    const initialTheme = (savedTheme && validThemes.includes(savedTheme)) ? savedTheme : 'auto';
     setThemeState(initialTheme);
     applyTheme(getEffectiveTheme(initialTheme));
   }, [applyTheme]);
