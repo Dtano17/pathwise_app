@@ -1127,25 +1127,22 @@ ${feedItems}
         .map(plan => {
           const images = [];
           if (plan.backdropImageUrl) {
-            images.push(`    <image:image>
-      <image:loc>${plan.backdropImageUrl}</image:loc>
-    </image:image>`);
+            images.push(`<image:image><image:loc>${plan.backdropImageUrl}</image:loc></image:image>`);
           }
           if (plan.shareToken) {
-            images.push(`    <image:image>
-      <image:loc>https://journalmate.ai/api/og-image/${plan.shareToken}</image:loc>
-    </image:image>`);
+            images.push(`<image:image><image:loc>https://journalmate.ai/api/og-image/${plan.shareToken}</image:loc></image:image>`);
           }
+          
+          if (images.length === 0) return null;
           
           return `  <url>
     <loc>https://journalmate.ai/share/${plan.shareToken}</loc>
-${images.join('\n')}
+    ${images.join('\n    ')}
   </url>`;
-        });
+        }).filter(Boolean);
 
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 ${imageUrls.join('\n')}
 </urlset>`;
 
