@@ -564,8 +564,6 @@ export default function SharedActivity() {
     window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(titleWithEmoji)}&summary=${encodeURIComponent(summary)}`, '_blank');
   };
 
-  const queryClient = useQueryClient();
-
   // Generate themed background image URL (must be before early returns per React Hooks rules)
   const backgroundStyle = useMemo(() => {
     if (!data?.activity) {
