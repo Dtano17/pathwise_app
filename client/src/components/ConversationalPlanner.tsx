@@ -2261,21 +2261,21 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                             <button
                               key={hintIdx}
                               onClick={() => {
+                                if (currentSession?.isComplete) return;
                                 setMessage(hint);
                                 // Auto-submit the hint message
                                 setTimeout(() => {
                                   const submitButton = document.querySelector('[data-testid="button-send-message"]') as HTMLButtonElement;
-                                  if (submitButton) {
+                                  if (submitButton && !sendMessageMutation.isPending) {
                                     submitButton.click();
                                   }
                                 }, 100);
                               }}
-                              className={`text-xs px-3 py-1.5 rounded-full transition-all border ${
+                              className={`text-xs px-3 py-1.5 rounded-full transition-all border cursor-pointer ${
                                 planningMode === 'quick'
                                   ? 'bg-emerald-50 dark:bg-emerald-950 hover:bg-emerald-100 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
                                   : 'bg-purple-50 dark:bg-purple-950 hover:bg-purple-100 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
                               } hover:shadow-sm`}
-                              disabled={sendMessageMutation.isPending}
                             >
                               💡 {hint}
                             </button>
