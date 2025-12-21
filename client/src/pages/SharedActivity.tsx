@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, Sparkles, type LucideIcon } from 'lucide-react';
+import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, Sparkles, AlertCircle, RefreshCw, Archive, type LucideIcon } from 'lucide-react';
 const journalMateLogo = '/journalmate-logo-transparent.png';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -54,6 +54,14 @@ interface SharedActivityData {
   sharedBy?: {
     name?: string;
     email?: string;
+  };
+  linkStatus?: {
+    isUsingSnapshot: boolean;
+    isActivityDeleted: boolean;
+    hasUpdates: boolean;
+    snapshotAt: string | null;
+    viewCount: number;
+    copyCount: number;
   };
 }
 
@@ -126,6 +134,74 @@ const categoryThemes: Record<string, { gradient: string; Icon: LucideIcon; accen
   }
 };
 
+// Link Status Indicator Component
+function LinkStatusIndicator({ linkStatus, onRefresh }: {
+  linkStatus?: {
+    isUsingSnapshot: boolean;
+    isActivityDeleted: boolean;
+    hasUpdates: boolean;
+    snapshotAt: string | null;
+    viewCount: number;
+    copyCount: number;
+  };
+  onRefresh?: () => void
+}) {
+  if (!linkStatus) return null;
+
+  // Activity deleted - show snapshot info
+  if (linkStatus.isActivityDeleted) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20"
+      >
+        <div className="flex items-start gap-3">
+          <Archive className="w-5 h-5 text-amber-500 mt-0.5 animate-pulse" />
+          <div className="flex-1">
+            <p className="font-medium text-amber-700 dark:text-amber-300">Original plan archived</p>
+            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+              You're viewing a snapshot from {linkStatus.snapshotAt ? new Date(linkStatus.snapshotAt).toLocaleDateString() : 'when it was shared'}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Has updates - show refresh option
+  if (linkStatus.hasUpdates && onRefresh) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20"
+      >
+        <div className="flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5 animate-pulse" />
+          <div className="flex-1">
+            <p className="font-medium text-blue-700 dark:text-blue-300">Updates available</p>
+            <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+              The creator has updated this plan
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRefresh}
+            className="gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return null;
+}
+
 export default function SharedActivity() {
   const { token } = useParams<{ token: string }>();
   const { toast } = useToast();
@@ -138,6 +214,8 @@ export default function SharedActivity() {
   // Use shared theme from ThemeProvider
   const { isDark, toggleTheme } = useTheme();
 
+  const queryClient = useQueryClient();
+
   const { data: user } = useQuery({
     queryKey: ['/api/user'],
   });
@@ -145,6 +223,21 @@ export default function SharedActivity() {
   useEffect(() => {
     setIsAuthenticated(!!user && typeof user === 'object' && 'id' in user && user.id !== 'demo-user');
   }, [user]);
+
+  // OAuth auto-refresh: Detect authentication completion and refresh user data
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authSuccess = params.get('auth') === 'success';
+
+    if (authSuccess) {
+      // OAuth completed successfully - refresh user data
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+
+      // Clean up URL params
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+    }
+  }, [queryClient]);
 
   const { data, isLoading, error: queryError } = useQuery<SharedActivityData>({
     queryKey: ['/api/share', token],
@@ -776,6 +869,12 @@ export default function SharedActivity() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 sm:py-8 max-w-4xl">
+        {/* Link Status Indicator */}
+        <LinkStatusIndicator
+          linkStatus={data?.linkStatus}
+          onRefresh={() => queryClient.invalidateQueries({ queryKey: ['/api/share', token] })}
+        />
+
         {/* Progress Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

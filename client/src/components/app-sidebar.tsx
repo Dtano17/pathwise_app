@@ -17,6 +17,7 @@ import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dum
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SocialLogin } from '@/components/SocialLogin';
 import ProfileSettingsModal from '@/components/ProfileSettingsModal';
@@ -102,6 +103,21 @@ export function AppSidebar({
   const { user, isAuthenticated, isLoading, login, logout, isLoggingOut } = useAuth();
   const { toast } = useToast();
   const selectedThemeData = selectedTheme ? themes.find(t => t.id === selectedTheme) : null;
+
+  // Fetch group activity for notification badge
+  const { data: groupActivity } = useQuery<any[]>({
+    queryKey: ['/api/groups/activity'],
+    enabled: isAuthenticated,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  // Count unread group activities (activities from last 24 hours)
+  const unreadGroupCount = groupActivity?.filter((activity: any) => {
+    const activityTime = new Date(activity.timestamp).getTime();
+    const now = Date.now();
+    const oneDayAgo = now - (24 * 60 * 60 * 1000);
+    return activityTime > oneDayAgo;
+  }).length || 0;
   const [isProfileExpanded, setIsProfileExpanded] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState<'profile' | 'settings' | 'priorities'>('profile');
@@ -375,12 +391,20 @@ export function AppSidebar({
                       // Use callback-based navigation
                       return (
                         <SidebarMenuItem key={actionId}>
-                          <SidebarMenuButton 
+                          <SidebarMenuButton
                             onClick={handler}
                             data-testid={action.testId}
                           >
                             <Icon className="w-4 h-4" />
                             <span>{action.name}</span>
+                            {actionId === 'groups' && unreadGroupCount > 0 && (
+                              <Badge
+                                variant="destructive"
+                                className="ml-auto h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                              >
+                                {unreadGroupCount > 9 ? '9+' : unreadGroupCount}
+                              </Badge>
+                            )}
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       );

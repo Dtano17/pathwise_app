@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Users, UserPlus, CheckCircle2, Plus, Sparkles, ArrowRight, Circle, Share2, ArrowLeft, Home } from "lucide-react";
+import { Users, UserPlus, CheckCircle2, Plus, Sparkles, ArrowRight, Circle, Share2, ArrowLeft, Home, RefreshCw, LogOut } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "wouter";
@@ -78,15 +78,25 @@ export default function GroupGoalsPage() {
   const [selectedGroupForShare, setSelectedGroupForShare] = useState<string | null>(null);
 
   // Fetch user's groups
-  const { data: groupsData, isLoading: groupsLoading} = useQuery<{ groups: Group[] }>({
+  const { data: groupsData, isLoading: groupsLoading, refetch: refetchGroups } = useQuery<{ groups: Group[] }>({
     queryKey: ["/api/groups"],
   });
   const groups = groupsData?.groups || [];
 
   // Fetch recent group activity
-  const { data: activities, isLoading: activitiesLoading } = useQuery<GroupActivity[]>({
+  const { data: activities, isLoading: activitiesLoading, refetch: refetchActivity } = useQuery<GroupActivity[]>({
     queryKey: ["/api/groups/activity"],
   });
+
+  // Auto-refresh groups and activity every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetchGroups();
+      refetchActivity();
+    }, 10000); // 10 seconds
+
+    return () => clearInterval(interval);
+  }, [refetchGroups, refetchActivity]);
 
   // Fetch user activities (only when dialog is open)
   const { data: userActivities = [] } = useQuery<Activity[]>({
@@ -282,6 +292,8 @@ export default function GroupGoalsPage() {
         return <Share2 className="w-5 h-5 text-purple-400" />;
       case "member_joined":
         return <UserPlus className="w-5 h-5 text-primary" />;
+      case "member_left":
+        return <LogOut className="w-5 h-5 text-orange-500" />;
       default:
         return <Users className="w-5 h-5 text-muted-foreground" />;
     }
@@ -297,6 +309,8 @@ export default function GroupGoalsPage() {
         return "bg-purple-500/10 border-purple-500/20";
       case "member_joined":
         return "bg-primary/10 border-primary/20";
+      case "member_left":
+        return "bg-orange-500/10 border-orange-500/20";
       default:
         return "bg-background/40 border-border/50";
     }
@@ -338,22 +352,38 @@ export default function GroupGoalsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6 space-y-8">
+    <div className="h-screen overflow-auto bg-background p-6 space-y-8">
       {/* Navigation Buttons */}
       <div className="max-w-6xl mx-auto">
-        <div className="flex gap-2 mb-6">
-          <Link href="/">
-            <Button variant="outline" size="sm" className="gap-2" data-testid="button-back">
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-          </Link>
-          <Link href="/">
-            <Button variant="outline" size="sm" className="gap-2" data-testid="button-home">
-              <Home className="w-4 h-4" />
-              Home
-            </Button>
-          </Link>
+        <div className="flex justify-between items-center gap-2 mb-6">
+          <div className="flex gap-2">
+            <Link href="/">
+              <Button variant="outline" size="sm" className="gap-2" data-testid="button-back">
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button variant="outline" size="sm" className="gap-2" data-testid="button-home">
+                <Home className="w-4 h-4" />
+                Home
+              </Button>
+            </Link>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              refetchGroups();
+              refetchActivity();
+              toast({ title: "Refreshed", description: "Groups and activity updated" });
+            }}
+            className="gap-2"
+            data-testid="button-refresh"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
         </div>
       </div>
 

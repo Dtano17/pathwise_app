@@ -4,6 +4,17 @@ import { eq } from 'drizzle-orm';
 
 const DEMO_USER_ID = 'demo-user';
 
+// Generate a random invite code (e.g., "ABC-DEF-GHI")
+function generateInviteCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const parts = [3, 3, 3].map(len =>
+    Array.from({length: len}, () =>
+      chars[Math.floor(Math.random() * chars.length)]
+    ).join('')
+  );
+  return parts.join('-');
+}
+
 interface SampleGroup {
   name: string;
   description: string;
@@ -125,7 +136,7 @@ export async function seedSampleGroups() {
         name: sampleGroup.name,
         description: sampleGroup.description,
         isPrivate: false,
-        inviteCode: null,
+        inviteCode: generateInviteCode(),
         createdBy: DEMO_USER_ID,
       }).returning();
 
