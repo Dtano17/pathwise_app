@@ -1200,6 +1200,29 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     });
   };
 
+  const handleHardRefresh = () => {
+    // Clear all localStorage for planner
+    localStorage.removeItem('planner_session');
+    localStorage.removeItem('planner_mode');
+    localStorage.removeItem('planner_chips');
+    // Clear all session state
+    setCurrentSession(null);
+    setPlanningMode(null);
+    setContextChips([]);
+    setPendingPlan(null);
+    setGeneratedPlan(null);
+    setShowPlanConfirmation(false);
+    setShowPlanDetails(false);
+    setShowAgreementPrompt(false);
+    setJournalContextInfo(null);
+    setCreatedActivityInfo(null);
+    setMessage('');
+    // Hard refresh the page after brief delay to ensure state clears
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
+  };
+
   const handleBackToHome = () => {
     handleStartOver();
     if (onClose) onClose();
@@ -2075,20 +2098,31 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 </p>
               </div>
             </div>
-            <Button
-              onClick={() => {
-                setPlanningMode(null);
-                setCurrentSession(null);
-                setContextChips([]);
-                setJournalContextInfo(null); // Clear journal context when changing modes
-              }}
-              variant="outline"
-              size="sm"
-              data-testid="button-change-mode"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Change Mode
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleHardRefresh}
+                variant="outline"
+                size="sm"
+                data-testid="button-hard-refresh"
+                title="Hard refresh - clears all state and cache"
+              >
+                <RefreshCcw className="h-4 w-4" />
+              </Button>
+              <Button
+                onClick={() => {
+                  setPlanningMode(null);
+                  setCurrentSession(null);
+                  setContextChips([]);
+                  setJournalContextInfo(null); // Clear journal context when changing modes
+                }}
+                variant="outline"
+                size="sm"
+                data-testid="button-change-mode"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Change Mode
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
