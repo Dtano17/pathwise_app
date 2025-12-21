@@ -10299,7 +10299,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
   // STREAMING endpoint for real-time progress updates
   app.post("/api/chat/conversation/stream", async (req, res) => {
     try {
-      const { message, conversationHistory = [], mode } = req.body;
+      const { message, conversationHistory = [], mode, sessionId } = req.body;
 
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: 'Message is required and must be a string' });
@@ -10322,6 +10322,23 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         sendEvent('progress', { phase: 'starting', message: 'Analyzing your request...' });
 
         if (mode === 'smart' || mode === 'quick') {
+          // Get the session by ID if provided, otherwise get the latest session
+          let session = sessionId 
+            ? await storage.getLifestylePlannerSession(sessionId, userId)
+            : (await storage.getLifestylePlannerSessions(userId, 1))[0];
+          
+          // Check BOTH locations for stored plan (slots._generatedPlan OR externalContext.generatedPlan)
+          const storedPlan = session?.slots?._generatedPlan || session?.externalContext?.generatedPlan;
+          const awaitingConfirmation = session?.externalContext?.awaitingPlanConfirmation;
+          
+          // Store the plan preview content from the last assistant message for confirmation display
+          const lastAssistantMessage = session?.conversationHistory
+            ?.slice()
+            .reverse()
+            .find((msg: any) => msg.role === 'assistant')?.content || '';
+          
+          console.log(`[STREAM] Session lookup: sessionId=${sessionId}, found=${!!session}, storedPlan=${!!storedPlan}, awaitingConfirmation=${awaitingConfirmation}`);
+
           // Stream tokens as they arrive
           const response = await simplePlanner.processMessageStream(
             userId,
@@ -10340,15 +10357,20 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           );
 
           // Check if user confirmed the plan (same logic as non-streaming)
-          const confirmationKeywords = ['yes', 'create the plan', 'sounds good', 'perfect', 'great', 'that works', 'confirm', 'proceed', 'go ahead', 'yes go ahead'];
+          const confirmationKeywords = ['yes', 'create the plan', 'sounds good', 'perfect', 'great', 'that works', 'confirm', 'proceed', 'go ahead', 'yes go ahead', 'ok', 'okay'];
           const userConfirmed = confirmationKeywords.some(keyword => 
             message.toLowerCase().includes(keyword.toLowerCase())
           );
 
           let activityData: any = null;
 
+          // Use stored plan from session if available, otherwise use current response plan
+          const planToUse = response.plan || storedPlan;
+          const shouldCreateActivity = (response.readyToGenerate && planToUse && userConfirmed) || 
+                                       (awaitingConfirmation && storedPlan && userConfirmed);
+
           // If plan is ready and user confirmed, create activity/tasks
-          if (response.readyToGenerate && response.plan && userConfirmed) {
+          if (shouldCreateActivity && planToUse) {
             try {
               sendEvent('progress', { phase: 'creating', message: 'Creating your activity and tasks...' });
 
@@ -10365,31 +10387,44 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
                 return;
               }
 
-              // Create activity from the structured plan
+              // Create activity from the structured plan (use planToUse which may be from session)
               const activity = await storage.createActivity({
-                title: response.plan.title || `${mode === 'quick' ? 'Quick' : 'Smart'} Plan Activity`,
-                description: response.plan.summary || 'Generated plan',
-                category: response.plan.category || 'personal',
+                title: planToUse.title || `${mode === 'quick' ? 'Quick' : 'Smart'} Plan Activity`,
+                description: planToUse.summary || planToUse.description || 'Generated plan',
+                category: planToUse.category || planToUse.domain || 'personal',
                 status: 'planning',
                 userId
               });
 
               // Create tasks and link them to the activity
               const createdTasks = [];
-              if (response.plan.tasks && Array.isArray(response.plan.tasks)) {
-                for (let i = 0; i < response.plan.tasks.length; i++) {
-                  const taskData = response.plan.tasks[i];
+              if (planToUse.tasks && Array.isArray(planToUse.tasks)) {
+                for (let i = 0; i < planToUse.tasks.length; i++) {
+                  const taskData = planToUse.tasks[i];
                   const task = await storage.createTask({
-                    title: taskData.title,
-                    description: taskData.description,
-                    category: taskData.category,
-                    priority: taskData.priority,
-                    timeEstimate: taskData.timeEstimate,
+                    title: taskData.title || taskData.taskName,
+                    description: taskData.description || taskData.notes || '',
+                    category: taskData.category || planToUse.domain || 'personal',
+                    priority: taskData.priority || 'medium',
+                    timeEstimate: taskData.timeEstimate || `${taskData.duration || 30} min`,
                     userId
                   });
                   await storage.addTaskToActivity(activity.id, task.id, i);
                   createdTasks.push(task);
                 }
+              }
+
+              // Mark session as complete
+              if (session?.id) {
+                await storage.updateLifestylePlannerSession(session.id, {
+                  sessionState: 'completed',
+                  isComplete: true,
+                  externalContext: {
+                    ...session.externalContext,
+                    awaitingPlanConfirmation: false,
+                    activityId: activity.id
+                  }
+                }, userId);
               }
 
               activityData = {
@@ -10408,13 +10443,30 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           }
 
           // Send final complete message with structured data
+          // Get updated session if activity was created
+          const updatedSession = activityData ? await storage.getLifestylePlannerSession(session?.id || '', userId) : session;
+
+          // Build the final message
+          // - If activity was created, show success message
+          // - If response.message is empty/generic but we have stored plan content, use that
+          // - Otherwise use response.message
+          let finalMessage = response.message;
+          if (activityData) {
+            finalMessage = `✨ **Activity created!**\n\n📋 I've created ${activityData.createdTasks.length} tasks for you.`;
+          } else if ((!finalMessage || finalMessage.length < 100) && lastAssistantMessage && lastAssistantMessage.length > 200) {
+            // If current response is too short but we have the previous plan preview, use it
+            finalMessage = lastAssistantMessage;
+          }
+
           sendEvent('complete', {
-            message: response.message,
+            message: finalMessage,
             extractedInfo: response.extractedInfo,
-            readyToGenerate: response.readyToGenerate,
-            plan: response.plan,
+            readyToGenerate: response.readyToGenerate || !!activityData,
+            plan: response.plan || planToUse,
             domain: response.domain,
             contextChips: response.contextChips,
+            session: updatedSession,
+            conversationHints: activityData ? [] : response.conversationHints, // No hints after activity created
             ...activityData // Include activity data if created
           });
           res.end();

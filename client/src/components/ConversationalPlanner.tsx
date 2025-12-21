@@ -16,6 +16,7 @@ import TemplateSelector from './TemplateSelector';
 import JournalTimeline from './JournalTimeline';
 import JournalOnboarding from './JournalOnboarding';
 import { invalidateActivitiesCache, invalidateJournalCache } from '@/lib/cacheInvalidation';
+import ReactMarkdown from 'react-markdown';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -311,7 +312,8 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
         body: JSON.stringify({
           message: messageData.message,
           conversationHistory: messageData.conversationHistory,
-          mode: messageData.mode
+          mode: messageData.mode,
+          sessionId: currentSession?.id // Send session ID for plan retrieval
         })
       });
 
@@ -2259,7 +2261,13 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                               : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
                           }`}
                         >
-                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          {msg.role === 'assistant' ? (
+                            <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-base prose-headings:font-semibold prose-headings:mb-2 prose-p:my-1 prose-ul:my-1 prose-li:my-0.5">
+                              <ReactMarkdown>{msg.content}</ReactMarkdown>
+                            </div>
+                          ) : (
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                          )}
                           <p className="text-xs opacity-70 mt-2">
                             {new Date(msg.timestamp).toLocaleTimeString()}
                           </p>
