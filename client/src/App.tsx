@@ -16,6 +16,9 @@ import GroupGoalsPage from "@/pages/GroupGoalsPage";
 import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import SubscriptionCanceled from "@/pages/SubscriptionCanceled";
 import Updates from "@/pages/Updates";
+import Privacy from "@/pages/Privacy";
+import Terms from "@/pages/Terms";
+import Support from "@/pages/Support";
 import LandingPageWrapper from "@/pages/LandingPageWrapper";
 import ChatGPTPlanTracker from "@/pages/ChatGPTPlanTracker";
 import PerplexityPlans from "@/pages/PerplexityPlans";
@@ -85,6 +88,11 @@ function AppContent() {
 
         {/* Product Updates & News Page (no sidebar) */}
         <Route path="/updates" component={Updates} />
+
+        {/* Footer Pages (no sidebar) */}
+        <Route path="/privacy" component={Privacy} />
+        <Route path="/terms" component={Terms} />
+        <Route path="/support" component={Support} />
 
         {/* Marketing Pages (no sidebar) */}
         <Route path="/chatgpt-plan-tracker" component={ChatGPTPlanTracker} />

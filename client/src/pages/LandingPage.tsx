@@ -1555,27 +1555,30 @@ export default function LandingPage() {
                   Community
                 </span>
               </Link>
-              <a
-                href="/terms#privacy-policy"
-                className="hover:text-foreground"
-                data-testid="footer-link-privacy"
-              >
-                Privacy
-              </a>
-              <a
-                href="/terms#terms-of-service"
-                className="hover:text-foreground"
-                data-testid="footer-link-terms"
-              >
-                Terms
-              </a>
-              <a
-                href="/support"
-                className="hover:text-foreground"
-                data-testid="footer-link-support"
-              >
-                Support
-              </a>
+              <Link href="/terms#privacy-policy">
+                <span
+                  className="hover:text-foreground cursor-pointer"
+                  data-testid="footer-link-privacy"
+                >
+                  Privacy
+                </span>
+              </Link>
+              <Link href="/terms#terms-of-service">
+                <span
+                  className="hover:text-foreground cursor-pointer"
+                  data-testid="footer-link-terms"
+                >
+                  Terms
+                </span>
+              </Link>
+              <Link href="/support">
+                <span
+                  className="hover:text-foreground cursor-pointer"
+                  data-testid="footer-link-support"
+                >
+                  Support
+                </span>
+              </Link>
             </div>
 
             <div className="text-sm text-muted-foreground">
