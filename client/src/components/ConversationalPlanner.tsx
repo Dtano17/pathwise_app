@@ -83,6 +83,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const [createdActivityId, setCreatedActivityId] = useState<string | null>(null);
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
   const [messageActivities, setMessageActivities] = useState<Map<number, { activityId: string; activityTitle: string }>>(new Map());
+  const [createdActivityInfo, setCreatedActivityInfo] = useState<{ id: string; title: string; taskCount: number } | null>(null);
   const [journalContextInfo, setJournalContextInfo] = useState<{
     found: boolean;
     count: number;
@@ -401,6 +402,13 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
           queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
           
+          // ✅ CRITICAL: Mark session as complete to prevent further input
+          setCurrentSession(prev => prev ? {
+            ...prev,
+            isComplete: true,
+            sessionState: 'completed' as const
+          } : prev);
+          
           // Store activity metadata for this message
           if (finalData.activity?.id && finalData.activity?.title) {
             const messageIndex = finalHistory.length - 1; // Assistant message index
@@ -411,6 +419,13 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 activityTitle: finalData.activity.title
               });
               return updated;
+            });
+            
+            // Store created activity info for display in chat
+            setCreatedActivityInfo({
+              id: finalData.activity.id,
+              title: finalData.activity.title,
+              taskCount: finalData.createdTasks.length
             });
             
             // Show toast with navigation option
@@ -1178,6 +1193,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     setShowPlanDetails(false);
     setShowAgreementPrompt(false);
     setJournalContextInfo(null); // Clear journal context on reset
+    setCreatedActivityInfo(null); // Clear activity info on reset
     toast({
       title: "Session Cleared",
       description: "Starting fresh!",
@@ -2245,7 +2261,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                             <button
                               key={hintIdx}
                               onClick={() => {
-                                setUserInput(hint);
+                                setMessage(hint);
                                 // Auto-submit the hint message
                                 setTimeout(() => {
                                   const submitButton = document.querySelector('[data-testid="button-send-message"]') as HTMLButtonElement;
@@ -2286,6 +2302,35 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                     </div>
                   </div>
                 )}
+                
+                {/* Activity Link Display - Shows when session is complete with activity created */}
+                {currentSession?.isComplete && createdActivityInfo && (
+                  <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 border border-emerald-200 dark:border-emerald-700">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-800 flex items-center justify-center">
+                        <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                          Activity Created Successfully!
+                        </p>
+                        <button
+                          onClick={() => setLocation(`/?tab=activities&activity=${createdActivityInfo.id}`)}
+                          className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 mt-0.5"
+                          data-testid="link-created-activity"
+                        >
+                          <Target className="h-3 w-3" />
+                          <span className="font-semibold">{createdActivityInfo.title}</span>
+                          <span className="text-emerald-500 dark:text-emerald-500">
+                            ({createdActivityInfo.taskCount} tasks)
+                          </span>
+                          <ExternalLink className="h-3 w-3 ml-1" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div ref={messagesEndRef} />
               </div>
             )}

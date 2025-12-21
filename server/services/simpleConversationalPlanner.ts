@@ -888,13 +888,21 @@ ${recentJournal && recentJournal.length > 0 ? `**Recent Journal Entries:**\n${re
     priorityContext += `Never exceed $${context.detectedBudget} total.\n`;
   }
 
-  if (!context.detectedLocation && context.fallbackLocation) {
-    priorityContext += `\n\n## 📍 Default Location - MUST ASK FIRST\n\n`;
-    priorityContext += `**User's Home Location:** ${context.fallbackLocation}\n`;
-    priorityContext += `\n**⚠️ CRITICAL:** User hasn't specified a location in their message.\n`;
-    priorityContext += `You MUST ask them explicitly:\n`;
-    priorityContext += `"Where would you like to plan for? (You can say 'use my current location' or specify a city)"\n`;
-    priorityContext += `\n**DO NOT assume the home location without asking first.**\n`;
+  if (!context.detectedLocation) {
+    priorityContext += `\n\n## 🚨 LOCATION MISSING - ASK FIRST! 🚨\n\n`;
+    priorityContext += `**⚠️ CRITICAL RULE:** Location was NOT detected in the user's message.\n`;
+    priorityContext += `**LOCATION MUST BE YOUR FIRST QUESTION** - before budget, dates, vibe, or anything else!\n\n`;
+    
+    if (context.fallbackLocation) {
+      priorityContext += `**User's Profile Location:** ${context.fallbackLocation}\n`;
+      priorityContext += `You can offer: "Would you like to plan for ${context.fallbackLocation}, or somewhere else?"\n`;
+    } else {
+      priorityContext += `**No profile location available.**\n`;
+      priorityContext += `Ask directly: "📍 Where would you like to plan for? (City or location)"\n`;
+    }
+    
+    priorityContext += `\n**DO NOT assume any location. DO NOT skip this question.**\n`;
+    priorityContext += `**This MUST be Question #1 in Batch 1.**\n`;
   }
 
   // COMPRESSED BUDGET-FIRST SYSTEM PROMPT
@@ -1027,12 +1035,13 @@ User: "Help plan romantic anniversary trip to Paris"
 
 ---
 
-**Domain Priority Questions:**
+**Domain Priority Questions (LOCATION ALWAYS FIRST if not specified):**
 
-**🌴 Travel:** 1) From? 2) To? 3) Duration? 4) Budget? 5) Occasion/vibe? 6) Dates? 7) Group size? 8) Interests? 9) Diet? 10) Accommodation type?
-**💪 Wellness:** 1) Activity type? 2) Fitness level? 3) Goal? 4) Time available? 5) Location/equipment? 6) Solo/group? 7) Budget? 8) Diet needs? 9) Health conditions? 10) Past experience?
-**🎉 Events:** 1) Event type? 2) Date? 3) Guest count? 4) Budget? 5) Location? 6) Style/theme? 7) Must-haves? 8) Dietary restrictions? 9) Venue preference? 10) Flexibility?
-**🍽️ Dining:** 1) Cuisine? 2) Date/time? 3) Occasion? 4) Group size? 5) Budget/person? 6) Location? 7) Dietary? 8) Ambiance? 9) Must-try dishes? 10) Transport?
+**🌴 Travel:** 1) 📍 WHERE (destination)? 2) From where? 3) Duration? 4) Budget? 5) Dates? 6) Occasion/vibe? 7) Group size? 8) Interests? 9) Diet? 10) Accommodation?
+**💪 Wellness:** 1) 📍 WHERE (gym/home/outdoor)? 2) Activity type? 3) Fitness level? 4) Goal? 5) Time available? 6) Solo/group? 7) Budget? 8) Diet needs? 9) Health conditions? 10) Experience?
+**🎉 Events:** 1) 📍 WHERE (city/venue)? 2) Event type? 3) Date? 4) Guest count? 5) Budget? 6) Style/theme? 7) Must-haves? 8) Dietary restrictions? 9) Venue preference? 10) Flexibility?
+**🍽️ Dining:** 1) 📍 WHERE (city/neighborhood)? 2) Cuisine? 3) Date/time? 4) Occasion? 5) Group size? 6) Budget/person? 7) Dietary? 8) Ambiance? 9) Must-try dishes? 10) Transport?
+**📋 General:** 1) 📍 WHERE (location context)? Then ask domain-specific questions based on the activity type.
 
 **Quick Mode:** Ask Q1-3 → Q4-5 → Show preview
 **Smart Mode:** Ask Q1-3 → Q4-6 → Q7-10 → Show preview
