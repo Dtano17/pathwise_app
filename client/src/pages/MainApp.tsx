@@ -53,6 +53,8 @@ import { UpgradeModal } from '@/components/UpgradeModal';
 import { ProBadge } from '@/components/ProBadge';
 import { useImportQueue } from '@/hooks/useImportQueue';
 import Confetti from 'react-confetti';
+import { Share as CapacitorShare } from '@capacitor/share';
+import { isNative } from '@/lib/mobile';
 
 interface ProgressData {
   completedToday: number;
@@ -3416,17 +3418,52 @@ export default function MainApp({
               
               // Enhanced share text with contextual emoji and JournalMate.ai branding
               const shareText = `${contextualEmoji} ${displayTitle}\n\n${activity.planSummary || activity.description}\n\n${contextualEmoji} Customize this plan: ${shareUrl}\n\n✨ Plan your next adventure with JournalMate.ai`;
-              
+
               let shareSuccessful = false;
-              
-              if (navigator.share) {
+
+              // 1. Try native Capacitor Share first (mobile apps)
+              if (isNative()) {
+                try {
+                  const canShare = await CapacitorShare.canShare();
+                  if (canShare.value) {
+                    await CapacitorShare.share({
+                      title: `${contextualEmoji} ${displayTitle}`,
+                      text: shareText,
+                      url: shareUrl,
+                      dialogTitle: 'Share Activity',
+                    });
+                    toast({
+                      title: "Shared successfully!",
+                      description: "Activity shared via native share sheet"
+                    });
+                    shareSuccessful = true;
+                    return;
+                  }
+                } catch (shareError: any) {
+                  // AbortError means user canceled the share dialog - don't show error
+                  if (shareError.name === 'AbortError' || shareError.message?.includes('cancel')) {
+                    console.log('User canceled native share dialog');
+                    return;
+                  }
+                  // Other errors - fall through to Web Share API
+                  console.warn('Capacitor Share failed, attempting Web Share API:', shareError);
+                }
+              }
+
+              // 2. Try Web Share API (modern browsers)
+              if (navigator.share && !shareSuccessful) {
                 try {
                   await navigator.share({
                     title: `${contextualEmoji} ${displayTitle}`,
                     text: shareText,
                     url: shareUrl
                   });
+                  toast({
+                    title: "Shared successfully!",
+                    description: "Activity shared"
+                  });
                   shareSuccessful = true;
+                  return;
                 } catch (shareError: any) {
                   // AbortError means user canceled the share dialog - don't show error
                   if (shareError.name === 'AbortError') {
