@@ -4,6 +4,7 @@
  */
 
 import type { IStorage } from '../storage';
+import { PushNotificationService } from './pushNotificationService';
 
 export interface NotificationPayload {
   title: string;
@@ -64,19 +65,27 @@ export async function sendGroupNotification(
           type: notificationType,
         });
 
-        // TODO: Send actual push notifications via FCM/APNs (desktop/mobile)
-        // This requires Firebase Admin SDK or APNs setup
-        // For now, we're just creating the database notification record
-        // which the frontend will fetch and display
-
       } catch (error) {
         console.error(`[NOTIFICATION] Failed to create notification for user ${userId}:`, error);
       }
     });
 
     await Promise.all(notificationPromises);
-    
+
     console.log(`[NOTIFICATION] Group notification created for ${targetUserIds.length} members`);
+
+    // Send push notifications to all target users' devices
+    const pushService = new PushNotificationService(storage);
+    await pushService.sendToUsers(targetUserIds, {
+      title: payload.title,
+      body: payload.body,
+      data: {
+        ...payload.data,
+        groupId,
+        notificationType,
+        route: payload.route || `/groups/${groupId}`,
+      },
+    });
   } catch (error) {
     console.error('[NOTIFICATION] Failed to send group notification:', error);
     throw error;
@@ -120,11 +129,22 @@ export async function sendUserNotification(
       metadata: payload.data || {},
     });
 
-    // TODO: Send actual push notifications via FCM/APNs
-    console.log(`[NOTIFICATION] Would send to user ${userId}:`, {
+    // Send push notification via FCM/APNs
+    const pushService = new PushNotificationService(storage);
+    const result = await pushService.sendToUser(userId, {
+      title: payload.title,
+      body: payload.body,
+      data: payload.data ? Object.fromEntries(
+        Object.entries(payload.data).map(([k, v]) => [k, String(v)])
+      ) : undefined,
+    });
+
+    console.log(`[NOTIFICATION] Sent to user ${userId}:`, {
       title: payload.title,
       body: payload.body,
       devices: activeDevices.length,
+      sent: result.sentCount,
+      failed: result.failedCount,
     });
 
   } catch (error) {

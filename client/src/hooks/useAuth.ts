@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect, useRef } from "react";
 import { initializeSocket, disconnectSocket, isSocketConnected } from "@/lib/socket";
+import { initializePushNotifications, unregisterPushNotifications } from "@/lib/pushNotifications";
 
 interface User {
   id: string;
@@ -65,10 +66,20 @@ export function useAuth() {
         console.log('[AUTH] Initializing WebSocket for authenticated user:', currentUserId);
         initializeSocket(currentUserId);
       }
+
+      // Initialize push notifications for authenticated user
+      initializePushNotifications(currentUserId).catch(error => {
+        console.error('[AUTH] Failed to initialize push notifications:', error);
+      });
     } else {
       // User is not authenticated - disconnect socket
       console.log('[AUTH] User not authenticated, disconnecting WebSocket');
       disconnectSocket();
+
+      // Unregister push notifications on logout
+      unregisterPushNotifications().catch(error => {
+        console.error('[AUTH] Failed to unregister push notifications:', error);
+      });
     }
   }, [user?.id, user?.authenticated, user?.isGuest, queryClient]);
 

@@ -13,6 +13,7 @@ import { getStripeSync } from "./stripeClient";
 import { startReminderProcessor } from "./services/reminderProcessor";
 import { storage } from "./storage";
 import { initializeSocketIO } from "./services/socketService";
+import { initializePushNotifications } from "./services/pushNotificationService";
 
 // Validate critical environment variables
 function validateEnvironment() {
@@ -180,6 +181,10 @@ async function initializeBackground() {
   // Initialize Socket.io service with authentication and room management
   await initializeSocketIO(io, storage);
   log('[SOCKET.IO] WebSocket server initialized');
+
+  // Initialize Firebase Cloud Messaging for push notifications
+  initializePushNotifications();
+  log('[PUSH] Push notification service initialized');
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -2233,6 +2233,71 @@ ${sitemaps.map(sitemap => `  <sitemap>
     }
   });
 
+  // Register device token for push notifications
+  app.post('/api/user/device-token', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { token, platform, deviceName } = req.body;
+
+      if (!token || !platform) {
+        return res.status(400).json({ error: 'Token and platform are required' });
+      }
+
+      // Upsert device token (creates new or updates existing)
+      const deviceToken = await storage.upsertDeviceToken(userId, {
+        token,
+        platform: platform as 'ios' | 'android' | 'web',
+        deviceName: deviceName || null,
+        isActive: true,
+      });
+
+      console.log(`[DEVICE TOKEN] Registered for user ${userId}:`, {
+        platform,
+        deviceName: deviceName || 'Unknown',
+      });
+
+      res.json({
+        success: true,
+        message: 'Device token registered successfully',
+      });
+    } catch (error) {
+      console.error('[DEVICE TOKEN] Registration error:', error);
+      res.status(500).json({ error: 'Failed to register device token' });
+    }
+  });
+
+  // Unregister device token (on logout or app uninstall)
+  app.delete('/api/user/device-token', async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { token } = req.body;
+
+      if (!token) {
+        return res.status(400).json({ error: 'Token is required' });
+      }
+
+      await storage.deleteDeviceToken(token, userId);
+
+      console.log(`[DEVICE TOKEN] Unregistered for user ${userId}`);
+
+      res.json({
+        success: true,
+        message: 'Device token unregistered successfully',
+      });
+    } catch (error) {
+      console.error('[DEVICE TOKEN] Unregistration error:', error);
+      res.status(500).json({ error: 'Failed to unregister device token' });
+    }
+  });
+
   // ============================================
   // USER SAVED CONTENT / PREFERENCES API
   // ============================================
