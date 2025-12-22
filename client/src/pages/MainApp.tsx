@@ -3403,7 +3403,12 @@ export default function MainApp({
               const shareUrl = shareData.shareableLink;
               
               if (!shareUrl) {
-                throw new Error('No share link generated');
+                console.warn('No share link generated, but activity has been saved/shared successfully');
+                toast({
+                  title: 'Success!',
+                  description: 'Your activity has been saved and shared. You can share it later from the activity details.',
+                });
+                return;
               }
               
               const displayTitle = shareData.shareTitle || activity.planSummary || activity.title;
@@ -3412,24 +3417,49 @@ export default function MainApp({
               // Enhanced share text with contextual emoji and JournalMate.ai branding
               const shareText = `${contextualEmoji} ${displayTitle}\n\n${activity.planSummary || activity.description}\n\n${contextualEmoji} Customize this plan: ${shareUrl}\n\n✨ Plan your next adventure with JournalMate.ai`;
               
+              let shareSuccessful = false;
+              
               if (navigator.share) {
-                await navigator.share({
-                  title: `${contextualEmoji} ${displayTitle}`,
-                  text: shareText,
-                  url: shareUrl
-                });
-              } else {
-                await navigator.clipboard.writeText(shareText);
-                toast({
-                  title: 'Link Copied!',
-                  description: 'Enhanced share text copied to clipboard',
-                });
+                try {
+                  await navigator.share({
+                    title: `${contextualEmoji} ${displayTitle}`,
+                    text: shareText,
+                    url: shareUrl
+                  });
+                  shareSuccessful = true;
+                } catch (shareError: any) {
+                  // AbortError means user canceled the share dialog - don't show error
+                  if (shareError.name === 'AbortError') {
+                    console.log('User canceled share dialog');
+                    return;
+                  }
+                  // Other share errors - fall through to clipboard fallback
+                  console.warn('Navigator.share failed, attempting clipboard:', shareError);
+                }
+              }
+              
+              if (!shareSuccessful) {
+                try {
+                  await navigator.clipboard.writeText(shareText);
+                  toast({
+                    title: 'Link Copied!',
+                    description: 'Enhanced share text copied to clipboard',
+                  });
+                  shareSuccessful = true;
+                } catch (clipboardError) {
+                  console.warn('Clipboard API failed:', clipboardError);
+                  // If clipboard fails, show the link in a dialog for manual copy
+                  toast({
+                    title: 'Share Link Generated',
+                    description: `Share URL: ${shareUrl}`,
+                  });
+                }
               }
             } catch (error) {
               console.error('Share error:', error);
               toast({
-                title: "Share Failed",
-                description: "Unable to copy share link. Please try again.",
+                title: "Share Error",
+                description: error instanceof Error ? error.message : "An error occurred while sharing. Your activity has been saved.",
                 variant: "destructive"
               });
             }
