@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useQuery } from '@tanstack/react-query';
 import AddMembersDialog from '@/components/AddMembersDialog';
+import { MemberProgressDialog } from '@/components/MemberProgressDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -642,13 +643,15 @@ interface ActivityCardProps {
 }
 
 function ActivityCard({ activity, groupId, onCopy, isCopying }: ActivityCardProps) {
+  const [showProgressDialog, setShowProgressDialog] = useState(false);
+
   const { data: memberProgress, isLoading } = useQuery({
     queryKey: [`/api/groups/${groupId}/activities/${activity.id}/member-progress`],
     enabled: !!groupId && !!activity.id,
   });
 
-  const progressPercentage = activity.totalTasks > 0 
-    ? Math.round((activity.completedTasks / activity.totalTasks) * 100) 
+  const progressPercentage = activity.totalTasks > 0
+    ? Math.round((activity.completedTasks / activity.totalTasks) * 100)
     : 0;
 
   // API returns { memberProgress: [...] } where memberProgress is the array
@@ -707,8 +710,19 @@ function ActivityCard({ activity, groupId, onCopy, isCopying }: ActivityCardProp
       {/* Member Progress Section */}
       {hasSharingMembers && (
         <div className="mt-3 pt-3 border-t space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Members Sharing Progress</p>
-          {members.map((member: any) => {
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">Members Sharing Progress</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowProgressDialog(true)}
+              className="h-6 text-xs px-2 hover:bg-primary/10"
+            >
+              <Users className="w-3 h-3 mr-1" />
+              View Details
+            </Button>
+          </div>
+          {members.slice(0, 3).map((member: any) => {
             const memberPercentage = member.totalTasks > 0
               ? Math.round((member.completedTasks / member.totalTasks) * 100)
               : 0;
@@ -722,14 +736,19 @@ function ActivityCard({ activity, groupId, onCopy, isCopying }: ActivityCardProp
                   </span>
                 </div>
                 <div className="w-full bg-muted rounded-full h-1">
-                  <div 
-                    className="bg-emerald-500 h-1 rounded-full transition-all duration-300" 
+                  <div
+                    className="bg-emerald-500 h-1 rounded-full transition-all duration-300"
                     style={{ width: `${memberPercentage}%` }}
                   />
                 </div>
               </div>
             );
           })}
+          {members.length > 3 && (
+            <p className="text-xs text-muted-foreground">
+              +{members.length - 3} more member{members.length - 3 > 1 ? 's' : ''}
+            </p>
+          )}
         </div>
       )}
 
@@ -737,6 +756,15 @@ function ActivityCard({ activity, groupId, onCopy, isCopying }: ActivityCardProp
         <span className="truncate">by {activity.sharedBy || '?'}</span>
         <span className="shrink-0">{activity.sharedAt ? format(new Date(activity.sharedAt), 'MMM d, yy') : 'Recent'}</span>
       </div>
+
+      {/* Member Progress Dialog */}
+      <MemberProgressDialog
+        open={showProgressDialog}
+        onOpenChange={setShowProgressDialog}
+        groupId={groupId}
+        groupActivityId={activity.id}
+        activityTitle={activity.title}
+      />
     </div>
   );
 }
