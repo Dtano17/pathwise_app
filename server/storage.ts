@@ -608,20 +608,81 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(tasks.createdAt));
   }
 
-  async updateTask(taskId: string, updates: Partial<Task>, userId: string): Promise<Task | undefined> {
+  async updateTask(
+    taskId: string,
+    updates: Partial<Task>,
+    userId: string,
+    expectedVersion?: number
+  ): Promise<{ task?: Task; conflict?: boolean; currentTask?: Task }> {
+    // If expectedVersion is provided, implement optimistic locking
+    if (expectedVersion !== undefined) {
+      // First, get the current task to check version
+      const currentTask = await this.getTask(taskId, userId);
+
+      if (!currentTask) {
+        return { conflict: false, task: undefined };
+      }
+
+      // Check if version matches (no concurrent modification)
+      if (currentTask.version !== expectedVersion) {
+        console.log(`[STORAGE] Optimistic lock conflict detected for task ${taskId}`);
+        console.log(`  Expected version: ${expectedVersion}, Current version: ${currentTask.version}`);
+        return {
+          conflict: true,
+          currentTask,
+        };
+      }
+
+      // Version matches - proceed with update and increment version
+      const result = await db.update(tasks)
+        .set({
+          ...updates,
+          updatedAt: new Date(),
+          version: sql`${tasks.version} + 1`,
+        })
+        .where(and(
+          eq(tasks.id, taskId),
+          eq(tasks.userId, userId),
+          eq(tasks.version, expectedVersion) // Double-check version in WHERE clause
+        ))
+        .returning();
+
+      if (result.length === 0) {
+        // Race condition - another update happened between our check and update
+        const currentTask = await this.getTask(taskId, userId);
+        return {
+          conflict: true,
+          currentTask,
+        };
+      }
+
+      return { task: result[0], conflict: false };
+    }
+
+    // No version check - legacy behavior (update without conflict detection)
     const result = await db.update(tasks)
-      .set(updates)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+        version: sql`${tasks.version} + 1`,
+      })
       .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
       .returning();
-    return result[0];
+    return { task: result[0], conflict: false };
   }
 
-  async completeTask(taskId: string, userId: string): Promise<Task | undefined> {
-    const result = await db.update(tasks)
-      .set({ completed: true, completedAt: new Date() })
-      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
-      .returning();
-    return result[0];
+  async completeTask(
+    taskId: string,
+    userId: string,
+    expectedVersion?: number
+  ): Promise<{ task?: Task; conflict?: boolean; currentTask?: Task }> {
+    // Use updateTask with optimistic locking
+    return this.updateTask(
+      taskId,
+      { completed: true, completedAt: new Date() },
+      userId,
+      expectedVersion
+    );
   }
 
   async deleteTask(taskId: string, userId: string): Promise<void> {
@@ -818,15 +879,67 @@ export class DatabaseStorage implements IStorage {
       .where(eq(shareLinks.shareToken, shareToken));
   }
 
-  async updateActivity(activityId: string, updates: Partial<Activity>, userId: string): Promise<Activity | undefined> {
+  async updateActivity(
+    activityId: string,
+    updates: Partial<Activity>,
+    userId: string,
+    expectedVersion?: number
+  ): Promise<{ activity?: Activity; conflict?: boolean; currentActivity?: Activity }> {
+    // If expectedVersion is provided, implement optimistic locking
+    if (expectedVersion !== undefined) {
+      // First, get the current activity to check version
+      const currentActivity = await this.getActivity(activityId, userId);
+
+      if (!currentActivity) {
+        return { conflict: false, activity: undefined };
+      }
+
+      // Check if version matches (no concurrent modification)
+      if (currentActivity.version !== expectedVersion) {
+        console.log(`[STORAGE] Optimistic lock conflict detected for activity ${activityId}`);
+        console.log(`  Expected version: ${expectedVersion}, Current version: ${currentActivity.version}`);
+        return {
+          conflict: true,
+          currentActivity,
+        };
+      }
+
+      // Version matches - proceed with update and increment version
+      const result = await db.update(activities)
+        .set({
+          ...updates,
+          updatedAt: new Date(),
+          version: sql`${activities.version} + 1`,
+        })
+        .where(and(
+          eq(activities.id, activityId),
+          eq(activities.userId, userId),
+          eq(activities.version, expectedVersion) // Double-check version in WHERE clause
+        ))
+        .returning();
+
+      if (result.length === 0) {
+        // Race condition - another update happened between our check and update
+        const currentActivity = await this.getActivity(activityId, userId);
+        return {
+          conflict: true,
+          currentActivity,
+        };
+      }
+
+      return { activity: result[0], conflict: false };
+    }
+
+    // No version check - legacy behavior (update without conflict detection)
     const result = await db.update(activities)
       .set({
         ...updates,
         updatedAt: new Date(),
+        version: sql`${activities.version} + 1`,
       })
       .where(and(eq(activities.id, activityId), eq(activities.userId, userId)))
       .returning();
-    return result[0];
+    return { activity: result[0], conflict: false };
   }
 
   async createUserPin(activityId: string, userId: string): Promise<UserPin> {

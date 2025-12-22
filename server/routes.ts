@@ -11,6 +11,7 @@ import { simpleConversationalPlanner } from "./services/simpleConversationalPlan
 import { enrichJournalEntry } from "./services/journalEnrichmentService";
 import { contactSyncService } from "./contactSync";
 import { getProvider } from "./services/llmProvider";
+import { socketService } from "./services/socketService";
 import {
   insertGoalSchema,
   syncContactsSchema,
@@ -3218,6 +3219,15 @@ ${sitemaps.map(sitemap => `  <sitemap>
               route: `/groups/${groupActivity.groupId}`,
             },
           });
+
+          // Send real-time WebSocket update
+          socketService.emitTaskCompleted(
+            groupActivity.groupId,
+            taskId,
+            userId,
+            completingUser?.username || 'Someone',
+            task.title
+          );
         }
       } catch (logError) {
         console.error('Failed to log group activity:', logError);
@@ -3270,6 +3280,15 @@ ${sitemaps.map(sitemap => `  <sitemap>
                   route: `/groups/${groupActivity.groupId}`,
                 },
               });
+
+              // Send real-time WebSocket update
+              socketService.emitTaskCompleted(
+                groupActivity.groupId,
+                taskId,
+                userId,
+                completingUser?.username || 'Someone',
+                task.title
+              );
             }
           }
         }
@@ -4086,6 +4105,13 @@ ${sitemaps.map(sitemap => `  <sitemap>
         });
         console.log(`[JOIN GROUP] Notification sent successfully`);
 
+        // Send real-time WebSocket update
+        socketService.emitMemberJoined(
+          result.group.id,
+          userId,
+          joiningUser?.username || 'Someone'
+        );
+
         // If this user was invited via email/phone, send special notification to inviter
         if (inviterUserId) {
           await storage.createUserNotification({
@@ -4342,6 +4368,14 @@ ${sitemaps.map(sitemap => `  <sitemap>
             route: `/groups/${groupId}`,
           },
         });
+
+        // Send real-time WebSocket update
+        socketService.emitActivityShared(
+          groupId,
+          activityId,
+          activity?.title || 'an activity',
+          sharingUser?.username || 'Someone'
+        );
       } catch (notifError) {
         console.error('Failed to send activity shared notification:', notifError);
       }
@@ -4995,14 +5029,25 @@ ${sitemaps.map(sitemap => `  <sitemap>
     try {
       const { activityId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
-      const updates = req.body;
-      const activity = await storage.updateActivity(activityId, updates, userId);
-      
-      if (!activity) {
+      const { expectedVersion, ...updates } = req.body;
+
+      // Call updateActivity with optimistic locking if expectedVersion provided
+      const result = await storage.updateActivity(activityId, updates, userId, expectedVersion);
+
+      // Handle conflict
+      if (result.conflict && result.currentActivity) {
+        return res.status(409).json({
+          error: 'Conflict detected',
+          message: 'This activity was modified by another user',
+          currentActivity: result.currentActivity,
+        });
+      }
+
+      if (!result.activity) {
         return res.status(404).json({ error: 'Activity not found' });
       }
 
-      res.json(activity);
+      res.json(result.activity);
     } catch (error) {
       console.error('Update activity error:', error);
       res.status(500).json({ error: 'Failed to update activity' });
@@ -5014,32 +5059,42 @@ ${sitemaps.map(sitemap => `  <sitemap>
     try {
       const { activityId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
-      const updates = req.body;
-      console.log('[PRIVACY TOGGLE DEBUG] PATCH request received:', { activityId, userId, updates });
-      
-      const activity = await storage.updateActivity(activityId, updates, userId);
-      console.log('[PRIVACY TOGGLE DEBUG] Activity after update:', { id: activity?.id, isPublic: activity?.isPublic });
-      
-      if (!activity) {
+      const { expectedVersion, ...updates } = req.body;
+      console.log('[PRIVACY TOGGLE DEBUG] PATCH request received:', { activityId, userId, updates, expectedVersion });
+
+      // Call updateActivity with optimistic locking if expectedVersion provided
+      const result = await storage.updateActivity(activityId, updates, userId, expectedVersion);
+      console.log('[PRIVACY TOGGLE DEBUG] Activity after update:', { id: result.activity?.id, isPublic: result.activity?.isPublic, conflict: result.conflict });
+
+      // Handle conflict
+      if (result.conflict && result.currentActivity) {
+        return res.status(409).json({
+          error: 'Conflict detected',
+          message: 'This activity was modified by another user',
+          currentActivity: result.currentActivity,
+        });
+      }
+
+      if (!result.activity) {
         return res.status(404).json({ error: 'Activity not found' });
       }
 
       // Reschedule reminders if startDate was updated
-      if ('startDate' in updates) {
+      if ('startDate' in updates && result.activity) {
         try {
-          if (activity.startDate) {
-            const result = await scheduleRemindersForActivity(storage, activity.id, userId);
-            console.log(`[ACTIVITY] Rescheduled ${result.created} reminders for activity ${activity.id}`);
+          if (result.activity.startDate) {
+            const reminderResult = await scheduleRemindersForActivity(storage, result.activity.id, userId);
+            console.log(`[ACTIVITY] Rescheduled ${reminderResult.created} reminders for activity ${result.activity.id}`);
           } else {
             await cancelRemindersForActivity(storage, activityId);
-            console.log(`[ACTIVITY] Cancelled reminders for activity ${activity.id} (no start date)`);
+            console.log(`[ACTIVITY] Cancelled reminders for activity ${result.activity.id} (no start date)`);
           }
         } catch (reminderError) {
           console.error('[ACTIVITY] Failed to reschedule reminders:', reminderError);
         }
       }
 
-      res.json(activity);
+      res.json(result.activity);
     } catch (error) {
       console.error('Patch activity error:', error);
       res.status(500).json({ error: 'Failed to update activity' });

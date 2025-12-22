@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect, useRef } from "react";
+import { initializeSocket, disconnectSocket, isSocketConnected } from "@/lib/socket";
 
 interface User {
   id: string;
@@ -56,7 +57,20 @@ export function useAuth() {
 
       prevUserIdRef.current = currentUserId;
     }
-  }, [user?.id, queryClient]);
+
+    // Initialize or disconnect WebSocket based on authentication state
+    if (currentUserId && user?.authenticated && !user?.isGuest) {
+      // User is authenticated - initialize socket if not already connected
+      if (!isSocketConnected()) {
+        console.log('[AUTH] Initializing WebSocket for authenticated user:', currentUserId);
+        initializeSocket(currentUserId);
+      }
+    } else {
+      // User is not authenticated - disconnect socket
+      console.log('[AUTH] User not authenticated, disconnecting WebSocket');
+      disconnectSocket();
+    }
+  }, [user?.id, user?.authenticated, user?.isGuest, queryClient]);
 
   // Logout mutation
   const logoutMutation = useMutation({

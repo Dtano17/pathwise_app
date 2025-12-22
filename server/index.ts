@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express, { type Request, Response, NextFunction } from "express";
+import { Server as SocketIOServer } from 'socket.io';
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupMultiProviderAuth } from "./multiProviderAuth";
@@ -11,6 +12,7 @@ import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from "./stripeClient";
 import { startReminderProcessor } from "./services/reminderProcessor";
 import { storage } from "./storage";
+import { initializeSocketIO } from "./services/socketService";
 
 // Validate critical environment variables
 function validateEnvironment() {
@@ -165,6 +167,19 @@ async function initializeBackground() {
 
 (async () => {
   const server = await registerRoutes(app);
+
+  // Initialize Socket.io for real-time updates
+  const io = new SocketIOServer(server, {
+    cors: {
+      origin: process.env.CLIENT_URL || 'http://localhost:5000',
+      credentials: true,
+    },
+    transports: ['websocket', 'polling'], // Fallback to polling if needed
+  });
+
+  // Initialize Socket.io service with authentication and room management
+  await initializeSocketIO(io, storage);
+  log('[SOCKET.IO] WebSocket server initialized');
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

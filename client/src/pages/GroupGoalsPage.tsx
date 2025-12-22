@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { useAllGroupsRealtime } from "@/hooks/useAllGroupsRealtime";
 import { Users, UserPlus, CheckCircle2, Plus, Sparkles, ArrowRight, Circle, Share2, ArrowLeft, Home, RefreshCw, LogOut } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
@@ -77,17 +78,18 @@ export default function GroupGoalsPage() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedGroupForShare, setSelectedGroupForShare] = useState<string | null>(null);
 
-  // Fetch user's groups with auto-refresh every 10 seconds
+  // Enable real-time updates for all groups (replaces 10-second polling)
+  useAllGroupsRealtime();
+
+  // Fetch user's groups (real-time updates via WebSocket)
   const { data: groupsData, isLoading: groupsLoading, refetch: refetchGroups } = useQuery<{ groups: Group[] }>({
     queryKey: ["/api/groups"],
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
   const groups = groupsData?.groups || [];
 
-  // Fetch recent group activity with auto-refresh every 10 seconds
+  // Fetch recent group activity (real-time updates via WebSocket)
   const { data: activities, isLoading: activitiesLoading, refetch: refetchActivities } = useQuery<GroupActivity[]>({
     queryKey: ["/api/groups/activity"],
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
 
   // Manual refresh function for mobile users

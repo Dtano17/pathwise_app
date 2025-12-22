@@ -144,7 +144,12 @@ export const tasks = pgTable("tasks", {
   snoozeUntil: timestamp("snooze_until"),
   originalTaskId: varchar("original_task_id"), // Track original task when copying shared activities
   createdAt: timestamp("created_at").defaultNow(),
-});
+  updatedAt: timestamp("updated_at").defaultNow(), // Track last modification time
+  version: integer("version").notNull().default(1), // Optimistic locking version
+}, (table) => ({
+  updatedAtIndex: index("idx_tasks_updated_at").on(table.updatedAt),
+  versionIndex: index("idx_tasks_version").on(table.version),
+}));
 
 export const journalEntries = pgTable("journal_entries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1073,10 +1078,13 @@ export const activities = pgTable("activities", {
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  version: integer("version").notNull().default(1), // Optimistic locking version
 }, (table) => ({
   userStatusIndex: index("activities_user_status_index").on(table.userId, table.status),
   publicActivitiesIndex: index("public_activities_index").on(table.isPublic, table.createdAt),
   userContentHashUnique: uniqueIndex("user_content_hash_unique").on(table.userId, table.contentHash),
+  updatedAtIndex: index("idx_activities_updated_at").on(table.updatedAt),
+  versionIndex: index("idx_activities_version").on(table.version),
 }));
 
 // Link tasks to activities (many-to-many relationship)
