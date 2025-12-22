@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,26 +77,27 @@ export default function GroupGoalsPage() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedGroupForShare, setSelectedGroupForShare] = useState<string | null>(null);
 
-  // Fetch user's groups
+  // Fetch user's groups with auto-refresh every 10 seconds
   const { data: groupsData, isLoading: groupsLoading, refetch: refetchGroups } = useQuery<{ groups: Group[] }>({
     queryKey: ["/api/groups"],
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
   const groups = groupsData?.groups || [];
 
-  // Fetch recent group activity
-  const { data: activities, isLoading: activitiesLoading, refetch: refetchActivity } = useQuery<GroupActivity[]>({
+  // Fetch recent group activity with auto-refresh every 10 seconds
+  const { data: activities, isLoading: activitiesLoading, refetch: refetchActivities } = useQuery<GroupActivity[]>({
     queryKey: ["/api/groups/activity"],
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
 
-  // Auto-refresh groups and activity every 10 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refetchGroups();
-      refetchActivity();
-    }, 10000); // 10 seconds
-
-    return () => clearInterval(interval);
-  }, [refetchGroups, refetchActivity]);
+  // Manual refresh function for mobile users
+  const handleRefresh = async () => {
+    await Promise.all([refetchGroups(), refetchActivities()]);
+    toast({
+      title: "Refreshed",
+      description: "Groups and activity updated!",
+    });
+  };
 
   // Fetch user activities (only when dialog is open)
   const { data: userActivities = [] } = useQuery<Activity[]>({
@@ -293,7 +294,7 @@ export default function GroupGoalsPage() {
       case "member_joined":
         return <UserPlus className="w-5 h-5 text-primary" />;
       case "member_left":
-        return <LogOut className="w-5 h-5 text-orange-500" />;
+        return <LogOut className="w-5 h-5 text-orange-400" />;
       default:
         return <Users className="w-5 h-5 text-muted-foreground" />;
     }
@@ -346,6 +347,12 @@ export default function GroupGoalsPage() {
             <span className="font-medium">{userName}</span> joined the group
           </>
         );
+      case "member_left":
+        return (
+          <>
+            <span className="font-medium">{userName}</span> left the group
+          </>
+        );
       default:
         return <span className="font-medium">{userName}</span>;
     }
@@ -355,46 +362,42 @@ export default function GroupGoalsPage() {
     <div className="h-screen overflow-auto bg-background p-6 space-y-8">
       {/* Navigation Buttons */}
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center gap-2 mb-6">
-          <div className="flex gap-2">
-            <Link href="/">
-              <Button variant="outline" size="sm" className="gap-2" data-testid="button-back">
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </Button>
-            </Link>
-            <Link href="/">
-              <Button variant="outline" size="sm" className="gap-2" data-testid="button-home">
-                <Home className="w-4 h-4" />
-                Home
-              </Button>
-            </Link>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              refetchGroups();
-              refetchActivity();
-              toast({ title: "Refreshed", description: "Groups and activity updated" });
-            }}
-            className="gap-2"
-            data-testid="button-refresh"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </Button>
+        <div className="flex gap-2 mb-6">
+          <Link href="/">
+            <Button variant="outline" size="sm" className="gap-2" data-testid="button-back">
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </Button>
+          </Link>
+          <Link href="/">
+            <Button variant="outline" size="sm" className="gap-2" data-testid="button-home">
+              <Home className="w-4 h-4" />
+              Home
+            </Button>
+          </Link>
         </div>
       </div>
 
       {/* Header */}
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center gap-3 mb-2">
-          <Users className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold">Group Goals & Shared Accountability</h1>
-          <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-            Preview Mode
-          </Badge>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <Users className="w-8 h-8 text-primary" />
+            <h1 className="text-3xl font-bold">Group Goals & Shared Accountability</h1>
+            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+              Preview Mode
+            </Badge>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={handleRefresh}
+            data-testid="button-refresh-groups"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
         </div>
         <p className="text-muted-foreground">
           Create groups, share goals, and celebrate progress together!

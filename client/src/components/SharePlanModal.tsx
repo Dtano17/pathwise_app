@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useNativeShare } from "@/hooks/useNativeShare";
 import { 
   Share, 
   Copy, 
@@ -48,13 +47,12 @@ export default function SharePlanModal({
   goalIds = []
 }: SharePlanModalProps) {
   const { toast } = useToast();
-  const { share, shareViaEmail, shareViaSMS } = useNativeShare();
   const [inviteLink, setInviteLink] = useState('');
   const [inviteMessage, setInviteMessage] = useState('');
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
 
   // Get user's contacts
-  const { data: contacts = [] } = useQuery<Contact[]>({
+  const { data: contacts = [] } = useQuery({
     queryKey: ['/api/contacts'],
     enabled: isOpen
   });
@@ -66,15 +64,17 @@ export default function SharePlanModal({
       const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       const link = `${window.location.origin}/join/${inviteCode}?plan=${encodeURIComponent(planTitle)}`;
       
-      const response = await apiRequest('POST', '/api/sharing/generate-invite', {
-        planTitle,
-        inviteLink: link
+      return apiRequest('/api/sharing/generate-invite', {
+        method: 'POST',
+        body: JSON.stringify({
+          planTitle,
+          inviteLink: link
+        })
       });
-      return response.json() as Promise<{ link: string; message: string }>;
     },
     onSuccess: (data) => {
-      setInviteLink(data.link || '');
-      setInviteMessage(data.message || '');
+      setInviteLink(data.sharingOptions?.copy || '');
+      setInviteMessage(data.inviteMessage || '');
       toast({
         title: "Invite Ready!",
         description: "Your sharing invitation has been generated.",
@@ -109,45 +109,15 @@ export default function SharePlanModal({
     }
   };
 
-  const handleNativeShare = async () => {
-    if (!inviteLink) {
-      toast({
-        title: "Generate Invite First",
-        description: "Please generate an invite link before sharing.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const result = await share({
-      title: `Join me on "${planTitle}"`,
-      text: inviteMessage,
-      url: inviteLink,
-      dialogTitle: 'Share Plan',
-    });
-
-    if (result.success) {
-      toast({
-        title: "Shared successfully!",
-        description: `Shared via ${result.method}`,
-      });
-    }
-  };
-
   const handleShareViaEmail = () => {
-    shareViaEmail({
-      title: `Join me on "${planTitle}"`,
-      text: inviteMessage,
-      url: inviteLink,
-    });
+    const subject = encodeURIComponent(`Join me on "${planTitle}"`);
+    const body = encodeURIComponent(inviteMessage);
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
   };
 
   const handleShareViaSMS = () => {
-    shareViaSMS({
-      title: `Join me on "${planTitle}"`,
-      text: inviteMessage,
-      url: inviteLink,
-    });
+    const body = encodeURIComponent(inviteMessage);
+    window.open(`sms:?body=${body}`, '_blank');
   };
 
   const handleContactToggle = (contactId: string) => {
@@ -228,50 +198,25 @@ export default function SharePlanModal({
               </div>
 
               {/* Sharing Options */}
-              <div className="space-y-3">
-                <p className="text-sm font-medium">Share This Plan</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleNativeShare}
-                    className="justify-start"
-                    data-testid="button-share-native"
-                  >
-                    <Share className="w-4 h-4 mr-2" />
-                    Share
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleShareViaEmail}
-                    className="justify-start"
-                    data-testid="button-share-email"
-                  >
-                    <Mail className="w-4 h-4 mr-2" />
-                    Email
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleShareViaSMS}
-                    className="justify-start"
-                    data-testid="button-share-sms"
-                  >
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    SMS
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleCopyLink}
-                    className="justify-start"
-                    data-testid="button-share-copy"
-                  >
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy
-                  </Button>
-                </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={handleShareViaEmail}
+                  className="justify-start"
+                  data-testid="button-share-email"
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Share via Email
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleShareViaSMS}
+                  className="justify-start"
+                  data-testid="button-share-sms"
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Share via SMS
+                </Button>
               </div>
             </div>
           )}

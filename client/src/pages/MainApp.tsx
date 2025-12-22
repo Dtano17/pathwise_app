@@ -3457,6 +3457,23 @@ export default function MainApp({
               }
             } catch (error) {
               console.error('Share error:', error);
+
+              // User canceled share dialog - not an error, silent return
+              if (error instanceof Error && error.name === 'AbortError') {
+                return;
+              }
+
+              // Clipboard permission denied
+              if (error instanceof DOMException && error.name === 'NotAllowedError') {
+                toast({
+                  title: "Permission Required",
+                  description: "Please allow clipboard access to copy the share link.",
+                  variant: "destructive"
+                });
+                return;
+              }
+
+              // Generic fallback with actual error message
               toast({
                 title: "Share Error",
                 description: error instanceof Error ? error.message : "An error occurred while sharing. Your activity has been saved.",

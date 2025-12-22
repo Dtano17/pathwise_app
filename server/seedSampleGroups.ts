@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 
 const DEMO_USER_ID = 'demo-user';
 
-// Generate a random invite code (e.g., "ABC-DEF-GHI")
+// Helper function to generate invite codes (matching the one in routes.ts)
 function generateInviteCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const parts = [3, 3, 3].map(len =>

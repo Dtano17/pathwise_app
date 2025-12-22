@@ -5,11 +5,11 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, Sparkles, AlertCircle, RefreshCw, Archive, type LucideIcon } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, Sparkles, Users, Loader2, RefreshCw, AlertTriangle, type LucideIcon } from 'lucide-react';
 const journalMateLogo = '/journalmate-logo-transparent.png';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
-import { useTheme } from '@/components/ThemeProvider';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +38,7 @@ interface SharedActivityData {
     backdrop?: string;
     createdAt: string;
     updatedAt: string;
+    targetGroupId?: string;
   };
   tasks: Array<{
     id: string;
@@ -54,6 +55,14 @@ interface SharedActivityData {
   sharedBy?: {
     name?: string;
     email?: string;
+  };
+  groupInfo?: {
+    id: string;
+    name: string;
+    description: string | null;
+    memberCount: number;
+    isUserMember: boolean;
+    inviteCode: string | null;
   };
   linkStatus?: {
     isUsingSnapshot: boolean;
@@ -134,71 +143,79 @@ const categoryThemes: Record<string, { gradient: string; Icon: LucideIcon; accen
   }
 };
 
-// Link Status Indicator Component
-function LinkStatusIndicator({ linkStatus, onRefresh }: {
-  linkStatus?: {
-    isUsingSnapshot: boolean;
-    isActivityDeleted: boolean;
-    hasUpdates: boolean;
-    snapshotAt: string | null;
-    viewCount: number;
-    copyCount: number;
-  };
-  onRefresh?: () => void
-}) {
-  if (!linkStatus) return null;
+interface LinkStatusIndicatorProps {
+  linkStatus: SharedActivityData['linkStatus'];
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}
 
-  // Activity deleted - show snapshot info
-  if (linkStatus.isActivityDeleted) {
+function LinkStatusIndicator({ linkStatus, onRefresh, isRefreshing }: LinkStatusIndicatorProps) {
+  const [dismissed, setDismissed] = useState(false);
+  
+  if (!linkStatus || dismissed) return null;
+  
+  const { isUsingSnapshot, isActivityDeleted, hasUpdates, snapshotAt } = linkStatus;
+  
+  if (isActivityDeleted) {
     return (
       <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex items-center gap-2 bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-amber-300/50 dark:border-amber-600/50"
+        data-testid="link-status-deleted"
       >
-        <div className="flex items-start gap-3">
-          <Archive className="w-5 h-5 text-amber-500 mt-0.5 animate-pulse" />
-          <div className="flex-1">
-            <p className="font-medium text-amber-700 dark:text-amber-300">Original plan archived</p>
-            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
-              You're viewing a snapshot from {linkStatus.snapshotAt ? new Date(linkStatus.snapshotAt).toLocaleDateString() : 'when it was shared'}
-            </p>
-          </div>
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full bg-amber-400 animate-pulse opacity-50" />
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 relative z-10" />
         </div>
+        <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+          Original plan archived
+        </span>
+        {snapshotAt && (
+          <span className="text-xs text-amber-600 dark:text-amber-400">
+            • Saved {new Date(snapshotAt).toLocaleDateString()}
+          </span>
+        )}
       </motion.div>
     );
   }
-
-  // Has updates - show refresh option
-  if (linkStatus.hasUpdates && onRefresh) {
+  
+  if (hasUpdates) {
     return (
       <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex items-center gap-2"
+        data-testid="link-status-updates"
       >
-        <div className="flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5 animate-pulse" />
-          <div className="flex-1">
-            <p className="font-medium text-blue-700 dark:text-blue-300">Updates available</p>
-            <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-              The creator has updated this plan
-            </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="bg-amber-100/90 dark:bg-amber-900/30 backdrop-blur-sm border-amber-300/50 dark:border-amber-600/50 hover:bg-amber-200/90 dark:hover:bg-amber-800/30 text-amber-800 dark:text-amber-200 gap-2 h-7 px-2.5 rounded-full"
+          data-testid="button-refresh-activity"
+        >
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-amber-400 animate-pulse opacity-50" />
+            <RefreshCw className={`w-3.5 h-3.5 relative z-10 ${isRefreshing ? 'animate-spin' : ''}`} />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRefresh}
-            className="gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </Button>
-        </div>
+          <span className="text-xs font-medium hidden sm:inline">Updates available</span>
+          <span className="text-xs font-medium sm:hidden">Update</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setDismissed(true)}
+          className="h-6 w-6 text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200"
+          data-testid="button-dismiss-status"
+        >
+          <span className="text-xs">×</span>
+        </Button>
       </motion.div>
     );
   }
-
+  
   return null;
 }
 
@@ -210,11 +227,16 @@ export default function SharedActivity() {
   const [copyingLink, setCopyingLink] = useState(false);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [confirmationData, setConfirmationData] = useState<any>(null);
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [pendingCopy, setPendingCopy] = useState<{ forceUpdate: boolean } | null>(null);
+  const [shareProgress, setShareProgress] = useState(true); // Default to sharing progress
+  const [authRefreshTriggered, setAuthRefreshTriggered] = useState(false); // Track if we've triggered a refresh
   
-  // Use shared theme from ThemeProvider
-  const { isDark, toggleTheme } = useTheme();
-
-  const queryClient = useQueryClient();
+  // Initialize theme from localStorage or default to dark
+  const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>(() => {
+    const savedTheme = localStorage.getItem('theme');
+    return savedTheme === 'light' ? 'light' : 'dark';
+  });
 
   const { data: user } = useQuery({
     queryKey: ['/api/user'],
@@ -224,25 +246,42 @@ export default function SharedActivity() {
     setIsAuthenticated(!!user && typeof user === 'object' && 'id' in user && user.id !== 'demo-user');
   }, [user]);
 
-  // OAuth auto-refresh: Detect authentication completion and refresh user data
+  // Effect to refresh user data after OAuth authentication
+  // This ensures we trigger a refetch to get fresh session data
+  // NOTE: Auto-copy is gated on actual user data (user?.id !== 'demo-user'), not this flag
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const authSuccess = params.get('auth') === 'success';
-
-    if (authSuccess) {
-      // OAuth completed successfully - refresh user data
+    const urlParams = new URLSearchParams(window.location.search);
+    const justAuthenticated = urlParams.get('auth') === 'success' || urlParams.get('autoCopy') === 'true';
+    
+    if (justAuthenticated && !authRefreshTriggered) {
+      console.log('[SHARED ACTIVITY] 🔄 Auth detected, triggering user data refresh...');
+      setAuthRefreshTriggered(true); // Prevent re-triggering
+      
+      // Trigger a refetch of user data to get fresh session
+      // The auto-copy effect will wait for user?.id !== 'demo-user' before proceeding
       queryClient.invalidateQueries({ queryKey: ['/api/user'] });
-
-      // Clean up URL params
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, '', cleanUrl);
     }
-  }, [queryClient]);
+  }, [authRefreshTriggered]);
 
-  const { data, isLoading, error: queryError } = useQuery<SharedActivityData>({
+  // Apply initial theme to document on mount
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', previewTheme === 'dark');
+  }, []);
+
+  // Toggle theme and sync with localStorage and document class
+  const togglePreviewTheme = () => {
+    const newTheme = previewTheme === 'light' ? 'dark' : 'light';
+    setPreviewTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+  };
+
+  const { data, isLoading, error: queryError, refetch, isRefetching } = useQuery<SharedActivityData>({
     queryKey: ['/api/share', token],
     queryFn: async () => {
-      const response = await fetch(`/api/share/${token}`);
+      const response = await fetch(`/api/share/activity/${token}`, {
+        credentials: 'include', // Send session cookie to check membership status
+      });
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('This shared activity link is invalid or has expired.');
@@ -336,6 +375,24 @@ export default function SharedActivity() {
   }, [data]);
 
   const handleSignIn = () => {
+    // Save group join intent BEFORE redirecting to login
+    // This ensures new users see the join dialog after signing up
+    if (data?.groupInfo) {
+      localStorage.setItem('pendingGroupJoin', JSON.stringify({
+        shareToken: token,
+        joinGroup: null, // null = user hasn't decided yet, will show dialog
+        shareProgress: false,
+        groupId: data.groupInfo.id,
+        groupName: data.groupInfo.name,
+        inviteCode: data.groupInfo.inviteCode,
+        timestamp: Date.now()
+      }));
+      console.log('[SHARED ACTIVITY] 💾 Saved group join intent for after auth:', {
+        groupName: data.groupInfo.name,
+        inviteCode: data.groupInfo.inviteCode
+      });
+    }
+    
     // Use full pathname as returnTo with autoCopy parameter to trigger copy after auth
     const returnTo = encodeURIComponent(`${window.location.pathname}?autoCopy=true`);
     console.log('[SHARED ACTIVITY] Redirecting to login with returnTo and autoCopy:', window.location.pathname);
@@ -343,12 +400,14 @@ export default function SharedActivity() {
   };
 
   const copyActivityMutation = useMutation({
-    mutationFn: async (forceUpdate: boolean = false) => {
+    mutationFn: async ({ forceUpdate = false, joinGroup = false, shareProgress: shareProgressParam = false }: { forceUpdate?: boolean; joinGroup?: boolean; shareProgress?: boolean }) => {
       if (!token) throw new Error('Share token not found');
+      console.log('[SHARED ACTIVITY] 📤 Sending copy API request:', { forceUpdate, joinGroup, shareProgress: shareProgressParam });
       const response = await fetch(`/api/activities/copy/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ forceUpdate }),
+        credentials: 'include', // CRITICAL: Send session cookie for authentication
+        body: JSON.stringify({ forceUpdate, joinGroup, shareProgress: shareProgressParam }),
       });
       
       // Parse JSON response
@@ -367,8 +426,25 @@ export default function SharedActivity() {
       if (!response.ok) {
         // If authentication is required, redirect to login
         if (result.requiresAuth) {
-          const returnTo = encodeURIComponent(window.location.pathname);
-          console.log('[SHARED ACTIVITY] Auth required, redirecting to login');
+          // Save join preferences to localStorage so we can use them after login
+          // This allows auto-join without showing the dialog again
+          // Include inviteCode to use the proven invite code join flow
+          localStorage.setItem('pendingGroupJoin', JSON.stringify({
+            shareToken: token,
+            joinGroup,
+            shareProgress: shareProgressParam,
+            groupId: data?.groupInfo?.id || null,
+            inviteCode: data?.groupInfo?.inviteCode || null,
+            timestamp: Date.now()
+          }));
+          console.log('[SHARED ACTIVITY] Auth required, saving join preferences:', { 
+            joinGroup, 
+            shareProgress: shareProgressParam,
+            inviteCode: data?.groupInfo?.inviteCode 
+          });
+          
+          const returnTo = encodeURIComponent(`${window.location.pathname}?autoCopy=true`);
+          console.log('[SHARED ACTIVITY] Redirecting to login with autoCopy');
           window.location.href = `/login?returnTo=${returnTo}`;
           throw new Error('Redirecting to login...');
         }
@@ -392,6 +468,12 @@ export default function SharedActivity() {
       }
       
       if (result?.activity?.id) {
+        // Invalidate groups query if user joined a group
+        if (result.joinedGroup) {
+          queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+          console.log('[SHARED ACTIVITY] Invalidated groups query after joining:', result.joinedGroup.name);
+        }
+        
         const message = result.message || `"${result.activity.title}" has been added to your account with ${result.tasks?.length || 0} tasks.`;
         toast({
           title: result.isUpdate ? 'Plan Updated!' : 'Plan Copied!',
@@ -416,49 +498,176 @@ export default function SharedActivity() {
   });
 
   // Automatic copy when user signs in
+  // CRITICAL: This effect is gated directly on user?.id !== 'demo-user' to ensure
+  // we only proceed when we have confirmed authenticated user data
   useEffect(() => {
     // Check if user just authenticated (auth=success OR autoCopy=true in URL)
     const urlParams = new URLSearchParams(window.location.search);
     const justAuthenticated = urlParams.get('auth') === 'success' || urlParams.get('autoCopy') === 'true';
     
+    // Derive the user ID directly from user object for deterministic gating
+    const currentUserId = user && typeof user === 'object' && 'id' in user ? (user as any).id : null;
+    const isRealUser = currentUserId && currentUserId !== 'demo-user';
+    
     console.log('[SHARED ACTIVITY] Auto-copy check:', {
-      isAuthenticated,
       justAuthenticated,
       hasActivity: !!data?.activity,
       hasUser: !!user,
-      isOwner: data?.activity?.userId === (user as any)?.id,
+      userId: currentUserId,
+      isRealUser,
+      isOwner: data?.activity?.userId === currentUserId,
       permissionRequested,
       urlParams: Object.fromEntries(urlParams.entries())
     });
     
+    // CRITICAL: Wait for real (non-demo) user data before auto-copying
+    // This ensures the session cookie is properly hydrated and user data is fresh
+    if (justAuthenticated && !isRealUser) {
+      console.log('[SHARED ACTIVITY] ⏳ Waiting for authenticated user data (currently:', currentUserId, ')...');
+      return;
+    }
+    
     // Only auto-copy if:
-    // 1. User is authenticated (not demo user)
+    // 1. User is a real authenticated user (not demo user) - DERIVED FROM USER DATA
     // 2. Activity data is loaded
     // 3. User is not the owner
     // 4. Haven't already requested permission
     // 5. Just authenticated (from OAuth callback or clicked "Get Started Free")
     if (
-      isAuthenticated && 
+      isRealUser &&
       justAuthenticated &&
       data?.activity && 
-      user && 
-      typeof user === 'object' && 
-      'id' in user && 
-      data.activity.userId !== (user as any).id &&
+      data.activity.userId !== currentUserId &&
       !permissionRequested
     ) {
       setPermissionRequested(true);
       console.log('[SHARED ACTIVITY] ✅ Auto-copying activity for newly authenticated user');
       console.log('[SHARED ACTIVITY] Activity:', data.activity.title);
+      console.log('[SHARED ACTIVITY] User ID:', currentUserId);
       console.log('[SHARED ACTIVITY] User:', (user as any).username || (user as any).email);
+      console.log('[SHARED ACTIVITY] Has groupInfo:', !!data.groupInfo);
+      if (data.groupInfo) {
+        console.log('[SHARED ACTIVITY] Group:', data.groupInfo.name, 'Members:', data.groupInfo.memberCount);
+      }
+      
+      // Check for pending join preferences saved before login redirect
+      const pendingJoinStr = localStorage.getItem('pendingGroupJoin');
+      let savedJoinPrefs: { 
+        joinGroup?: boolean | null; // null means user hasn't decided yet
+        shareProgress?: boolean; 
+        shareToken?: string; 
+        timestamp?: number;
+        inviteCode?: string | null;
+        groupId?: string | null;
+        groupName?: string | null;
+      } | null = null;
+      
+      if (pendingJoinStr) {
+        try {
+          savedJoinPrefs = JSON.parse(pendingJoinStr);
+          // Verify it's for the same share token and not too old (1 hour max)
+          const isValid = savedJoinPrefs?.shareToken === token && 
+            savedJoinPrefs?.timestamp && 
+            (Date.now() - savedJoinPrefs.timestamp) < 3600000; // 1 hour
+          if (!isValid) {
+            savedJoinPrefs = null;
+            localStorage.removeItem('pendingGroupJoin');
+          } else {
+            console.log('[SHARED ACTIVITY] ✅ Found valid pending join preferences:', savedJoinPrefs);
+            localStorage.removeItem('pendingGroupJoin'); // Clean up after reading
+          }
+        } catch (e) {
+          console.error('[SHARED ACTIVITY] Error parsing pending join preferences:', e);
+          localStorage.removeItem('pendingGroupJoin');
+        }
+      }
       
       // Automatically trigger copy (forceUpdate = false for initial copy)
-      copyActivityMutation.mutate(false);
+      // For auto-copy, use saved join preferences if available, otherwise show dialog for group activities
+      if (savedJoinPrefs) {
+        // User already chose to join/not join before login, use their preference
+        console.log('[SHARED ACTIVITY] 🚀 Auto-processing with saved preferences:', {
+          joinGroup: savedJoinPrefs.joinGroup,
+          shareProgress: savedJoinPrefs.shareProgress,
+          inviteCode: savedJoinPrefs.inviteCode
+        });
+        
+        // joinGroup can be: true (user chose to join), false (user chose not to join), or null (user hasn't decided)
+        // If joinGroup is null, show the join dialog so user can decide
+        if (savedJoinPrefs.joinGroup === null && savedJoinPrefs.inviteCode) {
+          console.log('[SHARED ACTIVITY] 🚀 User hasn\'t decided yet, showing join dialog for group');
+          setPendingCopy({ forceUpdate: false });
+          setShowJoinDialog(true);
+        } else if (savedJoinPrefs.joinGroup === true && savedJoinPrefs.inviteCode) {
+          // User explicitly opted to join group - use the proven invite code flow
+          console.log('[SHARED ACTIVITY] 🔑 Joining group via invite code first...');
+          
+          // Join group via invite code (the proven working flow)
+          fetch('/api/groups/join', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ inviteCode: savedJoinPrefs.inviteCode })
+          })
+          .then(async (res) => {
+            if (res.ok) {
+              const joinResult = await res.json();
+              console.log('[SHARED ACTIVITY] ✅ Successfully joined group via invite code:', joinResult.group?.name);
+              toast({
+                title: 'Joined Group!',
+                description: `You've joined "${joinResult.group?.name}"`,
+              });
+              // Invalidate groups query to update sidebar
+              queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+            } else {
+              const errorData = await res.json().catch(() => ({}));
+              // If already a member, that's fine - continue with copy
+              if (errorData.error?.includes('already a member')) {
+                console.log('[SHARED ACTIVITY] ℹ️ Already a member of group, proceeding with copy');
+              } else {
+                console.warn('[SHARED ACTIVITY] ⚠️ Failed to join group:', errorData.error);
+              }
+            }
+            // Now copy the activity (with shareProgress if enabled)
+            console.log('[SHARED ACTIVITY] 📋 Copying activity after group join...');
+            copyActivityMutation.mutate({ 
+              forceUpdate: false, 
+              joinGroup: false, // Already joined via invite code
+              shareProgress: savedJoinPrefs?.shareProgress || false
+            });
+          })
+          .catch((err) => {
+            console.error('[SHARED ACTIVITY] ❌ Error joining group:', err);
+            // Still try to copy the activity
+            copyActivityMutation.mutate({ 
+              forceUpdate: false, 
+              joinGroup: false,
+              shareProgress: savedJoinPrefs?.shareProgress || false
+            });
+          });
+        } else {
+          // User chose not to join OR no invite code - just copy without joining
+          console.log('[SHARED ACTIVITY] 📋 Copying activity without group join');
+          copyActivityMutation.mutate({ 
+            forceUpdate: false, 
+            joinGroup: false,
+            shareProgress: savedJoinPrefs.shareProgress || false
+          });
+        }
+      } else if (data.groupInfo) {
+        // No saved preferences but there's group info - show dialog
+        console.log('[SHARED ACTIVITY] 🚀 Showing join dialog for group:', data.groupInfo.name);
+        setPendingCopy({ forceUpdate: false });
+        setShowJoinDialog(true);
+      } else {
+        console.log('[SHARED ACTIVITY] ℹ️ No group info, copying without join dialog');
+        copyActivityMutation.mutate({ forceUpdate: false, joinGroup: false });
+      }
       
       // Clean up URL params after triggering copy
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, [isAuthenticated, data, user, permissionRequested]);
+  }, [data, user, permissionRequested]);
 
   const handleCopyLink = async () => {
     if (!data?.activity) return;
@@ -563,6 +772,44 @@ export default function SharedActivity() {
     const summary = `Check out my activity: ${titleWithEmoji}\n${activityDescription}\n\n${url}`;
     window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(titleWithEmoji)}&summary=${encodeURIComponent(summary)}`, '_blank');
   };
+
+  // Handle copy button click - check if join dialog should be shown for group activities
+  const handleCopyClick = (forceUpdate: boolean = false) => {
+    // If activity is part of a group, show join dialog first
+    if (data?.groupInfo) {
+      setPendingCopy({ forceUpdate });
+      setShowJoinDialog(true);
+    } else {
+      // Regular activity, just copy
+      copyActivityMutation.mutate({ forceUpdate, joinGroup: false });
+    }
+  };
+
+  // Handle join dialog response
+  const handleJoinResponse = (joinGroup: boolean) => {
+    console.log('[SHARED ACTIVITY] 🔔 Join dialog response:', {
+      joinGroup,
+      shareProgress,
+      pendingCopy,
+      groupInfo: data?.groupInfo
+    });
+    setShowJoinDialog(false);
+    if (pendingCopy) {
+      console.log('[SHARED ACTIVITY] 📤 Sending copy request with:', {
+        forceUpdate: pendingCopy.forceUpdate,
+        joinGroup,
+        shareProgress
+      });
+      copyActivityMutation.mutate({ 
+        forceUpdate: pendingCopy.forceUpdate, 
+        joinGroup,
+        shareProgress: shareProgress // Use the checkbox state
+      });
+      setPendingCopy(null);
+    }
+  };
+
+  const queryClient = useQueryClient();
 
   // Generate themed background image URL (must be before early returns per React Hooks rules)
   const backgroundStyle = useMemo(() => {
@@ -724,7 +971,7 @@ export default function SharedActivity() {
   const theme = categoryThemes[activity.category.toLowerCase()] || categoryThemes.other;
 
   return (
-    <div className="min-h-screen">
+    <div className={`min-h-screen ${previewTheme === 'dark' ? 'dark' : ''}`}>
       <div className="min-h-screen bg-background">
         {/* Hero Section with Dynamic Themed Background Image */}
         <div 
@@ -764,15 +1011,22 @@ export default function SharedActivity() {
                 <Button 
                   variant="outline" 
                   size="icon" 
-                  onClick={toggleTheme}
+                  onClick={togglePreviewTheme}
                   data-testid="button-theme-toggle"
                   className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-white/30 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-gray-800"
-                  title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+                  title={`Switch to ${previewTheme === 'light' ? 'dark' : 'light'} mode preview`}
                 >
-                  {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                  {previewTheme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                 </Button>
               </div>
               <div className="flex items-center gap-2 flex-wrap justify-center">
+                {data.linkStatus && (
+                  <LinkStatusIndicator
+                    linkStatus={data.linkStatus}
+                    onRefresh={() => refetch()}
+                    isRefreshing={isRefetching}
+                  />
+                )}
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -845,6 +1099,7 @@ export default function SharedActivity() {
                     <span>Shared by {data.sharedBy.name}</span>
                   </div>
                 )}
+                
                 <div className="flex flex-wrap items-center justify-center gap-3">
                   <Badge variant="outline" className="bg-white/90 backdrop-blur-sm border-white/50 text-gray-900">
                     <span className="capitalize">{activity.category}</span>
@@ -867,12 +1122,6 @@ export default function SharedActivity() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 sm:py-8 max-w-4xl">
-        {/* Link Status Indicator */}
-        <LinkStatusIndicator
-          linkStatus={data?.linkStatus}
-          onRefresh={() => queryClient.invalidateQueries({ queryKey: ['/api/share', token] })}
-        />
-
         {/* Progress Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -1119,7 +1368,7 @@ export default function SharedActivity() {
                 This activity will be added to your dashboard and you can edit it however you like
               </p>
               <Button 
-                onClick={() => copyActivityMutation.mutate()}
+                onClick={() => handleCopyClick(false)}
                 disabled={copyActivityMutation.isPending}
                 className="gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white w-full sm:w-auto"
                 data-testid="button-copy-activity"
@@ -1175,11 +1424,88 @@ export default function SharedActivity() {
               data-testid="button-confirm-update"
               onClick={() => {
                 setShowUpdateDialog(false);
-                copyActivityMutation.mutate(true); // forceUpdate = true
+                handleCopyClick(true); // forceUpdate = true
               }}
               className="bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700"
             >
               Update Plan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Join Group Dialog */}
+      <AlertDialog open={showJoinDialog} onOpenChange={setShowJoinDialog}>
+        <AlertDialogContent data-testid="dialog-join-group">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Join "{data?.groupInfo?.name}"?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                This activity is part of a group. Would you like to join the group when copying this activity?
+              </p>
+              <div className="bg-muted p-3 rounded-lg space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium">{data?.groupInfo?.memberCount || 0} members</span>
+                </div>
+                {data?.groupInfo?.description && (
+                  <p className="text-sm text-muted-foreground">{data.groupInfo.description}</p>
+                )}
+              </div>
+              <p className="text-sm">
+                <strong>Join Group:</strong> Collaborate with members and share updates
+              </p>
+              <p className="text-sm">
+                <strong>Just Copy:</strong> Get a private copy without joining the group
+              </p>
+              
+              {/* Progress Sharing Checkbox */}
+              <div className="flex items-start space-x-2 pt-2 border-t">
+                <Checkbox
+                  id="share-progress"
+                  checked={shareProgress}
+                  onCheckedChange={(checked) => setShareProgress(checked === true)}
+                  data-testid="checkbox-share-progress"
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="share-progress"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Share my progress with the group
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Group admins can see your task completion progress
+                  </p>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => handleJoinResponse(false)}
+              disabled={copyActivityMutation.isPending}
+              data-testid="button-copy-without-join"
+            >
+              No, Just Copy
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleJoinResponse(true)}
+              disabled={copyActivityMutation.isPending}
+              data-testid="button-join-and-copy"
+              className="bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700"
+            >
+              {copyActivityMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Joining...
+                </>
+              ) : (
+                "Yes, Join Group"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
