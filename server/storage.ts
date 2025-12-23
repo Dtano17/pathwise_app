@@ -608,26 +608,16 @@ export class DatabaseStorage implements IStorage {
     userId: string,
     expectedVersion?: number
   ): Promise<{ task?: Task; conflict?: boolean; currentTask?: Task }> {
-    // If expectedVersion is provided, implement optimistic locking
+    // Simple update - version checking is no longer supported
     if (expectedVersion !== undefined) {
-      // First, get the current task to check version
+      // Get the current task
       const currentTask = await this.getTask(taskId, userId);
 
       if (!currentTask) {
         return { conflict: false, task: undefined };
       }
 
-      // Check if version matches (no concurrent modification)
-      if (currentTask.version !== expectedVersion) {
-        console.log(`[STORAGE] Optimistic lock conflict detected for task ${taskId}`);
-        console.log(`  Expected version: ${expectedVersion}, Current version: ${currentTask.version}`);
-        return {
-          conflict: true,
-          currentTask,
-        };
-      }
-
-      // Version matches - proceed with update
+      // Just update the task (no version field available)
       const result = await db.update(tasks)
         .set({
           ...updates,
@@ -639,7 +629,6 @@ export class DatabaseStorage implements IStorage {
         .returning();
 
       if (result.length === 0) {
-        // Race condition - another update happened between our check and update
         const currentTask = await this.getTask(taskId, userId);
         return {
           conflict: true,
@@ -650,12 +639,10 @@ export class DatabaseStorage implements IStorage {
       return { task: result[0], conflict: false };
     }
 
-    // No version check - legacy behavior (update without conflict detection)
+    // No version check - simple update
     const result = await db.update(tasks)
       .set({
         ...updates,
-        updatedAt: new Date(),
-        version: sql`${tasks.version} + 1`,
       })
       .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
       .returning();
@@ -695,13 +682,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserActivities(userId: string): Promise<ActivityWithProgress[]> {
-    try {
-      const userActivities = await db.select().from(activities)
-        .where(and(
-          eq(activities.userId, userId),
-          or(eq(activities.archived, false), isNull(activities.archived))
-        ))
-        .orderBy(desc(activities.createdAt));
+    const userActivities = await db.select().from(activities)
+      .where(and(
+        eq(activities.userId, userId),
+        or(eq(activities.archived, false), isNull(activities.archived))
+      ))
+      .orderBy(desc(activities.createdAt));
 
     if (userActivities.length === 0) {
       return [];
@@ -876,41 +862,27 @@ export class DatabaseStorage implements IStorage {
     userId: string,
     expectedVersion?: number
   ): Promise<{ activity?: Activity; conflict?: boolean; currentActivity?: Activity }> {
-    // If expectedVersion is provided, implement optimistic locking
+    // Simple update - version checking is no longer supported
     if (expectedVersion !== undefined) {
-      // First, get the current activity to check version
       const currentActivity = await this.getActivity(activityId, userId);
 
       if (!currentActivity) {
         return { conflict: false, activity: undefined };
       }
 
-      // Check if version matches (no concurrent modification)
-      if (currentActivity.version !== expectedVersion) {
-        console.log(`[STORAGE] Optimistic lock conflict detected for activity ${activityId}`);
-        console.log(`  Expected version: ${expectedVersion}, Current version: ${currentActivity.version}`);
-        return {
-          conflict: true,
-          currentActivity,
-        };
-      }
-
-      // Version matches - proceed with update and increment version
+      // Just update the activity (no version field available)
       const result = await db.update(activities)
         .set({
           ...updates,
           updatedAt: new Date(),
-          version: sql`${activities.version} + 1`,
         })
         .where(and(
           eq(activities.id, activityId),
-          eq(activities.userId, userId),
-          eq(activities.version, expectedVersion) // Double-check version in WHERE clause
+          eq(activities.userId, userId)
         ))
         .returning();
 
       if (result.length === 0) {
-        // Race condition - another update happened between our check and update
         const currentActivity = await this.getActivity(activityId, userId);
         return {
           conflict: true,
@@ -921,12 +893,11 @@ export class DatabaseStorage implements IStorage {
       return { activity: result[0], conflict: false };
     }
 
-    // No version check - legacy behavior (update without conflict detection)
+    // Simple update
     const result = await db.update(activities)
       .set({
         ...updates,
         updatedAt: new Date(),
-        version: sql`${activities.version} + 1`,
       })
       .where(and(eq(activities.id, activityId), eq(activities.userId, userId)))
       .returning();
