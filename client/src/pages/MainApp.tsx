@@ -3515,37 +3515,8 @@ export default function MainApp({
                 }
               }
 
-              // 2. Try Web Share API (modern browsers) WITH IMAGE if available
-              if (navigator.share && shareData.shareCardImageFile && !shareSuccessful) {
-                // Check if file sharing is supported
-                try {
-                  if (navigator.canShare && navigator.canShare({ files: [shareData.shareCardImageFile] })) {
-                    // BEST PRACTICE: Share image + text + URL together
-                    await navigator.share({
-                      title: `${contextualEmoji} ${displayTitle}`,
-                      text: shareText,
-                      url: shareUrl,
-                      files: [shareData.shareCardImageFile],  // Include the share card image!
-                    });
-                    toast({
-                      title: "Shared successfully!",
-                      description: "Activity shared with image"
-                    });
-                    shareSuccessful = true;
-                    return;
-                  }
-                } catch (shareError: any) {
-                  // AbortError means user canceled the share dialog - don't show error
-                  if (shareError.name === 'AbortError') {
-                    console.log('User canceled share dialog');
-                    return;
-                  }
-                  // File sharing not supported or failed - fall through to text-only share
-                  console.warn('Web Share API with files failed, trying text-only share:', shareError);
-                }
-              }
-
-              // 3. Fallback: Web Share API text-only (no image)
+              // 2. Share Caption: Web Share API with text + URL only (no files)
+              // The "Share Image" button handles image-only sharing separately
               if (navigator.share && !shareSuccessful) {
                 try {
                   await navigator.share({
@@ -3553,12 +3524,9 @@ export default function MainApp({
                     text: shareText,
                     url: shareUrl
                   });
-                  const description = shareData.shareCardImageFile
-                    ? "Activity shared (image not supported on this browser)"
-                    : "Activity shared";
                   toast({
-                    title: "Shared successfully!",
-                    description
+                    title: "Caption shared!",
+                    description: "Your activity caption and link have been shared"
                   });
                   shareSuccessful = true;
                   return;
@@ -3573,7 +3541,7 @@ export default function MainApp({
                 }
               }
 
-              // 4. Last resort: Clipboard fallback
+              // 3. Last resort: Clipboard fallback
               if (!shareSuccessful) {
                 try {
                   await navigator.clipboard.writeText(`${shareText}\n\n${shareUrl}`);
