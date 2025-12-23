@@ -128,6 +128,27 @@ export async function seedSampleGroups() {
       await db.delete(groups).where(eq(groups.id, group.id));
     }
 
+    await seedGroupsForUser(DEMO_USER_ID);
+    console.log('[SEED] Sample groups created successfully!');
+  } catch (error) {
+    console.error('[SEED] Error creating sample groups:', error);
+    throw error;
+  }
+}
+
+export async function seedGroupsForUser(userId: string) {
+  try {
+    // Delete existing groups for this user to start fresh
+    const existingGroups = await db.select().from(groups)
+      .where(eq(groups.createdBy, userId));
+    
+    for (const group of existingGroups) {
+      await db.delete(groupActivityFeed).where(eq(groupActivityFeed.groupId, group.id));
+      await db.delete(groupActivities).where(eq(groupActivities.groupId, group.id));
+      await db.delete(groupMemberships).where(eq(groupMemberships.groupId, group.id));
+      await db.delete(groups).where(eq(groups.id, group.id));
+    }
+
     for (const sampleGroup of sampleGroups) {
       console.log(`[SEED] Creating group: ${sampleGroup.name}`);
       
@@ -137,19 +158,19 @@ export async function seedSampleGroups() {
         description: sampleGroup.description,
         isPrivate: false,
         inviteCode: generateInviteCode(),
-        createdBy: DEMO_USER_ID,
+        createdBy: userId,
       }).returning();
 
-      // Add demo user as admin
+      // Add user as admin
       await db.insert(groupMemberships).values({
         groupId: newGroup.id,
-        userId: DEMO_USER_ID,
+        userId: userId,
         role: 'admin',
       });
 
       // Create linked activity
       const [activity] = await db.insert(activities).values({
-        userId: DEMO_USER_ID,
+        userId: userId,
         title: sampleGroup.activityTitle,
         description: sampleGroup.activityDescription,
         category: sampleGroup.category,
@@ -164,7 +185,7 @@ export async function seedSampleGroups() {
       for (const task of sampleGroup.tasks) {
         // First create the task in the tasks table
         const [newTask] = await db.insert(tasks).values({
-          userId: DEMO_USER_ID,
+          userId: userId,
           title: task.title,
           description: task.description,
           category: sampleGroup.category,
@@ -209,7 +230,7 @@ export async function seedSampleGroups() {
         
         await db.insert(groupActivityFeed).values({
           groupId: newGroup.id,
-          userId: DEMO_USER_ID,
+          userId: userId,
           userName: event.memberName,
           activityType: event.actionType,
           taskTitle: event.taskTitle,
@@ -220,10 +241,8 @@ export async function seedSampleGroups() {
 
       console.log(`[SEED] ✓ Created group "${sampleGroup.name}" with ${sampleGroup.tasks.length} tasks (${completedCount} completed)`);
     }
-
-    console.log('[SEED] Sample groups created successfully!');
   } catch (error) {
-    console.error('[SEED] Error creating sample groups:', error);
+    console.error('[SEED] Error creating groups for user:', error);
     throw error;
   }
 }

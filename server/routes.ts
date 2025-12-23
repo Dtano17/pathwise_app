@@ -67,6 +67,7 @@ import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForD
 import { mapToStandardCategoryId } from './services/categorySynonyms';
 import { findSimilarCategory, findSimilarSubcategory, findDuplicateVenue, checkDuplicateURL, generatePrimaryCategoryId, generateSubcategoryId, generateColorGradient, type DeduplicationConfig, DEFAULT_DEDUP_CONFIG } from './services/categoryMatcher';
 import { scheduleRemindersForActivity, cancelRemindersForActivity } from './services/reminderProcessor';
+import { seedGroupsForUser } from './seedSampleGroups';
 
 const tavilyClient = process.env.TAVILY_API_KEY ? tavily({ apiKey: process.env.TAVILY_API_KEY }) : null;
 
@@ -1111,6 +1112,24 @@ ${feedItems}
 
   // ========== IMAGE SITEMAP ==========
   // Image sitemap for plan backdrop images and share previews
+  // Seed development data endpoint
+  app.post('/api/seed-dev-data', isAuthenticatedGeneric, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      console.log(`[SEED] Seeding data for user ${userId}`);
+      await seedGroupsForUser(userId);
+      
+      res.json({ success: true, message: 'Development data seeded successfully' });
+    } catch (error) {
+      console.error('[SEED] Error seeding data:', error);
+      res.status(500).json({ error: 'Failed to seed data', message: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   app.get('/image-sitemap.xml', async (_req, res) => {
     try {
       // Fetch plans with image data
