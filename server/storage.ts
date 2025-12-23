@@ -593,17 +593,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserTasks(userId: string): Promise<Task[]> {
-    const now = new Date();
     return await db.select().from(tasks)
       .where(and(
         eq(tasks.userId, userId),
         or(eq(tasks.archived, false), isNull(tasks.archived)),
-        or(eq(tasks.completed, false), isNull(tasks.completed)),
-        or(eq(tasks.skipped, false), isNull(tasks.skipped)),
-        or(
-          isNull(tasks.snoozeUntil),
-          lte(tasks.snoozeUntil, now)
-        )
+        or(eq(tasks.completed, false), isNull(tasks.completed))
       ))
       .orderBy(desc(tasks.createdAt));
   }
@@ -633,17 +627,14 @@ export class DatabaseStorage implements IStorage {
         };
       }
 
-      // Version matches - proceed with update and increment version
+      // Version matches - proceed with update
       const result = await db.update(tasks)
         .set({
           ...updates,
-          updatedAt: new Date(),
-          version: sql`${tasks.version} + 1`,
         })
         .where(and(
           eq(tasks.id, taskId),
-          eq(tasks.userId, userId),
-          eq(tasks.version, expectedVersion) // Double-check version in WHERE clause
+          eq(tasks.userId, userId)
         ))
         .returning();
 
@@ -704,13 +695,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserActivities(userId: string): Promise<ActivityWithProgress[]> {
-    const userActivities = await db.select().from(activities)
-      .where(and(
-        eq(activities.userId, userId),
-        or(eq(activities.archived, false), isNull(activities.archived)),
-        or(eq(activities.isArchived, false), isNull(activities.isArchived))
-      ))
-      .orderBy(desc(activities.createdAt));
+    try {
+      const userActivities = await db.select().from(activities)
+        .where(and(
+          eq(activities.userId, userId),
+          or(eq(activities.archived, false), isNull(activities.archived))
+        ))
+        .orderBy(desc(activities.createdAt));
 
     if (userActivities.length === 0) {
       return [];
@@ -754,9 +745,9 @@ export class DatabaseStorage implements IStorage {
     const userActivities = await db.select().from(activities)
       .where(and(
         eq(activities.userId, userId),
-        eq(activities.isArchived, true)
+        eq(activities.archived, true)
       ))
-      .orderBy(desc(activities.updatedAt));
+      .orderBy(desc(activities.createdAt));
 
     if (userActivities.length === 0) {
       return [];
