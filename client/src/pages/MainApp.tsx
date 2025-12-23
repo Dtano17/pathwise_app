@@ -1538,10 +1538,19 @@ export default function MainApp({
                   <img src="/journalmate-logo-transparent.png" alt="JournalMate" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <h1 className="text-lg sm:text-2xl font-bold text-foreground">JournalMate</h1>
                     {((user as any)?.subscriptionTier === 'pro' || (user as any)?.subscriptionTier === 'family') && (
-                      <ProBadge size="md" variant="full" />
+                      <>
+                        {/* Icon-only badge on mobile */}
+                        <div className="sm:hidden">
+                          <ProBadge size="sm" variant="icon-only" />
+                        </div>
+                        {/* Full badge on desktop */}
+                        <div className="hidden sm:block">
+                          <ProBadge size="md" variant="full" />
+                        </div>
+                      </>
                     )}
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
