@@ -2160,33 +2160,6 @@ export default function MainApp({
                                     : 'text-muted-foreground group-hover:drop-shadow-[0_0_4px_rgba(147,51,234,0.3)] group-hover:scale-105'
                                 }`} />
                               </Button>
-                              {activity.isPublic && activity.shareableLink && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      await navigator.clipboard.writeText(activity.shareableLink!);
-                                      toast({
-                                        title: "🔗 Link Copied!",
-                                        description: "Share link copied to clipboard"
-                                      });
-                                    } catch (error) {
-                                      toast({
-                                        title: "Copy Failed",
-                                        description: "Unable to copy link to clipboard",
-                                        variant: "destructive"
-                                      });
-                                    }
-                                  }}
-                                  data-testid={`button-copy-link-${activity.id}`}
-                                  title="Copy shareable link"
-                                  className="group"
-                                >
-                                  <Link2 className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
-                                </Button>
-                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
