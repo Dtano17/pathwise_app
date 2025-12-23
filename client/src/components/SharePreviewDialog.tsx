@@ -242,10 +242,22 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
       let generatedBlob: Blob | undefined;
       let generatedFile: File | undefined;
 
+      if (backdrop) {
+        // Wait for ShareCardGenerator to mount and expose ref
+        // Small delay ensures React has rendered the hidden component
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        if (!shareCardRef.current) {
+          console.warn('[SharePreview] ShareCardGenerator ref not available - image generation skipped');
+        }
+      }
+
       if (backdrop && shareCardRef.current) {
         try {
+          console.log('[SharePreview] Generating share card image...');
           const imageBlob = await shareCardRef.current.generateShareCard('instagram_feed', 'jpg');
           if (imageBlob) {
+            console.log('[SharePreview] Share card image generated successfully:', imageBlob.size, 'bytes');
             // Store the blob for native sharing
             generatedBlob = imageBlob;
 
@@ -1179,6 +1191,22 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
             />
           </TabsContent>
         </Tabs>
+
+        {/* Hidden ShareCardGenerator for image generation - always mounted with ref */}
+        {backdrop && (
+          <div className="fixed top-0 left-[-10000px] opacity-0 pointer-events-none z-[-1]" aria-hidden="true" style={{ width: '1080px', height: '1080px' }}>
+            <ShareCardGenerator
+              ref={shareCardRef}
+              activityId={activity.id}
+              activityTitle={shareTitle}
+              activityCategory={activity.category}
+              backdrop={backdrop}
+              planSummary={activity.planSummary || undefined}
+              tasks={activityTasks}
+              hideControls={true}
+            />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
 
