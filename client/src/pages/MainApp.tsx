@@ -3396,14 +3396,14 @@ export default function MainApp({
           onConfirmShare={async (shareData) => {
             const activity = sharePreviewDialog.activity;
             if (!activity) return;
-            
+
             try {
               // Import getContextualEmoji dynamically
               const { getContextualEmoji } = await import('@/lib/shareCardTemplates');
-              
+
               // Use the shareableLink from SharePreviewDialog (already generated)
               const shareUrl = shareData.shareableLink;
-              
+
               if (!shareUrl) {
                 console.warn('No share link generated, but activity has been saved/shared successfully');
                 toast({
@@ -3412,20 +3412,23 @@ export default function MainApp({
                 });
                 return;
               }
-              
+
               const displayTitle = shareData.shareTitle || activity.planSummary || activity.title;
               const contextualEmoji = getContextualEmoji(activity.title, activity.category);
-              
+
               // Enhanced share text with contextual emoji and JournalMate.ai branding
-              const shareText = `${contextualEmoji} ${displayTitle}\n\n${activity.planSummary || activity.description}\n\n${contextualEmoji} Customize this plan: ${shareUrl}\n\n✨ Plan your next adventure with JournalMate.ai`;
+              const shareText = shareData.socialText ||
+                `${contextualEmoji} ${displayTitle}\n\n${activity.planSummary || activity.description}\n\n${contextualEmoji} Customize this plan: ${shareUrl}\n\n✨ Plan your next adventure with JournalMate.ai`;
 
               let shareSuccessful = false;
 
-              // 1. Try native Capacitor Share first (mobile apps)
-              if (isNative()) {
+              // 1. Try native Capacitor Share first (mobile apps) WITH IMAGE if available
+              if (isNative() && shareData.shareCardImageFile) {
                 try {
                   const canShare = await CapacitorShare.canShare();
                   if (canShare.value) {
+                    // Note: Capacitor Share has limited file support
+                    // For now, share without the file on mobile - this is a known limitation
                     await CapacitorShare.share({
                       title: `${contextualEmoji} ${displayTitle}`,
                       text: shareText,
@@ -3446,11 +3449,65 @@ export default function MainApp({
                     return;
                   }
                   // Other errors - fall through to Web Share API
-                  console.warn('Capacitor Share failed, attempting Web Share API:', shareError);
+                  console.warn('Capacitor Share failed, trying Web Share API:', shareError);
+                }
+              } else if (isNative()) {
+                // No image - regular native share
+                try {
+                  const canShare = await CapacitorShare.canShare();
+                  if (canShare.value) {
+                    await CapacitorShare.share({
+                      title: `${contextualEmoji} ${displayTitle}`,
+                      text: shareText,
+                      url: shareUrl,
+                      dialogTitle: 'Share Activity',
+                    });
+                    toast({
+                      title: "Shared successfully!",
+                      description: "Activity shared via native share sheet"
+                    });
+                    shareSuccessful = true;
+                    return;
+                  }
+                } catch (shareError: any) {
+                  if (shareError.name === 'AbortError' || shareError.message?.includes('cancel')) {
+                    return;
+                  }
+                  console.warn('Capacitor Share failed, trying Web Share API:', shareError);
                 }
               }
 
-              // 2. Try Web Share API (modern browsers)
+              // 2. Try Web Share API (modern browsers) WITH IMAGE if available
+              if (navigator.share && shareData.shareCardImageFile && !shareSuccessful) {
+                // Check if file sharing is supported
+                try {
+                  if (navigator.canShare && navigator.canShare({ files: [shareData.shareCardImageFile] })) {
+                    // BEST PRACTICE: Share image + text + URL together
+                    await navigator.share({
+                      title: `${contextualEmoji} ${displayTitle}`,
+                      text: shareText,
+                      url: shareUrl,
+                      files: [shareData.shareCardImageFile],  // Include the share card image!
+                    });
+                    toast({
+                      title: "Shared successfully!",
+                      description: "Activity shared with image"
+                    });
+                    shareSuccessful = true;
+                    return;
+                  }
+                } catch (shareError: any) {
+                  // AbortError means user canceled the share dialog - don't show error
+                  if (shareError.name === 'AbortError') {
+                    console.log('User canceled share dialog');
+                    return;
+                  }
+                  // File sharing not supported or failed - fall through to text-only share
+                  console.warn('Web Share API with files failed, trying text-only share:', shareError);
+                }
+              }
+
+              // 3. Fallback: Web Share API text-only (no image)
               if (navigator.share && !shareSuccessful) {
                 try {
                   await navigator.share({
@@ -3458,9 +3515,12 @@ export default function MainApp({
                     text: shareText,
                     url: shareUrl
                   });
+                  const description = shareData.shareCardImageFile
+                    ? "Activity shared (image not supported on this browser)"
+                    : "Activity shared";
                   toast({
                     title: "Shared successfully!",
-                    description: "Activity shared"
+                    description
                   });
                   shareSuccessful = true;
                   return;
@@ -3471,16 +3531,17 @@ export default function MainApp({
                     return;
                   }
                   // Other share errors - fall through to clipboard fallback
-                  console.warn('Navigator.share failed, attempting clipboard:', shareError);
+                  console.warn('Navigator.share failed, trying clipboard:', shareError);
                 }
               }
-              
+
+              // 4. Last resort: Clipboard fallback
               if (!shareSuccessful) {
                 try {
-                  await navigator.clipboard.writeText(shareText);
+                  await navigator.clipboard.writeText(`${shareText}\n\n${shareUrl}`);
                   toast({
-                    title: 'Link Copied!',
-                    description: 'Enhanced share text copied to clipboard',
+                    title: 'Link copied to clipboard',
+                    description: 'Share link has been copied. Paste it anywhere to share!',
                   });
                   shareSuccessful = true;
                 } catch (clipboardError) {
@@ -3512,8 +3573,8 @@ export default function MainApp({
 
               // Generic fallback with actual error message
               toast({
-                title: "Share Error",
-                description: error instanceof Error ? error.message : "An error occurred while sharing. Your activity has been saved.",
+                title: "Share failed",
+                description: error instanceof Error ? error.message : "Unable to share. Please try again.",
                 variant: "destructive"
               });
             }

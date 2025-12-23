@@ -29,7 +29,14 @@ interface SharePreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   activity: Activity;
-  onConfirmShare: (shareData: { shareTitle: string; backdrop: string; shareableLink?: string; socialText?: string }) => void;
+  onConfirmShare: (shareData: {
+    shareTitle: string;
+    backdrop: string;
+    shareableLink?: string;
+    socialText?: string;
+    shareCardImageBlob?: Blob;      // The generated share card image blob
+    shareCardImageFile?: File;      // File object for native share API
+  }) => void;
 }
 
 const backdropPresets = [
@@ -229,14 +236,31 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         publishedToCommunity = publishData.publishedToCommunity || false;
       }
 
-      // Generate beautiful share card image for OG tags
+      // Generate beautiful share card image for OG tags AND native sharing
       let shareCardImageData: string | undefined;
       let captionText: string | undefined;
-      
+      let generatedBlob: Blob | undefined;
+      let generatedFile: File | undefined;
+
       if (backdrop && shareCardRef.current) {
         try {
           const imageBlob = await shareCardRef.current.generateShareCard('instagram_feed', 'jpg');
           if (imageBlob) {
+            // Store the blob for native sharing
+            generatedBlob = imageBlob;
+
+            // Create File object for native share API
+            const safeFileName = shareTitle
+              .replace(/[^a-z0-9]/gi, '-')
+              .toLowerCase()
+              .substring(0, 50); // Limit filename length
+            generatedFile = new File(
+              [imageBlob],
+              `${safeFileName || 'activity'}.jpg`,
+              { type: 'image/jpeg' }
+            );
+
+            // Convert to base64 for OG tags
             const reader = new FileReader();
             shareCardImageData = await new Promise((resolve, reject) => {
               reader.onloadend = () => resolve(reader.result as string);
@@ -244,7 +268,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
               reader.readAsDataURL(imageBlob);
             });
           }
-          
+
           // Generate caption with platform-agnostic text
           const caption = generatePlatformCaption(
             shareTitle,
@@ -308,7 +332,12 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         data.publishedToCommunity = publishedToCommunity;
       }
 
-      return data;
+      // Include image blob/file in the returned data
+      return {
+        ...data,
+        generatedBlob,
+        generatedFile,
+      };
     },
     onSuccess: async (data: any) => {
       // Reset all duplicate-related state on success
@@ -335,12 +364,14 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
         description,
       });
       
-      // Pass the updated values AND shareableLink to parent (if share was triggered)
-      onConfirmShare({ 
-        shareTitle, 
-        backdrop, 
-        shareableLink: data.shareableLink || undefined, 
-        socialText: data.socialText || undefined 
+      // Pass the updated values, shareableLink, AND share card image to parent
+      onConfirmShare({
+        shareTitle,
+        backdrop,
+        shareableLink: data.shareableLink || undefined,
+        socialText: data.socialText || undefined,
+        shareCardImageBlob: data.generatedBlob,  // Include generated image blob
+        shareCardImageFile: data.generatedFile,  // Include File object for native share
       });
       onOpenChange(false);
     },
