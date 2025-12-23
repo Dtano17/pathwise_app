@@ -1150,7 +1150,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
               {isShareImageLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Image className="w-4 h-4" />
+                <Share2 className="w-4 h-4" />
               )}
               {isShareImageLoading ? 'Sharing...' : 'Share Image'}
             </Button>
@@ -1160,8 +1160,8 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
               data-testid="button-confirm-share"
               className="gap-2"
             >
-              <Share2 className="w-4 h-4" />
-              {updateMutation.isPending ? 'Saving...' : 'Share Caption'}
+              <Sparkles className="w-4 h-4" />
+              {updateMutation.isPending ? 'Saving...' : 'Save & Share'}
             </Button>
           </div>
           </TabsContent>

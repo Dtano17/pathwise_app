@@ -2160,6 +2160,33 @@ export default function MainApp({
                                     : 'text-muted-foreground group-hover:drop-shadow-[0_0_4px_rgba(147,51,234,0.3)] group-hover:scale-105'
                                 }`} />
                               </Button>
+                              {activity.isPublic && activity.shareableLink && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await navigator.clipboard.writeText(activity.shareableLink!);
+                                      toast({
+                                        title: "🔗 Link Copied!",
+                                        description: "Share link copied to clipboard"
+                                      });
+                                    } catch (error) {
+                                      toast({
+                                        title: "Copy Failed",
+                                        description: "Unable to copy link to clipboard",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  }}
+                                  data-testid={`button-copy-link-${activity.id}`}
+                                  title="Copy shareable link"
+                                  className="group"
+                                >
+                                  <Link2 className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -3488,8 +3515,37 @@ export default function MainApp({
                 }
               }
 
-              // 2. Share Caption: Web Share API with text + URL only (no files)
-              // The "Share Image" button handles image-only sharing separately
+              // 2. Try Web Share API (modern browsers) WITH IMAGE if available
+              if (navigator.share && shareData.shareCardImageFile && !shareSuccessful) {
+                // Check if file sharing is supported
+                try {
+                  if (navigator.canShare && navigator.canShare({ files: [shareData.shareCardImageFile] })) {
+                    // BEST PRACTICE: Share image + text + URL together
+                    await navigator.share({
+                      title: `${contextualEmoji} ${displayTitle}`,
+                      text: shareText,
+                      url: shareUrl,
+                      files: [shareData.shareCardImageFile],  // Include the share card image!
+                    });
+                    toast({
+                      title: "Shared successfully!",
+                      description: "Activity shared with image"
+                    });
+                    shareSuccessful = true;
+                    return;
+                  }
+                } catch (shareError: any) {
+                  // AbortError means user canceled the share dialog - don't show error
+                  if (shareError.name === 'AbortError') {
+                    console.log('User canceled share dialog');
+                    return;
+                  }
+                  // File sharing not supported or failed - fall through to text-only share
+                  console.warn('Web Share API with files failed, trying text-only share:', shareError);
+                }
+              }
+
+              // 3. Fallback: Web Share API text-only (no image)
               if (navigator.share && !shareSuccessful) {
                 try {
                   await navigator.share({
@@ -3497,9 +3553,12 @@ export default function MainApp({
                     text: shareText,
                     url: shareUrl
                   });
+                  const description = shareData.shareCardImageFile
+                    ? "Activity shared (image not supported on this browser)"
+                    : "Activity shared";
                   toast({
-                    title: "Caption shared!",
-                    description: "Your activity caption and link have been shared"
+                    title: "Shared successfully!",
+                    description
                   });
                   shareSuccessful = true;
                   return;
@@ -3514,7 +3573,7 @@ export default function MainApp({
                 }
               }
 
-              // 3. Last resort: Clipboard fallback
+              // 4. Last resort: Clipboard fallback
               if (!shareSuccessful) {
                 try {
                   await navigator.clipboard.writeText(`${shareText}\n\n${shareUrl}`);
