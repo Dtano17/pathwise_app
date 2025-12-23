@@ -16,111 +16,140 @@ export function useAllGroupsRealtime() {
   const socket = getSocket();
 
   useEffect(() => {
-    // Don't subscribe if socket isn't connected
-    if (!socket?.connected) {
-      console.log('[ALL GROUPS REALTIME] Socket not connected, skipping subscription');
+    if (!socket) {
+      console.log('[ALL GROUPS REALTIME] No socket instance available');
       return;
     }
 
-    console.log('[ALL GROUPS REALTIME] Subscribing to all group events');
+    // Function to set up subscriptions
+    const setupSubscriptions = () => {
+      console.log('[ALL GROUPS REALTIME] Subscribing to all group events');
 
-    // Subscribe to task completion events (from any group)
-    const unsubTaskCompleted = subscribeToEvent('task:completed', (data) => {
-      console.log('[ALL GROUPS REALTIME] Task completed:', data);
+      // Subscribe to task completion events (from any group)
+      const unsubTaskCompleted = subscribeToEvent('task:completed', (data) => {
+        console.log('[ALL GROUPS REALTIME] Task completed:', data);
 
-      // Show toast notification
-      toast({
-        title: "Task Completed",
-        description: `${data.userName} completed "${data.taskTitle}"`,
-        duration: 5000,
+        // Show toast notification
+        toast({
+          title: "Task Completed",
+          description: `${data.userName} completed "${data.taskTitle}"`,
+          duration: 5000,
+        });
+
+        // Invalidate queries to refresh UI
+        queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/groups/activity'] });
       });
 
-      // Invalidate queries to refresh UI
-      queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/groups/activity'] });
-    });
+      // Subscribe to member joined events (from any group)
+      const unsubMemberJoined = subscribeToEvent('member:joined', (data) => {
+        console.log('[ALL GROUPS REALTIME] Member joined:', data);
 
-    // Subscribe to member joined events (from any group)
-    const unsubMemberJoined = subscribeToEvent('member:joined', (data) => {
-      console.log('[ALL GROUPS REALTIME] Member joined:', data);
+        // Show toast notification
+        toast({
+          title: "New Member",
+          description: `${data.userName} joined a group`,
+          duration: 5000,
+        });
 
-      // Show toast notification
-      toast({
-        title: "New Member",
-        description: `${data.userName} joined a group`,
-        duration: 5000,
+        // Invalidate queries to refresh UI
+        queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/groups/activity'] });
       });
 
-      // Invalidate queries to refresh UI
-      queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/groups/activity'] });
-    });
+      // Subscribe to member left events (from any group)
+      const unsubMemberLeft = subscribeToEvent('member:left', (data) => {
+        console.log('[ALL GROUPS REALTIME] Member left:', data);
 
-    // Subscribe to member left events (from any group)
-    const unsubMemberLeft = subscribeToEvent('member:left', (data) => {
-      console.log('[ALL GROUPS REALTIME] Member left:', data);
+        // Show toast notification
+        toast({
+          title: "Member Left",
+          description: `${data.userName} left a group`,
+          duration: 5000,
+        });
 
-      // Show toast notification
-      toast({
-        title: "Member Left",
-        description: `${data.userName} left a group`,
-        duration: 5000,
+        // Invalidate queries to refresh UI
+        queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/groups/activity'] });
       });
 
-      // Invalidate queries to refresh UI
-      queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/groups/activity'] });
-    });
+      // Subscribe to activity shared events (from any group)
+      const unsubActivityShared = subscribeToEvent('activity:shared', (data) => {
+        console.log('[ALL GROUPS REALTIME] Activity shared:', data);
 
-    // Subscribe to activity shared events (from any group)
-    const unsubActivityShared = subscribeToEvent('activity:shared', (data) => {
-      console.log('[ALL GROUPS REALTIME] Activity shared:', data);
+        // Show toast notification
+        toast({
+          title: "New Activity",
+          description: `${data.sharedBy} shared "${data.activityTitle}"`,
+          duration: 5000,
+        });
 
-      // Show toast notification
-      toast({
-        title: "New Activity",
-        description: `${data.sharedBy} shared "${data.activityTitle}"`,
-        duration: 5000,
+        // Invalidate queries to refresh UI
+        queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/groups/activity'] });
       });
 
-      // Invalidate queries to refresh UI
-      queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/groups/activity'] });
-    });
+      // Subscribe to progress update events (from any group)
+      const unsubProgressUpdate = subscribeToEvent('progress:update', (data) => {
+        console.log('[ALL GROUPS REALTIME] Progress updated:', data);
 
-    // Subscribe to progress update events (from any group)
-    const unsubProgressUpdate = subscribeToEvent('progress:update', (data) => {
-      console.log('[ALL GROUPS REALTIME] Progress updated:', data);
-
-      // Invalidate queries to refresh UI (no toast for progress updates)
-      queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
-    });
-
-    // Subscribe to generic notifications (from any group)
-    const unsubNotification = subscribeToEvent('notification', (data) => {
-      console.log('[ALL GROUPS REALTIME] Notification received:', data);
-
-      // Show toast notification
-      toast({
-        title: data.title,
-        description: data.body,
-        duration: 5000,
+        // Invalidate queries to refresh UI (no toast for progress updates)
+        queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
       });
 
-      // Invalidate queries to refresh UI
-      queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/groups/activity'] });
-    });
+      // Subscribe to generic notifications (from any group)
+      const unsubNotification = subscribeToEvent('notification', (data) => {
+        console.log('[ALL GROUPS REALTIME] Notification received:', data);
 
-    // Cleanup function - unsubscribe from all events
+        // Show toast notification
+        toast({
+          title: data.title,
+          description: data.body,
+          duration: 5000,
+        });
+
+        // Invalidate queries to refresh UI
+        queryClient.invalidateQueries({ queryKey: ['/api/groups'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/groups/activity'] });
+      });
+
+      return [
+        unsubTaskCompleted,
+        unsubMemberJoined,
+        unsubMemberLeft,
+        unsubActivityShared,
+        unsubProgressUpdate,
+        unsubNotification,
+      ];
+    };
+
+    // Set up subscriptions if already connected
+    let unsubscribeFunctions: Array<() => void> = [];
+    if (socket.connected) {
+      unsubscribeFunctions = setupSubscriptions();
+    }
+
+    // Listen for connection events to set up subscriptions when socket connects
+    const handleConnect = () => {
+      console.log('[ALL GROUPS REALTIME] Socket connected, setting up subscriptions');
+      unsubscribeFunctions = setupSubscriptions();
+    };
+
+    const handleDisconnect = () => {
+      console.log('[ALL GROUPS REALTIME] Socket disconnected, cleaning up subscriptions');
+      unsubscribeFunctions.forEach(unsub => unsub());
+      unsubscribeFunctions = [];
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+
+    // Cleanup function - unsubscribe from all events and remove listeners
     return () => {
-      console.log('[ALL GROUPS REALTIME] Unsubscribing from all group events');
-      unsubTaskCompleted();
-      unsubMemberJoined();
-      unsubMemberLeft();
-      unsubActivityShared();
-      unsubProgressUpdate();
-      unsubNotification();
+      console.log('[ALL GROUPS REALTIME] Cleaning up all subscriptions and listeners');
+      unsubscribeFunctions.forEach(unsub => unsub());
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
     };
   }, [socket, queryClient, toast]);
 }

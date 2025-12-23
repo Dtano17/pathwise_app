@@ -45,13 +45,16 @@ import { SharePreviewDialog } from '@/components/SharePreviewDialog';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ThemeToggle from '@/components/ThemeToggle';
+import { NotificationBell } from '@/components/NotificationBell';
 import NotificationManager from '@/components/NotificationManager';
 import SmartScheduler from '@/components/SmartScheduler';
 import CelebrationModal from '@/components/CelebrationModal';
+import { initializeSocket, disconnectSocket } from '@/lib/socket';
 import OnboardingTutorial from '@/components/OnboardingTutorial';
 import { UpgradeModal } from '@/components/UpgradeModal';
 import { ProBadge } from '@/components/ProBadge';
 import { useImportQueue } from '@/hooks/useImportQueue';
+import { useNotificationTitle } from '@/hooks/useNotificationTitle';
 import Confetti from 'react-confetti';
 import { Share as CapacitorShare } from '@capacitor/share';
 import { isNative } from '@/lib/mobile';
@@ -120,7 +123,10 @@ export default function MainApp({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { open, isMobile } = useSidebar();
-  
+
+  // Update browser tab title with notification count
+  useNotificationTitle();
+
   // Chat sync form state
   const [chatText, setChatText] = useState('');
   const [chatSource, setChatSource] = useState('chatgpt');
@@ -585,12 +591,12 @@ export default function MainApp({
     if (user && typeof user === 'object' && 'id' in user) {
       const userId = (user as any).id;
       const isDemo = userId === 'demo-user';
-      
+
       if (isDemo) {
         // For demo users, use localStorage to track tutorial completion
         const demoTutorialCompleted = localStorage.getItem('demo-tutorial-completed');
         console.log('[TUTORIAL] Demo user tutorial status:', { demoTutorialCompleted });
-        
+
         if (!demoTutorialCompleted) {
           // Show tutorial immediately for demo users on first visit
           setTimeout(() => {
@@ -601,7 +607,7 @@ export default function MainApp({
         // For authenticated users, use database value
         const hasCompletedTutorial = (user as any).hasCompletedTutorial;
         console.log('[TUTORIAL] User tutorial status:', { hasCompletedTutorial, userId });
-        
+
         // Show tutorial if not completed
         if (!hasCompletedTutorial) {
           // Small delay to let the app load first
@@ -610,6 +616,28 @@ export default function MainApp({
           }, 1000);
         }
       }
+    }
+  }, [user]);
+
+  // Initialize WebSocket connection when user logs in
+  useEffect(() => {
+    if (user && typeof user === 'object' && 'id' in user) {
+      const userId = (user as any).id;
+
+      // Don't initialize socket for demo user
+      if (userId === 'demo-user') {
+        console.log('[SOCKET] Skipping socket for demo user');
+        return;
+      }
+
+      console.log('[SOCKET] Initializing socket for user:', userId);
+      const socket = initializeSocket(userId);
+
+      // Cleanup on unmount or user change
+      return () => {
+        console.log('[SOCKET] Cleaning up socket connection');
+        disconnectSocket();
+      };
     }
   }, [user]);
 
@@ -1548,6 +1576,7 @@ export default function MainApp({
                   <p>{isAuthenticated && (user as any)?.id !== 'demo-user' ? 'Help & Tutorial' : 'Help & Live Demo'}</p>
                 </TooltipContent>
               </Tooltip>
+              {isAuthenticated && (user as any)?.id !== 'demo-user' && <NotificationBell />}
               <ThemeToggle />
             </div>
           </div>

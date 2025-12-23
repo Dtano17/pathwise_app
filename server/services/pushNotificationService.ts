@@ -1,7 +1,24 @@
-import admin from 'firebase-admin';
-import type { Storage } from '../storage.js';
+import type { IStorage } from '../storage.js';
 
-let fcmApp: admin.app.App | null = null;
+// Dynamic import for firebase-admin to prevent crashes when package not available
+let admin: any = null;
+let fcmApp: any = null;
+
+/**
+ * Lazy load firebase-admin package
+ * Returns null if package not available or fails to load
+ */
+async function loadFirebaseAdmin() {
+  if (admin) return admin;
+
+  try {
+    admin = await import('firebase-admin');
+    return admin.default || admin;
+  } catch (error) {
+    console.warn('[PUSH] firebase-admin package not available:', error);
+    return null;
+  }
+}
 
 /**
  * Initialize Firebase Cloud Messaging for push notifications
@@ -11,10 +28,17 @@ let fcmApp: admin.app.App | null = null;
  * - FIREBASE_CLIENT_EMAIL
  * - FIREBASE_PRIVATE_KEY
  */
-export function initializePushNotifications() {
+export async function initializePushNotifications() {
   if (fcmApp) {
     console.log('[PUSH] Firebase already initialized');
     return fcmApp;
+  }
+
+  // Load firebase-admin dynamically
+  const firebaseAdmin = await loadFirebaseAdmin();
+  if (!firebaseAdmin) {
+    console.warn('[PUSH] Firebase Admin SDK not available - push notifications disabled');
+    return null;
   }
 
   const projectId = process.env.FIREBASE_PROJECT_ID;
@@ -28,8 +52,8 @@ export function initializePushNotifications() {
   }
 
   try {
-    fcmApp = admin.initializeApp({
-      credential: admin.credential.cert({
+    fcmApp = firebaseAdmin.initializeApp({
+      credential: firebaseAdmin.credential.cert({
         projectId,
         clientEmail,
         privateKey,
@@ -45,9 +69,9 @@ export function initializePushNotifications() {
 }
 
 export class PushNotificationService {
-  private storage: Storage;
+  private storage: IStorage;
 
-  constructor(storage: Storage) {
+  constructor(storage: IStorage) {
     this.storage = storage;
   }
 
@@ -77,10 +101,17 @@ export class PushNotificationService {
       }
 
       // Extract token strings from DeviceToken objects
-      const deviceTokens = devices.map(d => d.token);
+      const deviceTokens = devices.map((d: any) => d.token);
+
+      // Load firebase-admin for messaging
+      const firebaseAdmin = await loadFirebaseAdmin();
+      if (!firebaseAdmin) {
+        console.warn('[PUSH] Firebase Admin SDK not available');
+        return { success: false, sentCount: 0, failedCount: 0 };
+      }
 
       // Send to all devices using FCM multicast
-      const message: admin.messaging.MulticastMessage = {
+      const message: any = {
         tokens: deviceTokens,
         notification: {
           title: notification.title,
@@ -89,7 +120,7 @@ export class PushNotificationService {
         data: notification.data || {},
         // Platform-specific options
         android: {
-          priority: 'high',
+          priority: 'high' as const,
           notification: {
             channelId: 'group_updates',
             sound: 'default',
@@ -108,14 +139,14 @@ export class PushNotificationService {
         },
       };
 
-      const response = await admin.messaging(fcmApp).sendEachForMulticast(message);
+      const response = await firebaseAdmin.messaging(fcmApp).sendEachForMulticast(message);
 
       console.log(`[PUSH] Sent to user ${userId}: ${response.successCount}/${deviceTokens.length} devices`);
 
       // Remove invalid tokens
       if (response.failureCount > 0) {
         const failedTokens: string[] = [];
-        response.responses.forEach((resp, idx) => {
+        response.responses.forEach((resp: any, idx: number) => {
           if (!resp.success) {
             const errorCode = (resp.error as any)?.code;
             if (errorCode === 'messaging/invalid-registration-token' ||
@@ -196,8 +227,8 @@ export class PushNotificationService {
 
       // Filter out the excluded user (usually the person who triggered the notification)
       const recipientIds = members
-        .map(m => m.userId)
-        .filter(userId => userId !== excludeUserId);
+        .map((m: any) => m.userId)
+        .filter((userId: string) => userId !== excludeUserId);
 
       if (recipientIds.length === 0) {
         console.log(`[PUSH] No recipients for group ${groupId} notification`);

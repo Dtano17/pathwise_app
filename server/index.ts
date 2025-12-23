@@ -182,8 +182,8 @@ async function initializeBackground() {
   await initializeSocketIO(io, storage);
   log('[SOCKET.IO] WebSocket server initialized');
 
-  // Initialize Firebase Cloud Messaging for push notifications
-  initializePushNotifications();
+  // Initialize Firebase Cloud Messaging for push notifications (gracefully fails if not configured)
+  await initializePushNotifications();
   log('[PUSH] Push notification service initialized');
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
