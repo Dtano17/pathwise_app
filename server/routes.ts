@@ -9751,9 +9751,9 @@ Return ONLY valid JSON, no markdown or explanation.`;
         const activityUrl = `${protocol}://${host}/activities/${activity.id}`;
 
         return res.json({
-          message: isUpdate 
-            ? `♻️ **Activity updated!**\n\n📋 I've updated the plan with ${createdTasks.length} new tasks!`
-            : `✨ **Activity created!**\n\n📋 I've created ${createdTasks.length} tasks for you.`,
+          message: isUpdate
+            ? `♻️ **Activity "${activity.title}" updated!**\n\n📋 I've updated the plan with ${createdTasks.length} new tasks!\n\n→ [View Your Plan](${activityUrl})`
+            : `✨ **Activity "${activity.title}" created!**\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](${activityUrl})`,
           activityCreated: !isUpdate,
           activityUpdated: isUpdate,
           activity,

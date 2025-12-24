@@ -229,12 +229,12 @@ interface PlanningResponse {
   domain?: string;
   questionCount?: number;
   redirectToPlanning?: boolean;
-  conversationHints?: string[]; // NEW: Context-aware suggestions for user
-  journalContext?: {  // NEW: Info about journal entries used for context
+  conversationHints?: string[]; // Context-aware suggestions for user
+  journalContext?: {  // Info about journal entries used for context
     found: boolean;
     count: number;
     location?: string;
-    summaries?: string[];  // Brief summaries of what was found
+    summaries?: string[];
   };
 }
 
@@ -413,9 +413,9 @@ class OpenAIProvider implements LLMProvider {
       const isPreviewTurn = mode === 'quick' ? currentTurn >= 3 : currentTurn >= 4;
       
       // MODEL SELECTION: Use mini for question gathering, full for preview
-      // Turn 1-2: gpt-4o-mini-2024-07-18 (faster, cheaper, good for questions)
-      // Turn 3+: gpt-4o-2024-11-20 (smarter, better with web data and enrichment)
-      const model = isPreviewTurn ? 'gpt-4o-2024-11-20' : 'gpt-4o-mini-2024-07-18';
+      // Turn 1-2: gpt-4o-mini (faster, cheaper, good for questions)
+      // Turn 3+: gpt-4o (smarter, better with web data and enrichment)
+      const model = isPreviewTurn ? 'gpt-4o' : 'gpt-4o-mini';
       console.log(`[SIMPLE_PLANNER] Turn ${currentTurn}: Using ${model} (${isPreviewTurn ? 'preview' : 'question gathering'})`);
       
       if (this.tavilyClient && isPreviewTurn) {
@@ -618,7 +618,7 @@ class OpenAIProvider implements LLMProvider {
       const isPreviewTurn = mode === 'quick' ? currentTurn >= 3 : currentTurn >= 4;
       
       // MODEL SELECTION: Use mini for question gathering, full for preview
-      const model = isPreviewTurn ? 'gpt-4o-2024-11-20' : 'gpt-4o-mini-2024-07-18';
+      const model = isPreviewTurn ? 'gpt-4o' : 'gpt-4o-mini';
       console.log(`[SIMPLE_PLANNER_STREAM] Turn ${currentTurn}: Using ${model} (${isPreviewTurn ? 'preview' : 'question gathering'})`);
       
       if (this.tavilyClient && isPreviewTurn) {
@@ -773,20 +773,15 @@ class AnthropicProvider implements LLMProvider {
       // (Only OpenAI provider has Tavily integration)
 
       const response = await this.client.messages.create({
-        model: 'claude-opus-4-5-20251101', // Updated to Claude 4.5 Opus for best reasoning
-        max_tokens: 8192, // Increased for better responses
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 4096,
         system: systemPrompt,
         messages: messages.map(m => ({
           role: m.role,
           content: m.content
         })),
         tools: anthropicTools,
-        tool_choice: { type: 'tool', name: 'respond_with_structure' },
-        thinking: {
-          type: 'enabled' as const,
-          budget_tokens: 2000 // Extended thinking for complex planning
-        },
-        temperature: 0.7, // Balanced creativity and consistency
+        tool_choice: { type: 'tool', name: 'respond_with_structure' }
       });
 
       const toolUse = response.content.find(block => block.type === 'tool_use');
@@ -854,61 +849,10 @@ ${user.sleepSchedule ? `**Sleep Schedule:** ${user.sleepSchedule.bedtime} - ${us
 ${recentJournal && recentJournal.length > 0 ? `**Recent Journal Entries:**\n${recentJournal.map(j => `- ${j.date}: Mood ${j.mood}, ${j.reflection || 'No reflection'}`).join('\n')}` : ''}
 `.trim();
 
-  // Build priority context section (NEW)
-  let priorityContext = '';
-
-  if (context.detectedLocation) {
-    priorityContext += `\n\n## ⚡ PRIORITY CONTEXT - User Mentioned Location\n\n`;
-    priorityContext += `**Location Detected:** ${context.detectedLocation}\n`;
-    priorityContext += `**Relevant Journal Entries:** ${recentJournal?.length || 0} entries found mentioning this location\n`;
-    
-    // Add journal entry details if found
-    if (recentJournal && recentJournal.length > 0) {
-      priorityContext += `\n### 📔 JOURNAL INSIGHTS - USE THESE DETAILS!\n`;
-      priorityContext += `**CRITICAL:** The user has journaled about ${context.detectedLocation} before. Reference this in your response!\n\n`;
-      recentJournal.slice(0, 3).forEach((entry, i) => {
-        priorityContext += `**Entry ${i + 1}** (${entry.date || 'recent'}):\n`;
-        priorityContext += `- Text: "${entry.text?.substring(0, 200)}${entry.text && entry.text.length > 200 ? '...' : ''}"\n`;
-        if (entry.mood) priorityContext += `- Mood: ${entry.mood}\n`;
-        if (entry.reflection) priorityContext += `- Reflection: ${entry.reflection}\n`;
-        priorityContext += '\n';
-      });
-      priorityContext += `**ACTION:** In your FIRST response, acknowledge: "I see you've journaled about ${context.detectedLocation} before - let me use those details to personalize your plan!"\n`;
-      priorityContext += `**SKIP questions that the journal entries already answer** (e.g., if they mention a hotel, don't ask about accommodation preferences).\n`;
-    }
-    
-    priorityContext += `\n**Use this location as the PRIMARY context for planning.** The user has already specified where they want to plan for.\n`;
-  }
-
-  if (context.detectedBudget) {
-    priorityContext += `\n\n## ⚡ PRIORITY CONTEXT - User Specified Budget\n\n`;
-    priorityContext += `**Budget Detected:** $${context.detectedBudget}\n`;
-    priorityContext += `\n**CRITICAL:** Optimize ALL suggestions to fit within this budget.\n`;
-    priorityContext += `Provide detailed budget breakdown in your plan.\n`;
-    priorityContext += `Never exceed $${context.detectedBudget} total.\n`;
-  }
-
-  if (!context.detectedLocation) {
-    priorityContext += `\n\n## 🚨 LOCATION MISSING - ASK FIRST! 🚨\n\n`;
-    priorityContext += `**⚠️ CRITICAL RULE:** Location was NOT detected in the user's message.\n`;
-    priorityContext += `**LOCATION MUST BE YOUR FIRST QUESTION** - before budget, dates, vibe, or anything else!\n\n`;
-    
-    if (context.fallbackLocation) {
-      priorityContext += `**User's Profile Location:** ${context.fallbackLocation}\n`;
-      priorityContext += `You can offer: "Would you like to plan for ${context.fallbackLocation}, or somewhere else?"\n`;
-    } else {
-      priorityContext += `**No profile location available.**\n`;
-      priorityContext += `Ask directly: "📍 Where would you like to plan for? (City or location)"\n`;
-    }
-    
-    priorityContext += `\n**DO NOT assume any location. DO NOT skip this question.**\n`;
-    priorityContext += `**This MUST be Question #1 in Batch 1.**\n`;
-  }
-
   // COMPRESSED BUDGET-FIRST SYSTEM PROMPT
   return `You are JournalMate Planning Agent - an expert planner specializing in budget-conscious, personalized plans.
 
-${userContext}${priorityContext}
+${userContext}
 
 ## Mission
 Help ${user.firstName || 'the user'} plan ANY activity via smart questions and actionable plans. **${mode.toUpperCase()} MODE** - ${modeDescription}.
@@ -993,16 +937,12 @@ ${mode === 'quick' ? `
 **Quick Mode - STRICT 2-Batch System (5 total questions):**
 
 **🚨 CRITICAL BATCHING RULES:**
-- **Batch 1 (Turn 1):** Ask EXACTLY 3 questions together in a numbered list IN THIS RESPONSE. End: "(Say 'create plan' anytime!)"
-  - **DO NOT announce** "Let me ask questions" - just ask them immediately
-  - **Questions must appear** in this first message, not delayed
+- **Batch 1 (Turn 1):** Ask EXACTLY 3 questions together in a numbered list. End: "(Say 'create plan' anytime!)"
 - **Batch 2 (Turn 2):** Ask EXACTLY 2 MORE questions together in a numbered list. NO preview yet!
 - **Turn 3+:** Show COMPLETE PLAN PREVIEW with real-time data from web_search. Wait for confirmation.
 
-**❌ NEVER just announce questions without asking them**
 **❌ NEVER ask 1 question alone**
 **❌ NEVER ask budget by itself**
-**✅ ALWAYS ask questions IMMEDIATELY in the same message**
 **✅ ALWAYS batch questions together (3, then 2)**
 
 **Example Flow:**
@@ -1035,13 +975,12 @@ User: "Help plan romantic anniversary trip to Paris"
 
 ---
 
-**Domain Priority Questions (LOCATION ALWAYS FIRST if not specified):**
+**Domain Priority Questions:**
 
-**🌴 Travel:** 1) 📍 WHERE (destination)? 2) From where? 3) Duration? 4) Budget? 5) Dates? 6) Occasion/vibe? 7) Group size? 8) Interests? 9) Diet? 10) Accommodation?
-**💪 Wellness:** 1) 📍 WHERE (gym/home/outdoor)? 2) Activity type? 3) Fitness level? 4) Goal? 5) Time available? 6) Solo/group? 7) Budget? 8) Diet needs? 9) Health conditions? 10) Experience?
-**🎉 Events:** 1) 📍 WHERE (city/venue)? 2) Event type? 3) Date? 4) Guest count? 5) Budget? 6) Style/theme? 7) Must-haves? 8) Dietary restrictions? 9) Venue preference? 10) Flexibility?
-**🍽️ Dining:** 1) 📍 WHERE (city/neighborhood)? 2) Cuisine? 3) Date/time? 4) Occasion? 5) Group size? 6) Budget/person? 7) Dietary? 8) Ambiance? 9) Must-try dishes? 10) Transport?
-**📋 General:** 1) 📍 WHERE (location context)? Then ask domain-specific questions based on the activity type.
+**🌴 Travel:** 1) From? 2) To? 3) Duration? 4) Budget? 5) Occasion/vibe? 6) Dates? 7) Group size? 8) Interests? 9) Diet? 10) Accommodation type?
+**💪 Wellness:** 1) Activity type? 2) Fitness level? 3) Goal? 4) Time available? 5) Location/equipment? 6) Solo/group? 7) Budget? 8) Diet needs? 9) Health conditions? 10) Past experience?
+**🎉 Events:** 1) Event type? 2) Date? 3) Guest count? 4) Budget? 5) Location? 6) Style/theme? 7) Must-haves? 8) Dietary restrictions? 9) Venue preference? 10) Flexibility?
+**🍽️ Dining:** 1) Cuisine? 2) Date/time? 3) Occasion? 4) Group size? 5) Budget/person? 6) Location? 7) Dietary? 8) Ambiance? 9) Must-try dishes? 10) Transport?
 
 **Quick Mode:** Ask Q1-3 → Q4-5 → Show preview
 **Smart Mode:** Ask Q1-3 → Q4-6 → Q7-10 → Show preview
@@ -1838,13 +1777,6 @@ function getPlanningTool(mode: 'quick' | 'smart') {
         redirectToPlanning: {
           type: 'boolean',
           description: 'True if the user asked something off-topic and you are redirecting them to planning'
-        },
-        conversationHints: {
-          type: 'array',
-          description: 'Contextual hints to guide the user (e.g., "continue", "I don\'t know", "create plan"). These will be shown as clickable chips.',
-          items: {
-            type: 'string'
-          }
         }
       },
       required: ['message', 'extractedInfo', 'readyToGenerate']
@@ -1904,19 +1836,6 @@ export class SimpleConversationalPlanner {
         context,
         mode
       );
-
-      // 5.5. Add journal context to response for frontend display
-      if (context.detectedLocation && context.recentJournal && context.recentJournal.length > 0) {
-        response.journalContext = {
-          found: true,
-          count: context.recentJournal.length,
-          location: context.detectedLocation,
-          summaries: context.recentJournal.slice(0, 3).map(j => 
-            j.text?.substring(0, 100) + (j.text && j.text.length > 100 ? '...' : '')
-          ).filter(Boolean) as string[]
-        };
-        console.log(`[SIMPLE_PLANNER] 📔 Found ${context.recentJournal.length} journal entries about "${context.detectedLocation}"`);
-      }
 
       // 5. ENFORCE cumulative questionCount based on conversation turns
       // Don't trust AI to track this - calculate it based on user responses received
@@ -2027,57 +1946,25 @@ export class SimpleConversationalPlanner {
       } else if (response.readyToGenerate) {
         const trigger = createPlanTrigger ? ' (user-triggered)' : '';
         console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked${trigger}, generating plan`);
-        
-        // VALIDATION: Check for phantom/unvalidated slot data
-        const extractedInfo = response.extractedInfo || {};
-        console.log(`[SIMPLE_PLANNER] 🔍 DEBUG - Plan extractedInfo:`, JSON.stringify(extractedInfo, null, 2));
-        
-        // For travel domain, validate that origin was actually provided by user
-        // IMPORTANT: Only check USER messages (not assistant examples like "Austin, TX")
-        // AND include the current userMessage since it might contain the origin
-        if (extractedInfo.domain === 'travel') {
-          // Collect ONLY user messages from history + current message
-          const userMessages = conversationHistory
-            .filter(m => m.role === 'user')
-            .map(m => m.content.toLowerCase());
-          userMessages.push(userMessage.toLowerCase()); // Include current message
-          
-          const allUserText = userMessages.join(' ');
-          const origin = extractedInfo.origin?.toLowerCase() || '';
-          
-          // Check if origin was mentioned by the USER (not in assistant examples)
-          if (origin && !allUserText.includes(origin)) {
-            console.warn(`[SIMPLE_PLANNER] ⚠️ PHANTOM DATA DETECTED - Origin "${origin}" not found in user messages`);
-            console.log(`[SIMPLE_PLANNER] User messages scanned:`, userMessages);
-            // Clear phantom origin and plan to force re-asking
-            delete extractedInfo.origin;
-            delete response.plan; // Clear stray plan preview
-            response.readyToGenerate = false;
-            response.message = `I want to make sure I have your details correct. Where are you traveling from?`;
-          } else if (origin) {
-            console.log(`[SIMPLE_PLANNER] ✅ Origin "${origin}" confirmed in user messages`);
-          }
-        }
-        
-        // Log the plan content for debugging
-        if (response.plan) {
-          console.log(`[SIMPLE_PLANNER] 📋 Generated plan:`, {
-            title: response.plan.title,
-            description: response.plan.description?.substring(0, 100),
-            taskCount: response.plan.tasks?.length,
-            hasBudget: !!response.plan.budget,
-            hasWeather: !!response.plan.weather
-          });
-        }
-        
-        // Log message content for debugging
-        console.log(`[SIMPLE_PLANNER] 📝 Message length: ${response.message?.length}, has markdown headers: ${response.message?.includes('##')}`);
       }
-      
+
       // Progress tracking disabled per user request
       // Users found it confusing and it was causing localStorage persistence issues
 
-      // 6. Generate conversation hints to guide user
+      // 6. Add journal context to response for frontend display
+      if (context.detectedLocation && context.recentJournal && context.recentJournal.length > 0) {
+        response.journalContext = {
+          found: true,
+          count: context.recentJournal.length,
+          location: context.detectedLocation,
+          summaries: context.recentJournal.slice(0, 3).map(j =>
+            j.text?.substring(0, 100) + (j.text && j.text.length > 100 ? '...' : '')
+          ).filter(Boolean) as string[]
+        };
+        console.log(`[SIMPLE_PLANNER] 📔 Found ${context.recentJournal.length} journal entries about "${context.detectedLocation}"`);
+      }
+
+      // 7. Generate conversation hints to guide user
       if (!response.conversationHints || response.conversationHints.length === 0) {
         response.conversationHints = this.generateConversationHints(
           response.extractedInfo,
@@ -2150,19 +2037,6 @@ export class SimpleConversationalPlanner {
           context,
           mode
         );
-      }
-
-      // 5.5. Add journal context to response for frontend display (same as non-streaming)
-      if (context.detectedLocation && context.recentJournal && context.recentJournal.length > 0) {
-        response.journalContext = {
-          found: true,
-          count: context.recentJournal.length,
-          location: context.detectedLocation,
-          summaries: context.recentJournal.slice(0, 3).map(j => 
-            j.text?.substring(0, 100) + (j.text && j.text.length > 100 ? '...' : '')
-          ).filter(Boolean) as string[]
-        };
-        console.log(`[SIMPLE_PLANNER_STREAM] 📔 Found ${context.recentJournal.length} journal entries about "${context.detectedLocation}"`);
       }
 
       // Use AI's reported questionCount directly (same as non-streaming version)
@@ -2250,57 +2124,25 @@ export class SimpleConversationalPlanner {
       } else if (response.readyToGenerate) {
         const trigger = createPlanTrigger ? ' (user-triggered)' : '';
         console.log(`[SIMPLE_PLANNER] ✅ Plan ready - ${questionCount}/${minimum} questions asked${trigger}, generating plan`);
-        
-        // VALIDATION: Check for phantom/unvalidated slot data
-        const extractedInfo = response.extractedInfo || {};
-        console.log(`[SIMPLE_PLANNER] 🔍 DEBUG - Plan extractedInfo:`, JSON.stringify(extractedInfo, null, 2));
-        
-        // For travel domain, validate that origin was actually provided by user
-        // IMPORTANT: Only check USER messages (not assistant examples like "Austin, TX")
-        // AND include the current userMessage since it might contain the origin
-        if (extractedInfo.domain === 'travel') {
-          // Collect ONLY user messages from history + current message
-          const userMessages = conversationHistory
-            .filter(m => m.role === 'user')
-            .map(m => m.content.toLowerCase());
-          userMessages.push(userMessage.toLowerCase()); // Include current message
-          
-          const allUserText = userMessages.join(' ');
-          const origin = extractedInfo.origin?.toLowerCase() || '';
-          
-          // Check if origin was mentioned by the USER (not in assistant examples)
-          if (origin && !allUserText.includes(origin)) {
-            console.warn(`[SIMPLE_PLANNER] ⚠️ PHANTOM DATA DETECTED - Origin "${origin}" not found in user messages`);
-            console.log(`[SIMPLE_PLANNER] User messages scanned:`, userMessages);
-            // Clear phantom origin and plan to force re-asking
-            delete extractedInfo.origin;
-            delete response.plan; // Clear stray plan preview
-            response.readyToGenerate = false;
-            response.message = `I want to make sure I have your details correct. Where are you traveling from?`;
-          } else if (origin) {
-            console.log(`[SIMPLE_PLANNER] ✅ Origin "${origin}" confirmed in user messages`);
-          }
-        }
-        
-        // Log the plan content for debugging
-        if (response.plan) {
-          console.log(`[SIMPLE_PLANNER] 📋 Generated plan:`, {
-            title: response.plan.title,
-            description: response.plan.description?.substring(0, 100),
-            taskCount: response.plan.tasks?.length,
-            hasBudget: !!response.plan.budget,
-            hasWeather: !!response.plan.weather
-          });
-        }
-        
-        // Log message content for debugging
-        console.log(`[SIMPLE_PLANNER] 📝 Message length: ${response.message?.length}, has markdown headers: ${response.message?.includes('##')}`);
       }
-      
+
       // Progress tracking disabled per user request
       // Users found it confusing and it was causing localStorage persistence issues
 
-      // 6. Generate conversation hints to guide user
+      // 6. Add journal context to response for frontend display (same as non-streaming)
+      if (context.detectedLocation && context.recentJournal && context.recentJournal.length > 0) {
+        response.journalContext = {
+          found: true,
+          count: context.recentJournal.length,
+          location: context.detectedLocation,
+          summaries: context.recentJournal.slice(0, 3).map(j =>
+            j.text?.substring(0, 100) + (j.text && j.text.length > 100 ? '...' : '')
+          ).filter(Boolean) as string[]
+        };
+        console.log(`[SIMPLE_PLANNER_STREAM] 📔 Found ${context.recentJournal.length} journal entries about "${context.detectedLocation}"`);
+      }
+
+      // 7. Generate conversation hints to guide user
       if (!response.conversationHints || response.conversationHints.length === 0) {
         response.conversationHints = this.generateConversationHints(
           response.extractedInfo,
@@ -2308,7 +2150,7 @@ export class SimpleConversationalPlanner {
           response.readyToGenerate,
           questionCount
         );
-        console.log(`[SIMPLE_PLANNER] Generated ${response.conversationHints.length} conversation hints`);
+        console.log(`[SIMPLE_PLANNER_STREAM] Generated ${response.conversationHints.length} conversation hints`);
       }
 
       return response;
@@ -2370,74 +2212,6 @@ export class SimpleConversationalPlanner {
   }
 
   /**
-   * Generate contextual conversation hints to guide user
-   */
-  private generateConversationHints(
-    extractedInfo: Record<string, any>,
-    mode: 'quick' | 'smart',
-    readyToGenerate: boolean,
-    questionCount: number
-  ): string[] {
-    const hints: string[] = [];
-
-    // If plan is ready to generate
-    if (readyToGenerate) {
-      hints.push("yes");
-      hints.push("create plan");
-      hints.push("change something");
-      hints.push("start over");
-      return hints;
-    }
-
-    // Default helpful hints based on conversation state
-    const hasLocation = extractedInfo.location || extractedInfo.detectedLocation;
-    const hasBudget = extractedInfo.budget || extractedInfo.detectedBudget;
-    const hasDate = extractedInfo.date || extractedInfo.startDate || extractedInfo.when;
-
-    // Smart mode gets more detailed hints
-    if (mode === 'smart') {
-      if (questionCount < 3) {
-        // Early stage hints
-        hints.push("continue");
-        hints.push("I don't know");
-        hints.push("skip this");
-      } else {
-        // Mid-stage hints
-        hints.push("continue");
-        hints.push("create plan now");
-        hints.push("tell me more");
-      }
-    } else {
-      // Quick mode hints
-      hints.push("continue");
-      hints.push("create plan");
-      if (!hasLocation) {
-        hints.push("use my current location");
-      }
-    }
-
-    // Context-specific hints
-    if (!hasLocation) {
-      hints.push("assume a reasonable location");
-    }
-
-    if (!hasBudget) {
-      hints.push("flexible budget");
-    }
-
-    if (!hasDate) {
-      hints.push("this weekend");
-    }
-
-    // Always offer escape hatches
-    if (questionCount > 2) {
-      hints.push("I'll provide details later");
-    }
-
-    return hints.slice(0, 5); // Limit to 5 hints for clean UI
-  }
-
-  /**
    * Scan journal for location-specific entries
    */
   private async scanJournalForLocation(
@@ -2467,6 +2241,60 @@ export class SimpleConversationalPlanner {
       console.error('[CONTEXT] Error scanning journal for location:', error);
       return [];
     }
+  }
+
+  /**
+   * Generate contextual conversation hints to guide user
+   */
+  private generateConversationHints(
+    extractedInfo: Record<string, any>,
+    mode: 'quick' | 'smart',
+    readyToGenerate: boolean,
+    questionCount: number
+  ): string[] {
+    const hints: string[] = [];
+
+    // If plan is ready to generate
+    if (readyToGenerate) {
+      hints.push("Yes, create it!");
+      hints.push("Make some changes");
+      hints.push("Start over");
+      return hints;
+    }
+
+    // Default helpful hints based on conversation state
+    const hasLocation = extractedInfo.location || extractedInfo.destination;
+    const hasBudget = extractedInfo.budget;
+    const hasDate = extractedInfo.date || extractedInfo.startDate || extractedInfo.when;
+
+    // Early stage hints
+    if (questionCount < 3) {
+      hints.push("Continue");
+      hints.push("I don't know");
+      hints.push("Skip this question");
+    } else {
+      // Mid-stage hints
+      hints.push("Continue");
+      hints.push("That's all I know");
+      if (mode === 'quick') {
+        hints.push("Create plan now");
+      }
+    }
+
+    // Context-specific suggestions
+    if (!hasLocation && questionCount > 1) {
+      hints.push("Use my current location");
+    }
+
+    if (!hasBudget && questionCount > 2) {
+      hints.push("Flexible budget");
+    }
+
+    if (!hasDate && questionCount > 2) {
+      hints.push("This weekend");
+    }
+
+    return hints.slice(0, 5); // Limit to 5 hints for clean UI
   }
 
   /**
