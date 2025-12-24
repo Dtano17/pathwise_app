@@ -423,6 +423,7 @@ export function getContextualEmoji(activityTitle: string, category: string): str
 
 /**
  * Generate platform-specific caption with character limit
+ * Optimized for engagement and brand marketing
  */
 export function generatePlatformCaption(
   activityTitle: string,
@@ -442,49 +443,132 @@ export function generatePlatformCaption(
     throw new Error(`Unknown platform: ${platform}`);
   }
 
-  const hashtags = (CATEGORY_HASHTAGS[category] || CATEGORY_HASHTAGS.other).slice(
-    0,
-    template.recommendedHashtags
-  );
+  const emoji = getContextualEmoji(activityTitle, category);
+  const shareUrl = activityId ? `https://journalmate.ai/shared/${activityId}` : 'https://journalmate.ai';
+
+  // Get category-specific and brand hashtags
+  const categoryTags = (CATEGORY_HASHTAGS[category] || CATEGORY_HASHTAGS.other).slice(0, Math.min(template.recommendedHashtags, 15));
+  const brandTags = ['#JournalMate', '#AIPlanning', '#SmartGoals'];
+  const hashtags = [...categoryTags, ...brandTags].slice(0, template.recommendedHashtags);
 
   let caption = '';
 
-  // For WhatsApp, use plan summary as the main content (it already includes the title context)
-  if (platform === 'whatsapp' && planSummary) {
-    caption = `${planSummary}\n\n`;
-  } else {
-    // For other platforms or when no summary, use the title
-    caption = `${activityTitle}\n\n`;
+  // Platform-specific caption formats optimized for engagement
+  switch (platform) {
+    case 'instagram_story':
+    case 'instagram_feed':
+    case 'instagram_portrait':
+      // Instagram: Visual, emoji-rich, storytelling
+      caption = `${emoji} ${activityTitle}\n\n`;
+      if (planSummary) {
+        caption += `${planSummary.substring(0, 150)}${planSummary.length > 150 ? '...' : ''}\n\n`;
+      }
+      caption += `🎯 Ready to make it happen? This AI-powered plan breaks it down into actionable steps!\n\n`;
+      caption += `📥 Own this plan: ${shareUrl}\n\n`;
+      caption += `💡 Create your own FREE at JournalMate.ai\n`;
+      break;
+
+    case 'twitter':
+      // Twitter: Concise, punchy, under 280 chars
+      caption = `${emoji} ${activityTitle}\n\n`;
+      caption += `📥 Copy this plan and make it yours:\n${shareUrl}\n\n`;
+      caption += `Made with @JournalMateAI`;
+      break;
+
+    case 'facebook':
+      // Facebook: Conversational, community-focused
+      caption = `${emoji} Check out my plan: ${activityTitle}\n\n`;
+      if (planSummary) {
+        caption += `${planSummary}\n\n`;
+      }
+      caption += `I used JournalMate.ai to create this step-by-step action plan. The AI asks the right questions and builds a personalized roadmap!\n\n`;
+      caption += `📥 Copy this plan for yourself: ${shareUrl}\n\n`;
+      caption += `✨ Create your own plans FREE at JournalMate.ai`;
+      break;
+
+    case 'linkedin':
+      // LinkedIn: Professional, value-focused
+      caption = `${emoji} ${activityTitle}\n\n`;
+      if (planSummary) {
+        caption += `${planSummary}\n\n`;
+      }
+      caption += `I've been using AI-powered planning to turn my goals into actionable steps. This tool asks thoughtful questions and creates a structured roadmap.\n\n`;
+      caption += `Key benefits:\n`;
+      caption += `• Breaks down complex goals into manageable tasks\n`;
+      caption += `• Prioritizes what matters most\n`;
+      caption += `• Tracks progress automatically\n\n`;
+      caption += `📥 Own this plan: ${shareUrl}\n\n`;
+      caption += `Built with JournalMate.ai - Smart Planning for Ambitious Goals`;
+      break;
+
+    case 'whatsapp':
+    case 'telegram':
+      // Messaging: Direct, shareable, action-oriented
+      caption = `${emoji} *${activityTitle}*\n\n`;
+      if (planSummary) {
+        caption += `${planSummary}\n\n`;
+      }
+      caption += `I created this plan using JournalMate.ai - it's an AI that helps you plan anything!\n\n`;
+      caption += `✨ *What you get:*\n`;
+      caption += `• Step-by-step action plan\n`;
+      caption += `• Smart task prioritization\n`;
+      caption += `• Progress tracking\n\n`;
+      caption += `📥 *Copy this plan:* ${shareUrl}\n\n`;
+      caption += `Create yours FREE at JournalMate.ai`;
+      break;
+
+    case 'tiktok':
+      // TikTok: Short, trendy, Gen-Z friendly
+      caption = `${emoji} POV: You finally have a plan for ${activityTitle.toLowerCase()}\n\n`;
+      caption += `AI did the heavy lifting 🤖✨\n\n`;
+      caption += `📥 Download this plan - link in bio! #JournalMate`;
+      break;
+
+    case 'pinterest':
+      // Pinterest: Inspirational, keyword-rich
+      caption = `${emoji} ${activityTitle} | AI-Powered Planning\n\n`;
+      if (planSummary) {
+        caption += `${planSummary}\n\n`;
+      }
+      caption += `📌 Save this pin and own your copy!\n\n`;
+      caption += `📥 Download this plan: ${shareUrl}\n`;
+      caption += `✨ Create yours at JournalMate.ai`;
+      break;
+
+    default:
+      // Generic fallback
+      caption = `${emoji} ${activityTitle}\n\n`;
+      if (planSummary) {
+        caption += `${planSummary}\n\n`;
+      }
+      caption += `📥 Own this plan at JournalMate.ai\n`;
+      caption += `🔗 ${shareUrl}`;
   }
 
   // Add creator attribution if available
   if (creatorName && creatorSocial) {
-    caption += `Created by ${creatorName} (${creatorSocial})\n\n`;
+    caption += `\n\n📝 Created by ${creatorName} (${creatorSocial})`;
   }
 
-  // Add call-to-action
-  caption += `✨ Plan your next adventure with JournalMate.ai\n`;
+  // Add hashtags for platforms that use them (skip for messaging apps)
+  const skipHashtagPlatforms = ['whatsapp', 'telegram', 'print'];
+  const hashtagText = !skipHashtagPlatforms.includes(platform) && hashtags.length > 0
+    ? `\n\n${hashtags.join(' ')}`
+    : '';
 
-  // For WhatsApp, add shareable link with contextual emoji
-  if (platform === 'whatsapp' && activityId) {
-    const emoji = getContextualEmoji(activityTitle, category);
-    caption += `\n${emoji} Customize this plan: https://journalmate.ai/shared/${activityId}\n`;
-  }
-
-  // Add hashtags for platforms that use them
-  const hashtagText = hashtags.length > 0 ? `\n${hashtags.join(' ')}` : '';
-  const fullText = caption + hashtagText;
+  let fullText = caption + hashtagText;
 
   // Truncate if exceeds limit
-  if (fullText.length > template.captionLimit) {
-    const availableLength = template.captionLimit - hashtagText.length - 3; // Reserve space for "..."
+  if (fullText.length > template.captionLimit && template.captionLimit > 0) {
+    const availableLength = template.captionLimit - hashtagText.length - 3;
     caption = caption.substring(0, availableLength) + '...';
+    fullText = caption + hashtagText;
   }
 
   return {
     caption,
     hashtags,
-    fullText: caption + hashtagText,
+    fullText,
   };
 }
 

@@ -10,7 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown, Users, Download, Share2, BadgeCheck, AlertTriangle, X, Loader2 } from 'lucide-react';
+import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown, Users, Download, Share2, BadgeCheck, AlertTriangle, X, Loader2, FileText } from 'lucide-react';
+import { SiInstagram, SiFacebook, SiX, SiLinkedin, SiWhatsapp, SiTelegram } from 'react-icons/si';
 import { Card, CardHeader, CardContent, CardDescription } from '@/components/ui/card';
 import { ShareCardGenerator, type ShareCardGeneratorRef } from './ShareCardGenerator';
 import { SocialVerificationTab, type SocialMediaLinks } from './SocialVerificationTab';
@@ -115,7 +116,14 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
   const [duplicateDetected, setDuplicateDetected] = useState(false);
   const [duplicateMessage, setDuplicateMessage] = useState('');
   const [forceDuplicate, setForceDuplicate] = useState(false);
-  
+
+  // Platform picker state (for Save & Share flow)
+  const [showPlatformPicker, setShowPlatformPicker] = useState(false);
+  const [savedShareData, setSavedShareData] = useState<{
+    shareableLink?: string;
+    socialText?: string;
+  } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const shareCardRef = useRef<ShareCardGeneratorRef>(null);
   const [isShareImageLoading, setIsShareImageLoading] = useState(false);
@@ -155,6 +163,9 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
     setCreateGroup(false);
     setGroupName('');
     setGroupDescription('');
+    // Reset platform picker state when dialog opens/closes
+    setShowPlatformPicker(false);
+    setSavedShareData(null);
   }, [activity, open]);
 
   const updateMutation = useMutation({
@@ -356,36 +367,34 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
       setForceDuplicate(false);
       setDuplicateDetected(false);
       setDuplicateMessage('');
-      
+
       // Wait for cache invalidation to complete
       await queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
       await queryClient.invalidateQueries({ queryKey: ['/api/community-plans'] });
-      
+
       // Show success message
-      let description = 'Activity shared successfully!';
+      let description = 'Settings saved! Choose a platform to share.';
       if (data.publishedToCommunity && data.groupCreated) {
-        description = 'Activity published to Community Discovery and group created!';
+        description = 'Published to Community Discovery and group created! Choose a platform to share.';
       } else if (data.publishedToCommunity) {
-        description = 'Activity published to Community Discovery!';
+        description = 'Published to Community Discovery! Choose a platform to share.';
       } else if (data.groupCreated) {
-        description = 'Activity shared and group created successfully!';
+        description = 'Group created! Choose a platform to share.';
       }
-      
+
       toast({
         title: 'Success!',
         description,
       });
-      
-      // Pass the updated values, shareableLink, AND share card image to parent
-      onConfirmShare({
-        shareTitle,
-        backdrop,
+
+      // Store share data for platform picker
+      setSavedShareData({
         shareableLink: data.shareableLink || undefined,
         socialText: data.socialText || undefined,
-        shareCardImageBlob: data.generatedBlob,  // Include generated image blob
-        shareCardImageFile: data.generatedFile,  // Include File object for native share
       });
-      onOpenChange(false);
+
+      // Show platform picker instead of closing immediately
+      setShowPlatformPicker(true);
     },
     onError: (error: Error) => {
       // Don't show toast for duplicate detection - handled by dialog
@@ -554,6 +563,158 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
     } finally {
       setIsShareImageLoading(false);
     }
+  };
+
+  // Platform options for the share picker
+  const platformOptions = [
+    { id: 'instagram_story', name: 'Instagram Story', icon: SiInstagram },
+    { id: 'instagram_feed', name: 'Instagram Feed', icon: SiInstagram },
+    { id: 'instagram_portrait', name: 'Instagram Portrait', icon: SiInstagram },
+    { id: 'twitter', name: 'Twitter/X', icon: SiX },
+    { id: 'facebook', name: 'Facebook', icon: SiFacebook },
+    { id: 'linkedin', name: 'LinkedIn', icon: SiLinkedin },
+    { id: 'whatsapp', name: 'WhatsApp', icon: SiWhatsapp },
+    { id: 'telegram', name: 'Telegram', icon: SiTelegram },
+    { id: 'print', name: 'Print (A4)', icon: FileText },
+  ];
+
+  // Handle platform selection from the picker and trigger native share
+  const handlePlatformShare = async (platformId: string) => {
+    if (!shareCardRef.current || !backdrop) {
+      toast({
+        title: 'Share Failed',
+        description: 'Please select a backdrop image first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsShareImageLoading(true);
+
+    try {
+      // Generate share card for selected platform
+      const blob = await shareCardRef.current.generateShareCard(platformId, 'jpg');
+
+      if (!blob) {
+        throw new Error('Failed to generate share card');
+      }
+
+      // Get platform display name for toast
+      const platformName = platformOptions.find(p => p.id === platformId)?.name || platformId;
+
+      const file = new File([blob], `journalmate-${platformId}.jpg`, {
+        type: 'image/jpeg'
+      });
+
+      // Generate platform-optimized caption
+      const captionData = generatePlatformCaption(
+        shareTitle,
+        activity.category,
+        platformId,
+        undefined,
+        undefined,
+        activity.planSummary || undefined,
+        activity.id
+      );
+
+      // Copy caption to clipboard
+      try {
+        await navigator.clipboard.writeText(captionData.fullText);
+        toast({
+          title: '📋 Caption Ready to Paste!',
+          description: `${platformName} caption copied - paste it when posting your image`,
+          duration: 5000
+        });
+      } catch (e) {
+        console.warn('Could not copy to clipboard:', e);
+      }
+
+      let shareSuccessful = false;
+
+      // Try native share with file
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] });
+          toast({ title: 'Shared Successfully!' });
+          shareSuccessful = true;
+        } catch (shareError: any) {
+          if (shareError.name === 'AbortError') {
+            // User cancelled - still consider it handled
+            shareSuccessful = true;
+          } else {
+            console.warn('File share failed, trying text-only:', shareError);
+          }
+        }
+      }
+
+      // Fallback to text-only share
+      if (!shareSuccessful && navigator.share) {
+        try {
+          await navigator.share({
+            title: shareTitle,
+            text: captionData.fullText,
+            url: savedShareData?.shareableLink || `https://journalmate.ai/activities/${activity.id}`
+          });
+          toast({ title: 'Shared Successfully!' });
+          shareSuccessful = true;
+        } catch (shareError: any) {
+          if (shareError.name === 'AbortError') {
+            shareSuccessful = true;
+          } else {
+            console.warn('Text share failed:', shareError);
+          }
+        }
+      }
+
+      // Download fallback if no share API worked
+      if (!shareSuccessful) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `journalmate-${platformId}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        toast({
+          title: 'Image Downloaded',
+          description: 'Share it manually from your downloads folder.',
+        });
+      }
+
+      // Track share
+      try {
+        await fetch(`/api/activities/${activity.id}/track-share`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ platform: platformId }),
+        });
+      } catch (e) {
+        console.warn('Could not track share:', e);
+      }
+
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        toast({
+          title: 'Share Failed',
+          description: error.message || 'Could not share. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsShareImageLoading(false);
+      setShowPlatformPicker(false);
+      onConfirmShare({ shareTitle, backdrop, shareableLink: savedShareData?.shareableLink });
+      onOpenChange(false);
+    }
+  };
+
+  // Handle skipping platform picker and just closing
+  const handleSkipPlatformPicker = () => {
+    setShowPlatformPicker(false);
+    onConfirmShare({ shareTitle, backdrop, shareableLink: savedShareData?.shareableLink });
+    onOpenChange(false);
   };
 
   // Privacy scan function
@@ -1131,39 +1292,86 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap justify-end gap-2 pt-4 border-t">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              data-testid="button-cancel-share-preview"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={handleShareImage}
-              disabled={isShareImageLoading || !backdrop || tasksLoading}
-              data-testid="button-share-image"
-              className="gap-2"
-            >
-              {isShareImageLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Share2 className="w-4 h-4" />
-              )}
-              {isShareImageLoading ? 'Sharing...' : 'Share Image'}
-            </Button>
-            <Button
-              onClick={() => updateMutation.mutate()}
-              disabled={updateMutation.isPending}
-              data-testid="button-confirm-share"
-              className="gap-2"
-            >
-              <Sparkles className="w-4 h-4" />
-              {updateMutation.isPending ? 'Saving...' : 'Save & Share'}
-            </Button>
-          </div>
+          {/* Platform Picker - shown after Save & Share succeeds */}
+          {showPlatformPicker ? (
+            <div className="space-y-4 pt-4 border-t animate-in fade-in-50 duration-200">
+              <div className="text-center space-y-2">
+                <h3 className="text-lg font-semibold flex items-center justify-center gap-2">
+                  <Share2 className="w-5 h-5 text-primary" />
+                  Choose Platform to Share
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Select a platform - we'll generate the perfect image size and copy the caption for you to paste
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {platformOptions.map((platform) => {
+                  const IconComponent = platform.icon;
+                  return (
+                    <Button
+                      key={platform.id}
+                      variant="outline"
+                      className="h-auto py-4 flex flex-col gap-2 hover:border-primary hover:bg-primary/5 transition-all"
+                      onClick={() => handlePlatformShare(platform.id)}
+                      disabled={isShareImageLoading}
+                      data-testid={`platform-share-${platform.id}`}
+                    >
+                      {isShareImageLoading ? (
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                      ) : (
+                        <IconComponent className="w-6 h-6" />
+                      )}
+                      <span className="text-xs sm:text-sm">{platform.name}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+              <div className="flex justify-center pt-2">
+                <Button
+                  variant="ghost"
+                  onClick={handleSkipPlatformPicker}
+                  className="text-muted-foreground"
+                  data-testid="button-skip-platform-picker"
+                >
+                  Skip & Close
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* Action Buttons - shown when platform picker is not active */
+            <div className="flex flex-wrap justify-end gap-2 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                data-testid="button-cancel-share-preview"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleShareImage}
+                disabled={isShareImageLoading || !backdrop || tasksLoading}
+                data-testid="button-share-image"
+                className="gap-2"
+              >
+                {isShareImageLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Share2 className="w-4 h-4" />
+                )}
+                {isShareImageLoading ? 'Sharing...' : 'Share Image'}
+              </Button>
+              <Button
+                onClick={() => updateMutation.mutate()}
+                disabled={updateMutation.isPending}
+                data-testid="button-confirm-share"
+                className="gap-2"
+              >
+                <Sparkles className="w-4 h-4" />
+                {updateMutation.isPending ? 'Saving...' : 'Save & Share'}
+              </Button>
+            </div>
+          )}
           </TabsContent>
 
           {/* Tab 2: Download Cards */}
