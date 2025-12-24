@@ -4443,6 +4443,15 @@ export default function MainApp({
 
               let shareSuccessful = false;
 
+              // Debug logging to diagnose share availability
+              console.log('[SHARE] Share capabilities:', {
+                isNative: isNative(),
+                hasNavigatorShare: !!navigator.share,
+                hasNavigatorCanShare: !!navigator.canShare,
+                hasShareCardImage: !!shareData.shareCardImageFile,
+                shareUrl,
+              });
+
               // 1. Try native Capacitor Share first (mobile apps) WITH IMAGE if available
               if (isNative() && shareData.shareCardImageFile) {
                 try {
@@ -4554,12 +4563,14 @@ export default function MainApp({
 
               // 3. Fallback: Web Share API text-only (no image)
               if (navigator.share && !shareSuccessful) {
+                console.log('[SHARE] Attempting Web Share API text-only');
                 try {
                   await navigator.share({
                     title: `${contextualEmoji} ${displayTitle}`,
                     text: shareText,
                     url: shareUrl,
                   });
+                  console.log('[SHARE] Web Share API text-only succeeded');
                   const description = shareData.shareCardImageFile
                     ? "Activity shared (image not supported on this browser)"
                     : "Activity shared";
@@ -4585,10 +4596,12 @@ export default function MainApp({
 
               // 4. Last resort: Clipboard fallback
               if (!shareSuccessful) {
+                console.log('[SHARE] Falling back to clipboard copy');
                 try {
                   await navigator.clipboard.writeText(
                     `${shareText}\n\n${shareUrl}`,
                   );
+                  console.log('[SHARE] Clipboard copy succeeded');
                   toast({
                     title: "Link copied to clipboard",
                     description:
