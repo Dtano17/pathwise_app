@@ -412,6 +412,20 @@ For price ranges, include currency and per-unit (per night, per person, etc.)`
   ): Promise<{
     title: string;
     description: string;
+    sourceKeyPoints: Array<{
+      point: string;
+      context?: string;
+    }>;
+    suggestedActions: Array<{
+      title: string;
+      description: string;
+      priority: 'high' | 'medium' | 'low';
+      category?: string;
+      estimatedTime?: string;
+      budget?: string;
+      venue?: string;
+      aiGenerated: boolean;
+    }>;
     tasks: Array<{
       title: string;
       description: string;
@@ -436,7 +450,11 @@ For price ranges, include currency and per-unit (per night, per person, etc.)`
       ? `\n\nLocations mentioned: ${orchestratorResult.extractedLocations.join(', ')}`
       : '';
 
-    const prompt = `Based on the following content from multiple sources, create a comprehensive action plan.
+    const prompt = `Based on the following content from multiple sources, create a comprehensive action plan with TWO DISTINCT SECTIONS:
+
+1. SOURCE KEY POINTS: Extract the actual facts, quotes, and advice DIRECTLY stated in the source content. Do NOT add any interpretation or specific numbers that aren't explicitly mentioned. These should be paraphrases or direct quotes from the source.
+
+2. AI SUGGESTED ACTIONS: Create actionable tasks based on the key points. Here you CAN add specific details like dollar amounts, time blocks, product names, etc. to make the advice actionable. These are YOUR suggestions for implementing the source's advice.
 
 ${userGoal ? `User's goal: ${userGoal}\n` : ''}
 Content from ${orchestratorResult.sources.filter(s => s.success).length} sources:
@@ -445,32 +463,44 @@ ${orchestratorResult.unifiedContent.substring(0, 12000)}
 ${venueContext}
 ${locationContext}
 
-Create 6-9 SPECIFIC, ACTIONABLE tasks with:
-- Real venue names and prices (use the extracted venues when applicable)
-- Concrete budgets with currency
-- Specific recommendations
-
-FORBIDDEN patterns:
-- "Research prices" (instead: "$150/night at Hotel X")
-- "Look into options" (instead: "Book table at Restaurant Y for $80/person")
-- "Set a budget" (instead: specific amounts)
+IMPORTANT DISTINCTION:
+- "sourceKeyPoints" = What the source ACTUALLY says (no invented specifics)
+- "suggestedActions" = YOUR actionable interpretation (can include specific amounts, products, timeframes)
 
 Return JSON:
 {
   "title": "Descriptive plan title",
-  "description": "Brief overview with key highlights",
-  "tasks": [
+  "description": "Brief overview",
+  "sourceKeyPoints": [
     {
-      "title": "Specific actionable task",
-      "description": "Details with venue, price, timing",
-      "priority": "high|medium|low",
-      "budget": "$XX",
-      "venue": "Venue name if applicable"
+      "point": "The main idea or advice from the source (paraphrase or quote)",
+      "context": "Optional additional context from the source"
     }
   ],
-  "totalBudget": "Estimated total: $X - $Y",
+  "suggestedActions": [
+    {
+      "title": "Specific actionable task",
+      "description": "Details with venue, price, timing - clearly AI-generated specifics",
+      "priority": "high|medium|low",
+      "category": "Category like Financial Planning, Daily Habits, etc.",
+      "estimatedTime": "30 min, 1 hour, etc.",
+      "budget": "$XX (AI suggested)",
+      "venue": "Venue name if applicable",
+      "aiGenerated": true
+    }
+  ],
+  "tasks": [
+    {
+      "title": "Specific actionable task (same as suggestedActions for backwards compatibility)",
+      "description": "Details",
+      "priority": "high|medium|low"
+    }
+  ],
+  "totalBudget": "Estimated total: $X - $Y (AI estimate)",
   "timeframe": "X days/weeks"
-}`;
+}
+
+Extract 4-8 source key points and create 6-9 suggested actions.`;
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
@@ -478,7 +508,13 @@ Return JSON:
       messages: [
         {
           role: 'system',
-          content: 'You are an expert planner who creates detailed, actionable plans with specific venues, prices, and recommendations. Never use vague language - always be specific.'
+          content: `You are an expert at extracting information and creating actionable plans. 
+
+CRITICAL: You must clearly separate:
+1. What the SOURCE actually says (no invented details)
+2. What YOU suggest to implement it (can include specific amounts, products, times)
+
+Never mix source facts with AI suggestions. Users need transparency about what came from the article vs. what you invented to make it actionable.`
         },
         {
           role: 'user',
@@ -488,7 +524,42 @@ Return JSON:
       response_format: { type: 'json_object' }
     });
 
-    return JSON.parse(response.choices[0]?.message?.content || '{}');
+    const result = JSON.parse(response.choices[0]?.message?.content || '{}');
+    
+    // Ensure all suggestedActions have aiGenerated flag
+    if (result.suggestedActions) {
+      result.suggestedActions = result.suggestedActions.map((action: any) => ({
+        ...action,
+        aiGenerated: true
+      }));
+    }
+    
+    // BACKWARDS COMPATIBILITY: Ensure tasks array is always populated
+    // If the model didn't provide tasks, copy from suggestedActions
+    if (!result.tasks || result.tasks.length === 0) {
+      result.tasks = (result.suggestedActions || []).map((action: any) => ({
+        title: action.title,
+        description: action.description,
+        priority: action.priority || 'medium',
+        budget: action.budget,
+        venue: action.venue
+      }));
+    }
+    
+    // Ensure sourceKeyPoints is always an array (default to empty if not provided)
+    if (!result.sourceKeyPoints) {
+      result.sourceKeyPoints = [];
+    }
+    
+    // Ensure suggestedActions is always an array
+    if (!result.suggestedActions) {
+      result.suggestedActions = (result.tasks || []).map((task: any) => ({
+        ...task,
+        aiGenerated: true
+      }));
+    }
+    
+    return result;
   }
 }
 

@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { invalidateActivitiesCache } from '@/lib/cacheInvalidation';
 
@@ -1329,29 +1329,82 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                 </CardContent>
               </Card>
 
-              {/* Tasks Preview */}
-              {parsedLLMContent.tasks && parsedLLMContent.tasks.length > 0 && (
-                <Card>
+              {/* TIER 1: Source Key Points - What the article actually says */}
+              {parsedLLMContent.sourceKeyPoints && parsedLLMContent.sourceKeyPoints.length > 0 && (
+                <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-4">
-                      <ListTodo className="h-5 w-5 text-purple-500" />
-                      <h3 className="text-lg font-semibold">Tasks ({parsedLLMContent.tasks.length})</h3>
+                      <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <h3 className="text-lg font-semibold text-blue-700 dark:text-blue-300">From Source</h3>
+                      <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 text-xs">
+                        Direct from article
+                      </Badge>
                     </div>
-                    <div className="space-y-3">
-                      {parsedLLMContent.tasks.map((task: any, index: number) => (
-                        <div key={index} className="flex gap-3 p-3 rounded-lg bg-muted">
-                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 flex items-center justify-center text-sm font-semibold">
+                    <p className="text-xs text-muted-foreground mb-3">
+                      These key points are extracted directly from your source content.
+                    </p>
+                    <div className="space-y-2">
+                      {parsedLLMContent.sourceKeyPoints.map((point: any, index: number) => (
+                        <div key={index} className="flex gap-3 p-3 rounded-lg bg-blue-100/50 dark:bg-blue-900/30 border border-blue-200/50 dark:border-blue-800/50">
+                          <div className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xs font-semibold">
                             {index + 1}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-medium text-sm">{task.title}</h4>
-                              <Badge variant="outline" className="text-xs">
+                            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">{point.point}</p>
+                            {point.context && (
+                              <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-1 italic">
+                                {point.context}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* TIER 2: AI Suggested Actions - Actionable tasks with AI-generated specifics */}
+              {((parsedLLMContent.suggestedActions && parsedLLMContent.suggestedActions.length > 0) || 
+                (parsedLLMContent.tasks && parsedLLMContent.tasks.length > 0)) && (
+                <Card className="border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                      <h3 className="text-lg font-semibold text-purple-700 dark:text-purple-300">AI Suggested Actions</h3>
+                      <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 text-xs">
+                        AI Generated
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      These actionable tasks include specific details (amounts, times, products) suggested by AI to help you implement the advice.
+                    </p>
+                    <div className="space-y-3">
+                      {(parsedLLMContent.suggestedActions || parsedLLMContent.tasks || []).map((task: any, index: number) => (
+                        <div key={index} className="flex gap-3 p-3 rounded-lg bg-purple-100/50 dark:bg-purple-900/30 border border-purple-200/50 dark:border-purple-800/50">
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-300 flex items-center justify-center text-sm font-semibold">
+                            {index + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <h4 className="font-medium text-sm text-purple-800 dark:text-purple-200">{task.title}</h4>
+                              <Badge variant="outline" className="text-xs border-purple-300 dark:border-purple-700">
                                 {task.priority || "medium"}
                               </Badge>
+                              {task.category && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {task.category}
+                                </Badge>
+                              )}
+                              {task.estimatedTime && (
+                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {task.estimatedTime}
+                                </span>
+                              )}
                             </div>
                             {task.description && (
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-xs text-purple-700/80 dark:text-purple-300/80">
                                 {task.description}
                               </p>
                             )}
@@ -1385,7 +1438,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
                     {parsedLLMContent.motivationalNote && (
                       <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
                         <p className="text-sm text-purple-800 dark:text-purple-200 italic">
-                          ✨ {parsedLLMContent.motivationalNote}
+                          {parsedLLMContent.motivationalNote}
                         </p>
                       </div>
                     )}
