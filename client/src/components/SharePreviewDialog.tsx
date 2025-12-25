@@ -690,31 +690,32 @@ export function SharePreviewDialog({
             onValueChange={setActiveTab}
             className="w-full mt-4"
           >
-            <div className="relative border-b sm:border-0 overflow-hidden">
-              <TabsList className="flex w-full justify-start sm:grid sm:grid-cols-3 h-auto bg-transparent sm:bg-muted overflow-x-auto no-scrollbar pb-1 sm:pb-0 gap-1 sm:gap-0">
-                <TabsTrigger
-                  value="quick-share"
-                  className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm whitespace-nowrap px-4 sm:px-0 data-[state=active]:bg-muted sm:data-[state=active]:bg-background"
-                >
-                  <Share2 className="w-4 h-4 flex-shrink-0" />
-                  <span>Quick Share</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="download-cards"
-                  className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm whitespace-nowrap px-4 sm:px-0 data-[state=active]:bg-muted sm:data-[state=active]:bg-background"
-                >
-                  <Download className="w-4 h-4 flex-shrink-0" />
-                  <span>Download & Share</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="social-verify"
-                  className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm whitespace-nowrap px-4 sm:px-0 data-[state=active]:bg-muted sm:data-[state=active]:bg-background"
-                >
-                  <BadgeCheck className="w-4 h-4 flex-shrink-0" />
-                  <span>Social Verification</span>
-                </TabsTrigger>
-              </TabsList>
-            </div>
+            <TabsList className="grid w-full grid-cols-3 h-auto">
+              <TabsTrigger
+                value="quick-share"
+                className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm"
+              >
+                <Share2 className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Quick Share</span>
+                <span className="sm:hidden">Share</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="download-cards"
+                className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm"
+              >
+                <Download className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Download & Share</span>
+                <span className="sm:hidden">Download</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="social-verify"
+                className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm"
+              >
+                <BadgeCheck className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Social Verification</span>
+                <span className="sm:hidden">Verify</span>
+              </TabsTrigger>
+            </TabsList>
 
             {/* Tab 1: Quick Share (existing functionality) */}
             <TabsContent value="quick-share" className="space-y-6 py-4">
