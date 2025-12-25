@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -45,6 +46,9 @@ import {
   AlertTriangle,
   X,
   Loader2,
+  Copy,
+  RotateCcw,
+  Edit3,
 } from "lucide-react";
 import {
   Card,
@@ -206,6 +210,10 @@ export function SharePreviewDialog({
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
 
+  // Share caption state
+  const [shareCaption, setShareCaption] = useState("");
+  const [captionEdited, setCaptionEdited] = useState(false);
+
   // Duplicate detection state
   const [duplicateDetected, setDuplicateDetected] = useState(false);
   const [duplicateMessage, setDuplicateMessage] = useState("");
@@ -237,10 +245,42 @@ export function SharePreviewDialog({
     enabled: open, // Fetch as soon as dialog opens
   });
 
+  // Generate formatted share caption
+  const generateShareCaption = (title: string, description?: string | null, tasks?: any[], shareUrl?: string) => {
+    const completedTasks = tasks?.filter(t => t.completed)?.length || 0;
+    const totalTasks = tasks?.length || 0;
+    const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    
+    // Build the caption with structured formatting
+    let caption = `${title}\n\n`;
+    
+    if (description) {
+      caption += `${description}\n\n`;
+    }
+    
+    if (totalTasks > 0) {
+      caption += `${progressPercent}% complete with ${totalTasks} task${totalTasks !== 1 ? 's' : ''}!\n\n`;
+    }
+    
+    caption += `Track progress, own and edit your own version!\n\n`;
+    
+    if (shareUrl) {
+      caption += `${shareUrl}\n\n`;
+    }
+    
+    caption += `Plan your next adventure with JournalMate.ai`;
+    
+    return caption;
+  };
+
+  // Get the share URL for the activity
+  const shareUrl = typeof window !== 'undefined' 
+    ? `${window.location.origin}/share/${activity.id}`
+    : '';
+
   useEffect(() => {
-    setShareTitle(
-      activity.shareTitle || activity.planSummary || activity.title,
-    );
+    const title = activity.shareTitle || activity.planSummary || activity.title;
+    setShareTitle(title);
     setBackdrop(activity.backdrop || "");
     setCustomBackdrop("");
     setPublishToCommunity(false);
@@ -251,7 +291,17 @@ export function SharePreviewDialog({
     setCreateGroup(false);
     setGroupName("");
     setGroupDescription("");
+    // Initialize share caption and reset dirty flag
+    setShareCaption(generateShareCaption(title, activity.planSummary, [], shareUrl));
+    setCaptionEdited(false);
   }, [activity, open]);
+
+  // Update caption when tasks load (only if user hasn't manually edited)
+  useEffect(() => {
+    if (!captionEdited && activityTasks.length > 0) {
+      setShareCaption(generateShareCaption(shareTitle, activity.planSummary, activityTasks, shareUrl));
+    }
+  }, [activityTasks, captionEdited]);
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -654,8 +704,8 @@ export function SharePreviewDialog({
                 className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm"
               >
                 <Download className="w-4 h-4 flex-shrink-0" />
-                <span className="hidden sm:inline">Download Cards</span>
-                <span className="sm:hidden">Cards</span>
+                <span className="hidden sm:inline">Download & Share</span>
+                <span className="sm:hidden">Download</span>
               </TabsTrigger>
               <TabsTrigger
                 value="social-verify"
@@ -696,6 +746,63 @@ export function SharePreviewDialog({
                     social media
                   </p>
                 )}
+              </div>
+
+              {/* Share Caption Editor */}
+              <div className="space-y-2">
+                <Label htmlFor="share-caption" className="flex items-center gap-2">
+                  <Edit3 className="w-4 h-4" />
+                  Share Caption
+                </Label>
+                <Textarea
+                  id="share-caption"
+                  value={shareCaption}
+                  onChange={(e) => {
+                    setShareCaption(e.target.value);
+                    setCaptionEdited(true);
+                  }}
+                  placeholder="Enter your share caption..."
+                  className="min-h-[140px] resize-y text-sm"
+                  data-testid="textarea-share-caption"
+                />
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <p className="text-muted-foreground">
+                    This caption will be copied when you share
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShareCaption(generateShareCaption(shareTitle, activity.planSummary, activityTasks, shareUrl));
+                        setCaptionEdited(false);
+                      }}
+                      className="h-7 px-2 text-xs gap-1"
+                      data-testid="button-reset-caption"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Reset
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(shareCaption);
+                        toast({
+                          title: "Copied!",
+                          description: "Caption copied to clipboard",
+                        });
+                      }}
+                      className="h-7 px-2 text-xs gap-1"
+                      data-testid="button-copy-caption"
+                    >
+                      <Copy className="w-3 h-3" />
+                      Copy
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               {/* Backdrop Selector */}
