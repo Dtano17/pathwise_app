@@ -690,28 +690,31 @@ export function SharePreviewDialog({
             onValueChange={setActiveTab}
             className="w-full mt-4"
           >
-            <TabsList className="grid w-full grid-cols-3 h-auto">
+            <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-muted/50 rounded-lg">
               <TabsTrigger
                 value="quick-share"
-                className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm"
+                className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-[10px] sm:text-sm px-1 sm:px-3"
+                data-testid="tab-quick-share"
               >
-                <Share2 className="w-4 h-4 flex-shrink-0" />
+                <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span className="hidden sm:inline">Quick Share</span>
                 <span className="sm:hidden">Share</span>
               </TabsTrigger>
               <TabsTrigger
                 value="download-cards"
-                className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm"
+                className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-[10px] sm:text-sm px-1 sm:px-3"
+                data-testid="tab-download-cards"
               >
-                <Download className="w-4 h-4 flex-shrink-0" />
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span className="hidden sm:inline">Download & Share</span>
                 <span className="sm:hidden">Download</span>
               </TabsTrigger>
               <TabsTrigger
                 value="social-verify"
-                className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm"
+                className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-[10px] sm:text-sm px-1 sm:px-3"
+                data-testid="tab-verification"
               >
-                <BadgeCheck className="w-4 h-4 flex-shrink-0" />
+                <BadgeCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span className="hidden sm:inline">Social Verification</span>
                 <span className="sm:hidden">Verify</span>
               </TabsTrigger>
