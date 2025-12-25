@@ -61,6 +61,7 @@ import fs from 'fs';
 import Stripe from 'stripe';
 import { sendGroupNotification } from './services/notificationService';
 import { tavily } from '@tavily/core';
+import { getActivityImage, searchBackdropOptions } from './services/webImageSearch';
 import { socialMediaVideoService } from './services/socialMediaVideoService';
 import { apifyService } from './services/apifyService';
 import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForDisplay, formatBudgetTierForDisplay, mapAiCategoryToJournalCategory, mapAiCategoryNameToJournalCategory, mapVenueTypeToJournalCategory, getBestJournalCategory, getDynamicCategoryInfo, type VenueInfo, type DynamicCategoryInfo, type PrimaryCategorySuggestion, type SubcategorySuggestion } from './services/contentCategorizationService';
@@ -385,13 +386,19 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
           });
         }
 
+        // Fetch backdrop image for the activity
+        const activityTitle = generatedPlan.title || 'Smart Plan Activity';
+        const activityCategory = generatedPlan.category || 'personal';
+        const backdropUrl = await getActivityImage(activityTitle, activityCategory);
+
         // Create activity from the structured plan
         const activity = await storage.createActivity({
-          title: generatedPlan.title || 'Smart Plan Activity',
+          title: activityTitle,
           description: generatedPlan.summary || 'Generated from Smart Plan conversation',
-          category: generatedPlan.category || 'personal',
+          category: activityCategory,
           status: 'planning',
-          userId
+          userId,
+          backdrop: backdropUrl
         });
 
         // Create tasks and link them to the activity
@@ -420,15 +427,19 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
         }, userId);
 
         const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
-        
+
         // Construct full URL for activity link
         const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
         const host = req.get('host') || 'journalmate.replit.app';
         const activityUrl = `${protocol}://${host}/activities/${activity.id}`;
-        
+
         return res.json({
-          message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](${activityUrl})`,
+          message: `✨ Your plan is ready!`,
           activityCreated: true,
+          activityId: activity.id,
+          activityTitle: activity.title,
+          taskCount: createdTasks.length,
+          backdropUrl: activity.backdrop,
           activity,
           planComplete: true,
           createdTasks,
@@ -436,7 +447,7 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
         });
       }
     }
-    
+
     // Check if we're awaiting plan confirmation
     const awaitingConfirmation = session.externalContext?.awaitingPlanConfirmation;
     
@@ -464,13 +475,19 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
             });
           }
 
+          // Fetch backdrop image for the activity
+          const activityTitle2 = generatedPlan.title || 'Smart Plan Activity';
+          const activityCategory2 = generatedPlan.category || 'personal';
+          const backdropUrl2 = await getActivityImage(activityTitle2, activityCategory2);
+
           // Create activity from the structured plan
           const activity = await storage.createActivity({
-            title: generatedPlan.title || 'Smart Plan Activity',
+            title: activityTitle2,
             description: generatedPlan.summary || 'Generated from Smart Plan conversation',
-            category: generatedPlan.category || 'personal',
+            category: activityCategory2,
             status: 'planning',
-            userId
+            userId,
+            backdrop: backdropUrl2
           });
 
           // Create tasks and link them to the activity
@@ -504,10 +521,14 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
           }, userId);
 
           const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
-          
+
           return res.json({
-            message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](/activities/${activity.id})`,
+            message: `✨ Your plan is ready!`,
             activityCreated: true,
+            activityId: activity.id,
+            activityTitle: activity.title,
+            taskCount: createdTasks.length,
+            backdropUrl: activity.backdrop,
             activity,
             planComplete: true,
             createdTasks,
@@ -619,11 +640,14 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
             title: `Execute ${session.slots?.activityType || 'activity'}`,
             description: 'Follow through with the planned activity',
             category: 'action',
-            priority: 'high', 
+            priority: 'high',
             timeEstimate: '1-2 hours'
           }
         ]
       };
+
+      // Fetch backdrop image for the activity
+      const backdropUrl3 = await getActivityImage(planData.title, planData.category);
 
       // Create activity from the structured plan
       const activity = await storage.createActivity({
@@ -631,7 +655,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         description: planData.summary,
         category: planData.category,
         status: 'planning',
-        userId
+        userId,
+        backdrop: backdropUrl3
       });
 
       // Create tasks and link them to the activity
@@ -659,10 +684,14 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
 
       // Get updated session for consistent response shape
       const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
-      
+
       return res.json({
-        message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](/activities/${activity.id})`,
+        message: `✨ Your plan is ready!`,
         activityCreated: true,
+        activityId: activity.id,
+        activityTitle: activity.title,
+        taskCount: createdTasks.length,
+        backdropUrl: activity.backdrop,
         activity,
         planComplete: true,
         createdTasks,
@@ -817,14 +846,20 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
     // If user confirmed, create the activity
     if (response.createActivity) {
       const planData = response.generatedPlan;
-      
+
+      // Fetch backdrop image for the activity
+      const activityTitle4 = planData.title || 'Smart Plan Activity';
+      const activityCategory4 = planData.category || 'personal';
+      const backdropUrl4 = await getActivityImage(activityTitle4, activityCategory4);
+
       // Create activity from the structured plan
       const activity = await storage.createActivity({
-        title: planData.title || 'Smart Plan Activity',
+        title: activityTitle4,
         description: planData.summary || 'Generated from Smart Plan conversation',
-        category: planData.category || 'personal',
+        category: activityCategory4,
         status: 'planning',
-        userId
+        userId,
+        backdrop: backdropUrl4
       });
 
       // Create tasks and link them to the activity
@@ -844,7 +879,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           createdTasks.push(task); // Collect real task with database ID
         }
       }
-      
+
       // Update the generated plan with real tasks
       response.generatedPlan = {
         ...planData,
@@ -860,10 +895,14 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
 
       // Get updated session for consistent response shape
       const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
-      
+
       return res.json({
-        message: `🎉 **Perfect!** Activity "${activity.title}" has been created successfully!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](/activities/${activity.id})`,
+        message: `✨ Your plan is ready!`,
         activityCreated: true,
+        activityId: activity.id,
+        activityTitle: activity.title,
+        taskCount: createdTasks.length,
+        backdropUrl: activity.backdrop,
         activity,
         planComplete: true,
         createdTasks,
@@ -6243,6 +6282,64 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
     }
   });
 
+  // Get backdrop image options for activity (for image picker UI)
+  app.get("/api/activities/:activityId/backdrop-options", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Get the activity
+      const activity = await storage.getActivity(activityId, userId);
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      // Fetch backdrop options based on activity title and category
+      const options = await searchBackdropOptions(
+        activity.title,
+        activity.category || 'personal',
+        5 // max 5 options
+      );
+
+      // If activity already has a custom backdrop, include it first
+      if (activity.backdrop) {
+        options.unshift({
+          url: activity.backdrop,
+          source: 'user' as const,
+          label: 'Current'
+        });
+      }
+
+      res.json({ options });
+    } catch (error) {
+      console.error('Error fetching backdrop options:', error);
+      res.status(500).json({ error: 'Failed to fetch backdrop options' });
+    }
+  });
+
+  // Update activity backdrop
+  app.patch("/api/activities/:activityId/backdrop", async (req, res) => {
+    try {
+      const { activityId } = req.params;
+      const { backdropUrl } = req.body;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Get the activity
+      const activity = await storage.getActivity(activityId, userId);
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      // Update the backdrop
+      const updated = await storage.updateActivity(activityId, { backdrop: backdropUrl }, userId);
+
+      res.json({ success: true, activity: updated });
+    } catch (error) {
+      console.error('Error updating backdrop:', error);
+      res.status(500).json({ error: 'Failed to update backdrop' });
+    }
+  });
+
   // Generate shareable link for activity OR share to existing group
   app.post("/api/activities/:activityId/share", async (req, res) => {
     try {
@@ -9751,14 +9848,13 @@ Return ONLY valid JSON, no markdown or explanation.`;
         const activityUrl = `${protocol}://${host}/activities/${activity.id}`;
 
         return res.json({
-          message: isUpdate
-            ? `♻️ **Activity "${activity.title}" updated!**\n\n📋 I've updated the plan with ${createdTasks.length} new tasks!\n\n→ [View Your Plan](${activityUrl})`
-            : `✨ **Activity "${activity.title}" created!**\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](${activityUrl})`,
+          message: isUpdate ? `♻️ Your plan has been updated!` : `✨ Your plan is ready!`,
           activityCreated: !isUpdate,
           activityUpdated: isUpdate,
           activity,
           activityId: activity.id,
           activityTitle: activity.title,
+          taskCount: createdTasks.length,
           activityUrl: activityUrl,
           createdTasks,
           planComplete: true
@@ -9974,15 +10070,21 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
     if (planConfirmed && isGenerateCommand) {
       // User wants to create the activity - extract the generated plan
       const generatedPlan = session.slots?._generatedPlan;
-      
+
       if (generatedPlan) {
+        // Fetch backdrop image for the activity
+        const quickTitle = generatedPlan.title || 'Quick Plan Activity';
+        const quickCategory = generatedPlan.category || 'personal';
+        const quickBackdropUrl = await getActivityImage(quickTitle, quickCategory);
+
         // Create activity from the structured plan
         const activity = await storage.createActivity({
-          title: generatedPlan.title || 'Quick Plan Activity',
+          title: quickTitle,
           description: generatedPlan.summary || 'Generated from Quick Plan conversation',
-          category: generatedPlan.category || 'personal',
+          category: quickCategory,
           status: 'planning',
-          userId
+          userId,
+          backdrop: quickBackdropUrl
         });
 
         // Create tasks and link them to the activity
@@ -10011,15 +10113,19 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
         }, userId);
 
         const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
-        
+
         // Construct full URL for activity link
         const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
         const host = req.get('host') || 'journalmate.replit.app';
         const activityUrl = `${protocol}://${host}/activities/${activity.id}`;
-        
+
         return res.json({
-          message: `⚡ **Boom!** Activity "${activity.title}" created instantly!\n\n📋 I've created ${createdTasks.length} tasks for you.\n\n→ [View Your Plan](${activityUrl})`,
+          message: `✨ Your plan is ready!`,
           activityCreated: true,
+          activityId: activity.id,
+          activityTitle: activity.title,
+          taskCount: createdTasks.length,
+          backdropUrl: activity.backdrop,
           activity,
           planComplete: true,
           createdTasks,
@@ -10039,15 +10145,21 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
       if (affirmativePattern.test(message.trim())) {
         // User confirmed - create activity immediately!
         const generatedPlan = session.slots?._generatedPlan;
-        
+
         if (generatedPlan) {
+          // Fetch backdrop image for the activity
+          const quickTitle2 = generatedPlan.title || 'Quick Plan Activity';
+          const quickCategory2 = generatedPlan.category || 'personal';
+          const quickBackdropUrl2 = await getActivityImage(quickTitle2, quickCategory2);
+
           // Create activity from the structured plan
           const activity = await storage.createActivity({
-            title: generatedPlan.title || 'Quick Plan Activity',
+            title: quickTitle2,
             description: generatedPlan.summary || 'Generated from Quick Plan conversation',
-            category: generatedPlan.category || 'personal',
+            category: quickCategory2,
             status: 'planning',
-            userId
+            userId,
+            backdrop: quickBackdropUrl2
           });
 
           // Create tasks and link them to the activity
@@ -10076,17 +10188,21 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
           }, userId);
 
           const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
-          
+
           return res.json({
             message: `⚡ **Boom!** Activity "${activity.title}" created instantly!\n\n📋 **Find it on:**\n• **Home screen** - Your recent activities\n• **Activities pane** - Full details\n• **Tasks section** - ${createdTasks.length} tasks ready to go\n\nLet's make it happen! 🚀`,
             activityCreated: true,
+            activityId: activity.id,
+            activityTitle: activity.title,
+            taskCount: createdTasks.length,
+            backdropUrl: activity.backdrop,
             activity,
             planComplete: true,
             createdTasks,
             session: updatedSession
           });
         }
-        
+
         // Fallback if no plan data
         return res.json({
           message: "⚠️ Sorry, I couldn't find the plan data. Let's start over!",
@@ -10197,11 +10313,14 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
             title: `Complete ${session.slots?.activityType || 'activity'}`,
             description: 'Follow through and finish',
             category: 'completion',
-            priority: 'high', 
+            priority: 'high',
             timeEstimate: '30-60 min'
           }
         ]
       };
+
+      // Fetch backdrop image for the activity
+      const quickBackdropUrl3 = await getActivityImage(planData.title, planData.category);
 
       // Create activity from the structured plan
       const activity = await storage.createActivity({
@@ -10209,7 +10328,8 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         description: planData.summary,
         category: planData.category,
         status: 'planning',
-        userId
+        userId,
+        backdrop: quickBackdropUrl3
       });
 
       // Create tasks and link them to the activity
@@ -10237,10 +10357,14 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
 
       // Get updated session for consistent response shape
       const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
-      
+
       return res.json({
         message: `⚡ **Quick Plan Created!** Activity "${activity.title}" is ready!\n\n📋 **Find it in:**\n• **Home screen** - Your recent activities\n• **Activities section** - Full details and tasks\n\nAll set for immediate action! 🚀`,
         activityCreated: true,
+        activityId: activity.id,
+        activityTitle: activity.title,
+        taskCount: createdTasks.length,
+        backdropUrl: activity.backdrop,
         activity,
         planComplete: true,
         createdTasks,
@@ -10526,13 +10650,19 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
                 return;
               }
 
+              // Fetch backdrop image for the activity
+              const streamTitle = planToUse.title || `${mode === 'quick' ? 'Quick' : 'Smart'} Plan Activity`;
+              const streamCategory = planToUse.category || planToUse.domain || 'personal';
+              const streamBackdropUrl = await getActivityImage(streamTitle, streamCategory);
+
               // Create activity from the structured plan (use planToUse which may be from session)
               const activity = await storage.createActivity({
-                title: planToUse.title || `${mode === 'quick' ? 'Quick' : 'Smart'} Plan Activity`,
+                title: streamTitle,
                 description: planToUse.summary || planToUse.description || 'Generated plan',
-                category: planToUse.category || planToUse.domain || 'personal',
+                category: streamCategory,
                 status: 'planning',
-                userId
+                userId,
+                backdrop: streamBackdropUrl
               });
 
               // Create tasks and link them to the activity
@@ -10568,9 +10698,14 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
 
               activityData = {
                 activityCreated: true,
+                activityId: activity.id,
+                activityTitle: activity.title,
+                taskCount: createdTasks.length,
+                backdropUrl: activity.backdrop,
                 activity: {
                   id: activity.id,
-                  title: activity.title
+                  title: activity.title,
+                  backdrop: activity.backdrop
                 },
                 createdTasks
               };
@@ -10586,12 +10721,12 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           const updatedSession = activityData ? await storage.getLifestylePlannerSession(session?.id || '', userId) : session;
 
           // Build the final message
-          // - If activity was created, show success message
+          // - If activity was created, show success message (card will render the details)
           // - If response.message is empty/generic but we have stored plan content, use that
           // - Otherwise use response.message
           let finalMessage = response.message;
           if (activityData) {
-            finalMessage = `✨ **Activity created!**\n\n📋 I've created ${activityData.createdTasks.length} tasks for you.`;
+            finalMessage = `✨ Your plan is ready!`;
           } else if ((!finalMessage || finalMessage.length < 100) && lastAssistantMessage && lastAssistantMessage.length > 200) {
             // If current response is too short but we have the previous plan preview, use it
             finalMessage = lastAssistantMessage;
@@ -12460,14 +12595,23 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       const timing = slots.timing?.departureTime || slots.timing?.date || 'TBD';
       const budget = slots.budget || 'moderate';
 
+      // Determine category for image search
+      const category = slots.activityType?.toLowerCase().includes('date') ? 'romance' :
+                      slots.activityType?.toLowerCase().includes('work') ? 'work' :
+                      slots.activityType?.toLowerCase().includes('fitness') ? 'wellness' : 'adventure';
+
+      // Fetch backdrop image based on activity and location (runs in parallel conceptually)
+      const backdropUrl = await getActivityImage(
+        `${activityType} ${location}`,
+        category
+      );
+
       // Create preview structure
       const planPreview = {
         activity: {
           title: `${activityType} Plan`,
           description: `A personalized ${activityType.toLowerCase()} experience at ${location}`,
-          category: slots.activityType?.toLowerCase().includes('date') ? 'romance' :
-                    slots.activityType?.toLowerCase().includes('work') ? 'work' :
-                    slots.activityType?.toLowerCase().includes('fitness') ? 'wellness' : 'adventure'
+          category
         },
         tasks: [
           {
@@ -12486,6 +12630,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
             priority: 'medium'
           }
         ],
+        backdropUrl,
         summary: `This plan includes preparation, travel, and the main activity. Estimated budget: ${budget}.`,
         estimatedTimeframe: slots.timing?.duration || '2-4 hours',
         motivationalNote: slots.mood === 'romantic'

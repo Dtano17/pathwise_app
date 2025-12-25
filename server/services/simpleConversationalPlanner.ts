@@ -330,60 +330,100 @@ class OpenAIProvider implements LLMProvider {
     if (!this.tavilyClient) return;
 
     // Extract potential destination keywords - improved patterns for edge cases
-    // Handles lowercase, multiword destinations (new york, san francisco), etc.
-    const destinationPattern = /(trip|travel|visit|vacation|honeymoon|getaway|plan|planning)\s+(?:to|for|in)\s+([a-z]+(?:\s+[a-z]+)*)/i;
+    // Handles lowercase, multiword destinations (new york, san francisco, big bear), etc.
+    const destinationPatterns = [
+      /(trip|travel|visit|vacation|honeymoon|getaway|plan|planning)\s+(?:to|for|in)\s+([a-z]+(?:\s+[a-z]+)*)/i,
+      /(?:to|in|at)\s+(big\s+bear|lake\s+tahoe|palm\s+springs|san\s+diego|los\s+angeles|new\s+york|san\s+francisco|las\s+vegas|[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i,
+      /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:trip|travel|vacation|getaway)/i,
+    ];
+
     const datePattern = /(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})/i;
     const monthOnlyPattern = /(january|february|march|april|may|june|july|august|september|october|november|december)/i;
-    
-    const destinationMatch = userMessage.match(destinationPattern);
+    const todayPattern = /\b(today|tomorrow|this\s+weekend|next\s+week)\b/i;
+
+    let destination: string | null = null;
+    for (const pattern of destinationPatterns) {
+      const match = userMessage.match(pattern);
+      if (match) {
+        destination = match[2] || match[1];
+        break;
+      }
+    }
+
+    if (!destination) return; // No destination detected, skip pre-warming
+
+    destination = destination.trim();
     const dateMatch = userMessage.match(datePattern) || userMessage.match(monthOnlyPattern);
-    
-    if (!destinationMatch) return; // No destination detected, skip pre-warming
-    
-    const destination = destinationMatch[2].trim();
-    const timeframe = dateMatch ? dateMatch[0] : 'current';
-    
-    console.log(`[PREWARM] Detected destination "${destination}", timeframe "${timeframe}" - pre-warming safety searches`);
-    
-    // Pre-warm critical safety searches in background (non-blocking)
-    const safetyQueries = [
-      `${destination} travel advisory ${timeframe}`,
-      `${destination} hurricane forecast ${timeframe}`,
-      `${destination} weather alerts ${timeframe}`
+    const todayMatch = userMessage.match(todayPattern);
+    const timeframe = dateMatch ? dateMatch[0] : (todayMatch ? todayMatch[0] : 'this week');
+
+    console.log(`[PREWARM] Detected destination "${destination}", timeframe "${timeframe}" - pre-warming safety & weather searches`);
+
+    // Pre-warm COMPREHENSIVE weather and safety searches in background (non-blocking)
+    // Run ALL searches in PARALLEL for maximum speed
+    const searchQueries = [
+      // Weather & Conditions (CRITICAL for outdoor/mountain destinations)
+      `${destination} weather forecast ${timeframe}`,
+      `${destination} current weather conditions temperature`,
+      `${destination} weather warnings alerts ${timeframe}`,
+
+      // Safety & Travel Advisories
+      `${destination} travel advisory warnings`,
+      `${destination} road conditions driving ${timeframe}`,
+
+      // For mountain/snow destinations - check snow and road conditions
+      ...(destination.toLowerCase().includes('bear') ||
+          destination.toLowerCase().includes('tahoe') ||
+          destination.toLowerCase().includes('mammoth') ||
+          destination.toLowerCase().includes('mountain') ? [
+        `${destination} snow conditions skiing ${timeframe}`,
+        `${destination} chain requirements road closures`,
+      ] : []),
+
+      // For coastal/hurricane-prone destinations
+      ...(destination.toLowerCase().includes('beach') ||
+          destination.toLowerCase().includes('florida') ||
+          destination.toLowerCase().includes('hawaii') ||
+          destination.toLowerCase().includes('caribbean') ? [
+        `${destination} hurricane forecast ${timeframe}`,
+        `${destination} surf conditions beach safety`,
+      ] : []),
     ];
-    
-    // Use Promise.allSettled to handle all searches properly
+
+    // Execute ALL searches in PARALLEL for maximum speed
+    console.log(`[PREWARM] Starting ${searchQueries.length} parallel background searches...`);
+
     Promise.allSettled(
-      safetyQueries.map(async (query) => {
+      searchQueries.map(async (query) => {
         try {
           // Check if already cached
           if (globalSearchCache.get(query)) {
-            console.log(`[PREWARM] Already cached: "${query}"`);
+            console.log(`[PREWARM] Cache hit: "${query}"`);
             return;
           }
-          
-          console.log(`[PREWARM] Starting background search: "${query}"`);
+
           const searchResults = await this.tavilyClient.search(query, {
             maxResults: 3,
-            searchDepth: 'advanced'
+            searchDepth: 'basic' // Use 'basic' for speed in pre-warming
           });
-          
+
           const formattedResults = searchResults.results
             .map((r: any) => `${r.title}\n${r.content}\nSource: ${r.url}`)
             .join('\n\n');
-          
+
           if (formattedResults) {
             globalSearchCache.set(query, formattedResults);
-            console.log(`[PREWARM] Cached results for: "${query}"`);
+            console.log(`[PREWARM] Cached: "${query}"`);
           }
         } catch (error) {
           // Silent fail - pre-warming is optional optimization
-          console.log(`[PREWARM] Search failed for "${query}" (non-blocking)`);
+          console.log(`[PREWARM] Failed (non-blocking): "${query}"`);
         }
       })
-    ).catch(() => {
-      // Catch any unhandled rejections from Promise.allSettled
-      // This shouldn't happen but provides extra safety
+    ).then(() => {
+      console.log(`[PREWARM] All background searches completed`);
+    }).catch(() => {
+      // Catch any unhandled rejections
     });
   }
 
@@ -998,33 +1038,62 @@ ${isPreviewTurn ? `
 **web_search tool now available!**
 
 ${mode === 'quick' ? `
-**Quick Mode (2-4 searches):**
-Travel: 1) Safety/advisories 2) Flights 3) Hotels 4) Weather
-Non-travel: Skip unless needed
+**Quick Mode (2-4 searches) - Run in PARALLEL:**
+Travel: 1) Weather/conditions 2) Road conditions/chain requirements 3) Safety/advisories 4) Hotels
+Outdoor (ski/hiking/beach): 1) Weather forecast 2) Snow/surf conditions 3) Road closures 4) Gear requirements
+Non-travel: 1) Weather if outdoor 2) Any safety concerns
 ` : `
-**Smart Mode (5+ searches):**
-1) Safety/advisories 2) Transport 3) Hotels 4) Dining 5) Activities 6) Weather 7) Budget intel
+**Smart Mode (5+ searches) - Run in PARALLEL:**
+1) Weather forecast 2) Safety/advisories 3) Road/travel conditions 4) Transport 5) Hotels 6) Dining 7) Activities 8) Budget intel
 `}
+
+**🌤️ WEATHER CHECK (MANDATORY FOR ALL OUTDOOR ACTIVITIES):**
+**ALWAYS search weather first - this is CRITICAL information.**
+
+**Required Weather Searches:**
+- "[destination] weather forecast [dates/today]"
+- "[destination] current conditions temperature"
+- For mountain destinations: "[destination] snow conditions" + "[destination] chain requirements road closures"
+- For beach/coastal: "[destination] surf conditions" + "[destination] marine forecast"
+
+**Display weather prominently AT THE TOP of your response:**
+\`\`\`
+🌤️ **WEATHER CONDITIONS** - [Destination]
+• Temperature: [X°F high / Y°F low]
+• Conditions: [Sunny/Cloudy/Rain/Snow]
+• [Any warnings: wind, storm, cold snap, heat wave]
+• 🎒 **Pack:** [contextual recommendations based on weather]
+\`\`\`
+
+**For mountain destinations (Big Bear, Tahoe, Mammoth, etc.):**
+\`\`\`
+❄️ **SNOW & ROAD CONDITIONS** - [Mountain Name]
+• Current snow: [X inches base / Y inches summit]
+• Roads: [Open/Chains required/Closed]
+• ⚠️ Chain requirements: [R1/R2/R3 if applicable]
+• Best time to drive: [early morning/avoid rush]
+\`\`\`
 
 **⚠️ TRAVEL SAFETY PROTOCOL:**
 **Check FIRST:** Hurricanes, advisories, unrest, disasters, disease, extreme weather
 
 **If HAZARD detected:**
-1. Display at TOP: "⚠️ **URGENT TRAVEL ALERT** ⚠️"
+1. Display at VERY TOP: "⚠️ **URGENT TRAVEL ALERT** ⚠️"
 2. Details: Hurricane name/category, landfall date, affected areas
 3. Guidance: "Hurricane Melissa (Cat 4) landfall Oct 27 → POSTPONE or reschedule to Oct 30+"
 4. Show plan as CONDITIONAL: "If proceeding with current dates..."
 
-**Example:**
+**Example critical weather alert:**
 \`\`\`
-⚠️ **URGENT - JAMAICA HURRICANE** ⚠️
-Hurricane Melissa (Cat 4) → Landfall Oct 27 (your date)
-State Dept: Level 4 (Do Not Travel) Oct 26-28
-🚨 **POSTPONE** → Oct 30+ safe, or alt destination (Aruba clear)
-[Plan shown as CONDITIONAL]
+⚠️ **WEATHER WARNING - BIG BEAR** ⚠️
+❄️ Winter storm arriving Dec 24-25
+• Heavy snow expected: 12-18 inches
+• Road closures likely on Highway 18
+• ⛓️ CHAINS REQUIRED on all vehicles
+🚗 **RECOMMENDATION:** Leave LA by 6am to avoid storm, or delay to Dec 26
 \`\`\`
 
-**No hazards:** Proceed, note "✅ No advisories"
+**No hazards:** Include "✅ Weather looks good for your trip!" at top
 ` : ''}
 
 ### 4. No Hallucinations
@@ -1062,7 +1131,18 @@ Your \`message\` field MUST contain the complete, detailed plan with ALL search 
 # 🌴 [Destination] - [Duration] Trip Plan
 
 ⚠️ **SAFETY ALERTS** ⚠️ (if any hazards found via web_search)
-[Hurricane/advisory details from search results]
+[Hurricane/advisory details from search results - SHOW PROMINENTLY IF FOUND]
+
+🌤️ **WEATHER CONDITIONS** (ALWAYS include from web search)
+• Current: [X°F, conditions]
+• Forecast: [Daily temps for trip duration]
+• ⚠️ [Any weather warnings: storms, extreme temps, etc.]
+• 🎒 Pack: [Weather-appropriate recommendations]
+
+❄️ **ROAD/TRAVEL CONDITIONS** (for mountain/remote destinations)
+• Roads: [Open/Chains required/Closures]
+• Best travel time: [Morning/evening to avoid traffic/weather]
+• ⚠️ [Any chain requirements or road warnings]
 
 ## 📍 Trip Overview
 • **Destination:** [City, Country with flag emoji]
@@ -1866,9 +1946,36 @@ export class SimpleConversationalPlanner {
       
       console.log(`[SIMPLE_PLANNER] Question count: AI reported ${aiReportedCount}, enforced ${questionCount} (based on ${userResponseCount} user responses)`);
 
-      // Check if user requested early generation
+      // Check if user requested early generation, preview, or continue
       const latestUserMessage = messages[messages.length - 1]?.content || '';
       const createPlanTrigger = /\b(create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready)\b/i.test(latestUserMessage.toLowerCase());
+      const previewTrigger = /\b(preview|show preview|preview plan|show me the plan|what does the plan look like)\b/i.test(latestUserMessage.toLowerCase());
+      const continueTrigger = /\b(continue|go on|next|keep going|next question|more questions)\b/i.test(latestUserMessage.toLowerCase());
+
+      // Handle preview request - show plan preview WITHOUT creating activity
+      // This triggers early plan generation with web search enrichment
+      if (previewTrigger && !response.readyToGenerate) {
+        console.log(`[SIMPLE_PLANNER] 👁️ User requested preview - triggering plan preview with enrichment`);
+        response.showPreview = true;
+
+        // Force the system to generate a preview by enabling web search
+        // The response should show what the plan would look like
+        response.message = `👁️ **Plan Preview** (based on what you've shared so far)\n\n` +
+          `---\n\n` +
+          response.message +
+          `\n\n---\n\n` +
+          `💡 This is a preview. Say **"create plan"** to finalize, or keep chatting to refine details.`;
+      }
+
+      // Handle continue request - ensure we continue with questions
+      if (continueTrigger) {
+        console.log(`[SIMPLE_PLANNER] ➡️ User requested continue`);
+        // If the AI didn't ask questions, we need to prompt it to continue
+        if (!response.message.includes('?')) {
+          // Append a prompt to continue
+          response.message += `\n\nLet me ask a few more questions to refine your plan:`;
+        }
+      }
 
       // User override: allow generation even if < minimum questions
       if (createPlanTrigger && !response.readyToGenerate) {
@@ -1975,6 +2082,19 @@ export class SimpleConversationalPlanner {
         console.log(`[SIMPLE_PLANNER] Generated ${response.conversationHints.length} conversation hints`);
       }
 
+      // 8. Add mandatory hints footer to ALL responses (unless plan is ready)
+      const STANDARD_HINTS = `\n\n---\n💡 **Commands:** "continue" | "preview" | "create plan"`;
+      if (!response.readyToGenerate && !response.message.includes('Commands:')) {
+        response.message += STANDARD_HINTS;
+        console.log(`[SIMPLE_PLANNER] Added standard hints footer to response`);
+      }
+
+      // 9. Ensure first response has questions (fix empty first response issue)
+      if (questionCount === 0 && !response.message.includes('?') && !response.readyToGenerate) {
+        console.log(`[SIMPLE_PLANNER] ⚠️ First response has no questions - this should not happen`);
+        // The AI prompt should handle this, but log for debugging
+      }
+
       console.log(`[SIMPLE_PLANNER] Response generated - readyToGenerate: ${response.readyToGenerate}, domain: ${response.domain || response.extractedInfo.domain}`);
       return response;
 
@@ -2044,9 +2164,30 @@ export class SimpleConversationalPlanner {
       const minimum = mode === 'quick' ? 5 : 10;
       const questionCount = response.extractedInfo.questionCount || 0;
 
-      // Check if user requested early generation
+      // Check if user requested early generation, preview, or continue
       const latestUserMessage = messages[messages.length - 1]?.content || '';
       const createPlanTrigger = /\b(create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready)\b/i.test(latestUserMessage.toLowerCase());
+      const previewTrigger = /\b(preview|show preview|preview plan|show me the plan|what does the plan look like)\b/i.test(latestUserMessage.toLowerCase());
+      const continueTrigger = /\b(continue|go on|next|keep going|next question|more questions)\b/i.test(latestUserMessage.toLowerCase());
+
+      // Handle preview request - show plan preview WITHOUT creating activity
+      if (previewTrigger && !response.readyToGenerate) {
+        console.log(`[SIMPLE_PLANNER] 👁️ User requested preview - triggering plan preview with enrichment`);
+        response.showPreview = true;
+        response.message = `👁️ **Plan Preview** (based on what you've shared so far)\n\n` +
+          `---\n\n` +
+          response.message +
+          `\n\n---\n\n` +
+          `💡 This is a preview. Say **"create plan"** to finalize, or keep chatting to refine details.`;
+      }
+
+      // Handle continue request - ensure we continue with questions
+      if (continueTrigger) {
+        console.log(`[SIMPLE_PLANNER] ➡️ User requested continue`);
+        if (!response.message.includes('?')) {
+          response.message += `\n\nLet me ask a few more questions to refine your plan:`;
+        }
+      }
 
       // User override: allow generation even if < minimum questions
       if (createPlanTrigger && !response.readyToGenerate) {
@@ -2151,6 +2292,18 @@ export class SimpleConversationalPlanner {
           questionCount
         );
         console.log(`[SIMPLE_PLANNER_STREAM] Generated ${response.conversationHints.length} conversation hints`);
+      }
+
+      // 8. Add mandatory hints footer to ALL responses (unless plan is ready)
+      const STANDARD_HINTS = `\n\n---\n💡 **Commands:** "continue" | "preview" | "create plan"`;
+      if (!response.readyToGenerate && !response.message.includes('Commands:')) {
+        response.message += STANDARD_HINTS;
+        console.log(`[SIMPLE_PLANNER_STREAM] Added standard hints footer to response`);
+      }
+
+      // 9. Ensure first response has questions (fix empty first response issue)
+      if (questionCount === 0 && !response.message.includes('?') && !response.readyToGenerate) {
+        console.log(`[SIMPLE_PLANNER_STREAM] ⚠️ First response has no questions - this should not happen`);
       }
 
       return response;

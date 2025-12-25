@@ -39,7 +39,8 @@ interface SharePreviewDialogProps {
   }) => void;
 }
 
-const backdropPresets = [
+// Fallback presets (used when API fails or during loading)
+const defaultBackdropPresets = [
   {
     url: 'https://images.unsplash.com/photo-1534430480872-3498386e7856?w=1600&q=80',
     name: 'Times Square',
@@ -62,6 +63,12 @@ const backdropPresets = [
   }
 ];
 
+interface BackdropOption {
+  url: string;
+  source: 'tavily' | 'unsplash' | 'user';
+  label?: string;
+}
+
 type PrivacyPreset = 'off' | 'public' | 'private' | 'custom';
 
 interface PrivacySettings {
@@ -75,13 +82,44 @@ interface PrivacySettings {
 export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShare }: SharePreviewDialogProps) {
   // Tab state (temporarily kept for compatibility)
   const [activeTab, setActiveTab] = useState('quick-share');
-  
-  
+
+
   // Share configuration state
   const [shareTitle, setShareTitle] = useState(activity.shareTitle || activity.planSummary || activity.title);
   const [backdrop, setBackdrop] = useState(activity.backdrop || '');
   const [customBackdrop, setCustomBackdrop] = useState('');
-  
+
+  // Fetch dynamic backdrop options based on activity
+  const { data: backdropOptions = [], isLoading: isLoadingBackdrops } = useQuery({
+    queryKey: ['backdrop-options', activity.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/activities/${activity.id}/backdrop-options`, {
+        credentials: 'include'
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.options as BackdropOption[];
+    },
+    enabled: open && !!activity.id,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
+
+  // Use dynamic options if available, otherwise fallback to defaults
+  const backdropPresets = backdropOptions.length > 0
+    ? backdropOptions.map((opt: BackdropOption) => ({
+        url: opt.url,
+        name: opt.label || (opt.source === 'tavily' ? 'Web' : 'HD Curated'),
+        category: opt.source
+      }))
+    : defaultBackdropPresets;
+
+  // Auto-select first dynamic backdrop when options load and no backdrop is set
+  useEffect(() => {
+    if (backdropOptions.length > 0 && !backdrop && !activity.backdrop) {
+      setBackdrop(backdropOptions[0].url);
+    }
+  }, [backdropOptions, backdrop, activity.backdrop]);
+
   // Privacy & Publishing state
   const [privacyPreset, setPrivacyPreset] = useState<PrivacyPreset>('off');
   const [showPrivacySettings, setShowPrivacySettings] = useState(false);
@@ -571,7 +609,16 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
             
             {/* Preset Backdrops */}
             <div>
-              <p className="text-sm text-muted-foreground mb-2">Choose a preset:</p>
+              <p className="text-sm text-muted-foreground mb-2">
+                {isLoadingBackdrops ? 'Loading relevant images...' : 'Choose a backdrop:'}
+              </p>
+              {isLoadingBackdrops ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="aspect-video rounded-md bg-muted animate-pulse" />
+                  ))}
+                </div>
+              ) : (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {backdropPresets.map((preset) => (
                   <button
@@ -582,17 +629,26 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
                     }`}
                     data-testid={`backdrop-preset-${preset.category}`}
                   >
-                    <img 
-                      src={preset.url} 
+                    <img
+                      src={preset.url}
                       alt={preset.name}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Hide broken images
+                        e.currentTarget.parentElement!.style.display = 'none';
+                      }}
                     />
-                    <div className="absolute inset-0 bg-black/40 flex items-end p-1.5">
-                      <span className="text-xs text-white font-medium">{preset.name}</span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between">
+                      <span className="text-xs text-white font-medium drop-shadow-sm">{preset.name}</span>
+                      {preset.category === 'unsplash' && (
+                        <span className="text-[10px] bg-black/50 text-white/80 px-1.5 py-0.5 rounded">HD</span>
+                      )}
                     </div>
                   </button>
                 ))}
               </div>
+              )}
             </div>
 
             {/* Image Upload */}

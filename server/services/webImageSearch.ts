@@ -5,6 +5,12 @@ interface ImageSearchResult {
   description?: string;
 }
 
+export interface BackdropOption {
+  url: string;
+  source: 'tavily' | 'unsplash' | 'user';
+  label?: string;
+}
+
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
 /**
@@ -52,6 +58,141 @@ export async function searchActivityImage(
     console.error('[WebImageSearch] Error searching for images:', error);
     return null;
   }
+}
+
+/**
+ * Search for multiple backdrop options (for image picker UI)
+ * Returns up to 5 options: Tavily results + HD fallbacks
+ */
+export async function searchBackdropOptions(
+  activityTitle: string,
+  category: string,
+  maxOptions: number = 5
+): Promise<BackdropOption[]> {
+  const options: BackdropOption[] = [];
+
+  try {
+    // Try Tavily search first
+    if (process.env.TAVILY_API_KEY) {
+      const searchQuery = `${activityTitle} ${category} high quality landscape photo`;
+      console.log(`[WebImageSearch] Searching backdrop options for: "${searchQuery}"`);
+
+      const response = await tavilyClient.search(searchQuery, {
+        searchDepth: 'basic',
+        maxResults: 3,
+        includeImages: true,
+        includeAnswer: false,
+      });
+
+      const images = response.images || [];
+      for (const img of images.slice(0, 3)) {
+        if (img.url) {
+          options.push({
+            url: img.url,
+            source: 'tavily',
+            label: 'Web Result'
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[WebImageSearch] Error fetching Tavily images:', error);
+  }
+
+  // Add HD Unsplash fallbacks to fill remaining slots
+  const fallbacks = getMultipleFallbackImages(category, activityTitle, maxOptions - options.length);
+  options.push(...fallbacks);
+
+  console.log(`[WebImageSearch] Returning ${options.length} backdrop options`);
+  return options.slice(0, maxOptions);
+}
+
+/**
+ * Get multiple HD fallback images for the picker
+ */
+function getMultipleFallbackImages(category: string, activityTitle?: string, count: number = 3): BackdropOption[] {
+  const options: BackdropOption[] = [];
+  const addedUrls = new Set<string>();
+
+  // City-specific HD images
+  const cityImages: Record<string, { url: string; label: string }[]> = {
+    'new york': [
+      { url: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=1200&h=630&fit=crop&q=80', label: 'NYC Skyline' },
+      { url: 'https://images.unsplash.com/photo-1534430480872-3498386e7856?w=1200&h=630&fit=crop&q=80', label: 'Manhattan Bridge' },
+      { url: 'https://images.unsplash.com/photo-1522083165195-3424ed129620?w=1200&h=630&fit=crop&q=80', label: 'Central Park' },
+    ],
+    'paris': [
+      { url: 'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=1200&h=630&fit=crop&q=80', label: 'Eiffel Tower' },
+      { url: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=1200&h=630&fit=crop&q=80', label: 'Paris Streets' },
+    ],
+    'tokyo': [
+      { url: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1200&h=630&fit=crop&q=80', label: 'Tokyo Tower' },
+      { url: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=1200&h=630&fit=crop&q=80', label: 'Shibuya Crossing' },
+    ],
+    'big bear': [
+      { url: 'https://images.unsplash.com/photo-1489392191049-fc10c97e64b6?w=1200&h=630&fit=crop&q=80', label: 'Mountain View' },
+      { url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&h=630&fit=crop&q=80', label: 'Mountain Peaks' },
+    ],
+    'beach': [
+      { url: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&h=630&fit=crop&q=80', label: 'Tropical Beach' },
+      { url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&h=630&fit=crop&q=80', label: 'Ocean View' },
+    ],
+  };
+
+  // Check for city matches in title
+  if (activityTitle) {
+    const titleLower = activityTitle.toLowerCase();
+    for (const [city, images] of Object.entries(cityImages)) {
+      if (titleLower.includes(city)) {
+        for (const img of images) {
+          if (!addedUrls.has(img.url) && options.length < count) {
+            options.push({ url: img.url, source: 'unsplash', label: img.label });
+            addedUrls.add(img.url);
+          }
+        }
+      }
+    }
+  }
+
+  // Category-based HD images
+  const categoryImages: Record<string, { url: string; label: string }[]> = {
+    fitness: [
+      { url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&h=630&fit=crop&q=80', label: 'Gym' },
+      { url: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=1200&h=630&fit=crop&q=80', label: 'Workout' },
+    ],
+    travel: [
+      { url: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&h=630&fit=crop&q=80', label: 'Travel' },
+      { url: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=1200&h=630&fit=crop&q=80', label: 'Road Trip' },
+    ],
+    romance: [
+      { url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=1200&h=630&fit=crop&q=80', label: 'Romantic' },
+      { url: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=1200&h=630&fit=crop&q=80', label: 'Date Night' },
+    ],
+    adventure: [
+      { url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&h=630&fit=crop&q=80', label: 'Adventure' },
+      { url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200&h=630&fit=crop&q=80', label: 'Mountains' },
+    ],
+    wellness: [
+      { url: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=1200&h=630&fit=crop&q=80', label: 'Wellness' },
+      { url: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=1200&h=630&fit=crop&q=80', label: 'Meditation' },
+    ],
+    personal: [
+      { url: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&h=630&fit=crop&q=80', label: 'Productivity' },
+      { url: 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1200&h=630&fit=crop&q=80', label: 'Planning' },
+    ],
+  };
+
+  // Add category images
+  const catLower = category.toLowerCase();
+  const catImages = categoryImages[catLower] || categoryImages.personal;
+  for (const img of catImages) {
+    if (!addedUrls.has(img.url) && options.length < count) {
+      options.push({ url: img.url, source: 'unsplash', label: img.label });
+      addedUrls.add(img.url);
+    }
+  }
+
+  return options;
 }
 
 /**

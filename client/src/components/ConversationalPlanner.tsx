@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb, Calendar, ExternalLink, Check, Loader2, Link } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb, Calendar, ExternalLink, Check, Loader2, Link, Crosshair } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useKeywordDetection, getCategoryColor } from '@/hooks/useKeywordDetection';
 import { useLocation } from 'wouter';
@@ -83,7 +83,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const [isParsingPaste, setIsParsingPaste] = useState(false);
   const [createdActivityId, setCreatedActivityId] = useState<string | null>(null);
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
-  const [messageActivities, setMessageActivities] = useState<Map<number, { activityId: string; activityTitle: string }>>(new Map());
+  const [messageActivities, setMessageActivities] = useState<Map<number, { activityId: string; activityTitle: string; taskCount: number; backdropUrl?: string }>>(new Map());
   const [createdActivityInfo, setCreatedActivityInfo] = useState<{ id: string; title: string; taskCount: number } | null>(null);
   const [journalContextInfo, setJournalContextInfo] = useState<{
     found: boolean;
@@ -414,11 +414,14 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           // Store activity metadata for this message
           if (finalData.activity?.id && finalData.activity?.title) {
             const messageIndex = finalHistory.length - 1; // Assistant message index
+            const taskCount = finalData.createdTasks?.length || finalData.taskCount || 0;
             setMessageActivities(prev => {
               const updated = new Map(prev);
               updated.set(messageIndex, {
                 activityId: finalData.activity.id,
-                activityTitle: finalData.activity.title
+                activityTitle: finalData.activity.title,
+                taskCount: taskCount,
+                backdropUrl: finalData.backdropUrl || finalData.activity.backdrop
               });
               return updated;
             });
@@ -2263,7 +2266,32 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                         >
                           {msg.role === 'assistant' ? (
                             <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-base prose-headings:font-semibold prose-headings:mb-2 prose-p:my-1 prose-ul:my-1 prose-li:my-0.5">
-                              <ReactMarkdown>{msg.content}</ReactMarkdown>
+                              <ReactMarkdown
+                                components={{
+                                  a: ({ href, children, ...props }) => {
+                                    const isInternal = href?.startsWith('/');
+                                    return (
+                                      <a
+                                        href={href}
+                                        onClick={(e) => {
+                                          if (isInternal) {
+                                            e.preventDefault();
+                                            setLocation(href || '/');
+                                          }
+                                        }}
+                                        className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline cursor-pointer font-medium"
+                                        target={!isInternal ? '_blank' : undefined}
+                                        rel={!isInternal ? 'noopener noreferrer' : undefined}
+                                        {...props}
+                                      >
+                                        {children}
+                                      </a>
+                                    );
+                                  }
+                                }}
+                              >
+                                {msg.content}
+                              </ReactMarkdown>
                             </div>
                           ) : (
                             <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -2274,24 +2302,77 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                         </div>
                       </div>
                       
-                      {/* Activity link with target icon - prominent linked title */}
+                      {/* Activity Success Card - Professional card with dynamic backdrop */}
                       {msg.role === 'assistant' && activityMeta && (
-                        <div className="flex justify-start pl-2 mt-2">
-                          <button
-                            onClick={() => setLocation(`/?tab=activities&activity=${activityMeta.activityId}`)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                        <div className="mt-4 max-w-[80%]">
+                          <div className="rounded-xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-700">
+                            {/* Hero Backdrop Image */}
+                            {activityMeta.backdropUrl ? (
+                              <div className="relative h-36">
+                                <img
+                                  src={activityMeta.backdropUrl}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                                <div className="absolute bottom-3 left-4 right-4 text-white">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <CheckCircle className="w-4 h-4" />
+                                    <span className="text-sm font-medium">✨ Activity Created!</span>
+                                  </div>
+                                  <h3 className="text-lg font-bold drop-shadow-lg flex items-center gap-2">
+                                    <Target className="w-5 h-5" />
+                                    {activityMeta.activityTitle}
+                                  </h3>
+                                </div>
+                              </div>
+                            ) : (
+                              /* Fallback gradient when no backdrop */
+                              <div className={`relative h-28 ${
+                                planningMode === 'quick'
+                                  ? 'bg-gradient-to-br from-emerald-500 to-teal-600'
+                                  : 'bg-gradient-to-br from-purple-500 to-indigo-600'
+                              }`}>
+                                <div className="absolute bottom-3 left-4 right-4 text-white">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <CheckCircle className="w-4 h-4" />
+                                    <span className="text-sm font-medium">✨ Activity Created!</span>
+                                  </div>
+                                  <h3 className="text-lg font-bold flex items-center gap-2">
+                                    <Target className="w-5 h-5" />
+                                    {activityMeta.activityTitle}
+                                  </h3>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Card Footer with CTA */}
+                            <div className={`p-4 ${
                               planningMode === 'quick'
-                                ? 'bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950 dark:to-green-950 border border-emerald-200 dark:border-emerald-800 hover:shadow-md'
-                                : 'bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950 dark:to-indigo-950 border border-purple-200 dark:border-purple-800 hover:shadow-md'
-                            }`}
-                            data-testid={`button-view-activity-${index}`}
-                          >
-                            <Target className={`w-4 h-4 ${planningMode === 'quick' ? 'text-emerald-600 dark:text-emerald-400' : 'text-purple-600 dark:text-purple-400'}`} />
-                            <span className={`font-medium ${planningMode === 'quick' ? 'text-emerald-700 dark:text-emerald-300' : 'text-purple-700 dark:text-purple-300'}`}>
-                              {activityMeta.activityTitle}
-                            </span>
-                            <ExternalLink className={`w-3 h-3 ${planningMode === 'quick' ? 'text-emerald-500 dark:text-emerald-400' : 'text-purple-500 dark:text-purple-400'}`} />
-                          </button>
+                                ? 'bg-emerald-50 dark:bg-emerald-900/20'
+                                : 'bg-purple-50 dark:bg-purple-900/20'
+                            }`}>
+                              <p className="text-slate-600 dark:text-slate-400 text-sm mb-3">
+                                {activityMeta.taskCount} tasks ready for you
+                              </p>
+                              <Button
+                                onClick={() => setLocation(`/?tab=activities&activity=${activityMeta.activityId}`)}
+                                className={`w-full font-semibold py-3 rounded-lg flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all ${
+                                  planningMode === 'quick'
+                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                                }`}
+                                data-testid={`button-view-activity-${index}`}
+                              >
+                                <Crosshair className="w-5 h-5" />
+                                View Your Plan
+                                <ArrowRight className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       )}
 
@@ -2542,27 +2623,52 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
 
           {pendingPlan && (
             <div className="space-y-4 py-4">
-              {/* Activity Preview */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Target className="h-5 w-5 text-emerald-500" />
-                        {pendingPlan.activity?.title || "Your Activity"}
-                      </CardTitle>
-                      <Badge variant="outline" className="mt-2">
-                        {pendingPlan.activity?.category || "General"}
-                      </Badge>
-                    </div>
+              {/* Hero Backdrop with Activity Title Overlay */}
+              <div className="relative h-48 rounded-xl overflow-hidden shadow-lg">
+                {pendingPlan.backdropUrl ? (
+                  <img
+                    src={pendingPlan.backdropUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Hide image on error, fallback gradient will show
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                ) : null}
+                {/* Gradient overlay for text readability */}
+                <div className={`absolute inset-0 ${
+                  pendingPlan.backdropUrl
+                    ? 'bg-gradient-to-t from-black/80 via-black/40 to-black/20'
+                    : 'bg-gradient-to-br from-emerald-600 to-teal-700'
+                }`} />
+
+                {/* Activity info overlay */}
+                <div className="absolute bottom-4 left-4 right-4 text-white">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target className="h-5 w-5 drop-shadow-lg" />
+                    <h2 className="text-xl font-bold drop-shadow-lg">
+                      {pendingPlan.activity?.title || "Your Activity"}
+                    </h2>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    {pendingPlan.activity?.description || "Activity description will appear here"}
-                  </p>
-                </CardContent>
-              </Card>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                      {pendingPlan.activity?.category || "General"}
+                    </Badge>
+                    {pendingPlan.estimatedTimeframe && (
+                      <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {pendingPlan.estimatedTimeframe}
+                      </Badge>
+                    )}
+                  </div>
+                  {pendingPlan.activity?.description && (
+                    <p className="text-sm text-white/90 mt-2 line-clamp-2 drop-shadow">
+                      {pendingPlan.activity.description}
+                    </p>
+                  )}
+                </div>
+              </div>
 
               {/* Tasks Preview */}
               {pendingPlan.tasks && pendingPlan.tasks.length > 0 && (

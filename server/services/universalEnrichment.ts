@@ -45,15 +45,57 @@ export interface UniversalEnrichedData {
  * with critical details like reservations, timing, traffic, costs, etc.
  */
 export class UniversalEnrichment {
+  // Cache for enrichment results (1 hour TTL)
+  private enrichmentCache = new Map<string, { data: UniversalEnrichedData; timestamp: number }>();
+  private readonly CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
   /**
-   * Enrich plan with comprehensive real-time data
+   * Generate cache key from domain and slots
+   */
+  private getCacheKey(domain: string, slots: Record<string, any>): string {
+    const destination = slots?.location?.destination || slots?.location?.city || '';
+    const dates = slots?.timing?.date || slots?.timing?.time || '';
+    return `${domain}:${destination}:${dates}`.toLowerCase().replace(/\s+/g, '-');
+  }
+
+  /**
+   * Check cache for valid enrichment data
+   */
+  private getCachedEnrichment(cacheKey: string): UniversalEnrichedData | null {
+    const cached = this.enrichmentCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      console.log(`[UNIVERSAL ENRICHMENT] Cache HIT: ${cacheKey}`);
+      return cached.data;
+    }
+    if (cached) {
+      this.enrichmentCache.delete(cacheKey);
+    }
+    return null;
+  }
+
+  /**
+   * Store enrichment data in cache
+   */
+  private cacheEnrichment(cacheKey: string, data: UniversalEnrichedData): void {
+    this.enrichmentCache.set(cacheKey, { data, timestamp: Date.now() });
+    console.log(`[UNIVERSAL ENRICHMENT] Cached: ${cacheKey}`);
+  }
+
+  /**
+   * Enrich plan with comprehensive real-time data (with caching)
    */
   async enrichPlan(
     domain: string,
     slots: Record<string, any>,
     userProfile: User
   ): Promise<UniversalEnrichedData> {
+    const cacheKey = this.getCacheKey(domain, slots);
+
+    // Check cache first for speed
+    const cached = this.getCachedEnrichment(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 6 * 60 * 60 * 1000); // 6 hours default
@@ -86,11 +128,16 @@ export class UniversalEnrichment {
         const enrichedData = JSON.parse(jsonMatch[0]);
         enrichedData.fetchedAt = now;
         enrichedData.expiresAt = expiresAt;
+
+        // Cache the result for speed
+        this.cacheEnrichment(cacheKey, enrichedData);
+
         return enrichedData;
       }
 
       // Fallback if no JSON found
-      return this.createFallbackEnrichment(domain, now, expiresAt);
+      const fallback = this.createFallbackEnrichment(domain, now, expiresAt);
+      return fallback;
 
     } catch (error) {
       console.error('[UNIVERSAL ENRICHMENT] Error:', error);

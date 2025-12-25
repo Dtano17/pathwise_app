@@ -392,7 +392,90 @@ Make sure each step has a clear, actionable title and helpful description.`
           domain: currentDomain
         };
       }
-      
+
+      // Handle special commands: preview, continue, create plan
+      const isPreviewRequest = this.detectPreview(userMessage);
+      const isContinueRequest = this.detectContinue(userMessage);
+      const isCreatePlanRequest = this.detectCreatePlan(userMessage);
+
+      // PREVIEW: Show current plan draft based on collected info
+      if (isPreviewRequest && conversationHistory.length > 0) {
+        console.log('[PREVIEW] User requested plan preview');
+
+        // Get current slots for preview generation
+        const previewSlots = currentSlots || {};
+        const domain = currentDomain || 'general';
+
+        // Generate quick preview using existing data
+        const enrichedData = await universalEnrichment.enrichPlan(
+          domain,
+          previewSlots,
+          userProfile
+        );
+
+        const previewPlan = await this.synthesizePlan(
+          domain,
+          previewSlots,
+          enrichedData,
+          userProfile
+        );
+
+        return {
+          message: `📋 **Plan Preview** (based on what you've shared so far)\n\n${previewPlan.richContent}\n\n---\n⚠️ *This is a preview. Continue answering questions for a more personalized plan, or say "create plan" to finalize now.*${this.STANDARD_HINTS}`,
+          phase: 'gathering',
+          progress: previewPlan.progress || { percentage: 50, answered: 3, total: 7 },
+          readyToGenerate: false,
+          planReady: false,
+          showGenerateButton: false,
+          enrichedPlan: previewPlan,
+          updatedSlots: { ...currentSlots, _lastPreview: previewPlan },
+          domain: domain
+        };
+      }
+
+      // CONTINUE: Proceed to next question without additional input
+      if (isContinueRequest && conversationHistory.length > 0) {
+        console.log('[CONTINUE] User wants to continue with next question');
+        // Let the flow continue naturally - don't treat "continue" as new content
+        // Just proceed to gap analysis with current slots
+      }
+
+      // CREATE PLAN: Jump directly to plan generation
+      if (isCreatePlanRequest && conversationHistory.length > 0) {
+        console.log('[CREATE PLAN] User requested immediate plan creation');
+
+        const domain = currentDomain || 'general';
+        const enrichedData = await universalEnrichment.enrichPlan(
+          domain,
+          currentSlots,
+          userProfile
+        );
+
+        const beautifulPlan = await this.synthesizePlan(
+          domain,
+          currentSlots,
+          enrichedData,
+          userProfile
+        );
+
+        return {
+          message: beautifulPlan.richContent + "\n\n---\n\n**Are you comfortable with this plan?**\n\n• Say **'yes'** to proceed with generating\n• Say **'no'** to make changes",
+          phase: 'confirming',
+          progress: { percentage: 100, answered: 100, total: 100 },
+          readyToGenerate: false,
+          planReady: false,
+          showGenerateButton: false,
+          enrichedPlan: beautifulPlan,
+          updatedSlots: {
+            ...currentSlots,
+            _generatedPlan: beautifulPlan,
+            _enrichedData: enrichedData,
+            _planState: 'confirming'
+          },
+          domain: domain
+        };
+      }
+
       // PHASE 1: Recognize Context Switch
       const context = await this.recognizeContext(
         userMessage,
@@ -404,11 +487,12 @@ Make sure each step has a clear, actionable title and helpful description.`
 
       // Check if user is asking about non-planning topic (low confidence)
       // Skip this check if we're in refinement mode (user is providing changes)
-      if (context.confidence < 0.5 && !isRefinementMode) {
+      // Also skip for preview/continue/create commands
+      if (context.confidence < 0.5 && !isRefinementMode && !isPreviewRequest && !isContinueRequest && !isCreatePlanRequest) {
         // If we have conversation history, don't reset - just ask for clarification
         if (conversationHistory && conversationHistory.length > 0) {
           return {
-            message: "I didn't quite catch that. Could you rephrase what you said?",
+            message: "I didn't quite catch that. Could you rephrase what you said?" + this.STANDARD_HINTS,
             phase: 'gathering',
             readyToGenerate: false,
             planReady: false,
@@ -417,7 +501,7 @@ Make sure each step has a clear, actionable title and helpful description.`
             domain: currentDomain
           };
         }
-        
+
         // First message with low confidence - explain what we do
         return {
           message: "I'm sorry, I don't understand. This is a planning assistant designed to help you plan activities like travel, interviews, dates, workouts, and daily tasks. How can I help you plan something today?",
@@ -800,6 +884,9 @@ Make sure each step has a clear, actionable title and helpful description.`
 
         responseMessage += `\n\n📊 Progress: ${gapAnalysis.progress.answered}/${gapAnalysis.progress.total} (${gapAnalysis.progress.percentage}%)`;
 
+        // Add standard hints footer for all gathering responses
+        responseMessage += this.STANDARD_HINTS;
+
         return {
           message: responseMessage,
           phase: 'gathering',
@@ -819,7 +906,7 @@ Make sure each step has a clear, actionable title and helpful description.`
     } catch (error) {
       console.error('[UNIVERSAL AGENT] Error:', error);
       return {
-        message: "I didn't quite catch that. Could you rephrase what you said?",
+        message: "I didn't quite catch that. Could you rephrase what you said?" + this.STANDARD_HINTS,
         phase: 'gathering',
         readyToGenerate: false,
         updatedSlots: currentSlots,
@@ -1117,6 +1204,62 @@ Example for interview_prep:
 
     return null;
   }
+
+  /**
+   * Detect preview command - shows plan draft without creating activity
+   */
+  private detectPreview(message: string): boolean {
+    const lower = message.toLowerCase().trim();
+    const previewPatterns = [
+      /\bpreview\b/i,
+      /\bshow preview\b/i,
+      /\bpreview plan\b/i,
+      /\bshow me the plan\b/i,
+      /\bwhat does the plan look like\b/i,
+      /\bshow what you have\b/i,
+      /\bwhat do you have so far\b/i
+    ];
+    return previewPatterns.some(p => p.test(lower));
+  }
+
+  /**
+   * Detect continue command - advances to next question
+   */
+  private detectContinue(message: string): boolean {
+    const lower = message.toLowerCase().trim();
+    const continuePatterns = [
+      /^continue$/i,
+      /^go on$/i,
+      /^next$/i,
+      /^keep going$/i,
+      /^next question$/i,
+      /^more questions$/i,
+      /^what else$/i,
+      /^ask me more$/i
+    ];
+    return continuePatterns.some(p => p.test(lower));
+  }
+
+  /**
+   * Detect create plan command - generates final activity
+   */
+  private detectCreatePlan(message: string): boolean {
+    const lower = message.toLowerCase().trim();
+    const createPatterns = [
+      /\bcreate plan\b/i,
+      /\bgenerate plan\b/i,
+      /\bmake (the )?plan\b/i,
+      /\bbuild (the )?plan\b/i,
+      /\bfinalize\b/i,
+      /\bi'm ready\b/i,
+      /\blet's create it\b/i,
+      /\bgenerate it now\b/i
+    ];
+    return createPatterns.some(p => p.test(lower));
+  }
+
+  // Standard hints footer for all responses
+  private readonly STANDARD_HINTS = `\n\n---\n💡 **Commands:** "continue" | "preview" | "create plan"`;
 
   /**
    * Detect if user is saying "none" to indicate suggestions don't apply
