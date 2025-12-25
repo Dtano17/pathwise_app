@@ -468,7 +468,7 @@ export function generatePlatformCaption(
       if (shortSummary) {
         caption += `${shortSummary}\n\n`;
       }
-      caption += `🔗 [Customize this plan](${shareUrl})\n\n`;
+      caption += `${emoji} [Customize this plan](${shareUrl})\n\n`;
       caption += `✨ Plan your next adventure with JournalMate.ai`;
       break;
 
@@ -488,7 +488,7 @@ export function generatePlatformCaption(
       if (shortSummary) {
         caption += `${shortSummary}\n\n`;
       }
-      caption += `🔗 [Customize this plan](${shareUrl})\n\n`;
+      caption += `${emoji} [Customize this plan](${shareUrl})\n\n`;
       caption += `✨ Plan your next adventure with JournalMate.ai`;
       break;
 
@@ -498,7 +498,7 @@ export function generatePlatformCaption(
       if (shortSummary) {
         caption += `${shortSummary}\n\n`;
       }
-      caption += `🔗 [Customize this plan](${shareUrl})\n\n`;
+      caption += `${emoji} [Customize this plan](${shareUrl})\n\n`;
       caption += `✨ Plan smarter with JournalMate.ai`;
       break;
 
@@ -509,7 +509,7 @@ export function generatePlatformCaption(
       if (shortSummary) {
         caption += `${shortSummary}\n\n`;
       }
-      caption += `🔗 [Customize this plan](${shareUrl})\n\n`;
+      caption += `${emoji} [Customize this plan](${shareUrl})\n\n`;
       caption += `✨ Plan your next adventure with JournalMate.ai`;
       break;
 
