@@ -259,16 +259,12 @@ export function SharePreviewDialog({
     }
     
     if (totalTasks > 0) {
-      caption += `${progressPercent}% complete with ${totalTasks} task${totalTasks !== 1 ? 's' : ''}!\n\n`;
+      caption += `✨ ${progressPercent}% complete with ${totalTasks} task${totalTasks !== 1 ? 's' : ''}!\n\n`;
     }
     
-    caption += `Track progress, own and edit your own version!\n\n`;
-    
-    if (shareUrl) {
-      caption += `${shareUrl}\n\n`;
-    }
-    
-    caption += `Plan your next adventure with JournalMate.ai`;
+    caption += `🔗 [Customize this plan](${shareUrl})\n\n`;
+    caption += `✨ Plan your next adventure with JournalMate.ai\n\n`;
+    caption += `#lifestyle #daily #life #inspiration #motivation #goals #planning #organize #productivity #success`;
     
     return caption;
   };
