@@ -63,11 +63,13 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
   hideControls = false,
 }, ref) => {
   const cardRef = useRef<HTMLDivElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
   const [internalPlatform, setInternalPlatform] = useState<string>('instagram_story');
   const [internalFormat, setInternalFormat] = useState<'png' | 'jpg' | 'pdf'>('png');
   const [isGenerating, setIsGenerating] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number } | null>(null);
   const [canShareFiles, setCanShareFiles] = useState(false);
+  const [previewScale, setPreviewScale] = useState(1);
   const { toast } = useToast();
 
   // Check if Web Share API with files is supported
@@ -94,6 +96,22 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
   const selectedFormat = controlledFormat ?? internalFormat;
 
   const platform = PLATFORM_TEMPLATES[selectedPlatform];
+
+  // Calculate preview scale for mobile responsiveness
+  useEffect(() => {
+    const calculateScale = () => {
+      if (previewContainerRef.current && platform) {
+        const containerWidth = previewContainerRef.current.offsetWidth - 16; // Account for padding
+        const cardWidth = platform.width;
+        const scale = Math.min(1, containerWidth / cardWidth);
+        setPreviewScale(scale);
+      }
+    };
+
+    calculateScale();
+    window.addEventListener('resize', calculateScale);
+    return () => window.removeEventListener('resize', calculateScale);
+  }, [platform, selectedPlatform]);
 
   // Handle platform change
   const handlePlatformChange = (newPlatform: string) => {
@@ -617,21 +635,29 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
 
       {/* Live Preview */}
       <Card className="overflow-hidden">
-        <CardContent className="p-3 sm:p-6">
-          <p className="text-sm text-muted-foreground mb-3">Preview:</p>
-          <div className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4">
-            {/* Mobile-responsive preview wrapper */}
-            <div className="w-full max-w-full overflow-x-auto flex justify-center">
+        <CardContent className="p-2 sm:p-6">
+          <p className="text-sm text-muted-foreground mb-2 sm:mb-3">Preview:</p>
+          <div
+            ref={previewContainerRef}
+            className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4 overflow-hidden"
+          >
+            {/* Scaling container for mobile responsiveness */}
+            <div
+              style={{
+                transform: `scale(${previewScale})`,
+                transformOrigin: 'top center',
+                width: `${platform?.width || 1080}px`,
+                height: `${(platform?.height || 1080) * previewScale}px`,
+              }}
+            >
               {/* Share Card Template */}
               <div
                 ref={cardRef}
                 style={{
                   width: `${platform?.width || 1080}px`,
                   height: `${platform?.height || 1080}px`,
-                  maxWidth: '100%',
-                  aspectRatio: `${platform?.width}/${platform?.height}`,
                 }}
-                className="relative overflow-hidden rounded-lg shadow-xl bg-white flex-shrink-0"
+                className="relative overflow-hidden rounded-lg shadow-xl bg-white"
               >
               {/* Backdrop Image */}
               <img
