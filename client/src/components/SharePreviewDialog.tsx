@@ -613,13 +613,13 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
                 {isLoadingBackdrops ? 'Loading relevant images...' : 'Choose a backdrop:'}
               </p>
               {isLoadingBackdrops ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                   {[1, 2, 3, 4].map((i) => (
                     <div key={i} className="aspect-video rounded-md bg-muted animate-pulse" />
                   ))}
                 </div>
               ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                 {backdropPresets.map((preset) => (
                   <button
                     key={preset.url}
@@ -1074,11 +1074,12 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
           </div>
 
           {/* Save Settings Button */}
-          <div className="flex flex-wrap justify-end gap-2 pt-4 border-t">
+          <div className="flex flex-col sm:flex-row flex-wrap justify-end gap-2 pt-4 border-t">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
               data-testid="button-cancel-share-preview"
+              className="min-h-[44px]"
             >
               Cancel
             </Button>
@@ -1086,7 +1087,7 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
               onClick={() => updateMutation.mutate()}
               disabled={updateMutation.isPending}
               data-testid="button-confirm-share"
-              className="gap-2"
+              className="gap-2 min-h-[44px]"
             >
               <Sparkles className="w-4 h-4" />
               {updateMutation.isPending ? 'Saving...' : 'Save Settings'}
