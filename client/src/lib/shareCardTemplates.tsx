@@ -453,96 +453,93 @@ export function generatePlatformCaption(
 
   let caption = '';
 
-  // Platform-specific caption formats optimized for engagement
+  // Generate a short summary if planSummary is provided, otherwise create from title
+  const shortSummary = planSummary
+    ? (planSummary.length > 120 ? planSummary.substring(0, 120) + '...' : planSummary)
+    : '';
+
+  // Platform-specific caption formats - attractive, concise with clickable links
   switch (platform) {
     case 'instagram_story':
     case 'instagram_feed':
     case 'instagram_portrait':
-      // Instagram: Visual, emoji-rich, storytelling
+      // Instagram: Clean, emoji-rich, CTA-focused
       caption = `${emoji} ${activityTitle}\n\n`;
-      if (planSummary) {
-        caption += `${planSummary.substring(0, 150)}${planSummary.length > 150 ? '...' : ''}\n\n`;
+      if (shortSummary) {
+        caption += `${shortSummary}\n\n`;
       }
-      caption += `🎯 Ready to make it happen? This AI-powered plan breaks it down into actionable steps!\n\n`;
-      caption += `📥 Own this plan: ${shareUrl}\n\n`;
-      caption += `💡 Create your own FREE at JournalMate.ai\n`;
+      caption += `${emoji} [Customize this plan](${shareUrl})\n\n`;
+      caption += `✨ Plan your next adventure with JournalMate.ai`;
       break;
 
     case 'twitter':
-      // Twitter: Concise, punchy, under 280 chars
+      // Twitter: Ultra-concise for 280 char limit
       caption = `${emoji} ${activityTitle}\n\n`;
-      caption += `📥 Copy this plan and make it yours:\n${shareUrl}\n\n`;
-      caption += `Made with @JournalMateAI`;
+      if (shortSummary && shortSummary.length < 80) {
+        caption += `${shortSummary}\n\n`;
+      }
+      caption += `[Customize](${shareUrl})\n\n`;
+      caption += `✨ JournalMate.ai`;
       break;
 
     case 'facebook':
-      // Facebook: Conversational, community-focused
-      caption = `${emoji} Check out my plan: ${activityTitle}\n\n`;
-      if (planSummary) {
-        caption += `${planSummary}\n\n`;
+      // Facebook: Friendly, conversational
+      caption = `${emoji} ${activityTitle}\n\n`;
+      if (shortSummary) {
+        caption += `${shortSummary}\n\n`;
       }
-      caption += `I used JournalMate.ai to create this step-by-step action plan. The AI asks the right questions and builds a personalized roadmap!\n\n`;
-      caption += `📥 Copy this plan for yourself: ${shareUrl}\n\n`;
-      caption += `✨ Create your own plans FREE at JournalMate.ai`;
+      caption += `${emoji} [Customize this plan](${shareUrl})\n\n`;
+      caption += `✨ Plan your next adventure with JournalMate.ai`;
       break;
 
     case 'linkedin':
-      // LinkedIn: Professional, value-focused
+      // LinkedIn: Professional tone
       caption = `${emoji} ${activityTitle}\n\n`;
-      if (planSummary) {
-        caption += `${planSummary}\n\n`;
+      if (shortSummary) {
+        caption += `${shortSummary}\n\n`;
       }
-      caption += `I've been using AI-powered planning to turn my goals into actionable steps. This tool asks thoughtful questions and creates a structured roadmap.\n\n`;
-      caption += `Key benefits:\n`;
-      caption += `• Breaks down complex goals into manageable tasks\n`;
-      caption += `• Prioritizes what matters most\n`;
-      caption += `• Tracks progress automatically\n\n`;
-      caption += `📥 Own this plan: ${shareUrl}\n\n`;
-      caption += `Built with JournalMate.ai - Smart Planning for Ambitious Goals`;
+      caption += `${emoji} [Customize this plan](${shareUrl})\n\n`;
+      caption += `✨ Plan smarter with JournalMate.ai`;
       break;
 
     case 'whatsapp':
     case 'telegram':
-      // Messaging: Direct, shareable, action-oriented
+      // Messaging: Clean with markdown links
       caption = `${emoji} *${activityTitle}*\n\n`;
-      if (planSummary) {
-        caption += `${planSummary}\n\n`;
+      if (shortSummary) {
+        caption += `${shortSummary}\n\n`;
       }
-      caption += `I created this plan using JournalMate.ai - it's an AI that helps you plan anything!\n\n`;
-      caption += `✨ *What you get:*\n`;
-      caption += `• Step-by-step action plan\n`;
-      caption += `• Smart task prioritization\n`;
-      caption += `• Progress tracking\n\n`;
-      caption += `📥 *Copy this plan:* ${shareUrl}\n\n`;
-      caption += `Create yours FREE at JournalMate.ai`;
+      caption += `${emoji} [Customize this plan](${shareUrl})\n\n`;
+      caption += `✨ Plan your next adventure with JournalMate.ai`;
       break;
 
     case 'tiktok':
-      // TikTok: Short, trendy, Gen-Z friendly
-      caption = `${emoji} POV: You finally have a plan for ${activityTitle.toLowerCase()}\n\n`;
-      caption += `AI did the heavy lifting 🤖✨\n\n`;
-      caption += `📥 Download this plan - link in bio! #JournalMate`;
+      // TikTok: Short, trendy
+      caption = `${emoji} ${activityTitle}\n\n`;
+      if (shortSummary && shortSummary.length < 60) {
+        caption += `${shortSummary}\n\n`;
+      }
+      caption += `Link in bio to customize! ✨`;
       break;
 
     case 'pinterest':
-      // Pinterest: Inspirational, keyword-rich
-      caption = `${emoji} ${activityTitle} | AI-Powered Planning\n\n`;
-      if (planSummary) {
-        caption += `${planSummary}\n\n`;
+      // Pinterest: Inspirational
+      caption = `${emoji} ${activityTitle}\n\n`;
+      if (shortSummary) {
+        caption += `${shortSummary}\n\n`;
       }
-      caption += `📌 Save this pin and own your copy!\n\n`;
-      caption += `📥 Download this plan: ${shareUrl}\n`;
-      caption += `✨ Create yours at JournalMate.ai`;
+      caption += `📌 [Save & customize this plan](${shareUrl})\n\n`;
+      caption += `✨ Plan your next adventure with JournalMate.ai`;
       break;
 
     default:
       // Generic fallback
       caption = `${emoji} ${activityTitle}\n\n`;
-      if (planSummary) {
-        caption += `${planSummary}\n\n`;
+      if (shortSummary) {
+        caption += `${shortSummary}\n\n`;
       }
-      caption += `📥 Own this plan at JournalMate.ai\n`;
-      caption += `🔗 ${shareUrl}`;
+      caption += `${emoji} [Customize this plan](${shareUrl})\n\n`;
+      caption += `✨ Plan your next adventure with JournalMate.ai`;
   }
 
   // Add creator attribution if available

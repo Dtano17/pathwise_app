@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown, Users, Download, Share2, BadgeCheck, AlertTriangle, X, Loader2 } from 'lucide-react';
+import { Image, Sparkles, Upload, Shield, ShieldCheck, ChevronDown, Users, Download, Share2, BadgeCheck, AlertTriangle, X, Loader2, Link, Copy, ImageIcon } from 'lucide-react';
 import { Card, CardHeader, CardContent, CardDescription } from '@/components/ui/card';
 import { ShareCardGenerator, type ShareCardGeneratorRef } from './ShareCardGenerator';
 import { SocialVerificationTab, type SocialMediaLinks } from './SocialVerificationTab';
@@ -80,8 +80,8 @@ interface PrivacySettings {
 }
 
 export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShare }: SharePreviewDialogProps) {
-  // Tab state (temporarily kept for compatibility)
-  const [activeTab, setActiveTab] = useState('quick-share');
+  // Tab state - Share Cards is the default/main tab
+  const [activeTab, setActiveTab] = useState('share-cards');
 
 
   // Share configuration state
@@ -439,6 +439,44 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
     setCustomBackdrop('');
   };
 
+  // Copy share link to clipboard
+  const handleCopyLink = async () => {
+    const shareUrl = `https://journalmate.ai/shared/${activity.id}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast({
+        title: 'Link Copied!',
+        description: 'Share link copied to clipboard',
+      });
+    } catch (error) {
+      toast({
+        title: 'Copy Failed',
+        description: 'Could not copy link to clipboard',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Native share for link
+  const handleNativeShare = async () => {
+    const shareUrl = `https://journalmate.ai/shared/${activity.id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: activity.planSummary || shareTitle,
+          url: shareUrl,
+        });
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          handleCopyLink();
+        }
+      }
+    } else {
+      handleCopyLink();
+    }
+  };
+
   const handleCustomBackdrop = () => {
     if (customBackdrop) {
       setBackdrop(customBackdrop);
@@ -555,71 +593,130 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
           <TabsList className="grid w-full grid-cols-3 h-auto">
-            <TabsTrigger value="quick-share" className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm">
-              <Share2 className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Quick Share</span>
-              <span className="sm:hidden">Share</span>
+            <TabsTrigger value="share-cards" className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm">
+              <ImageIcon className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Share Image</span>
+              <span className="sm:hidden">Image</span>
             </TabsTrigger>
-            <TabsTrigger value="download-cards" className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm">
-              <Download className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Download Cards</span>
-              <span className="sm:hidden">Cards</span>
+            <TabsTrigger value="link-preview" className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm">
+              <Link className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Copy Link</span>
+              <span className="sm:hidden">Link</span>
             </TabsTrigger>
             <TabsTrigger value="social-verify" className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-xs sm:text-sm">
               <BadgeCheck className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Social Verification</span>
+              <span className="hidden sm:inline">Verify</span>
               <span className="sm:hidden">Verify</span>
             </TabsTrigger>
           </TabsList>
 
-          {/* Tab 1: Quick Share (existing functionality) */}
-          <TabsContent value="quick-share" className="space-y-6 py-4">
+          {/* Tab 1: Share Cards - Main share option with platform picker + captions */}
+          <TabsContent value="share-cards" className="py-4">
+            <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="min-w-[320px]">
+                <ShareCardGenerator
+                  activityId={activity.id}
+                  activityTitle={shareTitle}
+                  activityCategory={activity.category}
+                  backdrop={backdrop || ''}
+                  planSummary={activity.planSummary || undefined}
+                  tasks={activityTasks}
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Tab 2: Copy Link - Simple link sharing with OG preview */}
+          <TabsContent value="link-preview" className="space-y-4 py-4">
+
+          {/* Share Link with Copy Button */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Link className="w-4 h-4" />
+              Your Share Link
+            </Label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                readOnly
+                value={`https://journalmate.ai/shared/${activity.id}`}
+                className="flex-1 font-mono text-sm"
+                data-testid="input-share-link"
+              />
+              <Button
+                variant="outline"
+                onClick={handleCopyLink}
+                className="gap-2 min-h-[44px]"
+                data-testid="button-copy-link"
+              >
+                <Copy className="w-4 h-4" />
+                <span className="sm:inline">Copy Link</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* OG Image Preview (1200x630 aspect ratio) */}
+          <div className="space-y-2">
+            <Label>Link Preview (What others see when you share)</Label>
+            <Card className="overflow-hidden">
+              <div className="aspect-[1200/630] relative bg-muted">
+                {backdrop ? (
+                  <>
+                    <img
+                      src={backdrop}
+                      alt="Link preview backdrop"
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Overlay with title - OG style */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-4 sm:p-6">
+                      <p className="text-white/80 text-xs sm:text-sm mb-1">journalmate.ai</p>
+                      <h3 className="text-white text-lg sm:text-2xl font-bold line-clamp-2">{shareTitle}</h3>
+                      {activity.planSummary && (
+                        <p className="text-white/70 text-xs sm:text-sm mt-1 line-clamp-2">{activity.planSummary}</p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center p-4">
+                    <div className="text-center text-muted-foreground">
+                      <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Select a backdrop below</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+
           {/* Share Title */}
           <div className="space-y-2">
-            <Label htmlFor="share-title">Share Title</Label>
+            <Label htmlFor="share-title">Title</Label>
             <Input
               id="share-title"
               value={shareTitle}
               onChange={(e) => setShareTitle(e.target.value)}
-              placeholder="Enter a catchy title for sharing..."
+              placeholder="Enter a catchy title..."
               maxLength={140}
               data-testid="input-share-title"
             />
-            <div className="flex items-center justify-between text-xs">
-              <p className="text-muted-foreground">
-                This title will be displayed on your shared activity page
-              </p>
-              <span className={`font-medium ${shareTitle.length > 100 ? 'text-amber-600' : 'text-muted-foreground'}`}>
-                {shareTitle.length}/140
-              </span>
-            </div>
-            {shareTitle.length > 100 && (
-              <p className="text-xs text-amber-600">
-                Tip: Shorter titles (under 100 chars) display better on social media
-              </p>
-            )}
+            <span className={`text-xs ${shareTitle.length > 100 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+              {shareTitle.length}/140
+            </span>
           </div>
 
-          {/* Backdrop Selector */}
+          {/* Backdrop Selector - Simplified */}
           <div className="space-y-3">
             <Label className="flex items-center gap-2">
               <Image className="w-4 h-4" />
-              Background Image
+              Backdrop
             </Label>
-            
-            {/* Preset Backdrops */}
-            <div>
-              <p className="text-sm text-muted-foreground mb-2">
-                {isLoadingBackdrops ? 'Loading relevant images...' : 'Choose a backdrop:'}
-              </p>
-              {isLoadingBackdrops ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="aspect-video rounded-md bg-muted animate-pulse" />
-                  ))}
-                </div>
-              ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {isLoadingBackdrops ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="aspect-video rounded-md bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {backdropPresets.map((preset) => (
                   <button
                     key={preset.url}
@@ -634,66 +731,47 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
                       alt={preset.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        // Hide broken images
                         e.currentTarget.parentElement!.style.display = 'none';
                       }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                    <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between">
-                      <span className="text-xs text-white font-medium drop-shadow-sm">{preset.name}</span>
-                      {preset.category === 'unsplash' && (
-                        <span className="text-[10px] bg-black/50 text-white/80 px-1.5 py-0.5 rounded">HD</span>
-                      )}
-                    </div>
+                    <span className="absolute bottom-1 left-1.5 text-[10px] sm:text-xs text-white font-medium drop-shadow-sm">{preset.name}</span>
                   </button>
                 ))}
               </div>
-              )}
-            </div>
-
-            {/* Image Upload */}
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Or upload your own image:</p>
-              <div className="flex gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  data-testid="input-image-upload"
+            )}
+            {/* Custom upload */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="gap-2 flex-1 min-h-[44px]"
+                size="sm"
+              >
+                <Upload className="w-4 h-4" />
+                Upload
+              </Button>
+              <div className="flex gap-2 flex-1">
+                <Input
+                  type="url"
+                  placeholder="Or paste image URL..."
+                  value={customBackdrop}
+                  onChange={(e) => setCustomBackdrop(e.target.value)}
+                  className="flex-1"
                 />
                 <Button
                   variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="gap-2 flex-1"
-                  data-testid="button-upload-image"
-                >
-                  <Upload className="w-4 h-4" />
-                  Upload Image
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Max file size: 5MB (JPG, PNG, GIF, etc.)
-              </p>
-            </div>
-
-            {/* Custom URL */}
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Or enter a custom image URL:</p>
-              <div className="flex gap-2">
-                <Input
-                  type="url"
-                  placeholder="https://example.com/image.jpg"
-                  value={customBackdrop}
-                  onChange={(e) => setCustomBackdrop(e.target.value)}
-                  data-testid="input-custom-backdrop"
-                />
-                <Button 
-                  variant="outline" 
                   onClick={handleCustomBackdrop}
                   disabled={!customBackdrop}
-                  data-testid="button-apply-custom-backdrop"
+                  size="sm"
+                  className="min-h-[44px]"
                 >
                   Apply
                 </Button>
@@ -701,413 +779,30 @@ export function SharePreviewDialog({ open, onOpenChange, activity, onConfirmShar
             </div>
           </div>
 
-          {/* Privacy Shield Section */}
-          <div className="space-y-3 border-t pt-4">
-            <div className="flex items-center justify-between">
-              <Label className="flex items-center gap-2">
-                {privacyPreset === 'off' ? (
-                  <Shield className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                )}
-                Privacy Shield
-              </Label>
-              <Select 
-                value={privacyPreset} 
-                onValueChange={(value) => {
-                  setPrivacyPreset(value as PrivacyPreset);
-                  if (value === 'private') {
-                    setPrivacySettings({
-                      redactNames: true,
-                      redactLocations: true,
-                      redactContact: true,
-                      redactDates: true,
-                      redactContext: true,
-                    });
-                  } else if (value === 'public') {
-                    setPrivacySettings({
-                      redactNames: false,
-                      redactLocations: false,
-                      redactContact: false,
-                      redactDates: false,
-                      redactContext: false,
-                    });
-                  }
-                  setShowPrivacySettings(value === 'custom');
-                }}
-                data-testid="select-privacy-preset"
-              >
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="off">Off</SelectItem>
-                  <SelectItem value="public">🌟 Public Creator</SelectItem>
-                  <SelectItem value="private">🛡️ Privacy-First</SelectItem>
-                  <SelectItem value="custom">⚙️ Custom</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Privacy Info */}
-            {privacyPreset === 'off' && (
-              <p className="text-xs text-muted-foreground">
-                Privacy shield is disabled. All content will be shared as-is.
-              </p>
-            )}
-            {privacyPreset === 'public' && (
-              <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                Public Creator Mode: Minimal redaction. Perfect for influencers and content creators who want to share full details.
-              </p>
-            )}
-            {privacyPreset === 'private' && (
-              <p className="text-xs text-purple-600 dark:text-purple-400">
-                Privacy-First Mode: Maximum protection. All PII/PHI will be automatically redacted before sharing.
-              </p>
-            )}
-
-            {/* Custom Privacy Settings */}
-            {showPrivacySettings && privacyPreset === 'custom' && (
-              <div className="space-y-3 pl-4 border-l-2 border-purple-200 dark:border-purple-800">
-                <p className="text-sm font-medium text-muted-foreground">Select what to redact:</p>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Checkbox 
-                      id="redact-names"
-                      checked={privacySettings.redactNames}
-                      onCheckedChange={(checked) => 
-                        setPrivacySettings(prev => ({ ...prev, redactNames: checked as boolean }))
-                      }
-                      data-testid="checkbox-redact-names"
-                    />
-                    <Label htmlFor="redact-names" className="text-sm cursor-pointer">
-                      Exact names (replace with "Someone", "Friend")
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Checkbox 
-                      id="redact-locations"
-                      checked={privacySettings.redactLocations}
-                      onCheckedChange={(checked) => 
-                        setPrivacySettings(prev => ({ ...prev, redactLocations: checked as boolean }))
-                      }
-                      data-testid="checkbox-redact-locations"
-                    />
-                    <Label htmlFor="redact-locations" className="text-sm cursor-pointer">
-                      Exact addresses/locations (use city only or "A location")
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Checkbox 
-                      id="redact-contact"
-                      checked={privacySettings.redactContact}
-                      onCheckedChange={(checked) => 
-                        setPrivacySettings(prev => ({ ...prev, redactContact: checked as boolean }))
-                      }
-                      data-testid="checkbox-redact-contact"
-                    />
-                    <Label htmlFor="redact-contact" className="text-sm cursor-pointer">
-                      Contact info (phone, email)
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Checkbox 
-                      id="redact-dates"
-                      checked={privacySettings.redactDates}
-                      onCheckedChange={(checked) => 
-                        setPrivacySettings(prev => ({ ...prev, redactDates: checked as boolean }))
-                      }
-                      data-testid="checkbox-redact-dates"
-                    />
-                    <Label htmlFor="redact-dates" className="text-sm cursor-pointer">
-                      Specific dates/times (generalize to "morning", "evening")
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Checkbox 
-                      id="redact-context"
-                      checked={privacySettings.redactContext}
-                      onCheckedChange={(checked) => 
-                        setPrivacySettings(prev => ({ ...prev, redactContext: checked as boolean }))
-                      }
-                      data-testid="checkbox-redact-context"
-                    />
-                    <Label htmlFor="redact-context" className="text-sm cursor-pointer">
-                      Personal context (family members, medical info)
-                    </Label>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Privacy Preview - Original vs Redacted */}
-          {privacyPreset !== 'off' && (
-            <div className="space-y-3 border-t pt-4">
-              <p className="text-sm font-medium flex items-center gap-2">
-                {scanLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600" />
-                    Scanning for sensitive information...
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    Privacy Preview
-                  </>
-                )}
-              </p>
-              
-              {!scanLoading && redactedPreview && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Original Content */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Original</p>
-                    <div className="rounded-md border p-3 bg-background space-y-2">
-                      <p className="text-sm font-medium">{activity.title}</p>
-                      <div className="space-y-1">
-                        {activity.planSummary && (
-                          <p className="text-xs text-muted-foreground line-clamp-2">{activity.planSummary}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Redacted Content */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Protected Version</p>
-                    <div className="rounded-md border border-emerald-200 dark:border-emerald-800 p-3 bg-emerald-50 dark:bg-emerald-950/20 space-y-2">
-                      <p className="text-sm font-medium">{redactedPreview.title}</p>
-                      {redactedPreview.tasks.length > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          {redactedPreview.tasks.length} task{redactedPreview.tasks.length !== 1 ? 's' : ''} protected
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Publish to Community Discovery */}
-          <div className="space-y-3 border-t pt-4">
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                id="publish-community"
-                checked={publishToCommunity}
-                onCheckedChange={(checked) => setPublishToCommunity(checked as boolean)}
-                data-testid="checkbox-publish-community"
-              />
-              <Label htmlFor="publish-community" className="flex items-center gap-2 cursor-pointer">
-                <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span className="font-medium">Publish to Community Discovery</span>
-              </Label>
-            </div>
-            
-            {publishToCommunity && (
-              <div className="pl-6 space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Your plan will be featured in the Community Discovery section for others to explore and use.
-                </p>
-                {privacyPreset === 'off' && (
-                  <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                    <ShieldCheck className="w-4 h-4" />
-                    Tip: Enable Privacy Shield above to protect personal details before publishing.
-                  </p>
-                )}
-                
-                {/* Social Media Links Section */}
-                <div className="space-y-3 border-t pt-4">
-                  <p className="text-sm font-medium">
-                    Social Media Verification <span className="text-destructive">*</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    At least one social media link is required for community publishing
-                  </p>
-                  
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="twitter-handle" className="text-sm">
-                        Twitter/X Profile
-                      </Label>
-                      <Input
-                        id="twitter-handle"
-                        value={twitterHandle}
-                        onChange={(e) => setTwitterHandle(e.target.value)}
-                        placeholder="https://twitter.com/yourusername"
-                        data-testid="input-twitter-handle"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="instagram-handle" className="text-sm">
-                        Instagram Profile
-                      </Label>
-                      <Input
-                        id="instagram-handle"
-                        value={instagramHandle}
-                        onChange={(e) => setInstagramHandle(e.target.value)}
-                        placeholder="https://instagram.com/yourusername"
-                        data-testid="input-instagram-handle"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="threads-handle" className="text-sm">
-                        Threads Profile
-                      </Label>
-                      <Input
-                        id="threads-handle"
-                        value={threadsHandle}
-                        onChange={(e) => setThreadsHandle(e.target.value)}
-                        placeholder="https://threads.net/@yourusername"
-                        data-testid="input-threads-handle"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="website-url" className="text-sm">
-                        Website URL
-                      </Label>
-                      <Input
-                        id="website-url"
-                        value={websiteUrl}
-                        onChange={(e) => setWebsiteUrl(e.target.value)}
-                        placeholder="https://yourwebsite.com"
-                        data-testid="input-website-url"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Group Creation Section */}
-          <div className="space-y-3 border-t pt-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Checkbox 
-                id="create-group"
-                checked={createGroup}
-                onCheckedChange={(checked) => setCreateGroup(checked as boolean)}
-                data-testid="checkbox-create-group"
-              />
-              <Label htmlFor="create-group" className="flex items-center gap-2 cursor-pointer">
-                <Users className="w-4 h-4" />
-                <span className="font-medium">Create Group - Allow contributors to propose changes (admin approval required)</span>
-              </Label>
-            </div>
-
-            {createGroup && (
-              <Card className="border-dashed">
-                <CardContent className="pt-6 space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="group-name">
-                      Group Name <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="group-name"
-                      value={groupName}
-                      onChange={(e) => setGroupName(e.target.value)}
-                      placeholder="Enter a name for your group..."
-                      maxLength={100}
-                      data-testid="input-group-name"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Maximum 100 characters
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="group-description">
-                      Description (optional)
-                    </Label>
-                    <Input
-                      id="group-description"
-                      value={groupDescription}
-                      onChange={(e) => setGroupDescription(e.target.value)}
-                      placeholder="What is this group about?..."
-                      maxLength={500}
-                      data-testid="input-group-description"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Maximum 500 characters
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Share Card Preview with Platform Picker */}
-          <div className="space-y-3 border-t pt-4">
-            {backdrop ? (
-              <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                <div className="min-w-[320px]">
-                  <ShareCardGenerator
-                    ref={shareCardRef}
-                    activityId={activity.id}
-                    activityTitle={shareTitle}
-                    activityCategory={activity.category}
-                    backdrop={backdrop}
-                    planSummary={activity.planSummary || undefined}
-                    tasks={activityTasks}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="relative aspect-video rounded-md overflow-hidden border bg-muted">
-                <div className="absolute inset-0 flex items-center justify-center p-4">
-                  <div className="text-center text-muted-foreground">
-                    <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Select or upload a backdrop above to see platform preview</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Save Settings Button */}
-          <div className="flex flex-wrap justify-end gap-2 pt-4 border-t">
+          {/* Share Buttons */}
+          <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
+            <Button
+              onClick={handleNativeShare}
+              className="flex-1 gap-2 min-h-[44px]"
+              data-testid="button-share-link"
+            >
+              <Share2 className="w-4 h-4" />
+              Share Link
+            </Button>
             <Button
               variant="outline"
-              onClick={() => onOpenChange(false)}
-              data-testid="button-cancel-share-preview"
+              onClick={handleCopyLink}
+              className="flex-1 gap-2 min-h-[44px]"
+              data-testid="button-copy-link-bottom"
             >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => updateMutation.mutate()}
-              disabled={updateMutation.isPending}
-              data-testid="button-confirm-share"
-              className="gap-2"
-            >
-              <Sparkles className="w-4 h-4" />
-              {updateMutation.isPending ? 'Saving...' : 'Save Settings'}
+              <Copy className="w-4 h-4" />
+              Copy Link
             </Button>
           </div>
-          </TabsContent>
 
-          {/* Tab 2: Download Cards */}
-          <TabsContent value="download-cards" className="py-4">
-            <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-              <div className="min-w-[320px]">
-                <ShareCardGenerator
-                  activityId={activity.id}
-                  activityTitle={shareTitle}
-                  activityCategory={activity.category}
-                  backdrop={backdrop || ''}
-                  planSummary={activity.planSummary || undefined}
-                  tasks={activityTasks}
-                />
-              </div>
-            </div>
+          <p className="text-xs text-center text-muted-foreground">
+            For image sharing with captions, use the "Share Image" tab
+          </p>
           </TabsContent>
 
           {/* Tab 3: Social Verification */}
