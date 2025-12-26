@@ -816,12 +816,27 @@ export function SharePreviewDialog({
                 </Label>
 
                 {/* Preset Backdrops */}
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {isLoadingBackdrops
-                      ? "Loading relevant images..."
-                      : "Choose a backdrop:"}
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {isLoadingBackdrops
+                        ? "Loading relevant images..."
+                        : "Choose a backdrop:"}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        queryClient.invalidateQueries({
+                          queryKey: ["backdrop-options", activity.id],
+                        });
+                      }}
+                      className="h-7 px-2 text-xs gap-1"
+                      disabled={isLoadingBackdrops}
+                    >
+                      <RotateCcw className={`w-3 h-3 ${isLoadingBackdrops ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                  </div>
                   {isLoadingBackdrops ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                       {[1, 2, 3, 4].map((i) => (
