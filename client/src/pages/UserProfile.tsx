@@ -311,7 +311,7 @@ export default function UserProfile() {
           <Card data-testid="card-profile-basic">
             <CardContent className="p-6 text-center">
               <div className="relative inline-block mb-4">
-                <Avatar className="w-24 h-24 mx-auto">
+                <Avatar className="w-24 h-24 mx-auto group">
                   <AvatarImage 
                     src={profile.profileImageUrl} 
                     alt={profile.nickname || profile.firstName || profile.username} 
@@ -319,26 +319,30 @@ export default function UserProfile() {
                   <AvatarFallback className="text-lg">
                     {(profile.nickname || profile.firstName || profile.username)?.charAt(0).toUpperCase()}
                   </AvatarFallback>
-                </Avatar>
-                {!profile.profileImageUrl && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="absolute -bottom-2 left-1/2 -translate-x-1/2 h-8 px-3 gap-1"
+                  <div 
+                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-full"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadImageMutation.isPending}
-                    data-testid="button-upload-image"
                   >
-                    {uploadImageMutation.isPending ? (
-                      <span className="text-xs">Uploading...</span>
-                    ) : (
-                      <>
-                        <Camera className="w-3 h-3" />
-                        <span className="text-xs">Upload</span>
-                      </>
-                    )}
-                  </Button>
-                )}
+                    <Camera className="w-8 h-8 text-white" />
+                  </div>
+                </Avatar>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="absolute -bottom-2 left-1/2 -translate-x-1/2 h-8 px-3 gap-1 shadow-sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadImageMutation.isPending}
+                  data-testid="button-upload-image"
+                >
+                  {uploadImageMutation.isPending ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <>
+                      <Camera className="w-3 h-3" />
+                      <span className="text-xs">{profile.profileImageUrl ? 'Change' : 'Upload'}</span>
+                    </>
+                  )}
+                </Button>
                 <input
                   ref={fileInputRef}
                   type="file"
