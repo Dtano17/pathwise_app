@@ -6294,11 +6294,12 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
         return res.status(404).json({ error: 'Activity not found' });
       }
 
-      // Fetch backdrop options based on activity title and category
+      // Fetch backdrop options based on activity title, category, and description
       const options = await searchBackdropOptions(
         activity.title,
         activity.category || 'personal',
-        5 // max 5 options
+        activity.planSummary || activity.description || undefined,
+        8 // max 8 options for more variety
       );
 
       // If activity already has a custom backdrop, include it first

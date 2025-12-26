@@ -62,30 +62,39 @@ export async function searchActivityImage(
 
 /**
  * Search for multiple backdrop options (for image picker UI)
- * Returns up to 5 options: Tavily results + HD fallbacks
+ * Returns up to 8 options: Tavily results + HD fallbacks
+ * Uses activity description/planSummary for more specific search queries
  */
 export async function searchBackdropOptions(
   activityTitle: string,
   category: string,
-  maxOptions: number = 5
+  description?: string,
+  maxOptions: number = 8
 ): Promise<BackdropOption[]> {
   const options: BackdropOption[] = [];
 
   try {
     // Try Tavily search first
     if (process.env.TAVILY_API_KEY) {
-      const searchQuery = `${activityTitle} ${category} high quality landscape photo`;
+      // Build a more specific search query using description
+      let searchContext = activityTitle;
+      if (description) {
+        // Extract first 150 chars of description for better context
+        const snippet = description.substring(0, 150).replace(/\s+/g, ' ').trim();
+        searchContext = `${activityTitle} ${snippet}`;
+      }
+      const searchQuery = `${searchContext} ${category} beautiful scenic photo`;
       console.log(`[WebImageSearch] Searching backdrop options for: "${searchQuery}"`);
 
       const response = await tavilyClient.search(searchQuery, {
-        searchDepth: 'basic',
-        maxResults: 3,
+        searchDepth: 'advanced',
+        maxResults: 6,
         includeImages: true,
         includeAnswer: false,
       });
 
       const images = response.images || [];
-      for (const img of images.slice(0, 3)) {
+      for (const img of images.slice(0, 6)) {
         if (img.url) {
           options.push({
             url: img.url,

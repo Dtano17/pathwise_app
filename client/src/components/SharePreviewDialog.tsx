@@ -146,7 +146,7 @@ export function SharePreviewDialog({
   const [customBackdrop, setCustomBackdrop] = useState("");
 
   // Fetch dynamic backdrop options based on activity
-  const { data: backdropOptions = [], isLoading: isLoadingBackdrops } =
+  const { data: backdropOptions = [], isLoading: isLoadingBackdrops, refetch: refetchBackdrops, isRefetching: isRefetchingBackdrops } =
     useQuery({
       queryKey: ["backdrop-options", activity.id],
       queryFn: async () => {
@@ -161,7 +161,7 @@ export function SharePreviewDialog({
         return data.options as BackdropOption[];
       },
       enabled: open && !!activity.id,
-      staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+      staleTime: 0, // Always fetch fresh on refetch
     });
 
   // Use dynamic options if available, otherwise fallback to defaults
@@ -819,28 +819,24 @@ export function SharePreviewDialog({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">
-                      {isLoadingBackdrops
+                      {isLoadingBackdrops || isRefetchingBackdrops
                         ? "Loading relevant images..."
                         : "Choose a backdrop:"}
                     </p>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        queryClient.invalidateQueries({
-                          queryKey: ["backdrop-options", activity.id],
-                        });
-                      }}
+                      onClick={() => refetchBackdrops()}
                       className="h-7 px-2 text-xs gap-1"
-                      disabled={isLoadingBackdrops}
+                      disabled={isLoadingBackdrops || isRefetchingBackdrops}
                     >
-                      <RotateCcw className={`w-3 h-3 ${isLoadingBackdrops ? 'animate-spin' : ''}`} />
+                      <RotateCcw className={`w-3 h-3 ${(isLoadingBackdrops || isRefetchingBackdrops) ? 'animate-spin' : ''}`} />
                       Refresh
                     </Button>
                   </div>
-                  {isLoadingBackdrops ? (
+                  {(isLoadingBackdrops || isRefetchingBackdrops) ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                      {[1, 2, 3, 4].map((i) => (
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                         <div
                           key={i}
                           className="aspect-video rounded-md bg-muted animate-pulse"
