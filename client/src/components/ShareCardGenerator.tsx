@@ -40,6 +40,7 @@ interface ShareCardGeneratorProps {
   creatorSocial?: { platform: string; handle: string; postUrl?: string };
   planSummary?: string;
   tasks?: Task[];
+  shareCaption?: string; // Unified caption from parent
   // Controlled mode props (optional)
   controlledPlatform?: string;
   controlledFormat?: 'png' | 'jpg' | 'pdf';
@@ -61,6 +62,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
   creatorSocial,
   planSummary,
   tasks = [],
+  shareCaption,
   controlledPlatform,
   controlledFormat,
   onPlatformChange,
@@ -98,15 +100,8 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
     }
   );
 
-  // Use custom caption if edited, otherwise use generated
-  const displayCaption = captionEdited ? customCaption : generatedCaption;
-
-  // Reset caption when style changes
-  useEffect(() => {
-    if (!captionEdited) {
-      setCustomCaption(generatedCaption);
-    }
-  }, [captionStyle, generatedCaption, captionEdited]);
+  // Use shared caption if provided, otherwise fallback to local logic
+  const displayCaption = shareCaption !== undefined ? shareCaption : (captionEdited ? customCaption : generatedCaption);
 
   // Check if Web Share API with files is supported
   useEffect(() => {
@@ -649,71 +644,40 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
             </div>
           </div>
 
-          {/* Caption Format Selector & Editor */}
+          {/* Unified Caption Preview (Read-only in this tab) */}
           <div className="space-y-3 border-t pt-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Share Caption</Label>
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">Format:</Label>
-                <Select
-                  value={captionStyle}
-                  onValueChange={(value: CaptionStyle) => {
-                    setCaptionStyle(value);
-                    setCaptionEdited(false);
-                  }}
-                >
-                  <SelectTrigger className="h-7 w-28 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CAPTION_FORMATS.map((format) => (
-                      <SelectItem key={format.id} value={format.id} className="text-xs">
-                        {format.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Badge variant="outline" className="text-[10px] py-0 h-5">Shared with Quick Share</Badge>
             </div>
-            <Textarea
-              value={displayCaption}
-              onChange={(e) => {
-                setCustomCaption(e.target.value);
-                setCaptionEdited(true);
-              }}
-              placeholder="Your share caption..."
-              className="min-h-[120px] resize-y text-sm"
-              data-testid="textarea-download-caption"
-            />
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-              <p className="text-muted-foreground">
-                This caption will be copied when you share
-              </p>
-              <div className="flex items-center gap-2">
+            <div className="relative group">
+              <Textarea
+                value={displayCaption}
+                readOnly
+                className="min-h-[100px] text-sm bg-muted/30 border-dashed resize-none focus-visible:ring-0 cursor-default"
+                placeholder="Caption from Quick Share tab will appear here..."
+              />
+              <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Button
-                  type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={handleRefreshCaption}
-                  className="h-7 px-2 text-xs gap-1"
-                  data-testid="button-refresh-download-caption"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  Refresh
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyCaption}
-                  className="h-7 px-2 text-xs gap-1"
-                  data-testid="button-copy-download-caption"
+                  className="h-7 px-2 text-xs gap-1 bg-background/80 backdrop-blur-sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(displayCaption);
+                    toast({
+                      title: "Copied!",
+                      description: "Caption copied to clipboard",
+                    });
+                  }}
                 >
                   <Copy className="w-3 h-3" />
                   Copy
                 </Button>
               </div>
             </div>
+            <p className="text-[11px] text-muted-foreground italic">
+              Edit this caption in the <strong>Quick Share</strong> tab to update it here.
+            </p>
           </div>
         </>
       )}

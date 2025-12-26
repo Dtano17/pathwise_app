@@ -1366,15 +1366,16 @@ export function SharePreviewDialog({
                 {backdrop ? (
                   <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
                     <div className="min-w-[320px]">
-                      <ShareCardGenerator
-                        ref={shareCardRef}
-                        activityId={activity.id}
-                        activityTitle={shareTitle}
-                        activityCategory={activity.category}
-                        backdrop={backdrop}
-                        planSummary={activity.planSummary || undefined}
-                        tasks={activityTasks}
-                      />
+                  <ShareCardGenerator
+                    ref={shareCardRef}
+                    activityId={activity.id}
+                    activityTitle={shareTitle}
+                    activityCategory={activity.category}
+                    backdrop={backdrop}
+                    planSummary={activity.planSummary || undefined}
+                    tasks={activityTasks}
+                    shareCaption={shareCaption}
+                  />
                     </div>
                   </div>
                 ) : (
@@ -1425,6 +1426,7 @@ export function SharePreviewDialog({
                     backdrop={backdrop || ""}
                     planSummary={activity.planSummary || undefined}
                     tasks={activityTasks}
+                    shareCaption={shareCaption}
                   />
                 </div>
               </div>
