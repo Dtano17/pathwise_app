@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import * as React from 'react';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
 
@@ -9,7 +9,7 @@ interface ThemeContextType {
   toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+const ThemeContext = React.createContext<ThemeContextType | undefined>(undefined);
 
 function getTimeBasedTheme(): 'light' | 'dark' {
   const hour = new Date().getHours();
@@ -24,10 +24,10 @@ function getEffectiveTheme(mode: ThemeMode): 'light' | 'dark' {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>('auto');
-  const [isDark, setIsDark] = useState(false);
+  const [theme, setThemeState] = React.useState<ThemeMode>('auto');
+  const [isDark, setIsDark] = React.useState(false);
 
-  const applyTheme = useCallback((effectiveTheme: 'light' | 'dark') => {
+  const applyTheme = React.useCallback((effectiveTheme: 'light' | 'dark') => {
     const shouldBeDark = effectiveTheme === 'dark';
     setIsDark(shouldBeDark);
     if (typeof document !== 'undefined' && document.documentElement) {
@@ -39,7 +39,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const savedTheme = localStorage.getItem('theme-mode') as ThemeMode | null;
     // Validate the saved theme and default to 'auto' if invalid
     const validThemes: ThemeMode[] = ['light', 'dark', 'auto'];
@@ -48,7 +48,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyTheme(getEffectiveTheme(initialTheme));
   }, [applyTheme]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (theme !== 'auto') return;
 
     const checkTime = () => {
@@ -62,13 +62,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [theme, applyTheme]);
 
-  const setTheme = useCallback((newTheme: ThemeMode) => {
+  const setTheme = React.useCallback((newTheme: ThemeMode) => {
     setThemeState(newTheme);
     localStorage.setItem('theme-mode', newTheme);
     applyTheme(getEffectiveTheme(newTheme));
   }, [applyTheme]);
 
-  const toggleTheme = useCallback(() => {
+  const toggleTheme = React.useCallback(() => {
     if (theme === 'auto') {
       setTheme(isDark ? 'light' : 'dark');
     } else {
@@ -84,7 +84,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useTheme() {
-  const context = useContext(ThemeContext);
+  const context = React.useContext(ThemeContext);
   if (context === undefined) {
     return {
       theme: 'auto' as ThemeMode,
