@@ -1,20 +1,25 @@
 import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { toPng, toJpeg } from 'html-to-image';
 import jsPDF from 'jspdf';
-import { Download, Loader2, Image as ImageIcon, FileText, Check, Circle, Share2 } from 'lucide-react';
+import { Download, Loader2, Image as ImageIcon, FileText, Check, Circle, Share2, Copy, RotateCcw } from 'lucide-react';
 import { SiInstagram, SiTiktok, SiX, SiFacebook, SiLinkedin, SiPinterest, SiWhatsapp } from 'react-icons/si';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import {
   PLATFORM_TEMPLATES,
   PLATFORM_PACKS,
   generatePlatformCaption,
+  generateFormattedCaption,
+  CAPTION_FORMATS,
   getRecommendedFormat,
   getContextualEmoji,
   type PlatformTemplate,
+  type CaptionStyle,
 } from '@/lib/shareCardTemplates';
 
 interface Task {
@@ -70,7 +75,38 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
   const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number } | null>(null);
   const [canShareFiles, setCanShareFiles] = useState(false);
   const [previewScale, setPreviewScale] = useState(1);
+  const [captionStyle, setCaptionStyle] = useState<CaptionStyle>('standard');
+  const [customCaption, setCustomCaption] = useState('');
+  const [captionEdited, setCaptionEdited] = useState(false);
   const { toast } = useToast();
+
+  // Generate share URL
+  const shareUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/share/${activityId}`
+    : '';
+
+  // Generate caption based on current style
+  const generatedCaption = generateFormattedCaption(
+    activityTitle,
+    activityCategory,
+    shareUrl,
+    captionStyle,
+    {
+      description: planSummary,
+      tasks: tasks.map(t => ({ completed: t.completed })),
+      includeHashtags: captionStyle === 'social'
+    }
+  );
+
+  // Use custom caption if edited, otherwise use generated
+  const displayCaption = captionEdited ? customCaption : generatedCaption;
+
+  // Reset caption when style changes
+  useEffect(() => {
+    if (!captionEdited) {
+      setCustomCaption(generatedCaption);
+    }
+  }, [captionStyle, generatedCaption, captionEdited]);
 
   // Check if Web Share API with files is supported
   useEffect(() => {
@@ -280,20 +316,12 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
       }
 
       // Create a File object from the blob
-      const file = new File([blob], `journalmate-${selectedPlatform}.${shareFormat}`, { 
-        type: shareFormat === 'jpg' ? 'image/jpeg' : 'image/png' 
+      const file = new File([blob], `journalmate-${selectedPlatform}.${shareFormat}`, {
+        type: shareFormat === 'jpg' ? 'image/jpeg' : 'image/png'
       });
 
-      // Get the platform-specific caption
-      const captionData = generatePlatformCaption(
-        activityTitle,
-        activityCategory,
-        selectedPlatform,
-        creatorName,
-        creatorSocial?.handle,
-        planSummary,
-        activityId
-      );
+      // Use the current display caption (user's selected format)
+      const captionToShare = displayCaption;
 
       // Try to use Web Share API if supported
       let shareSuccessful = false;
@@ -302,7 +330,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
         try {
           // Copy caption to clipboard first
           try {
-            await navigator.clipboard.writeText(captionData.fullText);
+            await navigator.clipboard.writeText(captionToShare);
             toast({
               title: '📋 Caption Copied!',
               description: 'Caption ready to paste when sharing',
@@ -316,7 +344,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
           // Some platforms like WhatsApp need text included to show in share menu
           const shareData: ShareData = {
             files: [file],
-            text: captionData.fullText,
+            text: captionToShare,
           };
 
           // Check if the full share data is supported, if not fall back to file only
@@ -358,16 +386,16 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        
+
         try {
-          await navigator.clipboard.writeText(captionData.fullText);
-          toast({ 
+          await navigator.clipboard.writeText(captionToShare);
+          toast({
             title: 'Image Downloaded',
             description: 'Caption copied to clipboard. Image has been downloaded - share it manually.',
             duration: 3000
           });
         } catch {
-          toast({ 
+          toast({
             title: 'Image Downloaded',
             description: 'Image has been downloaded. Share it manually from your downloads folder.'
           });
@@ -493,18 +521,8 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
    * Copy caption to clipboard
    */
   const handleCopyCaption = async () => {
-    const { fullText } = generatePlatformCaption(
-      activityTitle,
-      activityCategory,
-      selectedPlatform,
-      creatorName,
-      creatorSocial?.handle,
-      planSummary,
-      activityId
-    );
-
     try {
-      await navigator.clipboard.writeText(fullText);
+      await navigator.clipboard.writeText(displayCaption);
       toast({
         title: 'Caption Copied!',
         description: 'Paste it when sharing your card',
@@ -516,6 +534,18 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
         variant: 'destructive',
       });
     }
+  };
+
+  /**
+   * Refresh caption with current style
+   */
+  const handleRefreshCaption = () => {
+    setCustomCaption(generatedCaption);
+    setCaptionEdited(false);
+    toast({
+      title: 'Caption Refreshed',
+      description: `Using ${CAPTION_FORMATS.find(f => f.id === captionStyle)?.name} format`,
+    });
   };
 
   const { caption, hashtags } = generatePlatformCaption(
@@ -616,6 +646,73 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
                 <span className="hidden sm:inline">Copy Caption</span>
                 <span className="sm:hidden">Caption</span>
               </Button>
+            </div>
+          </div>
+
+          {/* Caption Format Selector & Editor */}
+          <div className="space-y-3 border-t pt-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Share Caption</Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground">Format:</Label>
+                <Select
+                  value={captionStyle}
+                  onValueChange={(value: CaptionStyle) => {
+                    setCaptionStyle(value);
+                    setCaptionEdited(false);
+                  }}
+                >
+                  <SelectTrigger className="h-7 w-28 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CAPTION_FORMATS.map((format) => (
+                      <SelectItem key={format.id} value={format.id} className="text-xs">
+                        {format.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Textarea
+              value={displayCaption}
+              onChange={(e) => {
+                setCustomCaption(e.target.value);
+                setCaptionEdited(true);
+              }}
+              placeholder="Your share caption..."
+              className="min-h-[120px] resize-y text-sm"
+              data-testid="textarea-download-caption"
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <p className="text-muted-foreground">
+                This caption will be copied when you share
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefreshCaption}
+                  className="h-7 px-2 text-xs gap-1"
+                  data-testid="button-refresh-download-caption"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Refresh
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyCaption}
+                  className="h-7 px-2 text-xs gap-1"
+                  data-testid="button-copy-download-caption"
+                >
+                  <Copy className="w-3 h-3" />
+                  Copy
+                </Button>
+              </div>
             </div>
           </div>
         </>

@@ -569,6 +569,83 @@ export function generatePlatformCaption(
   };
 }
 
+// Caption format styles
+export type CaptionStyle = 'standard' | 'compact' | 'detailed' | 'social' | 'minimal';
+
+export interface CaptionFormat {
+  id: CaptionStyle;
+  name: string;
+  description: string;
+}
+
+export const CAPTION_FORMATS: CaptionFormat[] = [
+  { id: 'standard', name: 'Standard', description: 'Balanced format with title, description, and call-to-action' },
+  { id: 'compact', name: 'Compact', description: 'Short and punchy for quick sharing' },
+  { id: 'detailed', name: 'Detailed', description: 'Full details with progress and task count' },
+  { id: 'social', name: 'Social Ready', description: 'Optimized for social media with hashtags' },
+  { id: 'minimal', name: 'Minimal', description: 'Just the essentials - title and link' },
+];
+
+/**
+ * Generate caption with selectable format style
+ */
+export function generateFormattedCaption(
+  title: string,
+  category: string,
+  shareUrl: string,
+  style: CaptionStyle = 'standard',
+  options?: {
+    description?: string | null;
+    tasks?: { completed: boolean }[];
+    includeHashtags?: boolean;
+  }
+): string {
+  const emoji = getContextualEmoji(title, category);
+  const { description, tasks = [], includeHashtags = false } = options || {};
+
+  const completedTasks = tasks.filter(t => t.completed).length;
+  const totalTasks = tasks.length;
+  const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  const hashtags = includeHashtags
+    ? (CATEGORY_HASHTAGS[category] || CATEGORY_HASHTAGS.other).slice(0, 5).join(' ')
+    : '';
+
+  switch (style) {
+    case 'minimal':
+      return `${emoji} ${title}\n\n${shareUrl}`;
+
+    case 'compact':
+      return `${emoji} ${title}\n\n${emoji} Customize: ${shareUrl}\n\n✨ JournalMate.ai`;
+
+    case 'detailed':
+      let detailed = `${emoji} ${title}\n\n`;
+      if (description) detailed += `${description}\n\n`;
+      if (totalTasks > 0) {
+        detailed += `📊 Progress: ${progressPercent}% (${completedTasks}/${totalTasks} tasks)\n\n`;
+      }
+      detailed += `${emoji} Customize this plan: ${shareUrl}\n\n`;
+      detailed += `✨ Plan your next adventure with JournalMate.ai`;
+      return detailed;
+
+    case 'social':
+      let social = `${emoji} ${title}\n\n`;
+      if (description && description.length < 100) social += `${description}\n\n`;
+      social += `${emoji} Get your own version: ${shareUrl}\n\n`;
+      social += `✨ Made with JournalMate.ai\n\n`;
+      if (hashtags) social += hashtags;
+      return social;
+
+    case 'standard':
+    default:
+      let standard = `${emoji} ${title}\n\n`;
+      if (description) standard += `${description}\n\n`;
+      standard += `${emoji} Customize this plan: ${shareUrl}\n\n`;
+      standard += `✨ Plan your next adventure with JournalMate.ai`;
+      return standard;
+  }
+}
+
 /**
  * Get recommended export format for platform
  */

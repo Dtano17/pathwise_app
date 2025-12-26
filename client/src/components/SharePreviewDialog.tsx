@@ -64,7 +64,7 @@ import {
   SocialVerificationTab,
   type SocialMediaLinks,
 } from "./SocialVerificationTab";
-import { generatePlatformCaption } from "@/lib/shareCardTemplates";
+import { generatePlatformCaption, generateFormattedCaption, CAPTION_FORMATS, type CaptionStyle } from "@/lib/shareCardTemplates";
 
 interface Activity {
   id: string;
@@ -213,6 +213,7 @@ export function SharePreviewDialog({
   // Share caption state
   const [shareCaption, setShareCaption] = useState("");
   const [captionEdited, setCaptionEdited] = useState(false);
+  const [captionStyle, setCaptionStyle] = useState<CaptionStyle>('standard');
 
   // Duplicate detection state
   const [duplicateDetected, setDuplicateDetected] = useState(false);
@@ -245,34 +246,6 @@ export function SharePreviewDialog({
     enabled: open, // Fetch as soon as dialog opens
   });
 
-  // Generate formatted share caption
-  const generateShareCaption = (title: string, description?: string | null, tasks?: any[], shareUrl?: string) => {
-    const completedTasks = tasks?.filter(t => t.completed)?.length || 0;
-    const totalTasks = tasks?.length || 0;
-    const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-    
-    // Build the caption with structured formatting
-    let caption = `${title}\n\n`;
-    
-    if (description) {
-      caption += `${description}\n\n`;
-    }
-    
-    if (totalTasks > 0) {
-      caption += `${progressPercent}% complete with ${totalTasks} task${totalTasks !== 1 ? 's' : ''}!\n\n`;
-    }
-    
-    caption += `Track progress, own and edit your own version!\n\n`;
-    
-    if (shareUrl) {
-      caption += `${shareUrl}\n\n`;
-    }
-    
-    caption += `Plan your next adventure with JournalMate.ai`;
-    
-    return caption;
-  };
-
   // Get the share URL for the activity
   const shareUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}/share/${activity.id}`
@@ -292,16 +265,17 @@ export function SharePreviewDialog({
     setGroupName("");
     setGroupDescription("");
     // Initialize share caption and reset dirty flag
-    setShareCaption(generateShareCaption(title, activity.planSummary, [], shareUrl));
+    setShareCaption(generateFormattedCaption(title, activity.category, shareUrl, captionStyle, { description: activity.planSummary, tasks: [] }));
     setCaptionEdited(false);
+    setCaptionStyle('standard');
   }, [activity, open]);
 
   // Update caption when tasks load (only if user hasn't manually edited)
   useEffect(() => {
     if (!captionEdited && activityTasks.length > 0) {
-      setShareCaption(generateShareCaption(shareTitle, activity.planSummary, activityTasks, shareUrl));
+      setShareCaption(generateFormattedCaption(shareTitle, activity.category, shareUrl, captionStyle, { description: activity.planSummary, tasks: activityTasks }));
     }
-  }, [activityTasks, captionEdited]);
+  }, [activityTasks, captionEdited, captionStyle]);
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -753,10 +727,41 @@ export function SharePreviewDialog({
 
               {/* Share Caption Editor */}
               <div className="space-y-2">
-                <Label htmlFor="share-caption" className="flex items-center gap-2">
-                  <Edit3 className="w-4 h-4" />
-                  Share Caption
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="share-caption" className="flex items-center gap-2">
+                    <Edit3 className="w-4 h-4" />
+                    Share Caption
+                  </Label>
+                  {/* Caption Format Selector */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-muted-foreground">Format:</Label>
+                    <Select
+                      value={captionStyle}
+                      onValueChange={(value: CaptionStyle) => {
+                        setCaptionStyle(value);
+                        setShareCaption(generateFormattedCaption(
+                          shareTitle,
+                          activity.category,
+                          shareUrl,
+                          value,
+                          { description: activity.planSummary, tasks: activityTasks, includeHashtags: value === 'social' }
+                        ));
+                        setCaptionEdited(false);
+                      }}
+                    >
+                      <SelectTrigger className="h-7 w-28 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CAPTION_FORMATS.map((format) => (
+                          <SelectItem key={format.id} value={format.id} className="text-xs">
+                            {format.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 <Textarea
                   id="share-caption"
                   value={shareCaption}
@@ -778,14 +783,20 @@ export function SharePreviewDialog({
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        setShareCaption(generateShareCaption(shareTitle, activity.planSummary, activityTasks, shareUrl));
+                        setShareCaption(generateFormattedCaption(
+                          shareTitle,
+                          activity.category,
+                          shareUrl,
+                          captionStyle,
+                          { description: activity.planSummary, tasks: activityTasks, includeHashtags: captionStyle === 'social' }
+                        ));
                         setCaptionEdited(false);
                       }}
                       className="h-7 px-2 text-xs gap-1"
-                      data-testid="button-reset-caption"
+                      data-testid="button-refresh-caption"
                     >
                       <RotateCcw className="w-3 h-3" />
-                      Reset
+                      Refresh
                     </Button>
                     <Button
                       type="button"
