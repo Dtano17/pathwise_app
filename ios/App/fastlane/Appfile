@@ -1,7 +1,7 @@
 # Appfile - iOS App Information
 # This file contains app-specific information for Fastlane
 
-app_identifier("com.journalmate.app") # Bundle identifier
+app_identifier("ai.journalmate.app") # Bundle identifier
 apple_id("#{ENV['APPLE_ID']}") # Your Apple ID email
 team_id("#{ENV['APPLE_TEAM_ID']}") # Team ID from Apple Developer
 

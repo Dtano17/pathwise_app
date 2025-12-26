@@ -19,3 +19,7 @@ IP_DOCUMENTATION/
 *.trademark
 *_Deposit.pdf
 *_NDA.pdf
+
+# Firebase configuration files (contain sensitive data)
+android/app/google-services.json
+ios/App/App/GoogleService-Info.plist
