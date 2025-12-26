@@ -816,8 +816,9 @@ export function SharePreviewDialog({
                 </Label>
 
                 {/* Preset Backdrops */}
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground mb-2">
+                    <p className="text-sm text-muted-foreground">
                       {isLoadingBackdrops
                         ? "Loading relevant images..."
                         : "Choose a backdrop:"}
@@ -885,6 +886,7 @@ export function SharePreviewDialog({
                     </div>
                   )}
                 </div>
+              </div>
 
                 {/* Image Upload */}
                 <div className="space-y-2">
