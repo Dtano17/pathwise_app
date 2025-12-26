@@ -315,8 +315,8 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
         type: shareFormat === 'jpg' ? 'image/jpeg' : 'image/png'
       });
 
-      // Use the current display caption (user's selected format)
-      const captionToShare = displayCaption;
+      // Use the platform-specific caption
+      const captionToShare = platformCaption;
 
       // Try to use Web Share API if supported
       let shareSuccessful = false;
@@ -517,7 +517,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
    */
   const handleCopyCaption = async () => {
     try {
-      await navigator.clipboard.writeText(displayCaption);
+      await navigator.clipboard.writeText(platformCaption);
       toast({
         title: 'Caption Copied!',
         description: 'Paste it when sharing your card',
@@ -543,7 +543,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
     });
   };
 
-  const { caption, hashtags } = generatePlatformCaption(
+  const { caption: platformCaption, hashtags } = generatePlatformCaption(
     activityTitle,
     activityCategory,
     selectedPlatform,
@@ -584,8 +584,9 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
             </div>
           </div>
 
-          {/* Format Selector & Actions */}
+          {/* Actions */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+            {/* Export Format Selector */}
             <div className="flex-1">
               <label className="text-sm font-medium">Export Format</label>
               <Select value={selectedFormat} onValueChange={(val: any) => handleFormatChange(val)}>
@@ -642,42 +643,6 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
                 <span className="sm:hidden">Caption</span>
               </Button>
             </div>
-          </div>
-
-          {/* Unified Caption Preview (Read-only in this tab) */}
-          <div className="space-y-3 border-t pt-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Share Caption</Label>
-              <Badge variant="outline" className="text-[10px] py-0 h-5">Shared with Quick Share</Badge>
-            </div>
-            <div className="relative group">
-              <Textarea
-                value={displayCaption}
-                readOnly
-                className="min-h-[100px] text-sm bg-muted/30 border-dashed resize-none focus-visible:ring-0 cursor-default"
-                placeholder="Caption from Quick Share tab will appear here..."
-              />
-              <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs gap-1 bg-background/80 backdrop-blur-sm"
-                  onClick={() => {
-                    navigator.clipboard.writeText(displayCaption);
-                    toast({
-                      title: "Copied!",
-                      description: "Caption copied to clipboard",
-                    });
-                  }}
-                >
-                  <Copy className="w-3 h-3" />
-                  Copy
-                </Button>
-              </div>
-            </div>
-            <p className="text-[11px] text-muted-foreground italic">
-              Edit this caption in the <strong>Quick Share</strong> tab to update it here.
-            </p>
           </div>
         </>
       )}
@@ -833,12 +798,12 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
         <CardContent className="p-4">
           <h4 className="text-sm font-medium mb-2">Caption for {platform?.name}</h4>
           <div className="bg-muted rounded-md p-3 space-y-2">
-            <p className="text-sm whitespace-pre-line">{caption}</p>
+            <p className="text-sm whitespace-pre-line">{platformCaption}</p>
             {hashtags.length > 0 && (
               <p className="text-xs text-primary">{hashtags.join(' ')}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              {caption.length + hashtags.join(' ').length}/{platform?.captionLimit} characters
+              {platformCaption.length + hashtags.join(' ').length}/{platform?.captionLimit} characters
             </p>
           </div>
         </CardContent>
