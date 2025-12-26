@@ -41,7 +41,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     const savedTheme = localStorage.getItem('theme-mode') as ThemeMode | null;
-    // Validate the saved theme and default to 'auto' if invalid
     const validThemes: ThemeMode[] = ['light', 'dark', 'auto'];
     const initialTheme = (savedTheme && validThemes.includes(savedTheme)) ? savedTheme : 'auto';
     setThemeState(initialTheme);
@@ -69,12 +68,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [applyTheme]);
 
   const toggleTheme = React.useCallback(() => {
-    if (theme === 'auto') {
-      setTheme(isDark ? 'light' : 'dark');
-    } else {
-      setTheme(isDark ? 'light' : 'dark');
-    }
-  }, [theme, isDark, setTheme]);
+    setTheme(isDark ? 'light' : 'dark');
+  }, [isDark, setTheme]);
 
   return (
     <ThemeContext.Provider value={{ theme, isDark, setTheme, toggleTheme }}>
