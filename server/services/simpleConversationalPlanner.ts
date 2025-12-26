@@ -151,6 +151,104 @@ const globalSearchCache = new SearchCache();
 // ============================================================================
 
 /**
+ * Format a plan object as readable markdown for preview display
+ * This is used when the LLM returns structured plan data but a generic message
+ */
+function formatPlanAsMarkdown(plan: any, context?: any): string {
+  if (!plan) return '';
+
+  let md = '';
+
+  // Title with emoji
+  const emoji = context?.domain === 'travel' ? '✈️' :
+                context?.domain === 'dining' ? '🍽️' :
+                context?.domain === 'wellness' ? '🧘' : '📋';
+  md += `# ${emoji} ${plan.title || 'Your Plan'}\n\n`;
+
+  // Description/Summary
+  if (plan.description) {
+    md += `${plan.description}\n\n`;
+  }
+
+  // Timeline/Itinerary
+  if (plan.timeline && plan.timeline.length > 0) {
+    md += `## 🗓️ Itinerary\n\n`;
+    plan.timeline.forEach((item: any) => {
+      if (item.day) {
+        md += `### ${item.day}\n`;
+      }
+      md += `**${item.time || item.timeSlot || ''}** ${item.activity || item.event || ''}\n`;
+      if (item.details) {
+        md += `  - ${item.details}\n`;
+      }
+      if (item.location) {
+        md += `  - 📍 ${item.location}\n`;
+      }
+    });
+    md += '\n';
+  }
+
+  // Tasks
+  if (plan.tasks && plan.tasks.length > 0) {
+    md += `## ✅ Action Items\n\n`;
+    plan.tasks.forEach((task: any, idx: number) => {
+      const priority = task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢';
+      md += `${idx + 1}. ${priority} **${task.taskName || task.title}**\n`;
+      if (task.notes || task.description) {
+        md += `   - ${task.notes || task.description}\n`;
+      }
+      if (task.duration) {
+        md += `   - ⏱️ ${task.duration} minutes\n`;
+      }
+    });
+    md += '\n';
+  }
+
+  // Budget
+  if (plan.budget) {
+    md += `## 💰 Budget Breakdown\n\n`;
+    if (plan.budget.breakdown && plan.budget.breakdown.length > 0) {
+      plan.budget.breakdown.forEach((item: any) => {
+        md += `- **${item.category}:** $${item.amount}`;
+        if (item.notes) {
+          md += ` (${item.notes})`;
+        }
+        md += '\n';
+      });
+    }
+    if (plan.budget.total) {
+      md += `\n**Total:** $${plan.budget.total}`;
+      if (plan.budget.buffer) {
+        md += ` (+$${plan.budget.buffer} buffer)`;
+      }
+      md += '\n';
+    }
+    md += '\n';
+  }
+
+  // Weather (for travel)
+  if (plan.weather) {
+    md += `## 🌤️ Weather\n\n`;
+    md += `${plan.weather.forecast || plan.weather}\n`;
+    if (plan.weather.recommendations) {
+      md += `\n**Pack:** ${plan.weather.recommendations.join(', ')}\n`;
+    }
+    md += '\n';
+  }
+
+  // Tips
+  if (plan.tips && plan.tips.length > 0) {
+    md += `## 💡 Pro Tips\n\n`;
+    plan.tips.forEach((tip: string) => {
+      md += `- ${tip}\n`;
+    });
+    md += '\n';
+  }
+
+  return md || '*(Plan details being generated...)*';
+}
+
+/**
  * Calculate progress based on conversation turn count (batch number)
  * Quick mode: 2 batches total → Shows 1/2, 2/2
  * Smart mode: 3 batches total → Shows 1/3, 2/3, 3/3
@@ -1659,9 +1757,15 @@ If user continues asking technical questions: "I'm designed to help you plan ama
 
 Use respond_with_structure tool:
 
+**🚨 CRITICAL MESSAGE FIELD RULES:**
+- **Question Phase (Turn 1-2):** message = conversational questions
+- **Preview Phase (Turn 3+/User says "preview"):** message = FULL DETAILED PLAN with all markdown headers, itinerary, budget breakdown, etc.
+- **NEVER** return generic teaser like "Here's a detailed plan for your trip..." without the actual plan content
+- The \`message\` field is what the user sees - if showing a preview, it MUST contain the complete plan
+
 \`\`\`json
 {
-  "message": "Friendly conversational response",
+  "message": "TURN 1-2: Conversational questions | PREVIEW TURN: COMPLETE PLAN with ## headers, itinerary, budget breakdown, etc.",
   "extractedInfo": {"domain": "travel/event/dining/etc", "budget": "...", "destination": "...", "dates": "..."},
   "readyToGenerate": false,  // true when ${minQuestions}+ answered
   "plan": {  // ONLY if readyToGenerate = true
@@ -1917,6 +2021,17 @@ export class SimpleConversationalPlanner {
         mode
       );
 
+      // Debug logging for preview troubleshooting
+      console.log('[SIMPLE_PLANNER] LLM Response Debug:', {
+        messageLength: response.message?.length,
+        messagePreview: response.message?.substring(0, 300),
+        hasPlan: !!response.plan,
+        planTitle: response.plan?.title,
+        planTaskCount: response.plan?.tasks?.length || 0,
+        readyToGenerate: response.readyToGenerate,
+        extractedInfoKeys: Object.keys(response.extractedInfo || {})
+      });
+
       // 5. ENFORCE cumulative questionCount based on conversation turns
       // Don't trust AI to track this - calculate it based on user responses received
       const minimum = mode === 'quick' ? 5 : 10;
@@ -1958,13 +2073,35 @@ export class SimpleConversationalPlanner {
         console.log(`[SIMPLE_PLANNER] 👁️ User requested preview - triggering plan preview with enrichment`);
         response.showPreview = true;
 
-        // Force the system to generate a preview by enabling web search
-        // The response should show what the plan would look like
-        response.message = `👁️ **Plan Preview** (based on what you've shared so far)\n\n` +
-          `---\n\n` +
-          response.message +
-          `\n\n---\n\n` +
-          `💡 This is a preview. Say **"create plan"** to finalize, or keep chatting to refine details.`;
+        // Check if AI generated a plan object but only a generic message
+        // If so, format the plan object as markdown for display
+        const hasGenericMessage = response.message.length < 300 ||
+          !response.message.includes('##') ||
+          response.message.toLowerCase().includes("here's a detailed plan") ||
+          response.message.toLowerCase().includes("here is a detailed plan");
+
+        if (response.plan && hasGenericMessage) {
+          console.log(`[SIMPLE_PLANNER] 👁️ Formatting plan object as markdown (message was generic)`);
+          const planMarkdown = formatPlanAsMarkdown(response.plan, context);
+          if (planMarkdown && planMarkdown.length > 100) {
+            response.message = planMarkdown;
+          }
+        }
+
+        // Only add preview wrapper if message doesn't already have detailed headers
+        const hasDetailedContent = response.message.includes('##') || response.message.includes('# ');
+
+        if (hasDetailedContent) {
+          // Already detailed, just add preview header
+          response.message = `👁️ **Plan Preview** (based on what you've shared so far)\n\n---\n\n` +
+            response.message +
+            `\n\n---\n\n💡 This is a preview. Say **"create plan"** to finalize, or keep chatting to refine details.`;
+        } else {
+          // Generic message, wrap with context
+          response.message = `👁️ **Plan Preview** (based on what you've shared so far)\n\n---\n\n` +
+            response.message +
+            `\n\n---\n\n💡 This is a preview. Say **"create plan"** to finalize, or keep chatting to refine details.`;
+        }
       }
 
       // Handle continue request - ensure we continue with questions
@@ -2172,18 +2309,33 @@ export class SimpleConversationalPlanner {
 
       // Handle preview request - show plan preview WITHOUT creating activity
       if (previewTrigger && !response.readyToGenerate) {
-        console.log(`[SIMPLE_PLANNER] 👁️ User requested preview - triggering plan preview with enrichment`);
+        console.log(`[SIMPLE_PLANNER_STREAM] 👁️ User requested preview - triggering plan preview with enrichment`);
         response.showPreview = true;
-        response.message = `👁️ **Plan Preview** (based on what you've shared so far)\n\n` +
-          `---\n\n` +
+
+        // Check if AI generated a plan object but only a generic message
+        const hasGenericMessage = response.message.length < 300 ||
+          !response.message.includes('##') ||
+          response.message.toLowerCase().includes("here's a detailed plan") ||
+          response.message.toLowerCase().includes("here is a detailed plan");
+
+        if (response.plan && hasGenericMessage) {
+          console.log(`[SIMPLE_PLANNER_STREAM] 👁️ Formatting plan object as markdown (message was generic)`);
+          const planMarkdown = formatPlanAsMarkdown(response.plan, context);
+          if (planMarkdown && planMarkdown.length > 100) {
+            response.message = planMarkdown;
+          }
+        }
+
+        // Add preview wrapper
+        const hasDetailedContent = response.message.includes('##') || response.message.includes('# ');
+        response.message = `👁️ **Plan Preview** (based on what you've shared so far)\n\n---\n\n` +
           response.message +
-          `\n\n---\n\n` +
-          `💡 This is a preview. Say **"create plan"** to finalize, or keep chatting to refine details.`;
+          `\n\n---\n\n💡 This is a preview. Say **"create plan"** to finalize, or keep chatting to refine details.`;
       }
 
       // Handle continue request - ensure we continue with questions
       if (continueTrigger) {
-        console.log(`[SIMPLE_PLANNER] ➡️ User requested continue`);
+        console.log(`[SIMPLE_PLANNER_STREAM] ➡️ User requested continue`);
         if (!response.message.includes('?')) {
           response.message += `\n\nLet me ask a few more questions to refine your plan:`;
         }
@@ -2191,7 +2343,7 @@ export class SimpleConversationalPlanner {
 
       // User override: allow generation even if < minimum questions
       if (createPlanTrigger && !response.readyToGenerate) {
-        console.log(`[SIMPLE_PLANNER] 🎯 User triggered "create plan" - generating with ${questionCount} questions`);
+        console.log(`[SIMPLE_PLANNER_STREAM] 🎯 User triggered "create plan" - generating with ${questionCount} questions`);
         response.readyToGenerate = true;
 
         // Add acknowledgment if early
