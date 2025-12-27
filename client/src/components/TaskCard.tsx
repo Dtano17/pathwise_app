@@ -265,6 +265,12 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
 
         {/* Badges */}
         <div className="flex flex-wrap gap-2 mb-4">
+          {isCompleted && (
+            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 flex items-center gap-1" data-testid={`task-status-completed-${task.id}`}>
+              <CheckCircle className="w-3 h-3" />
+              Completed
+            </Badge>
+          )}
           <Badge className={getPriorityColor(task.priority)} data-testid={`task-priority-${task.id}`}>
             {task.priority}
           </Badge>
@@ -321,56 +327,80 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
         </div> */}
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
-          <Button
-            onClick={handleComplete}
-            disabled={isProcessing}
-            size="default"
-            className="w-full min-h-[44px] bg-green-600 hover:bg-green-700 text-white"
-            data-testid={`button-complete-${task.id}`}
-          >
-            <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-            <span className="truncate">Complete</span>
-          </Button>
-
-          <Button
-            onClick={handleSnooze}
-            disabled={isProcessing}
-            variant="outline"
-            size="default"
-            className="w-full min-h-[44px]"
-            data-testid={`button-snooze-${task.id}`}
-          >
-            <Pause className="w-4 h-4 mr-2 flex-shrink-0" />
-            <span className="truncate">Snooze</span>
-          </Button>
-
-          {onArchive && (
+        {!isCompleted && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
             <Button
-              onClick={handleArchive}
+              onClick={handleComplete}
+              disabled={isProcessing}
+              size="default"
+              className="w-full min-h-[44px] bg-green-600 hover:bg-green-700 text-white"
+              data-testid={`button-complete-${task.id}`}
+            >
+              <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="truncate">Complete</span>
+            </Button>
+
+            <Button
+              onClick={handleSnooze}
               disabled={isProcessing}
               variant="outline"
               size="default"
               className="w-full min-h-[44px]"
-              data-testid={`button-archive-${task.id}`}
+              data-testid={`button-snooze-${task.id}`}
             >
-              <Archive className="w-4 h-4 mr-2 flex-shrink-0" />
-              <span className="truncate">Archive</span>
+              <Pause className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="truncate">Snooze</span>
             </Button>
-          )}
 
-          <Button
-            onClick={handleSkip}
-            disabled={isProcessing}
-            variant="outline"
-            size="default"
-            className={`w-full min-h-[44px] text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950 ${onArchive ? '' : 'sm:col-start-2'}`}
-            data-testid={`button-skip-${task.id}`}
-          >
-            <X className="w-4 h-4 mr-2 flex-shrink-0" />
-            <span className="truncate">Skip</span>
-          </Button>
-        </div>
+            {onArchive && (
+              <Button
+                onClick={handleArchive}
+                disabled={isProcessing}
+                variant="outline"
+                size="default"
+                className="w-full min-h-[44px]"
+                data-testid={`button-archive-${task.id}`}
+              >
+                <Archive className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span className="truncate">Archive</span>
+              </Button>
+            )}
+
+            <Button
+              onClick={handleSkip}
+              disabled={isProcessing}
+              variant="outline"
+              size="default"
+              className={`w-full min-h-[44px] text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950 ${onArchive ? '' : 'sm:col-start-2'}`}
+              data-testid={`button-skip-${task.id}`}
+            >
+              <X className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="truncate">Skip</span>
+            </Button>
+          </div>
+        )}
+
+        {isCompleted && (
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-medium">
+              <CheckCircle className="w-5 h-5" />
+              <span>Great job! Task completed.</span>
+            </div>
+            {onArchive && (
+              <Button
+                onClick={handleArchive}
+                disabled={isProcessing}
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+                data-testid={`button-archive-completed-${task.id}`}
+              >
+                <Archive className="w-4 h-4 mr-2 flex-shrink-0" />
+                Archive this task
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Processing indicator */}
         {isProcessing && (
