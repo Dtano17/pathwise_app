@@ -4357,26 +4357,6 @@ ${sitemaps.map(sitemap => `  <sitemap>
 
       await storage.removeGroupMember(groupId, memberId);
 
-      // CRITICAL: Stop group tracking for this user's activities in this group
-      // This prevents duplicate entries and ensures progress stops reflecting their updates
-      try {
-        console.log(`[LEAVE GROUP] Severing tracking links for user ${memberId} in group ${groupId}`);
-        // Find all activities of this user that are linked to this group
-        const userActivities = await storage.getActivities(memberId);
-        for (const activity of userActivities) {
-          if (activity.targetGroupId === groupId && activity.sharesProgressWithGroup) {
-            console.log(`[LEAVE GROUP] Disabling tracking for activity ${activity.id}`);
-            await storage.updateActivity(activity.id, {
-              sharesProgressWithGroup: false,
-              linkedGroupActivityId: null,
-              targetGroupId: null
-            }, memberId);
-          }
-        }
-      } catch (trackError) {
-        console.error('[LEAVE GROUP] Error severing tracking links:', trackError);
-      }
-
       // Create activity feed entry for member leaving
       try {
         console.log(`[LEAVE GROUP] Creating activity feed entry for ${leavingUser?.username || 'Someone'} leaving group ${groupId}`);
@@ -4392,7 +4372,26 @@ ${sitemaps.map(sitemap => `  <sitemap>
         console.log(`[LEAVE GROUP] Activity feed entry created`);
       } catch (feedError) {
         console.error('Error creating leave activity feed entry:', feedError);
-        // Don't fail the operation if feed logging fails
+      }
+
+      // CRITICAL: Stop group tracking for this user's activities in this group
+      // This prevents duplicate entries and ensures progress stops reflecting their updates
+      // User activities are preserved but dissociated from the group
+      try {
+        console.log(`[LEAVE GROUP] Severing tracking links for user ${memberId} in group ${groupId}`);
+        const userActivities = await storage.getActivities(memberId);
+        for (const activity of userActivities) {
+          if (activity.targetGroupId === groupId && activity.sharesProgressWithGroup) {
+            console.log(`[LEAVE GROUP] Disabling tracking for activity ${activity.id}`);
+            await storage.updateActivity(activity.id, {
+              sharesProgressWithGroup: false,
+              linkedGroupActivityId: null,
+              targetGroupId: null
+            }, memberId);
+          }
+        }
+      } catch (trackError) {
+        console.error('[LEAVE GROUP] Error severing tracking links:', trackError);
       }
 
       // Send notification to remaining group members
