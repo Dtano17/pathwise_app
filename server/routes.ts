@@ -4357,6 +4357,26 @@ ${sitemaps.map(sitemap => `  <sitemap>
 
       await storage.removeGroupMember(groupId, memberId);
 
+      // CRITICAL: Stop group tracking for this user's activities in this group
+      // This prevents duplicate entries and ensures progress stops reflecting their updates
+      try {
+        console.log(`[LEAVE GROUP] Severing tracking links for user ${memberId} in group ${groupId}`);
+        // Find all activities of this user that are linked to this group
+        const userActivities = await storage.getActivities(memberId);
+        for (const activity of userActivities) {
+          if (activity.targetGroupId === groupId && activity.sharesProgressWithGroup) {
+            console.log(`[LEAVE GROUP] Disabling tracking for activity ${activity.id}`);
+            await storage.updateActivity(activity.id, {
+              sharesProgressWithGroup: false,
+              linkedGroupActivityId: null,
+              targetGroupId: null
+            }, memberId);
+          }
+        }
+      } catch (trackError) {
+        console.error('[LEAVE GROUP] Error severing tracking links:', trackError);
+      }
+
       // Create activity feed entry for member leaving
       try {
         console.log(`[LEAVE GROUP] Creating activity feed entry for ${leavingUser?.username || 'Someone'} leaving group ${groupId}`);
@@ -6630,8 +6650,17 @@ ${emoji} ${progressLine}
       }
       
       // Get the tasks for the shared activity
+      // Fetching from storage using the owner's ID to ensure we get the canonical tasks
       const originalTasks = await storage.getActivityTasks(sharedActivity.id, sharedActivity.userId);
-      console.log('[COPY ACTIVITY] Found tasks:', originalTasks.length);
+      console.log('[COPY ACTIVITY] Found tasks for original activity:', {
+        activityId: sharedActivity.id,
+        ownerId: sharedActivity.userId,
+        count: originalTasks.length
+      });
+      
+      if (originalTasks.length === 0) {
+        console.warn('[COPY ACTIVITY] ⚠️ No tasks found for original activity. This might be a data integrity issue.');
+      }
       
       // If updating existing copy, archive the old one and preserve progress
       let oldTasks: Task[] = [];
@@ -6645,8 +6674,8 @@ ${emoji} ${progressLine}
       // If shareProgress is enabled and activity has a targetGroupId, link to the group activity
       const activityData: any = {
         userId: userId,
-        title: sharedActivity.title,
-        description: sharedActivity.description,
+        title: groupIdToJoin ? sharedActivity.title : `${sharedActivity.title} (Copy)`,
+        description: sharedActivity.description || 'No description provided',
         category: sharedActivity.category,
         planSummary: sharedActivity.planSummary,
         status: 'planning', // Reset status to planning

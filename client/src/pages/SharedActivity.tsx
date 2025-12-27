@@ -527,6 +527,47 @@ export default function SharedActivity() {
       return;
     }
     
+    // Check for pending join preferences saved before login redirect
+    const pendingJoinStr = localStorage.getItem('pendingGroupJoin');
+    let savedJoinPrefs: { 
+      joinGroup?: boolean | null; 
+      shareProgress?: boolean; 
+      shareToken?: string; 
+      timestamp?: number;
+      inviteCode?: string | null;
+      groupId?: string | null;
+      groupName?: string | null;
+    } | null = null;
+    
+    if (pendingJoinStr) {
+      try {
+        savedJoinPrefs = JSON.parse(pendingJoinStr);
+        // Verify it's for the same share token and not too old (1 hour max)
+        const isValid = savedJoinPrefs?.shareToken === token && 
+          savedJoinPrefs?.timestamp && 
+          (Date.now() - savedJoinPrefs.timestamp) < 3600000; // 1 hour
+        if (!isValid) {
+          savedJoinPrefs = null;
+          localStorage.removeItem('pendingGroupJoin');
+        } else {
+          console.log('[SHARED ACTIVITY] ✅ Found valid pending join preferences:', savedJoinPrefs);
+          // Don't remove yet, wait for copy to succeed
+        }
+      } catch (e) {
+        console.error('[SHARED ACTIVITY] Error parsing pending join preferences:', e);
+        localStorage.removeItem('pendingGroupJoin');
+      }
+    }
+
+    // Force show dialog if user hasn't decided yet
+    if (isRealUser && justAuthenticated && savedJoinPrefs?.joinGroup === null && !showJoinDialog && !permissionRequested) {
+      console.log('[SHARED ACTIVITY] 🚀 Newly authenticated user needs to decide on group join');
+      setPendingCopy({ forceUpdate: false });
+      setShowJoinDialog(true);
+      setPermissionRequested(true);
+      return;
+    }
+    
     // Only auto-copy if:
     // 1. User is a real authenticated user (not demo user) - DERIVED FROM USER DATA
     // 2. Activity data is loaded
@@ -538,49 +579,9 @@ export default function SharedActivity() {
       justAuthenticated &&
       data?.activity && 
       data.activity.userId !== currentUserId &&
-      !permissionRequested
+      !permissionRequested &&
+      (!data.groupInfo || (savedJoinPrefs && savedJoinPrefs.joinGroup !== null))
     ) {
-      setPermissionRequested(true);
-      console.log('[SHARED ACTIVITY] ✅ Auto-copying activity for newly authenticated user');
-      console.log('[SHARED ACTIVITY] Activity:', data.activity.title);
-      console.log('[SHARED ACTIVITY] User ID:', currentUserId);
-      console.log('[SHARED ACTIVITY] User:', (user as any).username || (user as any).email);
-      console.log('[SHARED ACTIVITY] Has groupInfo:', !!data.groupInfo);
-      if (data.groupInfo) {
-        console.log('[SHARED ACTIVITY] Group:', data.groupInfo.name, 'Members:', data.groupInfo.memberCount);
-      }
-      
-      // Check for pending join preferences saved before login redirect
-      const pendingJoinStr = localStorage.getItem('pendingGroupJoin');
-      let savedJoinPrefs: { 
-        joinGroup?: boolean | null; // null means user hasn't decided yet
-        shareProgress?: boolean; 
-        shareToken?: string; 
-        timestamp?: number;
-        inviteCode?: string | null;
-        groupId?: string | null;
-        groupName?: string | null;
-      } | null = null;
-      
-      if (pendingJoinStr) {
-        try {
-          savedJoinPrefs = JSON.parse(pendingJoinStr);
-          // Verify it's for the same share token and not too old (1 hour max)
-          const isValid = savedJoinPrefs?.shareToken === token && 
-            savedJoinPrefs?.timestamp && 
-            (Date.now() - savedJoinPrefs.timestamp) < 3600000; // 1 hour
-          if (!isValid) {
-            savedJoinPrefs = null;
-            localStorage.removeItem('pendingGroupJoin');
-          } else {
-            console.log('[SHARED ACTIVITY] ✅ Found valid pending join preferences:', savedJoinPrefs);
-            localStorage.removeItem('pendingGroupJoin'); // Clean up after reading
-          }
-        } catch (e) {
-          console.error('[SHARED ACTIVITY] Error parsing pending join preferences:', e);
-          localStorage.removeItem('pendingGroupJoin');
-        }
-      }
       
       // Automatically trigger copy (forceUpdate = false for initial copy)
       // For auto-copy, use saved join preferences if available, otherwise show dialog for group activities
