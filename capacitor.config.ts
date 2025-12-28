@@ -37,9 +37,10 @@ const config: CapacitorConfig = {
       promptForGallery: true,
     },
     LocalNotifications: {
-      // For reminder notifications
-      smallIcon: 'ic_stat_icon_config_sample',
+      // For reminder notifications - uses launcher icon as fallback
+      smallIcon: 'ic_launcher',
       iconColor: '#6C5CE7',
+      sound: 'default',
     },
   },
   // iOS specific configuration
