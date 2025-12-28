@@ -6,9 +6,8 @@ const config: CapacitorConfig = {
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',
-    url: 'https://journalmate.ai',
-    // Allow navigation to external OAuth providers
-    allowNavigation: ['accounts.google.com', '*.google.com', '*.facebook.com', '*.apple.com'],
+    // No URL set - loads bundled assets locally
+    // API calls are prefixed with production URL via client/src/lib/api.ts
   },
   plugins: {
     SplashScreen: {
@@ -41,6 +40,13 @@ const config: CapacitorConfig = {
       smallIcon: 'ic_launcher',
       iconColor: '#6C5CE7',
       sound: 'default',
+    },
+    GoogleAuth: {
+      // Web client ID from Google Cloud Console
+      // Set via GOOGLE_CLIENT_ID environment variable in production
+      scopes: ['profile', 'email'],
+      serverClientId: process.env.GOOGLE_CLIENT_ID || '',
+      forceCodeForRefreshToken: true,
     },
   },
   // iOS specific configuration

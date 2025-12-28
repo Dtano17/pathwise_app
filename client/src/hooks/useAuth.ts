@@ -4,6 +4,8 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect, useRef } from "react";
 import { initializeSocket, disconnectSocket, isSocketConnected } from "@/lib/socket";
 import { initializePushNotifications, unregisterPushNotifications } from "@/lib/pushNotifications";
+import { apiUrl, isNativePlatform } from "@/lib/api";
+import { signInWithGoogleNative, signOutGoogleNative } from "@/lib/nativeGoogleAuth";
 
 interface User {
   id: string;
@@ -25,7 +27,8 @@ export function useAuth() {
   const { data: user, isLoading, error, refetch } = useQuery<User | null>({
     queryKey: ['/api/user'],
     queryFn: async () => {
-      const res = await fetch('/api/user', { credentials: 'include' });
+      // Use API utility for native platform support
+      const res = await fetch(apiUrl('/api/user'), { credentials: 'include' });
       if (!res.ok) {
         if (res.status === 401) return null;
         throw new Error('Failed to fetch user');
@@ -85,11 +88,16 @@ export function useAuth() {
 
   // Logout mutation
   const logoutMutation = useMutation({
-    mutationFn: () =>
-      fetch('/api/logout', { method: 'POST' }).then(res => {
-        if (!res.ok) throw new Error('Logout failed');
-        return res.json();
-      }),
+    mutationFn: async () => {
+      // Sign out from native Google Auth if on native platform
+      if (isNativePlatform()) {
+        await signOutGoogleNative();
+      }
+      // Call backend logout
+      const res = await fetch(apiUrl('/api/logout'), { method: 'POST', credentials: 'include' });
+      if (!res.ok) throw new Error('Logout failed');
+      return res.json();
+    },
     onSuccess: () => {
       // Clear all queries and redirect
       if (queryClient) queryClient.clear();
@@ -119,9 +127,42 @@ export function useAuth() {
   const isAuthenticated = !!user && user.authenticated === true && !error;
   const isUnauthenticated = !user || user.authenticated === false || user.isGuest === true || (error && isUnauthorizedError(error as Error));
 
-  // Login redirect
-  const login = () => {
-    window.location.href = '/api/login';
+  // Login redirect - uses native Google Auth on mobile, web OAuth on web
+  const login = async () => {
+    if (isNativePlatform()) {
+      // Use native Google sign-in on mobile
+      try {
+        const result = await signInWithGoogleNative();
+        if (result.success) {
+          // Refetch user data after successful native sign-in
+          await refetch();
+          return;
+        }
+        // If native auth failed but didn't redirect, fall through to web auth
+        console.log('[AUTH] Native auth returned:', result);
+      } catch (error) {
+        console.error('[AUTH] Native Google auth error:', error);
+      }
+    }
+    // Fallback to web OAuth
+    window.location.href = apiUrl('/api/login');
+  };
+
+  // Google login - specifically for Google OAuth button
+  const loginWithGoogle = async () => {
+    if (isNativePlatform()) {
+      // Use native Google sign-in on mobile
+      const result = await signInWithGoogleNative();
+      if (result.success) {
+        // Refetch user data after successful native sign-in
+        await refetch();
+        return result;
+      }
+      return result;
+    }
+    // Fallback to web OAuth
+    window.location.href = apiUrl('/api/auth/google');
+    return { success: false, error: 'Redirecting to web OAuth' };
   };
 
   const logout = () => logoutMutation.mutate();
@@ -137,9 +178,13 @@ export function useAuth() {
     // Helper functions
     logout,
     login,
+    loginWithGoogle, // Native Google auth on mobile, web OAuth on web
     refetch, // Expose refetch for manual auth refresh
     getUserDisplayName: () => getUserDisplayName(user),
     getUserInitials: () => getUserInitials(user),
+
+    // Platform info
+    isNativePlatform: isNativePlatform(),
 
     // Legacy compatibility (for existing code)
     isUserLoading: isLoading,

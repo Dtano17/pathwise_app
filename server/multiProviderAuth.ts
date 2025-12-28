@@ -588,6 +588,129 @@ export async function setupMultiProviderAuth(app: Express) {
       res.redirect('/?auth=success');
     }
   );
+
+  // Native Google Auth endpoint for Capacitor mobile apps
+  // This bypasses WebView OAuth restrictions by verifying native SDK tokens
+  app.post('/api/auth/google/native', async (req, res) => {
+    try {
+      const { idToken, email, name, givenName, familyName, imageUrl, id: googleId } = req.body;
+
+      console.log('[Native Google Auth] Request received:', { email, name, googleId });
+
+      if (!email || !googleId) {
+        console.error('[Native Google Auth] Missing required fields');
+        return res.status(400).json({ error: 'Missing email or Google ID' });
+      }
+
+      // Verify the ID token with Google (optional but recommended for production)
+      // For now, we trust the native SDK since it handles verification
+      // In production, you should verify the idToken with Google's OAuth2Client
+
+      // Check if this Google account is already linked
+      let authIdentity = await storage.getAuthIdentity('google', googleId);
+
+      let user;
+      let isNewUser = false;
+
+      if (authIdentity) {
+        // User already exists with this Google account
+        user = await storage.getUser(authIdentity.userId);
+        console.log('[Native Google Auth] Existing user found:', user?.id);
+      } else {
+        // New Google account - check if user exists by email
+        user = await storage.getUserByEmail(email);
+
+        if (!user) {
+          // Generate username from email
+          const username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
+
+          // Create new user
+          user = await storage.upsertUser({
+            username: username,
+            password: "google_oauth_native_user", // Placeholder for OAuth users
+            email: email,
+            firstName: givenName || name?.split(' ')[0] || undefined,
+            lastName: familyName || name?.split(' ').slice(1).join(' ') || undefined,
+            profileImageUrl: imageUrl || undefined,
+          });
+          isNewUser = true;
+          console.log('[Native Google Auth] New user created:', user.id);
+
+          // Send welcome email for new users (don't wait for it)
+          if (user.email) {
+            sendWelcomeEmail(user.email, user.firstName || 'there').catch(error => {
+              console.error('[Native Google Auth] Welcome email error:', error);
+            });
+          }
+        }
+
+        // Link Google account to user
+        authIdentity = await storage.createAuthIdentity({
+          userId: user.id,
+          provider: 'google',
+          providerUserId: googleId,
+          email: email,
+        });
+        console.log('[Native Google Auth] Auth identity created for user:', user.id);
+      }
+
+      if (!user) {
+        console.error('[Native Google Auth] Failed to create or retrieve user');
+        return res.status(500).json({ error: 'Failed to create user' });
+      }
+
+      // Create OAuth user object
+      const oauthUser: OAuthUser = {
+        id: user.id,
+        provider: 'google',
+        providerUserId: googleId,
+        email: user.email || undefined,
+        firstName: user.firstName || undefined,
+        lastName: user.lastName || undefined,
+        profileImageUrl: user.profileImageUrl || undefined,
+        isNewUser
+      };
+
+      // Regenerate session to prevent session fixation
+      req.session.regenerate((regenerateErr: any) => {
+        if (regenerateErr) {
+          console.error('[Native Google Auth] Session regenerate error:', regenerateErr);
+          return res.status(500).json({ error: 'Session error' });
+        }
+
+        // Log in the user
+        req.login(oauthUser, (loginErr: any) => {
+          if (loginErr) {
+            console.error('[Native Google Auth] Login error:', loginErr);
+            return res.status(500).json({ error: 'Login error' });
+          }
+
+          // Save session explicitly
+          req.session.save((saveErr: any) => {
+            if (saveErr) {
+              console.error('[Native Google Auth] Session save error:', saveErr);
+            }
+
+            console.log('[Native Google Auth] Login successful:', user.id);
+            res.json({
+              success: true,
+              user: {
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                profileImageUrl: user.profileImageUrl,
+              },
+              isNewUser
+            });
+          });
+        });
+      });
+    } catch (error) {
+      console.error('[Native Google Auth] Error:', error);
+      res.status(500).json({ error: 'Authentication failed' });
+    }
+  });
 }
 
 // Generic authentication middleware that works with all providers

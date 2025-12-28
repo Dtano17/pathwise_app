@@ -1,0 +1,176 @@
+/**
+ * Native Google Authentication for Capacitor
+ *
+ * Provides native Google Sign-In on iOS/Android to bypass WebView restrictions.
+ * Falls back to web OAuth on non-native platforms.
+ *
+ * This solves the "Error 403: disallowed_useragent" issue that occurs when
+ * trying to use Google OAuth inside a WebView.
+ */
+
+import { GoogleAuth, User as GoogleUser } from '@southdevs/capacitor-google-auth';
+import { Capacitor } from '@capacitor/core';
+import { apiUrl } from './api';
+
+export interface NativeAuthResult {
+  success: boolean;
+  user?: {
+    id: string;
+    email: string;
+    name: string;
+    imageUrl?: string;
+  };
+  error?: string;
+}
+
+/**
+ * Initialize Google Auth plugin
+ * Call this early in app lifecycle (e.g., in App.tsx or main.tsx)
+ */
+export async function initializeGoogleAuth(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) {
+    console.log('[GOOGLE_AUTH] Skipping initialization on web platform');
+    return;
+  }
+
+  try {
+    await GoogleAuth.initialize({
+      clientId: '', // Will use the one from capacitor.config.ts
+      scopes: ['profile', 'email'],
+      grantOfflineAccess: true,
+    });
+    console.log('[GOOGLE_AUTH] Initialized successfully');
+  } catch (error) {
+    console.error('[GOOGLE_AUTH] Initialization failed:', error);
+  }
+}
+
+/**
+ * Sign in with Google using native dialog
+ * On native platforms, uses native Google Sign-In
+ * On web, redirects to the web OAuth flow
+ */
+export async function signInWithGoogleNative(): Promise<NativeAuthResult> {
+  // Fallback to web OAuth on non-native platforms
+  if (!Capacitor.isNativePlatform()) {
+    console.log('[GOOGLE_AUTH] Redirecting to web OAuth flow');
+    window.location.href = '/api/auth/google';
+    return { success: false, error: 'Redirecting to web OAuth' };
+  }
+
+  try {
+    console.log('[GOOGLE_AUTH] Starting native sign-in...');
+
+    // Trigger native Google Sign-In dialog
+    const result: GoogleUser = await GoogleAuth.signIn();
+
+    console.log('[GOOGLE_AUTH] Native sign-in successful:', {
+      email: result.email,
+      name: result.name || result.givenName,
+    });
+
+    // Send the ID token to backend for verification and session creation
+    const response = await fetch(apiUrl('/api/auth/google/native'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        idToken: result.authentication?.idToken,
+        accessToken: result.authentication?.accessToken,
+        email: result.email,
+        name: result.name || `${result.givenName || ''} ${result.familyName || ''}`.trim(),
+        givenName: result.givenName,
+        familyName: result.familyName,
+        imageUrl: result.imageUrl,
+        id: result.id,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Server responded with ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    console.log('[GOOGLE_AUTH] Backend verification successful');
+
+    return {
+      success: true,
+      user: {
+        id: data.user?.id || result.id,
+        email: result.email,
+        name: result.name || `${result.givenName || ''} ${result.familyName || ''}`.trim(),
+        imageUrl: result.imageUrl,
+      },
+    };
+  } catch (error: any) {
+    console.error('[GOOGLE_AUTH] Sign-in failed:', error);
+
+    // Check for user cancellation
+    if (error.message?.includes('cancel') || error.code === 'SIGN_IN_CANCELLED') {
+      return { success: false, error: 'Sign-in cancelled by user' };
+    }
+
+    return { success: false, error: error.message || 'Failed to sign in with Google' };
+  }
+}
+
+/**
+ * Sign out from Google
+ */
+export async function signOutGoogleNative(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) {
+    return;
+  }
+
+  try {
+    await GoogleAuth.signOut();
+    console.log('[GOOGLE_AUTH] Signed out successfully');
+  } catch (error) {
+    console.error('[GOOGLE_AUTH] Sign-out failed:', error);
+  }
+}
+
+/**
+ * Refresh the Google access token
+ */
+export async function refreshGoogleAuth(): Promise<string | null> {
+  if (!Capacitor.isNativePlatform()) {
+    return null;
+  }
+
+  try {
+    const result = await GoogleAuth.refresh();
+    console.log('[GOOGLE_AUTH] Token refreshed');
+    return result.accessToken || null;
+  } catch (error) {
+    console.error('[GOOGLE_AUTH] Token refresh failed:', error);
+    return null;
+  }
+}
+
+/**
+ * Check if user is signed in with Google
+ */
+export async function isGoogleSignedIn(): Promise<boolean> {
+  if (!Capacitor.isNativePlatform()) {
+    return false;
+  }
+
+  try {
+    // Try to get current user silently
+    await GoogleAuth.refresh();
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+export default {
+  initializeGoogleAuth,
+  signInWithGoogleNative,
+  signOutGoogleNative,
+  refreshGoogleAuth,
+  isGoogleSignedIn,
+};

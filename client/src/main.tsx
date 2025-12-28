@@ -1,6 +1,12 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import { initializeGoogleAuth } from "./lib/nativeGoogleAuth";
+
+// Initialize native Google Auth for Capacitor mobile apps
+initializeGoogleAuth().catch(error => {
+  console.log('[INIT] Google Auth initialization skipped or failed:', error);
+});
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
