@@ -4378,15 +4378,17 @@ ${sitemaps.map(sitemap => `  <sitemap>
       // This prevents duplicate entries and ensures progress stops reflecting their updates
       // User activities are preserved but dissociated from the group
       try {
-        console.log(`[LEAVE GROUP] Severing tracking links for user ${memberId} in group ${groupId}`);
+        console.log(`[LEAVE GROUP] Updating tracking links for user ${memberId} in group ${groupId}`);
         const userActivities = await storage.getActivities(memberId);
         for (const activity of userActivities) {
           if (activity.targetGroupId === groupId && activity.sharesProgressWithGroup) {
-            console.log(`[LEAVE GROUP] Disabling tracking for activity ${activity.id}`);
+            console.log(`[LEAVE GROUP] Disconnecting activity ${activity.id} from group ${groupId}`);
+            // We set sharesProgressWithGroup to false, but keep targetGroupId for historical reflection
+            // This allows the user to still see that this activity was originally part of this group
             await storage.updateActivity(activity.id, {
               sharesProgressWithGroup: false,
-              linkedGroupActivityId: null,
-              targetGroupId: null
+              // linkedGroupActivityId remains so they can see the original group activity context if needed
+              // targetGroupId remains as a reference to the group they were in
             }, memberId);
           }
         }
