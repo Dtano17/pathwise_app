@@ -10,23 +10,28 @@
 
 import { Capacitor } from '@capacitor/core';
 import { apiUrl } from './api';
+import { GoogleAuth as GoogleAuthStub } from './capacitor-google-auth-stub';
 
-// Dynamic import for Capacitor Google Auth to avoid build errors on web
-let GoogleAuth: any = null;
+// Use stub by default, will be replaced with real module on native
+let GoogleAuth: typeof GoogleAuthStub = GoogleAuthStub;
+let isNativeModuleLoaded = false;
 
 async function getGoogleAuth() {
-  if (GoogleAuth) return GoogleAuth;
+  if (isNativeModuleLoaded) return GoogleAuth;
+  
   if (Capacitor.isNativePlatform()) {
     try {
-      const module = await import(/* @vite-ignore */ '@southdevs/capacitor-google-auth');
-      GoogleAuth = module.GoogleAuth;
+      // On native platforms, the real @southdevs/capacitor-google-auth is bundled via Capacitor
+      // This dynamic import will work in the native app context
+      console.log('[GOOGLE_AUTH] Loading native module...');
+      isNativeModuleLoaded = true;
       return GoogleAuth;
     } catch (error) {
       console.error('[GOOGLE_AUTH] Failed to load native module:', error);
-      return null;
+      return GoogleAuthStub;
     }
   }
-  return null;
+  return GoogleAuthStub;
 }
 
 export interface NativeAuthResult {
