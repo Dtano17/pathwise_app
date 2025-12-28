@@ -3647,8 +3647,8 @@ export class DatabaseStorage implements IStorage {
 
   // === Contact Shares / Invites ===
 
-  // Create a contact share record for phone/email invite
-  async createContactShare(data: {
+  // Create a contact share record for phone/email group invite
+  async createGroupContactInvite(data: {
     groupId: string;
     invitedBy: string;
     contactType: 'phone' | 'email';

@@ -4820,7 +4820,7 @@ ${sitemaps.map(sitemap => `  <sitemap>
         const { type, value } = contact;
 
         // Create contact share record
-        const contactShare = await storage.createContactShare({
+        const contactShare = await storage.createGroupContactInvite({
           groupId,
           invitedBy: userId,
           contactType: type,
