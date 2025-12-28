@@ -4,6 +4,6 @@
     <string name="title_activity_main">JournalMate</string>
     <string name="package_name">ai.journalmate.app</string>
     <string name="custom_url_scheme">ai.journalmate.app</string>
-    <!-- Google OAuth Client ID -->
+    <!-- Google OAuth Web Client ID from Google Cloud Console -->
     <string name="server_client_id">481740120979-76fs0ru0uikj5o33mr87vhua8c54657f.apps.googleusercontent.com</string>
 </resources>
