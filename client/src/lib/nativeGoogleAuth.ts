@@ -8,9 +8,26 @@
  * trying to use Google OAuth inside a WebView.
  */
 
-import { GoogleAuth, User as GoogleUser } from '@southdevs/capacitor-google-auth';
 import { Capacitor } from '@capacitor/core';
 import { apiUrl } from './api';
+
+// Dynamic import for Capacitor Google Auth to avoid build errors on web
+let GoogleAuth: any = null;
+
+async function getGoogleAuth() {
+  if (GoogleAuth) return GoogleAuth;
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const module = await import(/* @vite-ignore */ '@southdevs/capacitor-google-auth');
+      GoogleAuth = module.GoogleAuth;
+      return GoogleAuth;
+    } catch (error) {
+      console.error('[GOOGLE_AUTH] Failed to load native module:', error);
+      return null;
+    }
+  }
+  return null;
+}
 
 export interface NativeAuthResult {
   success: boolean;
@@ -33,8 +50,11 @@ export async function initializeGoogleAuth(): Promise<void> {
     return;
   }
 
+  const auth = await getGoogleAuth();
+  if (!auth) return;
+
   try {
-    await GoogleAuth.initialize({
+    await auth.initialize({
       clientId: '', // Will use the one from capacitor.config.ts
       scopes: ['profile', 'email'],
       grantOfflineAccess: true,
@@ -58,11 +78,16 @@ export async function signInWithGoogleNative(): Promise<NativeAuthResult> {
     return { success: false, error: 'Redirecting to web OAuth' };
   }
 
+  const auth = await getGoogleAuth();
+  if (!auth) {
+    return { success: false, error: 'Native Google Auth not available' };
+  }
+
   try {
     console.log('[GOOGLE_AUTH] Starting native sign-in...');
 
     // Trigger native Google Sign-In dialog
-    const result: GoogleUser = await GoogleAuth.signIn();
+    const result = await auth.signIn();
 
     console.log('[GOOGLE_AUTH] Native sign-in successful:', {
       email: result.email,
@@ -124,8 +149,11 @@ export async function signOutGoogleNative(): Promise<void> {
     return;
   }
 
+  const auth = await getGoogleAuth();
+  if (!auth) return;
+
   try {
-    await GoogleAuth.signOut();
+    await auth.signOut();
     console.log('[GOOGLE_AUTH] Signed out successfully');
   } catch (error) {
     console.error('[GOOGLE_AUTH] Sign-out failed:', error);
@@ -140,8 +168,11 @@ export async function refreshGoogleAuth(): Promise<string | null> {
     return null;
   }
 
+  const auth = await getGoogleAuth();
+  if (!auth) return null;
+
   try {
-    const result = await GoogleAuth.refresh();
+    const result = await auth.refresh();
     console.log('[GOOGLE_AUTH] Token refreshed');
     return result.accessToken || null;
   } catch (error) {
@@ -158,9 +189,12 @@ export async function isGoogleSignedIn(): Promise<boolean> {
     return false;
   }
 
+  const auth = await getGoogleAuth();
+  if (!auth) return false;
+
   try {
     // Try to get current user silently
-    await GoogleAuth.refresh();
+    await auth.refresh();
     return true;
   } catch (error) {
     return false;
