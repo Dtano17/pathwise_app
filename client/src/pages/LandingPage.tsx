@@ -211,7 +211,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-dvh overflow-auto bg-background text-foreground">
+    <div className="h-screen w-full overflow-y-auto overflow-x-hidden bg-background text-foreground touch-pan-y scroll-smooth">
       <SEO {...PAGE_SEO.home} />
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -346,7 +346,7 @@ export default function LandingPage() {
               you achieve your goals.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
               <Link href="/login">
                 <Button
                   size="lg"
