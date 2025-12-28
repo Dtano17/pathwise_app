@@ -42,6 +42,7 @@ export function getSession() {
       httpOnly: true,
       secure: true,
       maxAge: sessionTtl,
+      sameSite: 'none', // Required for cross-site OAuth callbacks (mobile apps)
     },
   });
 }

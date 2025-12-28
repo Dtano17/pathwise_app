@@ -6,9 +6,9 @@ const config: CapacitorConfig = {
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',
-    // For local development on physical device, uncomment and update IP:
-    // url: 'http://192.168.1.x:5173',
-    // cleartext: true
+    url: 'https://journalmate.ai',
+    // Allow navigation to external OAuth providers
+    allowNavigation: ['accounts.google.com', '*.google.com', '*.facebook.com', '*.apple.com'],
   },
   plugins: {
     SplashScreen: {
