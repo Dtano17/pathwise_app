@@ -17,21 +17,26 @@ import { GoogleAuth as GoogleAuthStub } from './capacitor-google-auth-stub';
 const AUTH_TOKEN_KEY = 'journalmate_auth_token';
 
 // Use stub by default, will be replaced with real module on native
-let GoogleAuth: typeof GoogleAuthStub = GoogleAuthStub;
+let GoogleAuth: any = GoogleAuthStub;
 let isNativeModuleLoaded = false;
 
 async function getGoogleAuth() {
   if (isNativeModuleLoaded) return GoogleAuth;
-  
+
   if (Capacitor.isNativePlatform()) {
     try {
-      // On native platforms, the real @southdevs/capacitor-google-auth is bundled via Capacitor
-      // This dynamic import will work in the native app context
+      // On native platforms, dynamically import the real plugin
+      // This works because Capacitor bundles the native plugin with the app
       console.log('[GOOGLE_AUTH] Loading native module...');
+      const module = await import('@southdevs/capacitor-google-auth');
+      GoogleAuth = module.GoogleAuth;
       isNativeModuleLoaded = true;
+      console.log('[GOOGLE_AUTH] Native module loaded successfully');
       return GoogleAuth;
     } catch (error) {
       console.error('[GOOGLE_AUTH] Failed to load native module:', error);
+      // Fall back to stub
+      isNativeModuleLoaded = true;
       return GoogleAuthStub;
     }
   }

@@ -1,10 +1,19 @@
 import { createRoot } from "react-dom/client";
+import { Capacitor } from "@capacitor/core";
 import App from "./App";
 import "./index.css";
 import { initializeGoogleAuth } from "./lib/nativeGoogleAuth";
 import { initializeSafeArea, setupSafeAreaListeners } from "./lib/safeArea";
 
-// Initialize safe area handling for native platforms (must be early)
+// Add platform class IMMEDIATELY (before any async code) for CSS targeting
+// This ensures safe area CSS applies from the first render
+if (Capacitor.isNativePlatform()) {
+  const platform = Capacitor.getPlatform();
+  document.body.classList.add(`platform-${platform}`);
+  console.log(`[INIT] Platform class added: platform-${platform}`);
+}
+
+// Initialize safe area handling for native platforms
 initializeSafeArea().catch(error => {
   console.log('[INIT] Safe area initialization skipped or failed:', error);
 });

@@ -9,8 +9,8 @@
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
-  /* Android-specific bottom safe area (set via JavaScript) */
-  --android-safe-area-bottom: 0px;
+  /* Android-specific bottom safe area - 48px default for navigation bar */
+  --android-safe-area-bottom: 48px;
 }
 
 /* Apply safe area padding to the body for native apps */
@@ -27,7 +27,17 @@ body {
   padding-right: var(--safe-area-inset-right);
 }
 
+/* Android Capacitor WebView detection - applies immediately without JavaScript */
+/* Capacitor Android uses a custom scheme (https://localhost or capacitor://) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  /* iOS with proper env() support */
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 /* Android-specific: Apply bottom padding when CSS env() doesn't work */
+/* This class is added by JavaScript but we also apply a default for Capacitor apps */
 body.platform-android {
   /* Use JavaScript-calculated bottom inset for Android navigation bar */
   padding-bottom: var(--android-safe-area-bottom, 48px);
@@ -82,6 +92,12 @@ body.platform-android .safe-y {
 /* Android-specific safe-all */
 .platform-android .safe-all,
 body.platform-android .safe-all {
+  padding-bottom: var(--android-safe-area-bottom, 48px);
+}
+
+/* CRITICAL: Apply safe area to main scrollable content on Android */
+/* The body padding doesn't work because content scrolls inside <main>, not <body> */
+body.platform-android main {
   padding-bottom: var(--android-safe-area-bottom, 48px);
 }
 

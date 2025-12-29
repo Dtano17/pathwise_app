@@ -2,36 +2,60 @@ import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SiGoogle } from "react-icons/si";
-import { Mail } from "lucide-react";
+import { Mail, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmailAuthDialog } from './EmailAuthDialog';
+import { useAuth } from "@/hooks/useAuth";
+import { isNative } from "@/lib/platform";
 
 interface SocialLoginProps {
   title?: string;
   description?: string;
 }
 
-export function SocialLogin({ 
+export function SocialLogin({
   title = "Sign in to continue",
   description = "Access your goals, tasks, and personalized features"
 }: SocialLoginProps) {
   const { toast } = useToast();
+  const { loginWithGoogle } = useAuth();
   const [showEmailAuth, setShowEmailAuth] = useState(false);
-  
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
   // Get returnTo parameter from URL if present (validate to prevent open redirect)
   const getReturnToParam = () => {
     const params = new URLSearchParams(window.location.search);
     const returnTo = params.get('returnTo');
-    
+
     // Validate returnTo is a safe same-origin path
     if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
       return `?returnTo=${encodeURIComponent(returnTo)}`;
     }
     return '';
   };
-  
-  const handleGoogleLogin = () => {
-    window.location.href = `/api/auth/google${getReturnToParam()}`;
+
+  const handleGoogleLogin = async () => {
+    // On native platforms, use native Google Sign-In
+    if (isNative()) {
+      setIsGoogleLoading(true);
+      try {
+        console.log('[SocialLogin] Using native Google Sign-In');
+        await loginWithGoogle();
+        // loginWithGoogle handles navigation on success
+      } catch (error: any) {
+        console.error('[SocialLogin] Native Google Sign-In failed:', error);
+        toast({
+          title: "Sign-in failed",
+          description: error.message || "Could not sign in with Google. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsGoogleLoading(false);
+      }
+    } else {
+      // On web, use standard OAuth redirect
+      window.location.href = `/api/auth/google${getReturnToParam()}`;
+    }
   };
   
 
@@ -57,15 +81,20 @@ export function SocialLogin({
           <span className="truncate">Sign in with Email</span>
         </Button>
 
-        {/* Google Sign In via Passport.js */}
+        {/* Google Sign In - Native on mobile, OAuth on web */}
         <Button
           variant="outline"
           onClick={handleGoogleLogin}
+          disabled={isGoogleLoading}
           className="w-full min-h-[44px] h-auto py-2.5 text-sm sm:text-base justify-start"
           data-testid="button-login-google"
         >
-          <SiGoogle className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-[#4285F4] shrink-0" />
-          <span className="truncate">Sign in with Google</span>
+          {isGoogleLoading ? (
+            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2 animate-spin shrink-0" />
+          ) : (
+            <SiGoogle className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-[#4285F4] shrink-0" />
+          )}
+          <span className="truncate">{isGoogleLoading ? "Signing in..." : "Sign in with Google"}</span>
         </Button>
 
         {/* Terms and Privacy */}

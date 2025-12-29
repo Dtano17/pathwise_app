@@ -28,6 +28,8 @@ import { getCurrentLocation, calculateDistance, formatDistance } from "@/lib/geo
 import { CardDisplaySettings } from "./CardDisplaySettings";
 import { useCardDisplayPreferences } from "./useCardDisplayPreferences";
 import { useAuth } from "@/hooks/useAuth";
+import { apiUrl, isNativePlatform } from "@/lib/api";
+import { getStoredAuthToken } from "@/lib/nativeGoogleAuth";
 
 // Stock image imports
 import romanticParisCityscape from "@assets/stock_images/romantic_paris_citys_dfc7c798.jpg";
@@ -488,9 +490,24 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
       }
       
       params.set("limit", "50");
-      
-      const response = await fetch(`/api/community-plans?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch community plans");
+
+      // Build headers - add auth token for native platforms
+      const headers: HeadersInit = {};
+      if (isNativePlatform()) {
+        const token = await getStoredAuthToken();
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+
+      const response = await fetch(apiUrl(`/api/community-plans?${params}`), {
+        credentials: "include",
+        headers,
+      });
+      if (!response.ok) {
+        console.error('[Discovery] Failed to fetch community plans:', response.status, response.statusText);
+        throw new Error("Failed to fetch community plans");
+      }
       return response.json();
     },
   });
@@ -500,7 +517,20 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
     queryKey: ["/api/share/activity", selectedPlan?.shareToken],
     queryFn: async () => {
       if (!selectedPlan?.shareToken) return null;
-      const response = await fetch(`/api/share/activity/${selectedPlan.shareToken}`);
+
+      // Build headers - add auth token for native platforms
+      const headers: HeadersInit = {};
+      if (isNativePlatform()) {
+        const token = await getStoredAuthToken();
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+
+      const response = await fetch(apiUrl(`/api/share/activity/${selectedPlan.shareToken}`), {
+        credentials: "include",
+        headers,
+      });
       if (!response.ok) throw new Error("Failed to fetch plan details");
       return response.json();
     },
@@ -524,7 +554,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
   // Copy plan to personal mutation
   const copyPlanMutation = useMutation({
     mutationFn: async ({ activityId, shareToken, title, forceUpdate }: { activityId: string; shareToken: string; title: string; forceUpdate?: boolean }) => {
-      const response = await fetch(`/api/activities/copy/${shareToken}`, {
+      const response = await fetch(apiUrl(`/api/activities/copy/${shareToken}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ forceUpdate }),
@@ -586,15 +616,15 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
   // Share plan to group mutation
   const sharePlanToGroupMutation = useMutation({
     mutationFn: async ({ activityId, shareToken, groupId, forceUpdate }: { activityId: string; shareToken: string; groupId: string; forceUpdate?: boolean }) => {
-      const copyResponse = await fetch(`/api/activities/copy/${shareToken}`, {
+      const copyResponse = await fetch(apiUrl(`/api/activities/copy/${shareToken}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ forceUpdate }),
         credentials: "include",
       });
-      
+
       const copyData = await copyResponse.json();
-      
+
       if (copyResponse.status === 409 && copyData.requiresConfirmation) {
         if (!forceUpdate) {
           throw {
@@ -606,14 +636,14 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
           };
         }
       }
-      
+
       const copiedActivityId = copyData.activity?.id;
-      
+
       if (!copiedActivityId) {
         throw new Error("Failed to copy activity");
       }
-      
-      const shareResponse = await fetch(`/api/groups/${groupId}/activities`, {
+
+      const shareResponse = await fetch(apiUrl(`/api/groups/${groupId}/activities`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ activityId: copiedActivityId }),
@@ -680,7 +710,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
   // Like plan mutation (idempotent - adds like)
   const likePlanMutation = useMutation({
     mutationFn: async (activityId: string) => {
-      const response = await fetch(`/api/activities/${activityId}/like`, {
+      const response = await fetch(apiUrl(`/api/activities/${activityId}/like`), {
         method: "POST",
         credentials: "include",
       });
@@ -729,7 +759,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
   // Unlike plan mutation (idempotent - removes like)
   const unlikePlanMutation = useMutation({
     mutationFn: async (activityId: string) => {
-      const response = await fetch(`/api/activities/${activityId}/unlike`, {
+      const response = await fetch(apiUrl(`/api/activities/${activityId}/unlike`), {
         method: "DELETE",
         credentials: "include",
       });
@@ -773,7 +803,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
   // Bookmark plan mutation (idempotent - adds bookmark)
   const bookmarkPlanMutation = useMutation({
     mutationFn: async (activityId: string) => {
-      const response = await fetch(`/api/activities/${activityId}/bookmark`, {
+      const response = await fetch(apiUrl(`/api/activities/${activityId}/bookmark`), {
         method: "POST",
         credentials: "include",
       });
@@ -817,7 +847,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
   // Unbookmark plan mutation (idempotent - removes bookmark)
   const unbookmarkPlanMutation = useMutation({
     mutationFn: async (activityId: string) => {
-      const response = await fetch(`/api/activities/${activityId}/unbookmark`, {
+      const response = await fetch(apiUrl(`/api/activities/${activityId}/unbookmark`), {
         method: "DELETE",
         credentials: "include",
       });
@@ -861,7 +891,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
   // Pin plan mutation (toggle)
   const pinPlanMutation = useMutation({
     mutationFn: async (activityId: string) => {
-      const response = await fetch(`/api/activities/${activityId}/pin`, {
+      const response = await fetch(apiUrl(`/api/activities/${activityId}/pin`), {
         method: "POST",
         credentials: "include",
       });
