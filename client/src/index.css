@@ -9,6 +9,8 @@
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  /* Android-specific bottom safe area (set via JavaScript) */
+  --android-safe-area-bottom: 0px;
 }
 
 /* Apply safe area padding to the body for native apps */
@@ -25,6 +27,12 @@ body {
   padding-right: var(--safe-area-inset-right);
 }
 
+/* Android-specific: Apply bottom padding when CSS env() doesn't work */
+body.platform-android {
+  /* Use JavaScript-calculated bottom inset for Android navigation bar */
+  padding-bottom: var(--android-safe-area-bottom, 48px);
+}
+
 /* Utility classes for safe area handling */
 .safe-top {
   padding-top: var(--safe-area-inset-top);
@@ -32,6 +40,12 @@ body {
 
 .safe-bottom {
   padding-bottom: var(--safe-area-inset-bottom);
+}
+
+/* Android-specific safe bottom (uses JavaScript-calculated value) */
+.platform-android .safe-bottom,
+body.platform-android .safe-bottom {
+  padding-bottom: var(--android-safe-area-bottom, 48px);
 }
 
 .safe-left {
@@ -52,11 +66,23 @@ body {
   padding-bottom: var(--safe-area-inset-bottom);
 }
 
+/* Android-specific safe-y */
+.platform-android .safe-y,
+body.platform-android .safe-y {
+  padding-bottom: var(--android-safe-area-bottom, 48px);
+}
+
 .safe-all {
   padding-top: var(--safe-area-inset-top);
   padding-bottom: var(--safe-area-inset-bottom);
   padding-left: var(--safe-area-inset-left);
   padding-right: var(--safe-area-inset-right);
+}
+
+/* Android-specific safe-all */
+.platform-android .safe-all,
+body.platform-android .safe-all {
+  padding-bottom: var(--android-safe-area-bottom, 48px);
 }
 
 /* LIGHT MODE */

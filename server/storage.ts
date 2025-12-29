@@ -314,7 +314,9 @@ export interface IStorage {
   // OAuth Tokens
   upsertOAuthToken(token: InsertExternalOAuthToken & { userId: string }): Promise<ExternalOAuthToken>;
   getOAuthToken(userId: string, provider: string): Promise<ExternalOAuthToken | undefined>;
+  getOAuthTokenByAccessToken(provider: string, accessToken: string): Promise<ExternalOAuthToken | undefined>;
   deleteOAuthToken(userId: string, provider: string): Promise<void>;
+  deleteOAuthTokenByAccessToken(provider: string, accessToken: string): Promise<void>;
 
   // User lookup helpers
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -1874,6 +1876,18 @@ export class DatabaseStorage implements IStorage {
   async deleteOAuthToken(userId: string, provider: string): Promise<void> {
     await db.delete(externalOAuthTokens).where(
       and(eq(externalOAuthTokens.userId, userId), eq(externalOAuthTokens.provider, provider))
+    );
+  }
+
+  async getOAuthTokenByAccessToken(provider: string, accessToken: string): Promise<ExternalOAuthToken | undefined> {
+    const [token] = await db.select().from(externalOAuthTokens)
+      .where(and(eq(externalOAuthTokens.provider, provider), eq(externalOAuthTokens.accessToken, accessToken)));
+    return token;
+  }
+
+  async deleteOAuthTokenByAccessToken(provider: string, accessToken: string): Promise<void> {
+    await db.delete(externalOAuthTokens).where(
+      and(eq(externalOAuthTokens.provider, provider), eq(externalOAuthTokens.accessToken, accessToken))
     );
   }
 

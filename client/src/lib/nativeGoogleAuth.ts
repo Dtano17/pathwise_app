@@ -9,8 +9,12 @@
  */
 
 import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 import { apiUrl } from './api';
 import { GoogleAuth as GoogleAuthStub } from './capacitor-google-auth-stub';
+
+// Storage key for auth token
+const AUTH_TOKEN_KEY = 'journalmate_auth_token';
 
 // Use stub by default, will be replaced with real module on native
 let GoogleAuth: typeof GoogleAuthStub = GoogleAuthStub;
@@ -125,6 +129,15 @@ export async function signInWithGoogleNative(): Promise<NativeAuthResult> {
 
     console.log('[GOOGLE_AUTH] Backend verification successful');
 
+    // Store the auth token for future API requests
+    if (data.authToken) {
+      await Preferences.set({
+        key: AUTH_TOKEN_KEY,
+        value: data.authToken,
+      });
+      console.log('[GOOGLE_AUTH] Auth token stored');
+    }
+
     return {
       success: true,
       user: {
@@ -152,6 +165,25 @@ export async function signInWithGoogleNative(): Promise<NativeAuthResult> {
 export async function signOutGoogleNative(): Promise<void> {
   if (!Capacitor.isNativePlatform()) {
     return;
+  }
+
+  // Clear stored auth token
+  try {
+    const { value: token } = await Preferences.get({ key: AUTH_TOKEN_KEY });
+    if (token) {
+      // Invalidate token on server
+      await fetch(apiUrl('/api/auth/native-logout'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }).catch(() => {}); // Don't fail if server is unavailable
+    }
+    await Preferences.remove({ key: AUTH_TOKEN_KEY });
+    console.log('[GOOGLE_AUTH] Auth token cleared');
+  } catch (error) {
+    console.error('[GOOGLE_AUTH] Failed to clear token:', error);
   }
 
   const auth = await getGoogleAuth();
@@ -206,10 +238,45 @@ export async function isGoogleSignedIn(): Promise<boolean> {
   }
 }
 
+/**
+ * Get the stored auth token for native app authentication
+ */
+export async function getStoredAuthToken(): Promise<string | null> {
+  if (!Capacitor.isNativePlatform()) {
+    return null;
+  }
+
+  try {
+    const { value } = await Preferences.get({ key: AUTH_TOKEN_KEY });
+    return value;
+  } catch (error) {
+    console.error('[GOOGLE_AUTH] Failed to get stored token:', error);
+    return null;
+  }
+}
+
+/**
+ * Clear the stored auth token (for logout)
+ */
+export async function clearStoredAuthToken(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) {
+    return;
+  }
+
+  try {
+    await Preferences.remove({ key: AUTH_TOKEN_KEY });
+    console.log('[GOOGLE_AUTH] Stored token cleared');
+  } catch (error) {
+    console.error('[GOOGLE_AUTH] Failed to clear stored token:', error);
+  }
+}
+
 export default {
   initializeGoogleAuth,
   signInWithGoogleNative,
   signOutGoogleNative,
   refreshGoogleAuth,
   isGoogleSignedIn,
+  getStoredAuthToken,
+  clearStoredAuthToken,
 };

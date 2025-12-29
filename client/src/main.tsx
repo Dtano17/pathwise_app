@@ -2,6 +2,13 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import { initializeGoogleAuth } from "./lib/nativeGoogleAuth";
+import { initializeSafeArea, setupSafeAreaListeners } from "./lib/safeArea";
+
+// Initialize safe area handling for native platforms (must be early)
+initializeSafeArea().catch(error => {
+  console.log('[INIT] Safe area initialization skipped or failed:', error);
+});
+setupSafeAreaListeners();
 
 // Initialize native Google Auth for Capacitor mobile apps
 initializeGoogleAuth().catch(error => {

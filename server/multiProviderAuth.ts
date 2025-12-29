@@ -671,24 +671,40 @@ export async function setupMultiProviderAuth(app: Express) {
         isNewUser
       };
 
-      // Regenerate session to prevent session fixation
+      // Generate a simple auth token for native apps
+      // This token is stored securely on the device and used for API requests
+      const crypto = await import('crypto');
+      const authToken = crypto.randomBytes(32).toString('hex');
+      const tokenExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+      // Store the token in the user's OAuth tokens
+      await storage.upsertOAuthToken({
+        userId: user.id,
+        provider: 'native_app',
+        accessToken: authToken,
+        refreshToken: undefined,
+        expiresAt: tokenExpiry,
+        scope: 'native_auth',
+      });
+
+      console.log('[Native Google Auth] Auth token generated for user:', user.id);
+
+      // Also try to establish session for web fallback
       req.session.regenerate((regenerateErr: any) => {
         if (regenerateErr) {
-          console.error('[Native Google Auth] Session regenerate error:', regenerateErr);
-          return res.status(500).json({ error: 'Session error' });
+          console.warn('[Native Google Auth] Session regenerate warning:', regenerateErr);
+          // Don't fail - token auth will work
         }
 
-        // Log in the user
         req.login(oauthUser, (loginErr: any) => {
           if (loginErr) {
-            console.error('[Native Google Auth] Login error:', loginErr);
-            return res.status(500).json({ error: 'Login error' });
+            console.warn('[Native Google Auth] Session login warning:', loginErr);
+            // Don't fail - token auth will work
           }
 
-          // Save session explicitly
           req.session.save((saveErr: any) => {
             if (saveErr) {
-              console.error('[Native Google Auth] Session save error:', saveErr);
+              console.warn('[Native Google Auth] Session save warning:', saveErr);
             }
 
             console.log('[Native Google Auth] Login successful:', user.id);
@@ -700,7 +716,9 @@ export async function setupMultiProviderAuth(app: Express) {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 profileImageUrl: user.profileImageUrl,
+                authenticated: true,
               },
+              authToken, // Return token for native storage
               isNewUser
             });
           });
@@ -709,6 +727,73 @@ export async function setupMultiProviderAuth(app: Express) {
     } catch (error) {
       console.error('[Native Google Auth] Error:', error);
       res.status(500).json({ error: 'Authentication failed' });
+    }
+  });
+
+  // Token-based auth verification for native apps
+  // Native apps send the auth token in the Authorization header
+  app.get('/api/auth/verify-token', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ authenticated: false, error: 'No token provided' });
+      }
+
+      const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+      // Find user by token
+      const tokenRecord = await storage.getOAuthTokenByAccessToken('native_app', token);
+
+      if (!tokenRecord) {
+        return res.status(401).json({ authenticated: false, error: 'Invalid token' });
+      }
+
+      // Check if token is expired
+      if (tokenRecord.expiresAt && new Date(tokenRecord.expiresAt) < new Date()) {
+        return res.status(401).json({ authenticated: false, error: 'Token expired' });
+      }
+
+      // Get user info
+      const user = await storage.getUser(tokenRecord.userId);
+      if (!user) {
+        return res.status(401).json({ authenticated: false, error: 'User not found' });
+      }
+
+      console.log('[Token Auth] Verified token for user:', user.id);
+
+      res.json({
+        authenticated: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profileImageUrl: user.profileImageUrl,
+          username: user.username,
+          subscriptionTier: user.subscriptionTier,
+          subscriptionStatus: user.subscriptionStatus,
+        }
+      });
+    } catch (error) {
+      console.error('[Token Auth] Verification error:', error);
+      res.status(500).json({ authenticated: false, error: 'Verification failed' });
+    }
+  });
+
+  // Logout endpoint for native apps (invalidate token)
+  app.post('/api/auth/native-logout', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        // Delete the token
+        await storage.deleteOAuthTokenByAccessToken('native_app', token);
+        console.log('[Token Auth] Token invalidated');
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[Token Auth] Logout error:', error);
+      res.json({ success: true }); // Don't fail logout
     }
   });
 }

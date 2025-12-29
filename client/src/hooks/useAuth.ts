@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 import { initializeSocket, disconnectSocket, isSocketConnected } from "@/lib/socket";
 import { initializePushNotifications, unregisterPushNotifications } from "@/lib/pushNotifications";
 import { apiUrl, isNativePlatform } from "@/lib/api";
-import { signInWithGoogleNative, signOutGoogleNative } from "@/lib/nativeGoogleAuth";
+import { signInWithGoogleNative, signOutGoogleNative, getStoredAuthToken } from "@/lib/nativeGoogleAuth";
 
 interface User {
   id: string;
@@ -27,7 +27,32 @@ export function useAuth() {
   const { data: user, isLoading, error, refetch } = useQuery<User | null>({
     queryKey: ['/api/user'],
     queryFn: async () => {
-      // Use API utility for native platform support
+      // For native platforms, use token-based auth
+      if (isNativePlatform()) {
+        const authToken = await getStoredAuthToken();
+        if (authToken) {
+          console.log('[AUTH] Using token-based auth for native platform');
+          // Verify token and get user info
+          const res = await fetch(apiUrl('/api/auth/verify-token'), {
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.authenticated && data.user) {
+              return { ...data.user, authenticated: true };
+            }
+          }
+          // Token invalid or expired - clear it
+          console.log('[AUTH] Token invalid or expired');
+          return null;
+        }
+        // No token stored
+        return null;
+      }
+
+      // Web platform - use session cookie
       const res = await fetch(apiUrl('/api/user'), { credentials: 'include' });
       if (!res.ok) {
         if (res.status === 401) return null;
