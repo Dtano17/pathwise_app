@@ -28,7 +28,9 @@ async function getGoogleAuth() {
       // On native platforms, dynamically import the real plugin
       // This works because Capacitor bundles the native plugin with the app
       console.log('[GOOGLE_AUTH] Loading native module...');
-      const module = await import('@southdevs/capacitor-google-auth');
+      // Use variable to prevent Vite from pre-analyzing this import
+      const moduleName = '@southdevs/capacitor-google-auth';
+      const module = await import(/* @vite-ignore */ moduleName);
       GoogleAuth = module.GoogleAuth;
       isNativeModuleLoaded = true;
       console.log('[GOOGLE_AUTH] Native module loaded successfully');
