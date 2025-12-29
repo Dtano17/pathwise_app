@@ -364,6 +364,29 @@ export interface IStorage {
   }>): Promise<UserPreferences>;
   deletePersonalJournalEntry(userId: string, category: string, entryId: string): Promise<UserPreferences>;
 
+  // Domain-based journal search for planning personalization
+  searchJournalByCategories(
+    userId: string,
+    categories: string[],
+    options?: {
+      location?: string;
+      limit?: number;
+      budgetTier?: string;
+    }
+  ): Promise<{
+    id: string;
+    category: string;
+    text: string;
+    venueName?: string;
+    venueType?: string;
+    location?: { city?: string; neighborhood?: string };
+    budgetTier?: string;
+    priceRange?: string;
+    keywords?: string[];
+    timestamp: string;
+    mood?: string;
+  }[]>;
+
   // Lifestyle Planner Sessions
   createLifestylePlannerSession(session: InsertLifestylePlannerSession & { userId: string }): Promise<LifestylePlannerSession>;
   getLifestylePlannerSession(sessionId: string, userId: string): Promise<LifestylePlannerSession | undefined>;
@@ -1972,6 +1995,94 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUserPreferences(userId: string): Promise<void> {
     await db.delete(userPreferences).where(eq(userPreferences.userId, userId));
+  }
+
+  // Search journal entries by categories for planning personalization
+  async searchJournalByCategories(
+    userId: string,
+    categories: string[],
+    options?: {
+      location?: string;
+      limit?: number;
+      budgetTier?: string;
+    }
+  ): Promise<{
+    id: string;
+    category: string;
+    text: string;
+    venueName?: string;
+    venueType?: string;
+    location?: { city?: string; neighborhood?: string };
+    budgetTier?: string;
+    priceRange?: string;
+    keywords?: string[];
+    timestamp: string;
+    mood?: string;
+  }[]> {
+    const limit = options?.limit || 10;
+    const locationFilter = options?.location?.toLowerCase();
+
+    // Get user preferences with journalData
+    const prefs = await this.getUserPreferences(userId);
+    if (!prefs?.preferences?.journalData) {
+      return [];
+    }
+
+    const journalData = prefs.preferences.journalData as Record<string, any[]>;
+    const results: any[] = [];
+
+    // Search through each requested category
+    for (const category of categories) {
+      const entries = journalData[category];
+      if (!entries || !Array.isArray(entries)) continue;
+
+      for (const entry of entries) {
+        // Apply location filter if specified
+        if (locationFilter) {
+          const entryCity = entry.location?.city?.toLowerCase() || '';
+          const entryNeighborhood = entry.location?.neighborhood?.toLowerCase() || '';
+          const entryText = entry.text?.toLowerCase() || '';
+
+          const matchesLocation =
+            entryCity.includes(locationFilter) ||
+            entryNeighborhood.includes(locationFilter) ||
+            entryText.includes(locationFilter);
+
+          if (!matchesLocation) continue;
+        }
+
+        // Apply budget filter if specified
+        if (options?.budgetTier && entry.budgetTier && entry.budgetTier !== options.budgetTier) {
+          continue;
+        }
+
+        results.push({
+          id: entry.id,
+          category,
+          text: entry.text,
+          venueName: entry.venueName,
+          venueType: entry.venueType,
+          location: entry.location ? {
+            city: entry.location.city,
+            neighborhood: entry.location.neighborhood
+          } : undefined,
+          budgetTier: entry.budgetTier,
+          priceRange: entry.priceRange,
+          keywords: entry.keywords,
+          timestamp: entry.timestamp,
+          mood: entry.mood
+        });
+      }
+    }
+
+    // Sort by timestamp (most recent first) and limit
+    results.sort((a, b) => {
+      const dateA = new Date(a.timestamp || 0).getTime();
+      const dateB = new Date(b.timestamp || 0).getTime();
+      return dateB - dateA;
+    });
+
+    return results.slice(0, limit);
   }
 
   // Complete User Deletion (Admin only)

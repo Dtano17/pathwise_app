@@ -182,3 +182,19 @@ export function normalizeJournalData(journalData: Record<string, any[]>): {
 
   return { normalized, hasChanges };
 }
+
+// Domain-to-Journal-Category mapping for planning personalization
+// Maps planning domains to relevant journal categories for intelligent search
+export const DOMAIN_TO_JOURNAL_CATEGORIES: Record<string, string[]> = {
+  travel: ['travel', 'activities', 'restaurants', 'notes'],
+  dining: ['restaurants', 'notes'],
+  wellness: ['self-care', 'activities', 'fitness'],
+  fitness: ['self-care', 'activities', 'fitness'],
+  entertainment: ['movies', 'activities', 'restaurants', 'music'],
+  event: ['activities', 'restaurants', 'travel'],
+  shopping: ['shopping', 'notes'],
+  learning: ['books', 'work', 'notes'],
+  social: ['activities', 'restaurants', 'notes'],
+  work: ['work', 'notes'],
+  other: ['notes', 'activities']
+};

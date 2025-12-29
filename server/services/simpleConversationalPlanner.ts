@@ -24,6 +24,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { tavily } from '@tavily/core';
 import type { IStorage } from '../storage';
 import type { User, UserProfile, UserPreferences, JournalEntry } from '@shared/schema';
+import { DOMAIN_TO_JOURNAL_CATEGORIES } from '../config/journalTags';
 
 // ============================================================================
 // SEARCH CACHE
@@ -309,6 +310,84 @@ function validateBudgetBreakdown(plan: GeneratedPlan): void {
   }
 }
 
+/**
+ * Detect planning domain from user's message using keyword patterns
+ * Used for early domain detection to enable journal-based personalization
+ */
+function detectDomainFromMessage(message: string): string {
+  const msg = message.toLowerCase();
+
+  if (/trip|travel|vacation|flight|hotel|visit|itinerary|getaway|destination|airbnb|resort|cruise/.test(msg)) return 'travel';
+  if (/restaurant|dinner|lunch|food|eat|cuisine|brunch|cafe|bar|drinks/.test(msg)) return 'dining';
+  if (/workout|gym|fitness|exercise|health|yoga|meditation|wellness|spa|massage/.test(msg)) return 'wellness';
+  if (/movie|concert|show|theater|museum|gallery|entertainment|tickets/.test(msg)) return 'entertainment';
+  if (/party|wedding|birthday|celebration|anniversary|reunion|gathering|reception/.test(msg)) return 'event';
+  if (/buy|shop|purchase|gift|present|store|mall|online/.test(msg)) return 'shopping';
+  if (/learn|study|course|book|read|class|tutorial|training|certification/.test(msg)) return 'learning';
+
+  return 'other';
+}
+
+/**
+ * Format journal search results as structured insights for the system prompt
+ */
+interface JournalSearchResult {
+  id: string;
+  category: string;
+  text: string;
+  venueName?: string;
+  venueType?: string;
+  location?: { city?: string; neighborhood?: string };
+  budgetTier?: string;
+  priceRange?: string;
+  keywords?: string[];
+  timestamp: string;
+  mood?: string;
+}
+
+function formatJournalInsights(insights: JournalSearchResult[], domain: string): string {
+  if (!insights || insights.length === 0) return '';
+
+  // Group by category
+  const grouped = insights.reduce((acc, item) => {
+    const key = item.category;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {} as Record<string, JournalSearchResult[]>);
+
+  let output = '';
+
+  for (const [category, items] of Object.entries(grouped)) {
+    const categoryEmoji =
+      category === 'restaurants' ? '🍽️' :
+      category === 'travel' ? '✈️' :
+      category === 'activities' ? '🎯' :
+      category === 'fitness' ? '💪' :
+      category === 'movies' ? '🎬' :
+      category === 'shopping' ? '🛍️' : '📝';
+
+    output += `\n**${categoryEmoji} ${category}:**\n`;
+    items.slice(0, 3).forEach(item => {
+      const name = item.venueName || item.text?.substring(0, 50);
+      output += `- ${name}`;
+      if (item.location?.city) output += ` (${item.location.city})`;
+      if (item.priceRange) output += ` [${item.priceRange}]`;
+      if (item.mood) output += ` - mood: ${item.mood}`;
+      output += '\n';
+    });
+  }
+
+  // Add pattern summary
+  const cities = [...new Set(insights.map(i => i.location?.city).filter(Boolean))];
+  const budgets = [...new Set(insights.map(i => i.budgetTier).filter(Boolean))];
+
+  if (cities.length) output += `\n*Recent cities: ${cities.join(', ')}*`;
+  if (budgets.length) output += `\n*Budget preference: ${budgets[0]}*`;
+
+  return output;
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -374,8 +453,10 @@ interface PlanningContext {
   profile?: UserProfile;
   preferences?: UserPreferences;
   recentJournal?: JournalEntry[];
+  journalInsights?: JournalSearchResult[];  // Domain-based journal search results
   detectedLocation?: string | null;
   detectedBudget?: number | null;
+  detectedDomain?: string;  // Early domain detection for journal search
   fallbackLocation?: string;
 }
 
@@ -950,13 +1031,21 @@ class AnthropicProvider implements LLMProvider {
 // ============================================================================
 
 function buildSystemPrompt(context: PlanningContext, mode: 'quick' | 'smart', isPreviewTurn: boolean = false): string {
-  const { user, profile, preferences, recentJournal } = context;
+  const { user, profile, preferences, recentJournal, journalInsights, detectedDomain } = context;
 
   const modeDescription = mode === 'smart'
     ? 'comprehensive planning with detailed research, real-time data, and enrichment'
     : 'quick planning focusing on essential information for fast execution';
 
   const minQuestions = mode === 'smart' ? 10 : 5;
+
+  // Build journal insights section if available
+  const journalInsightsSection = journalInsights && journalInsights.length > 0
+    ? `\n\n**📔 Personal Journal Insights (from user's history):**
+${formatJournalInsights(journalInsights, detectedDomain || 'other')}
+
+*Use these insights to personalize your questions and recommendations. If the user has visited similar places or has preferences recorded, reference them naturally.*`
+    : '';
 
   // Build user context section
   const userContext = `
@@ -984,7 +1073,7 @@ ${preferences?.preferences?.focusAreas ? `**Focus Areas:** ${preferences.prefere
 ${user.workingHours ? `**Working Hours:** ${user.workingHours.start} - ${user.workingHours.end} (${user.workingHours.days?.join(', ')})` : ''}
 ${user.sleepSchedule ? `**Sleep Schedule:** ${user.sleepSchedule.bedtime} - ${user.sleepSchedule.wakeup}` : ''}
 
-${recentJournal && recentJournal.length > 0 ? `**Recent Journal Entries:**\n${recentJournal.map(j => `- ${j.date}: Mood ${j.mood}, ${j.reflection || 'No reflection'}`).join('\n')}` : ''}
+${recentJournal && recentJournal.length > 0 ? `**Recent Journal Entries:**\n${recentJournal.map(j => `- ${j.date}: Mood ${j.mood}, ${j.reflection || 'No reflection'}`).join('\n')}` : ''}${journalInsightsSection}
 `.trim();
 
   // COMPRESSED BUDGET-FIRST SYSTEM PROMPT
@@ -2622,16 +2711,35 @@ export class SimpleConversationalPlanner {
       }
 
       let recentJournal: JournalEntry[] = [];
+      let journalInsights: JournalSearchResult[] = [];
       let detectedLocation: string | null = null;
       let detectedBudget: number | null = null;
+      let detectedDomain: string = 'other';
 
       // Smart extraction from user message if provided
       if (userMessage) {
         detectedLocation = this.extractLocationFromMessage(userMessage);
         detectedBudget = this.extractBudgetFromMessage(userMessage);
+        detectedDomain = detectDomainFromMessage(userMessage);
       }
 
-      // Scan journal with location priority
+      // NEW: Domain-based journal search for personalization
+      if (detectedDomain && detectedDomain !== 'other') {
+        const relevantCategories = DOMAIN_TO_JOURNAL_CATEGORIES[detectedDomain] || [];
+        if (relevantCategories.length > 0) {
+          try {
+            journalInsights = await storage.searchJournalByCategories(userId, relevantCategories, {
+              location: detectedLocation || undefined,
+              limit: 10
+            });
+            console.log(`[SIMPLE_PLANNER] 📔 Found ${journalInsights.length} journal insights for domain "${detectedDomain}" (categories: ${relevantCategories.join(', ')})`);
+          } catch (err) {
+            console.warn('[SIMPLE_PLANNER] Journal search failed:', err);
+          }
+        }
+      }
+
+      // Scan journal with location priority (for mood/reflection context)
       if (detectedLocation) {
         // User mentioned a location - scan journal for that specific location
         recentJournal = await this.scanJournalForLocation(userId, detectedLocation, storage);
@@ -2648,8 +2756,10 @@ export class SimpleConversationalPlanner {
         profile: profile || undefined,
         preferences: preferences || undefined,
         recentJournal,
+        journalInsights,
         detectedLocation,
         detectedBudget,
+        detectedDomain,
         fallbackLocation,
       };
     } catch (error) {
