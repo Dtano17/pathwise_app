@@ -25,6 +25,8 @@ import { tavily } from '@tavily/core';
 import type { IStorage } from '../storage';
 import type { User, UserProfile, UserPreferences, JournalEntry } from '@shared/schema';
 import { DOMAIN_TO_JOURNAL_CATEGORIES } from '../config/journalTags';
+import { transcriptFilterService, FilteredContent } from './transcriptFilterService';
+import { socialMediaVideoService } from './socialMediaVideoService';
 
 // ============================================================================
 // SEARCH CACHE
@@ -389,6 +391,52 @@ function formatJournalInsights(insights: JournalSearchResult[], domain: string):
 }
 
 // ============================================================================
+// URL EXTRACTION HELPERS
+// ============================================================================
+
+const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
+
+/**
+ * Extract URLs from a message
+ */
+function extractUrlsFromMessage(message: string): string[] {
+  const matches = message.match(URL_REGEX) || [];
+  // Clean trailing punctuation
+  return matches.map(url => url.replace(/[.,;:!?)]+$/, ''));
+}
+
+/**
+ * Normalize URL for caching (remove tracking params)
+ */
+function normalizeUrlForCache(urlString: string): string {
+  try {
+    const url = new URL(urlString);
+    // Remove common tracking parameters
+    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+                           'fbclid', 'gclid', 'igsh', 'igshid', 'share_id', 'ref'];
+    trackingParams.forEach(param => url.searchParams.delete(param));
+    return url.toString();
+  } catch {
+    return urlString;
+  }
+}
+
+/**
+ * Check if URL is a supported social media platform
+ */
+function isSupportedSocialMediaUrl(url: string): boolean {
+  const patterns = [
+    /instagram\.com\/(reel|p|stories)\//i,
+    /tiktok\.com\/@?[\w.-]+\/video\//i,
+    /youtube\.com\/(?:watch\?|shorts\/)/i,
+    /youtu\.be\//i,
+    /twitter\.com\/[\w]+\/status\//i,
+    /x\.com\/[\w]+\/status\//i,
+  ];
+  return patterns.some(p => p.test(url));
+}
+
+// ============================================================================
 // TYPES
 // ============================================================================
 
@@ -448,12 +496,21 @@ interface GeneratedPlan {
   tips?: string[];
 }
 
+interface ExtractedUrlContent {
+  url: string;
+  platform: string;
+  filteredContent: FilteredContent;
+  rawWordCount: number;
+  cached: boolean;
+}
+
 interface PlanningContext {
   user: User;
   profile?: UserProfile;
   preferences?: UserPreferences;
   recentJournal?: JournalEntry[];
   journalInsights?: JournalSearchResult[];  // Domain-based journal search results
+  extractedUrlContent?: ExtractedUrlContent[];  // URL extraction results
   detectedLocation?: string | null;
   detectedBudget?: number | null;
   detectedDomain?: string;  // Early domain detection for journal search
@@ -1031,7 +1088,7 @@ class AnthropicProvider implements LLMProvider {
 // ============================================================================
 
 function buildSystemPrompt(context: PlanningContext, mode: 'quick' | 'smart', isPreviewTurn: boolean = false): string {
-  const { user, profile, preferences, recentJournal, journalInsights, detectedDomain } = context;
+  const { user, profile, preferences, recentJournal, journalInsights, detectedDomain, extractedUrlContent } = context;
 
   const modeDescription = mode === 'smart'
     ? 'comprehensive planning with detailed research, real-time data, and enrichment'
@@ -1046,6 +1103,52 @@ ${formatJournalInsights(journalInsights, detectedDomain || 'other')}
 
 *Use these insights to personalize your questions and recommendations. If the user has visited similar places or has preferences recorded, reference them naturally.*`
     : '';
+
+  // Build URL content section if available
+  let urlContentSection = '';
+  if (extractedUrlContent && extractedUrlContent.length > 0) {
+    urlContentSection = `\n\n## 🔗 EXTRACTED URL CONTENT (User shared these links)
+
+The user has shared social media content. This extracted content is **AUTHORITATIVE** - use it to inform your planning.
+
+`;
+    for (const urlContent of extractedUrlContent) {
+      const { filteredContent } = urlContent;
+      urlContentSection += `### Source: ${urlContent.platform.toUpperCase()}
+**Content Type:** ${filteredContent.contentType}
+**Source Weights:** Audio ${Math.round(filteredContent.sourceWeights.weights.audio * 100)}% | Visual ${Math.round(filteredContent.sourceWeights.weights.ocr * 100)}% | Caption ${Math.round(filteredContent.sourceWeights.weights.caption * 100)}%
+
+`;
+      if (filteredContent.actionableContent) {
+        urlContentSection += `**Actionable Information:**
+${filteredContent.actionableContent.substring(0, 1500)}
+
+`;
+      }
+      if (filteredContent.entities.length > 0) {
+        urlContentSection += `**Extracted Entities:**
+${filteredContent.entities.slice(0, 10).map(e => `- **${e.type}:** ${e.value}`).join('\n')}
+
+`;
+      }
+      if (filteredContent.contextContent) {
+        urlContentSection += `**Context/Background:**
+${filteredContent.contextContent.substring(0, 500)}
+
+`;
+      }
+      urlContentSection += `---
+`;
+    }
+
+    urlContentSection += `
+⚠️ **GROUNDING RULES FOR URL CONTENT:**
+1. Use **EXACT** venue names, prices, and details from extracted content
+2. **DO NOT** substitute with your own recommendations
+3. You **MAY** add complementary logistics (flights, hotels near venues, transport)
+4. Cross-validate entities when multiple sources mention the same thing
+`;
+  }
 
   // Build user context section
   const userContext = `
@@ -1073,7 +1176,7 @@ ${preferences?.preferences?.focusAreas ? `**Focus Areas:** ${preferences.prefere
 ${user.workingHours ? `**Working Hours:** ${user.workingHours.start} - ${user.workingHours.end} (${user.workingHours.days?.join(', ')})` : ''}
 ${user.sleepSchedule ? `**Sleep Schedule:** ${user.sleepSchedule.bedtime} - ${user.sleepSchedule.wakeup}` : ''}
 
-${recentJournal && recentJournal.length > 0 ? `**Recent Journal Entries:**\n${recentJournal.map(j => `- ${j.date}: Mood ${j.mood}, ${j.reflection || 'No reflection'}`).join('\n')}` : ''}${journalInsightsSection}
+${recentJournal && recentJournal.length > 0 ? `**Recent Journal Entries:**\n${recentJournal.map(j => `- ${j.date}: Mood ${j.mood}, ${j.reflection || 'No reflection'}`).join('\n')}` : ''}${journalInsightsSection}${urlContentSection}
 `.trim();
 
   // COMPRESSED BUDGET-FIRST SYSTEM PROMPT
@@ -2084,8 +2187,40 @@ export class SimpleConversationalPlanner {
     console.log(`[SIMPLE_PLANNER] Processing message for user ${userId} in ${mode} mode`);
 
     try {
+      // 0. Detect and extract URLs from user message (runs in parallel with context gathering)
+      const detectedUrls = extractUrlsFromMessage(userMessage);
+      let urlExtractionResults: ExtractedUrlContent[] = [];
+
+      if (detectedUrls.length > 0) {
+        console.log(`[SIMPLE_PLANNER] 🔗 Detected ${detectedUrls.length} URL(s) in message`);
+
+        // Process URLs in parallel (limit to first 3)
+        const urlPromises = detectedUrls.slice(0, 3).map(async (url) => {
+          if (!isSupportedSocialMediaUrl(url)) {
+            console.log(`[SIMPLE_PLANNER] Skipping unsupported URL: ${url}`);
+            return null;
+          }
+          try {
+            return await this.extractAndFilterUrl(url, storage);
+          } catch (error) {
+            console.error(`[SIMPLE_PLANNER] URL extraction failed for ${url}:`, error);
+            return null;
+          }
+        });
+
+        const results = await Promise.all(urlPromises);
+        urlExtractionResults = results.filter((r): r is ExtractedUrlContent => r !== null);
+
+        if (urlExtractionResults.length > 0) {
+          console.log(`[SIMPLE_PLANNER] ✅ Successfully extracted ${urlExtractionResults.length} URL(s)`);
+        }
+      }
+
       // 1. Gather user context (pass user message for smart extraction)
       const context = await this.gatherUserContext(userId, storage, userMessage);
+
+      // Add URL extraction results to context
+      context.extractedUrlContent = urlExtractionResults;
 
       // 2. Build conversation history
       const messages = [
@@ -2689,6 +2824,115 @@ export class SimpleConversationalPlanner {
     }
 
     return hints.slice(0, 5); // Limit to 5 hints for clean UI
+  }
+
+  /**
+   * Extract and filter content from a URL
+   */
+  private async extractAndFilterUrl(
+    url: string,
+    storage: IStorage
+  ): Promise<ExtractedUrlContent | null> {
+    const normalizedUrl = normalizeUrlForCache(url);
+    const platform = socialMediaVideoService.detectPlatform(url);
+
+    if (!platform) {
+      console.log(`[SIMPLE_PLANNER] URL not a supported social media platform: ${url}`);
+      return null;
+    }
+
+    console.log(`[SIMPLE_PLANNER] Extracting ${platform} content from: ${url}`);
+    const startTime = Date.now();
+
+    // Step 1: Check cache
+    try {
+      const cached = await storage.getUrlContentCache(normalizedUrl);
+      if (cached) {
+        console.log(`[SIMPLE_PLANNER] Cache HIT for URL: ${normalizedUrl}`);
+
+        // Even cached content goes through filtering
+        const filteredContent = await transcriptFilterService.filterAndWeightContent({
+          platform,
+          url,
+          audioTranscript: cached.metadata?.hasAudioTranscript ? cached.extractedContent : undefined,
+          ocrText: cached.metadata?.hasOcrText ? cached.extractedContent : undefined,
+          caption: cached.extractedContent,
+          cached: true
+        });
+
+        return {
+          url,
+          platform,
+          filteredContent,
+          rawWordCount: cached.wordCount || 0,
+          cached: true
+        };
+      }
+    } catch (cacheError) {
+      console.warn('[SIMPLE_PLANNER] Cache lookup failed:', cacheError);
+    }
+
+    // Step 2: Extract fresh content
+    try {
+      const socialResult = await socialMediaVideoService.extractContent(url);
+
+      if (!socialResult.success) {
+        console.warn(`[SIMPLE_PLANNER] Extraction failed: ${socialResult.error}`);
+        return null;
+      }
+
+      // Step 3: Filter and classify content
+      const filteredContent = await transcriptFilterService.filterAndWeightContent({
+        platform: socialResult.platform,
+        url: socialResult.url,
+        audioTranscript: socialResult.audioTranscript,
+        ocrText: socialResult.ocrText,
+        caption: socialResult.caption
+      });
+
+      // Step 4: Cache the extraction
+      const rawWordCount = filteredContent.rawWordCount;
+      const combinedContent = [
+        socialResult.caption,
+        socialResult.audioTranscript,
+        socialResult.ocrText
+      ].filter(Boolean).join('\n\n');
+
+      try {
+        await storage.createUrlContentCache({
+          normalizedUrl,
+          originalUrl: url,
+          platform,
+          extractedContent: combinedContent.substring(0, 15000), // Limit size
+          extractionSource: 'conversational_planner',
+          wordCount: rawWordCount,
+          metadata: {
+            hasAudioTranscript: !!socialResult.audioTranscript,
+            hasOcrText: !!socialResult.ocrText,
+            contentType: filteredContent.contentType,
+            entityCount: filteredContent.entities.length
+          }
+        });
+        console.log(`[SIMPLE_PLANNER] Cached extraction for: ${normalizedUrl}`);
+      } catch (cacheError) {
+        console.warn('[SIMPLE_PLANNER] Cache write failed:', cacheError);
+      }
+
+      const elapsed = Date.now() - startTime;
+      console.log(`[SIMPLE_PLANNER] URL extraction completed in ${elapsed}ms`);
+
+      return {
+        url,
+        platform,
+        filteredContent,
+        rawWordCount,
+        cached: false
+      };
+
+    } catch (error) {
+      console.error(`[SIMPLE_PLANNER] URL extraction error:`, error);
+      return null;
+    }
   }
 
   /**
