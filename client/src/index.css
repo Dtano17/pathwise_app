@@ -9,7 +9,8 @@
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
-  /* Android-specific bottom safe area - 0px default, set by JavaScript on Android only */
+  /* Android-specific safe areas - 0px default, set by JavaScript on Android only */
+  --android-safe-area-top: 0px;
   --android-safe-area-bottom: 0px;
 }
 
@@ -36,16 +37,23 @@ body {
   }
 }
 
-/* Android-specific: Apply bottom padding when CSS env() doesn't work */
-/* This class is added by JavaScript but we also apply a default for Capacitor apps */
+/* Android-specific: Apply TOP and BOTTOM padding when CSS env() doesn't work */
+/* This class is added by JavaScript but we also apply defaults for Capacitor apps */
 body.platform-android {
-  /* Use JavaScript-calculated bottom inset for Android navigation bar */
+  /* Use JavaScript-calculated insets for Android status bar (top) and navigation bar (bottom) */
+  padding-top: var(--android-safe-area-top, 24px);
   padding-bottom: var(--android-safe-area-bottom, 48px);
 }
 
 /* Utility classes for safe area handling */
 .safe-top {
   padding-top: var(--safe-area-inset-top);
+}
+
+/* Android-specific safe top (uses JavaScript-calculated value) */
+.platform-android .safe-top,
+body.platform-android .safe-top {
+  padding-top: var(--android-safe-area-top, 24px);
 }
 
 .safe-bottom {
@@ -79,6 +87,7 @@ body.platform-android .safe-bottom {
 /* Android-specific safe-y */
 .platform-android .safe-y,
 body.platform-android .safe-y {
+  padding-top: var(--android-safe-area-top, 24px);
   padding-bottom: var(--android-safe-area-bottom, 48px);
 }
 
@@ -92,12 +101,30 @@ body.platform-android .safe-y {
 /* Android-specific safe-all */
 .platform-android .safe-all,
 body.platform-android .safe-all {
+  padding-top: var(--android-safe-area-top, 24px);
   padding-bottom: var(--android-safe-area-bottom, 48px);
 }
 
-/* CRITICAL: Apply safe area to main scrollable content on Android */
-/* The body padding doesn't work because content scrolls inside <main>, not <body> */
-body.platform-android main {
+/* CRITICAL: Apply safe area to all scrollable content on Android */
+/* The body padding doesn't work because content scrolls inside nested containers, not <body> */
+/* Target main element and common full-height containers */
+body.platform-android main,
+body.platform-android .min-h-screen {
+  padding-top: var(--android-safe-area-top, 24px);
+  padding-bottom: var(--android-safe-area-bottom, 48px);
+}
+
+/* Target all full-height scrollable containers (like LandingPage) */
+/* Using more specific selectors to avoid breaking flex layouts */
+body.platform-android .h-screen.overflow-y-auto,
+body.platform-android .h-screen.overflow-auto {
+  padding-top: var(--android-safe-area-top, 24px);
+  padding-bottom: var(--android-safe-area-bottom, 48px);
+}
+
+/* Also ensure the root app container has safe area padding */
+body.platform-android #root > div:first-child {
+  padding-top: var(--android-safe-area-top, 24px);
   padding-bottom: var(--android-safe-area-bottom, 48px);
 }
 

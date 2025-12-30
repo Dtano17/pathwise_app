@@ -3,44 +3,124 @@
  *
  * Provides utilities to detect the current platform (web, iOS, Android)
  * and conditionally execute platform-specific code.
+ *
+ * Includes fallback detection for cases where Capacitor bridge
+ * initialization is delayed (race condition in WebView).
  */
 
 import { Capacitor } from '@capacitor/core';
 
 /**
+ * Fallback detection for Android WebView
+ * Used when Capacitor.isNativePlatform() returns false due to timing issues
+ */
+const isAndroidWebView = (): boolean => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+  const ua = navigator.userAgent.toLowerCase();
+  // Check for Android WebView indicators
+  return ua.includes('android') && (
+    ua.includes('wv') ||                           // Standard WebView marker
+    ua.includes('capacitor') ||                    // Capacitor user agent
+    document.URL.startsWith('https://localhost') || // Capacitor local server
+    document.URL.startsWith('capacitor://') ||     // Capacitor scheme
+    document.URL.startsWith('http://localhost')    // Dev server in WebView
+  );
+};
+
+/**
+ * Fallback detection for iOS WebView
+ */
+const isIOSWebView = (): boolean => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+  const ua = navigator.userAgent.toLowerCase();
+  // Check for iOS WebView indicators
+  const isIOS = /iphone|ipad|ipod/.test(ua);
+  return isIOS && (
+    document.URL.startsWith('capacitor://') ||
+    document.URL.startsWith('ionic://') ||
+    // Standalone mode (added to home screen)
+    (window.navigator as any).standalone === true
+  );
+};
+
+/**
  * Check if the app is running as a native mobile app (via Capacitor)
+ * Includes fallback detection for WebView environments
  */
 export const isNative = (): boolean => {
-  return Capacitor.isNativePlatform();
+  // Try Capacitor's native detection first
+  try {
+    if (Capacitor.isNativePlatform()) {
+      return true;
+    }
+  } catch (e) {
+    // Capacitor not available or errored
+  }
+
+  // Fallback: Check for WebView environment
+  return isAndroidWebView() || isIOSWebView();
 };
 
 /**
  * Check if the app is running on iOS
+ * Includes fallback detection for WebView environments
  */
 export const isIOS = (): boolean => {
-  return Capacitor.getPlatform() === 'ios';
+  try {
+    if (Capacitor.getPlatform() === 'ios') {
+      return true;
+    }
+  } catch (e) {
+    // Capacitor not available
+  }
+  return isIOSWebView();
 };
 
 /**
  * Check if the app is running on Android
+ * Includes fallback detection for WebView environments
  */
 export const isAndroid = (): boolean => {
-  return Capacitor.getPlatform() === 'android';
+  try {
+    if (Capacitor.getPlatform() === 'android') {
+      return true;
+    }
+  } catch (e) {
+    // Capacitor not available
+  }
+  return isAndroidWebView();
 };
 
 /**
  * Check if the app is running in a web browser
  */
 export const isWeb = (): boolean => {
-  return Capacitor.getPlatform() === 'web';
+  return !isNative();
 };
 
 /**
  * Get the current platform name
  * @returns 'web' | 'ios' | 'android'
+ * Includes fallback detection for WebView environments
  */
-export const getPlatform = (): string => {
-  return Capacitor.getPlatform();
+export const getPlatform = (): 'web' | 'ios' | 'android' => {
+  try {
+    const platform = Capacitor.getPlatform();
+    if (platform === 'ios' || platform === 'android') {
+      return platform;
+    }
+  } catch (e) {
+    // Capacitor not available
+  }
+
+  // Fallback detection
+  if (isAndroidWebView()) return 'android';
+  if (isIOSWebView()) return 'ios';
+  return 'web';
 };
 
 /**

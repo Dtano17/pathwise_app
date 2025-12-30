@@ -8,7 +8,7 @@
  * On web, API calls go to the same origin (relative paths).
  */
 
-import { Capacitor } from '@capacitor/core';
+import { isNative, getPlatform as getPlatformFromLib } from './platform';
 
 /**
  * Production API base URL - used when running on native platforms
@@ -17,15 +17,20 @@ export const PRODUCTION_URL = 'https://journalmate.ai';
 
 /**
  * Get the API base URL based on platform
+ * Uses robust platform detection that handles Android WebView timing issues
  * - Native platforms: Use production URL
  * - Web: Use relative paths (empty string)
  */
-export const API_BASE_URL = Capacitor.isNativePlatform()
-  ? PRODUCTION_URL
-  : '';
+function getApiBaseUrl(): string {
+  return isNative() ? PRODUCTION_URL : '';
+}
+
+// Note: This is evaluated at module load time, but isNative() has fallback detection
+export const API_BASE_URL = getApiBaseUrl();
 
 /**
  * Prefix a path with the appropriate base URL
+ * Dynamically checks platform to handle late-detection scenarios
  *
  * @example
  * // On native: returns 'https://journalmate.ai/api/user'
@@ -35,21 +40,25 @@ export const API_BASE_URL = Capacitor.isNativePlatform()
 export function apiUrl(path: string): string {
   // Ensure path starts with /
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${API_BASE_URL}${normalizedPath}`;
+  // Dynamically check platform each time for robustness
+  const baseUrl = isNative() ? PRODUCTION_URL : '';
+  return `${baseUrl}${normalizedPath}`;
 }
 
 /**
  * Check if we're running on a native platform
+ * Uses robust detection with fallback for Android WebView timing issues
  */
 export function isNativePlatform(): boolean {
-  return Capacitor.isNativePlatform();
+  return isNative();
 }
 
 /**
  * Get the current platform
+ * Uses robust detection with fallback for Android WebView timing issues
  */
 export function getPlatform(): 'ios' | 'android' | 'web' {
-  return Capacitor.getPlatform() as 'ios' | 'android' | 'web';
+  return getPlatformFromLib();
 }
 
 /**

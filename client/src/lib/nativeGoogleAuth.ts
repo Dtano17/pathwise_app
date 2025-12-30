@@ -8,42 +8,57 @@
  * trying to use Google OAuth inside a WebView.
  */
 
-import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
+import { registerPlugin } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { apiUrl } from './api';
-import { GoogleAuth as GoogleAuthStub } from './capacitor-google-auth-stub';
+import { isNative } from './platform';
 
 // Storage key for auth token
 const AUTH_TOKEN_KEY = 'journalmate_auth_token';
 
-// Use stub by default, will be replaced with real module on native
-let GoogleAuth: any = GoogleAuthStub;
-let isNativeModuleLoaded = false;
-
-async function getGoogleAuth() {
-  if (isNativeModuleLoaded) return GoogleAuth;
-
-  if (Capacitor.isNativePlatform()) {
-    try {
-      // On native platforms, dynamically import the real plugin
-      // This works because Capacitor bundles the native plugin with the app
-      console.log('[GOOGLE_AUTH] Loading native module...');
-      // Use variable to prevent Vite from pre-analyzing this import
-      const moduleName = '@southdevs/capacitor-google-auth';
-      const module = await import(/* @vite-ignore */ moduleName);
-      GoogleAuth = module.GoogleAuth;
-      isNativeModuleLoaded = true;
-      console.log('[GOOGLE_AUTH] Native module loaded successfully');
-      return GoogleAuth;
-    } catch (error) {
-      console.error('[GOOGLE_AUTH] Failed to load native module:', error);
-      // Fall back to stub
-      isNativeModuleLoaded = true;
-      return GoogleAuthStub;
-    }
-  }
-  return GoogleAuthStub;
+// Define the GoogleAuth plugin interface
+interface GoogleAuthPlugin {
+  initialize(options?: {
+    clientId?: string;
+    scopes?: string[];
+    grantOfflineAccess?: boolean;
+  }): Promise<void>;
+  signIn(): Promise<{
+    id: string;
+    email: string;
+    name?: string;
+    givenName?: string;
+    familyName?: string;
+    imageUrl?: string;
+    authentication?: {
+      idToken?: string;
+      accessToken?: string;
+    };
+  }>;
+  signOut(): Promise<void>;
+  refresh(): Promise<{ accessToken?: string }>;
 }
+
+// Register the GoogleAuth plugin - this creates the JS-to-native bridge
+// The plugin is auto-registered by Capacitor on native platforms
+// On web, this provides a fallback implementation
+const GoogleAuth = registerPlugin<GoogleAuthPlugin>('GoogleAuth', {
+  web: () => Promise.resolve({
+    initialize: async () => {
+      console.log('[GOOGLE_AUTH_WEB] initialize - no-op on web');
+    },
+    signIn: async () => {
+      throw new Error('Native Google Auth not available on web - use web OAuth');
+    },
+    signOut: async () => {
+      console.log('[GOOGLE_AUTH_WEB] signOut - no-op on web');
+    },
+    refresh: async () => {
+      throw new Error('Native Google Auth not available on web');
+    },
+  }),
+});
 
 export interface NativeAuthResult {
   success: boolean;
@@ -61,16 +76,16 @@ export interface NativeAuthResult {
  * Call this early in app lifecycle (e.g., in App.tsx or main.tsx)
  */
 export async function initializeGoogleAuth(): Promise<void> {
-  if (!Capacitor.isNativePlatform()) {
+  console.log('[GOOGLE_AUTH] initializeGoogleAuth called, isNative:', isNative());
+
+  if (!isNative()) {
     console.log('[GOOGLE_AUTH] Skipping initialization on web platform');
     return;
   }
 
-  const auth = await getGoogleAuth();
-  if (!auth) return;
-
   try {
-    await auth.initialize({
+    console.log('[GOOGLE_AUTH] Attempting to initialize native plugin...');
+    await GoogleAuth.initialize({
       clientId: '', // Will use the one from capacitor.config.ts
       scopes: ['profile', 'email'],
       grantOfflineAccess: true,
@@ -82,28 +97,61 @@ export async function initializeGoogleAuth(): Promise<void> {
 }
 
 /**
+ * Open Google OAuth in system browser (fallback when native auth isn't available)
+ * This works around WebView restrictions by opening in external browser
+ */
+async function openBrowserAuth(): Promise<NativeAuthResult> {
+  console.log('[GOOGLE_AUTH] Opening system browser for OAuth...');
+
+  try {
+    // Open the web OAuth flow in the system browser
+    // The production URL handles the OAuth flow
+    const authUrl = apiUrl('/api/auth/google');
+
+    await Browser.open({
+      url: authUrl,
+      windowName: '_system', // Force system browser
+      presentationStyle: 'popover',
+    });
+
+    // Return a message indicating we're redirecting
+    // The actual auth completion will happen via deep link or browser callback
+    return {
+      success: false,
+      error: 'Opening browser for sign-in. Please complete sign-in in browser.'
+    };
+  } catch (browserError) {
+    console.error('[GOOGLE_AUTH] Browser open failed:', browserError);
+    // Last resort: try window.open
+    window.open(apiUrl('/api/auth/google'), '_system');
+    return {
+      success: false,
+      error: 'Opening browser for sign-in. Please complete sign-in in browser.'
+    };
+  }
+}
+
+/**
  * Sign in with Google using native dialog
  * On native platforms, uses native Google Sign-In
+ * Falls back to system browser if native auth fails
  * On web, redirects to the web OAuth flow
  */
 export async function signInWithGoogleNative(): Promise<NativeAuthResult> {
-  // Fallback to web OAuth on non-native platforms
-  if (!Capacitor.isNativePlatform()) {
+  console.log('[GOOGLE_AUTH] signInWithGoogleNative called, isNative:', isNative());
+
+  // On web, just redirect to OAuth flow
+  if (!isNative()) {
     console.log('[GOOGLE_AUTH] Redirecting to web OAuth flow');
     window.location.href = '/api/auth/google';
     return { success: false, error: 'Redirecting to web OAuth' };
-  }
-
-  const auth = await getGoogleAuth();
-  if (!auth) {
-    return { success: false, error: 'Native Google Auth not available' };
   }
 
   try {
     console.log('[GOOGLE_AUTH] Starting native sign-in...');
 
     // Trigger native Google Sign-In dialog
-    const result = await auth.signIn();
+    const result = await GoogleAuth.signIn();
 
     console.log('[GOOGLE_AUTH] Native sign-in successful:', {
       email: result.email,
@@ -155,14 +203,20 @@ export async function signInWithGoogleNative(): Promise<NativeAuthResult> {
       },
     };
   } catch (error: any) {
-    console.error('[GOOGLE_AUTH] Sign-in failed:', error);
+    console.error('[GOOGLE_AUTH] Native sign-in failed:', error);
 
-    // Check for user cancellation
+    // Check for user cancellation - don't fallback for intentional cancellation
     if (error.message?.includes('cancel') || error.code === 'SIGN_IN_CANCELLED') {
       return { success: false, error: 'Sign-in cancelled by user' };
     }
 
-    return { success: false, error: error.message || 'Failed to sign in with Google' };
+    // Native auth failed - fallback to system browser OAuth
+    // This handles cases where:
+    // 1. Native plugin isn't configured properly
+    // 2. Google Play Services isn't available
+    // 3. SHA-1 fingerprint mismatch
+    console.log('[GOOGLE_AUTH] Falling back to browser OAuth...');
+    return openBrowserAuth();
   }
 }
 
@@ -170,7 +224,7 @@ export async function signInWithGoogleNative(): Promise<NativeAuthResult> {
  * Sign out from Google
  */
 export async function signOutGoogleNative(): Promise<void> {
-  if (!Capacitor.isNativePlatform()) {
+  if (!isNative()) {
     return;
   }
 
@@ -193,11 +247,8 @@ export async function signOutGoogleNative(): Promise<void> {
     console.error('[GOOGLE_AUTH] Failed to clear token:', error);
   }
 
-  const auth = await getGoogleAuth();
-  if (!auth) return;
-
   try {
-    await auth.signOut();
+    await GoogleAuth.signOut();
     console.log('[GOOGLE_AUTH] Signed out successfully');
   } catch (error) {
     console.error('[GOOGLE_AUTH] Sign-out failed:', error);
@@ -208,15 +259,12 @@ export async function signOutGoogleNative(): Promise<void> {
  * Refresh the Google access token
  */
 export async function refreshGoogleAuth(): Promise<string | null> {
-  if (!Capacitor.isNativePlatform()) {
+  if (!isNative()) {
     return null;
   }
 
-  const auth = await getGoogleAuth();
-  if (!auth) return null;
-
   try {
-    const result = await auth.refresh();
+    const result = await GoogleAuth.refresh();
     console.log('[GOOGLE_AUTH] Token refreshed');
     return result.accessToken || null;
   } catch (error) {
@@ -229,16 +277,13 @@ export async function refreshGoogleAuth(): Promise<string | null> {
  * Check if user is signed in with Google
  */
 export async function isGoogleSignedIn(): Promise<boolean> {
-  if (!Capacitor.isNativePlatform()) {
+  if (!isNative()) {
     return false;
   }
 
-  const auth = await getGoogleAuth();
-  if (!auth) return false;
-
   try {
     // Try to get current user silently
-    await auth.refresh();
+    await GoogleAuth.refresh();
     return true;
   } catch (error) {
     return false;
@@ -249,7 +294,7 @@ export async function isGoogleSignedIn(): Promise<boolean> {
  * Get the stored auth token for native app authentication
  */
 export async function getStoredAuthToken(): Promise<string | null> {
-  if (!Capacitor.isNativePlatform()) {
+  if (!isNative()) {
     return null;
   }
 
@@ -266,7 +311,7 @@ export async function getStoredAuthToken(): Promise<string | null> {
  * Clear the stored auth token (for logout)
  */
 export async function clearStoredAuthToken(): Promise<void> {
-  if (!Capacitor.isNativePlatform()) {
+  if (!isNative()) {
     return;
   }
 

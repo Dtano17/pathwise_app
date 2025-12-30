@@ -42,10 +42,9 @@ const config: CapacitorConfig = {
       sound: 'default',
     },
     GoogleAuth: {
-      // Web client ID from Google Cloud Console
-      // Set via GOOGLE_CLIENT_ID environment variable in production
+      // Web client ID from Google Cloud Console (pathwise-gcp project)
       scopes: ['profile', 'email'],
-      serverClientId: process.env.GOOGLE_CLIENT_ID || '',
+      serverClientId: '481740120979-76fs0ru0uikj5o33mr87vhua8c54657f.apps.googleusercontent.com',
       forceCodeForRefreshToken: true,
     },
   },

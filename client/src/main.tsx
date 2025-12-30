@@ -1,14 +1,15 @@
 import { createRoot } from "react-dom/client";
-import { Capacitor } from "@capacitor/core";
 import App from "./App";
 import "./index.css";
 import { initializeGoogleAuth } from "./lib/nativeGoogleAuth";
 import { initializeSafeArea, setupSafeAreaListeners } from "./lib/safeArea";
+import { isNative, getPlatform } from "./lib/platform";
 
 // Add platform class IMMEDIATELY (before any async code) for CSS targeting
 // This ensures safe area CSS applies from the first render
-if (Capacitor.isNativePlatform()) {
-  const platform = Capacitor.getPlatform();
+// Uses robust detection with fallback for Android WebView timing issues
+if (isNative()) {
+  const platform = getPlatform();
   document.body.classList.add(`platform-${platform}`);
   console.log(`[INIT] Platform class added: platform-${platform}`);
 }
