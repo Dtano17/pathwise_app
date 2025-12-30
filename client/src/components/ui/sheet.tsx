@@ -90,6 +90,7 @@ SheetHeader.displayName = "SheetHeader"
 
 const SheetFooter = ({
   className,
+  style,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
@@ -97,6 +98,10 @@ const SheetFooter = ({
       "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
       className
     )}
+    style={{ 
+      paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--android-safe-area-bottom, 0px))',
+      ...style 
+    }}
     {...props}
   />
 )

@@ -19,6 +19,8 @@ const ANDROID_GESTURE_NAV_HEIGHT = 20; // Gesture navigation (pill)
 export async function initializeSafeArea(): Promise<void> {
   if (!Capacitor.isNativePlatform()) {
     console.log('[SAFE_AREA] Skipping initialization on web platform');
+    // Ensure Android safe area is reset on web
+    document.documentElement.style.setProperty('--android-safe-area-bottom', '0px');
     return;
   }
 
@@ -28,7 +30,8 @@ export async function initializeSafeArea(): Promise<void> {
   if (platform === 'android') {
     await setupAndroidSafeArea();
   } else if (platform === 'ios') {
-    // iOS uses CSS env() variables natively, but we ensure they're available
+    // iOS uses CSS env() variables natively, ensure Android variable is 0
+    document.documentElement.style.setProperty('--android-safe-area-bottom', '0px');
     await setupIOSSafeArea();
   }
 }
@@ -89,10 +92,18 @@ async function setupAndroidSafeArea(): Promise<void> {
 
   } catch (error) {
     console.error('[SAFE_AREA] Error setting up Android safe area:', error);
-    // Apply a reasonable default
+    // Apply a reasonable default for Android only
     document.documentElement.style.setProperty('--android-safe-area-bottom', '48px');
     document.body.classList.add('platform-android');
   }
+}
+
+/**
+ * Reset safe area for non-Android platforms (ensures 0px default)
+ */
+function resetAndroidSafeArea(): void {
+  document.documentElement.style.setProperty('--android-safe-area-bottom', '0px');
+  document.body.classList.remove('platform-android');
 }
 
 /**

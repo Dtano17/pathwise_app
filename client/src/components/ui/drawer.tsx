@@ -68,10 +68,15 @@ DrawerHeader.displayName = "DrawerHeader"
 
 const DrawerFooter = ({
   className,
+  style,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn("mt-auto flex flex-col gap-2 p-4", className)}
+    style={{ 
+      paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px) + var(--android-safe-area-bottom, 0px))',
+      ...style 
+    }}
     {...props}
   />
 )

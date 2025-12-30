@@ -1755,9 +1755,12 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
         />
       )}
 
-      {/* Remix Mode Floating Action Bar */}
+      {/* Remix Mode Floating Action Bar - respects iOS and Android safe areas */}
       {remixMode && (
-        <div className="fixed bottom-0 left-0 right-0 p-2 sm:p-4 bg-gradient-to-t from-background via-background to-transparent z-50">
+        <div 
+          className="fixed left-0 right-0 p-2 sm:p-4 bg-gradient-to-t from-background via-background to-transparent z-50"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--android-safe-area-bottom, 0px))' }}
+        >
           <div className="max-w-2xl mx-auto">
             <Card className="p-3 sm:p-4 shadow-lg border-purple-200 dark:border-purple-800">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">

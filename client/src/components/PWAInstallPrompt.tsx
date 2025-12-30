@@ -50,7 +50,8 @@ export function PWAInstallPrompt() {
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
-        className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:w-96"
+        className="fixed left-4 right-4 z-50 md:left-auto md:right-4 md:w-96"
+        style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px) + var(--android-safe-area-bottom, 0px))' }}
       >
         <Card className="p-4 shadow-lg border-primary/20">
           <div className="flex items-start gap-3">

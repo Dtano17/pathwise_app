@@ -9,8 +9,8 @@
   --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
-  /* Android-specific bottom safe area - 48px default for navigation bar */
-  --android-safe-area-bottom: 48px;
+  /* Android-specific bottom safe area - 0px default, set by JavaScript on Android only */
+  --android-safe-area-bottom: 0px;
 }
 
 /* Apply safe area padding to the body for native apps */

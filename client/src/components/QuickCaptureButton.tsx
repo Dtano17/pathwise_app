@@ -67,11 +67,12 @@ export default function QuickCaptureButton({ onClick, className = '' }: QuickCap
 
   return (
     <>
-      {/* Mobile: Floating Action Button (Bottom Right) */}
+      {/* Mobile: Floating Action Button (Bottom Right) - respects iOS and Android safe areas */}
       <div
-        className={`md:hidden fixed bottom-6 right-6 z-50 transition-all duration-300 ${
+        className={`md:hidden fixed right-6 z-50 transition-all duration-300 ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0'
         } ${className}`}
+        style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px) + var(--android-safe-area-bottom, 0px))' }}
       >
         <Button
           onClick={onClick}

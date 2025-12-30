@@ -108,9 +108,10 @@ export default function PostActivityPrompt({
           onClick={handleClose}
         >
           <div
-            className={`fixed bottom-0 left-0 right-0 bg-background rounded-t-3xl shadow-2xl transition-transform duration-300 ${
+            className={`fixed left-0 right-0 bg-background rounded-t-3xl shadow-2xl transition-transform duration-300 ${
               isClosing ? 'translate-y-full' : 'translate-y-0'
             }`}
+            style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--android-safe-area-bottom, 0px))' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 space-y-4">
