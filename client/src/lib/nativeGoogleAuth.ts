@@ -106,7 +106,8 @@ async function openBrowserAuth(): Promise<NativeAuthResult> {
   try {
     // Open the web OAuth flow in the system browser
     // The production URL handles the OAuth flow
-    const authUrl = apiUrl('/api/auth/google');
+    // Add mobile=true flag so server knows to redirect via deep link after auth
+    const authUrl = apiUrl('/api/auth/google?mobile=true');
 
     await Browser.open({
       url: authUrl,
@@ -115,7 +116,7 @@ async function openBrowserAuth(): Promise<NativeAuthResult> {
     });
 
     // Return a message indicating we're redirecting
-    // The actual auth completion will happen via deep link or browser callback
+    // The actual auth completion will happen via deep link (journalmate://auth?token=xxx)
     return {
       success: false,
       error: 'Opening browser for sign-in. Please complete sign-in in browser.'
@@ -123,7 +124,7 @@ async function openBrowserAuth(): Promise<NativeAuthResult> {
   } catch (browserError) {
     console.error('[GOOGLE_AUTH] Browser open failed:', browserError);
     // Last resort: try window.open
-    window.open(apiUrl('/api/auth/google'), '_system');
+    window.open(apiUrl('/api/auth/google?mobile=true'), '_system');
     return {
       success: false,
       error: 'Opening browser for sign-in. Please complete sign-in in browser.'

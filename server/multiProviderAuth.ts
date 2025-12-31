@@ -4,6 +4,7 @@ import { Strategy as FacebookStrategy } from "passport-facebook";
 import { Strategy as AppleStrategy } from "passport-apple";
 import { Strategy as InstagramStrategy } from "passport-instagram";
 import { type Express } from "express";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { type AuthIdentity } from "@shared/schema";
 import { sendWelcomeEmail } from "./emailService";
@@ -486,43 +487,62 @@ export async function setupMultiProviderAuth(app: Express) {
     if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
       req.session.returnTo = returnTo;
     }
+    // Store mobile flag for deep link redirect after OAuth
+    if (req.query.mobile === 'true') {
+      req.session.mobileAuth = true;
+    }
     passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
   });
 
   app.get('/api/auth/google/callback',
-    passport.authenticate('google', { 
+    passport.authenticate('google', {
       failureRedirect: '/?auth=error&provider=google',
-      failureMessage: true 
+      failureMessage: true
     }),
-    (req: any, res) => {
+    async (req: any, res) => {
       const user = req.user as OAuthUser;
       console.log('[Google OAuth] Callback successful, user:', user);
       console.log('[Google OAuth] Session ID before regenerate:', req.sessionID);
-      
-      // Get returnTo from session before regenerating
+
+      // Get returnTo and mobile flag from session before regenerating
       const returnTo = req.session.returnTo || '/';
-      
+      const isMobileAuth = req.session.mobileAuth === true;
+
       // Regenerate session to prevent session fixation and ensure proper cookie setup
-      req.session.regenerate((regenerateErr: any) => {
+      req.session.regenerate(async (regenerateErr: any) => {
         if (regenerateErr) {
           console.error('[Google OAuth] Session regenerate error:', regenerateErr);
           return res.redirect('/?auth=error&reason=session');
         }
-        
+
         // Re-establish the user in the new session using passport login
-        req.login(user, (loginErr: any) => {
+        req.login(user, async (loginErr: any) => {
           if (loginErr) {
             console.error('[Google OAuth] Login error after regenerate:', loginErr);
             return res.redirect('/?auth=error&reason=login');
           }
-          
+
           console.log('[Google OAuth] Session ID after regenerate:', req.sessionID);
           console.log('[Google OAuth] Session passport user:', req.session?.passport?.user);
-          
-          // Append auth success parameter
+          console.log('[Google OAuth] Mobile auth:', isMobileAuth);
+
+          // For mobile app: create one-time token and redirect via deep link
+          if (isMobileAuth && user.id) {
+            try {
+              const authToken = crypto.randomBytes(32).toString('hex');
+              await storage.createMobileAuthToken(parseInt(user.id), authToken);
+              console.log('[Google OAuth] Mobile auth - redirecting to deep link');
+              return res.redirect(`journalmate://auth?token=${authToken}`);
+            } catch (tokenErr) {
+              console.error('[Google OAuth] Failed to create mobile token:', tokenErr);
+              // Fall back to web redirect
+            }
+          }
+
+          // Append auth success parameter for web
           const separator = returnTo.includes('?') ? '&' : '?';
           const redirectUrl = `${returnTo}${separator}auth=success&provider=google`;
-          
+
           // Explicitly save session before redirecting
           req.session.save((saveErr: any) => {
             if (saveErr) {
@@ -727,6 +747,80 @@ export async function setupMultiProviderAuth(app: Express) {
     } catch (error) {
       console.error('[Native Google Auth] Error:', error);
       res.status(500).json({ error: 'Authentication failed' });
+    }
+  });
+
+  // Mobile auth token exchange endpoint
+  // Used when OAuth redirects via deep link with a one-time token
+  app.post('/api/auth/mobile-token', async (req, res) => {
+    try {
+      const { token } = req.body;
+
+      if (!token) {
+        console.log('[Mobile Token] No token provided');
+        return res.status(400).json({ error: 'Token required' });
+      }
+
+      // Consume the one-time token
+      const tokenRecord = await storage.consumeMobileAuthToken(token);
+      if (!tokenRecord) {
+        console.log('[Mobile Token] Invalid or expired token');
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+
+      // Get the user
+      const user = await storage.getUser(tokenRecord.userId.toString());
+      if (!user) {
+        console.log('[Mobile Token] User not found:', tokenRecord.userId);
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      // Create OAuth user object for session
+      const oauthUser: OAuthUser = {
+        id: user.id,
+        provider: 'google', // Original auth was via Google
+        providerUserId: user.id,
+        email: user.email || undefined,
+        firstName: user.firstName || undefined,
+        lastName: user.lastName || undefined,
+        profileImageUrl: user.profileImageUrl || undefined,
+      };
+
+      // Establish session
+      req.session.regenerate((regenerateErr: any) => {
+        if (regenerateErr) {
+          console.error('[Mobile Token] Session regenerate error:', regenerateErr);
+          return res.status(500).json({ error: 'Session error' });
+        }
+
+        req.login(oauthUser, (loginErr: any) => {
+          if (loginErr) {
+            console.error('[Mobile Token] Login error:', loginErr);
+            return res.status(500).json({ error: 'Login failed' });
+          }
+
+          req.session.save((saveErr: any) => {
+            if (saveErr) {
+              console.error('[Mobile Token] Session save error:', saveErr);
+            }
+
+            console.log('[Mobile Token] Login successful for user:', user.id);
+            res.json({
+              success: true,
+              user: {
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                profileImageUrl: user.profileImageUrl,
+              }
+            });
+          });
+        });
+      });
+    } catch (error) {
+      console.error('[Mobile Token] Error:', error);
+      res.status(500).json({ error: 'Token exchange failed' });
     }
   });
 

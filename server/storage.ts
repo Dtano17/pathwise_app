@@ -137,6 +137,20 @@ const pool = new Pool({
 });
 export const db = drizzle(pool);
 
+// In-memory storage for mobile auth tokens (one-time use, expire in 5 min)
+// Used for OAuth deep link flow when session cookies can't be shared between browser and WebView
+const mobileAuthTokens = new Map<string, { userId: number; expiresAt: Date }>();
+
+// Clean up expired tokens periodically (every 5 minutes)
+setInterval(() => {
+  const now = new Date();
+  for (const [token, record] of mobileAuthTokens.entries()) {
+    if (record.expiresAt < now) {
+      mobileAuthTokens.delete(token);
+    }
+  }
+}, 5 * 60 * 1000);
+
 export interface IStorage {
   // User operations
   // (IMPORTANT) these user operations are mandatory for Replit Auth.
@@ -4253,6 +4267,31 @@ export class DatabaseStorage implements IStorage {
       estimatedCost: item.estimatedCost,
       category: item.category
     }));
+  }
+
+  // Mobile Auth Token functions (for OAuth deep link flow)
+  async createMobileAuthToken(userId: number, token: string): Promise<void> {
+    mobileAuthTokens.set(token, {
+      userId,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
+    });
+    console.log(`[MOBILE_AUTH] Created token for user ${userId}, expires in 5 min`);
+  }
+
+  async consumeMobileAuthToken(token: string): Promise<{ userId: number } | null> {
+    const record = mobileAuthTokens.get(token);
+    if (!record) {
+      console.log('[MOBILE_AUTH] Token not found');
+      return null;
+    }
+    if (record.expiresAt < new Date()) {
+      mobileAuthTokens.delete(token);
+      console.log('[MOBILE_AUTH] Token expired');
+      return null;
+    }
+    mobileAuthTokens.delete(token); // One-time use
+    console.log(`[MOBILE_AUTH] Token consumed for user ${record.userId}`);
+    return { userId: record.userId };
   }
 }
 
