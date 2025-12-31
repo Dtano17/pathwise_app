@@ -2,29 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-/* MOBILE SAFE AREAS - Works for ANY mobile device/WebView */
-/* Detects mobile via: small screen + touch + no hover (mouse) */
-/* This applies to Android WebView loading https://journalmate.ai */
-@media screen and (max-width: 768px) and (hover: none) and (pointer: coarse) {
-  /* Apply safe areas to body */
-  body {
-    padding-top: 24px !important;   /* Status bar */
-    padding-bottom: 48px !important; /* Navigation bar */
-  }
-
-  /* Apply to full-height containers (LandingPage, etc.) */
-  .h-screen,
-  .min-h-screen {
-    padding-top: 24px !important;
-    padding-bottom: 48px !important;
-  }
-
-  /* Root container */
-  #root > div:first-child {
-    padding-top: 24px !important;
-    padding-bottom: 48px !important;
-  }
-}
+/* MOBILE SAFE AREAS
+ * On Android Capacitor apps: fitsSystemWindows=true handles safe areas natively
+ * On iOS: CSS env() variables handle safe areas
+ * On mobile web: No automatic safe areas (browser chrome handles it)
+ *
+ * NOTE: Removed aggressive media query padding that was causing double-insets
+ * when fitsSystemWindows is enabled on Android.
+ */
 
 /* Safe Area Insets for Native Mobile Apps (iOS/Android) */
 /* These CSS environment variables handle notches, status bars, and navigation bars */
@@ -61,12 +46,13 @@ body {
   }
 }
 
-/* Android-specific: Apply TOP and BOTTOM padding when CSS env() doesn't work */
-/* This class is added by JavaScript but we also apply defaults for Capacitor apps */
+/* Android-specific: With fitsSystemWindows=true, Android system handles insets automatically */
+/* The WebView content area is already inset from status bar and navigation bar */
+/* We set padding to 0 to avoid double-insets */
 body.platform-android {
-  /* Use JavaScript-calculated insets for Android status bar (top) and navigation bar (bottom) */
-  padding-top: var(--android-safe-area-top, 24px);
-  padding-bottom: var(--android-safe-area-bottom, 48px);
+  /* System handles safe areas via fitsSystemWindows=true in MainActivity */
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 /* Utility classes for safe area handling */
@@ -74,20 +60,20 @@ body.platform-android {
   padding-top: var(--safe-area-inset-top);
 }
 
-/* Android-specific safe top (uses JavaScript-calculated value) */
+/* Android-specific safe top - no extra padding needed with fitsSystemWindows */
 .platform-android .safe-top,
 body.platform-android .safe-top {
-  padding-top: var(--android-safe-area-top, 24px);
+  padding-top: 0;
 }
 
 .safe-bottom {
   padding-bottom: var(--safe-area-inset-bottom);
 }
 
-/* Android-specific safe bottom (uses JavaScript-calculated value) */
+/* Android-specific safe bottom - no extra padding needed with fitsSystemWindows */
 .platform-android .safe-bottom,
 body.platform-android .safe-bottom {
-  padding-bottom: var(--android-safe-area-bottom, 48px);
+  padding-bottom: 0;
 }
 
 .safe-left {
@@ -108,11 +94,11 @@ body.platform-android .safe-bottom {
   padding-bottom: var(--safe-area-inset-bottom);
 }
 
-/* Android-specific safe-y */
+/* Android-specific safe-y - no extra padding needed with fitsSystemWindows */
 .platform-android .safe-y,
 body.platform-android .safe-y {
-  padding-top: var(--android-safe-area-top, 24px);
-  padding-bottom: var(--android-safe-area-bottom, 48px);
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .safe-all {
@@ -122,35 +108,17 @@ body.platform-android .safe-y {
   padding-right: var(--safe-area-inset-right);
 }
 
-/* Android-specific safe-all */
+/* Android-specific safe-all - no extra padding needed with fitsSystemWindows */
 .platform-android .safe-all,
 body.platform-android .safe-all {
-  padding-top: var(--android-safe-area-top, 24px);
-  padding-bottom: var(--android-safe-area-bottom, 48px);
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
-/* CRITICAL: Apply safe area to all scrollable content on Android */
-/* The body padding doesn't work because content scrolls inside nested containers, not <body> */
-/* Target main element and common full-height containers */
-body.platform-android main,
-body.platform-android .min-h-screen {
-  padding-top: var(--android-safe-area-top, 24px);
-  padding-bottom: var(--android-safe-area-bottom, 48px);
-}
-
-/* Target all full-height scrollable containers (like LandingPage) */
-/* Using more specific selectors to avoid breaking flex layouts */
-body.platform-android .h-screen.overflow-y-auto,
-body.platform-android .h-screen.overflow-auto {
-  padding-top: var(--android-safe-area-top, 24px);
-  padding-bottom: var(--android-safe-area-bottom, 48px);
-}
-
-/* Also ensure the root app container has safe area padding */
-body.platform-android #root > div:first-child {
-  padding-top: var(--android-safe-area-top, 24px);
-  padding-bottom: var(--android-safe-area-bottom, 48px);
-}
+/* Android with fitsSystemWindows=true: System handles safe areas automatically
+ * No manual padding needed on content containers - removed the aggressive
+ * padding rules that were causing content to be double-inset.
+ */
 
 /* LIGHT MODE */
 :root {
