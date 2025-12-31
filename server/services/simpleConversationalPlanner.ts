@@ -2915,7 +2915,7 @@ export class SimpleConversationalPlanner {
     // Step 1: Check cache
     try {
       const cached = await storage.getUrlContentCache(normalizedUrl);
-      if (cached) {
+      if (cached && !process.env.BYPASS_CACHE) {
         console.log(`[SIMPLE_PLANNER] Cache HIT for URL: ${normalizedUrl}`);
 
         // Even cached content goes through filtering
