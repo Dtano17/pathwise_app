@@ -311,6 +311,10 @@ class TranscriptFilterService {
    */
   async filterAndWeightContent(input: SocialMediaInput): Promise<FilteredContent> {
     console.log(`[TRANSCRIPT_FILTER] Processing ${input.platform} content from ${input.url}`);
+    console.log(`[TRANSCRIPT_FILTER] Raw input sources: audio=${!!input.audioTranscript}, ocr=${!!input.ocrText}, caption=${!!input.caption}`);
+    if (input.audioTranscript) {
+      console.log(`[TRANSCRIPT_FILTER] Audio Sample (first 100 chars): "${input.audioTranscript.substring(0, 100)}..."`);
+    }
     const startTime = Date.now();
 
     // Step 1: Build ContentAtoms from raw input
@@ -332,13 +336,21 @@ class TranscriptFilterService {
 
     // Step 3: Fast promotional/noise filtering (regex-based)
     const preFilteredAtoms = this.preFilterAtoms(atoms);
-    console.log(`[TRANSCRIPT_FILTER] Pre-filter: ${atoms.length} → ${preFilteredAtoms.length} atoms`);
+    const promoCount = preFilteredAtoms.filter(a => a.classification === 'promotional').length;
+    const noiseCount = preFilteredAtoms.filter(a => a.classification === 'noise').length;
+    console.log(`[TRANSCRIPT_FILTER] Pre-filter stats: ${promoCount} promo, ${noiseCount} noise filtered`);
 
     // Step 4: Classify remaining atoms
     const classifiedAtoms = await this.classifyAtoms(preFilteredAtoms, contentTypeResult.contentType);
 
     // Step 5: Extract entities from actionable atoms
     const atomsWithEntities = this.extractEntitiesFromAtoms(classifiedAtoms);
+    const entityCount = atomsWithEntities.reduce((acc, a) => acc + (a.entities?.length || 0), 0);
+    console.log(`[TRANSCRIPT_FILTER] Entity extraction: found ${entityCount} entities`);
+    if (entityCount > 0) {
+      const sampleEntities = atomsWithEntities.flatMap(a => a.entities || []).slice(0, 5);
+      console.log(`[TRANSCRIPT_FILTER] Sample entities:`, JSON.stringify(sampleEntities, null, 2));
+    }
 
     // Step 6: Calculate metrics
     const actionableAtoms = atomsWithEntities.filter(a => a.classification === 'actionable');
