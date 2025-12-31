@@ -446,6 +446,27 @@ class SocialMediaVideoService {
             `[APIFY] Downloaded TikTok video: ${Math.round(stats.size / 1024)}KB`,
           );
 
+          // Validate the video file - must be at least 500KB to be a real video
+          // and check for valid MP4 header (ftyp or moov atom)
+          if (stats.size < 500 * 1024) {
+            console.log(`[APIFY] Downloaded file too small (${Math.round(stats.size / 1024)}KB), likely corrupted - will try yt-dlp fallback`);
+            this.cleanupFile(filePath);
+            // Return failure to trigger yt-dlp fallback
+            return { success: false, error: "Downloaded video too small, likely corrupted", caption, metadata };
+          }
+
+          // Quick check for valid MP4 header
+          const buffer = Buffer.alloc(12);
+          const fd = fs.openSync(filePath, 'r');
+          fs.readSync(fd, buffer, 0, 12, 0);
+          fs.closeSync(fd);
+          const header = buffer.toString('ascii', 4, 8);
+          if (!['ftyp', 'moov', 'mdat', 'free'].includes(header)) {
+            console.log(`[APIFY] Invalid MP4 header detected (${header}), file may be corrupted - will try yt-dlp fallback`);
+            this.cleanupFile(filePath);
+            return { success: false, error: "Invalid MP4 file header", caption, metadata };
+          }
+
           return {
             success: true,
             filePath,
