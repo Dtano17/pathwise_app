@@ -208,12 +208,15 @@ export class AIService {
   private async fetchUrlContent(url: string): Promise<string> {
     const normalizedUrl = this.normalizeUrl(url);
     
-    // Step 1: Check cache first
+    // Step 1: Check cache first (bypass if BYPASS_CACHE env var is set)
     try {
       const cached = await storage.getUrlContentCache(normalizedUrl);
-      if (cached) {
+      if (cached && !process.env.BYPASS_CACHE) {
         console.log(`[AISERVICE] Cache HIT for URL: ${normalizedUrl} (${cached.wordCount} words, source: ${cached.extractionSource})`);
         return cached.extractedContent;
+      }
+      if (cached && process.env.BYPASS_CACHE) {
+        console.log(`[AISERVICE] Cache BYPASS for URL: ${normalizedUrl} (forcing fresh extraction)`);
       }
       console.log(`[AISERVICE] Cache MISS for URL: ${normalizedUrl}`);
     } catch (cacheError) {
