@@ -40,8 +40,21 @@ export function SocialLogin({
       setIsGoogleLoading(true);
       try {
         console.log('[SocialLogin] Using native Google Sign-In');
-        await loginWithGoogle();
-        // loginWithGoogle handles navigation on success
+        const result = await loginWithGoogle();
+        console.log('[SocialLogin] Native Google Sign-In result:', result);
+
+        // Check if sign-in failed
+        if (!result.success) {
+          // Don't show error for user cancellation
+          if (result.error && !result.error.includes('cancel')) {
+            toast({
+              title: "Sign-in failed",
+              description: result.error || "Could not sign in with Google. Please try again.",
+              variant: "destructive",
+            });
+          }
+        }
+        // On success, loginWithGoogle handles refetch and navigation
       } catch (error: any) {
         console.error('[SocialLogin] Native Google Sign-In failed:', error);
         toast({
