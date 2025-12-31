@@ -181,6 +181,31 @@ interface RichJournalEntry {
   venueName?: string;
   venueType?: string;
   subcategory?: string;
+
+  // Web enrichment data
+  webEnrichment?: {
+    venueVerified?: boolean;
+    venueType?: string;
+    venueDescription?: string;
+    location?: {
+      address?: string;
+      city?: string;
+      neighborhood?: string;
+      country?: string;
+      directionsUrl?: string;
+    };
+    priceRange?: '$' | '$$' | '$$$' | '$$$$';
+    rating?: number;
+    reviewCount?: number;
+    businessHours?: string;
+    phone?: string;
+    website?: string;
+    reservationUrl?: string;
+    primaryImageUrl?: string;
+    mediaUrls?: Array<{ url: string; type: 'image' | 'video'; source?: string }>;
+    suggestedCategory?: string;
+    enrichedAt?: string;
+  };
 }
 
 type JournalItem = string | RichJournalEntry;
@@ -1192,24 +1217,46 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                     const timestamp = isRichEntry ? item.timestamp : null;
                     const keywords = isRichEntry ? item.keywords : null;
                     const sourceUrl = isRichEntry ? item.sourceUrl || undefined : undefined;
-                    
+                    const webEnrichment = isRichEntry ? item.webEnrichment : null;
+
                     // Find original index for removal
                     const originalIndex = journalData[activeCategory]?.indexOf(item) ?? -1;
-                    
+
+                    // Use web enrichment image if available
+                    const primaryImage = webEnrichment?.primaryImageUrl;
+                    const hasWebImage = !!primaryImage;
+
                     return (
-                      <Card 
-                        key={filteredIndex} 
-                        className="hover-elevate cursor-default group"
+                      <Card
+                        key={filteredIndex}
+                        className="hover-elevate cursor-default group overflow-hidden"
                         data-testid={`journal-entry-${filteredIndex}`}
                       >
+                        {/* Web enrichment image header */}
+                        {hasWebImage && (
+                          <div className="relative h-32 w-full overflow-hidden">
+                            <img
+                              src={primaryImage}
+                              alt={webEnrichment?.venueName || text.substring(0, 30)}
+                              className="w-full h-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                            {webEnrichment?.venueVerified && (
+                              <div className="absolute top-2 right-2 bg-green-500/90 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <span>✓</span> Verified
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         <CardContent className="p-3 sm:p-4">
                           <div className="flex items-start gap-3">
                             <div className="flex-1 min-w-0 space-y-2">
                               {timestamp && (
                                 <div className="text-xs text-muted-foreground">
-                                  {new Date(timestamp).toLocaleDateString('en-US', { 
-                                    month: 'short', 
-                                    day: 'numeric', 
+                                  {new Date(timestamp).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
                                     year: 'numeric',
                                     hour: '2-digit',
                                     minute: '2-digit'
@@ -1217,19 +1264,105 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                 </div>
                               )}
                               <SmartTextRenderer text={text} category={activeCategory} sourceUrl={sourceUrl} />
+
+                              {/* Web enrichment details */}
+                              {webEnrichment && (
+                                <div className="mt-3 space-y-2">
+                                  {/* Price & Rating row */}
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    {webEnrichment.priceRange && (
+                                      <Badge variant="secondary" className="text-xs font-medium">
+                                        {webEnrichment.priceRange}
+                                      </Badge>
+                                    )}
+                                    {webEnrichment.rating && (
+                                      <Badge variant="outline" className="text-xs">
+                                        ⭐ {webEnrichment.rating.toFixed(1)}
+                                        {webEnrichment.reviewCount && (
+                                          <span className="text-muted-foreground ml-1">({webEnrichment.reviewCount})</span>
+                                        )}
+                                      </Badge>
+                                    )}
+                                    {webEnrichment.venueType && (
+                                      <Badge variant="outline" className="text-xs capitalize">
+                                        {webEnrichment.venueType.replace(/_/g, ' ')}
+                                      </Badge>
+                                    )}
+                                  </div>
+
+                                  {/* Location with directions link */}
+                                  {webEnrichment.location?.address && (
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      <span>📍</span>
+                                      <span className="truncate">{webEnrichment.location.address}</span>
+                                      {webEnrichment.location.directionsUrl && (
+                                        <a
+                                          href={webEnrichment.location.directionsUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-primary hover:underline flex-shrink-0"
+                                        >
+                                          Get Directions →
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Business hours */}
+                                  {webEnrichment.businessHours && (
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      <span>🕐</span>
+                                      <span>{webEnrichment.businessHours}</span>
+                                    </div>
+                                  )}
+
+                                  {/* Action buttons */}
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {webEnrichment.reservationUrl && (
+                                      <a
+                                        href={webEnrichment.reservationUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90"
+                                      >
+                                        🗓️ Reserve
+                                      </a>
+                                    )}
+                                    {webEnrichment.website && (
+                                      <a
+                                        href={webEnrichment.website}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md hover:bg-secondary/80"
+                                      >
+                                        🌐 Website
+                                      </a>
+                                    )}
+                                    {webEnrichment.phone && (
+                                      <a
+                                        href={`tel:${webEnrichment.phone}`}
+                                        className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md hover:bg-secondary/80"
+                                      >
+                                        📞 Call
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
                               {media && media.length > 0 && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mt-3 sm:mt-4">
                                   {media.map((m, idx) => (
                                     <div key={idx} className="relative aspect-square rounded-md overflow-hidden bg-muted">
                                       {m.type === 'video' ? (
-                                        <video 
-                                          src={m.url} 
+                                        <video
+                                          src={m.url}
                                           className="w-full h-full object-cover"
                                           controls
                                         />
                                       ) : (
-                                        <img 
-                                          src={m.url} 
+                                        <img
+                                          src={m.url}
                                           alt={`Media ${idx + 1}`}
                                           className="w-full h-full object-cover"
                                         />

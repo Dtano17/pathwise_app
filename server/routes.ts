@@ -9,6 +9,7 @@ import { lifestylePlannerAgent } from "./services/lifestylePlannerAgent";
 import { langGraphPlanningAgent } from "./services/langgraphPlanningAgent";
 import { simpleConversationalPlanner } from "./services/simpleConversationalPlanner";
 import { enrichJournalEntry } from "./services/journalEnrichmentService";
+import { journalWebEnrichmentService } from "./services/journalWebEnrichmentService";
 import { contactSyncService } from "./contactSync";
 import { getProvider } from "./services/llmProvider";
 import { socketService } from "./services/socketService";
@@ -11180,16 +11181,16 @@ You can find these tasks in your task list and start working on them right away!
           if (!item.text || typeof item.text !== 'string' || item.text.trim().length < 10) {
             return item; // Skip enrichment for empty or very short entries
           }
-          
+
           try {
             // Check if already enriched (has keywords and aiConfidence)
             if (item.keywords && item.aiConfidence !== undefined) {
               console.log(`[JOURNAL SAVE] Entry already enriched, skipping`);
               return item;
             }
-            
+
             const enrichedData = await enrichJournalEntry(item.text, category, item.keywords);
-            
+
             return {
               ...item,
               keywords: enrichedData.keywords,
@@ -11203,6 +11204,61 @@ You can find these tasks in your task list and start working on them right away!
           }
         })
       );
+
+      // Web enrichment (async, non-blocking) for venue-type entries
+      // Run in background to not slow down the save
+      const webEnrichableCategories = ['restaurants', 'travel', 'activities', 'music', 'movies', 'shopping', 'fitness'];
+      if (webEnrichableCategories.includes(category)) {
+        // Don't await - run in background
+        (async () => {
+          try {
+            const entriesToEnrich = enrichedItems
+              .filter((item: any) => item.text && !item.webEnrichment?.venueVerified)
+              .map((item: any) => ({
+                id: item.id || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                text: item.text,
+                category,
+                venueName: item.venueName,
+                location: item.location,
+                existingEnrichment: item.webEnrichment
+              }));
+
+            if (entriesToEnrich.length > 0) {
+              console.log(`[JOURNAL SAVE] Starting web enrichment for ${entriesToEnrich.length} entries`);
+              const webResults = await journalWebEnrichmentService.enrichBatch(entriesToEnrich);
+
+              // Update entries with web enrichment data
+              const enrichedCount = webResults.filter(r => r.success).length;
+              if (enrichedCount > 0) {
+                console.log(`[JOURNAL SAVE] Web enriched ${enrichedCount} entries, updating...`);
+
+                // Get fresh prefs and update with web enrichment
+                const freshPrefs = await storage.getUserPreferences(userId);
+                const freshJournalData = freshPrefs?.preferences?.journalData || {};
+                const categoryEntries = freshJournalData[category] || [];
+
+                const updatedEntries = categoryEntries.map((entry: any) => {
+                  const webResult = webResults.find(r =>
+                    r.success && r.entryId && (entry.id === r.entryId || entry.text === entriesToEnrich.find(e => e.id === r.entryId)?.text)
+                  );
+                  if (webResult?.enrichedData) {
+                    return { ...entry, webEnrichment: webResult.enrichedData };
+                  }
+                  return entry;
+                });
+
+                freshJournalData[category] = updatedEntries;
+                await storage.upsertUserPreferences(userId, {
+                  preferences: { ...freshPrefs?.preferences, journalData: freshJournalData }
+                });
+                console.log(`[JOURNAL SAVE] Web enrichment saved for category: ${category}`);
+              }
+            }
+          } catch (webError) {
+            console.error('[JOURNAL SAVE] Background web enrichment failed:', webError);
+          }
+        })();
+      }
       
       // Update the specific category with enriched items
       journalData[category] = enrichedItems;
@@ -11443,11 +11499,96 @@ You can find these tasks in your task list and start working on them right away!
       
       // Invalidate user context cache
       aiService.invalidateUserContext(userId);
-      
+
       res.json({ success: true, count: parsed.data.length });
     } catch (error) {
       console.error('Journal batch save error:', error);
       res.status(500).json({ error: 'Failed to save journal entries' });
+    }
+  });
+
+  // Web enrich journal entries (manual trigger or scheduled job)
+  app.post("/api/user/journal/web-enrich", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { categories, forceRefresh } = req.body;
+
+      console.log(`[JOURNAL WEB ENRICH] Starting for user ${userId}, categories: ${categories?.join(', ') || 'all'}`);
+
+      // Get existing preferences
+      const prefs = await storage.getUserPreferences(userId);
+      const journalData = prefs?.preferences?.journalData || {};
+
+      // Determine which categories to enrich
+      const webEnrichableCategories = ['restaurants', 'travel', 'activities', 'music', 'movies', 'shopping', 'fitness'];
+      const categoriesToEnrich = categories?.length > 0
+        ? categories.filter((c: string) => webEnrichableCategories.includes(c))
+        : webEnrichableCategories.filter(c => journalData[c]?.length > 0);
+
+      let totalEnriched = 0;
+      let totalFailed = 0;
+
+      for (const category of categoriesToEnrich) {
+        const entries = journalData[category] || [];
+        if (entries.length === 0) continue;
+
+        // Filter entries needing enrichment
+        const entriesToEnrich = entries
+          .filter((item: any) => {
+            if (!item.text) return false;
+            if (!forceRefresh && item.webEnrichment?.venueVerified) return false;
+            return true;
+          })
+          .map((item: any) => ({
+            id: item.id || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            text: item.text,
+            category,
+            venueName: item.venueName,
+            location: item.location,
+            existingEnrichment: forceRefresh ? undefined : item.webEnrichment
+          }));
+
+        if (entriesToEnrich.length === 0) continue;
+
+        console.log(`[JOURNAL WEB ENRICH] Processing ${entriesToEnrich.length} entries in ${category}`);
+
+        const results = await journalWebEnrichmentService.enrichBatch(entriesToEnrich);
+
+        // Update entries with enrichment data
+        const updatedEntries = entries.map((entry: any) => {
+          const result = results.find(r =>
+            r.success && (entry.id === r.entryId || entry.text === entriesToEnrich.find(e => e.id === r.entryId)?.text)
+          );
+          if (result?.enrichedData) {
+            totalEnriched++;
+            return { ...entry, webEnrichment: result.enrichedData };
+          }
+          return entry;
+        });
+
+        totalFailed += results.filter(r => !r.success).length;
+        journalData[category] = updatedEntries;
+      }
+
+      // Save updated journal data
+      if (totalEnriched > 0) {
+        await storage.upsertUserPreferences(userId, {
+          preferences: { ...prefs?.preferences, journalData }
+        });
+        aiService.invalidateUserContext(userId);
+      }
+
+      console.log(`[JOURNAL WEB ENRICH] Complete: ${totalEnriched} enriched, ${totalFailed} failed`);
+
+      res.json({
+        success: true,
+        enriched: totalEnriched,
+        failed: totalFailed,
+        categories: categoriesToEnrich
+      });
+    } catch (error) {
+      console.error('Journal web enrichment error:', error);
+      res.status(500).json({ error: 'Failed to enrich journal entries' });
     }
   });
 
