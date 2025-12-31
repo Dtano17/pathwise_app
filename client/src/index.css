@@ -2,6 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+/* MOBILE SAFE AREAS - Works for ANY mobile device/WebView */
+/* Detects mobile via: small screen + touch + no hover (mouse) */
+/* This applies to Android WebView loading https://journalmate.ai */
+@media screen and (max-width: 768px) and (hover: none) and (pointer: coarse) {
+  /* Apply safe areas to body */
+  body {
+    padding-top: 24px !important;   /* Status bar */
+    padding-bottom: 48px !important; /* Navigation bar */
+  }
+
+  /* Apply to full-height containers (LandingPage, etc.) */
+  .h-screen,
+  .min-h-screen {
+    padding-top: 24px !important;
+    padding-bottom: 48px !important;
+  }
+
+  /* Root container */
+  #root > div:first-child {
+    padding-top: 24px !important;
+    padding-bottom: 48px !important;
+  }
+}
+
 /* Safe Area Insets for Native Mobile Apps (iOS/Android) */
 /* These CSS environment variables handle notches, status bars, and navigation bars */
 :root {
