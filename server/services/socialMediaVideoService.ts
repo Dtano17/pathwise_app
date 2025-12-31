@@ -214,9 +214,14 @@ class SocialMediaVideoService {
         );
         result.audioTranscript = processed.transcript;
         result.ocrText = processed.ocrText;
+        console.log(`[SOCIAL_MEDIA] Processed media result: hasAudio=${!!processed.transcript}, hasOCR=${!!processed.ocrText}`);
+        if (processed.transcript) {
+          console.log(`[SOCIAL_MEDIA] Transcript sample (first 200 chars): "${processed.transcript.substring(0, 200)}..."`);
+        }
         this.cleanupFile(downloadResult.filePath);
       }
 
+      console.log(`[SOCIAL_MEDIA] Final extraction result: caption=${!!result.caption}, audio=${!!result.audioTranscript}, ocr=${!!result.ocrText}`);
       return result;
     } catch (error: any) {
       console.error(`[SOCIAL_MEDIA] Error extracting from ${platform}:`, error);
@@ -1356,8 +1361,9 @@ class SocialMediaVideoService {
 
       const transcript = String(transcription).trim();
       console.log(
-        `[SOCIAL_MEDIA] Transcription complete: ${transcript.length} chars`,
+        `[SOCIAL_MEDIA] Whisper transcription complete: ${transcript.length} chars`,
       );
+      console.log(`[SOCIAL_MEDIA] Full transcript: "${transcript}"`);
 
       if (!transcript) {
         return undefined;
