@@ -1114,29 +1114,95 @@ The user has shared social media content. This extracted content is **AUTHORITAT
 `;
     for (const urlContent of extractedUrlContent) {
       const { filteredContent } = urlContent;
+
+      // Add warnings if any
+      if (filteredContent.warnings && filteredContent.warnings.length > 0) {
+        const warningMessages = filteredContent.warnings
+          .filter(w => w.severity === 'warning' || w.severity === 'error')
+          .map(w => `⚠️ ${w.message}`);
+        if (warningMessages.length > 0) {
+          urlContentSection += `**Extraction Notes:**
+${warningMessages.join('\n')}
+
+`;
+        }
+      }
+
       urlContentSection += `### Source: ${urlContent.platform.toUpperCase()}
 **Content Type:** ${filteredContent.contentType}
-**Source Weights:** Audio ${Math.round(filteredContent.sourceWeights.weights.audio * 100)}% | Visual ${Math.round(filteredContent.sourceWeights.weights.ocr * 100)}% | Caption ${Math.round(filteredContent.sourceWeights.weights.caption * 100)}%
+**Confidence:** ${Math.round(filteredContent.overallConfidence * 100)}%
+**Stats:** ${filteredContent.rawWordCount} words → ${filteredContent.filteredWordCount} after filtering (${Math.round(filteredContent.actionablePercentage)}% actionable, ${Math.round(filteredContent.promotionalPercentage)}% promotional filtered)
 
 `;
+
+      // Structured entities section (prioritize this for planning)
+      if (filteredContent.structuredEntities) {
+        const { venues, prices, times, locations, tips, contacts } = filteredContent.structuredEntities;
+
+        if (venues.length > 0) {
+          urlContentSection += `**📍 Venues (${venues.length}):**
+${venues.slice(0, 5).map(v => `- ${v.name}${v.address ? ` - ${v.address}` : ''}`).join('\n')}
+
+`;
+        }
+
+        if (prices.length > 0) {
+          urlContentSection += `**💰 Prices (${prices.length}):**
+${prices.slice(0, 5).map(p => `- ${p.amount}${p.item !== 'general' ? ` (${p.item})` : ''}`).join('\n')}
+
+`;
+        }
+
+        if (locations.length > 0) {
+          urlContentSection += `**📌 Locations (${locations.length}):**
+${locations.slice(0, 5).map(l => `- ${l.name}`).join('\n')}
+
+`;
+        }
+
+        if (times.length > 0) {
+          urlContentSection += `**🕐 Times/Hours (${times.length}):**
+${times.slice(0, 5).map(t => `- ${t.description}`).join('\n')}
+
+`;
+        }
+
+        if (tips.length > 0) {
+          urlContentSection += `**💡 Tips (${tips.length}):**
+${tips.slice(0, 3).map(t => `- ${t.text}`).join('\n')}
+
+`;
+        }
+
+        if (contacts.length > 0) {
+          urlContentSection += `**📞 Contacts:**
+${contacts.slice(0, 3).map(c => `- ${c.type}: ${c.value}`).join('\n')}
+
+`;
+        }
+      }
+
       if (filteredContent.actionableContent) {
         urlContentSection += `**Actionable Information:**
-${filteredContent.actionableContent.substring(0, 1500)}
+${filteredContent.actionableContent.substring(0, 1200)}
 
 `;
       }
-      if (filteredContent.entities.length > 0) {
-        urlContentSection += `**Extracted Entities:**
-${filteredContent.entities.slice(0, 10).map(e => `- **${e.type}:** ${e.value}`).join('\n')}
 
-`;
-      }
-      if (filteredContent.contextContent) {
+      if (filteredContent.contextContent && filteredContent.contextContent.length > 50) {
         urlContentSection += `**Context/Background:**
-${filteredContent.contextContent.substring(0, 500)}
+${filteredContent.contextContent.substring(0, 400)}
 
 `;
       }
+
+      // Summary line
+      if (filteredContent.summary) {
+        urlContentSection += `**Summary:** ${filteredContent.summary}
+
+`;
+      }
+
       urlContentSection += `---
 `;
     }
@@ -1144,9 +1210,11 @@ ${filteredContent.contextContent.substring(0, 500)}
     urlContentSection += `
 ⚠️ **GROUNDING RULES FOR URL CONTENT:**
 1. Use **EXACT** venue names, prices, and details from extracted content
-2. **DO NOT** substitute with your own recommendations
-3. You **MAY** add complementary logistics (flights, hotels near venues, transport)
-4. Cross-validate entities when multiple sources mention the same thing
+2. **DO NOT** substitute with your own recommendations - use what was extracted
+3. Generate specific tasks from extracted venues, times, and prices
+4. You **MAY** add complementary logistics (flights, hotels near venues, transport)
+5. Cross-validate entities when multiple sources mention the same thing
+6. If content is marked "low confidence", ask user to verify key details
 `;
   }
 
