@@ -106,10 +106,39 @@ export function AuthHandler() {
 
     console.log('[AuthHandler] Setting up deep link listeners for OAuth...');
 
+    /**
+     * Parse auth token from deep link URL
+     */
+    const extractTokenFromUrl = (url: string): string | null => {
+      if (!url.startsWith('journalmate://auth')) return null;
+
+      const queryStart = url.indexOf('?');
+      if (queryStart === -1) return null;
+
+      const queryString = url.substring(queryStart + 1);
+      const params = new URLSearchParams(queryString);
+      return params.get('token');
+    };
+
+    // Check for COLD START - app was launched via deep link
+    // This handles the case where app was killed and user clicked OAuth deep link
+    App.getLaunchUrl().then((result) => {
+      if (result?.url) {
+        console.log('[AuthHandler] Cold start - app launched with URL:', result.url);
+        const token = extractTokenFromUrl(result.url);
+        if (token) {
+          console.log('[AuthHandler] OAuth token found in launch URL');
+          exchangeTokenForSession(token);
+        }
+      }
+    }).catch(err => {
+      console.error('[AuthHandler] Failed to get launch URL:', err);
+    });
+
     // Listen for custom event dispatched from Android MainActivity
-    // This handles: journalmate://auth?token=xxx when app is already running
+    // This handles: journalmate://auth?token=xxx when app is already running (HOT START)
     const handleAuthDeepLink = (event: CustomEvent<{ token: string }>) => {
-      console.log('[AuthHandler] Received authDeepLink event');
+      console.log('[AuthHandler] Received authDeepLink event (hot start)');
       const token = event.detail?.token;
       if (token) {
         exchangeTokenForSession(token);
@@ -119,31 +148,15 @@ export function AuthHandler() {
     window.addEventListener('authDeepLink', handleAuthDeepLink as EventListener);
 
     // Listen for Capacitor App URL open events (handles both iOS and Android)
+    // This fires when app is resumed with a deep link
     let appUrlListener: { remove: () => void } | null = null;
 
     App.addListener('appUrlOpen', (data: { url: string }) => {
-      console.log('[AuthHandler] App URL opened:', data.url);
-
-      try {
-        // Handle journalmate://auth?token=xxx
-        // URL constructor may fail with custom schemes, so parse manually
-        const url = data.url;
-
-        if (url.startsWith('journalmate://auth')) {
-          // Extract token from query string
-          const queryStart = url.indexOf('?');
-          if (queryStart !== -1) {
-            const queryString = url.substring(queryStart + 1);
-            const params = new URLSearchParams(queryString);
-            const token = params.get('token');
-            if (token) {
-              console.log('[AuthHandler] OAuth token found in deep link URL');
-              exchangeTokenForSession(token);
-            }
-          }
-        }
-      } catch (e) {
-        console.error('[AuthHandler] Failed to parse deep link URL:', e);
+      console.log('[AuthHandler] App URL opened (hot start):', data.url);
+      const token = extractTokenFromUrl(data.url);
+      if (token) {
+        console.log('[AuthHandler] OAuth token found in deep link URL');
+        exchangeTokenForSession(token);
       }
     }).then(listener => {
       appUrlListener = listener;
