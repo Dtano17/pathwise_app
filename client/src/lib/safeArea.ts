@@ -1,18 +1,15 @@
 /**
  * Safe Area Utilities for Capacitor Mobile Apps
  *
- * Handles safe area insets for Android devices where CSS env() doesn't work.
- * On Android, both status bar (top) and navigation bar (bottom) heights
- * need to be calculated and applied manually.
+ * Android: Uses fitsSystemWindows=true in MainActivity which automatically
+ * handles status bar and navigation bar insets at the native level.
+ * CSS padding is not needed and would cause double-insets.
+ *
+ * iOS: Uses CSS env() variables which work natively in iOS WebViews.
  */
 
 import { StatusBar } from '@capacitor/status-bar';
 import { isNative, isAndroid, isIOS, getPlatform } from './platform';
-
-// Standard Android dimensions (in dp)
-const ANDROID_STATUS_BAR_HEIGHT = 24; // Standard status bar
-const ANDROID_NAV_BAR_HEIGHT = 48; // Standard 3-button navigation
-const ANDROID_GESTURE_NAV_HEIGHT = 20; // Gesture navigation (pill)
 
 /**
  * Initialize safe area handling for native platforms
@@ -44,54 +41,24 @@ export async function initializeSafeArea(): Promise<void> {
 
 /**
  * Setup safe area for Android devices
+ *
+ * With fitsSystemWindows=true in MainActivity, the Android system automatically
+ * handles status bar and navigation bar insets. We set CSS variables to 0
+ * to prevent double-insets from CSS padding.
  */
 async function setupAndroidSafeArea(): Promise<void> {
   try {
-    // Get device pixel ratio for accurate conversion
-    const dpr = window.devicePixelRatio || 1;
+    // With fitsSystemWindows=true, Android system handles insets automatically
+    // Set CSS variables to 0 to prevent double-padding
+    document.documentElement.style.setProperty('--android-safe-area-top', '0px');
+    document.documentElement.style.setProperty('--android-safe-area-bottom', '0px');
 
-    // Calculate status bar height (top)
-    // Standard Android status bar is 24dp
-    const topInset = Math.round(ANDROID_STATUS_BAR_HEIGHT * dpr / dpr); // ~24px
-
-    // Use screen height vs viewport height to estimate navigation bar
-    const screenHeight = window.screen.height;
-    const viewportHeight = window.innerHeight;
-    const statusBarHeightPx = 24 * dpr;
-
-    // Calculate bottom inset (navigation bar area)
-    let bottomInset = 0;
-
-    // Check if we have a navigation bar by comparing screen vs viewport
-    const heightDiff = screenHeight - viewportHeight;
-    if (heightDiff > statusBarHeightPx + 10) {
-      // There's a navigation bar
-      bottomInset = Math.max(heightDiff - statusBarHeightPx, ANDROID_NAV_BAR_HEIGHT);
-    } else {
-      // Gesture navigation - use smaller inset for home indicator
-      bottomInset = ANDROID_GESTURE_NAV_HEIGHT;
-    }
-
-    // Apply minimum safe areas for Android
-    const minTopPadding = Math.max(topInset, 24); // At least 24px for status bar
-    const minBottomPadding = Math.max(bottomInset / dpr, 48); // At least 48px for nav bar
-
-    // Set CSS custom properties for BOTH top and bottom
-    document.documentElement.style.setProperty(
-      '--android-safe-area-top',
-      `${minTopPadding}px`
-    );
-    document.documentElement.style.setProperty(
-      '--android-safe-area-bottom',
-      `${minBottomPadding}px`
-    );
-
-    // Add Android-specific class to body for CSS targeting
+    // Add Android-specific class to body for CSS targeting (if needed)
     document.body.classList.add('platform-android');
 
-    console.log(`[SAFE_AREA] Android safe areas set: top=${minTopPadding}px, bottom=${minBottomPadding}px`);
+    console.log('[SAFE_AREA] Android using fitsSystemWindows - CSS safe areas set to 0');
 
-    // Try to get actual status bar info if available
+    // Log status bar info for debugging
     try {
       const statusBarInfo = await StatusBar.getInfo();
       console.log('[SAFE_AREA] Status bar info:', statusBarInfo);
@@ -101,9 +68,9 @@ async function setupAndroidSafeArea(): Promise<void> {
 
   } catch (error) {
     console.error('[SAFE_AREA] Error setting up Android safe area:', error);
-    // Apply reasonable defaults for Android
-    document.documentElement.style.setProperty('--android-safe-area-top', '24px');
-    document.documentElement.style.setProperty('--android-safe-area-bottom', '48px');
+    // Set to 0 - native fitsSystemWindows handles it
+    document.documentElement.style.setProperty('--android-safe-area-top', '0px');
+    document.documentElement.style.setProperty('--android-safe-area-bottom', '0px');
     document.body.classList.add('platform-android');
   }
 }
