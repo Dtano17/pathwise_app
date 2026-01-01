@@ -295,6 +295,13 @@ interface RichJournalEntry {
     difficulty?: string;
     duration?: string;
     equipment?: string[];
+
+    // Travel-specific (hotels, museums, attractions)
+    highlights?: string[];
+    amenities?: string[];
+
+    // Shopping-specific (stores, boutiques)
+    productCategories?: string[];
   };
 }
 
@@ -774,6 +781,31 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
         description: "Template removed.",
       });
     },
+  });
+
+  // Web enrichment mutation for loading details
+  const enrichEntryMutation = useMutation({
+    mutationFn: async ({ category }: { category: string }) => {
+      const response = await apiRequest('POST', '/api/user/journal/web-enrich', {
+        categories: [category],
+        forceRefresh: true
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      toast({
+        title: "Details loaded!",
+        description: `Enriched ${data.totalEnriched || 0} entries with web data.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Enrichment failed",
+        description: "Could not load details from web. Try again later.",
+        variant: "destructive"
+      });
+    }
   });
 
   const handleCopyPrompt = (prompt: string) => {
@@ -1375,12 +1407,46 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                       >
                         {/* Web enrichment image header */}
                         {hasWebImage && (
-                          <div className="relative h-32 w-full overflow-hidden">
+                          <div className="relative h-40 sm:h-48 w-full overflow-hidden bg-gradient-to-br from-muted to-muted/50">
                             <img
                               src={primaryImage}
                               alt={webEnrichment?.venueName || text.substring(0, 30)}
                               className="w-full h-full object-cover"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              loading="lazy"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                // Category-specific gradient fallbacks instead of hiding
+                                const fallbackGradients: Record<string, string> = {
+                                  books: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                                  movies: 'linear-gradient(135deg, #dc2626 0%, #f97316 100%)',
+                                  music: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                                  restaurants: 'linear-gradient(135deg, #ea580c 0%, #facc15 100%)',
+                                  travel: 'linear-gradient(135deg, #0284c7 0%, #22d3ee 100%)',
+                                  fitness: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
+                                  activities: 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)',
+                                  shopping: 'linear-gradient(135deg, #ec4899 0%, #f472b6 100%)',
+                                  hobbies: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
+                                  style: 'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)',
+                                  'self-care': 'linear-gradient(135deg, #14b8a6 0%, #2dd4bf 100%)',
+                                };
+                                const gradient = fallbackGradients[activeCategory];
+                                if (gradient) {
+                                  // Replace image with colored gradient background
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    parent.style.background = gradient;
+                                    // Add category icon in center
+                                    const iconDiv = document.createElement('div');
+                                    iconDiv.className = 'absolute inset-0 flex items-center justify-center text-white/50';
+                                    iconDiv.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>';
+                                    parent.appendChild(iconDiv);
+                                  }
+                                } else {
+                                  // Hide for unknown categories
+                                  target.parentElement!.style.display = 'none';
+                                }
+                              }}
                             />
                             {webEnrichment?.venueVerified && (
                               <div className="absolute top-2 right-2 bg-green-500/90 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -1505,9 +1571,30 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                     </div>
                                   )}
 
-                                  {/* FITNESS-specific info */}
+                                  {/* FITNESS-specific info with multiple instructional images */}
                                   {webEnrichment.venueType === 'exercise' && (
-                                    <div className="space-y-2">
+                                    <div className="space-y-3">
+                                      {/* Multiple exercise images gallery */}
+                                      {webEnrichment.mediaUrls && webEnrichment.mediaUrls.length > 1 && (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                                          {webEnrichment.mediaUrls.slice(0, 4).map((media, idx) => (
+                                            <div key={idx} className="relative aspect-square rounded-md overflow-hidden bg-muted">
+                                              <img
+                                                src={media.url}
+                                                alt={`Exercise step ${idx + 1}`}
+                                                className="w-full h-full object-cover"
+                                                loading="lazy"
+                                                onError={(e) => {
+                                                  (e.target as HTMLImageElement).style.display = 'none';
+                                                }}
+                                              />
+                                              <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
+                                                Step {idx + 1}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                       {webEnrichment.muscleGroups && webEnrichment.muscleGroups.length > 0 && (
                                         <div className="flex flex-wrap items-center gap-1">
                                           <span className="text-xs text-muted-foreground flex items-center gap-1"><Dumbbell className="w-3.5 h-3.5" /> Targets:</span>
@@ -1537,36 +1624,104 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                     </div>
                                   )}
 
-                                  {/* Action buttons */}
+                                  {/* MUSIC-specific info */}
+                                  {(webEnrichment.venueType === 'music' || webEnrichment.venueType === 'artist' || webEnrichment.venueType === 'album' || webEnrichment.venueType === 'concert_venue') && (
+                                    <div className="space-y-2">
+                                      {webEnrichment.genre && (
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                          <Music className="w-3.5 h-3.5" />
+                                          <Badge variant="outline" className="text-xs">{webEnrichment.genre}</Badge>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* TRAVEL-specific info (hotels, museums, attractions) */}
+                                  {(webEnrichment.venueType === 'hotel' || webEnrichment.venueType === 'museum' || webEnrichment.venueType === 'attraction') && (
+                                    <div className="space-y-2">
+                                      {webEnrichment.highlights && webEnrichment.highlights.length > 0 && (
+                                        <div className="flex flex-wrap items-center gap-1">
+                                          <span className="text-xs text-muted-foreground">Highlights:</span>
+                                          {webEnrichment.highlights.slice(0, 3).map((highlight, idx) => (
+                                            <Badge key={idx} variant="outline" className="text-xs">{highlight}</Badge>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* SHOPPING-specific info (stores, boutiques) */}
+                                  {(webEnrichment.venueType === 'store' || webEnrichment.venueType === 'boutique' || webEnrichment.venueType === 'mall') && (
+                                    <div className="space-y-2">
+                                      {webEnrichment.productCategories && webEnrichment.productCategories.length > 0 && (
+                                        <div className="flex flex-wrap items-center gap-1">
+                                          <span className="text-xs text-muted-foreground">Categories:</span>
+                                          {webEnrichment.productCategories.slice(0, 4).map((cat, idx) => (
+                                            <Badge key={idx} variant="outline" className="text-xs">{cat}</Badge>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Action buttons - responsive: show 2 on mobile, all on desktop */}
                                   <div className="flex flex-wrap gap-2 mt-2">
-                                    {/* Book purchase links */}
+                                    {/* Book purchase links - show first 2 on mobile */}
                                     {webEnrichment.purchaseLinks && webEnrichment.purchaseLinks.length > 0 && (
-                                      webEnrichment.purchaseLinks.map((link, idx) => (
-                                        <a
-                                          key={idx}
-                                          href={link.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90"
-                                        >
-                                          <ShoppingCart className="w-3 h-3" /> {link.platform}
-                                        </a>
-                                      ))
+                                      <>
+                                        {webEnrichment.purchaseLinks.slice(0, 2).map((link, idx) => (
+                                          <a
+                                            key={idx}
+                                            href={link.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90 active:scale-95 transition-transform"
+                                          >
+                                            <ShoppingCart className="w-3 h-3" /> {link.platform}
+                                          </a>
+                                        ))}
+                                        {/* Show remaining links only on desktop */}
+                                        {webEnrichment.purchaseLinks.slice(2).map((link, idx) => (
+                                          <a
+                                            key={idx + 2}
+                                            href={link.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="hidden sm:inline-flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90"
+                                          >
+                                            <ShoppingCart className="w-3 h-3" /> {link.platform}
+                                          </a>
+                                        ))}
+                                      </>
                                     )}
-                                    
-                                    {/* Movie streaming links */}
+
+                                    {/* Movie/Music streaming links - show first 2 on mobile */}
                                     {webEnrichment.streamingLinks && webEnrichment.streamingLinks.length > 0 && (
-                                      webEnrichment.streamingLinks.map((link, idx) => (
-                                        <a
-                                          key={idx}
-                                          href={link.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90"
-                                        >
-                                          <Play className="w-3 h-3" /> {link.platform}
-                                        </a>
-                                      ))
+                                      <>
+                                        {webEnrichment.streamingLinks.slice(0, 2).map((link, idx) => (
+                                          <a
+                                            key={idx}
+                                            href={link.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90 active:scale-95 transition-transform"
+                                          >
+                                            <Play className="w-3 h-3" /> {link.platform}
+                                          </a>
+                                        ))}
+                                        {/* Show remaining links only on desktop */}
+                                        {webEnrichment.streamingLinks.slice(2).map((link, idx) => (
+                                          <a
+                                            key={idx + 2}
+                                            href={link.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="hidden sm:inline-flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90"
+                                          >
+                                            <Play className="w-3 h-3" /> {link.platform}
+                                          </a>
+                                        ))}
+                                      </>
                                     )}
                                     
                                     {webEnrichment.reservationUrl && (
@@ -1574,7 +1729,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                         href={webEnrichment.reservationUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90"
+                                        className="inline-flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90 active:scale-95 transition-transform"
                                       >
                                         <CalendarPlus className="w-3 h-3" /> Reserve
                                       </a>
@@ -1584,7 +1739,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                         href={webEnrichment.website}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md hover:bg-secondary/80"
+                                        className="hidden sm:inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md hover:bg-secondary/80"
                                       >
                                         <Globe className="w-3 h-3" /> Website
                                       </a>
@@ -1592,12 +1747,35 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                     {webEnrichment.phone && (
                                       <a
                                         href={`tel:${webEnrichment.phone}`}
-                                        className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md hover:bg-secondary/80"
+                                        className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md hover:bg-secondary/80 active:scale-95 transition-transform"
                                       >
                                         <Phone className="w-3 h-3" /> Call
                                       </a>
                                     )}
                                   </div>
+                                </div>
+                              )}
+
+                              {/* Load Details button for entries without web enrichment */}
+                              {isRichEntry && !webEnrichment?.venueVerified && (
+                                <div className="mt-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs gap-1"
+                                    disabled={enrichEntryMutation.isPending}
+                                    onClick={() => enrichEntryMutation.mutate({ category: activeCategory })}
+                                  >
+                                    {enrichEntryMutation.isPending ? (
+                                      <>
+                                        <Loader2 className="w-3 h-3 animate-spin" /> Loading...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <RefreshCw className="w-3 h-3" /> Load Details
+                                      </>
+                                    )}
+                                  </Button>
                                 </div>
                               )}
 
@@ -1635,7 +1813,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity min-h-[44px] min-w-[44px] p-0"
+                              className="flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity min-h-[44px] min-w-[44px] p-0"
                               onClick={() => handleRemoveItem(originalIndex)}
                               data-testid={`button-remove-${filteredIndex}`}
                             >

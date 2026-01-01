@@ -11294,7 +11294,8 @@ You can find these tasks in your task list and start working on them right away!
 
       // Web enrichment (async, non-blocking) for venue-type entries
       // Run in background to not slow down the save
-      const webEnrichableCategories = ['restaurants', 'travel', 'activities', 'music', 'movies', 'shopping', 'fitness'];
+      // Extended list: includes hobbies, style/fashion, self-care for better UI
+      const webEnrichableCategories = ['restaurants', 'travel', 'activities', 'music', 'movies', 'shopping', 'fitness', 'books', 'hobbies', 'style', 'self-care'];
       if (webEnrichableCategories.includes(category)) {
         // Don't await - run in background
         (async () => {
@@ -11606,8 +11607,8 @@ You can find these tasks in your task list and start working on them right away!
       const prefs = await storage.getUserPreferences(userId);
       const journalData = prefs?.preferences?.journalData || {};
 
-      // Determine which categories to enrich
-      const webEnrichableCategories = ['restaurants', 'travel', 'activities', 'music', 'movies', 'shopping', 'fitness'];
+      // Determine which categories to enrich (extended list)
+      const webEnrichableCategories = ['restaurants', 'travel', 'activities', 'music', 'movies', 'shopping', 'fitness', 'books', 'hobbies', 'style', 'self-care'];
       const categoriesToEnrich = categories?.length > 0
         ? categories.filter((c: string) => webEnrichableCategories.includes(c))
         : webEnrichableCategories.filter(c => journalData[c]?.length > 0);

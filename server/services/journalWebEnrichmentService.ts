@@ -87,6 +87,13 @@ export interface WebEnrichedData {
   duration?: string;
   equipment?: string[];
 
+  // Content-specific fields for Travel (hotels, museums, attractions)
+  highlights?: string[]; // Key features like "ocean view", "rooftop pool"
+  amenities?: string[]; // Hotel amenities like "WiFi", "parking"
+
+  // Content-specific fields for Shopping (stores, boutiques)
+  productCategories?: string[]; // What they sell: "electronics", "clothing"
+
   // Metadata
   enrichedAt: string;
   enrichmentSource: 'tavily' | 'claude' | 'google' | 'manual';
@@ -218,6 +225,77 @@ class JournalWebEnrichmentService {
   }
 
   // ==========================================================================
+  // GOOGLE BOOKS API - For reliable book cover and metadata
+  // ==========================================================================
+
+  private async searchGoogleBooks(title: string, author?: string): Promise<{
+    coverUrl?: string;
+    author?: string;
+    publisher?: string;
+    publishedDate?: string;
+    description?: string;
+    infoLink?: string;
+    isbn?: string;
+  } | null> {
+    try {
+      // Build search query - include author if available for better results
+      const query = author ? `${title}+inauthor:${author}` : title;
+      const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=3`;
+
+      console.log(`[JOURNAL_WEB_ENRICH] Searching Google Books for: "${title}"${author ? ` by ${author}` : ''}`);
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.items && data.items.length > 0) {
+        // Find best match - prefer items with images
+        const bookWithImage = data.items.find((item: any) => item.volumeInfo?.imageLinks?.thumbnail);
+        const book = bookWithImage?.volumeInfo || data.items[0].volumeInfo;
+
+        // Get the largest available cover image
+        // Google Books provides: thumbnail (~128px), small (~200px), medium (~300px), large (~400px), extraLarge (~600px)
+        const imageLinks = book.imageLinks || {};
+        let coverUrl = imageLinks.extraLarge || imageLinks.large || imageLinks.medium || imageLinks.small || imageLinks.thumbnail;
+
+        // Convert to HTTPS and optimize for higher resolution
+        if (coverUrl) {
+          coverUrl = coverUrl
+            .replace('http:', 'https:')
+            .replace('&edge=curl', '')  // Remove page curl effect
+            .replace(/zoom=\d/, 'zoom=3')  // Request max zoom (zoom=3 gives ~600px)
+            .replace(/&w=\d+/, '')  // Remove width constraint
+            .replace(/&h=\d+/, '');  // Remove height constraint
+
+          // If no zoom parameter, add it for larger images
+          if (!coverUrl.includes('zoom=')) {
+            coverUrl += '&zoom=3';
+          }
+        }
+
+        const isbn = book.industryIdentifiers?.find((id: any) => id.type === 'ISBN_13')?.identifier
+                  || book.industryIdentifiers?.find((id: any) => id.type === 'ISBN_10')?.identifier;
+
+        console.log(`[JOURNAL_WEB_ENRICH] Google Books found: "${book.title}" with cover: ${!!coverUrl}`);
+
+        return {
+          coverUrl,
+          author: book.authors?.[0],
+          publisher: book.publisher,
+          publishedDate: book.publishedDate,
+          description: book.description?.substring(0, 200),
+          infoLink: book.infoLink,
+          isbn
+        };
+      }
+
+      console.log(`[JOURNAL_WEB_ENRICH] No books found in Google Books API`);
+    } catch (error) {
+      console.warn('[JOURNAL_WEB_ENRICH] Google Books API failed:', error);
+    }
+    return null;
+  }
+
+  // ==========================================================================
   // MAIN ENRICHMENT METHOD
   // ==========================================================================
 
@@ -252,14 +330,64 @@ class JournalWebEnrichmentService {
       // This prevents "Leonardo da Vinci - Biography" from being searched as a museum
       const detectedContentType = this.detectContentType(entry.text);
       const effectiveCategory = detectedContentType || entry.category;
-      
+
       console.log(`[JOURNAL_WEB_ENRICH] Content type detection: original="${entry.category}", detected="${detectedContentType || 'none'}", using="${effectiveCategory}"`);
+
+      // BOOKS: Use Google Books API for reliable cover images and metadata
+      const isBook = effectiveCategory === 'book' || effectiveCategory === 'books' ||
+                     entry.category === 'books' || entry.category === 'Books & Reading';
+
+      if (isBook) {
+        const extractedAuthor = (extractedInfo as any).author;
+        const googleBooksResult = await this.searchGoogleBooks(venueName, extractedAuthor);
+
+        if (googleBooksResult) {
+          // Build enriched data from Google Books
+          const enrichedData: WebEnrichedData = {
+            venueVerified: true,
+            venueType: 'book',
+            venueName,
+            venueDescription: googleBooksResult.description,
+            primaryImageUrl: googleBooksResult.coverUrl,
+            author: googleBooksResult.author,
+            publisher: googleBooksResult.publisher,
+            publicationYear: googleBooksResult.publishedDate?.substring(0, 4),
+            suggestedCategory: 'books',
+            categoryConfidence: 0.95,
+            enrichedAt: new Date().toISOString(),
+            enrichmentSource: 'google',
+            // Generate purchase links with ISBN for better results
+            purchaseLinks: googleBooksResult.isbn ? [
+              { platform: 'Amazon', url: `https://www.amazon.com/s?k=${googleBooksResult.isbn}&i=stripbooks` },
+              { platform: 'Goodreads', url: `https://www.goodreads.com/search?q=${googleBooksResult.isbn}` },
+              { platform: 'Google Books', url: googleBooksResult.infoLink || `https://books.google.com/books?isbn=${googleBooksResult.isbn}` }
+            ] : [
+              { platform: 'Amazon', url: `https://www.amazon.com/s?k=${encodeURIComponent(venueName + (googleBooksResult.author ? ' ' + googleBooksResult.author : ''))}&i=stripbooks` },
+              { platform: 'Goodreads', url: `https://www.goodreads.com/search?q=${encodeURIComponent(venueName)}` }
+            ]
+          };
+
+          // Cache the result
+          this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+
+          const elapsed = Date.now() - startTime;
+          console.log(`[JOURNAL_WEB_ENRICH] Enriched book ${entry.id} via Google Books in ${elapsed}ms`);
+
+          return {
+            entryId: entry.id,
+            success: true,
+            enrichedData
+          };
+        }
+        // Fall through to Tavily search if Google Books fails
+        console.log(`[JOURNAL_WEB_ENRICH] Google Books API returned no results, falling back to Tavily`);
+      }
 
       // Build search query with the corrected category
       const searchQuery = this.buildSearchQuery(venueName, city, effectiveCategory);
 
-      // Search web for venue info
-      const searchResponse = await this.searchWeb(searchQuery);
+      // Search web for venue info (pass category for domain filtering)
+      const searchResponse = await this.searchWeb(searchQuery, effectiveCategory);
 
       if (!searchResponse.results || searchResponse.results.length === 0) {
         console.log(`[JOURNAL_WEB_ENRICH] No search results for ${venueName}`);
@@ -272,10 +400,10 @@ class JournalWebEnrichmentService {
 
       // Parse and structure the results using the detected/corrected category
       const enrichedData = await this.parseSearchResults(
-        searchResponse.results, 
-        searchResponse.images, 
-        venueName, 
-        city, 
+        searchResponse.results,
+        searchResponse.images,
+        venueName,
+        city,
         effectiveCategory
       );
 
@@ -349,8 +477,48 @@ class JournalWebEnrichmentService {
   // VENUE INFO EXTRACTION
   // ==========================================================================
 
-  private extractVenueInfo(text: string): { venueName?: string; city?: string } {
-    // Pattern: "VenueName - Description" or "VenueName (City)"
+  private extractVenueInfo(text: string): { venueName?: string; city?: string; author?: string } {
+    // BOOK-specific patterns - check first if content seems like a book
+    const contentType = this.detectContentType(text);
+
+    if (contentType === 'book') {
+      const bookPatterns = [
+        // "Title" by Author Name
+        /^["']([^"']+)["']\s+by\s+([A-Z][a-zA-Z\s.'-]+?)(?:\s*[-–—]|$)/i,
+        // Read "Title" by Author
+        /^(?:Read|Reading|Finished|Started)\s+["']?([^"'-]+?)["']?\s+by\s+([A-Z][a-zA-Z\s.'-]+?)(?:\s*[-–—]|$)/i,
+        // Title by First Last (proper name)
+        /^(.+?)\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/,
+        // Title - biography/novel/memoir/book
+        /^(.+?)\s*[-–—]\s*(?:biography|novel|memoir|book|autobiography|guide|textbook)/i,
+        // "Title" - description (for quoted titles)
+        /^["']([^"']+)["']\s*[-–—]/,
+      ];
+
+      for (const pattern of bookPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          const extractedTitle = match[1]?.trim().replace(/^["']|["']$/g, '');
+          const extractedAuthor = match[2]?.trim();
+          console.log(`[JOURNAL_WEB_ENRICH] Book extraction: title="${extractedTitle}", author="${extractedAuthor || 'none'}"`);
+          return {
+            venueName: extractedTitle,
+            city: undefined,
+            author: extractedAuthor
+          };
+        }
+      }
+
+      // Fallback for books: use first part before dash as title
+      const dashSplit = text.split(/\s*[-–—]\s*/);
+      if (dashSplit.length > 0 && dashSplit[0].length > 2) {
+        const title = dashSplit[0].trim().replace(/^["']|["']$/g, '').replace(/^(?:Read|Reading|Finished|Started)\s+/i, '');
+        console.log(`[JOURNAL_WEB_ENRICH] Book fallback extraction: title="${title}"`);
+        return { venueName: title, city: undefined, author: undefined };
+      }
+    }
+
+    // Standard venue patterns for non-books
     const patterns = [
       /^["']?([A-Z][^-–—]+?)["']?\s*[-–—]\s*/i, // "Name - description"
       /^["']?([A-Z][^(]+?)["']?\s*\(([^)]+)\)/i, // "Name (City)"
@@ -387,7 +555,7 @@ class JournalWebEnrichmentService {
       }
     }
 
-    return { venueName, city };
+    return { venueName, city, author: undefined };
   }
 
   // ==========================================================================
@@ -525,31 +693,39 @@ class JournalWebEnrichmentService {
     let query = venueName;
 
     // Category-specific search strategies for better image/info retrieval
-    // Supports both venueType values (book, movie) and category names (books, movies)
+    // OPTIMIZED: Better search terms for music and movies to get album art, posters, streaming links
     const categorySearchConfig: Record<string, { suffix: string; imageHint: string }> = {
       // VenueType values (from detectContentType)
       book: { suffix: 'book cover author ISBN', imageHint: 'cover' },
-      movie: { suffix: 'movie film IMDB poster', imageHint: 'poster' },
-      music: { suffix: 'artist band album concert', imageHint: 'artist' },
-      exercise: { suffix: 'exercise workout pose form', imageHint: 'exercise' },
+      // MUSIC: Search for Spotify/Apple Music pages which have album art and streaming links
+      music: { suffix: 'Spotify artist album cover art discography', imageHint: 'album cover' },
+      // MOVIES: Search for IMDB/TMDB which have official posters and streaming info
+      movie: { suffix: 'IMDB movie poster cast streaming where to watch', imageHint: 'movie poster' },
+      // FITNESS/EXERCISE: Optimized for step-by-step instruction images
+      exercise: { suffix: 'exercise how to proper form step by step muscles worked', imageHint: 'exercise form' },
       // Category names
-      movies: { suffix: 'movie film IMDB poster', imageHint: 'poster' },
-      'Movies & TV Shows': { suffix: 'movie film IMDB poster', imageHint: 'poster' },
+      // MOVIES: Optimized for poster retrieval and streaming info
+      movies: { suffix: 'IMDB movie poster streaming JustWatch where to watch', imageHint: 'movie poster' },
+      'Movies & TV Shows': { suffix: 'IMDB TV series poster streaming JustWatch where to watch', imageHint: 'poster' },
       books: { suffix: 'book cover author ISBN', imageHint: 'cover' },
       'Books & Reading': { suffix: 'book cover author ISBN', imageHint: 'cover' },
-      fitness: { suffix: 'exercise workout pose form', imageHint: 'exercise' },
-      wellness: { suffix: 'wellness spa health', imageHint: 'wellness' },
-      'Music & Artists': { suffix: 'artist band album concert', imageHint: 'artist' },
-      restaurants: { suffix: 'restaurant menu photos', imageHint: 'food venue' },
-      'Restaurants & Food': { suffix: 'restaurant menu photos', imageHint: 'food venue' },
-      bars: { suffix: 'bar cocktail nightlife', imageHint: 'bar venue' },
-      travel: { suffix: 'destination hotel attraction', imageHint: 'travel' },
-      'Travel & Places': { suffix: 'destination hotel attraction photos', imageHint: 'travel' },
-      hotels: { suffix: 'hotel resort accommodation photos', imageHint: 'hotel' },
-      activities: { suffix: 'activity event venue', imageHint: 'activity' },
-      entertainment: { suffix: 'entertainment show event', imageHint: 'entertainment' },
-      hobbies: { suffix: 'hobby activity', imageHint: 'hobby' },
-      'Hobbies & Interests': { suffix: 'hobby activity', imageHint: 'hobby' },
+      // FITNESS: Get multiple instructional images showing proper form
+      fitness: { suffix: 'exercise how to proper form technique muscles worked step by step guide', imageHint: 'exercise form' },
+      'Health & Fitness': { suffix: 'exercise how to proper form technique muscles worked step by step', imageHint: 'exercise form' },
+      wellness: { suffix: 'wellness spa self-care routine benefits how to', imageHint: 'wellness' },
+      'self-care': { suffix: 'self-care routine wellness practice benefits', imageHint: 'wellness' },
+      // MUSIC: Optimized for album art and streaming platforms
+      'Music & Artists': { suffix: 'Spotify Apple Music artist album art discography genre', imageHint: 'album cover' },
+      restaurants: { suffix: 'restaurant menu photos Yelp', imageHint: 'food venue' },
+      'Restaurants & Food': { suffix: 'restaurant menu photos Yelp reviews', imageHint: 'food venue' },
+      bars: { suffix: 'bar cocktail menu photos nightlife', imageHint: 'bar venue' },
+      travel: { suffix: 'destination hotel attraction photos TripAdvisor', imageHint: 'travel' },
+      'Travel & Places': { suffix: 'destination attraction photos TripAdvisor things to do', imageHint: 'travel' },
+      hotels: { suffix: 'hotel resort accommodation photos booking', imageHint: 'hotel' },
+      activities: { suffix: 'activity event tickets venue', imageHint: 'activity' },
+      entertainment: { suffix: 'entertainment show event tickets', imageHint: 'entertainment' },
+      hobbies: { suffix: 'hobby activity how to learn', imageHint: 'hobby' },
+      'Hobbies & Interests': { suffix: 'hobby activity guide', imageHint: 'hobby' },
     };
 
     const config = category ? categorySearchConfig[category] : null;
@@ -586,19 +762,60 @@ class JournalWebEnrichmentService {
   // WEB SEARCH
   // ==========================================================================
 
-  private async searchWeb(query: string): Promise<{ results: any[]; images: string[] }> {
+  private async searchWeb(query: string, category?: string): Promise<{ results: any[]; images: string[] }> {
     if (!this.tavilyClient) {
       console.warn('[JOURNAL_WEB_ENRICH] Tavily client not initialized');
       return { results: [], images: [] };
     }
 
     try {
-      const response = await this.tavilyClient.search(query, {
+      // Category-specific domain filtering for more precise results
+      const domainFilters: Record<string, string[]> = {
+        // RESTAURANTS: Focus on review sites
+        restaurants: ['yelp.com', 'tripadvisor.com', 'opentable.com', 'google.com'],
+        'Restaurants & Food': ['yelp.com', 'tripadvisor.com', 'opentable.com'],
+        // MOVIES: Focus on movie databases
+        movies: ['imdb.com', 'rottentomatoes.com', 'justwatch.com', 'themoviedb.org'],
+        'Movies & TV Shows': ['imdb.com', 'rottentomatoes.com', 'justwatch.com'],
+        movie: ['imdb.com', 'rottentomatoes.com', 'justwatch.com', 'themoviedb.org'],
+        // MUSIC: Focus on streaming and music info sites
+        music: ['spotify.com', 'apple.com', 'allmusic.com', 'genius.com', 'last.fm'],
+        'Music & Artists': ['spotify.com', 'apple.com', 'allmusic.com', 'genius.com'],
+        // FITNESS: Focus on exercise instruction sites with images
+        fitness: ['muscleandstrength.com', 'bodybuilding.com', 'exrx.net', 'acefitness.org', 'verywellfit.com'],
+        exercise: ['muscleandstrength.com', 'bodybuilding.com', 'exrx.net', 'acefitness.org'],
+        // TRAVEL: Focus on travel review sites
+        travel: ['tripadvisor.com', 'lonelyplanet.com', 'booking.com', 'expedia.com'],
+        'Travel & Places': ['tripadvisor.com', 'lonelyplanet.com', 'booking.com'],
+        // HOBBIES: Broad search for hobby content
+        hobbies: ['reddit.com', 'instructables.com', 'wikihow.com'],
+        'Hobbies & Interests': ['reddit.com', 'instructables.com', 'wikihow.com'],
+        // STYLE/FASHION: Focus on fashion sites
+        style: ['vogue.com', 'gq.com', 'nordstrom.com', 'zara.com', 'asos.com'],
+        fashion: ['vogue.com', 'gq.com', 'nordstrom.com', 'zara.com', 'asos.com'],
+      };
+
+      const includeDomains = category ? domainFilters[category] : undefined;
+
+      // Fitness/exercise needs more images for instruction
+      const isFitnessCategory = category === 'fitness' || category === 'exercise' ||
+                                category === 'Health & Fitness';
+      const maxResults = isFitnessCategory ? 8 : 5;
+
+      const searchOptions: any = {
         searchDepth: 'basic',
-        maxResults: 5,
+        maxResults,
         includeImages: true,
         includeAnswer: true,
-      });
+      };
+
+      // Only add domain filter if we have specific domains for this category
+      if (includeDomains && includeDomains.length > 0) {
+        searchOptions.includeDomains = includeDomains;
+        console.log(`[JOURNAL_WEB_ENRICH] Searching with domain filter: ${includeDomains.join(', ')}`);
+      }
+
+      const response = await this.tavilyClient.search(query, searchOptions);
 
       // CRITICAL FIX: Tavily returns images at response.images, NOT in individual results
       // Images can be either strings or objects with url property
@@ -645,10 +862,18 @@ class JournalWebEnrichmentService {
     const urls = results.map(r => r.url).filter(Boolean);
 
     // Use images from Tavily response (passed as parameter)
-    // Filter out logos and icons
-    const filteredImages = images.filter((url: string) => 
-      url && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')
-    ).slice(0, 5);
+    // Filter out logos, icons, and small thumbnail indicators
+    const filteredImages = images.filter((url: string) => {
+      if (!url) return false;
+      const lowerUrl = url.toLowerCase();
+      // Exclude common non-content images
+      if (lowerUrl.includes('logo') || lowerUrl.includes('icon') || lowerUrl.includes('favicon')) return false;
+      if (lowerUrl.includes('avatar') || lowerUrl.includes('profile')) return false;
+      if (lowerUrl.includes('placeholder') || lowerUrl.includes('default')) return false;
+      // Exclude tiny thumbnails (common patterns)
+      if (/[_\-](?:xs|sm|thumb|tiny|50|75|100)\./i.test(url)) return false;
+      return true;
+    }).slice(0, 5);
 
     console.log(`[JOURNAL_WEB_ENRICH] Processing ${filteredImages.length} filtered images for ${venueName}`);
 
@@ -710,7 +935,21 @@ class JournalWebEnrichmentService {
       const searchTerm = encodeURIComponent(venueName);
       enrichedData.streamingLinks = [
         { platform: 'JustWatch', url: `https://www.justwatch.com/us/search?q=${searchTerm}` },
-        { platform: 'Google', url: `https://www.google.com/search?q=${searchTerm}+watch+online` },
+        { platform: 'IMDB', url: `https://www.imdb.com/find/?q=${searchTerm}&s=tt` },
+      ];
+    }
+
+    // Generate streaming links for MUSIC if not provided by AI
+    // Supports songs, albums, and artists
+    const isMusic = enrichedData.venueType === 'music' || enrichedData.venueType === 'artist' ||
+                    enrichedData.venueType === 'album' || category === 'music' ||
+                    category === 'Music & Artists';
+    if (isMusic && (!enrichedData.streamingLinks || enrichedData.streamingLinks.length === 0)) {
+      const searchTerm = encodeURIComponent(venueName);
+      enrichedData.streamingLinks = [
+        { platform: 'Spotify', url: `https://open.spotify.com/search/${searchTerm}` },
+        { platform: 'Apple Music', url: `https://music.apple.com/us/search?term=${searchTerm}` },
+        { platform: 'YouTube Music', url: `https://music.youtube.com/search?q=${searchTerm}` },
       ];
     }
 
@@ -737,20 +976,44 @@ class JournalWebEnrichmentService {
     if (!this.anthropic) return {};
 
     // Build category-specific extraction prompt with better type hints
-    // Supports both venueType values (book, movie) and category names (books, movies)
+    // OPTIMIZED: Better prompts for music and movies to extract streaming links and album art URLs
     const categoryPrompts: Record<string, string> = {
       // VenueType values
       book: `This is a BOOK. Extract: title, author name, genre, publication year, rating (1-5 stars), publisher, where to buy.`,
-      movie: `This is a MOVIE/FILM. Extract: title, year, director, genre, IMDB rating (0-10), runtime, streaming platforms.`,
-      music: `This is MUSIC/ARTIST. Extract: artist/band name, genre, popular albums, streaming platforms.`,
+      // MUSIC: Enhanced prompt for songs, albums, and artists
+      music: `This is MUSIC (song, album, or artist). Extract:
+- Artist/band name (the performer)
+- Song or album title (if mentioned)
+- Genre (e.g., pop, rock, hip-hop, R&B, country, jazz, classical, electronic)
+- Release year
+- Record label
+- Streaming platforms where available (Spotify, Apple Music, YouTube Music, Amazon Music, Tidal)
+- Any Spotify or Apple Music URLs found in the content`,
+      // MOVIES: Enhanced prompt for streaming availability
+      movie: `This is a MOVIE or TV SHOW. Extract:
+- Title
+- Release year
+- Director name
+- Main cast (top 3 actors)
+- Genre (e.g., action, comedy, drama, thriller, horror, sci-fi, documentary)
+- IMDB rating (0-10 scale)
+- Runtime (in minutes or "X hr Y min" format)
+- Streaming platforms where available (Netflix, Amazon Prime, Hulu, Disney+, HBO Max, Apple TV+, Paramount+)
+- Any streaming URLs or JustWatch links found`,
       exercise: `This is an EXERCISE/WORKOUT. Extract: exercise name, muscle groups worked, difficulty level, equipment needed, duration.`,
+      hotel: `This is a HOTEL or ACCOMMODATION. Extract: name, location, price range, rating, amenities, and 3-5 key highlights (e.g., "ocean view", "rooftop pool", "free breakfast").`,
+      museum: `This is a MUSEUM or ATTRACTION. Extract: name, location, admission price, hours, and 3-5 key highlights (e.g., "impressionist collection", "interactive exhibits", "guided tours").`,
+      store: `This is a STORE or SHOP. Extract: name, location, price range, and product categories sold (e.g., "electronics", "clothing", "home goods").`,
+      boutique: `This is a BOUTIQUE or FASHION STORE. Extract: name, location, price range, and product categories (e.g., "women's fashion", "accessories", "designer brands").`,
       // Category names
-      movies: `This is a MOVIE/FILM. Extract: title, year, director, genre, IMDB rating (0-10), runtime, streaming platforms.`,
-      'Movies & TV Shows': `This is a MOVIE/TV SHOW. Extract: title, year, director, genre, IMDB rating (0-10), runtime, streaming platforms.`,
+      travel: `This is a TRAVEL destination, hotel, or attraction. Extract: name, location, price range, rating, and 3-5 key highlights or features.`,
+      shopping: `This is a SHOPPING venue or store. Extract: name, location, price range, and product categories sold.`,
+      movies: `This is a MOVIE or TV SHOW. Extract: title, release year, director, main cast, genre, IMDB rating (0-10), runtime, and ALL streaming platforms where it's available (Netflix, Prime, Hulu, Disney+, HBO Max, etc).`,
+      'Movies & TV Shows': `This is a MOVIE or TV SHOW. Extract: title, release year, director, main cast, genre, IMDB rating (0-10), runtime, and ALL streaming platforms where it's available.`,
       books: `This is a BOOK. Extract: title, author name, genre, publication year, rating (1-5 stars), publisher, where to buy.`,
       'Books & Reading': `This is a BOOK. Extract: title, author name, genre, publication year, rating (1-5 stars), publisher, where to buy.`,
       fitness: `This is an EXERCISE/WORKOUT. Extract: exercise name, muscle groups worked, difficulty level, equipment needed, duration.`,
-      'Music & Artists': `This is MUSIC/ARTIST. Extract: artist/band name, genre, popular albums, streaming platforms.`,
+      'Music & Artists': `This is MUSIC (song, album, or artist). Extract: artist name, song/album title, genre, release year, and ALL streaming platforms (Spotify, Apple Music, YouTube Music, etc).`,
     };
     
     const categoryPrompt = category ? categoryPrompts[category] : null;
@@ -774,26 +1037,40 @@ Return JSON with these fields (omit if not found):
   "priceRange": "$|$$|$$$|$$$$",
   "rating": 0-5 number (convert IMDB 0-10 to 0-5 scale),
   "reviewCount": number,
-  
+  "genre": "genre/category",
+
   // For BOOKS only:
   "author": "author name",
   "publisher": "publisher name",
   "publicationYear": "year",
   "purchaseLinks": [{"platform": "Amazon", "url": "..."}, {"platform": "Goodreads", "url": "..."}],
-  
-  // For MOVIES only:
+
+  // For MOVIES/TV only:
   "director": "director name",
+  "cast": ["actor1", "actor2", "actor3"],
   "releaseYear": "year",
   "runtime": "duration",
-  "genre": "genre",
   "streamingLinks": [{"platform": "Netflix", "url": "..."}, {"platform": "Amazon Prime", "url": "..."}],
-  
+
+  // For MUSIC only:
+  "artist": "artist/band name",
+  "albumTitle": "album name if applicable",
+  "recordLabel": "label name",
+  "streamingLinks": [{"platform": "Spotify", "url": "..."}, {"platform": "Apple Music", "url": "..."}],
+
   // For FITNESS only:
   "muscleGroups": ["chest", "triceps"],
   "difficulty": "beginner|intermediate|advanced",
   "duration": "30 mins",
   "equipment": ["dumbbells", "bench"],
-  
+
+  // For TRAVEL (hotels, museums, attractions):
+  "highlights": ["ocean view", "rooftop pool", "free breakfast"],
+  "amenities": ["WiFi", "parking", "spa"],
+
+  // For SHOPPING (stores, boutiques):
+  "productCategories": ["electronics", "clothing", "accessories"],
+
   // For VENUES (restaurants, hotels, etc.):
   "address": "full address",
   "city": "city",
@@ -885,7 +1162,20 @@ Return only valid JSON, no explanation.`
       if (parsed.equipment && Array.isArray(parsed.equipment)) {
         result.equipment = parsed.equipment;
       }
-      
+
+      // TRAVEL fields (hotels, museums, attractions)
+      if (parsed.highlights && Array.isArray(parsed.highlights)) {
+        result.highlights = parsed.highlights;
+      }
+      if (parsed.amenities && Array.isArray(parsed.amenities)) {
+        result.amenities = parsed.amenities;
+      }
+
+      // SHOPPING fields (stores, boutiques)
+      if (parsed.productCategories && Array.isArray(parsed.productCategories)) {
+        result.productCategories = parsed.productCategories;
+      }
+
       console.log(`[JOURNAL_WEB_ENRICH] AI extracted venueType: ${result.venueType}, author: ${result.author}, director: ${result.director}`);
 
       return result;
