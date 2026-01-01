@@ -8806,7 +8806,7 @@ ${emoji} ${progressLine}
       console.log('[JOURNAL] Returning', allEntries.length, 'total entries');
       console.log('[JOURNAL] First entry sample:', allEntries[0] ? JSON.stringify(allEntries[0]).substring(0, 100) : 'none');
 
-      // Trigger background enrichment for entries missing webEnrichment or stale > 5 hours
+      // SYNCHRONOUS enrichment for authenticated users - fetch web data before returning
       // Skip demo users to save API costs
       const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
       const entriesToEnrich = isDemoUser(userId) ? [] : allEntries.filter((entry: any) => {
@@ -8815,81 +8815,83 @@ ${emoji} ${progressLine}
         if (!entry.webEnrichment.enrichedAt) return true;
         const enrichedTime = new Date(entry.webEnrichment.enrichedAt).getTime();
         return Date.now() - enrichedTime > FIVE_HOURS_MS;
-      }).slice(0, 10);
+      }).slice(0, 5); // Limit to 5 for faster response
+
+      let enrichedEntries = allEntries;
 
       if (entriesToEnrich.length > 0) {
-        console.log(`[JOURNAL] Triggering background enrichment for ${entriesToEnrich.length} entries`);
-        (async () => {
-          try {
-            const entriesForService = entriesToEnrich.map((entry: any) => ({
-              id: entry.id,
-              text: entry.text || (typeof entry === 'string' ? entry : ''),
-              category: entry.category,
-              venueName: entry.venueName,
-              location: entry.location,
-              existingEnrichment: entry.webEnrichment
-            }));
+        console.log(`[JOURNAL] SYNC enrichment for ${entriesToEnrich.length} entries`);
+        try {
+          const entriesForService = entriesToEnrich.map((entry: any) => ({
+            id: entry.id,
+            text: entry.text || (typeof entry === 'string' ? entry : ''),
+            category: entry.category,
+            venueName: entry.venueName,
+            location: entry.location,
+            existingEnrichment: entry.webEnrichment
+          }));
+          
+          const results = await journalWebEnrichmentService.enrichBatch(entriesForService);
+          const enrichedCount = results.filter(r => r.success).length;
+          
+          if (enrichedCount > 0) {
+            console.log(`[JOURNAL SYNC ENRICH] Enriched ${enrichedCount} entries`);
             
-            const results = await journalWebEnrichmentService.enrichBatch(entriesForService);
-            const enrichedCount = results.filter(r => r.success).length;
+            // Update entries in memory for immediate response
+            const enrichmentMap = new Map(
+              results.filter(r => r.success && r.enrichedData)
+                .map(r => [r.entryId, r.enrichedData])
+            );
             
-            if (enrichedCount > 0) {
-              console.log(`[JOURNAL BG ENRICH] Enriched ${enrichedCount} entries, updating storage...`);
+            enrichedEntries = allEntries.map((entry: any) => {
+              const enrichment = enrichmentMap.get(entry.id);
+              if (enrichment) {
+                return {
+                  ...entry,
+                  webEnrichment: enrichment,
+                  venueType: enrichment.venueType || entry.venueType
+                };
+              }
+              return entry;
+            });
+            
+            // Also persist to storage for future requests
+            const freshPrefs = await storage.getUserPreferences(userId);
+            const freshJournalData = freshPrefs?.preferences?.journalData || {};
+            
+            for (const result of results) {
+              if (!result.success || !result.enrichedData) continue;
               
-              const freshPrefs = await storage.getUserPreferences(userId);
-              const freshJournalData = freshPrefs?.preferences?.journalData || {};
-              
-              for (const result of results) {
-                if (!result.success || !result.enrichedData) continue;
+              for (const [cat, entries] of Object.entries(freshJournalData)) {
+                if (!Array.isArray(entries)) continue;
+                const entryIndex = entries.findIndex((e: any) => e.id === result.entryId);
                 
-                for (const [cat, entries] of Object.entries(freshJournalData)) {
-                  if (!Array.isArray(entries)) continue;
-                  const entryIndex = entries.findIndex((e: any) => 
-                    e.id === result.entryId || e.text === entriesToEnrich.find(te => te.id === result.entryId)?.text
-                  );
-                  
-                  if (entryIndex !== -1) {
-                    const existingEntry = entries[entryIndex];
-                    const suggestedCategory = result.enrichedData.suggestedCategory;
-                    
-                    entries[entryIndex] = {
-                      ...existingEntry,
-                      webEnrichment: result.enrichedData,
-                      venueType: result.enrichedData.venueType || existingEntry.venueType
-                    };
-                    
-                    if (suggestedCategory && suggestedCategory !== cat && result.enrichedData.categoryConfidence && result.enrichedData.categoryConfidence > 0.7) {
-                      console.log(`[JOURNAL BG ENRICH] Moving entry from "${cat}" to "${suggestedCategory}"`);
-                      entries.splice(entryIndex, 1);
-                      if (!freshJournalData[suggestedCategory]) {
-                        freshJournalData[suggestedCategory] = [];
-                      }
-                      freshJournalData[suggestedCategory].push({
-                        ...existingEntry,
-                        webEnrichment: result.enrichedData,
-                        venueType: result.enrichedData.venueType || existingEntry.venueType
-                      });
-                    }
-                    break;
-                  }
+                if (entryIndex !== -1) {
+                  entries[entryIndex] = {
+                    ...entries[entryIndex],
+                    webEnrichment: result.enrichedData,
+                    venueType: result.enrichedData.venueType || entries[entryIndex].venueType
+                  };
+                  break;
                 }
               }
-              
-              await storage.upsertUserPreferences(userId, {
-                preferences: {
-                  ...freshPrefs?.preferences,
-                  journalData: freshJournalData
-                }
-              });
-              console.log(`[JOURNAL BG ENRICH] Storage updated with enriched entries`);
             }
-          } catch (error) {
-            console.error('[JOURNAL BG ENRICH] Background enrichment error:', error);
+            
+            await storage.upsertUserPreferences(userId, {
+              preferences: {
+                ...freshPrefs?.preferences,
+                journalData: freshJournalData
+              }
+            });
+            console.log(`[JOURNAL SYNC ENRICH] Storage updated`);
           }
-        })();
+        } catch (error) {
+          console.error('[JOURNAL SYNC ENRICH] Enrichment error:', error);
+          // Continue with unenriched entries on error
+        }
       }
 
-      res.json({ entries: allEntries });
+      res.json({ entries: enrichedEntries });
     } catch (error) {
       console.error('[JOURNAL] Get journal entries error:', error);
       res.status(500).json({ error: 'Failed to fetch journal entries' });

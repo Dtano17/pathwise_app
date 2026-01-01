@@ -306,6 +306,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const [budgetFilter, setBudgetFilter] = useState<string>('all');
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const [ratingFilter, setRatingFilter] = useState<string>('all');
   
   // Journal settings state
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
@@ -766,15 +767,23 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     }
   }, [handleAddItem]);
 
-  // Extract unique locations from all journal entries across all categories
+  // Extract unique locations from all journal entries across all categories (including web enrichment data)
   const uniqueLocations = useMemo(() => {
     const locations = new Set<string>();
     Object.values(journalData).forEach(items => {
       items.forEach(item => {
-        if (typeof item === 'object' && item !== null && item.location) {
-          if (item.location.city) locations.add(item.location.city);
-          if (item.location.country) locations.add(item.location.country);
-          if (item.location.neighborhood) locations.add(item.location.neighborhood);
+        if (typeof item === 'object' && item !== null) {
+          // Check direct location field
+          if (item.location) {
+            if (item.location.city) locations.add(item.location.city);
+            if (item.location.country) locations.add(item.location.country);
+            if (item.location.neighborhood) locations.add(item.location.neighborhood);
+          }
+          // Check webEnrichment location data
+          if (item.webEnrichment?.location) {
+            if (item.webEnrichment.location.city) locations.add(item.webEnrichment.location.city);
+            if (item.webEnrichment.location.neighborhood) locations.add(item.webEnrichment.location.neighborhood);
+          }
         }
       });
     });
@@ -801,6 +810,14 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     'ultra_luxury': 'Ultra Luxury ($$$$)'
   };
 
+  // Map priceRange symbols to budget tier names
+  const priceRangeToBudgetTier: Record<string, string> = {
+    '$': 'budget',
+    '$$': 'moderate',
+    '$$$': 'luxury',
+    '$$$$': 'ultra_luxury'
+  };
+
   // Filter current category entries
   const filteredEntries = useMemo(() => {
     const entries = journalData[activeCategory] || [];
@@ -810,25 +827,45 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
         return locationFilter === 'all' && budgetFilter === 'all' && subcategoryFilter === 'all' && dateFilter === 'all';
       }
 
-      // Check location filter
+      // Check location filter (including webEnrichment location)
       if (locationFilter !== 'all') {
-        const location = item.location;
-        const matchesLocation = location && (
-          location.city === locationFilter ||
-          location.country === locationFilter ||
-          location.neighborhood === locationFilter
-        );
+        const directLocation = item.location;
+        const enrichedLocation = item.webEnrichment?.location;
+        const matchesLocation = 
+          (directLocation && (
+            directLocation.city === locationFilter ||
+            directLocation.country === locationFilter ||
+            directLocation.neighborhood === locationFilter
+          )) ||
+          (enrichedLocation && (
+            enrichedLocation.city === locationFilter ||
+            enrichedLocation.neighborhood === locationFilter
+          ));
         if (!matchesLocation) return false;
       }
 
-      // Check budget filter
+      // Check budget filter (from direct budgetTier OR webEnrichment priceRange)
       if (budgetFilter !== 'all') {
-        if (item.budgetTier !== budgetFilter) return false;
+        const directBudgetTier = item.budgetTier;
+        const enrichedPriceRange = item.webEnrichment?.priceRange;
+        const enrichedBudgetTier = enrichedPriceRange ? priceRangeToBudgetTier[enrichedPriceRange] : null;
+        
+        if (directBudgetTier !== budgetFilter && enrichedBudgetTier !== budgetFilter) {
+          return false;
+        }
       }
 
       // Check subcategory filter
       if (subcategoryFilter !== 'all') {
         if (item.subcategory !== subcategoryFilter) return false;
+      }
+
+      // Check rating filter (from webEnrichment rating)
+      if (ratingFilter !== 'all') {
+        const rating = item.webEnrichment?.rating;
+        if (!rating) return false;
+        const minRating = parseFloat(ratingFilter);
+        if (rating < minRating) return false;
       }
 
       // Check date filter
@@ -858,15 +895,16 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
 
       return true;
     });
-  }, [journalData, activeCategory, locationFilter, budgetFilter, subcategoryFilter, dateFilter]);
+  }, [journalData, activeCategory, locationFilter, budgetFilter, subcategoryFilter, dateFilter, ratingFilter]);
 
-  const hasActiveFilters = locationFilter !== 'all' || budgetFilter !== 'all' || subcategoryFilter !== 'all' || dateFilter !== 'all';
+  const hasActiveFilters = locationFilter !== 'all' || budgetFilter !== 'all' || subcategoryFilter !== 'all' || dateFilter !== 'all' || ratingFilter !== 'all';
 
   const clearFilters = useCallback(() => {
     setLocationFilter('all');
     setBudgetFilter('all');
     setSubcategoryFilter('all');
     setDateFilter('all');
+    setRatingFilter('all');
   }, []);
 
   return (
@@ -1125,6 +1163,19 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                     <SelectItem value="week">Past Week</SelectItem>
                     <SelectItem value="month">Past Month</SelectItem>
                     <SelectItem value="year">Past Year</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={ratingFilter} onValueChange={setRatingFilter}>
+                  <SelectTrigger className="w-[130px] sm:w-[140px] text-xs sm:text-sm" data-testid="select-rating-filter">
+                    <Star className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                    <SelectValue placeholder="Rating" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Ratings</SelectItem>
+                    <SelectItem value="4">4+ Stars</SelectItem>
+                    <SelectItem value="3.5">3.5+ Stars</SelectItem>
+                    <SelectItem value="3">3+ Stars</SelectItem>
                   </SelectContent>
                 </Select>
 

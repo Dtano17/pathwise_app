@@ -361,25 +361,56 @@ class JournalWebEnrichmentService {
   private buildSearchQuery(venueName: string, city?: string, category?: string): string {
     let query = venueName;
 
-    if (city) {
+    // Category-specific search strategies for better image/info retrieval
+    const categorySearchConfig: Record<string, { suffix: string; imageHint: string }> = {
+      movies: { suffix: 'movie film IMDB poster', imageHint: 'poster' },
+      'Movies & TV Shows': { suffix: 'movie film IMDB poster', imageHint: 'poster' },
+      books: { suffix: 'book cover author', imageHint: 'cover' },
+      'Books & Reading': { suffix: 'book cover author', imageHint: 'cover' },
+      fitness: { suffix: 'exercise workout pose', imageHint: 'exercise' },
+      wellness: { suffix: 'wellness spa health', imageHint: 'wellness' },
+      music: { suffix: 'artist band album concert', imageHint: 'artist' },
+      'Music & Artists': { suffix: 'artist band album concert', imageHint: 'artist' },
+      restaurants: { suffix: 'restaurant menu photos', imageHint: 'food venue' },
+      'Restaurants & Food': { suffix: 'restaurant menu photos', imageHint: 'food venue' },
+      bars: { suffix: 'bar cocktail nightlife', imageHint: 'bar venue' },
+      travel: { suffix: 'destination hotel attraction', imageHint: 'travel' },
+      'Travel & Places': { suffix: 'destination hotel attraction photos', imageHint: 'travel' },
+      hotels: { suffix: 'hotel resort accommodation photos', imageHint: 'hotel' },
+      activities: { suffix: 'activity event venue', imageHint: 'activity' },
+      entertainment: { suffix: 'entertainment show event', imageHint: 'entertainment' },
+      hobbies: { suffix: 'hobby activity', imageHint: 'hobby' },
+      'Hobbies & Interests': { suffix: 'hobby activity', imageHint: 'hobby' },
+    };
+
+    const config = category ? categorySearchConfig[category] : null;
+    
+    if (config) {
+      query += ` ${config.suffix}`;
+    } else if (city) {
       query += ` ${city}`;
     }
 
-    // Add category hint for better results
-    if (category) {
-      const categoryHints: Record<string, string> = {
-        restaurants: 'restaurant',
-        movies: 'movie theater cinema',
-        music: 'concert venue',
-        travel: 'hotel destination',
-        activities: 'venue',
-      };
-      if (categoryHints[category]) {
-        query += ` ${categoryHints[category]}`;
-      }
+    // Add location for venue-based categories
+    if (city && ['restaurants', 'bars', 'hotels', 'activities', 'entertainment'].includes(category || '')) {
+      query += ` ${city}`;
     }
 
     return query;
+  }
+
+  // Get the image hint for a category to filter results
+  private getCategoryImageHint(category?: string): string {
+    const hints: Record<string, string> = {
+      movies: 'poster',
+      'Movies & TV Shows': 'poster',
+      books: 'cover',
+      'Books & Reading': 'cover',
+      fitness: 'exercise',
+      music: 'album artist',
+      'Music & Artists': 'album artist',
+    };
+    return hints[category || ''] || 'venue';
   }
 
   // ==========================================================================
@@ -491,30 +522,48 @@ class JournalWebEnrichmentService {
   ): Promise<Partial<WebEnrichedData>> {
     if (!this.anthropic) return {};
 
+    // Build category-specific extraction prompt
+    const categoryPrompts: Record<string, string> = {
+      movies: `Extract movie/show information: title, year, director, genre, IMDB rating, runtime, plot summary.`,
+      'Movies & TV Shows': `Extract movie/show information: title, year, director, genre, IMDB rating, runtime, plot summary.`,
+      books: `Extract book information: title, author, genre, publication year, rating, page count, synopsis.`,
+      'Books & Reading': `Extract book information: title, author, genre, publication year, rating, page count, synopsis.`,
+      fitness: `Extract exercise/fitness information: exercise type, muscle groups, difficulty, equipment needed, duration.`,
+      music: `Extract music/artist information: artist name, genre, albums, awards, streaming links.`,
+      'Music & Artists': `Extract music/artist information: artist name, genre, albums, awards, streaming links.`,
+    };
+    
+    const categoryPrompt = category ? categoryPrompts[category] : null;
+    const promptContent = categoryPrompt 
+      ? `${categoryPrompt}\n\nContent about "${venueName}":\n${content.substring(0, 2000)}`
+      : `Extract structured venue information from this web content about "${venueName}"${city ? ` in ${city}` : ''}.\n\nContent:\n${content.substring(0, 2000)}`;
+
     const response = await this.anthropic.messages.create({
       model: 'claude-3-haiku-20240307',
       max_tokens: 500,
       messages: [{
         role: 'user',
-        content: `Extract structured venue information from this web content about "${venueName}"${city ? ` in ${city}` : ''}.
-
-Content:
-${content.substring(0, 2000)}
+        content: `${promptContent}
 
 Return JSON with these fields (omit if not found):
 {
-  "venueType": "restaurant|bar|nightclub|cafe|hotel|museum|concert_venue|theater|attraction|park|gym|spa|store|other",
+  "venueType": "restaurant|bar|nightclub|cafe|hotel|museum|concert_venue|theater|attraction|park|gym|spa|store|movie|book|music|exercise|other",
   "venueDescription": "brief description",
-  "address": "full street address",
-  "city": "city name",
-  "neighborhood": "neighborhood/area",
+  "address": "full street address (if applicable)",
+  "city": "city name (if applicable)",
+  "neighborhood": "neighborhood/area (if applicable)",
   "priceRange": "$|$$|$$$|$$$$",
-  "rating": 0-5 number,
+  "rating": 0-5 number (IMDB rating for movies, book rating, etc.),
   "reviewCount": number,
-  "businessHours": "hours summary",
-  "phone": "phone number",
+  "businessHours": "hours summary (if applicable)",
+  "phone": "phone number (if applicable)",
   "website": "main website URL",
-  "reservationUrl": "booking/reservation URL if applicable"
+  "reservationUrl": "booking/reservation URL if applicable",
+  "year": "release year for movies/books",
+  "author": "author for books",
+  "director": "director for movies",
+  "genre": "genre/category",
+  "runtime": "duration for movies/exercises"
 }
 
 Return only valid JSON, no explanation.`
