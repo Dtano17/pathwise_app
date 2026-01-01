@@ -17,6 +17,7 @@ import { tavily } from '@tavily/core';
 import Anthropic from '@anthropic-ai/sdk';
 import { tmdbService } from './tmdbService';
 import { spotifyEnrichmentService } from './spotifyEnrichmentService';
+import { googlePlacesService } from './googlePlacesService';
 
 // ============================================================================
 // TYPES
@@ -480,8 +481,52 @@ class JournalWebEnrichmentService {
 
             return { entryId: entry.id, success: true, enrichedData };
           }
-          console.log(`[JOURNAL_WEB_ENRICH] Spotify returned no results, falling back to Tavily`);
         }
+        console.log(`[JOURNAL_WEB_ENRICH] Spotify returned no results, falling back to Tavily`);
+      }
+
+      // RESTAURANTS/BARS: Use Google Places API for verified business data and photos
+      const isRestaurant = effectiveCategory === 'restaurant' || effectiveCategory === 'restaurants' ||
+                           effectiveCategory === 'bar' || effectiveCategory === 'bars' ||
+                           entry.category === 'restaurants' || entry.category === 'bars' ||
+                           entry.category === 'Restaurants & Food';
+
+      if (isRestaurant && await googlePlacesService.isAvailable()) {
+        console.log(`[JOURNAL_WEB_ENRICH] Using Google Places for ${effectiveCategory}: "${venueName}"`);
+        const placeResult = await googlePlacesService.searchRestaurant(venueName);
+
+        if (placeResult && placeResult.photo_url) {
+          const enrichedData: WebEnrichedData = {
+            venueVerified: true,
+            venueType: (effectiveCategory === 'bar' || effectiveCategory === 'bars') ? 'bar' : 'restaurant',
+            venueName: placeResult.name,
+            location: {
+              address: placeResult.formatted_address,
+            },
+            rating: placeResult.rating,
+            reviewCount: placeResult.user_ratings_total,
+            website: placeResult.website,
+            primaryImageUrl: placeResult.photo_url,
+            mediaUrls: [{
+              url: placeResult.photo_url,
+              type: 'image',
+              source: 'google_places'
+            }],
+            priceRange: placeResult.price_level ? ('$'.repeat(placeResult.price_level) as any) : undefined,
+            suggestedCategory: (effectiveCategory === 'bar' || effectiveCategory === 'bars') ? 'bars' : 'restaurants',
+            categoryConfidence: 0.99,
+            enrichedAt: new Date().toISOString(),
+            enrichmentSource: 'google',
+            reservationUrl: placeResult.website
+          };
+
+          this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+          const elapsed = Date.now() - startTime;
+          console.log(`[JOURNAL_WEB_ENRICH] Enriched restaurant ${entry.id} via Google Places in ${elapsed}ms: "${placeResult.name}"`);
+
+          return { entryId: entry.id, success: true, enrichedData };
+        }
+        console.log(`[JOURNAL_WEB_ENRICH] Google Places returned no results, falling back to Tavily`);
       }
 
       // Build search query with the corrected category
