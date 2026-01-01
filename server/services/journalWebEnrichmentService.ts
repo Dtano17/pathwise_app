@@ -984,6 +984,14 @@ class JournalWebEnrichmentService {
         // STYLE/FASHION: Focus on fashion sites
         style: ['vogue.com', 'gq.com', 'nordstrom.com', 'zara.com', 'asos.com'],
         fashion: ['vogue.com', 'gq.com', 'nordstrom.com', 'zara.com', 'asos.com'],
+        // EVENTS/ACTIVITIES: Focus on event ticketing sites
+        activities: ['eventbrite.com', 'ticketmaster.com', 'stubhub.com', 'bandsintown.com', 'dice.fm'],
+        events: ['eventbrite.com', 'ticketmaster.com', 'stubhub.com', 'bandsintown.com'],
+        entertainment: ['eventbrite.com', 'ticketmaster.com', 'timeout.com', 'thrillist.com'],
+        // BARS: Focus on nightlife sites
+        bars: ['yelp.com', 'tripadvisor.com', 'thrillist.com', 'timeout.com'],
+        // HOTELS: Focus on booking sites
+        hotels: ['booking.com', 'tripadvisor.com', 'hotels.com', 'expedia.com'],
       };
 
       const includeDomains = category ? domainFilters[category] : undefined;
@@ -1036,6 +1044,10 @@ class JournalWebEnrichmentService {
   /**
    * Validate that search results match the expected title.
    * CRITICAL: Prevents showing "Puppy Love" image for "Wicked for Good" entry.
+   * 
+   * For movies/books/music: Strict validation (70% word match required)
+   * For activities/events/travel: Relaxed validation (40% word match, or skip validation)
+   * For restaurants: Moderate validation (50% word match)
    */
   private validateContentMatch(
     results: any[],
@@ -1046,8 +1058,26 @@ class JournalWebEnrichmentService {
       return { isValid: false, confidence: 0 };
     }
 
+    // Categories where content validation is strict (real-world content that must match)
+    const strictCategories = ['movies', 'movie', 'books', 'book', 'music', 'Movies & TV Shows', 'Music & Artists'];
+    
+    // Categories where validation should be relaxed (user-created events/activities)
+    const relaxedCategories = ['activities', 'events', 'travel', 'hobbies', 'entertainment', 'notes'];
+    
+    const isStrictCategory = strictCategories.includes(category || '');
+    const isRelaxedCategory = relaxedCategories.includes(category || '');
+    
+    // For relaxed categories, accept any result as we're just looking for related imagery
+    if (isRelaxedCategory) {
+      console.log(`[JOURNAL_WEB_ENRICH] Content validation SKIPPED for relaxed category "${category}": "${expectedTitle}"`);
+      return { isValid: true, confidence: 0.6, matchedResult: results[0] };
+    }
+
     const normalizedExpected = expectedTitle.toLowerCase().trim();
     const expectedWords = normalizedExpected.split(/\s+/).filter(w => w.length > 2);
+    
+    // Threshold based on category type
+    const matchThreshold = isStrictCategory ? 0.7 : 0.5;
 
     for (const result of results) {
       const resultTitle = (result.title || '').toLowerCase();
@@ -1062,20 +1092,20 @@ class JournalWebEnrichmentService {
       const wordMatches = expectedWords.filter(word => 
         resultTitle.includes(word) || resultContent.includes(word) || resultUrl.includes(word)
       );
-      const wordMatchRatio = wordMatches.length / expectedWords.length;
+      const wordMatchRatio = expectedWords.length > 0 ? wordMatches.length / expectedWords.length : 0;
 
       if (titleMatch) {
         console.log(`[JOURNAL_WEB_ENRICH] Content validation PASSED (title match): "${expectedTitle}" found in result`);
         return { isValid: true, confidence: 0.95, matchedResult: result };
       }
 
-      if (wordMatchRatio >= 0.7) {
+      if (wordMatchRatio >= matchThreshold) {
         console.log(`[JOURNAL_WEB_ENRICH] Content validation PASSED (word match ${(wordMatchRatio * 100).toFixed(0)}%): "${expectedTitle}"`);
         return { isValid: true, confidence: wordMatchRatio, matchedResult: result };
       }
     }
 
-    console.warn(`[JOURNAL_WEB_ENRICH] Content validation FAILED: No results match "${expectedTitle}"`);
+    console.warn(`[JOURNAL_WEB_ENRICH] Content validation FAILED: No results match "${expectedTitle}" (threshold: ${matchThreshold * 100}%)`);
     return { isValid: false, confidence: 0 };
   }
 
