@@ -1405,13 +1405,13 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                         className="hover-elevate cursor-default group overflow-hidden"
                         data-testid={`journal-entry-${filteredIndex}`}
                       >
-                        {/* Web enrichment image header */}
+                        {/* Web enrichment image header - full image display without cropping */}
                         {hasWebImage && (
-                          <div className="relative h-40 sm:h-48 w-full overflow-hidden bg-gradient-to-br from-muted to-muted/50">
+                          <div className="relative w-full flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/50">
                             <img
                               src={primaryImage}
                               alt={webEnrichment?.venueName || text.substring(0, 30)}
-                              className="w-full h-full object-cover"
+                              className="w-full max-h-[400px] object-contain"
                               loading="lazy"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
@@ -1436,6 +1436,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                   const parent = target.parentElement;
                                   if (parent) {
                                     parent.style.background = gradient;
+                                    parent.style.minHeight = '120px'; // Ensure fallback has visible height
                                     // Add category icon in center
                                     const iconDiv = document.createElement('div');
                                     iconDiv.className = 'absolute inset-0 flex items-center justify-center text-white/50';
@@ -1574,18 +1575,18 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                   {/* FITNESS-specific info with multiple instructional images */}
                                   {webEnrichment.venueType === 'exercise' && (
                                     <div className="space-y-3">
-                                      {/* Multiple exercise images gallery */}
+                                      {/* Multiple exercise images gallery - full images without cropping */}
                                       {webEnrichment.mediaUrls && webEnrichment.mediaUrls.length > 1 && (
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
                                           {webEnrichment.mediaUrls.slice(0, 4).map((media, idx) => (
-                                            <div key={idx} className="relative aspect-square rounded-md overflow-hidden bg-muted">
+                                            <div key={idx} className="relative rounded-md overflow-hidden bg-muted flex items-center justify-center">
                                               <img
                                                 src={media.url}
                                                 alt={`Exercise step ${idx + 1}`}
-                                                className="w-full h-full object-cover"
+                                                className="w-full max-h-[250px] object-contain"
                                                 loading="lazy"
                                                 onError={(e) => {
-                                                  (e.target as HTMLImageElement).style.display = 'none';
+                                                  (e.target as HTMLImageElement).parentElement!.style.display = 'none';
                                                 }}
                                               />
                                               <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
@@ -1780,20 +1781,20 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                               )}
 
                               {media && media.length > 0 && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mt-3 sm:mt-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-3 sm:mt-4">
                                   {media.map((m, idx) => (
-                                    <div key={idx} className="relative aspect-square rounded-md overflow-hidden bg-muted">
+                                    <div key={idx} className="relative rounded-md overflow-hidden bg-muted flex items-center justify-center">
                                       {m.type === 'video' ? (
                                         <video
                                           src={m.url}
-                                          className="w-full h-full object-cover"
+                                          className="w-full max-h-[300px] object-contain"
                                           controls
                                         />
                                       ) : (
                                         <img
                                           src={m.url}
                                           alt={`Media ${idx + 1}`}
-                                          className="w-full h-full object-cover"
+                                          className="w-full max-h-[300px] object-contain"
                                         />
                                       )}
                                     </div>
