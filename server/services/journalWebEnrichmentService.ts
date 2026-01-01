@@ -299,17 +299,23 @@ class JournalWebEnrichmentService {
   // MAIN ENRICHMENT METHOD
   // ==========================================================================
 
-  async enrichJournalEntry(entry: JournalEntryForEnrichment): Promise<EnrichmentResult> {
+  async enrichJournalEntry(entry: JournalEntryForEnrichment, forceRefresh: boolean = false): Promise<EnrichmentResult> {
     const startTime = Date.now();
-    console.log(`[JOURNAL_WEB_ENRICH] Enriching entry ${entry.id}: "${entry.text.substring(0, 50)}..."`);
+    console.log(`[JOURNAL_WEB_ENRICH] Enriching entry ${entry.id}: "${entry.text.substring(0, 50)}..."${forceRefresh ? ' (FORCE REFRESH)' : ''}`);
 
     try {
-      // Check cache first
+      // Check cache first (skip if force refresh)
       const cacheKey = this.generateCacheKey(entry);
-      const cached = this.cache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-        console.log(`[JOURNAL_WEB_ENRICH] Cache hit for ${entry.id}`);
-        return { entryId: entry.id, success: true, enrichedData: cached.data };
+      if (!forceRefresh) {
+        const cached = this.cache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+          console.log(`[JOURNAL_WEB_ENRICH] Cache hit for ${entry.id}`);
+          return { entryId: entry.id, success: true, enrichedData: cached.data };
+        }
+      } else {
+        // Clear cache for this entry on force refresh
+        this.cache.delete(cacheKey);
+        console.log(`[JOURNAL_WEB_ENRICH] Cache cleared for forced refresh of ${entry.id}`);
       }
 
       // Extract venue name and location from text if not provided
@@ -433,11 +439,11 @@ class JournalWebEnrichmentService {
   // BATCH ENRICHMENT
   // ==========================================================================
 
-  async enrichBatch(entries: JournalEntryForEnrichment[]): Promise<EnrichmentResult[]> {
-    console.log(`[JOURNAL_WEB_ENRICH] Starting batch enrichment for ${entries.length} entries`);
+  async enrichBatch(entries: JournalEntryForEnrichment[], forceRefresh: boolean = false): Promise<EnrichmentResult[]> {
+    console.log(`[JOURNAL_WEB_ENRICH] Starting batch enrichment for ${entries.length} entries${forceRefresh ? ' (FORCE REFRESH)' : ''}`);
 
-    // Filter entries that need enrichment
-    const needsEnrichment = entries.filter(entry => {
+    // Filter entries that need enrichment (skip filter if forceRefresh)
+    const needsEnrichment = forceRefresh ? entries : entries.filter(entry => {
       // Skip if already enriched recently
       if (entry.existingEnrichment?.enrichedAt) {
         const enrichedTime = new Date(entry.existingEnrichment.enrichedAt).getTime();
@@ -457,7 +463,7 @@ class JournalWebEnrichmentService {
     for (let i = 0; i < needsEnrichment.length; i += batchSize) {
       const batch = needsEnrichment.slice(i, i + batchSize);
       const batchResults = await Promise.all(
-        batch.map(entry => this.enrichJournalEntry(entry))
+        batch.map(entry => this.enrichJournalEntry(entry, forceRefresh))
       );
       results.push(...batchResults);
 
@@ -477,10 +483,47 @@ class JournalWebEnrichmentService {
   // VENUE INFO EXTRACTION
   // ==========================================================================
 
-  private extractVenueInfo(text: string): { venueName?: string; city?: string; author?: string } {
-    // BOOK-specific patterns - check first if content seems like a book
+  /**
+   * Extract EXACT title/venue name from entry text.
+   * CRITICAL: Must extract the precise title to prevent content mismatches.
+   * For "Watch Wicked for Good" - must extract "Wicked for Good", not something else.
+   */
+  private extractVenueInfo(text: string): { venueName?: string; city?: string; author?: string; exactTitle?: string } {
     const contentType = this.detectContentType(text);
 
+    // MOVIE-specific extraction - CRITICAL for preventing mismatches
+    if (contentType === 'movie') {
+      const moviePatterns = [
+        // "Watch [Title]" - common movie entry format
+        /^(?:Watch|Watching|Watched|See|Saw|Stream|Streaming)\s+["']?([^"'\-–—]+?)["']?(?:\s*[-–—]|$)/i,
+        // "[Title] movie" or "[Title] film"
+        /^["']?([^"'\-–—]+?)["']?\s+(?:movie|film)(?:\s|$)/i,
+        // Quoted title: "Title"
+        /^["']([^"']+)["']/,
+        // Title - description
+        /^([^-–—]+?)\s*[-–—]\s*.+(?:movie|film|watch|stream|theater|cinema)/i,
+        // Title followed by year in parentheses: "Title (2024)"
+        /^["']?([^"'(]+?)["']?\s*\(\d{4}\)/,
+      ];
+
+      for (const pattern of moviePatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          const extractedTitle = match[1]?.trim().replace(/^["']|["']$/g, '');
+          if (extractedTitle && extractedTitle.length > 1) {
+            console.log(`[JOURNAL_WEB_ENRICH] Movie extraction: title="${extractedTitle}"`);
+            return {
+              venueName: extractedTitle,
+              exactTitle: extractedTitle,
+              city: undefined,
+              author: undefined
+            };
+          }
+        }
+      }
+    }
+
+    // BOOK-specific patterns
     if (contentType === 'book') {
       const bookPatterns = [
         // "Title" by Author Name
@@ -503,6 +546,7 @@ class JournalWebEnrichmentService {
           console.log(`[JOURNAL_WEB_ENRICH] Book extraction: title="${extractedTitle}", author="${extractedAuthor || 'none'}"`);
           return {
             venueName: extractedTitle,
+            exactTitle: extractedTitle,
             city: undefined,
             author: extractedAuthor
           };
@@ -514,11 +558,61 @@ class JournalWebEnrichmentService {
       if (dashSplit.length > 0 && dashSplit[0].length > 2) {
         const title = dashSplit[0].trim().replace(/^["']|["']$/g, '').replace(/^(?:Read|Reading|Finished|Started)\s+/i, '');
         console.log(`[JOURNAL_WEB_ENRICH] Book fallback extraction: title="${title}"`);
-        return { venueName: title, city: undefined, author: undefined };
+        return { venueName: title, exactTitle: title, city: undefined, author: undefined };
       }
     }
 
-    // Standard venue patterns for non-books
+    // MUSIC-specific extraction
+    if (contentType === 'music') {
+      const musicPatterns = [
+        // "Listen to [Artist/Song]" 
+        /^(?:Listen(?:ing)? to|Play(?:ing)?)\s+["']?([^"'\-–—]+?)["']?(?:\s*[-–—]|$)/i,
+        // "[Artist] - [Album/Song]"
+        /^["']?([^"'\-–—]+?)["']?\s*[-–—]\s*["']?([^"'\-–—]+?)["']?$/,
+        // Quoted: "Artist Name"
+        /^["']([^"']+)["']/,
+      ];
+
+      for (const pattern of musicPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          const extractedArtist = match[1]?.trim().replace(/^["']|["']$/g, '');
+          console.log(`[JOURNAL_WEB_ENRICH] Music extraction: artist/song="${extractedArtist}"`);
+          return {
+            venueName: extractedArtist,
+            exactTitle: extractedArtist,
+            city: undefined,
+            author: undefined
+          };
+        }
+      }
+    }
+
+    // FITNESS-specific extraction
+    if (contentType === 'exercise') {
+      const fitnessPatterns = [
+        // "[Exercise name] workout/exercise"
+        /^["']?([^"'\-–—]+?)["']?\s+(?:workout|exercise|routine|training|pose)/i,
+        // "Do [Exercise]"
+        /^(?:Do|Try|Practice)\s+["']?([^"'\-–—]+?)["']?(?:\s*[-–—]|$)/i,
+      ];
+
+      for (const pattern of fitnessPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          const extractedExercise = match[1]?.trim().replace(/^["']|["']$/g, '');
+          console.log(`[JOURNAL_WEB_ENRICH] Fitness extraction: exercise="${extractedExercise}"`);
+          return {
+            venueName: extractedExercise,
+            exactTitle: extractedExercise,
+            city: undefined,
+            author: undefined
+          };
+        }
+      }
+    }
+
+    // Standard venue patterns for restaurants, travel, etc.
     const patterns = [
       /^["']?([A-Z][^-–—]+?)["']?\s*[-–—]\s*/i, // "Name - description"
       /^["']?([A-Z][^(]+?)["']?\s*\(([^)]+)\)/i, // "Name (City)"
@@ -690,7 +784,9 @@ class JournalWebEnrichmentService {
   }
 
   private buildSearchQuery(venueName: string, city?: string, category?: string): string {
-    let query = venueName;
+    // CRITICAL: Use quotes around exact title for precise matching
+    // This prevents "Wicked for Good" from returning "Puppy Love" results
+    let query = `"${venueName}"`;
 
     // Category-specific search strategies for better image/info retrieval
     // OPTIMIZED: Better search terms for music and movies to get album art, posters, streaming links
@@ -839,6 +935,94 @@ class JournalWebEnrichmentService {
   }
 
   // ==========================================================================
+  // CONTENT VALIDATION - Prevent mismatches
+  // ==========================================================================
+
+  /**
+   * Validate that search results match the expected title.
+   * CRITICAL: Prevents showing "Puppy Love" image for "Wicked for Good" entry.
+   */
+  private validateContentMatch(
+    results: any[],
+    expectedTitle: string,
+    category?: string
+  ): { isValid: boolean; confidence: number; matchedResult?: any } {
+    if (!expectedTitle || !results.length) {
+      return { isValid: false, confidence: 0 };
+    }
+
+    const normalizedExpected = expectedTitle.toLowerCase().trim();
+    const expectedWords = normalizedExpected.split(/\s+/).filter(w => w.length > 2);
+
+    for (const result of results) {
+      const resultTitle = (result.title || '').toLowerCase();
+      const resultContent = (result.content || '').toLowerCase();
+      const resultUrl = (result.url || '').toLowerCase();
+
+      // Check if result contains the expected title
+      const titleMatch = resultTitle.includes(normalizedExpected) ||
+                        normalizedExpected.includes(resultTitle.split(/[:\-–—|]/)[0].trim());
+      
+      // Check if most expected words appear in result
+      const wordMatches = expectedWords.filter(word => 
+        resultTitle.includes(word) || resultContent.includes(word) || resultUrl.includes(word)
+      );
+      const wordMatchRatio = wordMatches.length / expectedWords.length;
+
+      if (titleMatch) {
+        console.log(`[JOURNAL_WEB_ENRICH] Content validation PASSED (title match): "${expectedTitle}" found in result`);
+        return { isValid: true, confidence: 0.95, matchedResult: result };
+      }
+
+      if (wordMatchRatio >= 0.7) {
+        console.log(`[JOURNAL_WEB_ENRICH] Content validation PASSED (word match ${(wordMatchRatio * 100).toFixed(0)}%): "${expectedTitle}"`);
+        return { isValid: true, confidence: wordMatchRatio, matchedResult: result };
+      }
+    }
+
+    console.warn(`[JOURNAL_WEB_ENRICH] Content validation FAILED: No results match "${expectedTitle}"`);
+    return { isValid: false, confidence: 0 };
+  }
+
+  /**
+   * Filter images that are likely relevant to the expected title.
+   * Checks image URL and alt text for title keywords.
+   */
+  private filterRelevantImages(images: string[], expectedTitle: string): string[] {
+    if (!expectedTitle || !images.length) return images;
+
+    const normalizedTitle = expectedTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const titleWords = expectedTitle.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+
+    // Score images by relevance
+    const scoredImages = images.map(url => {
+      const normalizedUrl = url.toLowerCase();
+      let score = 0;
+
+      // Check if URL contains title words
+      for (const word of titleWords) {
+        if (normalizedUrl.includes(word)) {
+          score += 2;
+        }
+      }
+
+      // Boost images from authoritative sources for movies/books
+      if (normalizedUrl.includes('imdb.com')) score += 3;
+      if (normalizedUrl.includes('tmdb.org')) score += 3;
+      if (normalizedUrl.includes('amazon.com')) score += 2;
+      if (normalizedUrl.includes('goodreads.com')) score += 2;
+      if (normalizedUrl.includes('googleapis.com/books')) score += 3;
+
+      return { url, score };
+    });
+
+    // Sort by score and return
+    return scoredImages
+      .sort((a, b) => b.score - a.score)
+      .map(item => item.url);
+  }
+
+  // ==========================================================================
   // RESULT PARSING
   // ==========================================================================
 
@@ -857,13 +1041,24 @@ class JournalWebEnrichmentService {
       rawSearchResults: results.slice(0, 3), // Keep top 3 for reference
     };
 
+    // CONTENT VALIDATION: Check if results match the expected title
+    const validation = this.validateContentMatch(results, venueName, category);
+    if (!validation.isValid) {
+      console.warn(`[JOURNAL_WEB_ENRICH] Content validation failed for "${venueName}" - returning failure to preserve existing enrichment`);
+      // Return null to signal failure - caller should retain existing enrichment
+      // This prevents losing verified data on refresh when Tavily doesn't find matching results
+      throw new Error(`Content validation failed: no results match "${venueName}"`);
+    }
+
+    enrichedData.venueVerified = validation.confidence > 0.8;
+
     // Extract data from search results
     const combinedContent = results.map(r => r.content || '').join('\n');
     const urls = results.map(r => r.url).filter(Boolean);
 
     // Use images from Tavily response (passed as parameter)
     // Filter out logos, icons, and small thumbnail indicators
-    const filteredImages = images.filter((url: string) => {
+    let filteredImages = images.filter((url: string) => {
       if (!url) return false;
       const lowerUrl = url.toLowerCase();
       // Exclude common non-content images
@@ -873,7 +1068,10 @@ class JournalWebEnrichmentService {
       // Exclude tiny thumbnails (common patterns)
       if (/[_\-](?:xs|sm|thumb|tiny|50|75|100)\./i.test(url)) return false;
       return true;
-    }).slice(0, 5);
+    });
+
+    // CRITICAL: Sort images by relevance to the expected title to prevent mismatches
+    filteredImages = this.filterRelevantImages(filteredImages, venueName).slice(0, 5);
 
     console.log(`[JOURNAL_WEB_ENRICH] Processing ${filteredImages.length} filtered images for ${venueName}`);
 

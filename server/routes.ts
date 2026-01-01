@@ -11638,9 +11638,9 @@ You can find these tasks in your task list and start working on them right away!
 
         if (entriesToEnrich.length === 0) continue;
 
-        console.log(`[JOURNAL WEB ENRICH] Processing ${entriesToEnrich.length} entries in ${category}`);
+        console.log(`[JOURNAL WEB ENRICH] Processing ${entriesToEnrich.length} entries in ${category}${forceRefresh ? ' (FORCE REFRESH)' : ''}`);
 
-        const results = await journalWebEnrichmentService.enrichBatch(entriesToEnrich);
+        const results = await journalWebEnrichmentService.enrichBatch(entriesToEnrich, forceRefresh);
 
         // Update entries with enrichment data
         const updatedEntries = entries.map((entry: any) => {
