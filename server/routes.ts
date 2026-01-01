@@ -2923,8 +2923,10 @@ ${sitemaps.map(sitemap => `  <sitemap>
   const DEMO_USER_ID = "demo-user";
   
   // Helper function to check if a user is a demo user
+  // Handles both static demo user (DEMO_USER_ID) and dynamic session-based demo IDs (demo-<timestamp>-<rand>)
   const isDemoUser = (userId: string | undefined): boolean => {
-    return userId === DEMO_USER_ID || userId === 'demo-user';
+    if (!userId) return true;
+    return userId === DEMO_USER_ID || userId === 'demo-user' || userId.startsWith('demo-');
   };
 
   // Create demo user if not exists (for backwards compatibility)
@@ -8803,6 +8805,89 @@ ${emoji} ${progressLine}
 
       console.log('[JOURNAL] Returning', allEntries.length, 'total entries');
       console.log('[JOURNAL] First entry sample:', allEntries[0] ? JSON.stringify(allEntries[0]).substring(0, 100) : 'none');
+
+      // Trigger background enrichment for entries missing webEnrichment or stale > 5 hours
+      // Skip demo users to save API costs
+      const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
+      const entriesToEnrich = isDemoUser(userId) ? [] : allEntries.filter((entry: any) => {
+        if (typeof entry === 'string') return false;
+        if (!entry.webEnrichment) return true;
+        if (!entry.webEnrichment.enrichedAt) return true;
+        const enrichedTime = new Date(entry.webEnrichment.enrichedAt).getTime();
+        return Date.now() - enrichedTime > FIVE_HOURS_MS;
+      }).slice(0, 10);
+
+      if (entriesToEnrich.length > 0) {
+        console.log(`[JOURNAL] Triggering background enrichment for ${entriesToEnrich.length} entries`);
+        (async () => {
+          try {
+            const entriesForService = entriesToEnrich.map((entry: any) => ({
+              id: entry.id,
+              text: entry.text || (typeof entry === 'string' ? entry : ''),
+              category: entry.category,
+              venueName: entry.venueName,
+              location: entry.location,
+              existingEnrichment: entry.webEnrichment
+            }));
+            
+            const results = await journalWebEnrichmentService.enrichBatch(entriesForService);
+            const enrichedCount = results.filter(r => r.success).length;
+            
+            if (enrichedCount > 0) {
+              console.log(`[JOURNAL BG ENRICH] Enriched ${enrichedCount} entries, updating storage...`);
+              
+              const freshPrefs = await storage.getUserPreferences(userId);
+              const freshJournalData = freshPrefs?.preferences?.journalData || {};
+              
+              for (const result of results) {
+                if (!result.success || !result.enrichedData) continue;
+                
+                for (const [cat, entries] of Object.entries(freshJournalData)) {
+                  if (!Array.isArray(entries)) continue;
+                  const entryIndex = entries.findIndex((e: any) => 
+                    e.id === result.entryId || e.text === entriesToEnrich.find(te => te.id === result.entryId)?.text
+                  );
+                  
+                  if (entryIndex !== -1) {
+                    const existingEntry = entries[entryIndex];
+                    const suggestedCategory = result.enrichedData.suggestedCategory;
+                    
+                    entries[entryIndex] = {
+                      ...existingEntry,
+                      webEnrichment: result.enrichedData,
+                      venueType: result.enrichedData.venueType || existingEntry.venueType
+                    };
+                    
+                    if (suggestedCategory && suggestedCategory !== cat && result.enrichedData.categoryConfidence && result.enrichedData.categoryConfidence > 0.7) {
+                      console.log(`[JOURNAL BG ENRICH] Moving entry from "${cat}" to "${suggestedCategory}"`);
+                      entries.splice(entryIndex, 1);
+                      if (!freshJournalData[suggestedCategory]) {
+                        freshJournalData[suggestedCategory] = [];
+                      }
+                      freshJournalData[suggestedCategory].push({
+                        ...existingEntry,
+                        webEnrichment: result.enrichedData,
+                        venueType: result.enrichedData.venueType || existingEntry.venueType
+                      });
+                    }
+                    break;
+                  }
+                }
+              }
+              
+              await storage.upsertUserPreferences(userId, {
+                preferences: {
+                  ...freshPrefs?.preferences,
+                  journalData: freshJournalData
+                }
+              });
+              console.log(`[JOURNAL BG ENRICH] Storage updated with enriched entries`);
+            }
+          } catch (error) {
+            console.error('[JOURNAL BG ENRICH] Background enrichment error:', error);
+          }
+        })();
+      }
 
       res.json({ entries: allEntries });
     } catch (error) {

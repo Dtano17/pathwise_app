@@ -525,10 +525,31 @@ Return only valid JSON, no explanation.`
     if (textContent.type !== 'text') return {};
 
     try {
-      const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return {};
+      // Try multiple extraction approaches for robustness
+      let jsonStr = textContent.text.trim();
+      
+      // Remove markdown code blocks if present
+      jsonStr = jsonStr.replace(/```json?\s*/gi, '').replace(/```\s*/g, '');
+      
+      // Try to extract just the JSON object with balanced braces
+      const startIdx = jsonStr.indexOf('{');
+      if (startIdx === -1) return {};
+      
+      let braceCount = 0;
+      let endIdx = startIdx;
+      for (let i = startIdx; i < jsonStr.length; i++) {
+        if (jsonStr[i] === '{') braceCount++;
+        else if (jsonStr[i] === '}') braceCount--;
+        if (braceCount === 0) {
+          endIdx = i + 1;
+          break;
+        }
+      }
+      
+      jsonStr = jsonStr.substring(startIdx, endIdx);
+      if (!jsonStr) return {};
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonStr);
 
       return {
         venueType: parsed.venueType,

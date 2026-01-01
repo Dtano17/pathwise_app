@@ -253,5 +253,9 @@ async function initializeBackground() {
     // Start the reminder processor for plan notifications (non-blocking)
     startReminderProcessor(storage);
     console.log('[REMINDER] Reminder processor started');
+    
+    // Journal enrichment runs on-demand when users fetch their entries
+    // Background enrichment triggers automatically via GET /api/journal/entries
+    console.log('[JOURNAL ENRICH] On-demand enrichment enabled (triggers when users load journal)');
   });
 })();
