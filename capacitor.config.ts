@@ -6,8 +6,10 @@ const config: CapacitorConfig = {
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',
-    // No URL set - loads bundled assets locally
-    // API calls are prefixed with production URL via client/src/lib/api.ts
+    // Point to production web app - app acts as a native WebView wrapper
+    url: 'https://journalmate.ai',
+    // Clear text not needed since we're using HTTPS
+    cleartext: false,
   },
   plugins: {
     SplashScreen: {
