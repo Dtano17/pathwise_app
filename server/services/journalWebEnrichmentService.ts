@@ -15,6 +15,8 @@
 
 import { tavily } from '@tavily/core';
 import Anthropic from '@anthropic-ai/sdk';
+import { tmdbService } from './tmdbService';
+import { spotifyEnrichmentService } from './spotifyEnrichmentService';
 
 // ============================================================================
 // TYPES
@@ -387,6 +389,99 @@ class JournalWebEnrichmentService {
         }
         // Fall through to Tavily search if Google Books fails
         console.log(`[JOURNAL_WEB_ENRICH] Google Books API returned no results, falling back to Tavily`);
+      }
+
+      // MOVIES/TV: Use TMDB API for accurate movie posters and metadata
+      const isMovie = effectiveCategory === 'movie' || effectiveCategory === 'movies' ||
+                      entry.category === 'movies' || entry.category === 'Movies & TV Shows' ||
+                      entry.category === 'Movies & TV';
+      
+      if (isMovie && tmdbService.isAvailable()) {
+        console.log(`[JOURNAL_WEB_ENRICH] Using TMDB for movie: "${venueName}"`);
+        const tmdbResult = await tmdbService.searchMovie(venueName);
+        
+        if (tmdbResult) {
+          const enrichedData: WebEnrichedData = {
+            venueVerified: true,
+            venueType: tmdbResult.mediaType === 'tv' ? 'tv_show' : 'movie',
+            venueName: tmdbResult.title,
+            venueDescription: tmdbResult.overview?.substring(0, 300),
+            primaryImageUrl: tmdbResult.posterUrl || undefined,
+            mediaUrls: tmdbResult.posterUrl ? [{ 
+              url: tmdbResult.posterUrl, 
+              type: 'image' as const, 
+              source: 'tmdb' 
+            }] : undefined,
+            rating: tmdbResult.rating ? tmdbResult.rating / 2 : undefined,
+            reviewCount: tmdbResult.ratingCount,
+            director: tmdbResult.director,
+            cast: tmdbResult.cast,
+            releaseYear: tmdbResult.releaseYear,
+            runtime: tmdbResult.runtime,
+            genre: tmdbResult.genres?.join(', '),
+            suggestedCategory: 'movies',
+            categoryConfidence: 0.98,
+            enrichedAt: new Date().toISOString(),
+            enrichmentSource: 'google',
+            streamingLinks: [
+              { platform: 'TMDB', url: `https://www.themoviedb.org/${tmdbResult.mediaType}/${tmdbResult.tmdbId}` },
+              { platform: 'JustWatch', url: `https://www.justwatch.com/us/search?q=${encodeURIComponent(tmdbResult.title)}` },
+              { platform: 'IMDB', url: `https://www.imdb.com/find?q=${encodeURIComponent(tmdbResult.title)}` }
+            ]
+          };
+
+          this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+          const elapsed = Date.now() - startTime;
+          console.log(`[JOURNAL_WEB_ENRICH] Enriched movie ${entry.id} via TMDB in ${elapsed}ms: "${tmdbResult.title}"`);
+
+          return { entryId: entry.id, success: true, enrichedData };
+        }
+        console.log(`[JOURNAL_WEB_ENRICH] TMDB returned no results, falling back to Tavily`);
+      }
+
+      // MUSIC: Use Spotify API for accurate artist/album images
+      const isMusic = effectiveCategory === 'music' || effectiveCategory === 'Music & Artists' ||
+                      entry.category === 'music' || entry.category === 'Music & Artists';
+      
+      if (isMusic) {
+        const spotifyAvailable = await spotifyEnrichmentService.isAvailable();
+        if (spotifyAvailable) {
+          console.log(`[JOURNAL_WEB_ENRICH] Using Spotify for music: "${venueName}"`);
+          const spotifyResult = await spotifyEnrichmentService.searchMusic(venueName);
+          
+          if (spotifyResult) {
+            const enrichedData: WebEnrichedData = {
+              venueVerified: true,
+              venueType: spotifyResult.type === 'artist' ? 'artist' : 'music',
+              venueName: spotifyResult.name,
+              venueDescription: spotifyResult.albumName 
+                ? `${spotifyResult.type === 'track' ? 'Track' : 'Album'} by ${spotifyResult.artistName || 'Unknown Artist'}`
+                : `Artist on Spotify`,
+              primaryImageUrl: spotifyResult.imageUrl || undefined,
+              mediaUrls: spotifyResult.imageUrl ? [{ 
+                url: spotifyResult.imageUrl, 
+                type: 'image' as const, 
+                source: 'spotify' 
+              }] : undefined,
+              website: spotifyResult.spotifyUrl,
+              suggestedCategory: 'music',
+              categoryConfidence: 0.98,
+              enrichedAt: new Date().toISOString(),
+              enrichmentSource: 'google',
+              streamingLinks: [
+                { platform: 'Spotify', url: spotifyResult.spotifyUrl },
+                { platform: 'Apple Music', url: `https://music.apple.com/search?term=${encodeURIComponent(spotifyResult.name)}` }
+              ]
+            };
+
+            this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+            const elapsed = Date.now() - startTime;
+            console.log(`[JOURNAL_WEB_ENRICH] Enriched music ${entry.id} via Spotify in ${elapsed}ms: "${spotifyResult.name}"`);
+
+            return { entryId: entry.id, success: true, enrichedData };
+          }
+          console.log(`[JOURNAL_WEB_ENRICH] Spotify returned no results, falling back to Tavily`);
+        }
       }
 
       // Build search query with the corrected category
