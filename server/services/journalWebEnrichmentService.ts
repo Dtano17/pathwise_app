@@ -23,7 +23,7 @@ import Anthropic from '@anthropic-ai/sdk';
 export interface WebEnrichedData {
   // Venue/Location Info
   venueVerified: boolean;
-  venueType?: string; // nightclub, bar, restaurant, concert_venue, hotel, attraction, etc.
+  venueType?: string; // nightclub, bar, restaurant, concert_venue, hotel, attraction, book, movie, exercise, etc.
   venueName?: string;
   venueDescription?: string;
 
@@ -58,6 +58,34 @@ export interface WebEnrichedData {
   // Category Mapping
   suggestedCategory?: string; // Based on verified venue type
   categoryConfidence?: number;
+  
+  // Content-specific fields for Books
+  author?: string;
+  publisher?: string;
+  publicationYear?: string;
+  isbn?: string;
+  purchaseLinks?: Array<{
+    platform: string; // "Amazon", "Goodreads", "Barnes & Noble", etc.
+    url: string;
+  }>;
+  
+  // Content-specific fields for Movies/TV
+  director?: string;
+  cast?: string[];
+  releaseYear?: string;
+  runtime?: string;
+  genre?: string;
+  imdbRating?: number;
+  streamingLinks?: Array<{
+    platform: string; // "Netflix", "Amazon Prime", "Hulu", etc.
+    url: string;
+  }>;
+  
+  // Content-specific fields for Fitness
+  muscleGroups?: string[];
+  difficulty?: string;
+  duration?: string;
+  equipment?: string[];
 
   // Metadata
   enrichedAt: string;
@@ -90,22 +118,48 @@ const VENUE_TYPE_TO_CATEGORY: Record<string, string> = {
   restaurant: 'restaurants',
   cafe: 'restaurants',
   coffee_shop: 'restaurants',
-  bar: 'restaurants', // Could also be 'bars' if that category exists
+  bar: 'restaurants',
   pub: 'restaurants',
   lounge: 'restaurants',
-  nightclub: 'activities', // Events/Activities
+  nightclub: 'activities',
   wine_bar: 'restaurants',
   brewery: 'restaurants',
   bakery: 'restaurants',
 
-  // Entertainment
+  // Entertainment - Movies
   movie_theater: 'movies',
   cinema: 'movies',
+  movie: 'movies',
+  film: 'movies',
+  
+  // Entertainment - Music
   concert_venue: 'music',
   theater: 'activities',
   comedy_club: 'activities',
   arena: 'music',
   stadium: 'activities',
+  music: 'music',
+  artist: 'music',
+  album: 'music',
+
+  // Books & Reading
+  book: 'books',
+  biography: 'books',
+  novel: 'books',
+  memoir: 'books',
+  textbook: 'books',
+  bookstore: 'books',
+  library: 'books',
+  
+  // Fitness & Exercise
+  exercise: 'fitness',
+  workout: 'fitness',
+  yoga: 'fitness',
+  gym: 'fitness',
+  spa: 'fitness',
+  yoga_studio: 'fitness',
+  fitness_center: 'fitness',
+  fitness: 'fitness',
 
   // Travel & Places
   hotel: 'travel',
@@ -125,59 +179,24 @@ const VENUE_TYPE_TO_CATEGORY: Record<string, string> = {
   mall: 'shopping',
   boutique: 'style',
   fashion_store: 'style',
-  bookstore: 'books',
-
-  // Fitness & Wellness
-  gym: 'fitness',
-  spa: 'fitness',
-  yoga_studio: 'fitness',
-  fitness_center: 'fitness',
 
   // Other
-  library: 'books',
   school: 'books',
   office: 'notes',
   unknown: 'notes',
 };
 
-// Category-specific icons (emoji)
-const CATEGORY_ICONS: Record<string, string> = {
-  restaurants: '🍽️',
-  movies: '🎬',
-  music: '🎵',
-  books: '📚',
-  hobbies: '🎨',
-  travel: '✈️',
-  style: '👗',
-  favorites: '⭐',
-  notes: '📝',
-  activities: '🎭',
-  shopping: '🛍️',
-  fitness: '💪',
-};
-
-// Venue type specific icons
-const VENUE_TYPE_ICONS: Record<string, string> = {
-  restaurant: '🍽️',
-  cafe: '☕',
-  bar: '🍸',
-  nightclub: '🪩',
-  pub: '🍺',
-  lounge: '🛋️',
-  movie_theater: '🎬',
-  concert_venue: '🎤',
-  theater: '🎭',
-  hotel: '🏨',
-  resort: '🏖️',
-  museum: '🏛️',
-  park: '🌳',
-  beach: '🏖️',
-  gym: '🏋️',
-  spa: '💆',
-  store: '🏪',
-  mall: '🛒',
-  bookstore: '📖',
-};
+// Venue type identifiers - used by frontend to render appropriate Lucide icons
+// The frontend's venueTypeIcons mapping uses these values to select the right icon
+const VALID_VENUE_TYPES = [
+  'restaurant', 'cafe', 'bar', 'nightclub', 'pub', 'lounge',
+  'movie_theater', 'movie', 'film', 'concert_venue', 'music', 'artist', 'album', 'theater',
+  'hotel', 'resort', 'museum', 'park', 'beach',
+  'gym', 'exercise', 'workout', 'yoga', 'fitness',
+  'book', 'biography', 'novel', 'memoir', 'textbook', 'bookstore',
+  'spa', 'store', 'mall', 'boutique',
+  'unknown'
+];
 
 // ============================================================================
 // SERVICE CLASS
@@ -229,13 +248,20 @@ class JournalWebEnrichmentService {
         };
       }
 
-      // Build search query
-      const searchQuery = this.buildSearchQuery(venueName, city, entry.category);
+      // CRITICAL: Detect content type FIRST before searching
+      // This prevents "Leonardo da Vinci - Biography" from being searched as a museum
+      const detectedContentType = this.detectContentType(entry.text);
+      const effectiveCategory = detectedContentType || entry.category;
+      
+      console.log(`[JOURNAL_WEB_ENRICH] Content type detection: original="${entry.category}", detected="${detectedContentType || 'none'}", using="${effectiveCategory}"`);
+
+      // Build search query with the corrected category
+      const searchQuery = this.buildSearchQuery(venueName, city, effectiveCategory);
 
       // Search web for venue info
-      const searchResults = await this.searchWeb(searchQuery);
+      const searchResponse = await this.searchWeb(searchQuery);
 
-      if (!searchResults || searchResults.length === 0) {
+      if (!searchResponse.results || searchResponse.results.length === 0) {
         console.log(`[JOURNAL_WEB_ENRICH] No search results for ${venueName}`);
         return {
           entryId: entry.id,
@@ -244,8 +270,14 @@ class JournalWebEnrichmentService {
         };
       }
 
-      // Parse and structure the results
-      const enrichedData = await this.parseSearchResults(searchResults, venueName, city, entry.category);
+      // Parse and structure the results using the detected/corrected category
+      const enrichedData = await this.parseSearchResults(
+        searchResponse.results, 
+        searchResponse.images, 
+        venueName, 
+        city, 
+        effectiveCategory
+      );
 
       // Cache the result
       this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
@@ -358,18 +390,155 @@ class JournalWebEnrichmentService {
     return { venueName, city };
   }
 
+  // ==========================================================================
+  // CONTENT TYPE DETECTION - CRITICAL for correct enrichment
+  // ==========================================================================
+
+  /**
+   * Detect the actual content type from the entry text BEFORE searching.
+   * This prevents misclassification like "Biography" being searched as a museum.
+   * Returns the detected category or null if no strong signals found.
+   */
+  private detectContentType(text: string): string | null {
+    const lowerText = text.toLowerCase();
+    
+    // BOOKS - Strong signals
+    const bookSignals = [
+      /\bbiography\b/i,
+      /\bmemoir\b/i,
+      /\bnovel\b/i,
+      /\bauthor\b/i,
+      /\bwritten by\b/i,
+      /\bby\s+[A-Z][a-z]+\s+[A-Z][a-z]+/,  // "by John Smith"
+      /\bbook\b/i,
+      /\bread(?:ing)?\b/i,
+      /\bpublished\b/i,
+      /\bedition\b/i,
+      /\bchapter\b/i,
+      /\bpages?\b/i,
+      /\bisbn\b/i,
+      /\bbestseller\b/i,
+      /\bbest-seller\b/i,
+      /\btextbook\b/i,
+      /\bguide\s+to\b/i,
+      /\bself-help\b/i,
+      /\bpaperback\b/i,
+      /\bhardcover\b/i,
+      /\baudiobook\b/i,
+    ];
+    
+    // MOVIES/TV - Strong signals
+    const movieSignals = [
+      /\bwatch\b/i,
+      /\bstream(?:ing)?\b/i,
+      /\bmovie\b/i,
+      /\bfilm\b/i,
+      /\btheater(?:s)?\b/i,
+      /\bcinema\b/i,
+      /\bdirector\b/i,
+      /\bdirected by\b/i,
+      /\bstarring\b/i,
+      /\bcast\b/i,
+      /\bimdb\b/i,
+      /\brotten tomatoes\b/i,
+      /\bnetflix\b/i,
+      /\bhulu\b/i,
+      /\bdisney\+\b/i,
+      /\bamazon prime\b/i,
+      /\bhbo\b/i,
+      /\brental\b/i,
+      /\bseason\s+\d/i,
+      /\bepisode\b/i,
+      /\bseries\b/i,
+      /\btv show\b/i,
+      /\bdocumentary\b/i,
+    ];
+    
+    // MUSIC - Strong signals
+    const musicSignals = [
+      /\balbum\b/i,
+      /\bsong\b/i,
+      /\btrack\b/i,
+      /\bartist\b/i,
+      /\bband\b/i,
+      /\bconcert\b/i,
+      /\bspotify\b/i,
+      /\bapple music\b/i,
+      /\blisten to\b/i,
+      /\bplaylist\b/i,
+      /\bmusician\b/i,
+      /\bsinger\b/i,
+    ];
+    
+    // FITNESS/EXERCISE - Strong signals
+    const fitnessSignals = [
+      /\bexercise\b/i,
+      /\bworkout\b/i,
+      /\byoga\b/i,
+      /\bpose\b/i,
+      /\breps?\b/i,
+      /\bsets?\b/i,
+      /\bmuscle\b/i,
+      /\bstretch(?:ing)?\b/i,
+      /\bcardio\b/i,
+      /\bstrength\b/i,
+      /\bweights?\b/i,
+      /\bgym\b/i,
+      /\bpilates\b/i,
+      /\bhiit\b/i,
+      /\bfitness\b/i,
+      /\btraining\b/i,
+    ];
+    
+    // Count matches for each type
+    const bookMatches = bookSignals.filter(p => p.test(text)).length;
+    const movieMatches = movieSignals.filter(p => p.test(text)).length;
+    const musicMatches = musicSignals.filter(p => p.test(text)).length;
+    const fitnessMatches = fitnessSignals.filter(p => p.test(text)).length;
+    
+    // Need at least 1 signal to make a detection
+    const maxMatches = Math.max(bookMatches, movieMatches, musicMatches, fitnessMatches);
+    
+    if (maxMatches === 0) {
+      return null;
+    }
+    
+    // Return the VENUE TYPE (not category) with most matches
+    // These values must match the venueType values used in VENUE_TYPE_TO_CATEGORY
+    if (bookMatches === maxMatches && bookMatches >= 1) {
+      return 'book'; // venueType, not category
+    }
+    if (movieMatches === maxMatches && movieMatches >= 1) {
+      return 'movie'; // venueType, not category
+    }
+    if (musicMatches === maxMatches && musicMatches >= 1) {
+      return 'music'; // venueType
+    }
+    if (fitnessMatches === maxMatches && fitnessMatches >= 1) {
+      return 'exercise'; // venueType
+    }
+    
+    return null;
+  }
+
   private buildSearchQuery(venueName: string, city?: string, category?: string): string {
     let query = venueName;
 
     // Category-specific search strategies for better image/info retrieval
+    // Supports both venueType values (book, movie) and category names (books, movies)
     const categorySearchConfig: Record<string, { suffix: string; imageHint: string }> = {
+      // VenueType values (from detectContentType)
+      book: { suffix: 'book cover author ISBN', imageHint: 'cover' },
+      movie: { suffix: 'movie film IMDB poster', imageHint: 'poster' },
+      music: { suffix: 'artist band album concert', imageHint: 'artist' },
+      exercise: { suffix: 'exercise workout pose form', imageHint: 'exercise' },
+      // Category names
       movies: { suffix: 'movie film IMDB poster', imageHint: 'poster' },
       'Movies & TV Shows': { suffix: 'movie film IMDB poster', imageHint: 'poster' },
-      books: { suffix: 'book cover author', imageHint: 'cover' },
-      'Books & Reading': { suffix: 'book cover author', imageHint: 'cover' },
-      fitness: { suffix: 'exercise workout pose', imageHint: 'exercise' },
+      books: { suffix: 'book cover author ISBN', imageHint: 'cover' },
+      'Books & Reading': { suffix: 'book cover author ISBN', imageHint: 'cover' },
+      fitness: { suffix: 'exercise workout pose form', imageHint: 'exercise' },
       wellness: { suffix: 'wellness spa health', imageHint: 'wellness' },
-      music: { suffix: 'artist band album concert', imageHint: 'artist' },
       'Music & Artists': { suffix: 'artist band album concert', imageHint: 'artist' },
       restaurants: { suffix: 'restaurant menu photos', imageHint: 'food venue' },
       'Restaurants & Food': { suffix: 'restaurant menu photos', imageHint: 'food venue' },
@@ -417,10 +586,10 @@ class JournalWebEnrichmentService {
   // WEB SEARCH
   // ==========================================================================
 
-  private async searchWeb(query: string): Promise<any[]> {
+  private async searchWeb(query: string): Promise<{ results: any[]; images: string[] }> {
     if (!this.tavilyClient) {
       console.warn('[JOURNAL_WEB_ENRICH] Tavily client not initialized');
-      return [];
+      return { results: [], images: [] };
     }
 
     try {
@@ -431,10 +600,24 @@ class JournalWebEnrichmentService {
         includeAnswer: true,
       });
 
-      return response.results || [];
+      // CRITICAL FIX: Tavily returns images at response.images, NOT in individual results
+      // Images can be either strings or objects with url property
+      const rawImages = response.images || [];
+      const images: string[] = rawImages.map((img: any) => {
+        if (typeof img === 'string') return img;
+        if (img && typeof img === 'object' && img.url) return img.url;
+        return '';
+      }).filter((url: string) => url.length > 0);
+      
+      console.log(`[JOURNAL_WEB_ENRICH] Tavily returned ${images.length} images for query: "${query.substring(0, 50)}..."`);
+      
+      return { 
+        results: response.results || [],
+        images: images
+      };
     } catch (error) {
       console.error('[JOURNAL_WEB_ENRICH] Tavily search failed:', error);
-      return [];
+      return { results: [], images: [] };
     }
   }
 
@@ -444,6 +627,7 @@ class JournalWebEnrichmentService {
 
   private async parseSearchResults(
     results: any[],
+    images: string[],
     venueName: string,
     city?: string,
     category?: string
@@ -460,15 +644,17 @@ class JournalWebEnrichmentService {
     const combinedContent = results.map(r => r.content || '').join('\n');
     const urls = results.map(r => r.url).filter(Boolean);
 
-    // Extract images
-    const imageUrls = results
-      .flatMap(r => r.images || [])
-      .filter((url: string) => url && !url.includes('logo') && !url.includes('icon'))
-      .slice(0, 5);
+    // Use images from Tavily response (passed as parameter)
+    // Filter out logos and icons
+    const filteredImages = images.filter((url: string) => 
+      url && !url.includes('logo') && !url.includes('icon') && !url.includes('favicon')
+    ).slice(0, 5);
 
-    if (imageUrls.length > 0) {
-      enrichedData.primaryImageUrl = imageUrls[0];
-      enrichedData.mediaUrls = imageUrls.map((url: string) => ({
+    console.log(`[JOURNAL_WEB_ENRICH] Processing ${filteredImages.length} filtered images for ${venueName}`);
+
+    if (filteredImages.length > 0) {
+      enrichedData.primaryImageUrl = filteredImages[0];
+      enrichedData.mediaUrls = filteredImages.map((url: string) => ({
         url,
         type: 'image' as const,
         source: 'web_search'
@@ -494,10 +680,38 @@ class JournalWebEnrichmentService {
       Object.assign(enrichedData, this.extractWithRegex(combinedContent, urls));
     }
 
+    // If category is a venueType (from detectContentType), set it as the venueType if AI didn't return one
+    const VENUE_TYPES = ['book', 'movie', 'music', 'exercise', 'restaurant', 'hotel', 'museum', 'park', 'bar', 'cafe'];
+    if (!enrichedData.venueType && category && VENUE_TYPES.includes(category)) {
+      enrichedData.venueType = category;
+    }
+    
     // Set suggested category based on venue type
     if (enrichedData.venueType) {
       enrichedData.suggestedCategory = VENUE_TYPE_TO_CATEGORY[enrichedData.venueType] || category || 'notes';
       enrichedData.categoryConfidence = 0.85;
+    }
+
+    // Generate purchase links for books if not provided by AI
+    // Check for both venueType 'book' and category 'books'/'Books & Reading'
+    const isBook = enrichedData.venueType === 'book' || category === 'book' || category === 'books' || category === 'Books & Reading';
+    if (isBook && (!enrichedData.purchaseLinks || enrichedData.purchaseLinks.length === 0)) {
+      const searchTerm = encodeURIComponent(venueName + (enrichedData.author ? ` ${enrichedData.author}` : ''));
+      enrichedData.purchaseLinks = [
+        { platform: 'Amazon', url: `https://www.amazon.com/s?k=${searchTerm}&i=stripbooks` },
+        { platform: 'Goodreads', url: `https://www.goodreads.com/search?q=${searchTerm}` },
+      ];
+    }
+    
+    // Generate streaming search links for movies if not provided by AI
+    // Check for both venueType 'movie' and category 'movies'/'Movies & TV Shows'
+    const isMovie = enrichedData.venueType === 'movie' || category === 'movie' || category === 'movies' || category === 'Movies & TV Shows';
+    if (isMovie && (!enrichedData.streamingLinks || enrichedData.streamingLinks.length === 0)) {
+      const searchTerm = encodeURIComponent(venueName);
+      enrichedData.streamingLinks = [
+        { platform: 'JustWatch', url: `https://www.justwatch.com/us/search?q=${searchTerm}` },
+        { platform: 'Google', url: `https://www.google.com/search?q=${searchTerm}+watch+online` },
+      ];
     }
 
     // Generate Google Maps link if we have address
@@ -522,48 +736,70 @@ class JournalWebEnrichmentService {
   ): Promise<Partial<WebEnrichedData>> {
     if (!this.anthropic) return {};
 
-    // Build category-specific extraction prompt
+    // Build category-specific extraction prompt with better type hints
+    // Supports both venueType values (book, movie) and category names (books, movies)
     const categoryPrompts: Record<string, string> = {
-      movies: `Extract movie/show information: title, year, director, genre, IMDB rating, runtime, plot summary.`,
-      'Movies & TV Shows': `Extract movie/show information: title, year, director, genre, IMDB rating, runtime, plot summary.`,
-      books: `Extract book information: title, author, genre, publication year, rating, page count, synopsis.`,
-      'Books & Reading': `Extract book information: title, author, genre, publication year, rating, page count, synopsis.`,
-      fitness: `Extract exercise/fitness information: exercise type, muscle groups, difficulty, equipment needed, duration.`,
-      music: `Extract music/artist information: artist name, genre, albums, awards, streaming links.`,
-      'Music & Artists': `Extract music/artist information: artist name, genre, albums, awards, streaming links.`,
+      // VenueType values
+      book: `This is a BOOK. Extract: title, author name, genre, publication year, rating (1-5 stars), publisher, where to buy.`,
+      movie: `This is a MOVIE/FILM. Extract: title, year, director, genre, IMDB rating (0-10), runtime, streaming platforms.`,
+      music: `This is MUSIC/ARTIST. Extract: artist/band name, genre, popular albums, streaming platforms.`,
+      exercise: `This is an EXERCISE/WORKOUT. Extract: exercise name, muscle groups worked, difficulty level, equipment needed, duration.`,
+      // Category names
+      movies: `This is a MOVIE/FILM. Extract: title, year, director, genre, IMDB rating (0-10), runtime, streaming platforms.`,
+      'Movies & TV Shows': `This is a MOVIE/TV SHOW. Extract: title, year, director, genre, IMDB rating (0-10), runtime, streaming platforms.`,
+      books: `This is a BOOK. Extract: title, author name, genre, publication year, rating (1-5 stars), publisher, where to buy.`,
+      'Books & Reading': `This is a BOOK. Extract: title, author name, genre, publication year, rating (1-5 stars), publisher, where to buy.`,
+      fitness: `This is an EXERCISE/WORKOUT. Extract: exercise name, muscle groups worked, difficulty level, equipment needed, duration.`,
+      'Music & Artists': `This is MUSIC/ARTIST. Extract: artist/band name, genre, popular albums, streaming platforms.`,
     };
     
     const categoryPrompt = category ? categoryPrompts[category] : null;
     const promptContent = categoryPrompt 
-      ? `${categoryPrompt}\n\nContent about "${venueName}":\n${content.substring(0, 2000)}`
-      : `Extract structured venue information from this web content about "${venueName}"${city ? ` in ${city}` : ''}.\n\nContent:\n${content.substring(0, 2000)}`;
+      ? `${categoryPrompt}\n\nContent about "${venueName}":\n${content.substring(0, 2500)}`
+      : `Extract structured information from this web content about "${venueName}"${city ? ` in ${city}` : ''}.\n\nContent:\n${content.substring(0, 2500)}`;
 
     const response = await this.anthropic.messages.create({
       model: 'claude-3-haiku-20240307',
-      max_tokens: 500,
+      max_tokens: 800,
       messages: [{
         role: 'user',
         content: `${promptContent}
 
+IMPORTANT: Correctly identify the content type. If it's about a book/biography/novel, venueType MUST be "book". If it's about a movie/film, venueType MUST be "movie". Do NOT confuse books about people with places named after them.
+
 Return JSON with these fields (omit if not found):
 {
-  "venueType": "restaurant|bar|nightclub|cafe|hotel|museum|concert_venue|theater|attraction|park|gym|spa|store|movie|book|music|exercise|other",
-  "venueDescription": "brief description",
-  "address": "full street address (if applicable)",
-  "city": "city name (if applicable)",
-  "neighborhood": "neighborhood/area (if applicable)",
+  "venueType": "book|movie|music|exercise|restaurant|bar|hotel|museum|park|gym|spa|other",
+  "venueDescription": "brief description (1-2 sentences)",
   "priceRange": "$|$$|$$$|$$$$",
-  "rating": 0-5 number (IMDB rating for movies, book rating, etc.),
+  "rating": 0-5 number (convert IMDB 0-10 to 0-5 scale),
   "reviewCount": number,
-  "businessHours": "hours summary (if applicable)",
-  "phone": "phone number (if applicable)",
-  "website": "main website URL",
-  "reservationUrl": "booking/reservation URL if applicable",
-  "year": "release year for movies/books",
-  "author": "author for books",
-  "director": "director for movies",
-  "genre": "genre/category",
-  "runtime": "duration for movies/exercises"
+  
+  // For BOOKS only:
+  "author": "author name",
+  "publisher": "publisher name",
+  "publicationYear": "year",
+  "purchaseLinks": [{"platform": "Amazon", "url": "..."}, {"platform": "Goodreads", "url": "..."}],
+  
+  // For MOVIES only:
+  "director": "director name",
+  "releaseYear": "year",
+  "runtime": "duration",
+  "genre": "genre",
+  "streamingLinks": [{"platform": "Netflix", "url": "..."}, {"platform": "Amazon Prime", "url": "..."}],
+  
+  // For FITNESS only:
+  "muscleGroups": ["chest", "triceps"],
+  "difficulty": "beginner|intermediate|advanced",
+  "duration": "30 mins",
+  "equipment": ["dumbbells", "bench"],
+  
+  // For VENUES (restaurants, hotels, etc.):
+  "address": "full address",
+  "city": "city",
+  "businessHours": "hours",
+  "phone": "phone",
+  "website": "main website URL"
 }
 
 Return only valid JSON, no explanation.`
@@ -600,22 +836,59 @@ Return only valid JSON, no explanation.`
 
       const parsed = JSON.parse(jsonStr);
 
-      return {
+      const result: Partial<WebEnrichedData> = {
         venueType: parsed.venueType,
         venueDescription: parsed.venueDescription,
-        location: {
-          address: parsed.address,
-          city: parsed.city || city,
-          neighborhood: parsed.neighborhood,
-        },
         priceRange: parsed.priceRange,
         rating: parsed.rating,
         reviewCount: parsed.reviewCount,
-        businessHours: parsed.businessHours,
-        phone: parsed.phone,
         website: parsed.website,
-        reservationUrl: parsed.reservationUrl,
       };
+      
+      // Location fields (for venues)
+      if (parsed.address || parsed.city) {
+        result.location = {
+          address: parsed.address,
+          city: parsed.city || city,
+          neighborhood: parsed.neighborhood,
+        };
+      }
+      
+      // Venue-specific fields
+      if (parsed.businessHours) result.businessHours = parsed.businessHours;
+      if (parsed.phone) result.phone = parsed.phone;
+      if (parsed.reservationUrl) result.reservationUrl = parsed.reservationUrl;
+      
+      // BOOK fields
+      if (parsed.author) result.author = parsed.author;
+      if (parsed.publisher) result.publisher = parsed.publisher;
+      if (parsed.publicationYear) result.publicationYear = parsed.publicationYear;
+      if (parsed.purchaseLinks && Array.isArray(parsed.purchaseLinks)) {
+        result.purchaseLinks = parsed.purchaseLinks;
+      }
+      
+      // MOVIE fields
+      if (parsed.director) result.director = parsed.director;
+      if (parsed.releaseYear) result.releaseYear = parsed.releaseYear;
+      if (parsed.runtime) result.runtime = parsed.runtime;
+      if (parsed.genre) result.genre = parsed.genre;
+      if (parsed.streamingLinks && Array.isArray(parsed.streamingLinks)) {
+        result.streamingLinks = parsed.streamingLinks;
+      }
+      
+      // FITNESS fields
+      if (parsed.muscleGroups && Array.isArray(parsed.muscleGroups)) {
+        result.muscleGroups = parsed.muscleGroups;
+      }
+      if (parsed.difficulty) result.difficulty = parsed.difficulty;
+      if (parsed.duration) result.duration = parsed.duration;
+      if (parsed.equipment && Array.isArray(parsed.equipment)) {
+        result.equipment = parsed.equipment;
+      }
+      
+      console.log(`[JOURNAL_WEB_ENRICH] AI extracted venueType: ${result.venueType}, author: ${result.author}, director: ${result.director}`);
+
+      return result;
     } catch (error) {
       console.warn('[JOURNAL_WEB_ENRICH] Failed to parse AI response:', error);
       return {};
@@ -672,13 +945,15 @@ Return only valid JSON, no explanation.`
     return `${venueName.toLowerCase().replace(/\s+/g, '_')}_${city.toLowerCase()}`;
   }
 
-  getVenueIcon(venueType?: string): string {
-    if (!venueType) return '📍';
-    return VENUE_TYPE_ICONS[venueType] || '📍';
+  // Returns the venueType identifier for the frontend to render the appropriate icon
+  // The frontend uses this with its venueTypeIcons mapping to display Lucide icons
+  getVenueTypeIdentifier(venueType?: string): string {
+    return venueType || 'unknown';
   }
 
-  getCategoryIcon(category: string): string {
-    return CATEGORY_ICONS[category] || '📝';
+  // Returns the category identifier for the frontend to render the appropriate icon
+  getCategoryIdentifier(category: string): string {
+    return category || 'notes';
   }
 
   mapVenueTypeToCategory(venueType: string): string {
@@ -691,7 +966,7 @@ Return only valid JSON, no explanation.`
 
   getSuggestedCategoryForEntry(entry: JournalEntryForEnrichment): {
     category: string;
-    icon: string;
+    venueType: string;
     confidence: number;
   } {
     // If we have web-enriched venue type, use that
@@ -699,7 +974,7 @@ Return only valid JSON, no explanation.`
       const category = VENUE_TYPE_TO_CATEGORY[entry.existingEnrichment.venueType] || entry.category;
       return {
         category,
-        icon: VENUE_TYPE_ICONS[entry.existingEnrichment.venueType] || CATEGORY_ICONS[category] || '📝',
+        venueType: entry.existingEnrichment.venueType,
         confidence: entry.existingEnrichment.categoryConfidence || 0.85
       };
     }
@@ -707,29 +982,30 @@ Return only valid JSON, no explanation.`
     // Fall back to text analysis
     const text = entry.text.toLowerCase();
 
-    const categoryPatterns: Array<{ pattern: RegExp; category: string; icon: string }> = [
-      { pattern: /restaurant|cafe|diner|bistro|eatery|food|cuisine|dish|meal/i, category: 'restaurants', icon: '🍽️' },
-      { pattern: /bar|pub|lounge|cocktail|beer|wine|drinks?/i, category: 'restaurants', icon: '🍸' },
-      { pattern: /nightclub|club|dancing|dj|party venue/i, category: 'activities', icon: '🪩' },
-      { pattern: /movie|cinema|film|theater|screening/i, category: 'movies', icon: '🎬' },
-      { pattern: /concert|music|live show|band|artist|album/i, category: 'music', icon: '🎵' },
-      { pattern: /hotel|resort|airbnb|hostel|stay|vacation|trip|travel|visit/i, category: 'travel', icon: '✈️' },
-      { pattern: /museum|gallery|exhibit|art|attraction/i, category: 'travel', icon: '🏛️' },
-      { pattern: /book|read|author|novel|library/i, category: 'books', icon: '📚' },
-      { pattern: /shop|store|buy|purchase|mall|boutique/i, category: 'shopping', icon: '🛍️' },
-      { pattern: /gym|workout|fitness|yoga|exercise|spa|wellness/i, category: 'fitness', icon: '💪' },
-      { pattern: /outfit|style|fashion|clothes|wear/i, category: 'style', icon: '👗' },
+    // Map of patterns to category and venueType (frontend renders icons based on venueType)
+    const categoryPatterns: Array<{ pattern: RegExp; category: string; venueType: string }> = [
+      { pattern: /restaurant|cafe|diner|bistro|eatery|food|cuisine|dish|meal/i, category: 'restaurants', venueType: 'restaurant' },
+      { pattern: /bar|pub|lounge|cocktail|beer|wine|drinks?/i, category: 'restaurants', venueType: 'bar' },
+      { pattern: /nightclub|club|dancing|dj|party venue/i, category: 'activities', venueType: 'nightclub' },
+      { pattern: /movie|cinema|film|theater|screening/i, category: 'movies', venueType: 'movie' },
+      { pattern: /concert|music|live show|band|artist|album/i, category: 'music', venueType: 'music' },
+      { pattern: /hotel|resort|airbnb|hostel|stay|vacation|trip|travel|visit/i, category: 'travel', venueType: 'hotel' },
+      { pattern: /museum|gallery|exhibit|art|attraction/i, category: 'travel', venueType: 'museum' },
+      { pattern: /book|read|author|novel|library/i, category: 'books', venueType: 'book' },
+      { pattern: /shop|store|buy|purchase|mall|boutique/i, category: 'shopping', venueType: 'store' },
+      { pattern: /gym|workout|fitness|yoga|exercise|spa|wellness/i, category: 'fitness', venueType: 'exercise' },
+      { pattern: /outfit|style|fashion|clothes|wear/i, category: 'style', venueType: 'boutique' },
     ];
 
-    for (const { pattern, category, icon } of categoryPatterns) {
+    for (const { pattern, category, venueType } of categoryPatterns) {
       if (pattern.test(text)) {
-        return { category, icon, confidence: 0.7 };
+        return { category, venueType, confidence: 0.7 };
       }
     }
 
     return {
       category: entry.category || 'notes',
-      icon: CATEGORY_ICONS[entry.category] || '📝',
+      venueType: 'unknown',
       confidence: 0.5
     };
   }

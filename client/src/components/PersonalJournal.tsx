@@ -19,31 +19,101 @@ import {
   Plane, Home, ShoppingBag, Gamepad2, Folder, Wand2,
   Package, BarChart3, FileText, Target, Cloud, Users,
   Loader2, TrendingUp, PenTool, Copy, Check, RefreshCw, Trash2,
-  Settings, Pencil, Merge, Link, Image, Eye, EyeOff, Calendar, ExternalLink
+  Settings, Pencil, Merge, Link, Image, Eye, EyeOff, Calendar, ExternalLink,
+  Dumbbell, Building2, TreePine, Wine, Clock, PenLine, Play, ShoppingCart,
+  CalendarPlus, Globe, Phone, type LucideIcon
 } from 'lucide-react';
+
+// Venue type to icon mapping using Lucide icons
+// This maps venueType values from the backend to appropriate Lucide icons
+const venueTypeIcons: Record<string, LucideIcon> = {
+  // Books & Reading
+  book: BookOpen,
+  biography: Book,
+  novel: Book,
+  memoir: Book,
+  textbook: Book,
+  bookstore: BookOpen,
+  // Movies & Entertainment
+  movie: Film,
+  film: Film,
+  movie_theater: Film,
+  theater: Film,
+  cinema: Film,
+  screening: Film,
+  // Music
+  music: Music,
+  artist: Music,
+  album: Music,
+  concert_venue: Music,
+  concert: Music,
+  // Fitness & Wellness
+  exercise: Dumbbell,
+  workout: Dumbbell,
+  gym: Dumbbell,
+  fitness: Dumbbell,
+  yoga: Dumbbell,
+  fitness_center: Dumbbell,
+  yoga_studio: Dumbbell,
+  spa: Heart,
+  wellness: Heart,
+  // Food & Drink
+  restaurant: Utensils,
+  cafe: Coffee,
+  bar: Wine,
+  wine_bar: Wine,
+  nightclub: Music,
+  pub: Wine,
+  lounge: Coffee,
+  bakery: Utensils,
+  diner: Utensils,
+  bistro: Utensils,
+  eatery: Utensils,
+  food_court: Utensils,
+  // Travel & Places
+  hotel: Building2,
+  resort: Building2,
+  museum: Building2,
+  park: TreePine,
+  beach: Plane,
+  airport: Plane,
+  attraction: Building2,
+  landmark: Building2,
+  hostel: Building2,
+  airbnb: Building2,
+  vacation_rental: Building2,
+  // Shopping
+  store: ShoppingBag,
+  mall: ShoppingBag,
+  boutique: ShoppingBag,
+  fashion_store: ShoppingBag,
+  // Default/Unknown
+  unknown: MapPin,
+  other: MapPin,
+};
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
 
-// Category icons for smart rendering
-const categoryIcons: Record<string, string> = {
-  books: '📚',
-  reading: '📚',
-  restaurants: '🍽️',
-  food: '🍽️',
-  movies: '🎬',
-  music: '🎵',
-  travel: '✈️',
-  hobbies: '⭐',
-  style: '👗',
-  favorites: '⭐',
-  notes: '📝',
+// Category icons for smart rendering using Lucide
+const categoryIconComponents: Record<string, LucideIcon> = {
+  books: BookOpen,
+  reading: BookOpen,
+  restaurants: Utensils,
+  food: Utensils,
+  movies: Film,
+  music: Music,
+  travel: Plane,
+  hobbies: Star,
+  style: ShoppingBag,
+  favorites: Star,
+  notes: FileText,
 };
 
 // Smart text renderer that extracts and highlights titles, authors, etc.
 function SmartTextRenderer({ text, category, sourceUrl }: { text: string; category?: string; sourceUrl?: string }) {
-  const icon = categoryIcons[category || ''] || '';
+  const IconComponent = categoryIconComponents[category || ''] || null;
   
   // Check for "Inspired by" pattern
   const inspiredByMatch = text.match(/^Inspired\s+by\s+(.+?)(?:\s*[-–—]\s*(.*))?$/i);
@@ -63,7 +133,7 @@ function SmartTextRenderer({ text, category, sourceUrl }: { text: string; catego
     return (
       <div className="space-y-1">
         <div className="flex items-start gap-2">
-          {icon && <span className="text-lg flex-shrink-0">{icon}</span>}
+          {IconComponent && <IconComponent className="w-5 h-5 flex-shrink-0 text-muted-foreground" />}
           <div className="flex-1">
             <p className="text-sm sm:text-base">
               <span className="text-muted-foreground">Inspired by </span>
@@ -129,7 +199,7 @@ function SmartTextRenderer({ text, category, sourceUrl }: { text: string; catego
     return (
       <div className="space-y-1">
         <div className="flex items-start gap-2">
-          {icon && <span className="text-lg flex-shrink-0">{icon}</span>}
+          {IconComponent && <IconComponent className="w-5 h-5 flex-shrink-0 text-muted-foreground" />}
           <div className="flex-1">
             <p className="text-sm sm:text-base">
               {prefix && <span className="text-muted-foreground">{prefix}</span>}
@@ -157,7 +227,7 @@ function SmartTextRenderer({ text, category, sourceUrl }: { text: string; catego
   
   return (
     <div className="flex items-start gap-2">
-      {icon && <span className="text-lg flex-shrink-0">{icon}</span>}
+      {IconComponent && <IconComponent className="w-5 h-5 flex-shrink-0 text-muted-foreground" />}
       <p className="text-sm sm:text-base break-words whitespace-pre-wrap flex-1">{text}</p>
     </div>
   );
@@ -186,6 +256,7 @@ interface RichJournalEntry {
   webEnrichment?: {
     venueVerified?: boolean;
     venueType?: string;
+    venueName?: string;
     venueDescription?: string;
     location?: {
       address?: string;
@@ -205,6 +276,25 @@ interface RichJournalEntry {
     mediaUrls?: Array<{ url: string; type: 'image' | 'video'; source?: string }>;
     suggestedCategory?: string;
     enrichedAt?: string;
+    
+    // Book-specific
+    author?: string;
+    publisher?: string;
+    publicationYear?: string;
+    purchaseLinks?: Array<{ platform: string; url: string }>;
+    
+    // Movie-specific
+    director?: string;
+    releaseYear?: string;
+    runtime?: string;
+    genre?: string;
+    streamingLinks?: Array<{ platform: string; url: string }>;
+    
+    // Fitness-specific
+    muscleGroups?: string[];
+    difficulty?: string;
+    duration?: string;
+    equipment?: string[];
   };
 }
 
@@ -1294,7 +1384,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                             />
                             {webEnrichment?.venueVerified && (
                               <div className="absolute top-2 right-2 bg-green-500/90 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <span>✓</span> Verified
+                                <Check className="w-3 h-3" /> Verified
                               </div>
                             )}
                           </div>
@@ -1304,14 +1394,21 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                           <div className="flex items-start gap-3">
                             <div className="flex-1 min-w-0 space-y-2">
                               {timestamp && (
-                                <div className="text-xs text-muted-foreground">
-                                  {new Date(timestamp).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  {/* Content type icon based on enriched venueType */}
+                                  {webEnrichment?.venueType && (() => {
+                                    const IconComponent = venueTypeIcons[webEnrichment.venueType] || MapPin;
+                                    return <IconComponent className="w-4 h-4" />;
+                                  })()}
+                                  <span>
+                                    {new Date(timestamp).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </span>
                                 </div>
                               )}
                               <SmartTextRenderer text={text} category={activeCategory} sourceUrl={sourceUrl} />
@@ -1327,8 +1424,8 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                       </Badge>
                                     )}
                                     {webEnrichment.rating && (
-                                      <Badge variant="outline" className="text-xs">
-                                        ⭐ {webEnrichment.rating.toFixed(1)}
+                                      <Badge variant="outline" className="text-xs flex items-center gap-1">
+                                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" /> {webEnrichment.rating.toFixed(1)}
                                         {webEnrichment.reviewCount && (
                                           <span className="text-muted-foreground ml-1">({webEnrichment.reviewCount})</span>
                                         )}
@@ -1343,15 +1440,15 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
 
                                   {/* Location with directions link */}
                                   {webEnrichment.location?.address && (
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                      <span>📍</span>
-                                      <span className="truncate">{webEnrichment.location.address}</span>
+                                    <div className="flex flex-wrap items-start gap-2 text-xs text-muted-foreground">
+                                      <MapPin className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                                      <span className="flex-1 min-w-0 break-words">{webEnrichment.location.address}</span>
                                       {webEnrichment.location.directionsUrl && (
                                         <a
                                           href={webEnrichment.location.directionsUrl}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="text-primary hover:underline flex-shrink-0"
+                                          className="text-primary hover:underline flex-shrink-0 whitespace-nowrap"
                                         >
                                           Get Directions →
                                         </a>
@@ -1362,13 +1459,116 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                   {/* Business hours */}
                                   {webEnrichment.businessHours && (
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                      <span>🕐</span>
+                                      <Clock className="w-3.5 h-3.5" />
                                       <span>{webEnrichment.businessHours}</span>
+                                    </div>
+                                  )}
+
+                                  {/* BOOK-specific info */}
+                                  {webEnrichment.venueType === 'book' && (
+                                    <div className="space-y-2">
+                                      {webEnrichment.author && (
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                          <PenLine className="w-3.5 h-3.5" />
+                                          <span>by <span className="font-medium text-foreground">{webEnrichment.author}</span></span>
+                                        </div>
+                                      )}
+                                      {(webEnrichment.publisher || webEnrichment.publicationYear) && (
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                          <Book className="w-3.5 h-3.5" />
+                                          <span>
+                                            {webEnrichment.publisher}
+                                            {webEnrichment.publisher && webEnrichment.publicationYear && ' · '}
+                                            {webEnrichment.publicationYear}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* MOVIE-specific info */}
+                                  {webEnrichment.venueType === 'movie' && (
+                                    <div className="space-y-2">
+                                      {webEnrichment.director && (
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                          <Film className="w-3.5 h-3.5" />
+                                          <span>Directed by <span className="font-medium text-foreground">{webEnrichment.director}</span></span>
+                                        </div>
+                                      )}
+                                      {(webEnrichment.releaseYear || webEnrichment.runtime || webEnrichment.genre) && (
+                                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                          {webEnrichment.releaseYear && <Badge variant="outline" className="text-xs">{webEnrichment.releaseYear}</Badge>}
+                                          {webEnrichment.runtime && <Badge variant="outline" className="text-xs">{webEnrichment.runtime}</Badge>}
+                                          {webEnrichment.genre && <Badge variant="outline" className="text-xs">{webEnrichment.genre}</Badge>}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* FITNESS-specific info */}
+                                  {webEnrichment.venueType === 'exercise' && (
+                                    <div className="space-y-2">
+                                      {webEnrichment.muscleGroups && webEnrichment.muscleGroups.length > 0 && (
+                                        <div className="flex flex-wrap items-center gap-1">
+                                          <span className="text-xs text-muted-foreground flex items-center gap-1"><Dumbbell className="w-3.5 h-3.5" /> Targets:</span>
+                                          {webEnrichment.muscleGroups.map((muscle, idx) => (
+                                            <Badge key={idx} variant="outline" className="text-xs capitalize">{muscle}</Badge>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {(webEnrichment.difficulty || webEnrichment.duration) && (
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                          {webEnrichment.difficulty && (
+                                            <Badge variant="secondary" className="text-xs capitalize">{webEnrichment.difficulty}</Badge>
+                                          )}
+                                          {webEnrichment.duration && (
+                                            <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {webEnrichment.duration}</span>
+                                          )}
+                                        </div>
+                                      )}
+                                      {webEnrichment.equipment && webEnrichment.equipment.length > 0 && (
+                                        <div className="flex flex-wrap items-center gap-1">
+                                          <span className="text-xs text-muted-foreground flex items-center gap-1"><Dumbbell className="w-3.5 h-3.5" /> Equipment:</span>
+                                          {webEnrichment.equipment.map((eq, idx) => (
+                                            <Badge key={idx} variant="outline" className="text-xs">{eq}</Badge>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                   )}
 
                                   {/* Action buttons */}
                                   <div className="flex flex-wrap gap-2 mt-2">
+                                    {/* Book purchase links */}
+                                    {webEnrichment.purchaseLinks && webEnrichment.purchaseLinks.length > 0 && (
+                                      webEnrichment.purchaseLinks.map((link, idx) => (
+                                        <a
+                                          key={idx}
+                                          href={link.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90"
+                                        >
+                                          <ShoppingCart className="w-3 h-3" /> {link.platform}
+                                        </a>
+                                      ))
+                                    )}
+                                    
+                                    {/* Movie streaming links */}
+                                    {webEnrichment.streamingLinks && webEnrichment.streamingLinks.length > 0 && (
+                                      webEnrichment.streamingLinks.map((link, idx) => (
+                                        <a
+                                          key={idx}
+                                          href={link.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90"
+                                        >
+                                          <Play className="w-3 h-3" /> {link.platform}
+                                        </a>
+                                      ))
+                                    )}
+                                    
                                     {webEnrichment.reservationUrl && (
                                       <a
                                         href={webEnrichment.reservationUrl}
@@ -1376,7 +1576,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md hover:bg-primary/90"
                                       >
-                                        🗓️ Reserve
+                                        <CalendarPlus className="w-3 h-3" /> Reserve
                                       </a>
                                     )}
                                     {webEnrichment.website && (
@@ -1386,7 +1586,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md hover:bg-secondary/80"
                                       >
-                                        🌐 Website
+                                        <Globe className="w-3 h-3" /> Website
                                       </a>
                                     )}
                                     {webEnrichment.phone && (
@@ -1394,7 +1594,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                         href={`tel:${webEnrichment.phone}`}
                                         className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md hover:bg-secondary/80"
                                       >
-                                        📞 Call
+                                        <Phone className="w-3 h-3" /> Call
                                       </a>
                                     )}
                                   </div>
