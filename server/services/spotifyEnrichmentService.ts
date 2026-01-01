@@ -7,13 +7,9 @@
 
 import { SpotifyApi } from "@spotify/web-api-ts-sdk";
 
-let connectionSettings: any;
-
+// WARNING: Never cache the client - access tokens expire
+// Always fetch fresh credentials from Replit connector API
 async function getAccessToken() {
-  if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
-    return connectionSettings.settings.access_token;
-  }
-  
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY 
     ? 'repl ' + process.env.REPL_IDENTITY 
@@ -25,7 +21,9 @@ async function getAccessToken() {
     throw new Error('Spotify integration not configured - missing Replit tokens');
   }
 
-  connectionSettings = await fetch(
+  console.log('[SPOTIFY] Fetching fresh credentials from Replit connector...');
+  
+  const response = await fetch(
     'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=spotify',
     {
       headers: {
@@ -33,20 +31,36 @@ async function getAccessToken() {
         'X_REPLIT_TOKEN': xReplitToken
       }
     }
-  ).then(res => res.json()).then(data => data.items?.[0]);
+  );
+  
+  const data = await response.json();
+  const connectionSettings = data.items?.[0];
+  
+  if (!connectionSettings) {
+    console.warn('[SPOTIFY] No connection found in response:', JSON.stringify(data).substring(0, 200));
+    throw new Error('Spotify not connected - no connection settings found');
+  }
   
   const refreshToken = connectionSettings?.settings?.oauth?.credentials?.refresh_token;
-  const accessToken = connectionSettings?.settings?.access_token || connectionSettings.settings?.oauth?.credentials?.access_token;
+  const accessToken = connectionSettings?.settings?.access_token || connectionSettings?.settings?.oauth?.credentials?.access_token;
   const clientId = connectionSettings?.settings?.oauth?.credentials?.client_id;
-  const expiresIn = connectionSettings.settings?.oauth?.credentials?.expires_in;
+  const expiresIn = connectionSettings?.settings?.oauth?.credentials?.expires_in;
   
-  if (!connectionSettings || (!accessToken || !clientId || !refreshToken)) {
-    throw new Error('Spotify not connected');
+  console.log('[SPOTIFY] Credentials retrieved:', { 
+    hasAccessToken: !!accessToken, 
+    hasClientId: !!clientId, 
+    hasRefreshToken: !!refreshToken,
+    expiresIn 
+  });
+  
+  if (!accessToken || !clientId || !refreshToken) {
+    throw new Error('Spotify not connected - missing credentials');
   }
   
   return { accessToken, clientId, refreshToken, expiresIn };
 }
 
+// WARNING: Never cache this client - always get a fresh one
 async function getSpotifyClient(): Promise<SpotifyApi | null> {
   try {
     const { accessToken, clientId, refreshToken, expiresIn } = await getAccessToken();
