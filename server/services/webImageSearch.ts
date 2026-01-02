@@ -61,9 +61,66 @@ export async function searchActivityImage(
 }
 
 /**
+ * Extract location keywords from text (cities, countries, landmarks)
+ */
+function extractLocationKeywords(text: string): string[] {
+  const locations: string[] = [];
+  const textLower = text.toLowerCase();
+  
+  // Common cities and landmarks
+  const knownLocations = [
+    'new york', 'nyc', 'manhattan', 'brooklyn', 'times square', 'central park',
+    'los angeles', 'la', 'hollywood', 'santa monica', 'venice beach',
+    'paris', 'eiffel tower', 'louvre', 'champs elysees',
+    'london', 'big ben', 'tower bridge', 'buckingham palace',
+    'tokyo', 'shibuya', 'shinjuku', 'kyoto', 'osaka',
+    'rome', 'colosseum', 'vatican', 'venice', 'florence',
+    'barcelona', 'madrid', 'lisbon', 'amsterdam', 'berlin',
+    'dubai', 'abu dhabi', 'singapore', 'hong kong', 'bangkok',
+    'sydney', 'melbourne', 'auckland', 'bali', 'phuket',
+    'miami', 'san francisco', 'chicago', 'boston', 'seattle',
+    'hawaii', 'maui', 'cancun', 'caribbean', 'bahamas',
+    'big bear', 'lake tahoe', 'aspen', 'colorado', 'yellowstone',
+    'grand canyon', 'yosemite', 'zion', 'glacier', 'acadia',
+    'maldives', 'santorini', 'amalfi', 'capri', 'monaco',
+    'mexico city', 'lagos', 'cairo', 'marrakech', 'cape town'
+  ];
+  
+  for (const loc of knownLocations) {
+    if (textLower.includes(loc)) {
+      locations.push(loc);
+    }
+  }
+  
+  return locations;
+}
+
+/**
+ * Get category-specific aesthetic keywords for better image results
+ */
+function getCategoryAestheticKeywords(category: string): string {
+  const categoryKeywords: Record<string, string> = {
+    'travel': 'scenic destination landscape cinematic',
+    'fitness': 'athletic outdoor nature wellness',
+    'health': 'wellness spa nature peaceful',
+    'career': 'professional modern architecture',
+    'learning': 'education library academic',
+    'finance': 'business urban skyline modern',
+    'relationships': 'romantic scenic sunset beautiful',
+    'creativity': 'artistic colorful creative design',
+    'home': 'cozy interior modern lifestyle',
+    'personal': 'inspirational scenic beautiful',
+    'other': 'scenic beautiful landscape'
+  };
+  
+  return categoryKeywords[category.toLowerCase()] || 'scenic beautiful';
+}
+
+/**
  * Search for multiple backdrop options (for image picker UI)
  * Returns up to 8 options: Tavily results + HD fallbacks
  * Uses activity description/planSummary for more specific search queries
+ * Enhanced with location extraction and cinematic keywords
  */
 export async function searchBackdropOptions(
   activityTitle: string,
@@ -76,33 +133,59 @@ export async function searchBackdropOptions(
   try {
     // Try Tavily search first
     if (process.env.TAVILY_API_KEY) {
-      // Build a more specific search query using description
-      let searchContext = activityTitle;
-      if (description) {
-        // Extract first 150 chars of description for better context
-        const snippet = description.substring(0, 150).replace(/\s+/g, ' ').trim();
-        searchContext = `${activityTitle} ${snippet}`;
+      // Combine title and description for location extraction
+      const fullContext = `${activityTitle} ${description || ''}`;
+      
+      // Extract location keywords
+      const locations = extractLocationKeywords(fullContext);
+      const locationStr = locations.length > 0 ? locations.slice(0, 2).join(' ') : '';
+      
+      // Get category-specific aesthetic keywords
+      const aestheticKeywords = getCategoryAestheticKeywords(category);
+      
+      // Build a rich, specific search query
+      // Priority: location > activity title keywords > category aesthetics
+      let searchQuery = '';
+      if (locationStr) {
+        // If we have a location, prioritize it with cinematic modifiers
+        searchQuery = `${locationStr} ${aestheticKeywords} high quality 16:9 wallpaper`;
+      } else {
+        // Extract key nouns from title (first 50 chars)
+        const titleKeywords = activityTitle.substring(0, 50).replace(/[^\w\s]/g, '').trim();
+        searchQuery = `${titleKeywords} ${aestheticKeywords} cinematic 16:9 backdrop`;
       }
-      const searchQuery = `${searchContext} ${category} beautiful scenic photo`;
-      console.log(`[WebImageSearch] Searching backdrop options for: "${searchQuery}"`);
+      
+      console.log(`[WebImageSearch] Searching backdrop options:`);
+      console.log(`  - Title: "${activityTitle}"`);
+      console.log(`  - Locations found: ${locations.length > 0 ? locations.join(', ') : 'none'}`);
+      console.log(`  - Query: "${searchQuery}"`);
 
       const response = await tavilyClient.search(searchQuery, {
         searchDepth: 'advanced',
-        maxResults: 6,
+        maxResults: 8,
         includeImages: true,
         includeAnswer: false,
       });
 
       const images = response.images || [];
-      for (const img of images.slice(0, 6)) {
+      console.log(`[WebImageSearch] Tavily returned ${images.length} images`);
+      
+      // Use all available images up to maxOptions for more variety
+      for (const img of images.slice(0, maxOptions)) {
         if (img.url) {
+          // Create a descriptive label from location or category
+          const label = locationStr 
+            ? locationStr.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+            : 'Web Result';
           options.push({
             url: img.url,
             source: 'tavily',
-            label: 'Web Result'
+            label
           });
         }
       }
+    } else {
+      console.log('[WebImageSearch] TAVILY_API_KEY not configured');
     }
   } catch (error) {
     console.error('[WebImageSearch] Error fetching Tavily images:', error);
@@ -112,7 +195,7 @@ export async function searchBackdropOptions(
   const fallbacks = getMultipleFallbackImages(category, activityTitle, maxOptions - options.length);
   options.push(...fallbacks);
 
-  console.log(`[WebImageSearch] Returning ${options.length} backdrop options`);
+  console.log(`[WebImageSearch] Returning ${options.length} backdrop options (${options.filter(o => o.source === 'tavily').length} from Tavily)`);
   return options.slice(0, maxOptions);
 }
 
