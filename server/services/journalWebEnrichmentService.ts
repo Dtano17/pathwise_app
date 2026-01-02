@@ -737,20 +737,25 @@ Respond with ONLY a JSON object in this format:
     // MOVIE-specific extraction - CRITICAL for preventing mismatches
     if (contentType === 'movie' || contentType === 'movies') {
       const moviePatterns = [
+        // PRIORITY 1: Single-quoted titles - e.g., "Stream or rent 'Die My Love'" -> "Die My Love"
+        // These are very reliable because they have explicit delimiters
+        /'([^']+)'/,
+        // PRIORITY 2: Double-quoted titles - e.g., 'Watch "Sinners"' -> "Sinners"
+        /"([^"]+)"/,
         // "Watch Mission Impossible: The Final Reckoning (#1 ranked movie)" - extract before hashtag/parenthesis
-        /(?:watch|streaming|stream|see|cinema|theater)\s+([^#(\n]+?)(?:\s*[#(\n]|$)/i,
+        /(?:watch|streaming|stream|see|cinema|theater)\s+([^#('"\n]+?)(?:\s*[#(\n]|$)/i,
         // "Stream Sinners (#2 ranked movie)" - extract title between keyword and parenthesis  
-        /(?:watch|streaming|stream|see)\s+([^(]+?)\s*\(/i,
-        // "Watch [Title]" - common movie entry format
-        /^(?:Watch|Watching|Watched|See|Saw|Stream|Streaming)\s+["']?([^"'\-–—#(]+?)["']?(?:\s*[-–—#(]|$)/i,
+        /(?:watch|streaming|stream|see)\s+([^('"\n]+?)\s*\(/i,
+        // "Watch [Title]" - common movie entry format (no quotes in title)
+        /^(?:Watch|Watching|Watched|See|Saw|Stream|Streaming)\s+([^"'\-–—#(]+?)(?:\s*[-–—#(]|$)/i,
         // "[Title] movie" or "[Title] film"
-        /^["']?([^"'\-–—#(]+?)["']?\s+(?:movie|film)(?:\s|$)/i,
+        /^([^"'\-–—#(]+?)\s+(?:movie|film)(?:\s|$)/i,
         // Title - description (extract before first dash)
-        /^([^-–—#(]+?)\s*[-–—]\s*.+(?:movie|film|watch|stream|theater|cinema)/i,
+        /^([^-–—#("']+?)\s*[-–—]\s*.+(?:movie|film|watch|stream|theater|cinema)/i,
         // Title followed by year in parentheses: "Title (2024)"
-        /^["']?([^"'(]+?)["']?\s*\(\d{4}\)/,
-        // Fallback: first part before dash or parenthesis
-        /^([^-–—#(]+)/,
+        /^([^"'(]+?)\s*\(\d{4}\)/,
+        // Fallback: first part before dash or parenthesis (no quotes)
+        /^([^-–—#("']+)/,
       ];
 
       for (const pattern of moviePatterns) {
