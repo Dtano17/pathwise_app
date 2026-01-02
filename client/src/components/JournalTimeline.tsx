@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Search, Filter, RefreshCw, Image as ImageIcon, Smile, MapPin, Tag, Download, ArrowLeft, Sparkles, PlusCircle, ExternalLink, Hash } from 'lucide-react';
+import { Calendar, Search, Filter, RefreshCw, Image as ImageIcon, Smile, MapPin, Tag, Download, ArrowLeft, Sparkles, PlusCircle, ExternalLink, Hash, Zap } from 'lucide-react';
 import { SiInstagram, SiTiktok, SiYoutube, SiFacebook, SiReddit, SiX, SiOpenai } from 'react-icons/si';
 import { getCategoryColor } from '@/hooks/useKeywordDetection';
 import ExportDialog from './ExportDialog';
@@ -301,6 +301,37 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
     }
   };
 
+  // Mutation for re-enriching low-confidence entries
+  const lowConfidenceEnrichMutation = useMutation({
+    mutationFn: async ({ confidenceThreshold = 0.7, categories }: { confidenceThreshold?: number, categories?: string[] }) => {
+      const response = await apiRequest('POST', '/api/journal/entries/enrich/low-confidence', {
+        confidenceThreshold,
+        categories
+      });
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+      toast({
+        title: "Low-Confidence Entries Re-Enriched",
+        description: `${data.stats.successful}/${data.stats.total} entries updated, ${data.stats.corrected} categories corrected.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Re-Enrichment Failed",
+        description: error.message || "Failed to re-enrich low-confidence entries.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleRefreshLowConfidence = () => {
+    // Only re-enrich entries in the current category filter if one is selected
+    const categories = categoryFilter !== 'all' ? [categoryFilter] : undefined;
+    lowConfidenceEnrichMutation.mutate({ confidenceThreshold: 0.7, categories });
+  };
+
   // Mutation to create activity from journal entry with AI-generated tasks
   const createActivityMutation = useMutation({
     mutationFn: async (entry: JournalEntry & { category: string }) => {
@@ -463,6 +494,17 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
               title="Refresh all previews"
             >
               <RefreshCw className={`h-4 w-4 ${isLoading || batchEnrichMutation.isPending ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefreshLowConfidence}
+              disabled={isLoading || lowConfidenceEnrichMutation.isPending}
+              title="Fix miscategorized entries using AI validation"
+              className="gap-1.5"
+            >
+              <Zap className={`h-4 w-4 ${lowConfidenceEnrichMutation.isPending ? 'animate-pulse text-yellow-500' : 'text-orange-500'}`} />
+              <span className="hidden sm:inline">Fix Issues</span>
             </Button>
           </div>
         </div>

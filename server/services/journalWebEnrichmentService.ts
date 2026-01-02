@@ -15,7 +15,7 @@
 
 import { tavily } from '@tavily/core';
 import Anthropic from '@anthropic-ai/sdk';
-import { tmdbService } from './tmdbService';
+import { tmdbService, TMDBSearchResult } from './tmdbService';
 import { spotifyEnrichmentService } from './spotifyEnrichmentService';
 
 // ============================================================================
@@ -301,23 +301,32 @@ class JournalWebEnrichmentService {
   // AI CATEGORY VALIDATOR - Detects if content belongs to a different category
   // ==========================================================================
 
-  private async validateAndCorrectCategory(text: string, currentCategory: string, venueName?: string): Promise<{ category: string; confidence: number }> {
+  /**
+   * Validate and potentially correct the category based on content signals.
+   * Returns the TMDB result if a movie is detected to avoid duplicate API calls.
+   */
+  private async validateAndCorrectCategory(
+    text: string,
+    currentCategory: string,
+    venueName?: string
+  ): Promise<{ category: string; confidence: number; tmdbResult?: TMDBSearchResult }> {
     const textLower = text.toLowerCase();
-    
+
     // 1. Check for Movie/TV signals - be aggressive for Entertainment category
     const movieKeywords = ['movie', 'film', 'cinema', 'watch', 'streaming', 'netflix', 'hulu', 'hbo', 'disney+', 'theater', 'premiere', 'ranked movie', 'stream', '#1 ranked', '#2 ranked', '#3 ranked'];
     const isMovieSignal = movieKeywords.some(kw => textLower.includes(kw));
-    const isEntertainmentCategory = currentCategory === 'Entertainment' || 
+    const isEntertainmentCategory = currentCategory === 'Entertainment' ||
                                      currentCategory === 'custom-entertainment' ||
                                      currentCategory === 'movies' ||
                                      currentCategory === 'Movies & TV Shows';
-    
+
     // For Entertainment category, ALWAYS check TMDB to verify if it's a movie
+    // OPTIMIZATION: Return the TMDB result to avoid calling TMDB again in enrichment
     if ((isMovieSignal || isEntertainmentCategory) && tmdbService.isAvailable() && venueName) {
       const tmdbResult = await tmdbService.searchMovie(venueName);
       if (tmdbResult) {
-        console.log(`[CATEGORY_VALIDATOR] Corrected "${venueName}" to Movies & TV Shows via TMDB`);
-        return { category: 'Movies & TV Shows', confidence: 0.98 };
+        console.log(`[CATEGORY_VALIDATOR] Confirmed "${venueName}" as movie via TMDB (cached for enrichment)`);
+        return { category: 'Movies & TV Shows', confidence: 0.98, tmdbResult };
       }
     }
 
@@ -340,6 +349,62 @@ class JournalWebEnrichmentService {
     const isTravelSignal = travelKeywords.some(kw => textLower.includes(kw));
     if (isTravelSignal && currentCategory !== 'Travel & Places') {
       return { category: 'Travel & Places', confidence: 0.85 };
+    }
+
+    // 5. LOW CONFIDENCE - Use AI + Tavily to validate category
+    // For entries with no clear signals, search the web to determine what this content actually is
+    if (venueName && this.tavilyClient) {
+      try {
+        console.log(`[CATEGORY_VALIDATOR] Low confidence for "${venueName}", using Tavily + AI for validation`);
+
+        // Search web for this entity
+        const searchResponse = await this.tavilyClient.search(venueName, {
+          maxResults: 3,
+          searchDepth: 'basic'
+        });
+
+        if (searchResponse.results && searchResponse.results.length > 0) {
+          // Use AI to analyze search results and determine category
+          const combinedContent = searchResponse.results
+            .map(r => `${r.title}\n${r.content}`)
+            .join('\n\n');
+
+          if (this.anthropic) {
+            const aiValidation = await this.anthropic.messages.create({
+              model: 'claude-3-5-haiku-20241022',
+              max_tokens: 200,
+              messages: [{
+                role: 'user',
+                content: `Based on this web search result, what type of content is "${venueName}"?
+
+${combinedContent}
+
+Respond with ONLY a JSON object in this format:
+{
+  "category": "Movies & TV Shows" | "Books & Reading" | "Music & Artists" | "Restaurants & Food" | "Travel & Places" | "Fitness & Exercise" | "Shopping" | "Activities" | "Notes",
+  "confidence": 0.0-1.0,
+  "reasoning": "brief explanation"
+}`
+              }]
+            });
+
+            const aiText = aiValidation.content[0].type === 'text' ? aiValidation.content[0].text : '';
+            const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+
+            if (jsonMatch) {
+              const aiResult = JSON.parse(jsonMatch[0]);
+              console.log(`[CATEGORY_VALIDATOR] AI validation result: ${aiResult.category} (confidence: ${aiResult.confidence})`);
+              return {
+                category: aiResult.category,
+                confidence: aiResult.confidence
+              };
+            }
+          }
+        }
+      } catch (error) {
+        console.warn(`[CATEGORY_VALIDATOR] AI validation failed:`, error);
+        // Fall through to default
+      }
     }
 
     return { category: currentCategory, confidence: 0.5 };
@@ -383,23 +448,30 @@ class JournalWebEnrichmentService {
       }
 
       // AI CATEGORY VALIDATION & CORRECTION
+      // NOTE: validation.tmdbResult may contain TMDB data if movie was detected (avoids duplicate API call)
       const validation = await this.validateAndCorrectCategory(entry.text, entry.category, venueName);
       const effectiveCategory = validation.category;
 
-      console.log(`[JOURNAL_WEB_ENRICH] Category validation: original="${entry.category}", validated="${effectiveCategory}", confidence=${validation.confidence}`);
+      console.log(`[JOURNAL_WEB_ENRICH] Category validation: original="${entry.category}", validated="${effectiveCategory}", confidence=${validation.confidence}${validation.tmdbResult ? ' (TMDB cached)' : ''}`);
 
       // MOVIES/TV: Check FIRST because TMDB validation is most authoritative
-      // This prevents movies miscategorized as "Entertainment" or "books" from going to wrong APIs
+      // OPTIMIZATION: Use cached tmdbResult from validation if available (avoids duplicate API call)
       const isMovie = effectiveCategory === 'movie' || effectiveCategory === 'movies' ||
                       effectiveCategory === 'Movies & TV Shows' || effectiveCategory === 'Movies & TV' ||
                       entry.category === 'movies' || entry.category === 'Movies & TV Shows' ||
                       entry.category === 'Movies & TV' || entry.category === 'Entertainment' ||
                       entry.category === 'custom-entertainment';
-      
+
       if (isMovie && tmdbService.isAvailable()) {
-        console.log(`[JOURNAL_WEB_ENRICH] Using TMDB for movie: "${venueName}"`);
-        const tmdbResult = await tmdbService.searchMovie(venueName);
-        
+        // Use cached result from validation if available, otherwise search
+        const tmdbResult = validation.tmdbResult || await tmdbService.searchMovie(venueName);
+
+        if (validation.tmdbResult) {
+          console.log(`[JOURNAL_WEB_ENRICH] Using cached TMDB result for movie: "${venueName}"`);
+        } else {
+          console.log(`[JOURNAL_WEB_ENRICH] Searching TMDB for movie: "${venueName}"`);
+        }
+
         if (tmdbResult) {
           const enrichedData: WebEnrichedData = {
             venueVerified: true,
@@ -407,10 +479,10 @@ class JournalWebEnrichmentService {
             venueName: tmdbResult.title,
             venueDescription: tmdbResult.overview?.substring(0, 300),
             primaryImageUrl: tmdbResult.posterUrl || undefined,
-            mediaUrls: tmdbResult.posterUrl ? [{ 
-              url: tmdbResult.posterUrl, 
-              type: 'image' as const, 
-              source: 'tmdb' 
+            mediaUrls: tmdbResult.posterUrl ? [{
+              url: tmdbResult.posterUrl,
+              type: 'image' as const,
+              source: 'tmdb'
             }] : undefined,
             rating: tmdbResult.rating ? tmdbResult.rating / 2 : undefined,
             reviewCount: tmdbResult.ratingCount,
@@ -420,7 +492,7 @@ class JournalWebEnrichmentService {
             runtime: tmdbResult.runtime,
             genre: tmdbResult.genres?.join(', '),
             suggestedCategory: 'Movies & TV Shows',
-            categoryConfidence: 0.98,
+            categoryConfidence: validation.confidence, // Use dynamic confidence from validation
             enrichedAt: new Date().toISOString(),
             enrichmentSource: 'google',
             streamingLinks: [
@@ -463,7 +535,7 @@ class JournalWebEnrichmentService {
             publisher: googleBooksResult.publisher,
             publicationYear: googleBooksResult.publishedDate?.substring(0, 4),
             suggestedCategory: 'Books & Reading',
-            categoryConfidence: 0.95,
+            categoryConfidence: validation.confidence, // Use dynamic confidence from validation
             enrichedAt: new Date().toISOString(),
             enrichmentSource: 'google',
             // Generate purchase links with ISBN for better results
@@ -519,7 +591,7 @@ class JournalWebEnrichmentService {
               }] : undefined,
               website: spotifyResult.spotifyUrl,
               suggestedCategory: 'music',
-              categoryConfidence: 0.98,
+              categoryConfidence: validation.confidence, // Use dynamic confidence from validation
               enrichedAt: new Date().toISOString(),
               enrichmentSource: 'google',
               streamingLinks: [
@@ -566,7 +638,8 @@ class JournalWebEnrichmentService {
         searchResponse.images,
         venueName,
         city,
-        effectiveCategory
+        effectiveCategory,
+        validation.confidence // Pass validation confidence
       );
 
       // Cache the result
@@ -820,11 +893,42 @@ class JournalWebEnrichmentService {
    * Detect the actual content type from the entry text BEFORE searching.
    * This prevents misclassification like "Biography" being searched as a museum.
    * Returns the detected category or null if no strong signals found.
+   *
+   * PRIORITY ORDER: Travel > Movies > Music > Restaurant > Fitness > Books
+   * Travel is checked first to prevent "Lonely Planet Guide to Paris" being detected as a book.
    */
   private detectContentType(text: string): string | null {
     const lowerText = text.toLowerCase();
-    
-    // BOOKS - Strong signals (avoid movie titles like "Sinners")
+
+    // TRAVEL - Check FIRST to prevent travel guides from being detected as books
+    // "Lonely Planet Guide to Paris" should be travel, not book
+    const travelSignals = [
+      /\bhotel\b/i,
+      /\bresort\b/i,
+      /\btravel\b/i,
+      /\bflight\b/i,
+      /\bairport\b/i,
+      /\bvacation\b/i,
+      /\btrip\b/i,
+      /\bvisit(?:ed|ing)?\s+(?:the\s+)?[A-Z]/,  // "visited Paris", "visiting the Louvre"
+      /\bstayed at\b/i,
+      /\bmuseum\b/i,
+      /\blandmark\b/i,
+      /\bbeach\b/i,
+      /\bguide\s+to\s+[A-Z]/i,  // "Guide to Paris" - TRAVEL, not book
+      /\btravel guide\b/i,
+      /\blonely planet\b/i,
+      /\bfodor/i,
+      /\btripadvisor\b/i,
+      /\bbooking\.com\b/i,
+      /\bairbnb\b/i,
+      /\bdestination\b/i,
+      /\bsightseeing\b/i,
+      /\btour\b/i,
+      /\bitinerary\b/i,
+    ];
+
+    // BOOKS - Strong signals (REMOVED: /\bguide\s+to\b/i - too generic, matches travel)
     const bookSignals = [
       /\bbiography\b/i,
       /\bmemoir\b/i,
@@ -842,25 +946,14 @@ class JournalWebEnrichmentService {
       /\bbestseller\b/i,
       /\bbest-seller\b/i,
       /\btextbook\b/i,
-      /\bguide\s+to\b/i,
+      // REMOVED: /\bguide\s+to\b/i - matches travel guides like "Lonely Planet Guide to Paris"
       /\bself-help\b/i,
       /\bpaperback\b/i,
       /\bhardcover\b/i,
       /\baudiobook\b/i,
     ];
-    
-    // RESTAURANTS/BARS - Domain signals
-    const restaurantDomains = [
-      'yelp.com',
-      'foursquare.com',
-      'tripadvisor.com',
-      'opentable.com',
-      'eater.com',
-      'michelinguide.com',
-      'theinfatuation.com',
-      'zomato.com',
-    ];
 
+    // RESTAURANTS/BARS - Domain signals
     const restaurantSignals = [
       /\bdinner\b/i,
       /\blunch\b/i,
@@ -915,7 +1008,7 @@ class JournalWebEnrichmentService {
       /\bamc\b/i,            // Theater chain
       /\bimax\b/i,           // IMAX format
     ];
-    
+
     // MUSIC - Strong signals
     const musicSignals = [
       /\balbum\b/i,
@@ -931,7 +1024,7 @@ class JournalWebEnrichmentService {
       /\bmusician\b/i,
       /\bsinger\b/i,
     ];
-    
+
     // FITNESS/EXERCISE - Strong signals
     const fitnessSignals = [
       /\bexercise\b/i,
@@ -951,24 +1044,29 @@ class JournalWebEnrichmentService {
       /\bfitness\b/i,
       /\btraining\b/i,
     ];
-    
+
     // Count matches for each type
+    const travelMatches = travelSignals.filter(p => p.test(text)).length;
     const restaurantMatches = restaurantSignals.filter(p => p.test(text)).length;
     const bookMatches = bookSignals.filter(p => p.test(text)).length;
     const movieMatches = movieSignals.filter(p => p.test(text)).length;
     const musicMatches = musicSignals.filter(p => p.test(text)).length;
     const fitnessMatches = fitnessSignals.filter(p => p.test(text)).length;
-    
+
     // Need at least 1 signal to make a detection
-    const maxMatches = Math.max(restaurantMatches, bookMatches, movieMatches, musicMatches, fitnessMatches);
-    
+    const maxMatches = Math.max(travelMatches, restaurantMatches, bookMatches, movieMatches, musicMatches, fitnessMatches);
+
     if (maxMatches === 0) {
       return null;
     }
-    
+
     // Return the VENUE TYPE (not category) with most matches
-    // PRIORITY ORDER: Movies > Music > Restaurant > Fitness > Books
-    // Movies checked first because TMDB validation is most authoritative
+    // PRIORITY ORDER: Travel > Movies > Music > Restaurant > Fitness > Books
+    // Travel checked first to prevent "Guide to Paris" being detected as book
+    // Movies checked second because TMDB validation is most authoritative
+    if (travelMatches === maxMatches && travelMatches >= 1) {
+      return 'travel'; // venueType
+    }
     if (movieMatches === maxMatches && movieMatches >= 1) {
       return 'movie'; // venueType, not category
     }
@@ -984,7 +1082,7 @@ class JournalWebEnrichmentService {
     if (bookMatches === maxMatches && bookMatches >= 1) {
       return 'book'; // venueType, not category
     }
-    
+
     return null;
   }
 
@@ -1266,7 +1364,8 @@ class JournalWebEnrichmentService {
     images: string[],
     venueName: string,
     city?: string,
-    category?: string
+    category?: string,
+    validationConfidence?: number
   ): Promise<WebEnrichedData> {
     const enrichedData: WebEnrichedData = {
       venueVerified: false,
@@ -1347,7 +1446,7 @@ class JournalWebEnrichmentService {
     // Set suggested category based on venue type
     if (enrichedData.venueType) {
       enrichedData.suggestedCategory = VENUE_TYPE_TO_CATEGORY[enrichedData.venueType] || category || 'notes';
-      enrichedData.categoryConfidence = 0.85;
+      enrichedData.categoryConfidence = validationConfidence || 0.85; // Use dynamic confidence from validation
     }
 
     // Generate purchase links for books if not provided by AI

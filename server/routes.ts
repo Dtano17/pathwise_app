@@ -3007,6 +3007,205 @@ ${sitemaps.map(sitemap => `  <sitemap>
     }
   });
 
+  // GET /api/journal/entries/confidence-stats - Get confidence score statistics
+  app.get("/api/journal/entries/confidence-stats", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Get all user entries
+      const allUserEntries = await storage.getUserJournalEntries(userId);
+
+      // Calculate statistics by category
+      const stats: any = {
+        total: 0,
+        enriched: 0,
+        byCategory: {},
+        confidenceDistribution: {
+          high: 0,      // >= 0.9
+          medium: 0,    // 0.7 - 0.89
+          low: 0,       // 0.5 - 0.69
+          veryLow: 0,   // < 0.5
+          missing: 0    // no confidence score
+        }
+      };
+
+      allUserEntries.forEach(entry => {
+        stats.total++;
+        const enrichment = entry.metadata?.enrichment;
+
+        if (enrichment) {
+          stats.enriched++;
+          const confidence = enrichment.categoryConfidence;
+          const category = entry.category;
+
+          // Initialize category stats if needed
+          if (!stats.byCategory[category]) {
+            stats.byCategory[category] = {
+              total: 0,
+              enriched: 0,
+              avgConfidence: 0,
+              confidenceSum: 0,
+              low: 0
+            };
+          }
+
+          stats.byCategory[category].total++;
+          stats.byCategory[category].enriched++;
+
+          if (confidence !== undefined) {
+            stats.byCategory[category].confidenceSum += confidence;
+
+            // Update distribution
+            if (confidence >= 0.9) {
+              stats.confidenceDistribution.high++;
+            } else if (confidence >= 0.7) {
+              stats.confidenceDistribution.medium++;
+            } else if (confidence >= 0.5) {
+              stats.confidenceDistribution.low++;
+            } else {
+              stats.confidenceDistribution.veryLow++;
+            }
+
+            // Track low confidence entries per category
+            if (confidence < 0.7) {
+              stats.byCategory[category].low++;
+            }
+          } else {
+            stats.confidenceDistribution.missing++;
+          }
+        } else {
+          const category = entry.category;
+          if (!stats.byCategory[category]) {
+            stats.byCategory[category] = {
+              total: 0,
+              enriched: 0,
+              avgConfidence: 0,
+              confidenceSum: 0,
+              low: 0
+            };
+          }
+          stats.byCategory[category].total++;
+        }
+      });
+
+      // Calculate averages
+      Object.keys(stats.byCategory).forEach(category => {
+        const catStats = stats.byCategory[category];
+        if (catStats.enriched > 0) {
+          catStats.avgConfidence = catStats.confidenceSum / catStats.enriched;
+        }
+        delete catStats.confidenceSum; // Remove internal calculation field
+      });
+
+      res.json({ success: true, stats });
+    } catch (error) {
+      console.error('Confidence stats error:', error);
+      res.status(500).json({ error: 'Failed to get confidence statistics' });
+    }
+  });
+
+  // POST /api/journal/entries/enrich/low-confidence - Re-enrich entries with low confidence scores
+  app.post("/api/journal/entries/enrich/low-confidence", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { confidenceThreshold = 0.7, categories } = req.body;
+
+      console.log(`[JOURNAL_RE_ENRICH] Finding low-confidence entries (threshold: ${confidenceThreshold})`);
+
+      // Get all user entries
+      const allUserEntries = await storage.getUserJournalEntries(userId);
+
+      // Filter entries with low confidence scores or missing confidence
+      const lowConfidenceEntries = allUserEntries.filter(entry => {
+        const enrichment = entry.metadata?.enrichment;
+
+        // Skip entries without enrichment
+        if (!enrichment) return false;
+
+        // Filter by category if specified
+        if (categories && categories.length > 0) {
+          const normalizeCategory = (c: string) => c.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const normalizedEntryCategory = normalizeCategory(entry.category);
+          const normalizedFilterCategories = categories.map((c: string) => normalizeCategory(c));
+
+          if (!normalizedFilterCategories.includes(normalizedEntryCategory)) {
+            return false;
+          }
+        }
+
+        // Include if confidence is missing or below threshold
+        const confidence = enrichment.categoryConfidence;
+        return confidence === undefined || confidence < confidenceThreshold;
+      });
+
+      console.log(`[JOURNAL_RE_ENRICH] Found ${lowConfidenceEntries.length} low-confidence entries to re-enrich`);
+
+      if (lowConfidenceEntries.length === 0) {
+        return res.json({
+          success: true,
+          message: 'No low-confidence entries found',
+          results: []
+        });
+      }
+
+      // Prepare entries for enrichment
+      const entriesToEnrich = lowConfidenceEntries.map(e => ({
+        id: e.id,
+        text: e.content,
+        category: e.category,
+        existingEnrichment: e.metadata?.enrichment
+      }));
+
+      // Use the web enrichment service with force refresh
+      const results = await journalWebEnrichmentService.enrichBatch(entriesToEnrich, true);
+
+      // Save enrichment results back to storage and apply category corrections
+      let correctedCount = 0;
+      for (const result of results) {
+        if (result.success && result.enrichedData) {
+          const entry = allUserEntries.find(e => e.id === result.entryId);
+          if (entry) {
+            const updates: any = {
+              metadata: {
+                ...(entry.metadata || {}),
+                enrichment: result.enrichedData
+              }
+            };
+
+            // Auto-correct category if confidence improved significantly
+            if (result.enrichedData.suggestedCategory &&
+                result.enrichedData.categoryConfidence &&
+                result.enrichedData.categoryConfidence > confidenceThreshold &&
+                result.enrichedData.suggestedCategory !== entry.category) {
+
+              console.log(`[JOURNAL_RE_ENRICH] Auto-correcting entry ${entry.id}: ${entry.category} -> ${result.enrichedData.suggestedCategory} (confidence: ${result.enrichedData.categoryConfidence})`);
+              updates.category = result.enrichedData.suggestedCategory;
+              correctedCount++;
+            }
+
+            await storage.updateJournalEntry(entry.id, updates, userId);
+          }
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      console.log(`[JOURNAL_RE_ENRICH] Re-enrichment complete: ${successCount}/${results.length} successful, ${correctedCount} categories corrected`);
+
+      res.json({
+        success: true,
+        results,
+        stats: {
+          total: lowConfidenceEntries.length,
+          successful: successCount,
+          corrected: correctedCount
+        }
+      });
+    } catch (error) {
+      console.error('Low-confidence re-enrichment error:', error);
+      res.status(500).json({ error: 'Failed to process low-confidence re-enrichment' });
+    }
+  });
+
   // Create demo user if not exists (for backwards compatibility)
   const existingUser = await storage.getUser(DEMO_USER_ID);
   if (!existingUser) {
@@ -11372,9 +11571,20 @@ You can find these tasks in your task list and start working on them right away!
 
       // Web enrichment (async, non-blocking) for venue-type entries
       // Run in background to not slow down the save
-      // Extended list: includes hobbies, style/fashion, self-care for better UI
-      const webEnrichableCategories = ['restaurants', 'travel', 'activities', 'music', 'movies', 'shopping', 'fitness', 'books', 'hobbies', 'style', 'self-care'];
-      if (webEnrichableCategories.includes(category)) {
+      // Extended list: includes hobbies, style/fashion, self-care, and custom categories
+      const webEnrichableCategories = [
+        'restaurants', 'travel', 'activities', 'music', 'movies', 'shopping',
+        'fitness', 'books', 'hobbies', 'style', 'self-care',
+        // Custom categories (common user-created ones)
+        'entertainment', 'Entertainment', 'custom-entertainment',
+        'notes', 'favorites', 'work', 'personal'
+      ];
+      // Normalize category check to be case-insensitive
+      const normalizedCategory = category.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const isEnrichable = webEnrichableCategories.some(c =>
+        c.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedCategory
+      );
+      if (isEnrichable) {
         // Don't await - run in background
         (async () => {
           try {
@@ -11685,11 +11895,29 @@ You can find these tasks in your task list and start working on them right away!
       const prefs = await storage.getUserPreferences(userId);
       const journalData = prefs?.preferences?.journalData || {};
 
-      // Determine which categories to enrich (extended list)
-      const webEnrichableCategories = ['restaurants', 'travel', 'activities', 'music', 'movies', 'shopping', 'fitness', 'books', 'hobbies', 'style', 'self-care'];
+      // Determine which categories to enrich (extended list with custom categories)
+      const webEnrichableCategories = [
+        'restaurants', 'travel', 'activities', 'music', 'movies', 'shopping',
+        'fitness', 'books', 'hobbies', 'style', 'self-care',
+        // Custom categories (common user-created ones)
+        'entertainment', 'Entertainment', 'custom-entertainment',
+        'notes', 'favorites', 'work', 'personal'
+      ];
+
+      // Normalize function for case-insensitive matching
+      const normalizeCategory = (c: string) => c.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      // Get all existing journal categories that match our enrichable list
+      const allJournalCategories = Object.keys(journalData);
+
       const categoriesToEnrich = categories?.length > 0
-        ? categories.filter((c: string) => webEnrichableCategories.includes(c))
-        : webEnrichableCategories.filter(c => journalData[c]?.length > 0);
+        ? categories.filter((c: string) =>
+            webEnrichableCategories.some(wc => normalizeCategory(wc) === normalizeCategory(c))
+          )
+        : allJournalCategories.filter(c =>
+            webEnrichableCategories.some(wc => normalizeCategory(wc) === normalizeCategory(c)) &&
+            journalData[c]?.length > 0
+          );
 
       let totalEnriched = 0;
       let totalFailed = 0;

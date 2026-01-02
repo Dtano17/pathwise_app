@@ -68,6 +68,10 @@ export interface TMDBSearchResult {
 class TMDBService {
   private apiKey: string | null = null;
 
+  // Minimum similarity threshold for accepting a TMDB result
+  // 0.5 = at least 50% of query words must match the result title
+  private readonly SIMILARITY_THRESHOLD = 0.4;
+
   constructor() {
     this.apiKey = process.env.TMDB_API_KEY || null;
     if (this.apiKey) {
@@ -86,6 +90,48 @@ class TMDBService {
     return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
   }
 
+  /**
+   * Calculate word-based similarity between query and result title.
+   * Returns a score 0-1 where 1 = perfect match.
+   *
+   * CRITICAL: This prevents "Wicked for Good" returning "Puppy Love" poster.
+   */
+  private calculateTitleSimilarity(query: string, resultTitle: string): number {
+    // Normalize both strings: lowercase, remove punctuation, collapse whitespace
+    const normalize = (s: string) => s.toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const normalizedQuery = normalize(query);
+    const normalizedResult = normalize(resultTitle);
+
+    // Exact match check first
+    if (normalizedQuery === normalizedResult) {
+      return 1.0;
+    }
+
+    // Check if one contains the other (partial match)
+    if (normalizedResult.includes(normalizedQuery) || normalizedQuery.includes(normalizedResult)) {
+      return 0.9;
+    }
+
+    // Word-based matching
+    const queryWordsArray = normalizedQuery.split(' ').filter(w => w.length > 1);
+    const resultWordsSet = new Set(normalizedResult.split(' ').filter(w => w.length > 1));
+
+    if (queryWordsArray.length === 0) return 0;
+
+    let matches = 0;
+    for (let i = 0; i < queryWordsArray.length; i++) {
+      if (resultWordsSet.has(queryWordsArray[i])) {
+        matches++;
+      }
+    }
+
+    return matches / queryWordsArray.length;
+  }
+
   async searchMovie(query: string): Promise<TMDBSearchResult | null> {
     if (!this.apiKey) {
       console.warn('[TMDB] Cannot search - no API key configured');
@@ -98,37 +144,62 @@ class TMDBService {
 
       const url = `${TMDB_BASE_URL}/search/movie?api_key=${this.apiKey}&query=${encodeURIComponent(cleanQuery)}&include_adult=false`;
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         console.error(`[TMDB] Search failed: ${response.status} ${response.statusText}`);
         return null;
       }
 
       const data = await response.json();
-      
+
       if (!data.results || data.results.length === 0) {
         console.log(`[TMDB] No movies found for: "${cleanQuery}"`);
         return await this.searchTV(cleanQuery);
       }
 
-      const movie = data.results[0] as TMDBMovie;
-      console.log(`[TMDB] Found movie: "${movie.title}" (${movie.release_date?.substring(0, 4)})`);
+      // CRITICAL FIX: Find the best matching result instead of blindly taking first
+      // This prevents "Wicked for Good" from returning "Puppy Love" poster
+      let bestMatch: TMDBMovie | null = null;
+      let bestScore = 0;
 
-      const details = await this.getMovieDetails(movie.id);
+      // Check top 5 results for best title match
+      for (const movie of data.results.slice(0, 5) as TMDBMovie[]) {
+        const score = this.calculateTitleSimilarity(cleanQuery, movie.title);
+        console.log(`[TMDB] Title match: "${movie.title}" = ${(score * 100).toFixed(0)}%`);
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = movie;
+        }
+
+        // Perfect or near-perfect match - stop searching
+        if (score >= 0.9) break;
+      }
+
+      // Reject if no result meets the similarity threshold
+      if (!bestMatch || bestScore < this.SIMILARITY_THRESHOLD) {
+        console.log(`[TMDB] No good movie match for "${cleanQuery}" (best score: ${(bestScore * 100).toFixed(0)}%, threshold: ${this.SIMILARITY_THRESHOLD * 100}%)`);
+        // Try TV as fallback
+        return await this.searchTV(cleanQuery);
+      }
+
+      console.log(`[TMDB] Best match: "${bestMatch.title}" (${bestMatch.release_date?.substring(0, 4)}) with ${(bestScore * 100).toFixed(0)}% similarity`);
+
+      const details = await this.getMovieDetails(bestMatch.id);
 
       return {
-        posterUrl: this.getImageUrl(movie.poster_path, 'w500'),
-        backdropUrl: this.getImageUrl(movie.backdrop_path, 'w780'),
-        title: movie.title,
-        overview: movie.overview,
-        releaseYear: movie.release_date?.substring(0, 4) || '',
-        rating: Math.round(movie.vote_average * 10) / 10,
-        ratingCount: movie.vote_count,
+        posterUrl: this.getImageUrl(bestMatch.poster_path, 'w500'),
+        backdropUrl: this.getImageUrl(bestMatch.backdrop_path, 'w780'),
+        title: bestMatch.title,
+        overview: bestMatch.overview,
+        releaseYear: bestMatch.release_date?.substring(0, 4) || '',
+        rating: Math.round(bestMatch.vote_average * 10) / 10,
+        ratingCount: bestMatch.vote_count,
         genres: details?.genres?.map(g => g.name) || [],
         director: details?.credits?.crew?.find(c => c.job === 'Director')?.name,
         cast: details?.credits?.cast?.slice(0, 5).map(c => c.name),
         runtime: details?.runtime ? `${details.runtime} min` : undefined,
-        tmdbId: movie.id,
+        tmdbId: bestMatch.id,
         mediaType: 'movie'
       };
     } catch (error) {
@@ -146,29 +217,50 @@ class TMDBService {
 
       const url = `${TMDB_BASE_URL}/search/tv?api_key=${this.apiKey}&query=${encodeURIComponent(cleanQuery)}&include_adult=false`;
       const response = await fetch(url);
-      
+
       if (!response.ok) return null;
 
       const data = await response.json();
-      
+
       if (!data.results || data.results.length === 0) {
         console.log(`[TMDB] No TV shows found for: "${cleanQuery}"`);
         return null;
       }
 
-      const show = data.results[0] as TMDBTVShow;
-      console.log(`[TMDB] Found TV show: "${show.name}" (${show.first_air_date?.substring(0, 4)})`);
+      // CRITICAL FIX: Find the best matching TV show instead of blindly taking first
+      let bestMatch: TMDBTVShow | null = null;
+      let bestScore = 0;
+
+      for (const show of data.results.slice(0, 5) as TMDBTVShow[]) {
+        const score = this.calculateTitleSimilarity(cleanQuery, show.name);
+        console.log(`[TMDB] TV match: "${show.name}" = ${(score * 100).toFixed(0)}%`);
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = show;
+        }
+
+        if (score >= 0.9) break;
+      }
+
+      // Reject if no result meets threshold
+      if (!bestMatch || bestScore < this.SIMILARITY_THRESHOLD) {
+        console.log(`[TMDB] No good TV match for "${cleanQuery}" (best score: ${(bestScore * 100).toFixed(0)}%)`);
+        return null;
+      }
+
+      console.log(`[TMDB] Best TV match: "${bestMatch.name}" (${bestMatch.first_air_date?.substring(0, 4)}) with ${(bestScore * 100).toFixed(0)}% similarity`);
 
       return {
-        posterUrl: this.getImageUrl(show.poster_path, 'w500'),
-        backdropUrl: this.getImageUrl(show.backdrop_path, 'w780'),
-        title: show.name,
-        overview: show.overview,
-        releaseYear: show.first_air_date?.substring(0, 4) || '',
-        rating: Math.round(show.vote_average * 10) / 10,
-        ratingCount: show.vote_count,
+        posterUrl: this.getImageUrl(bestMatch.poster_path, 'w500'),
+        backdropUrl: this.getImageUrl(bestMatch.backdrop_path, 'w780'),
+        title: bestMatch.name,
+        overview: bestMatch.overview,
+        releaseYear: bestMatch.first_air_date?.substring(0, 4) || '',
+        rating: Math.round(bestMatch.vote_average * 10) / 10,
+        ratingCount: bestMatch.vote_count,
         genres: [],
-        tmdbId: show.id,
+        tmdbId: bestMatch.id,
         mediaType: 'tv'
       };
     } catch (error) {
