@@ -298,6 +298,51 @@ class JournalWebEnrichmentService {
   }
 
   // ==========================================================================
+  // AI CATEGORY VALIDATOR - Detects if content belongs to a different category
+  // ==========================================================================
+
+  private async validateAndCorrectCategory(text: string, currentCategory: string, venueName?: string): Promise<{ category: string; confidence: number }> {
+    const textLower = text.toLowerCase();
+    
+    // 1. Check for Movie/TV signals
+    const movieKeywords = ['movie', 'film', 'cinema', 'watch', 'streaming', 'netflix', 'hulu', 'hbo', 'disney+', 'theater', 'premiere', 'ranked movie'];
+    const isMovieSignal = movieKeywords.some(kw => textLower.includes(kw));
+    
+    if (isMovieSignal || currentCategory === 'Entertainment' || currentCategory === 'movies') {
+      if (tmdbService.isAvailable() && venueName) {
+        const tmdbResult = await tmdbService.searchMovie(venueName);
+        if (tmdbResult) {
+          console.log(`[CATEGORY_VALIDATOR] Corrected "${venueName}" to Movies & TV Shows via TMDB`);
+          return { category: 'Movies & TV Shows', confidence: 0.98 };
+        }
+      }
+    }
+
+    // 2. Check for Book signals
+    const bookKeywords = ['read', 'book', 'novel', 'author', 'biography', 'memoir', 'chapters', 'finished reading', 'hardcover', 'paperback'];
+    const isBookSignal = bookKeywords.some(kw => textLower.includes(kw));
+    if (isBookSignal && currentCategory !== 'Books & Reading') {
+      return { category: 'Books & Reading', confidence: 0.90 };
+    }
+
+    // 3. Check for Restaurant signals
+    const foodKeywords = ['ate at', 'dinner', 'lunch', 'breakfast', 'brunch', 'delicious', 'menu', 'tasting', 'reservation at'];
+    const isFoodSignal = foodKeywords.some(kw => textLower.includes(kw));
+    if (isFoodSignal && currentCategory !== 'Restaurants & Food') {
+      return { category: 'Restaurants & Food', confidence: 0.85 };
+    }
+
+    // 4. Check for Travel signals
+    const travelKeywords = ['stayed at', 'hotel', 'resort', 'visit', 'trip to', 'flight', 'traveling', 'landmark', 'museum', 'vacation'];
+    const isTravelSignal = travelKeywords.some(kw => textLower.includes(kw));
+    if (isTravelSignal && currentCategory !== 'Travel & Places') {
+      return { category: 'Travel & Places', confidence: 0.85 };
+    }
+
+    return { category: currentCategory, confidence: 0.5 };
+  }
+
+  // ==========================================================================
   // MAIN ENRICHMENT METHOD
   // ==========================================================================
 
@@ -334,12 +379,11 @@ class JournalWebEnrichmentService {
         };
       }
 
-      // CRITICAL: Detect content type FIRST before searching
-      // This prevents "Leonardo da Vinci - Biography" from being searched as a museum
-      const detectedContentType = this.detectContentType(entry.text);
-      const effectiveCategory = detectedContentType || entry.category;
+      // AI CATEGORY VALIDATION & CORRECTION
+      const validation = await this.validateAndCorrectCategory(entry.text, entry.category, venueName);
+      const effectiveCategory = validation.category;
 
-      console.log(`[JOURNAL_WEB_ENRICH] Content type detection: original="${entry.category}", detected="${detectedContentType || 'none'}", using="${effectiveCategory}"`);
+      console.log(`[JOURNAL_WEB_ENRICH] Category validation: original="${entry.category}", validated="${effectiveCategory}", confidence=${validation.confidence}`);
 
       // BOOKS: Use Google Books API for reliable cover images and metadata
       const isBook = effectiveCategory === 'book' || effectiveCategory === 'books' ||
@@ -594,6 +638,13 @@ class JournalWebEnrichmentService {
     const contentType = this.detectContentType(text);
 
     // MOVIE-specific extraction - CRITICAL for preventing mismatches
+    if (contentType === 'movie' || contentType === 'movies') {
+      // Handle patterns like: "Watch Mission Impossible: The Final Reckoning (#1 ranked movie)"
+      const movieMatch = text.match(/(?:watch|streaming|stream|see|cinema|theater)\s+([^#(\n]+)(?:\s*[#(\n]|$)/i);
+      if (movieMatch) {
+        return { venueName: movieMatch[1].trim(), venueType: 'movie' };
+      }
+    }
     if (contentType === 'movie') {
       const moviePatterns = [
         // "Watch [Title]" - common movie entry format

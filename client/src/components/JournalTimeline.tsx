@@ -270,10 +270,11 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
 
   // Mutation for batch enrichment refresh
   const batchEnrichMutation = useMutation({
-    mutationFn: async (entryIds: string[]) => {
+    mutationFn: async ({ entryIds, forceRevalidate = false }: { entryIds: string[], forceRevalidate?: boolean }) => {
       const response = await apiRequest('POST', '/api/journal/entries/enrich/batch', {
         entryIds,
-        forceRefresh: true
+        forceRefresh: true,
+        forceRevalidate
       });
       return await response.json();
     },
@@ -281,7 +282,7 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
       toast({
         title: "Journal Refreshed",
-        description: "Preview images and details have been updated to match your entries.",
+        description: "Preview images and categories have been updated to match your entries.",
       });
     },
     onError: (error: any) => {
@@ -296,7 +297,7 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
   const handleRefreshAll = () => {
     const entryIds = allEntries.map(e => e.id);
     if (entryIds.length > 0) {
-      batchEnrichMutation.mutate(entryIds);
+      batchEnrichMutation.mutate({ entryIds, forceRevalidate: true });
     }
   };
 

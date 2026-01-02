@@ -2953,7 +2953,7 @@ ${sitemaps.map(sitemap => `  <sitemap>
   app.post("/api/journal/entries/enrich/batch", async (req: any, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
-      const { entryIds, forceRefresh } = req.body;
+      const { entryIds, forceRefresh, forceRevalidate } = req.body;
 
       if (!Array.isArray(entryIds)) {
         return res.status(400).json({ error: 'entryIds array is required' });
@@ -2982,12 +2982,20 @@ ${sitemaps.map(sitemap => `  <sitemap>
         if (result.success && result.enrichedData) {
           const entry = allUserEntries.find(e => e.id === result.entryId);
           if (entry) {
-            await storage.updateJournalEntry(entry.id, {
+            const updates: any = {
               metadata: {
                 ...(entry.metadata || {}),
                 enrichment: result.enrichedData
               }
-            }, userId);
+            };
+
+            // Apply category correction if requested and suggested
+            if (forceRevalidate && result.enrichedData.suggestedCategory) {
+              console.log(`[JOURNAL_ENRICH] Auto-correcting entry ${entry.id} category: ${entry.category} -> ${result.enrichedData.suggestedCategory}`);
+              updates.category = result.enrichedData.suggestedCategory;
+            }
+
+            await storage.updateJournalEntry(entry.id, updates, userId);
           }
         }
       }
