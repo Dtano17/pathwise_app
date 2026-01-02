@@ -13,15 +13,16 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
-import { 
-  BookOpen, Coffee, Film, Music, MapPin, Heart, Star, 
+import {
+  BookOpen, Coffee, Film, Music, MapPin, Heart, Star,
   Save, Plus, X, Utensils, Palette, Book, Sparkles,
   Plane, Home, ShoppingBag, Gamepad2, Folder, Wand2,
   Package, BarChart3, FileText, Target, Cloud, Users,
   Loader2, TrendingUp, PenTool, Copy, Check, RefreshCw, Trash2,
   Settings, Pencil, Merge, Link, Image, Eye, EyeOff, Calendar, ExternalLink,
   Dumbbell, Building2, TreePine, Wine, Clock, PenLine, Play, ShoppingCart,
-  CalendarPlus, Globe, Phone, type LucideIcon
+  CalendarPlus, Globe, Phone, ClipboardList, PartyPopper, Briefcase,
+  GraduationCap, Boxes, CheckCircle2, type LucideIcon
 } from 'lucide-react';
 
 // Venue type to icon mapping using Lucide icons
@@ -422,6 +423,47 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const [categoryToRename, setCategoryToRename] = useState<CustomCategory | null>(null);
   const [newCategoryLabel, setNewCategoryLabel] = useState('');
 
+  // Smart icon mapping for custom categories based on name/keywords
+  const getIconForCategoryName = (name: string): LucideIcon => {
+    const lowerName = name.toLowerCase();
+
+    // Planning & Productivity
+    if (lowerName.includes('plan') || lowerName.includes('planner')) return ClipboardList;
+    if (lowerName.includes('todo') || lowerName.includes('task')) return CheckCircle2;
+    if (lowerName.includes('goal') || lowerName.includes('target')) return Target;
+
+    // Social & Community
+    if (lowerName.includes('community') || lowerName.includes('social')) return Users;
+    if (lowerName.includes('friend') || lowerName.includes('people')) return Heart;
+
+    // Entertainment & Recreation
+    if (lowerName.includes('entertainment') || lowerName.includes('entertain')) return PartyPopper;
+    if (lowerName.includes('recreation') || lowerName.includes('fun') || lowerName.includes('game')) return Gamepad2;
+    if (lowerName.includes('movie') || lowerName.includes('film') || lowerName.includes('tv')) return Film;
+
+    // Work & Professional
+    if (lowerName.includes('work') || lowerName.includes('career') || lowerName.includes('job')) return Briefcase;
+    if (lowerName.includes('business') || lowerName.includes('office')) return Building2;
+    if (lowerName.includes('application') || lowerName.includes('app')) return Package;
+
+    // Organization & Management
+    if (lowerName.includes('organization') || lowerName.includes('organize')) return Boxes;
+    if (lowerName.includes('management') || lowerName.includes('manage')) return Settings;
+    if (lowerName.includes('admin') || lowerName.includes('system')) return BarChart3;
+
+    // Personal Development
+    if (lowerName.includes('learning') || lowerName.includes('education') || lowerName.includes('study')) return GraduationCap;
+    if (lowerName.includes('accountability') || lowerName.includes('habit')) return CheckCircle2;
+    if (lowerName.includes('growth') || lowerName.includes('development')) return TrendingUp;
+
+    // Health & Fitness
+    if (lowerName.includes('fitness') || lowerName.includes('workout') || lowerName.includes('exercise')) return Dumbbell;
+    if (lowerName.includes('health') || lowerName.includes('wellness')) return Heart;
+
+    // Default fallback
+    return Folder;
+  };
+
   const categories = [
     { id: 'restaurants', label: 'Restaurants & Food', icon: Utensils, color: 'from-orange-500 to-red-500' },
     { id: 'movies', label: 'Movies & TV Shows', icon: Film, color: 'from-purple-500 to-pink-500' },
@@ -490,17 +532,18 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     setSubcategoryFilter('all');
   }, [activeCategory]);
 
-  // Merge default and custom categories (custom categories display with emoji if available)
+  // Merge default and custom categories (custom categories display with emoji and smart icons)
   const allCategories = useMemo(() => [
     ...categories.map(c => ({ ...c, isCustom: false, emoji: undefined as string | undefined })),
     ...customCategories.map(c => ({
       id: c.id,
       label: c.emoji ? `${c.emoji} ${c.label || c.name}` : (c.label || c.name),
-      icon: Folder,
+      icon: getIconForCategoryName(c.label || c.name), // Use smart icon mapping
       color: c.color,
       isCustom: true,
       emoji: c.emoji
     }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [customCategories]);
 
   const currentCategory = useMemo(
