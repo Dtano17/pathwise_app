@@ -11929,25 +11929,28 @@ You can find these tasks in your task list and start working on them right away!
         const entries = journalData[category] || [];
         if (entries.length === 0) continue;
 
-        // Filter entries needing enrichment
-        const entriesToEnrich = entries
-          .filter((item: any) => {
-            if (!item.text) return false;
-            if (!forceRefresh && item.webEnrichment?.venueVerified) return false;
-            return true;
-          })
-          .map((item: any) => ({
-            id: item.id || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            text: item.text,
-            category,
-            // On force refresh, clear venueName so enrichment service re-extracts it from text
-            // This prevents stale/wrong venue names from being used
-            venueName: forceRefresh ? undefined : item.venueName,
-            location: item.location,
-            existingEnrichment: forceRefresh ? undefined : item.webEnrichment
-          }));
+        // Filter entries needing enrichment and track their original indices
+        // CRITICAL: We must use positional mapping because entries may have duplicate IDs
+        const entriesWithIndices: { entry: any; originalIndex: number }[] = [];
+        entries.forEach((item: any, index: number) => {
+          if (!item.text) return;
+          if (!forceRefresh && item.webEnrichment?.venueVerified) return;
+          entriesWithIndices.push({ entry: item, originalIndex: index });
+        });
 
-        if (entriesToEnrich.length === 0) continue;
+        if (entriesWithIndices.length === 0) continue;
+
+        // Build enrichment requests (order matches entriesWithIndices)
+        const entriesToEnrich = entriesWithIndices.map(({ entry: item }) => ({
+          id: item.id || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          text: item.text,
+          category,
+          // On force refresh, clear venueName so enrichment service re-extracts it from text
+          // This prevents stale/wrong venue names from being used
+          venueName: forceRefresh ? undefined : item.venueName,
+          location: item.location,
+          existingEnrichment: forceRefresh ? undefined : item.webEnrichment
+        }));
 
         console.log(`[JOURNAL WEB ENRICH] Processing ${entriesToEnrich.length} entries in ${category}${forceRefresh ? ' (FORCE REFRESH)' : ''}`);
 
@@ -11956,18 +11959,27 @@ You can find these tasks in your task list and start working on them right away!
         // Track entries to move to different categories
         const entriesToMove: { entry: any; suggestedCategory: string }[] = [];
         
-        // Update entries with enrichment data
-        const updatedEntries = entries.map((entry: any) => {
-          const result = results.find(r =>
-            r.success && (entry.id === r.entryId || entry.text === entriesToEnrich.find(e => e.id === r.entryId)?.text)
-          );
-          if (result?.enrichedData) {
+        // Build a map from original entry index to enrichment result
+        // CRITICAL FIX: Use positional mapping - results[i] corresponds to entriesWithIndices[i]
+        // This avoids the bug where .find() returns wrong entry when IDs are duplicated
+        const enrichmentByIndex = new Map<number, any>();
+        results.forEach((result, i) => {
+          if (result.success && result.enrichedData) {
+            const originalIndex = entriesWithIndices[i].originalIndex;
+            enrichmentByIndex.set(originalIndex, result.enrichedData);
+          }
+        });
+        
+        // Update entries with enrichment data using positional mapping
+        const updatedEntries = entries.map((entry: any, index: number) => {
+          const enrichedData = enrichmentByIndex.get(index);
+          if (enrichedData) {
             totalEnriched++;
-            const updatedEntry = { ...entry, webEnrichment: result.enrichedData };
+            const updatedEntry = { ...entry, webEnrichment: enrichedData };
             
             // Check if category should change (e.g., movie in Entertainment should move to Movies & TV Shows)
-            const suggestedCat = result.enrichedData.suggestedCategory;
-            if (suggestedCat && suggestedCat !== category && result.enrichedData.categoryConfidence > 0.7) {
+            const suggestedCat = enrichedData.suggestedCategory;
+            if (suggestedCat && suggestedCat !== category && enrichedData.categoryConfidence > 0.7) {
               // Mark for moving to correct category
               entriesToMove.push({ entry: updatedEntry, suggestedCategory: suggestedCat });
               console.log(`[JOURNAL WEB ENRICH] Entry "${entry.text?.substring(0, 50)}" will be moved from ${category} to ${suggestedCat}`);
