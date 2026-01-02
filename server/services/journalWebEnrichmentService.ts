@@ -435,7 +435,17 @@ Respond with ONLY a JSON object in this format:
 
       // Extract venue name and location from text if not provided
       const extractedInfo = this.extractVenueInfo(entry.text);
-      const venueName = entry.venueName || extractedInfo.venueName;
+      
+      // For movies, ALWAYS use extracted title (not the full venue name with parentheses)
+      // This ensures "Watch Mission Impossible: The Final Reckoning (#1 ranked movie)" 
+      // becomes just "Mission Impossible: The Final Reckoning" for TMDB search
+      const contentType = this.detectContentType(entry.text);
+      const isMovieContent = contentType === 'movie' || contentType === 'movies' ||
+                             entry.category === 'custom-entertainment' || entry.category === 'Entertainment';
+      
+      const venueName = isMovieContent && extractedInfo.venueName 
+        ? extractedInfo.venueName  // Use extracted clean title for movies
+        : (entry.venueName || extractedInfo.venueName);
       const city = entry.location?.city || extractedInfo.city;
 
       if (!venueName) {

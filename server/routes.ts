@@ -11948,6 +11948,9 @@ You can find these tasks in your task list and start working on them right away!
 
         const results = await journalWebEnrichmentService.enrichBatch(entriesToEnrich, forceRefresh);
 
+        // Track entries to move to different categories
+        const entriesToMove: { entry: any; suggestedCategory: string }[] = [];
+        
         // Update entries with enrichment data
         const updatedEntries = entries.map((entry: any) => {
           const result = results.find(r =>
@@ -11955,13 +11958,38 @@ You can find these tasks in your task list and start working on them right away!
           );
           if (result?.enrichedData) {
             totalEnriched++;
-            return { ...entry, webEnrichment: result.enrichedData };
+            const updatedEntry = { ...entry, webEnrichment: result.enrichedData };
+            
+            // Check if category should change (e.g., movie in Entertainment should move to Movies & TV Shows)
+            const suggestedCat = result.enrichedData.suggestedCategory;
+            if (suggestedCat && suggestedCat !== category && result.enrichedData.categoryConfidence > 0.7) {
+              // Mark for moving to correct category
+              entriesToMove.push({ entry: updatedEntry, suggestedCategory: suggestedCat });
+              console.log(`[JOURNAL WEB ENRICH] Entry "${entry.text?.substring(0, 50)}" will be moved from ${category} to ${suggestedCat}`);
+              return null; // Remove from current category
+            }
+            
+            return updatedEntry;
           }
           return entry;
-        });
+        }).filter(Boolean); // Remove null entries (moved to other categories)
 
         totalFailed += results.filter(r => !r.success).length;
         journalData[category] = updatedEntries;
+        
+        // Move entries to their suggested categories
+        for (const { entry, suggestedCategory } of entriesToMove) {
+          // Initialize target category if needed
+          if (!journalData[suggestedCategory]) {
+            journalData[suggestedCategory] = [];
+          }
+          // Add entry with updated category info
+          journalData[suggestedCategory].push({
+            ...entry,
+            category: suggestedCategory,
+            venueType: entry.webEnrichment?.venueType || entry.venueType
+          });
+        }
       }
 
       // Save updated journal data
