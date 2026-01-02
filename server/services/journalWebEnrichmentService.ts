@@ -17,7 +17,6 @@ import { tavily } from '@tavily/core';
 import Anthropic from '@anthropic-ai/sdk';
 import { tmdbService } from './tmdbService';
 import { spotifyEnrichmentService } from './spotifyEnrichmentService';
-import { googlePlacesService } from './googlePlacesService';
 
 // ============================================================================
 // TYPES
@@ -485,49 +484,12 @@ class JournalWebEnrichmentService {
         console.log(`[JOURNAL_WEB_ENRICH] Spotify returned no results, falling back to Tavily`);
       }
 
-      // RESTAURANTS/BARS: Use Google Places API for verified business data and photos
+      // RESTAURANTS/BARS: Fallback to Tavily as primary source for restaurant data
+      // (Google Places integration removed due to cost considerations)
       const isRestaurant = effectiveCategory === 'restaurant' || effectiveCategory === 'restaurants' ||
                            effectiveCategory === 'bar' || effectiveCategory === 'bars' ||
                            entry.category === 'restaurants' || entry.category === 'bars' ||
                            entry.category === 'Restaurants & Food';
-
-      if (isRestaurant && await googlePlacesService.isAvailable()) {
-        console.log(`[JOURNAL_WEB_ENRICH] Using Google Places for ${effectiveCategory}: "${venueName}"`);
-        const placeResult = await googlePlacesService.searchRestaurant(venueName);
-
-        if (placeResult && placeResult.photo_url) {
-          const enrichedData: WebEnrichedData = {
-            venueVerified: true,
-            venueType: (effectiveCategory === 'bar' || effectiveCategory === 'bars') ? 'bar' : 'restaurant',
-            venueName: placeResult.name,
-            location: {
-              address: placeResult.formatted_address,
-            },
-            rating: placeResult.rating,
-            reviewCount: placeResult.user_ratings_total,
-            website: placeResult.website,
-            primaryImageUrl: placeResult.photo_url,
-            mediaUrls: [{
-              url: placeResult.photo_url,
-              type: 'image',
-              source: 'google_places'
-            }],
-            priceRange: placeResult.price_level ? ('$'.repeat(placeResult.price_level) as any) : undefined,
-            suggestedCategory: (effectiveCategory === 'bar' || effectiveCategory === 'bars') ? 'bars' : 'restaurants',
-            categoryConfidence: 0.99,
-            enrichedAt: new Date().toISOString(),
-            enrichmentSource: 'google',
-            reservationUrl: placeResult.website
-          };
-
-          this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
-          const elapsed = Date.now() - startTime;
-          console.log(`[JOURNAL_WEB_ENRICH] Enriched restaurant ${entry.id} via Google Places in ${elapsed}ms: "${placeResult.name}"`);
-
-          return { entryId: entry.id, success: true, enrichedData };
-        }
-        console.log(`[JOURNAL_WEB_ENRICH] Google Places returned no results, falling back to Tavily`);
-      }
 
       // Build search query with the corrected category
       const searchQuery = this.buildSearchQuery(venueName, city, effectiveCategory);
@@ -1008,8 +970,8 @@ class JournalWebEnrichmentService {
       // Category-specific domain filtering for more precise results
       const domainFilters: Record<string, string[]> = {
         // RESTAURANTS: Focus on review sites
-        restaurants: ['yelp.com', 'tripadvisor.com', 'opentable.com', 'google.com'],
-        'Restaurants & Food': ['yelp.com', 'tripadvisor.com', 'opentable.com'],
+        restaurants: ['yelp.com', 'tripadvisor.com', 'opentable.com', 'google.com', 'foursquare.com'],
+        'Restaurants & Food': ['yelp.com', 'tripadvisor.com', 'opentable.com', 'foursquare.com'],
         // MOVIES: Focus on movie databases
         movies: ['imdb.com', 'rottentomatoes.com', 'justwatch.com', 'themoviedb.org'],
         'Movies & TV Shows': ['imdb.com', 'rottentomatoes.com', 'justwatch.com'],
@@ -1047,7 +1009,7 @@ class JournalWebEnrichmentService {
       const maxResults = isFitnessCategory ? 8 : 5;
 
       const searchOptions: any = {
-        searchDepth: 'basic',
+        searchDepth: 'advanced',
         maxResults,
         includeImages: true,
         includeAnswer: true,
