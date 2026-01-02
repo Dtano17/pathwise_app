@@ -268,10 +268,37 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [creatingActivityId, setCreatingActivityId] = useState<string | null>(null);
 
-  // Fetch journal data from the same endpoint as ConversationalPlanner
-  const { data: response, isLoading, refetch } = useQuery<{ entries: Array<JournalEntry & { category: string }> }>({
-    queryKey: ['/api/journal/entries'],
+  // Mutation for batch enrichment refresh
+  const batchEnrichMutation = useMutation({
+    mutationFn: async (entryIds: string[]) => {
+      const response = await apiRequest('POST', '/api/journal/entries/enrich/batch', {
+        entryIds,
+        forceRefresh: true
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+      toast({
+        title: "Journal Refreshed",
+        description: "Preview images and details have been updated to match your entries.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Refresh Failed",
+        description: error.message || "Failed to update journal previews.",
+        variant: "destructive",
+      });
+    }
   });
+
+  const handleRefreshAll = () => {
+    const entryIds = allEntries.map(e => e.id);
+    if (entryIds.length > 0) {
+      batchEnrichMutation.mutate(entryIds);
+    }
+  };
 
   // Mutation to create activity from journal entry with AI-generated tasks
   const createActivityMutation = useMutation({
@@ -430,10 +457,11 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => refetch()}
-              disabled={isLoading}
+              onClick={handleRefreshAll}
+              disabled={isLoading || batchEnrichMutation.isPending}
+              title="Refresh all previews"
             >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 ${isLoading || batchEnrichMutation.isPending ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </div>

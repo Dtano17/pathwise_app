@@ -778,6 +778,7 @@ class JournalWebEnrichmentService {
       /\bread(?:ing)?\b/i,
       /\bpublished\b/i,
       /\bedition\b/i,
+      /\bsinners?\b/i, // Added signal for "Sinners" context
       /\bchapter\b/i,
       /\bpages?\b/i,
       /\bisbn\b/i,
@@ -791,6 +792,39 @@ class JournalWebEnrichmentService {
       /\baudiobook\b/i,
     ];
     
+    // RESTAURANTS/BARS - Domain signals
+    const restaurantDomains = [
+      'yelp.com',
+      'foursquare.com',
+      'tripadvisor.com',
+      'opentable.com',
+      'eater.com',
+      'michelinguide.com',
+      'theinfatuation.com',
+      'zomato.com',
+    ];
+
+    const restaurantSignals = [
+      /\bdinner\b/i,
+      /\blunch\b/i,
+      /\bbreakfast\b/i,
+      /\bbrunch\b/i,
+      /\beating\b/i,
+      /\bfood\b/i,
+      /\bcuisine\b/i,
+      /\bdelicious\b/i,
+      /\btasty\b/i,
+      /\bmenu\b/i,
+      /\breservation\b/i,
+      /\bbar\b/i,
+      /\bpub\b/i,
+      /\bdrinks\b/i,
+      /\bcocktail\b/i,
+      /\brestaurant\b/i,
+      /\bcafe\b/i,
+      /\bbistro\b/i,
+    ];
+
     // MOVIES/TV - Strong signals
     const movieSignals = [
       /\bwatch\b/i,
@@ -855,13 +889,14 @@ class JournalWebEnrichmentService {
     ];
     
     // Count matches for each type
+    const restaurantMatches = restaurantSignals.filter(p => p.test(text)).length;
     const bookMatches = bookSignals.filter(p => p.test(text)).length;
     const movieMatches = movieSignals.filter(p => p.test(text)).length;
     const musicMatches = musicSignals.filter(p => p.test(text)).length;
     const fitnessMatches = fitnessSignals.filter(p => p.test(text)).length;
     
     // Need at least 1 signal to make a detection
-    const maxMatches = Math.max(bookMatches, movieMatches, musicMatches, fitnessMatches);
+    const maxMatches = Math.max(restaurantMatches, bookMatches, movieMatches, musicMatches, fitnessMatches);
     
     if (maxMatches === 0) {
       return null;
@@ -869,6 +904,9 @@ class JournalWebEnrichmentService {
     
     // Return the VENUE TYPE (not category) with most matches
     // These values must match the venueType values used in VENUE_TYPE_TO_CATEGORY
+    if (restaurantMatches === maxMatches && restaurantMatches >= 1) {
+      return 'restaurant';
+    }
     if (bookMatches === maxMatches && bookMatches >= 1) {
       return 'book'; // venueType, not category
     }
@@ -970,8 +1008,8 @@ class JournalWebEnrichmentService {
       // Category-specific domain filtering for more precise results
       const domainFilters: Record<string, string[]> = {
         // RESTAURANTS: Focus on review sites
-        restaurants: ['yelp.com', 'tripadvisor.com', 'opentable.com', 'google.com', 'foursquare.com'],
-        'Restaurants & Food': ['yelp.com', 'tripadvisor.com', 'opentable.com', 'foursquare.com'],
+        restaurants: ['yelp.com', 'foursquare.com', 'tripadvisor.com', 'opentable.com', 'eater.com', 'michelinguide.com', 'theinfatuation.com', 'zomato.com'],
+        'Restaurants & Food': ['yelp.com', 'foursquare.com', 'tripadvisor.com', 'opentable.com', 'zomato.com'],
         // MOVIES: Focus on movie databases
         movies: ['imdb.com', 'rottentomatoes.com', 'justwatch.com', 'themoviedb.org'],
         'Movies & TV Shows': ['imdb.com', 'rottentomatoes.com', 'justwatch.com'],
@@ -996,7 +1034,7 @@ class JournalWebEnrichmentService {
         events: ['eventbrite.com', 'ticketmaster.com', 'stubhub.com', 'bandsintown.com'],
         entertainment: ['eventbrite.com', 'ticketmaster.com', 'timeout.com', 'thrillist.com'],
         // BARS: Focus on nightlife sites
-        bars: ['yelp.com', 'tripadvisor.com', 'thrillist.com', 'timeout.com'],
+        bars: ['yelp.com', 'foursquare.com', 'tripadvisor.com', 'thrillist.com', 'timeout.com'],
         // HOTELS: Focus on booking sites
         hotels: ['booking.com', 'tripadvisor.com', 'hotels.com', 'expedia.com'],
       };

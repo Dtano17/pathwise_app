@@ -2929,6 +2929,76 @@ ${sitemaps.map(sitemap => `  <sitemap>
     return userId === DEMO_USER_ID || userId === 'demo-user' || userId.startsWith('demo-');
   };
 
+  // GET /api/journal/entries - get all entries for a user
+  app.get("/api/journal/entries", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { category, limit } = req.query;
+      
+      const entries = await storage.getUserJournalEntries(userId, limit ? parseInt(limit as string) : undefined);
+      
+      // Filter by category if provided
+      const filteredEntries = category 
+        ? entries.filter(e => e.category === category)
+        : entries;
+
+      res.json({ entries: filteredEntries });
+    } catch (error) {
+      console.error('Get journal entries error:', error);
+      res.status(500).json({ error: 'Failed to fetch journal entries' });
+    }
+  });
+
+  // POST /api/journal/entries/enrich/batch - Refresh and enrich multiple entries
+  app.post("/api/journal/entries/enrich/batch", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { entryIds, forceRefresh } = req.body;
+
+      if (!Array.isArray(entryIds)) {
+        return res.status(400).json({ error: 'entryIds array is required' });
+      }
+
+      // Get entries from storage
+      const allUserEntries = await storage.getUserJournalEntries(userId);
+      const entriesToEnrich = allUserEntries
+        .filter(e => entryIds.includes(e.id))
+        .map(e => ({
+          id: e.id,
+          text: e.content,
+          category: e.category,
+          existingEnrichment: e.metadata?.enrichment
+        }));
+
+      if (entriesToEnrich.length === 0) {
+        return res.json({ success: true, results: [] });
+      }
+
+      // Use the web enrichment service for batch processing
+      const results = await journalWebEnrichmentService.enrichBatch(entriesToEnrich, forceRefresh);
+
+      // Save enrichment results back to storage
+      for (const result of results) {
+        if (result.success && result.enrichedData) {
+          const entry = allUserEntries.find(e => e.id === result.entryId);
+          if (entry) {
+            await storage.updateJournalEntry(entry.id, {
+              metadata: {
+                ...(entry.metadata || {}),
+                enrichment: result.enrichedData
+              }
+            }, userId);
+          }
+        }
+      }
+
+      res.json({ success: true, results });
+    } catch (error) {
+      console.error('Batch enrichment error:', error);
+      res.status(500).json({ error: 'Failed to process batch enrichment' });
+    }
+  });
+
   // Create demo user if not exists (for backwards compatibility)
   const existingUser = await storage.getUser(DEMO_USER_ID);
   if (!existingUser) {
