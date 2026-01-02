@@ -1831,18 +1831,26 @@ Return only valid JSON, no explanation.`
     const text = entry.text.toLowerCase();
 
     // Map of patterns to category and venueType (frontend renders icons based on venueType)
+    // IMPORTANT: Order matters - more specific patterns should come before generic ones
     const categoryPatterns: Array<{ pattern: RegExp; category: string; venueType: string }> = [
+      // HIGH PRIORITY: NYE/Party events should be activities, NOT music (even if they mention music/artists)
+      { pattern: /\b(NYE|new\s*year'?s?\s*eve|new\s*year\s*party|party\s*event|parties\s*event|celebration\s*event|nightlife\s*event)\b/i, category: 'activities', venueType: 'event' },
+      // Events with times (8:00 PM, 9:00 PM etc.) are typically party/event venues
+      { pattern: /\d{1,2}:\d{2}\s*(PM|AM)\s*-?\s*\d{1,2}:\d{2}\s*(PM|AM)/i, category: 'activities', venueType: 'event' },
       { pattern: /restaurant|cafe|diner|bistro|eatery|food|cuisine|dish|meal/i, category: 'restaurants', venueType: 'restaurant' },
       { pattern: /bar|pub|lounge|cocktail|beer|wine|drinks?/i, category: 'restaurants', venueType: 'bar' },
-      { pattern: /nightclub|club|dancing|dj|party venue/i, category: 'activities', venueType: 'nightclub' },
+      { pattern: /nightclub|club|dancing|dj|party venue|party/i, category: 'activities', venueType: 'nightclub' },
       { pattern: /movie|cinema|film|theater|screening/i, category: 'movies', venueType: 'movie' },
-      { pattern: /concert|music|live show|band|artist|album/i, category: 'music', venueType: 'music' },
+      // Music category is for songs/albums/playlists, not events that feature music
+      { pattern: /\b(album|playlist|track|song|listen\s*to)\b/i, category: 'music', venueType: 'music' },
       { pattern: /hotel|resort|airbnb|hostel|stay|vacation|trip|travel|visit/i, category: 'travel', venueType: 'hotel' },
       { pattern: /museum|gallery|exhibit|art|attraction/i, category: 'travel', venueType: 'museum' },
       { pattern: /book|read|author|novel|library/i, category: 'books', venueType: 'book' },
       { pattern: /shop|store|buy|purchase|mall|boutique/i, category: 'shopping', venueType: 'store' },
       { pattern: /gym|workout|fitness|yoga|exercise|spa|wellness/i, category: 'fitness', venueType: 'exercise' },
       { pattern: /outfit|style|fashion|clothes|wear/i, category: 'style', venueType: 'boutique' },
+      // Generic music patterns last - only matches if no event patterns matched first
+      { pattern: /\bconcert|live\s*show|band\s+performing/i, category: 'music', venueType: 'music' },
     ];
 
     for (const { pattern, category, venueType } of categoryPatterns) {

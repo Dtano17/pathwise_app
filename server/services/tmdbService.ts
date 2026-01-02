@@ -142,6 +142,34 @@ class TMDBService {
       const cleanQuery = this.extractMovieTitle(query);
       console.log(`[TMDB] Searching for movie: "${cleanQuery}"`);
 
+      // Try primary search
+      let result = await this.searchMovieByTitle(cleanQuery);
+      
+      // If no result and the query was transformed, try original title too
+      if (!result && cleanQuery !== query) {
+        const originalTitle = query.replace(/^watch\s+/i, '').replace(/^find\s+and\s+watch\s+/i, '').trim();
+        if (originalTitle !== cleanQuery) {
+          console.log(`[TMDB] Trying fallback search with original: "${originalTitle}"`);
+          result = await this.searchMovieByTitle(originalTitle);
+        }
+      }
+      
+      // If still no result, try with simplified query (just first few words)
+      if (!result && cleanQuery.split(' ').length > 2) {
+        const simplifiedQuery = cleanQuery.split(' ').slice(0, 2).join(' ');
+        console.log(`[TMDB] Trying simplified search: "${simplifiedQuery}"`);
+        result = await this.searchMovieByTitle(simplifiedQuery);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('[TMDB] Search error:', error);
+      return null;
+    }
+  }
+
+  private async searchMovieByTitle(cleanQuery: string): Promise<TMDBSearchResult | null> {
+    try {
       const url = `${TMDB_BASE_URL}/search/movie?api_key=${this.apiKey}&query=${encodeURIComponent(cleanQuery)}&include_adult=false`;
       const response = await fetch(url);
 
@@ -352,6 +380,18 @@ class TMDBService {
     }
   }
 
+  /**
+   * Known movie title mappings for common variations/alternate names.
+   * Maps user-friendly titles to TMDB-searchable titles.
+   */
+  private readonly TITLE_ALIASES: Record<string, string> = {
+    'wicked for good': 'Wicked Part Two',
+    'wicked part 2': 'Wicked Part Two',
+    'wicked 2': 'Wicked Part Two',
+    'rental family': 'Rent-a-Family',
+    'rentafamily': 'Rent-a-Family',
+  };
+
   private extractMovieTitle(text: string): string {
     let title = text;
 
@@ -360,6 +400,7 @@ class TMDBService {
       /^["'](.+?)["']\s*(?:movie|film)?$/i,
       /^(.+?)\s+(?:movie|film)\s*$/i,
       /^see\s+["']?(.+?)["']?\s*$/i,
+      /^find\s+and\s+watch\s+["']?(.+?)["']?/i,
     ];
 
     for (const pattern of watchPatterns) {
@@ -374,7 +415,15 @@ class TMDBService {
       .replace(/\s*[-–—]\s*.*$/, '')
       .replace(/\s*\([^)]*\)\s*$/, '')
       .replace(/^(the|a|an)\s+/i, '')
+      .replace(/\s*\(estimated\s*\$[\d\-]+\s*rental?\)/i, '') // Remove price estimates
       .trim();
+
+    // Check for known title aliases
+    const normalizedTitle = title.toLowerCase().trim();
+    if (this.TITLE_ALIASES[normalizedTitle]) {
+      console.log(`[TMDB] Using alias: "${title}" -> "${this.TITLE_ALIASES[normalizedTitle]}"`);
+      return this.TITLE_ALIASES[normalizedTitle];
+    }
 
     return title || text;
   }
