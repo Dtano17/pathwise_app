@@ -132,9 +132,15 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
   useEffect(() => {
     const calculateScale = () => {
       if (previewContainerRef.current && platform) {
-        const containerWidth = previewContainerRef.current.offsetWidth - 16; // Account for padding
-        const cardWidth = platform.width;
-        const scale = Math.min(1, containerWidth / cardWidth);
+        const container = previewContainerRef.current;
+        const containerWidth = container.clientWidth - 32; // Account for padding
+        const containerHeight = window.innerHeight * 0.6; // Use 60% of viewport height
+
+        const widthScale = containerWidth / (platform.width || 1080);
+        const heightScale = containerHeight / (platform.height || 1080);
+
+        // Use the smaller scale to ensure content fits
+        const scale = Math.min(widthScale, heightScale, 1);
         setPreviewScale(scale);
       }
     };
@@ -665,7 +671,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
           <p className="text-sm text-muted-foreground mb-2 sm:mb-3">Preview:</p>
           <div
             ref={previewContainerRef}
-            className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4 overflow-hidden"
+            className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4 overflow-auto"
           >
             {/* Scaling container for mobile responsiveness */}
             <div
@@ -673,7 +679,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
                 transform: `scale(${previewScale})`,
                 transformOrigin: 'top center',
                 width: `${platform?.width || 1080}px`,
-                height: `${(platform?.height || 1080) * previewScale}px`,
+                minHeight: `${platform?.height || 1080}px`,
               }}
             >
               {/* Share Card Template */}
@@ -696,7 +702,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
               <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/80" />
 
               {/* Content */}
-              <div className="absolute inset-0 flex flex-col justify-between p-8" style={{ padding: platform?.width > 1200 ? '3rem' : '2rem' }}>
+              <div className="relative flex flex-col min-h-full p-8" style={{ padding: platform?.width > 1200 ? '3rem' : '2rem' }}>
                 {/* Header - Brand & Verification */}
                 <div className="flex justify-between items-start">
                   <Badge className="bg-primary text-primary-foreground px-4 py-1.5 text-sm font-semibold">
@@ -732,10 +738,10 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
                     </p>
                   )}
 
-                  {/* Tasks List - Instagram Story Style */}
+                  {/* Tasks List - Instagram Story Style with scroll */}
                   {tasks && tasks.length > 0 && (
-                    <div 
-                      className="bg-white/10 backdrop-blur-md rounded-xl p-4 space-y-2.5"
+                    <div
+                      className="bg-white/10 backdrop-blur-md rounded-xl p-4 space-y-2.5 max-h-96 overflow-y-auto"
                     >
                       <div className="flex items-center gap-2 mb-3">
                         <div className="h-px flex-1 bg-white/30" />

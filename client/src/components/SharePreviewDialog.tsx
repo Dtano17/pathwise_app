@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -637,7 +638,7 @@ export function SharePreviewDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] sm:w-full p-4 sm:p-6 overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] sm:w-full p-4 sm:p-6">
           <DialogHeader className="space-y-2">
             <div className="flex items-start justify-between gap-2">
               <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl flex-1">
@@ -695,7 +696,9 @@ export function SharePreviewDialog({
             </TabsList>
 
             {/* Tab 1: Quick Share (existing functionality) */}
-            <TabsContent value="quick-share" className="space-y-6 py-4">
+            <TabsContent value="quick-share" className="py-4">
+              <ScrollArea className="h-[calc(90vh-12rem)] pr-4">
+                <div className="space-y-6">
               {/* Share Title */}
               <div className="space-y-2">
                 <Label htmlFor="share-title">Share Title</Label>
@@ -1413,32 +1416,38 @@ export function SharePreviewDialog({
                   {updateMutation.isPending ? "Saving..." : "Save Settings"}
                 </Button>
               </div>
+                </div>
+              </ScrollArea>
             </TabsContent>
 
             {/* Tab 2: Download Cards */}
             <TabsContent value="download-cards" className="py-4">
-              <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                <div className="min-w-[320px]">
-                  <ShareCardGenerator
-                    activityId={activity.id}
-                    activityTitle={shareTitle}
-                    activityCategory={activity.category}
-                    backdrop={backdrop || ""}
-                    planSummary={activity.planSummary || undefined}
-                    tasks={activityTasks}
-                    shareCaption={shareCaption}
-                  />
+              <ScrollArea className="h-[calc(90vh-12rem)]">
+                <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pr-4">
+                  <div className="min-w-[320px]">
+                    <ShareCardGenerator
+                      activityId={activity.id}
+                      activityTitle={shareTitle}
+                      activityCategory={activity.category}
+                      backdrop={backdrop || ""}
+                      planSummary={activity.planSummary || undefined}
+                      tasks={activityTasks}
+                      shareCaption={shareCaption}
+                    />
+                  </div>
                 </div>
-              </div>
+              </ScrollArea>
             </TabsContent>
 
             {/* Tab 3: Social Verification */}
             <TabsContent value="social-verify" className="py-4">
-              <SocialVerificationTab
-                activityId={activity.id}
-                existingLinks={socialLinks}
-                onLinksUpdated={(links) => setSocialLinks(links)}
-              />
+              <ScrollArea className="h-[calc(90vh-12rem)] pr-4">
+                <SocialVerificationTab
+                  activityId={activity.id}
+                  existingLinks={socialLinks}
+                  onLinksUpdated={(links) => setSocialLinks(links)}
+                />
+              </ScrollArea>
             </TabsContent>
           </Tabs>
         </DialogContent>
