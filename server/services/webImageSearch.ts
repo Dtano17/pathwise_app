@@ -96,6 +96,52 @@ function extractLocationKeywords(text: string): string[] {
 }
 
 /**
+ * Extract event/occasion keywords from text for more specific image searches
+ * These keywords help find contextually relevant images (e.g., NYE celebrations, not just city skylines)
+ */
+function extractEventKeywords(text: string): string[] {
+  const events: string[] = [];
+  const textLower = text.toLowerCase();
+  
+  // Event/occasion patterns - order matters (more specific first)
+  const eventPatterns: Array<{ pattern: RegExp; keywords: string }> = [
+    // New Year's Eve / NYE
+    { pattern: /\b(nye|new year'?s? eve|new year celebration|countdown)\b/i, keywords: 'New Years Eve celebration fireworks countdown' },
+    { pattern: /\bnew year\b/i, keywords: 'New Year celebration' },
+    
+    // Holidays
+    { pattern: /\b(christmas|xmas|holiday season)\b/i, keywords: 'Christmas holiday festive lights' },
+    { pattern: /\b(thanksgiving)\b/i, keywords: 'Thanksgiving holiday celebration' },
+    { pattern: /\b(halloween)\b/i, keywords: 'Halloween spooky festive' },
+    { pattern: /\b(valentines?|valentine'?s? day)\b/i, keywords: 'Valentines romantic love' },
+    { pattern: /\b(fourth of july|4th of july|independence day)\b/i, keywords: 'July 4th fireworks patriotic celebration' },
+    
+    // Party/celebration events
+    { pattern: /\b(party|parties|celebration|gala|soiree)\b/i, keywords: 'party celebration nightlife festive' },
+    { pattern: /\b(club|clubbing|nightclub|nightlife|lounge)\b/i, keywords: 'nightclub nightlife party atmosphere' },
+    { pattern: /\b(concert|live music|show|performance)\b/i, keywords: 'concert live music performance' },
+    { pattern: /\b(festival|fest)\b/i, keywords: 'festival celebration crowd' },
+    
+    // Wedding/special occasions
+    { pattern: /\b(wedding|bridal|bachelorette|bachelor)\b/i, keywords: 'wedding elegant celebration' },
+    { pattern: /\b(birthday|anniversary)\b/i, keywords: 'celebration festive party' },
+    
+    // Food/dining events
+    { pattern: /\b(brunch|dinner|restaurant|dining)\b/i, keywords: 'dining restaurant elegant' },
+    { pattern: /\b(cocktail|bar|drinks)\b/i, keywords: 'cocktail bar nightlife' },
+  ];
+  
+  for (const { pattern, keywords } of eventPatterns) {
+    if (pattern.test(textLower)) {
+      events.push(keywords);
+      break; // Only add the first (most specific) match
+    }
+  }
+  
+  return events;
+}
+
+/**
  * Get category-specific aesthetic keywords for better image results
  * Enhanced with HD/4K quality modifiers for premium backdrop images
  */
@@ -134,23 +180,31 @@ export async function searchBackdropOptions(
   try {
     // Try Tavily search first
     if (process.env.TAVILY_API_KEY) {
-      // Combine title and description for location extraction
+      // Combine title and description for location and event extraction
       const fullContext = `${activityTitle} ${description || ''}`;
       
-      // Extract location keywords
+      // Extract location and event keywords
       const locations = extractLocationKeywords(fullContext);
       const locationStr = locations.length > 0 ? locations.slice(0, 2).join(' ') : '';
+      const eventKeywords = extractEventKeywords(fullContext);
+      const eventStr = eventKeywords.length > 0 ? eventKeywords[0] : '';
       
       // Get category-specific aesthetic keywords
       const aestheticKeywords = getCategoryAestheticKeywords(category);
       
       // Build a rich, specific search query with HD/4K emphasis
-      // Priority: location > activity title keywords > category aesthetics
-      // Use specific resolution keywords to prioritize high-quality images
+      // NEW: Include event keywords alongside location for context-specific images
+      // e.g., "Los Angeles New Years Eve celebration fireworks" instead of just "Los Angeles"
       let searchQuery = '';
-      if (locationStr) {
-        // If we have a location, prioritize it with HD/4K modifiers
+      if (locationStr && eventStr) {
+        // Location + Event = most specific search (e.g., "Los Angeles New Years Eve celebration fireworks")
+        searchQuery = `${locationStr} ${eventStr} 4K HD wallpaper high resolution`;
+      } else if (locationStr) {
+        // Location only - use category aesthetics
         searchQuery = `${locationStr} ${aestheticKeywords} 4K HD wallpaper 3840x2160`;
+      } else if (eventStr) {
+        // Event only - include event keywords
+        searchQuery = `${eventStr} ${aestheticKeywords} 4K ultra HD wallpaper`;
       } else {
         // Extract key nouns from title (first 50 chars)
         const titleKeywords = activityTitle.substring(0, 50).replace(/[^\w\s]/g, '').trim();
@@ -160,6 +214,7 @@ export async function searchBackdropOptions(
       console.log(`[WebImageSearch] Searching backdrop options:`);
       console.log(`  - Title: "${activityTitle}"`);
       console.log(`  - Locations found: ${locations.length > 0 ? locations.join(', ') : 'none'}`);
+      console.log(`  - Events found: ${eventStr || 'none'}`);
       console.log(`  - Query: "${searchQuery}"`);
 
       const response = await tavilyClient.search(searchQuery, {
@@ -175,10 +230,24 @@ export async function searchBackdropOptions(
       // Use all available images up to maxOptions for more variety
       for (const img of images.slice(0, maxOptions)) {
         if (img.url) {
-          // Create a descriptive label from location or category
-          const label = locationStr 
-            ? locationStr.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-            : 'Web Result';
+          // Create a descriptive label from location + event (e.g., "Los Angeles NYE" instead of just "Los Angeles La")
+          let label = 'Web Result';
+          if (locationStr && eventStr) {
+            // Capitalize location and add short event descriptor
+            const locationLabel = locations.slice(0, 1).map(l => 
+              l.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+            ).join(' ');
+            // Extract short event name (first 1-2 words from event keywords)
+            const eventLabel = eventStr.split(' ').slice(0, 2).join(' ');
+            label = `${locationLabel} ${eventLabel}`;
+          } else if (locationStr) {
+            // Just location - capitalize first location only (avoid "Los Angeles La")
+            label = locations.slice(0, 1).map(l => 
+              l.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+            ).join(' ');
+          } else if (eventStr) {
+            label = eventStr.split(' ').slice(0, 2).join(' ');
+          }
           options.push({
             url: img.url,
             source: 'tavily',
