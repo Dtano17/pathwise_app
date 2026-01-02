@@ -304,24 +304,27 @@ class JournalWebEnrichmentService {
   private async validateAndCorrectCategory(text: string, currentCategory: string, venueName?: string): Promise<{ category: string; confidence: number }> {
     const textLower = text.toLowerCase();
     
-    // 1. Check for Movie/TV signals
-    const movieKeywords = ['movie', 'film', 'cinema', 'watch', 'streaming', 'netflix', 'hulu', 'hbo', 'disney+', 'theater', 'premiere', 'ranked movie'];
+    // 1. Check for Movie/TV signals - be aggressive for Entertainment category
+    const movieKeywords = ['movie', 'film', 'cinema', 'watch', 'streaming', 'netflix', 'hulu', 'hbo', 'disney+', 'theater', 'premiere', 'ranked movie', 'stream', '#1 ranked', '#2 ranked', '#3 ranked'];
     const isMovieSignal = movieKeywords.some(kw => textLower.includes(kw));
+    const isEntertainmentCategory = currentCategory === 'Entertainment' || 
+                                     currentCategory === 'custom-entertainment' ||
+                                     currentCategory === 'movies' ||
+                                     currentCategory === 'Movies & TV Shows';
     
-    if (isMovieSignal || currentCategory === 'Entertainment' || currentCategory === 'movies') {
-      if (tmdbService.isAvailable() && venueName) {
-        const tmdbResult = await tmdbService.searchMovie(venueName);
-        if (tmdbResult) {
-          console.log(`[CATEGORY_VALIDATOR] Corrected "${venueName}" to Movies & TV Shows via TMDB`);
-          return { category: 'Movies & TV Shows', confidence: 0.98 };
-        }
+    // For Entertainment category, ALWAYS check TMDB to verify if it's a movie
+    if ((isMovieSignal || isEntertainmentCategory) && tmdbService.isAvailable() && venueName) {
+      const tmdbResult = await tmdbService.searchMovie(venueName);
+      if (tmdbResult) {
+        console.log(`[CATEGORY_VALIDATOR] Corrected "${venueName}" to Movies & TV Shows via TMDB`);
+        return { category: 'Movies & TV Shows', confidence: 0.98 };
       }
     }
 
-    // 2. Check for Book signals
+    // 2. Check for Book signals - but NOT if in Entertainment (might be a movie)
     const bookKeywords = ['read', 'book', 'novel', 'author', 'biography', 'memoir', 'chapters', 'finished reading', 'hardcover', 'paperback'];
     const isBookSignal = bookKeywords.some(kw => textLower.includes(kw));
-    if (isBookSignal && currentCategory !== 'Books & Reading') {
+    if (isBookSignal && currentCategory !== 'Books & Reading' && !isEntertainmentCategory) {
       return { category: 'Books & Reading', confidence: 0.90 };
     }
 
@@ -385,9 +388,64 @@ class JournalWebEnrichmentService {
 
       console.log(`[JOURNAL_WEB_ENRICH] Category validation: original="${entry.category}", validated="${effectiveCategory}", confidence=${validation.confidence}`);
 
+      // MOVIES/TV: Check FIRST because TMDB validation is most authoritative
+      // This prevents movies miscategorized as "Entertainment" or "books" from going to wrong APIs
+      const isMovie = effectiveCategory === 'movie' || effectiveCategory === 'movies' ||
+                      effectiveCategory === 'Movies & TV Shows' || effectiveCategory === 'Movies & TV' ||
+                      entry.category === 'movies' || entry.category === 'Movies & TV Shows' ||
+                      entry.category === 'Movies & TV' || entry.category === 'Entertainment' ||
+                      entry.category === 'custom-entertainment';
+      
+      if (isMovie && tmdbService.isAvailable()) {
+        console.log(`[JOURNAL_WEB_ENRICH] Using TMDB for movie: "${venueName}"`);
+        const tmdbResult = await tmdbService.searchMovie(venueName);
+        
+        if (tmdbResult) {
+          const enrichedData: WebEnrichedData = {
+            venueVerified: true,
+            venueType: tmdbResult.mediaType === 'tv' ? 'tv_show' : 'movie',
+            venueName: tmdbResult.title,
+            venueDescription: tmdbResult.overview?.substring(0, 300),
+            primaryImageUrl: tmdbResult.posterUrl || undefined,
+            mediaUrls: tmdbResult.posterUrl ? [{ 
+              url: tmdbResult.posterUrl, 
+              type: 'image' as const, 
+              source: 'tmdb' 
+            }] : undefined,
+            rating: tmdbResult.rating ? tmdbResult.rating / 2 : undefined,
+            reviewCount: tmdbResult.ratingCount,
+            director: tmdbResult.director,
+            cast: tmdbResult.cast,
+            releaseYear: tmdbResult.releaseYear,
+            runtime: tmdbResult.runtime,
+            genre: tmdbResult.genres?.join(', '),
+            suggestedCategory: 'Movies & TV Shows',
+            categoryConfidence: 0.98,
+            enrichedAt: new Date().toISOString(),
+            enrichmentSource: 'google',
+            streamingLinks: [
+              { platform: 'TMDB', url: `https://www.themoviedb.org/${tmdbResult.mediaType}/${tmdbResult.tmdbId}` },
+              { platform: 'JustWatch', url: `https://www.justwatch.com/us/search?q=${encodeURIComponent(tmdbResult.title)}` },
+              { platform: 'IMDB', url: `https://www.imdb.com/find?q=${encodeURIComponent(tmdbResult.title)}` }
+            ]
+          };
+
+          this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+          const elapsed = Date.now() - startTime;
+          console.log(`[JOURNAL_WEB_ENRICH] Enriched movie ${entry.id} via TMDB in ${elapsed}ms: "${tmdbResult.title}"`);
+
+          return { entryId: entry.id, success: true, enrichedData };
+        }
+        console.log(`[JOURNAL_WEB_ENRICH] TMDB returned no results for "${venueName}", checking other categories`);
+      }
+
       // BOOKS: Use Google Books API for reliable cover images and metadata
-      const isBook = effectiveCategory === 'book' || effectiveCategory === 'books' ||
-                     entry.category === 'books' || entry.category === 'Books & Reading';
+      // Check AFTER movies since movies have higher confidence validation
+      const isBook = (effectiveCategory === 'book' || effectiveCategory === 'books' ||
+                      effectiveCategory === 'Books & Reading' ||
+                      entry.category === 'books' || entry.category === 'Books & Reading') &&
+                     // Don't treat as book if validator already corrected to movies
+                     effectiveCategory !== 'Movies & TV Shows';
 
       if (isBook) {
         const extractedAuthor = (extractedInfo as any).author;
@@ -404,7 +462,7 @@ class JournalWebEnrichmentService {
             author: googleBooksResult.author,
             publisher: googleBooksResult.publisher,
             publicationYear: googleBooksResult.publishedDate?.substring(0, 4),
-            suggestedCategory: 'books',
+            suggestedCategory: 'Books & Reading',
             categoryConfidence: 0.95,
             enrichedAt: new Date().toISOString(),
             enrichmentSource: 'google',
@@ -433,54 +491,6 @@ class JournalWebEnrichmentService {
         }
         // Fall through to Tavily search if Google Books fails
         console.log(`[JOURNAL_WEB_ENRICH] Google Books API returned no results, falling back to Tavily`);
-      }
-
-      // MOVIES/TV: Use TMDB API for accurate movie posters and metadata
-      const isMovie = effectiveCategory === 'movie' || effectiveCategory === 'movies' ||
-                      entry.category === 'movies' || entry.category === 'Movies & TV Shows' ||
-                      entry.category === 'Movies & TV';
-      
-      if (isMovie && tmdbService.isAvailable()) {
-        console.log(`[JOURNAL_WEB_ENRICH] Using TMDB for movie: "${venueName}"`);
-        const tmdbResult = await tmdbService.searchMovie(venueName);
-        
-        if (tmdbResult) {
-          const enrichedData: WebEnrichedData = {
-            venueVerified: true,
-            venueType: tmdbResult.mediaType === 'tv' ? 'tv_show' : 'movie',
-            venueName: tmdbResult.title,
-            venueDescription: tmdbResult.overview?.substring(0, 300),
-            primaryImageUrl: tmdbResult.posterUrl || undefined,
-            mediaUrls: tmdbResult.posterUrl ? [{ 
-              url: tmdbResult.posterUrl, 
-              type: 'image' as const, 
-              source: 'tmdb' 
-            }] : undefined,
-            rating: tmdbResult.rating ? tmdbResult.rating / 2 : undefined,
-            reviewCount: tmdbResult.ratingCount,
-            director: tmdbResult.director,
-            cast: tmdbResult.cast,
-            releaseYear: tmdbResult.releaseYear,
-            runtime: tmdbResult.runtime,
-            genre: tmdbResult.genres?.join(', '),
-            suggestedCategory: 'movies',
-            categoryConfidence: 0.98,
-            enrichedAt: new Date().toISOString(),
-            enrichmentSource: 'google',
-            streamingLinks: [
-              { platform: 'TMDB', url: `https://www.themoviedb.org/${tmdbResult.mediaType}/${tmdbResult.tmdbId}` },
-              { platform: 'JustWatch', url: `https://www.justwatch.com/us/search?q=${encodeURIComponent(tmdbResult.title)}` },
-              { platform: 'IMDB', url: `https://www.imdb.com/find?q=${encodeURIComponent(tmdbResult.title)}` }
-            ]
-          };
-
-          this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
-          const elapsed = Date.now() - startTime;
-          console.log(`[JOURNAL_WEB_ENRICH] Enriched movie ${entry.id} via TMDB in ${elapsed}ms: "${tmdbResult.title}"`);
-
-          return { entryId: entry.id, success: true, enrichedData };
-        }
-        console.log(`[JOURNAL_WEB_ENRICH] TMDB returned no results, falling back to Tavily`);
       }
 
       // MUSIC: Use Spotify API for accurate artist/album images
@@ -639,31 +649,28 @@ class JournalWebEnrichmentService {
 
     // MOVIE-specific extraction - CRITICAL for preventing mismatches
     if (contentType === 'movie' || contentType === 'movies') {
-      // Handle patterns like: "Watch Mission Impossible: The Final Reckoning (#1 ranked movie)"
-      const movieMatch = text.match(/(?:watch|streaming|stream|see|cinema|theater)\s+([^#(\n]+)(?:\s*[#(\n]|$)/i);
-      if (movieMatch) {
-        return { venueName: movieMatch[1].trim(), venueType: 'movie' };
-      }
-    }
-    if (contentType === 'movie') {
       const moviePatterns = [
+        // "Watch Mission Impossible: The Final Reckoning (#1 ranked movie)" - extract before hashtag/parenthesis
+        /(?:watch|streaming|stream|see|cinema|theater)\s+([^#(\n]+?)(?:\s*[#(\n]|$)/i,
+        // "Stream Sinners (#2 ranked movie)" - extract title between keyword and parenthesis  
+        /(?:watch|streaming|stream|see)\s+([^(]+?)\s*\(/i,
         // "Watch [Title]" - common movie entry format
-        /^(?:Watch|Watching|Watched|See|Saw|Stream|Streaming)\s+["']?([^"'\-–—]+?)["']?(?:\s*[-–—]|$)/i,
+        /^(?:Watch|Watching|Watched|See|Saw|Stream|Streaming)\s+["']?([^"'\-–—#(]+?)["']?(?:\s*[-–—#(]|$)/i,
         // "[Title] movie" or "[Title] film"
-        /^["']?([^"'\-–—]+?)["']?\s+(?:movie|film)(?:\s|$)/i,
-        // Quoted title: "Title"
-        /^["']([^"']+)["']/,
-        // Title - description
-        /^([^-–—]+?)\s*[-–—]\s*.+(?:movie|film|watch|stream|theater|cinema)/i,
+        /^["']?([^"'\-–—#(]+?)["']?\s+(?:movie|film)(?:\s|$)/i,
+        // Title - description (extract before first dash)
+        /^([^-–—#(]+?)\s*[-–—]\s*.+(?:movie|film|watch|stream|theater|cinema)/i,
         // Title followed by year in parentheses: "Title (2024)"
         /^["']?([^"'(]+?)["']?\s*\(\d{4}\)/,
+        // Fallback: first part before dash or parenthesis
+        /^([^-–—#(]+)/,
       ];
 
       for (const pattern of moviePatterns) {
         const match = text.match(pattern);
         if (match) {
-          const extractedTitle = match[1]?.trim().replace(/^["']|["']$/g, '');
-          if (extractedTitle && extractedTitle.length > 1) {
+          const extractedTitle = match[1]?.trim().replace(/^["']|["']$/g, '').replace(/\s+$/, '');
+          if (extractedTitle && extractedTitle.length > 2) {
             console.log(`[JOURNAL_WEB_ENRICH] Movie extraction: title="${extractedTitle}"`);
             return {
               venueName: extractedTitle,
@@ -817,7 +824,7 @@ class JournalWebEnrichmentService {
   private detectContentType(text: string): string | null {
     const lowerText = text.toLowerCase();
     
-    // BOOKS - Strong signals
+    // BOOKS - Strong signals (avoid movie titles like "Sinners")
     const bookSignals = [
       /\bbiography\b/i,
       /\bmemoir\b/i,
@@ -829,7 +836,6 @@ class JournalWebEnrichmentService {
       /\bread(?:ing)?\b/i,
       /\bpublished\b/i,
       /\bedition\b/i,
-      /\bsinners?\b/i, // Added signal for "Sinners" context
       /\bchapter\b/i,
       /\bpages?\b/i,
       /\bisbn\b/i,
@@ -901,6 +907,13 @@ class JournalWebEnrichmentService {
       /\bseries\b/i,
       /\btv show\b/i,
       /\bdocumentary\b/i,
+      /\branked movie\b/i,   // "#1 ranked movie"
+      /\bfilm release\b/i,   // "2024 film release"
+      /\brelease\b/i,        // Movie release context
+      /\bpremiere\b/i,       // Movie premiere
+      /\bfandango\b/i,       // Ticket site
+      /\bamc\b/i,            // Theater chain
+      /\bimax\b/i,           // IMAX format
     ];
     
     // MUSIC - Strong signals
@@ -954,21 +967,22 @@ class JournalWebEnrichmentService {
     }
     
     // Return the VENUE TYPE (not category) with most matches
-    // These values must match the venueType values used in VENUE_TYPE_TO_CATEGORY
-    if (restaurantMatches === maxMatches && restaurantMatches >= 1) {
-      return 'restaurant';
-    }
-    if (bookMatches === maxMatches && bookMatches >= 1) {
-      return 'book'; // venueType, not category
-    }
+    // PRIORITY ORDER: Movies > Music > Restaurant > Fitness > Books
+    // Movies checked first because TMDB validation is most authoritative
     if (movieMatches === maxMatches && movieMatches >= 1) {
       return 'movie'; // venueType, not category
     }
     if (musicMatches === maxMatches && musicMatches >= 1) {
       return 'music'; // venueType
     }
+    if (restaurantMatches === maxMatches && restaurantMatches >= 1) {
+      return 'restaurant';
+    }
     if (fitnessMatches === maxMatches && fitnessMatches >= 1) {
       return 'exercise'; // venueType
+    }
+    if (bookMatches === maxMatches && bookMatches >= 1) {
+      return 'book'; // venueType, not category
     }
     
     return null;
