@@ -28,8 +28,8 @@ export async function searchActivityImage(
       return null;
     }
 
-    // Create a search query combining title and category for better relevance
-    const searchQuery = `${activityTitle} ${category} high quality image`;
+    // Create a search query combining title and category with HD/4K emphasis
+    const searchQuery = `${activityTitle} ${category} 4K HD wallpaper high resolution photography`;
 
     console.log(`[WebImageSearch] Searching for: "${searchQuery}"`);
 
@@ -97,23 +97,24 @@ function extractLocationKeywords(text: string): string[] {
 
 /**
  * Get category-specific aesthetic keywords for better image results
+ * Enhanced with HD/4K quality modifiers for premium backdrop images
  */
 function getCategoryAestheticKeywords(category: string): string {
   const categoryKeywords: Record<string, string> = {
-    'travel': 'scenic destination landscape cinematic',
-    'fitness': 'athletic outdoor nature wellness',
-    'health': 'wellness spa nature peaceful',
-    'career': 'professional modern architecture',
-    'learning': 'education library academic',
-    'finance': 'business urban skyline modern',
-    'relationships': 'romantic scenic sunset beautiful',
-    'creativity': 'artistic colorful creative design',
-    'home': 'cozy interior modern lifestyle',
-    'personal': 'inspirational scenic beautiful',
-    'other': 'scenic beautiful landscape'
+    'travel': 'scenic destination landscape cinematic 4K ultra HD wallpaper',
+    'fitness': 'athletic outdoor nature wellness high resolution photography',
+    'health': 'wellness spa nature peaceful 4K desktop wallpaper',
+    'career': 'professional modern architecture HD cityscape',
+    'learning': 'education library academic aesthetic HD photography',
+    'finance': 'business urban skyline modern 4K wallpaper',
+    'relationships': 'romantic scenic sunset beautiful HD photography',
+    'creativity': 'artistic colorful creative design 4K desktop',
+    'home': 'cozy interior modern lifestyle HD photography',
+    'personal': 'inspirational scenic beautiful 4K wallpaper',
+    'other': 'scenic beautiful landscape ultra HD desktop'
   };
   
-  return categoryKeywords[category.toLowerCase()] || 'scenic beautiful';
+  return categoryKeywords[category.toLowerCase()] || 'scenic beautiful 4K HD wallpaper';
 }
 
 /**
@@ -143,16 +144,17 @@ export async function searchBackdropOptions(
       // Get category-specific aesthetic keywords
       const aestheticKeywords = getCategoryAestheticKeywords(category);
       
-      // Build a rich, specific search query
+      // Build a rich, specific search query with HD/4K emphasis
       // Priority: location > activity title keywords > category aesthetics
+      // Use specific resolution keywords to prioritize high-quality images
       let searchQuery = '';
       if (locationStr) {
-        // If we have a location, prioritize it with cinematic modifiers
-        searchQuery = `${locationStr} ${aestheticKeywords} high quality 16:9 wallpaper`;
+        // If we have a location, prioritize it with HD/4K modifiers
+        searchQuery = `${locationStr} ${aestheticKeywords} 4K HD wallpaper 3840x2160`;
       } else {
         // Extract key nouns from title (first 50 chars)
         const titleKeywords = activityTitle.substring(0, 50).replace(/[^\w\s]/g, '').trim();
-        searchQuery = `${titleKeywords} ${aestheticKeywords} cinematic 16:9 backdrop`;
+        searchQuery = `${titleKeywords} ${aestheticKeywords} 4K ultra HD desktop wallpaper`;
       }
       
       console.log(`[WebImageSearch] Searching backdrop options:`);

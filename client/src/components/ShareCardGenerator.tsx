@@ -680,9 +680,14 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
       <Card className="overflow-hidden">
         <CardContent className="p-2 sm:p-6">
           <p className="text-sm text-muted-foreground mb-2 sm:mb-3">Preview:</p>
+          {/* Preview wrapper with fixed height based on scaled content */}
           <div
             ref={previewContainerRef}
-            className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4 overflow-hidden"
+            className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4"
+            style={{
+              height: `${Math.ceil((platform?.height || 1080) * previewScale) + 32}px`,
+              overflow: 'hidden',
+            }}
           >
             {/* Scaling container for mobile responsiveness - uses CSS transform to fit any screen */}
             <div
@@ -690,7 +695,6 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
                 transform: `scale(${previewScale})`,
                 transformOrigin: 'top center',
                 width: `${platform?.width || 1080}px`,
-                height: `${(platform?.height || 1080) * previewScale}px`,
               }}
             >
               {/* Share Card Template */}

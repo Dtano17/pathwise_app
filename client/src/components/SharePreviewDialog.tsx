@@ -145,6 +145,27 @@ export function SharePreviewDialog({
   );
   const [backdrop, setBackdrop] = useState(activity.backdrop || "");
   const [customBackdrop, setCustomBackdrop] = useState("");
+  const [backdropLoaded, setBackdropLoaded] = useState(false);
+
+  // Preload backdrop image when it changes
+  useEffect(() => {
+    if (!backdrop) {
+      setBackdropLoaded(true); // No backdrop to load
+      return;
+    }
+    
+    setBackdropLoaded(false);
+    const img = new window.Image();
+    img.onload = () => setBackdropLoaded(true);
+    img.onerror = () => setBackdropLoaded(true); // Allow fallback on error
+    img.src = backdrop;
+    
+    // Cleanup
+    return () => {
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [backdrop]);
 
   // Fetch dynamic backdrop options based on activity
   const { data: backdropOptions = [], isLoading: isLoadingBackdrops, refetch: refetchBackdrops, isRefetching: isRefetchingBackdrops } =
@@ -1424,15 +1445,22 @@ export function SharePreviewDialog({
             <TabsContent value="download-cards" className="py-0 focus-visible:outline-none focus-visible:ring-0">
               <ScrollArea className="h-[calc(90vh-12rem)] pr-4">
                 <div className="space-y-6 py-4">
-                  <ShareCardGenerator
-                    activityId={activity.id}
-                    activityTitle={shareTitle}
-                    activityCategory={activity.category}
-                    backdrop={backdrop || ""}
-                    planSummary={activity.planSummary || undefined}
-                    tasks={activityTasks}
-                    shareCaption={shareCaption}
-                  />
+                  {!backdropLoaded ? (
+                    <div className="flex flex-col items-center justify-center py-12 gap-4">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">Loading preview...</p>
+                    </div>
+                  ) : (
+                    <ShareCardGenerator
+                      activityId={activity.id}
+                      activityTitle={shareTitle}
+                      activityCategory={activity.category}
+                      backdrop={backdrop || ""}
+                      planSummary={activity.planSummary || undefined}
+                      tasks={activityTasks}
+                      shareCaption={shareCaption}
+                    />
+                  )}
                 </div>
               </ScrollArea>
             </TabsContent>
