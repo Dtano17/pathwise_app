@@ -12011,10 +12011,30 @@ You can find these tasks in your task list and start working on them right away!
 
       // Save updated journal data
       if (totalEnriched > 0) {
+        // Debug: Log entries with primaryImageUrl before saving
+        for (const cat of categoriesToEnrich) {
+          const entries = journalData[cat] || [];
+          const withImages = entries.filter((e: any) => e.webEnrichment?.primaryImageUrl);
+          if (withImages.length > 0) {
+            console.log(`[JOURNAL WEB ENRICH] Category "${cat}" has ${withImages.length} entries with images before save:`,
+              withImages.map((e: any) => ({ text: e.text?.substring(0, 30), imageUrl: e.webEnrichment?.primaryImageUrl?.substring(0, 60) }))
+            );
+          }
+        }
+        
         await storage.upsertUserPreferences(userId, {
           preferences: { ...prefs?.preferences, journalData }
         });
         aiService.invalidateUserContext(userId);
+        
+        // Debug: Verify data was saved correctly
+        const savedPrefs = await storage.getUserPreferences(userId);
+        const savedJournalData = savedPrefs?.preferences?.journalData as Record<string, any[]>;
+        for (const cat of categoriesToEnrich) {
+          const entries = savedJournalData?.[cat] || [];
+          const withImages = entries.filter((e: any) => e.webEnrichment?.primaryImageUrl);
+          console.log(`[JOURNAL WEB ENRICH] After save - Category "${cat}" has ${withImages.length}/${entries.length} entries with images`);
+        }
       }
 
       console.log(`[JOURNAL WEB ENRICH] Complete: ${totalEnriched} enriched, ${totalFailed} failed`);

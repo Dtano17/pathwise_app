@@ -1477,6 +1477,33 @@ export const userPreferences = pgTable("user_preferences", {
         sourceUrl?: string; // URL of the reel/post this venue was extracted from
         importId?: string; // Unique ID for the import session (groups venues from same reel)
         selectedForPlan?: boolean; // True if this venue was selected for a plan task
+        webEnrichment?: {
+          primaryImageUrl?: string; // Main image (movie poster, restaurant photo, book cover, etc.)
+          rating?: number; // Numeric rating (0-5 or 0-10 depending on source)
+          reviewCount?: number; // Number of reviews
+          description?: string; // Short description or summary
+          isValidated?: boolean; // Whether this entry has been validated via web lookup
+          cuisineTypes?: string[]; // For restaurants: cuisine types
+          director?: string; // For movies: director name
+          cast?: string[]; // For movies: main cast
+          releaseYear?: number; // For movies/books: release year
+          genres?: string[]; // For movies/music/books: genre tags
+          runtime?: number; // For movies: runtime in minutes
+          author?: string; // For books: author name
+          publisher?: string; // For books: publisher
+          isbn?: string; // For books: ISBN
+          pageCount?: number; // For books: page count
+          publishedDate?: string; // For books: publication date
+          artists?: string[]; // For music: artist names
+          album?: string; // For music: album name
+          spotifyUrl?: string; // For music: Spotify link
+          previewUrl?: string; // For music: preview audio URL
+          validatedName?: string; // Validated/canonical name from web lookup
+          validationType?: string; // Type of validation: movie, book, restaurant, music, etc.
+          venueType?: string; // Validated venue type from web lookup
+          suggestedCategory?: string; // AI-suggested category for this entry
+          categoryConfidence?: number; // Confidence score for category suggestion
+        }; // Web enrichment data from TMDB, Google Books, Spotify, Tavily, etc.
       }>
     }; // Personal journal entries by category with media support and venue data for swap alternatives
     customJournalCategories?: Array<{ id: string; name: string; color: string }>; // User-created journal categories
