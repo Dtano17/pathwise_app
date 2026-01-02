@@ -133,22 +133,33 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
     const calculateScale = () => {
       if (previewContainerRef.current && platform) {
         const container = previewContainerRef.current;
-        const containerWidth = container.clientWidth - 32; // Account for padding
-        const containerHeight = window.innerHeight * 0.6; // Use 60% of viewport height
+        // Use a more robust way to get available width
+        const availableWidth = Math.min(
+          container.clientWidth,
+          window.innerWidth - 48 // Account for dialog padding and safe area
+        );
+        const containerWidth = Math.max(availableWidth - 32, 280); // Ensure minimum width
+        const containerHeight = window.innerHeight * 0.5; // Use 50% of viewport height for better fit
 
         const widthScale = containerWidth / (platform.width || 1080);
         const heightScale = containerHeight / (platform.height || 1080);
 
-        // Use the smaller scale to ensure content fits
+        // Use the smaller scale to ensure content fits, but allow a bit more growth
         const scale = Math.min(widthScale, heightScale, 1);
         setPreviewScale(scale);
       }
     };
 
+    // Run immediately and after a short delay to ensure layout is stable
     calculateScale();
+    const timer = setTimeout(calculateScale, 100);
+    
     window.addEventListener('resize', calculateScale);
-    return () => window.removeEventListener('resize', calculateScale);
-  }, [platform, selectedPlatform]);
+    return () => {
+      window.removeEventListener('resize', calculateScale);
+      clearTimeout(timer);
+    };
+  }, [platform, selectedPlatform, activityId]); // Added activityId to trigger on tab switch if needed
 
   // Handle platform change
   const handlePlatformChange = (newPlatform: string) => {
@@ -566,7 +577,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
           {/* Platform Selector */}
           <div className="space-y-3">
             <h3 className="text-sm font-medium">Choose Platform</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
               {Object.values(PLATFORM_TEMPLATES).map(template => {
                 const IconComponent = getPlatformIcon(template.id);
                 return (
@@ -577,7 +588,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
                       handlePlatformChange(template.id);
                       handleFormatChange(getRecommendedFormat(template.id));
                     }}
-                    className="justify-start gap-2 h-auto py-3 min-h-[44px]"
+                    className="justify-start gap-2 h-auto py-3 min-h-[44px] w-full"
                     data-testid={`button-platform-${template.id}`}
                     aria-label={`Select ${template.name} format`}
                     title={template.name}
