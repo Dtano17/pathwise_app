@@ -419,21 +419,9 @@ Respond with ONLY a JSON object in this format:
     console.log(`[JOURNAL_WEB_ENRICH] Enriching entry ${entry.id}: "${entry.text.substring(0, 50)}..."${forceRefresh ? ' (FORCE REFRESH)' : ''}`);
 
     try {
-      // Check cache first (skip if force refresh)
-      const cacheKey = this.generateCacheKey(entry);
-      if (!forceRefresh) {
-        const cached = this.cache.get(cacheKey);
-        if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-          console.log(`[JOURNAL_WEB_ENRICH] Cache hit for ${entry.id}`);
-          return { entryId: entry.id, success: true, enrichedData: cached.data };
-        }
-      } else {
-        // Clear cache for this entry on force refresh
-        this.cache.delete(cacheKey);
-        console.log(`[JOURNAL_WEB_ENRICH] Cache cleared for forced refresh of ${entry.id}`);
-      }
-
-      // Extract venue name and location from text if not provided
+      // FIRST: Extract venue name and location from text
+      // This MUST happen BEFORE cache key generation to avoid cache collisions
+      // when multiple entries have the same ID but different content
       const extractedInfo = this.extractVenueInfo(entry.text);
       
       // For movies, ALWAYS use extracted title (not the full venue name with parentheses)
@@ -447,6 +435,22 @@ Respond with ONLY a JSON object in this format:
         ? extractedInfo.venueName  // Use extracted clean title for movies
         : (entry.venueName || extractedInfo.venueName);
       const city = entry.location?.city || extractedInfo.city;
+      
+      // CRITICAL: Generate cache key using the EXTRACTED venue name (not entry.venueName)
+      // This prevents cache collisions when entries share the same ID but have different content
+      const cacheKey = this.generateCacheKeyFromVenue(venueName || '', city || '');
+      
+      if (!forceRefresh) {
+        const cached = this.cache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+          console.log(`[JOURNAL_WEB_ENRICH] Cache hit for "${venueName}"`);
+          return { entryId: entry.id, success: true, enrichedData: cached.data };
+        }
+      } else {
+        // Clear cache for this entry on force refresh
+        this.cache.delete(cacheKey);
+        console.log(`[JOURNAL_WEB_ENRICH] Cache cleared for forced refresh of "${venueName}"`);
+      }
 
       if (!venueName) {
         console.log(`[JOURNAL_WEB_ENRICH] No venue name found in entry ${entry.id}`);
@@ -1774,6 +1778,13 @@ Return only valid JSON, no explanation.`
   private generateCacheKey(entry: JournalEntryForEnrichment): string {
     const venueName = entry.venueName || this.extractVenueInfo(entry.text).venueName || '';
     const city = entry.location?.city || '';
+    return `${venueName.toLowerCase().replace(/\s+/g, '_')}_${city.toLowerCase()}`;
+  }
+
+  // Generate cache key from extracted venue name directly
+  // This is preferred when we've already extracted the correct venue name
+  // to avoid cache collisions when entries share the same ID
+  private generateCacheKeyFromVenue(venueName: string, city: string): string {
     return `${venueName.toLowerCase().replace(/\s+/g, '_')}_${city.toLowerCase()}`;
   }
 
