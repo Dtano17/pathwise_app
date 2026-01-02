@@ -671,15 +671,15 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
           <p className="text-sm text-muted-foreground mb-2 sm:mb-3">Preview:</p>
           <div
             ref={previewContainerRef}
-            className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4 overflow-auto"
+            className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4 overflow-hidden"
           >
-            {/* Scaling container for mobile responsiveness */}
+            {/* Scaling container for mobile responsiveness - uses CSS transform to fit any screen */}
             <div
               style={{
                 transform: `scale(${previewScale})`,
                 transformOrigin: 'top center',
                 width: `${platform?.width || 1080}px`,
-                minHeight: `${platform?.height || 1080}px`,
+                height: `${(platform?.height || 1080) * previewScale}px`,
               }}
             >
               {/* Share Card Template */}

@@ -222,19 +222,19 @@ export function SocialVerificationTab({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="flex gap-2">
-                <div className="flex-1">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex-1 min-w-0">
                   <Input
                     type="url"
                     placeholder={platform.placeholder}
                     value={links[platform.id] || ''}
                     onChange={e => handleUrlChange(platform.id, e.target.value)}
-                    className={validationErrors[platform.id] ? 'border-destructive' : ''}
+                    className={`${validationErrors[platform.id] ? 'border-destructive' : ''} text-sm`}
                   />
                   {validationErrors[platform.id] && (
                     <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {validationErrors[platform.id]}
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      <span className="break-words">{validationErrors[platform.id]}</span>
                     </p>
                   )}
                 </div>
@@ -244,6 +244,7 @@ export function SocialVerificationTab({
                     size="icon"
                     asChild
                     title="View post"
+                    className="flex-shrink-0"
                   >
                     <a href={links[platform.id]} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="w-4 h-4" />
@@ -257,10 +258,11 @@ export function SocialVerificationTab({
       </div>
 
       {/* Save Button */}
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
         <Button
           onClick={handleSave}
           disabled={isSaving || hasValidationErrors || !hasAnyLink}
+          className="w-full sm:w-auto min-h-[44px]"
         >
           {isSaving ? 'Saving...' : 'Save Verification Links'}
         </Button>
