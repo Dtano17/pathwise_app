@@ -184,11 +184,20 @@ class TMDBService {
       }
 
       console.log(`[TMDB] Best match: "${bestMatch.title}" (${bestMatch.release_date?.substring(0, 4)}) with ${(bestScore * 100).toFixed(0)}% similarity`);
+      
+      // Log poster/backdrop availability for debugging
+      if (!bestMatch.poster_path) {
+        console.log(`[TMDB] WARNING: No poster for "${bestMatch.title}" - will try backdrop`);
+      }
 
       const details = await this.getMovieDetails(bestMatch.id);
+      
+      // Use poster if available, otherwise fall back to backdrop
+      const posterUrl = this.getImageUrl(bestMatch.poster_path, 'w500') || 
+                        this.getImageUrl(bestMatch.backdrop_path, 'w780');
 
       return {
-        posterUrl: this.getImageUrl(bestMatch.poster_path, 'w500'),
+        posterUrl,
         backdropUrl: this.getImageUrl(bestMatch.backdrop_path, 'w780'),
         title: bestMatch.title,
         overview: bestMatch.overview,
@@ -251,8 +260,12 @@ class TMDBService {
 
       console.log(`[TMDB] Best TV match: "${bestMatch.name}" (${bestMatch.first_air_date?.substring(0, 4)}) with ${(bestScore * 100).toFixed(0)}% similarity`);
 
+      // Use poster if available, otherwise fall back to backdrop
+      const posterUrl = this.getImageUrl(bestMatch.poster_path, 'w500') || 
+                        this.getImageUrl(bestMatch.backdrop_path, 'w780');
+
       return {
-        posterUrl: this.getImageUrl(bestMatch.poster_path, 'w500'),
+        posterUrl,
         backdropUrl: this.getImageUrl(bestMatch.backdrop_path, 'w780'),
         title: bestMatch.name,
         overview: bestMatch.overview,
