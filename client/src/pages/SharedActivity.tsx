@@ -296,6 +296,22 @@ export default function SharedActivity() {
     enabled: !!token,
   });
 
+  // Fetch relevant backdrop options using Tavily search when activity doesn't have a custom backdrop
+  const { data: backdropData } = useQuery<{ options: Array<{ url: string; source: string; label?: string }> }>({
+    queryKey: ['/api/activities', data?.activity?.id, 'backdrop-options'],
+    queryFn: async () => {
+      const response = await fetch(`/api/activities/${data?.activity?.id}/backdrop-options`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch backdrop options');
+      }
+      return response.json();
+    },
+    enabled: !!data?.activity?.id && !data?.activity?.backdrop,
+    staleTime: 1000 * 60 * 30, // Cache for 30 minutes
+  });
+
   useEffect(() => {
     if (data?.activity && data?.tasks) {
       const { title, description, category, backdrop, shareTitle, planSummary } = data.activity;
@@ -813,6 +829,7 @@ export default function SharedActivity() {
   const queryClient = useQueryClient();
 
   // Generate themed background image URL (must be before early returns per React Hooks rules)
+  // Priority: 1. Custom backdrop, 2. Tavily search result, 3. Fallback images
   const backgroundStyle = useMemo(() => {
     if (!data?.activity) {
       return {
@@ -823,7 +840,7 @@ export default function SharedActivity() {
       };
     }
 
-    // Check if there's a custom backdrop
+    // Check if there's a custom backdrop set by user
     if (data.activity.backdrop) {
       return {
         backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${data.activity.backdrop}')`,
@@ -833,72 +850,58 @@ export default function SharedActivity() {
       };
     }
 
+    // Use Tavily-fetched backdrop if available (most relevant to activity content)
+    if (backdropData?.options && backdropData.options.length > 0) {
+      const bestBackdrop = backdropData.options[0].url;
+      console.log('[SHARED ACTIVITY] Using Tavily backdrop:', bestBackdrop);
+      return {
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${bestBackdrop}')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      };
+    }
+
+    // Fallback: Use category-based HD images while Tavily results load
     const title = data.activity.title.toLowerCase();
     const category = data.activity.category.toLowerCase();
     
-    // Create a search term for Unsplash based on activity
-    let searchTerm = category;
+    // Map categories to curated high-quality fallback images
+    const categoryFallbacks: Record<string, string> = {
+      'fitness': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1600&h=900&fit=crop&q=80',
+      'travel': 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1600&h=900&fit=crop&q=80',
+      'learning': 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1600&h=900&fit=crop&q=80',
+      'health': 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=1600&h=900&fit=crop&q=80',
+      'career': 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&h=900&fit=crop&q=80',
+      'relationships': 'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?w=1600&h=900&fit=crop&q=80',
+      'creativity': 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=1600&h=900&fit=crop&q=80',
+      'finance': 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=1600&h=900&fit=crop&q=80',
+      'home': 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1600&h=900&fit=crop&q=80',
+      'personal': 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&h=900&fit=crop&q=80',
+    };
+
+    // Check for city-specific matches in title for better relevance
+    let fallbackUrl = categoryFallbacks[category] || categoryFallbacks['personal'];
     
-    // Extract key terms from title for better image matching
-    if (title.includes('new year') && (title.includes('new york') || title.includes('nyc'))) {
-      searchTerm = 'new york city new year celebration times square';
-    } else if (title.includes('new york') || title.includes('nyc')) {
-      searchTerm = 'new york city skyline';
+    if (title.includes('new york') || title.includes('nyc')) {
+      fallbackUrl = 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=1600&h=900&fit=crop&q=80';
     } else if (title.includes('paris')) {
-      searchTerm = 'paris eiffel tower';
+      fallbackUrl = 'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=1600&h=900&fit=crop&q=80';
     } else if (title.includes('tokyo')) {
-      searchTerm = 'tokyo japan cityscape';
-    } else if (title.includes('london')) {
-      searchTerm = 'london big ben';
-    } else if (title.includes('lagos')) {
-      searchTerm = 'lagos nigeria cityscape';
+      fallbackUrl = 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1600&h=900&fit=crop&q=80';
     } else if (title.includes('beach') || title.includes('tropical')) {
-      searchTerm = 'tropical beach paradise';
+      fallbackUrl = 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1600&h=900&fit=crop&q=80';
     } else if (title.includes('mountain') || title.includes('hiking')) {
-      searchTerm = 'mountain landscape hiking';
-    } else if (category === 'fitness') {
-      searchTerm = 'fitness workout gym';
-    } else if (category === 'travel') {
-      searchTerm = 'travel adventure destination';
-    } else if (category === 'learning') {
-      searchTerm = 'books education study';
-    } else if (category === 'health') {
-      searchTerm = 'health wellness mindfulness';
-    } else if (category === 'career') {
-      searchTerm = 'business career professional';
+      fallbackUrl = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&h=900&fit=crop&q=80';
     }
     
-    // Use Unsplash API for themed images (with random seed for variety)
-    const randomSeed = Math.floor(Math.random() * 1000);
-    const unsplashUrl = `https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1600&h=900&fit=crop&q=80`;
-    
-    // Map search terms to specific high-quality Unsplash images
-    const imageMap: Record<string, string> = {
-      'new york city new year celebration times square': 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1600&h=900&fit=crop&q=80', // Times Square NYE
-      'new york city skyline': 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=1600&h=900&fit=crop&q=80',
-      'paris eiffel tower': 'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=1600&h=900&fit=crop&q=80',
-      'tokyo japan cityscape': 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1600&h=900&fit=crop&q=80',
-      'london big ben': 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=1600&h=900&fit=crop&q=80',
-      'lagos nigeria cityscape': 'https://images.unsplash.com/photo-1578846967126-11ec89440219?w=1600&h=900&fit=crop&q=80',
-      'tropical beach paradise': 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1600&h=900&fit=crop&q=80',
-      'mountain landscape hiking': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&h=900&fit=crop&q=80',
-      'fitness workout gym': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1600&h=900&fit=crop&q=80',
-      'travel adventure destination': 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1600&h=900&fit=crop&q=80',
-      'books education study': 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1600&h=900&fit=crop&q=80',
-      'health wellness mindfulness': 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=1600&h=900&fit=crop&q=80',
-      'business career professional': 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&h=900&fit=crop&q=80',
-      'personal': 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&h=900&fit=crop&q=80'
-    };
-    
-    const finalImageUrl = imageMap[searchTerm] || imageMap['personal'];
-    
     return {
-      backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${finalImageUrl}')`,
+      backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${fallbackUrl}')`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
       backgroundRepeat: 'no-repeat'
     };
-  }, [data?.activity?.title, data?.activity?.category]);
+  }, [data?.activity?.title, data?.activity?.category, data?.activity?.backdrop, backdropData?.options]);
 
   if (isLoading) {
     return (
