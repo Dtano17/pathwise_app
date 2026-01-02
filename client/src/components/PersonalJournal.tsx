@@ -829,20 +829,25 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   // Web enrichment mutation for loading details
   const enrichEntryMutation = useMutation({
     mutationFn: async ({ category }: { category: string }) => {
+      console.log('[ENRICH] Starting enrichment for category:', category);
       const response = await apiRequest('POST', '/api/user/journal/web-enrich', {
         categories: [category],
         forceRefresh: true
       });
-      return response.json();
+      const data = await response.json();
+      console.log('[ENRICH] Response:', data);
+      return data;
     },
     onSuccess: (data) => {
+      console.log('[ENRICH] Success - enriched:', data.enriched);
       queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
       toast({
         title: "Details loaded!",
-        description: `Enriched ${data.totalEnriched || 0} entries with web data.`,
+        description: `Enriched ${data.enriched || 0} entries with web data.`,
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('[ENRICH] Error:', error);
       toast({
         title: "Enrichment failed",
         description: "Could not load details from web. Try again later.",
