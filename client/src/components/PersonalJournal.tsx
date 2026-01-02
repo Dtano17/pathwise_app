@@ -1267,6 +1267,20 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                   </>
                 )}
               </div>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => enrichEntryMutation.mutate({ category: activeCategory })}
+                disabled={enrichEntryMutation.isPending}
+                className="gap-1.5 text-xs text-muted-foreground hover:text-foreground flex-shrink-0"
+                data-testid="button-refresh-category"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${enrichEntryMutation.isPending ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">
+                  {enrichEntryMutation.isPending ? 'Loading...' : 'Refresh Data'}
+                </span>
+              </Button>
             </div>
             
             {/* Filter Dropdowns - Only show if settings enabled */}

@@ -11899,6 +11899,9 @@ You can find these tasks in your task list and start working on them right away!
       const webEnrichableCategories = [
         'restaurants', 'travel', 'activities', 'music', 'movies', 'shopping',
         'fitness', 'books', 'hobbies', 'style', 'self-care',
+        // Standard category names with proper casing
+        'Movies & TV Shows', 'Books & Reading', 'Music & Artists',
+        'Restaurants & Food', 'Travel & Places', 'Health & Fitness',
         // Custom categories (common user-created ones)
         'entertainment', 'Entertainment', 'custom-entertainment',
         'notes', 'favorites', 'work', 'personal'
@@ -11937,7 +11940,9 @@ You can find these tasks in your task list and start working on them right away!
             id: item.id || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             text: item.text,
             category,
-            venueName: item.venueName,
+            // On force refresh, clear venueName so enrichment service re-extracts it from text
+            // This prevents stale/wrong venue names from being used
+            venueName: forceRefresh ? undefined : item.venueName,
             location: item.location,
             existingEnrichment: forceRefresh ? undefined : item.webEnrichment
           }));
