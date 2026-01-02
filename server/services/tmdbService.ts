@@ -184,21 +184,34 @@ class TMDBService {
       }
 
       console.log(`[TMDB] Best match: "${bestMatch.title}" (${bestMatch.release_date?.substring(0, 4)}) with ${(bestScore * 100).toFixed(0)}% similarity`);
-      
-      // Log poster/backdrop availability for debugging
-      if (!bestMatch.poster_path) {
-        console.log(`[TMDB] WARNING: No poster for "${bestMatch.title}" - will try backdrop`);
-      }
 
       const details = await this.getMovieDetails(bestMatch.id);
       
-      // Use poster if available, otherwise fall back to backdrop
-      const posterUrl = this.getImageUrl(bestMatch.poster_path, 'w500') || 
-                        this.getImageUrl(bestMatch.backdrop_path, 'w780');
+      // Determine poster URL with multiple fallbacks:
+      // 1. Search result poster_path
+      // 2. Details endpoint poster_path  
+      // 3. Images endpoint (dedicated poster gallery)
+      // 4. Backdrop as last resort
+      let posterPath = bestMatch.poster_path || details?.poster_path;
+      
+      if (!posterPath) {
+        console.log(`[TMDB] No poster in search/details for "${bestMatch.title}" - fetching from images endpoint`);
+        posterPath = await this.getMovieImages(bestMatch.id);
+      }
+      
+      const posterUrl = this.getImageUrl(posterPath, 'w500') || 
+                        this.getImageUrl(bestMatch.backdrop_path, 'w780') ||
+                        this.getImageUrl(details?.backdrop_path || null, 'w780');
+      
+      if (!posterUrl) {
+        console.log(`[TMDB] WARNING: No poster or backdrop found for "${bestMatch.title}"`);
+      } else {
+        console.log(`[TMDB] Got poster for "${bestMatch.title}": ${posterUrl.substring(0, 60)}...`);
+      }
 
       return {
         posterUrl,
-        backdropUrl: this.getImageUrl(bestMatch.backdrop_path, 'w780'),
+        backdropUrl: this.getImageUrl(bestMatch.backdrop_path, 'w780') || this.getImageUrl(details?.backdrop_path || null, 'w780'),
         title: bestMatch.title,
         overview: bestMatch.overview,
         releaseYear: bestMatch.release_date?.substring(0, 4) || '',
@@ -294,6 +307,47 @@ class TMDBService {
       return await response.json();
     } catch (error) {
       console.error('[TMDB] Get details error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch movie images from the dedicated images endpoint.
+   * This is useful when the search result has null poster_path but the movie has posters.
+   */
+  private async getMovieImages(movieId: number): Promise<string | null> {
+    if (!this.apiKey) return null;
+
+    try {
+      const url = `${TMDB_BASE_URL}/movie/${movieId}/images?api_key=${this.apiKey}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) return null;
+      
+      const data = await response.json();
+      
+      // Try to get the first English poster, or any poster
+      const posters = data.posters || [];
+      if (posters.length > 0) {
+        // Prefer English posters, then any poster
+        const englishPoster = posters.find((p: { iso_639_1: string }) => p.iso_639_1 === 'en');
+        const posterPath = englishPoster?.file_path || posters[0]?.file_path;
+        if (posterPath) {
+          console.log(`[TMDB] Found poster from images endpoint for movie ${movieId}`);
+          return posterPath;
+        }
+      }
+      
+      // Fall back to backdrops if no posters
+      const backdrops = data.backdrops || [];
+      if (backdrops.length > 0) {
+        console.log(`[TMDB] Using backdrop from images endpoint for movie ${movieId}`);
+        return backdrops[0]?.file_path || null;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('[TMDB] Get images error:', error);
       return null;
     }
   }
