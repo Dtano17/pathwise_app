@@ -974,24 +974,24 @@ export default function SharedActivity() {
   return (
     <div className={`min-h-screen ${previewTheme === 'dark' ? 'dark' : ''}`}>
       <div className="min-h-screen bg-background">
-        {/* Hero Section with Dynamic Themed Background Image */}
-        <div 
-          className="relative border-b min-h-[400px] sm:min-h-[500px] flex items-center" 
+        {/* Hero Section with Dynamic Themed Background Image - Optimized for all screens */}
+        <div
+          className="relative border-b min-h-[280px] sm:min-h-[350px] md:min-h-[450px] lg:min-h-[500px] flex items-center"
           style={backgroundStyle}
         >
         {/* Dark overlay for text readability */}
         <div className="absolute inset-0 bg-black/40" />
-        <div className="container mx-auto px-4 py-6 sm:py-8 md:py-12 relative w-full">
+        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 lg:py-12 relative w-full">
           <div className="max-w-4xl mx-auto">
-            {/* JournalMate Branding */}
-            <div className="text-center mb-4 sm:mb-6">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <img 
-                  src={journalMateLogo} 
-                  alt="JournalMate" 
-                  className="w-8 h-8 sm:w-10 sm:h-10"
+            {/* JournalMate Branding - Compact on mobile */}
+            <div className="text-center mb-3 sm:mb-4 md:mb-6">
+              <div className="flex items-center justify-center gap-1.5 sm:gap-2 mb-1">
+                <img
+                  src={journalMateLogo}
+                  alt="JournalMate"
+                  className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10"
                 />
-                <h1 className="text-2xl sm:text-3xl font-bold" style={{
+                <h1 className="text-lg sm:text-2xl md:text-3xl font-bold" style={{
                   background: 'linear-gradient(to right, rgb(168, 85, 247), rgb(16, 185, 129))',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
@@ -1074,20 +1074,20 @@ export default function SharedActivity() {
               transition={{ duration: 0.5 }}
               className="text-center"
             >
-              {/* Activity Summary with Emoji */}
-              <div className="mb-4">
-                <h2 className="text-3xl sm:text-5xl font-bold text-white mb-3 break-words drop-shadow-lg flex items-center justify-center gap-3 flex-wrap">
-                  <span className="text-5xl sm:text-6xl">{theme.emoji}</span>
+              {/* Activity Summary with Emoji - Responsive sizing */}
+              <div className="mb-2 sm:mb-4">
+                <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-2 sm:mb-3 break-words drop-shadow-lg flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
+                  <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl">{theme.emoji}</span>
                   <span>{activity.shareTitle || activity.planSummary || activity.title}</span>
                 </h2>
                 {activity.description && (
-                  <p className="text-lg sm:text-xl text-white/95 max-w-2xl mx-auto break-words drop-shadow-md font-medium">
+                  <p className="text-sm sm:text-base md:text-lg lg:text-xl text-white/95 max-w-2xl mx-auto break-words drop-shadow-md font-medium px-2">
                     {activity.description}
                   </p>
                 )}
-                
-                {/* Motivational Tagline */}
-                <div className="mt-4 text-white/90 text-base sm:text-lg italic">
+
+                {/* Motivational Tagline - Hidden on mobile to save space */}
+                <div className="hidden sm:block mt-3 md:mt-4 text-white/90 text-sm md:text-base lg:text-lg italic">
                   "{progressPercent === 100 ? '🎉 Achievement unlocked!' : progressPercent > 50 ? '💫 You\'re making great progress!' : '🚀 Ready to start your journey?'}"
                 </div>
               </div>
@@ -1121,16 +1121,55 @@ export default function SharedActivity() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6 sm:py-8 max-w-4xl">
+      {/* Fixed Bottom CTA for Mobile - Always visible */}
+      {!isAuthenticated && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-3 bg-gradient-to-t from-background via-background to-transparent md:hidden border-t shadow-lg">
+          <Button
+            onClick={handleSignIn}
+            className="w-full gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white shadow-lg"
+            data-testid="button-sign-in-mobile-fixed"
+            size="lg"
+          >
+            <Sparkles className="w-4 h-4" />
+            Get Started Free
+          </Button>
+        </div>
+      )}
+
+      {isAuthenticated && user && typeof user === 'object' && 'id' in user && activity.userId !== (user as any).id && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-3 bg-gradient-to-t from-background via-background to-transparent md:hidden border-t shadow-lg">
+          <Button
+            onClick={() => handleCopyClick(false)}
+            disabled={copyActivityMutation.isPending}
+            className="w-full gap-2 bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white shadow-lg"
+            data-testid="button-copy-activity-mobile-fixed"
+            size="lg"
+          >
+            {copyActivityMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Copying...
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" />
+                Copy to My Account
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Main Content - Add bottom padding for fixed button on mobile */}
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 max-w-4xl pb-24 md:pb-8">
         {/* Progress Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
         >
-          <Card className="p-6 sm:p-8 mb-8">
-            <div className="space-y-6">
+          <Card className="p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 md:mb-8">
+            <div className="space-y-4 sm:space-y-6">
               {/* Metadata */}
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <Badge variant="outline" className="gap-1">
@@ -1177,14 +1216,14 @@ export default function SharedActivity() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.2 }}
-            className="mb-8"
+            className="mb-4 sm:mb-6 md:mb-8"
           >
-            <h3 className="text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
-              <span className="text-2xl">✨</span>
+            <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2 flex-wrap">
+              <span className="text-xl sm:text-2xl">✨</span>
               <span>What's Ahead</span>
-              <Badge variant="outline" className="ml-2">{activeTasks.length}</Badge>
+              <Badge variant="outline" className="ml-0 sm:ml-2 text-xs sm:text-sm">{activeTasks.length}</Badge>
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {activeTasks.map((task, index) => {
                 const priorityEmoji = task.priority === 'high' ? '🔥' : task.priority === 'medium' ? '⚡' : '✅';
                 return (
@@ -1194,8 +1233,8 @@ export default function SharedActivity() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, delay: Math.min(index * 0.05, 0.3) }}
                   >
-                    <Card 
-                      className={`p-4 sm:p-5 hover-elevate ${isAuthenticated ? 'cursor-pointer' : ''} border-l-4 ${
+                    <Card
+                      className={`p-3 sm:p-4 md:p-5 hover-elevate ${isAuthenticated ? 'cursor-pointer' : ''} border-l-4 ${
                         task.priority === 'high' ? 'border-l-red-500' :
                         task.priority === 'medium' ? 'border-l-yellow-500' :
                         'border-l-green-500'
@@ -1207,14 +1246,14 @@ export default function SharedActivity() {
                         }
                       }}
                     >
-                      <div className="flex items-start gap-3">
-                        <div className="text-2xl shrink-0">{priorityEmoji}</div>
+                      <div className="flex items-start gap-2 sm:gap-3">
+                        <div className="text-xl sm:text-2xl shrink-0">{priorityEmoji}</div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-foreground mb-1 break-words text-lg">
+                          <h4 className="font-bold text-foreground mb-1 break-words text-base sm:text-lg">
                             {task.title}
                           </h4>
                           {task.description && (
-                            <p className="text-sm text-muted-foreground mb-3 break-words leading-relaxed">
+                            <p className="text-xs sm:text-sm text-muted-foreground mb-2 sm:mb-3 break-words leading-relaxed">
                               {task.description}
                             </p>
                           )}
