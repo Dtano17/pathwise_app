@@ -1539,11 +1539,11 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                       >
                         {/* Web enrichment image header - full image display */}
                         {hasWebImage && (
-                          <div className="relative w-full bg-gradient-to-br from-muted/30 to-muted/50">
+                          <div className="relative w-full aspect-[2/3] sm:aspect-[3/4] bg-gradient-to-br from-muted/30 to-muted/50">
                             <img
                               src={primaryImage}
                               alt={webEnrichment?.venueName || text.substring(0, 30)}
-                              className="w-full h-auto object-contain max-h-[500px]"
+                              className="w-full h-full object-cover"
                               loading="lazy"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
