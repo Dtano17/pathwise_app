@@ -1457,23 +1457,26 @@ export function SharePreviewDialog({
             {/* Tab 2: Download Cards */}
             <TabsContent value="download-cards" className="py-0 focus-visible:outline-none focus-visible:ring-0">
               <ScrollArea className="h-[calc(90vh-12rem)] pr-4">
-                <div className="space-y-6 py-4">
-                  {!backdropLoaded ? (
-                    <div className="flex flex-col items-center justify-center py-12 gap-4">
-                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                      <p className="text-sm text-muted-foreground">Loading preview...</p>
-                    </div>
-                  ) : (
-                    <ShareCardGenerator
-                      activityId={activity.id}
-                      activityTitle={shareTitle}
-                      activityCategory={activity.category}
-                      backdrop={backdrop || ""}
-                      planSummary={activity.planSummary || undefined}
-                      tasks={activityTasks}
-                      shareCaption={shareCaption}
-                    />
-                  )}
+                <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                  <div className="min-w-[320px] sm:max-w-2xl sm:mx-auto space-y-6 py-4">
+                    {!backdropLoaded ? (
+                      <div className="flex flex-col items-center justify-center py-12 gap-4">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <p className="text-sm text-muted-foreground">Loading preview...</p>
+                      </div>
+                    ) : (
+                      <ShareCardGenerator
+                        activityId={activity.id}
+                        activityTitle={shareTitle}
+                        activityCategory={activity.category}
+                        backdrop={backdrop || ""}
+                        planSummary={activity.planSummary || undefined}
+                        tasks={activityTasks}
+                        shareCaption={shareCaption}
+                        forceMobileLayout={lockedMobileState}
+                      />
+                    )}
+                  </div>
                 </div>
               </ScrollArea>
             </TabsContent>
