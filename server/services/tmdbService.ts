@@ -170,7 +170,8 @@ class TMDBService {
 
   private async searchMovieByTitle(cleanQuery: string): Promise<TMDBSearchResult | null> {
     try {
-      const url = `${TMDB_BASE_URL}/search/movie?api_key=${this.apiKey}&query=${encodeURIComponent(cleanQuery)}&include_adult=false`;
+      // Always request English language results to avoid foreign-language posters
+      const url = `${TMDB_BASE_URL}/search/movie?api_key=${this.apiKey}&query=${encodeURIComponent(cleanQuery)}&include_adult=false&language=en-US`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -265,7 +266,8 @@ class TMDBService {
       const cleanQuery = this.extractMovieTitle(query);
       console.log(`[TMDB] Searching for TV show: "${cleanQuery}"`);
 
-      const url = `${TMDB_BASE_URL}/search/tv?api_key=${this.apiKey}&query=${encodeURIComponent(cleanQuery)}&include_adult=false`;
+      // Always request English language results to avoid foreign-language posters
+      const url = `${TMDB_BASE_URL}/search/tv?api_key=${this.apiKey}&query=${encodeURIComponent(cleanQuery)}&include_adult=false&language=en-US`;
       const response = await fetch(url);
 
       if (!response.ok) return null;
@@ -327,7 +329,8 @@ class TMDBService {
     if (!this.apiKey) return null;
 
     try {
-      const url = `${TMDB_BASE_URL}/movie/${movieId}?api_key=${this.apiKey}&append_to_response=credits`;
+      // Always request English language results to avoid foreign-language posters
+      const url = `${TMDB_BASE_URL}/movie/${movieId}?api_key=${this.apiKey}&append_to_response=credits&language=en-US`;
       const response = await fetch(url);
       
       if (!response.ok) return null;
@@ -347,7 +350,8 @@ class TMDBService {
     if (!this.apiKey) return null;
 
     try {
-      const url = `${TMDB_BASE_URL}/movie/${movieId}/images?api_key=${this.apiKey}`;
+      // Request images with English language preference (include_image_language allows fallback to 'null' for language-neutral images)
+      const url = `${TMDB_BASE_URL}/movie/${movieId}/images?api_key=${this.apiKey}&include_image_language=en,null`;
       const response = await fetch(url);
       
       if (!response.ok) return null;
