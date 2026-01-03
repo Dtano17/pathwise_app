@@ -56,6 +56,13 @@ export const TAG_CATEGORY_MAPPINGS: Record<string, string[]> = {
   '@fitness': ['Health & Fitness'],
   '@health': ['Health & Fitness'],
   '@workout': ['Health & Fitness'],
+  '@hike': ['Activities & Events'],
+  '@hiking': ['Activities & Events'],
+  '@outdoor': ['Activities & Events'],
+  '@party': ['Activities & Events'],
+  '@celebration': ['Activities & Events'],
+  '@nightlife': ['Activities & Events'],
+  '@concert': ['Activities & Events'],
   
   '@fashion': ['Fashion & Style'],
   '@style': ['Fashion & Style'],

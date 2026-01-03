@@ -95,16 +95,18 @@ export async function searchActivityImage(
       return null;
     }
 
-    // Create a search query combining title and category with HD/4K emphasis
-    const searchQuery = `${activityTitle} ${category} 4K HD wallpaper high resolution photography`;
+    // Build a comprehensive search query using full title and description
+    // This allows Tavily to find the exact event images just like a manual Google search
+    const searchQuery = `${activityTitle} ${category} ${description || ''} high quality photography`.trim();
 
     console.log(`[WebImageSearch] Searching for: "${searchQuery}"`);
 
-    // Search using Tavily with image search enabled
+    // Search using Tavily with image search enabled and advanced depth
     const response = await tavilyClient.search(searchQuery, {
-      searchDepth: 'basic',
-      maxResults: 5,
+      searchDepth: 'advanced',
+      maxResults: 8,
       includeImages: true,
+      includeImageDescriptions: true,
       includeAnswer: false,
     });
 

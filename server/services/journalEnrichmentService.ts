@@ -81,6 +81,10 @@ Your task is to analyze the text and extract:
 3. Confidence score (0-1) on extraction accuracy
 4. Optional: 1-2 brief suggestions for future activities
 
+CATEGORY DETECTION:
+If the entry contains location information (city, country), but the main action is an activity (hike, party, concert, workout, event), prioritize the 'Activities & Events' or specific category over 'Travel & Places'.
+Travel should be reserved for actual trips, vacations, or visiting landmarks.
+
 Be precise but generous - if the user mentions something implicitly, extract it.
 Example: "Loved the rooftop at sunset" → location: rooftop, vibe: [romantic, scenic], occasion: [date, evening]`
             },
