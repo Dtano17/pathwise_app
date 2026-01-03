@@ -13,6 +13,7 @@ import { Capacitor } from '@capacitor/core';
 /**
  * Fallback detection for Android WebView
  * Used when Capacitor.isNativePlatform() returns false due to timing issues
+ * or when loading a remote URL in the WebView
  */
 const isAndroidWebView = (): boolean => {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
@@ -20,13 +21,19 @@ const isAndroidWebView = (): boolean => {
   }
   const ua = navigator.userAgent.toLowerCase();
   // Check for Android WebView indicators
-  return ua.includes('android') && (
-    ua.includes('wv') ||                           // Standard WebView marker
-    ua.includes('capacitor') ||                    // Capacitor user agent
-    document.URL.startsWith('https://localhost') || // Capacitor local server
-    document.URL.startsWith('capacitor://') ||     // Capacitor scheme
-    document.URL.startsWith('http://localhost')    // Dev server in WebView
-  );
+  // Note: When loading remote URLs (like journalmate.ai), we detect via user agent
+  // Android WebView includes "wv" marker. Some WebViews also have specific patterns.
+  const isAndroid = ua.includes('android');
+  const hasWvMarker = ua.includes('wv');                    // Standard WebView marker
+  const hasCapacitor = ua.includes('capacitor');            // Capacitor user agent
+  const isLocalhost = document.URL.startsWith('https://localhost') ||
+                      document.URL.startsWith('http://localhost') ||
+                      document.URL.startsWith('capacitor://');
+
+  // Check if Capacitor bridge is injected (works even with remote URLs)
+  const hasCapacitorBridge = !!(window as any).Capacitor?.isNativePlatform;
+
+  return isAndroid && (hasWvMarker || hasCapacitor || isLocalhost || hasCapacitorBridge);
 };
 
 /**
