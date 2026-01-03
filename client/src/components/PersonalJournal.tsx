@@ -1514,7 +1514,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                       >
                         {/* Web enrichment image header - full image display */}
                         {hasWebImage && (
-                          <div className="relative w-full aspect-[3/4] flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/50 overflow-hidden">
+                          <div className="relative w-full aspect-video sm:aspect-[4/5] lg:aspect-[3/4] flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/50 overflow-hidden">
                             <img
                               src={primaryImage}
                               alt={webEnrichment?.venueName || text.substring(0, 30)}
