@@ -14,6 +14,73 @@ export interface BackdropOption {
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
 /**
+ * Extracts meaningful keywords from activity description for image search
+ * Uses stop word filtering and prioritizes nouns/adjectives
+ */
+function extractDescriptionKeywords(description: string, maxKeywords: number = 8): string[] {
+  if (!description || description.trim().length === 0) {
+    return [];
+  }
+
+  // Common stop words to exclude from search
+  const stopWords = new Set([
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+    'of', 'with', 'from', 'by', 'about', 'as', 'into', 'through', 'during',
+    'before', 'after', 'above', 'below', 'between', 'under', 'again', 'further',
+    'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all',
+    'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor',
+    'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can',
+    'will', 'just', 'don', 'should', 'now', 'my', 'your', 'our', 'their', 'this',
+    'that', 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been',
+    'being', 'have', 'has', 'had', 'do', 'does', 'did', 'would', 'could', 'should'
+  ]);
+
+  // Clean and tokenize description
+  const words = description
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ') // Remove punctuation
+    .split(/\s+/) // Split on whitespace
+    .filter(word =>
+      word.length >= 3 && // At least 3 characters
+      !stopWords.has(word) && // Not a stop word
+      !/^\d+$/.test(word) // Not purely numeric
+    );
+
+  // Count word frequency (simple TF approach)
+  const wordFreq = new Map<string, number>();
+  words.forEach(word => {
+    wordFreq.set(word, (wordFreq.get(word) || 0) + 1);
+  });
+
+  // Sort by frequency, take top keywords
+  const keywords = Array.from(wordFreq.entries())
+    .sort((a, b) => b[1] - a[1]) // Sort by frequency descending
+    .slice(0, maxKeywords) // Take top N
+    .map(([word]) => word);
+
+  return keywords;
+}
+
+/**
+ * Determines if the activity is location-dependent based on title and description
+ * Returns true if the activity is about visiting/exploring a specific place
+ */
+function isLocationDependent(title: string, description: string): boolean {
+  const combinedText = `${title} ${description}`.toLowerCase();
+
+  // Location-dependent keywords (visiting, exploring specific places)
+  const locationKeywords = [
+    'visit', 'explore', 'tour', 'travel', 'trip', 'sightseeing',
+    'landmark', 'museum', 'monument', 'palace', 'temple', 'church',
+    'beach', 'mountain', 'park', 'garden', 'city', 'town', 'country',
+    'destination', 'attraction', 'viewpoint', 'observatory'
+  ];
+
+  // Check if any location-dependent keywords are present
+  return locationKeywords.some(keyword => combinedText.includes(keyword));
+}
+
+/**
  * Search for relevant images based on activity title and category
  * Uses Tavily API to find high-quality, relevant images
  */
@@ -184,48 +251,62 @@ export async function searchBackdropOptions(
   try {
     // Try Tavily search first
     if (process.env.TAVILY_API_KEY) {
-      // Combine title and description for location and event extraction
-      const fullContext = `${activityTitle} ${description || ''}`;
-      
-      // Extract location and event keywords
-      const locations = extractLocationKeywords(fullContext);
-      const locationStr = locations.length > 0 ? locations.slice(0, 2).join(' ') : '';
-      const eventKeywords = extractEventKeywords(fullContext);
-      const eventStr = eventKeywords.length > 0 ? eventKeywords[0] : '';
-      
-      // Get category-specific aesthetic keywords
-      const aestheticKeywords = getCategoryAestheticKeywords(category);
-      
-      // Build search query: ALWAYS use title as the PRIMARY search term
-      // Location and event keywords ENHANCE the search, they don't replace the title
-      // This ensures "7 Daily Habits of Warren Buffett" searches for "Warren Buffett" not "Los Angeles"
-      
-      // Extract meaningful keywords from title (remove common words, keep nouns/names)
+      // Extract location from description (keep existing regex logic)
+      let locationStr = '';
+      if (description && description.length > 0) {
+        const descLower = description.toLowerCase();
+        const locationMatch = descLower.match(/\b(?:in|at|near|around|visiting|exploring|going to)\s+([a-z\s,]+?)(?:\.|,|$|\s(?:to|for|with|during))/i);
+        if (locationMatch) {
+          locationStr = locationMatch[1].trim().replace(/\s+/g, ' ');
+        }
+      }
+
+      // Extract title keywords (keep existing, max 60 chars)
       const titleKeywords = activityTitle
         .substring(0, 60)
         .replace(/[^\w\s]/g, ' ')
         .replace(/\b(the|a|an|of|to|for|and|or|in|on|at|by|with|from|how|what|why|my|your|our)\b/gi, '')
         .replace(/\s+/g, ' ')
         .trim();
-      
-      // Build query: Title first, then location/event context, then quality modifiers
-      let searchQuery = titleKeywords;
-      
-      if (locationStr) {
+
+      // NEW: Extract description content keywords (CORE of search)
+      const descriptionKeywords = extractDescriptionKeywords(description || '', 8);
+
+      // NEW: Determine if activity is location-dependent
+      const needsLocation = isLocationDependent(activityTitle, description || '');
+
+      // Get category-specific aesthetic keywords
+      const aestheticKeywords = getCategoryAestheticKeywords(category);
+
+      // NEW: Build query with title+description as CORE
+      let searchQuery = titleKeywords; // Always start with title
+
+      // Add description keywords (CORE - always included if available)
+      if (descriptionKeywords.length > 0) {
+        searchQuery += ` ${descriptionKeywords.join(' ')}`;
+      }
+
+      // CONDITIONALLY add location (ONLY if activity is location-dependent)
+      if (needsLocation && locationStr) {
         searchQuery += ` ${locationStr}`;
       }
-      if (eventStr) {
-        searchQuery += ` ${eventStr}`;
+
+      // Fallback: Add category aesthetics ONLY if description is weak/missing
+      if (descriptionKeywords.length < 3 && aestheticKeywords) {
+        searchQuery += ` ${aestheticKeywords}`;
       }
-      
-      // Add quality modifiers for better image results
-      searchQuery += ` ${aestheticKeywords} 4K HD wallpaper`;
-      
-      console.log(`[WebImageSearch] Searching backdrop options:`);
-      console.log(`  - Title: "${activityTitle}"`);
-      console.log(`  - Locations found: ${locations.length > 0 ? locations.join(', ') : 'none'}`);
-      console.log(`  - Events found: ${eventStr || 'none'}`);
-      console.log(`  - Query: "${searchQuery}"`);
+
+      // Always add quality suffix
+      searchQuery += ' 4K HD wallpaper';
+
+      // Enhanced logging for debugging
+      console.log('🔍 Background Image Search Query Construction:');
+      console.log('  Title keywords:', titleKeywords);
+      console.log('  Description keywords:', descriptionKeywords.join(', ') || 'none');
+      console.log('  Location-dependent activity?', needsLocation ? 'YES' : 'NO');
+      console.log('  Location context:', needsLocation && locationStr ? locationStr : 'not needed/not found');
+      console.log('  Category aesthetics:', (descriptionKeywords.length < 3 && aestheticKeywords ? aestheticKeywords : 'skipped'));
+      console.log('  Final query:', searchQuery);
 
       const response = await tavilyClient.search(searchQuery, {
         searchDepth: 'advanced',
@@ -240,20 +321,20 @@ export async function searchBackdropOptions(
       // Use all available images up to maxOptions for more variety
       for (const img of images.slice(0, maxOptions)) {
         if (img.url) {
-          // Create a descriptive label from title keywords (first 3-4 words)
-          // This shows what the image is actually about, not a location that might not be relevant
-          const titleWords = titleKeywords.split(' ').filter(w => w.length > 2).slice(0, 3);
-          let label = titleWords.length > 0 
-            ? titleWords.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+          // Create a descriptive label from title + description keywords (first 3-4 words)
+          const allKeywords = titleKeywords.split(' ').concat(descriptionKeywords.slice(0, 2));
+          const labelWords = allKeywords.filter((w: string) => w.length > 2).slice(0, 3);
+          let label = labelWords.length > 0
+            ? labelWords.map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
             : 'Web Result';
-          
-          // Add location context if found (but only as suffix)
-          if (locationStr && locations.length > 0) {
-            const locationLabel = locations[0].split(' ')
-              .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+          // Add location context if found AND activity is location-dependent
+          if (needsLocation && locationStr) {
+            const locationLabel = locationStr.split(' ')
+              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
             label = `${label} - ${locationLabel}`;
           }
-          
+
           options.push({
             url: img.url,
             source: 'tavily',
