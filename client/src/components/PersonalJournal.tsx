@@ -405,6 +405,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [ratingFilter, setRatingFilter] = useState<string>('all');
+  const [genreFilter, setGenreFilter] = useState<string>('all');
   
   // Journal settings state
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
@@ -972,6 +973,22 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     return Array.from(subcategories).sort();
   }, [journalData, activeCategory]);
 
+  // Extract unique genres from entries (for movies/TV shows)
+  const uniqueGenres = useMemo(() => {
+    const genres = new Set<string>();
+    const entries = journalData[activeCategory] || [];
+    entries.forEach(item => {
+      if (typeof item === 'object' && item !== null && item.webEnrichment?.genre) {
+        // Parse comma-separated genres
+        const genreList = item.webEnrichment.genre.split(',').map((g: string) => g.trim());
+        genreList.forEach((genre: string) => {
+          if (genre) genres.add(genre);
+        });
+      }
+    });
+    return Array.from(genres).sort();
+  }, [journalData, activeCategory]);
+
   // Budget tier labels
   const budgetTierLabels: Record<string, string> = {
     'budget': 'Budget ($)',
@@ -1030,6 +1047,15 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
         if (item.subcategory !== subcategoryFilter) return false;
       }
 
+      // Check genre filter (for movies/TV shows)
+      if (genreFilter !== 'all') {
+        const itemGenres = item.webEnrichment?.genre;
+        if (!itemGenres) return false;
+        // Check if the selected genre exists in the comma-separated list
+        const genreList = itemGenres.split(',').map((g: string) => g.trim());
+        if (!genreList.includes(genreFilter)) return false;
+      }
+
       // Check rating filter (from webEnrichment rating)
       if (ratingFilter !== 'all') {
         const rating = item.webEnrichment?.rating;
@@ -1065,13 +1091,14 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
 
       return true;
     });
-  }, [journalData, activeCategory, locationFilter, budgetFilter, subcategoryFilter, dateFilter, ratingFilter]);
+  }, [journalData, activeCategory, locationFilter, budgetFilter, subcategoryFilter, dateFilter, ratingFilter, genreFilter]);
 
-  const hasActiveFilters = locationFilter !== 'all' || budgetFilter !== 'all' || subcategoryFilter !== 'all' || dateFilter !== 'all' || ratingFilter !== 'all';
+  const hasActiveFilters = locationFilter !== 'all' || budgetFilter !== 'all' || subcategoryFilter !== 'all' || dateFilter !== 'all' || ratingFilter !== 'all' || genreFilter !== 'all';
 
   const clearFilters = useCallback(() => {
     setLocationFilter('all');
     setBudgetFilter('all');
+    setGenreFilter('all');
     setSubcategoryFilter('all');
     setDateFilter('all');
     setRatingFilter('all');
@@ -1336,6 +1363,24 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                   </Select>
                 )}
 
+                {/* Genre filter for movies/TV shows category */}
+                {activeCategory === 'movies' && uniqueGenres.length > 0 && (
+                  <Select value={genreFilter} onValueChange={setGenreFilter}>
+                    <SelectTrigger className="w-[130px] sm:w-[160px] text-xs sm:text-sm" data-testid="select-genre-filter">
+                      <Film className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                      <SelectValue placeholder="Genre" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Genres</SelectItem>
+                      {uniqueGenres.map((genre) => (
+                        <SelectItem key={genre} value={genre}>
+                          {genre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
                 <Select value={dateFilter} onValueChange={setDateFilter}>
                   <SelectTrigger className="w-[130px] sm:w-[140px] text-xs sm:text-sm" data-testid="select-date-filter">
                     <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
@@ -1467,13 +1512,13 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                         className="hover-elevate cursor-default group overflow-hidden"
                         data-testid={`journal-entry-${filteredIndex}`}
                       >
-                        {/* Web enrichment image header - full image display without cropping */}
+                        {/* Web enrichment image header - full image display */}
                         {hasWebImage && (
-                          <div className="relative w-full flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/50">
+                          <div className="relative w-full aspect-[3/4] flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/50 overflow-hidden">
                             <img
                               src={primaryImage}
                               alt={webEnrichment?.venueName || text.substring(0, 30)}
-                              className="w-full max-h-[400px] object-contain"
+                              className="w-full h-full object-cover"
                               loading="lazy"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
