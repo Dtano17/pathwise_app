@@ -1539,11 +1539,11 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                       >
                         {/* Web enrichment image header - full image display */}
                         {hasWebImage && (
-                          <div className="relative w-full max-h-[350px] sm:max-h-[400px] flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/50 overflow-hidden">
+                          <div className="relative w-full bg-gradient-to-br from-muted/30 to-muted/50">
                             <img
                               src={primaryImage}
                               alt={webEnrichment?.venueName || text.substring(0, 30)}
-                              className="w-full h-full object-cover"
+                              className="w-full h-auto object-contain max-h-[500px]"
                               loading="lazy"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
@@ -1581,11 +1581,25 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                 }
                               }}
                             />
+                            {/* Verified badge - visible on all devices */}
                             {webEnrichment?.venueVerified && (
-                              <div className="absolute top-2 right-2 bg-green-500/90 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <Check className="w-3 h-3" /> Verified
+                              <div className="absolute top-2 right-2 bg-green-500/90 text-white text-xs sm:text-sm px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                                <Check className="w-3 h-3 sm:w-4 sm:h-4" /> Verified
                               </div>
                             )}
+                            {/* Mark as Watched/Read/Attended button - floating on image */}
+                            <Button
+                              variant={completed ? "default" : "secondary"}
+                              size="sm"
+                              className={`absolute bottom-2 left-2 shadow-lg ${completed ? 'bg-green-600 hover:bg-green-700' : 'bg-background/90 hover:bg-background'}`}
+                              onClick={() => handleToggleCompleted(originalIndex)}
+                              data-testid={`button-toggle-completed-overlay-${filteredIndex}`}
+                            >
+                              <CheckCircle2 className={`w-4 h-4 mr-1 ${completed ? 'fill-current' : ''}`} />
+                              <span className="text-xs font-medium">
+                                {completed ? 'Completed' : 'Mark as Done'}
+                              </span>
+                            </Button>
                           </div>
                         )}
 
@@ -1610,7 +1624,9 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                   </span>
                                 </div>
                               )}
-                              <SmartTextRenderer text={text} category={activeCategory} sourceUrl={sourceUrl} />
+                              <div className="line-clamp-3 sm:line-clamp-none">
+                                <SmartTextRenderer text={text} category={activeCategory} sourceUrl={sourceUrl} />
+                              </div>
 
                               {/* Web enrichment details */}
                               {webEnrichment && (
@@ -1943,27 +1959,15 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                 </div>
                               )}
                             </div>
-                            <div className="flex flex-col gap-1">
-                              <Button
-                                variant={completed ? "default" : "ghost"}
-                                size="sm"
-                                className={`flex-shrink-0 transition-all min-h-[44px] min-w-[44px] p-0 ${completed ? 'opacity-100' : 'sm:opacity-0 sm:group-hover:opacity-100'}`}
-                                onClick={() => handleToggleCompleted(originalIndex)}
-                                data-testid={`button-toggle-completed-${filteredIndex}`}
-                                title={completed ? "Mark as not completed" : "Mark as watched/read/attended"}
-                              >
-                                <CheckCircle2 className={`w-4 h-4 ${completed ? 'fill-current' : ''}`} />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity min-h-[44px] min-w-[44px] p-0"
-                                onClick={() => handleRemoveItem(originalIndex)}
-                                data-testid={`button-remove-${filteredIndex}`}
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity min-h-[44px] min-w-[44px] p-0"
+                              onClick={() => handleRemoveItem(originalIndex)}
+                              data-testid={`button-remove-${filteredIndex}`}
+                            >
+                              <X className="w-5 h-5" />
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
