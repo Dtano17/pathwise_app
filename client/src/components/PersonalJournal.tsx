@@ -931,6 +931,30 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     saveEntryMutation.mutate({ category: activeCategory, items: updatedItems });
   }, [journalData, activeCategory, saveEntryMutation]);
 
+  const handleToggleCompleted = useCallback((index: number) => {
+    const items = journalData[activeCategory];
+    if (!items) return;
+
+    const updatedItems = items.map((item, i) => {
+      if (i === index) {
+        if (typeof item === 'object' && item !== null) {
+          const newCompleted = !item.completed;
+          return {
+            ...item,
+            completed: newCompleted,
+            completedAt: newCompleted ? new Date().toISOString() : undefined
+          };
+        }
+      }
+      return item;
+    });
+
+    setJournalData(prev => ({ ...prev, [activeCategory]: updatedItems }));
+
+    // Auto-save
+    saveEntryMutation.mutate({ category: activeCategory, items: updatedItems });
+  }, [journalData, activeCategory, saveEntryMutation]);
+
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -1346,7 +1370,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                   </SelectContent>
                 </Select>
 
-                {journalSettings.showSubcategories && uniqueSubcategories.length > 0 && (
+                {journalSettings.showSubcategories && uniqueSubcategories.length > 0 && activeCategory !== 'movies' && (
                   <Select value={subcategoryFilter} onValueChange={setSubcategoryFilter}>
                     <SelectTrigger className="w-[130px] sm:w-[160px] text-xs sm:text-sm" data-testid="select-subcategory-filter">
                       <Folder className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
@@ -1498,6 +1522,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                     const keywords = isRichEntry ? item.keywords : null;
                     const sourceUrl = isRichEntry ? item.sourceUrl || undefined : undefined;
                     const webEnrichment = isRichEntry ? item.webEnrichment : null;
+                    const completed = isRichEntry ? item.completed : false;
 
                     // Find original index for removal
                     const originalIndex = journalData[activeCategory]?.indexOf(item) ?? -1;
@@ -1918,15 +1943,27 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                 </div>
                               )}
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity min-h-[44px] min-w-[44px] p-0"
-                              onClick={() => handleRemoveItem(originalIndex)}
-                              data-testid={`button-remove-${filteredIndex}`}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
+                            <div className="flex flex-col gap-1">
+                              <Button
+                                variant={completed ? "default" : "ghost"}
+                                size="sm"
+                                className={`flex-shrink-0 transition-all min-h-[44px] min-w-[44px] p-0 ${completed ? 'opacity-100' : 'sm:opacity-0 sm:group-hover:opacity-100'}`}
+                                onClick={() => handleToggleCompleted(originalIndex)}
+                                data-testid={`button-toggle-completed-${filteredIndex}`}
+                                title={completed ? "Mark as not completed" : "Mark as watched/read/attended"}
+                              >
+                                <CheckCircle2 className={`w-4 h-4 ${completed ? 'fill-current' : ''}`} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity min-h-[44px] min-w-[44px] p-0"
+                                onClick={() => handleRemoveItem(originalIndex)}
+                                data-testid={`button-remove-${filteredIndex}`}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>

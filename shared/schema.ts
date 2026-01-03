@@ -1463,6 +1463,8 @@ export const userPreferences = pgTable("user_preferences", {
         activityId?: string; // Link to activity this journal entry reflects on
         linkedActivityTitle?: string; // Activity title for display (denormalized for performance)
         mood?: 'great' | 'good' | 'okay' | 'poor'; // Mood associated with this entry
+        completed?: boolean; // Whether entry is marked as watched/read/attended
+        completedAt?: string; // Timestamp when entry was marked as completed
         venueName?: string; // Name of venue/restaurant/place extracted from content
         venueType?: string; // Type of venue: restaurant, bar, cafe, hotel, attraction, etc.
         location?: {
