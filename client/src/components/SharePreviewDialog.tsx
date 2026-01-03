@@ -729,9 +729,9 @@ export function SharePreviewDialog({
             </TabsList>
 
             {/* Tab 1: Quick Share (existing functionality) */}
-            <TabsContent value="quick-share" className="py-0 focus-visible:outline-none focus-visible:ring-0 flex-1 min-h-0 overflow-hidden">
-              <ScrollArea className="h-full pr-4" type="always">
-                <div className="space-y-6 py-4">
+            <TabsContent value="quick-share" className="flex flex-col py-0 focus-visible:outline-none focus-visible:ring-0 flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-auto">
+                <div className="space-y-6 py-4 pr-4">
               {/* Share Title */}
               <div className="space-y-2">
                 <Label htmlFor="share-title">Share Title</Label>
@@ -1451,12 +1451,12 @@ export function SharePreviewDialog({
                 </Button>
               </div>
                 </div>
-              </ScrollArea>
+              </div>
             </TabsContent>
 
             {/* Tab 2: Download Cards */}
-            <TabsContent value="download-cards" className="py-0 focus-visible:outline-none focus-visible:ring-0 flex-1 min-h-0 overflow-hidden">
-              <ScrollArea className="h-full pr-4" type="always">
+            <TabsContent value="download-cards" className="flex flex-col py-0 focus-visible:outline-none focus-visible:ring-0 flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-auto pr-4">
                 <div className="w-full -mx-4 px-4 sm:mx-0 sm:px-0">
                   <div className="sm:max-w-2xl sm:mx-auto space-y-6 py-4">
                     {!backdropLoaded ? (
@@ -1478,18 +1478,18 @@ export function SharePreviewDialog({
                     )}
                   </div>
                 </div>
-              </ScrollArea>
+              </div>
             </TabsContent>
 
             {/* Tab 3: Social Verification */}
-            <TabsContent value="social-verify" className="py-4 flex-1 min-h-0 overflow-hidden">
-              <ScrollArea className="h-full pr-4" type="always">
+            <TabsContent value="social-verify" className="flex flex-col py-4 flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-auto pr-4">
                 <SocialVerificationTab
                   activityId={activity.id}
                   existingLinks={socialLinks}
                   onLinksUpdated={(links) => setSocialLinks(links)}
                 />
-              </ScrollArea>
+              </div>
             </TabsContent>
           </Tabs>
         </DialogContent>
