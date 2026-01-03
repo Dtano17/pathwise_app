@@ -390,7 +390,7 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
         // Fetch backdrop image for the activity
         const activityTitle = generatedPlan.title || 'Smart Plan Activity';
         const activityCategory = generatedPlan.category || 'personal';
-        const backdropUrl = await getActivityImage(activityTitle, activityCategory);
+        const backdropUrl = await getActivityImage(activityTitle, activityCategory, undefined, undefined);
 
         // Create activity from the structured plan
         const activity = await storage.createActivity({
@@ -479,7 +479,7 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
           // Fetch backdrop image for the activity
           const activityTitle2 = generatedPlan.title || 'Smart Plan Activity';
           const activityCategory2 = generatedPlan.category || 'personal';
-          const backdropUrl2 = await getActivityImage(activityTitle2, activityCategory2);
+          const backdropUrl2 = await getActivityImage(activityTitle2, activityCategory2, undefined, undefined);
 
           // Create activity from the structured plan
           const activity = await storage.createActivity({
@@ -11260,6 +11260,89 @@ You can find these tasks in your task list and start working on them right away!
     } catch (error) {
       console.error('Error marking reminder as sent:', error);
       res.status(500).json({ error: 'Failed to mark reminder as sent' });
+    }
+  });
+
+  // Batch re-enrich journal entries for a user
+  app.post("/api/user/journal/batch-enrich", async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).send("Unauthorized");
+    }
+
+    try {
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).send("User not found");
+
+      const journalData = (user.preferences as any)?.journalData || {};
+      const entriesToEnrich: any[] = [];
+
+      // Flatten journal entries for batch processing
+      Object.entries(journalData).forEach(([category, entries]: [string, any]) => {
+        entries.forEach((entry: any) => {
+          // If it's a rich entry and doesn't have webEnrichment, or we want to force refresh
+          if (typeof entry !== 'string' && (!entry.webEnrichment || req.body.force)) {
+            entriesToEnrich.push({
+              id: entry.id,
+              text: entry.text,
+              category: category,
+              venueName: entry.venueName,
+              location: entry.location
+            });
+          }
+        });
+      });
+
+      if (entriesToEnrich.length === 0) {
+        return res.json({ message: "No entries need enrichment", updatedCount: 0 });
+      }
+
+      console.log(`[JOURNAL] Starting batch enrichment for user ${userId}, entries: ${entriesToEnrich.length}`);
+
+      // Perform batch enrichment using the service
+      const results = await journalWebEnrichmentService.enrichBatch(
+        entriesToEnrich,
+        req.body.force || false
+      );
+
+      // Create a map for quick lookup
+      const enrichmentMap = new Map();
+      results.forEach(r => {
+        if (r.success && r.enrichedData) {
+          enrichmentMap.set(r.entryId, r.enrichedData);
+        }
+      });
+
+      // Update the user's journal data with results
+      const updatedJournalData = { ...journalData };
+      let updatedCount = 0;
+
+      Object.entries(updatedJournalData).forEach(([category, entries]: [string, any]) => {
+        updatedJournalData[category] = entries.map((entry: any) => {
+          if (typeof entry !== 'string' && enrichmentMap.has(entry.id)) {
+            updatedCount++;
+            return {
+              ...entry,
+              webEnrichment: enrichmentMap.get(entry.id)
+            };
+          }
+          return entry;
+        });
+      });
+
+      // Save back to storage
+      await storage.updateUserPreferences(userId, {
+        ...(user.preferences as any),
+        journalData: updatedJournalData
+      });
+
+      res.json({
+        message: `Successfully enriched ${updatedCount} entries`,
+        updatedCount
+      });
+    } catch (error) {
+      console.error("[JOURNAL] Batch enrichment error:", error);
+      res.status(500).json({ error: "Failed to perform batch enrichment" });
     }
   });
 

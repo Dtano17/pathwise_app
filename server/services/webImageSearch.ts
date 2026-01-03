@@ -86,7 +86,8 @@ function isLocationDependent(title: string, description: string): boolean {
  */
 export async function searchActivityImage(
   activityTitle: string,
-  category: string
+  category: string,
+  description?: string
 ): Promise<string | null> {
   try {
     // Skip if no API key configured

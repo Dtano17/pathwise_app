@@ -485,6 +485,29 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     'from-lime-500 to-green-500'
   ];
 
+  // Batch enrich entries mutation
+  const batchEnrichMutation = useMutation({
+    mutationFn: async (force: boolean = false) => {
+      const response = await apiRequest('POST', '/api/user/journal/batch-enrich', { force });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      toast({
+        title: "Enrichment Complete",
+        description: data.message || `Successfully enriched entries.`,
+      });
+    },
+    onError: (error: any) => {
+      console.error('Batch enrichment error:', error);
+      toast({
+        title: "Enrichment Failed",
+        description: "Could not perform batch enrichment. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
   // Load user's journal data  (now supports rich media entries)
   const { data: userData, isLoading } = useQuery({
     queryKey: ['/api/user-preferences'],
