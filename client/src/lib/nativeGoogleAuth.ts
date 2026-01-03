@@ -74,6 +74,10 @@ export interface NativeAuthResult {
 /**
  * Initialize Google Auth plugin
  * Call this early in app lifecycle (e.g., in App.tsx or main.tsx)
+ *
+ * NOTE: When app loads a remote URL (like https://journalmate.ai), we use
+ * browser-based OAuth instead of native Google Sign-In. The native plugin
+ * requires a clientId that isn't available when loading remote content.
  */
 export async function initializeGoogleAuth(): Promise<void> {
   console.log('[GOOGLE_AUTH] initializeGoogleAuth called, isNative:', isNative());
@@ -83,17 +87,12 @@ export async function initializeGoogleAuth(): Promise<void> {
     return;
   }
 
-  try {
-    console.log('[GOOGLE_AUTH] Attempting to initialize native plugin...');
-    await GoogleAuth.initialize({
-      clientId: '', // Will use the one from capacitor.config.ts
-      scopes: ['profile', 'email'],
-      grantOfflineAccess: true,
-    });
-    console.log('[GOOGLE_AUTH] Initialized successfully');
-  } catch (error) {
-    console.error('[GOOGLE_AUTH] Initialization failed:', error);
-  }
+  // Skip native GoogleAuth initialization - we use browser OAuth flow instead
+  // The native GoogleAuth plugin crashes if initialized with empty clientId,
+  // and when loading a remote URL the capacitor.config.ts values aren't available
+  // to the plugin. Browser OAuth (via deep links) works better for our use case.
+  console.log('[GOOGLE_AUTH] Skipping native initialization - using browser OAuth flow');
+  return;
 }
 
 /**
