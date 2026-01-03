@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -136,6 +137,17 @@ export function SharePreviewDialog({
   activity,
   onConfirmShare,
 }: SharePreviewDialogProps) {
+  // Mobile viewport state preservation
+  const isMobile = useIsMobile(); // Detect if current viewport is mobile
+  const [lockedMobileState, setLockedMobileState] = useState<boolean>(false);
+
+  // Lock mobile state when dialog opens to prevent reversion
+  useEffect(() => {
+    if (open) {
+      setLockedMobileState(isMobile);
+    }
+  }, [open, isMobile]);
+
   // Tab state (temporarily kept for compatibility)
   const [activeTab, setActiveTab] = useState("quick-share");
 
@@ -659,7 +671,7 @@ export function SharePreviewDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] md:w-[90vw] lg:w-[80vw] p-4 sm:p-6">
+        <DialogContent className="max-w-3xl max-h-[90vh] w-[95vw] md:w-[85vw] lg:w-[70vw] p-4 sm:p-6">
           <DialogHeader className="space-y-2">
             <div className="flex items-start justify-between gap-2">
               <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl flex-1">
@@ -870,21 +882,21 @@ export function SharePreviewDialog({
                     </Button>
                   </div>
                   {(isLoadingBackdrops || isRefetchingBackdrops) ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-2">
                       {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                         <div
                           key={i}
-                          className="aspect-video rounded-md bg-muted animate-pulse"
+                          className="aspect-square rounded-md bg-muted animate-pulse"
                         />
                       ))}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-2">
                       {backdropPresets.map((preset) => (
                         <button
                           key={preset.url}
                           onClick={() => handleBackdropSelect(preset.url)}
-                          className={`relative aspect-video rounded-md overflow-hidden border-2 transition-all hover:scale-105 ${
+                          className={`relative aspect-square rounded-md overflow-hidden border-2 transition-all hover:scale-105 ${
                             backdrop === preset.url
                               ? "border-primary ring-2 ring-primary"
                               : "border-transparent"
@@ -1389,7 +1401,7 @@ export function SharePreviewDialog({
               <div className="space-y-3 border-t pt-4">
                 {backdrop ? (
                   <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                    <div className="min-w-[320px]">
+                    <div className="min-w-[320px] sm:max-w-2xl sm:mx-auto">
                   <ShareCardGenerator
                     ref={shareCardRef}
                     activityId={activity.id}
@@ -1399,6 +1411,7 @@ export function SharePreviewDialog({
                     planSummary={activity.planSummary || undefined}
                     tasks={activityTasks}
                     shareCaption={shareCaption}
+                    forceMobileLayout={lockedMobileState}
                   />
                     </div>
                   </div>

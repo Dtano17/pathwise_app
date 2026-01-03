@@ -47,6 +47,7 @@ interface ShareCardGeneratorProps {
   onPlatformChange?: (platform: string) => void;
   onFormatChange?: (format: 'png' | 'jpg' | 'pdf') => void;
   hideControls?: boolean; // Hide platform/format selectors and buttons when in controlled mode
+  forceMobileLayout?: boolean; // Force mobile layout regardless of viewport
 }
 
 export interface ShareCardGeneratorRef {
@@ -68,6 +69,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
   onPlatformChange,
   onFormatChange,
   hideControls = false,
+  forceMobileLayout = false,
 }, ref) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
@@ -133,18 +135,24 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
     const calculateScale = () => {
       if (previewContainerRef.current && platform) {
         const container = previewContainerRef.current;
-        // Use a more robust way to get available width
-        const availableWidth = Math.min(
-          container.clientWidth,
-          window.innerWidth - 48 // Account for dialog padding and safe area
-        );
-        const containerWidth = Math.max(availableWidth - 32, 280); // Ensure minimum width
-        const containerHeight = window.innerHeight * 0.5; // Use 50% of viewport height for better fit
+
+        // If forceMobileLayout is true, use mobile dimensions
+        const effectiveWidth = forceMobileLayout
+          ? Math.min(window.innerWidth - 48, 400) // Mobile max width
+          : Math.min(container.clientWidth, window.innerWidth - 48);
+
+        const containerWidth = Math.max(effectiveWidth - 32, 280); // Ensure minimum width
+
+        // Dynamic height based on platform aspect ratio
+        const platformAspectRatio = (platform.height || 1080) / (platform.width || 1080);
+        const isPortrait = platformAspectRatio > 1.2;
+        const maxHeightPercent = isPortrait ? 0.65 : 0.5; // 65% for portrait, 50% for landscape
+        const containerHeight = window.innerHeight * maxHeightPercent;
 
         const widthScale = containerWidth / (platform.width || 1080);
         const heightScale = containerHeight / (platform.height || 1080);
 
-        // Use the smaller scale to ensure content fits, but allow a bit more growth
+        // Use the smaller scale to ensure content fits
         const scale = Math.min(widthScale, heightScale, 1);
         setPreviewScale(scale);
       }
@@ -153,13 +161,13 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
     // Run immediately and after a short delay to ensure layout is stable
     calculateScale();
     const timer = setTimeout(calculateScale, 100);
-    
+
     window.addEventListener('resize', calculateScale);
     return () => {
       window.removeEventListener('resize', calculateScale);
       clearTimeout(timer);
     };
-  }, [platform, selectedPlatform, activityId]); // Added activityId to trigger on tab switch if needed
+  }, [platform, selectedPlatform, activityId, forceMobileLayout]); // Added forceMobileLayout to trigger recalculation
 
   // Handle platform change
   const handlePlatformChange = (newPlatform: string) => {
@@ -683,7 +691,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
           {/* Preview wrapper with fixed height based on scaled content */}
           <div
             ref={previewContainerRef}
-            className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4"
+            className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4 transition-all duration-300 ease-in-out"
             style={{
               height: `${Math.ceil((platform?.height || 1080) * previewScale) + 32}px`,
               overflow: 'hidden',
