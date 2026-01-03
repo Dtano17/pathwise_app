@@ -671,8 +671,8 @@ export function SharePreviewDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[90vh] w-[95vw] md:w-[85vw] lg:w-[70vw] p-4 sm:p-6">
-          <DialogHeader className="space-y-2">
+        <DialogContent className="max-w-3xl max-h-[90vh] w-[95vw] md:w-[85vw] lg:w-[70vw] p-4 sm:p-6 flex flex-col overflow-hidden">
+          <DialogHeader className="space-y-2 flex-shrink-0">
             <div className="flex items-start justify-between gap-2">
               <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl flex-1">
                 <Sparkles className="w-5 h-5 text-primary flex-shrink-0" />
@@ -696,9 +696,9 @@ export function SharePreviewDialog({
           <Tabs
             value={activeTab}
             onValueChange={setActiveTab}
-            className="w-full mt-4"
+            className="w-full mt-4 flex-1 flex flex-col min-h-0 overflow-hidden"
           >
-            <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-muted/50 rounded-lg">
+            <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-muted/50 rounded-lg flex-shrink-0">
               <TabsTrigger
                 value="quick-share"
                 className="flex items-center gap-1 sm:gap-2 min-h-[44px] text-[10px] sm:text-sm px-1 sm:px-3"
@@ -729,8 +729,8 @@ export function SharePreviewDialog({
             </TabsList>
 
             {/* Tab 1: Quick Share (existing functionality) */}
-            <TabsContent value="quick-share" className="py-0 focus-visible:outline-none focus-visible:ring-0">
-              <ScrollArea className="h-[calc(90vh-14rem)] sm:h-[calc(90vh-12rem)] pr-4">
+            <TabsContent value="quick-share" className="py-0 focus-visible:outline-none focus-visible:ring-0 flex-1 min-h-0 overflow-hidden">
+              <ScrollArea className="h-full pr-4">
                 <div className="space-y-6 py-4">
               {/* Share Title */}
               <div className="space-y-2">
@@ -1455,10 +1455,10 @@ export function SharePreviewDialog({
             </TabsContent>
 
             {/* Tab 2: Download Cards */}
-            <TabsContent value="download-cards" className="py-0 focus-visible:outline-none focus-visible:ring-0">
-              <ScrollArea className="h-[calc(90vh-14rem)] sm:h-[calc(90vh-12rem)] pr-4">
-                <div className="w-full overflow-x-auto sm:overflow-x-visible -mx-4 px-4 sm:mx-0 sm:px-0">
-                  <div className="min-w-0 sm:max-w-2xl sm:mx-auto space-y-6 py-4">
+            <TabsContent value="download-cards" className="py-0 focus-visible:outline-none focus-visible:ring-0 flex-1 min-h-0 overflow-hidden">
+              <ScrollArea className="h-full pr-4">
+                <div className="w-full -mx-4 px-4 sm:mx-0 sm:px-0">
+                  <div className="sm:max-w-2xl sm:mx-auto space-y-6 py-4">
                     {!backdropLoaded ? (
                       <div className="flex flex-col items-center justify-center py-12 gap-4">
                         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -1482,8 +1482,8 @@ export function SharePreviewDialog({
             </TabsContent>
 
             {/* Tab 3: Social Verification */}
-            <TabsContent value="social-verify" className="py-4">
-              <ScrollArea className="h-[calc(90vh-14rem)] sm:h-[calc(90vh-12rem)] pr-4">
+            <TabsContent value="social-verify" className="py-4 flex-1 min-h-0 overflow-hidden">
+              <ScrollArea className="h-full pr-4">
                 <SocialVerificationTab
                   activityId={activity.id}
                   existingLinks={socialLinks}

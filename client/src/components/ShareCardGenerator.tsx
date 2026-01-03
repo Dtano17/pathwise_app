@@ -138,10 +138,11 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
 
         // If forceMobileLayout is true, use mobile dimensions
         const effectiveWidth = forceMobileLayout
-          ? Math.min(window.innerWidth - 48, 400) // Mobile max width
-          : Math.min(container.clientWidth, window.innerWidth - 48);
+          ? Math.min(window.innerWidth - 32, 400) // Mobile max width with less padding
+          : Math.min(container.clientWidth, window.innerWidth - 32);
 
-        const containerWidth = Math.max(effectiveWidth - 32, 280); // Ensure minimum width
+        // Allow content to scale down further on very narrow screens
+        const containerWidth = Math.max(effectiveWidth - 16, 200); // Reduced minimum width for narrow screens
 
         // Dynamic height based on platform aspect ratio
         const platformAspectRatio = (platform.height || 1080) / (platform.width || 1080);
@@ -688,23 +689,36 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
       <Card className="overflow-hidden">
         <CardContent className="p-2 sm:p-6">
           <p className="text-sm text-muted-foreground mb-2 sm:mb-3">Preview:</p>
-          {/* Preview wrapper with fixed height based on scaled content */}
+          {/* Preview wrapper with fixed height based on scaled content - uses CSS zoom for proper layout */}
           <div
             ref={previewContainerRef}
-            className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4 transition-all duration-300 ease-in-out"
+            className="flex justify-center bg-muted/20 rounded-lg p-2 sm:p-4 transition-all duration-300 ease-in-out overflow-hidden"
             style={{
               height: `${Math.ceil((platform?.height || 1080) * previewScale) + 32}px`,
-              overflow: 'hidden',
             }}
           >
-            {/* Scaling container for mobile responsiveness - uses CSS transform to fit any screen */}
-            <div
+            {/* 
+              Scaling container for mobile responsiveness
+              Uses CSS transform with explicit width/max-width to constrain layout
+              The outer wrapper constrains the actual layout width
+            */}
+            <div 
+              className="relative"
               style={{
-                transform: `scale(${previewScale})`,
-                transformOrigin: 'top center',
-                width: `${platform?.width || 1080}px`,
+                width: `${Math.ceil((platform?.width || 1080) * previewScale)}px`,
+                height: `${Math.ceil((platform?.height || 1080) * previewScale)}px`,
+                maxWidth: '100%',
               }}
             >
+              <div
+                style={{
+                  transform: `scale(${previewScale})`,
+                  transformOrigin: 'top left',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                }}
+              >
               {/* Share Card Template */}
               <div
                 ref={cardRef}
@@ -815,6 +829,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
                     </div>
                   )}
                 </div>
+              </div>
               </div>
             </div>
             </div>
