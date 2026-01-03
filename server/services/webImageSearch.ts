@@ -62,15 +62,17 @@ export async function searchActivityImage(
 
 /**
  * Extract location keywords from text (cities, countries, landmarks)
+ * Uses word boundary matching to avoid false positives (e.g., "la" in "Daily")
  */
 function extractLocationKeywords(text: string): string[] {
   const locations: string[] = [];
-  const textLower = text.toLowerCase();
   
-  // Common cities and landmarks
+  // Common cities and landmarks with word boundary matching
+  // Note: Short abbreviations like 'la' removed (matches inside "daily", "formula")
+  // But 'nyc' is safe (no common words contain 'nyc')
   const knownLocations = [
-    'new york', 'nyc', 'manhattan', 'brooklyn', 'times square', 'central park',
-    'los angeles', 'la', 'hollywood', 'santa monica', 'venice beach',
+    'new york city', 'new york', 'nyc', 'manhattan', 'brooklyn', 'times square', 'central park',
+    'los angeles', 'hollywood', 'santa monica', 'venice beach', 'sf', 'san fran',
     'paris', 'eiffel tower', 'louvre', 'champs elysees',
     'london', 'big ben', 'tower bridge', 'buckingham palace',
     'tokyo', 'shibuya', 'shinjuku', 'kyoto', 'osaka',
@@ -86,8 +88,10 @@ function extractLocationKeywords(text: string): string[] {
     'mexico city', 'lagos', 'cairo', 'marrakech', 'cape town'
   ];
   
+  // Use word boundary regex to avoid false positives like "la" matching in "Daily"
   for (const loc of knownLocations) {
-    if (textLower.includes(loc)) {
+    const regex = new RegExp(`\\b${loc}\\b`, 'i');
+    if (regex.test(text)) {
       locations.push(loc);
     }
   }
@@ -192,24 +196,30 @@ export async function searchBackdropOptions(
       // Get category-specific aesthetic keywords
       const aestheticKeywords = getCategoryAestheticKeywords(category);
       
-      // Build a rich, specific search query with HD/4K emphasis
-      // NEW: Include event keywords alongside location for context-specific images
-      // e.g., "Los Angeles New Years Eve celebration fireworks" instead of just "Los Angeles"
-      let searchQuery = '';
-      if (locationStr && eventStr) {
-        // Location + Event = most specific search (e.g., "Los Angeles New Years Eve celebration fireworks")
-        searchQuery = `${locationStr} ${eventStr} 4K HD wallpaper high resolution`;
-      } else if (locationStr) {
-        // Location only - use category aesthetics
-        searchQuery = `${locationStr} ${aestheticKeywords} 4K HD wallpaper 3840x2160`;
-      } else if (eventStr) {
-        // Event only - include event keywords
-        searchQuery = `${eventStr} ${aestheticKeywords} 4K ultra HD wallpaper`;
-      } else {
-        // Extract key nouns from title (first 50 chars)
-        const titleKeywords = activityTitle.substring(0, 50).replace(/[^\w\s]/g, '').trim();
-        searchQuery = `${titleKeywords} ${aestheticKeywords} 4K ultra HD desktop wallpaper`;
+      // Build search query: ALWAYS use title as the PRIMARY search term
+      // Location and event keywords ENHANCE the search, they don't replace the title
+      // This ensures "7 Daily Habits of Warren Buffett" searches for "Warren Buffett" not "Los Angeles"
+      
+      // Extract meaningful keywords from title (remove common words, keep nouns/names)
+      const titleKeywords = activityTitle
+        .substring(0, 60)
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\b(the|a|an|of|to|for|and|or|in|on|at|by|with|from|how|what|why|my|your|our)\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      // Build query: Title first, then location/event context, then quality modifiers
+      let searchQuery = titleKeywords;
+      
+      if (locationStr) {
+        searchQuery += ` ${locationStr}`;
       }
+      if (eventStr) {
+        searchQuery += ` ${eventStr}`;
+      }
+      
+      // Add quality modifiers for better image results
+      searchQuery += ` ${aestheticKeywords} 4K HD wallpaper`;
       
       console.log(`[WebImageSearch] Searching backdrop options:`);
       console.log(`  - Title: "${activityTitle}"`);
@@ -230,24 +240,20 @@ export async function searchBackdropOptions(
       // Use all available images up to maxOptions for more variety
       for (const img of images.slice(0, maxOptions)) {
         if (img.url) {
-          // Create a descriptive label from location + event (e.g., "Los Angeles NYE" instead of just "Los Angeles La")
-          let label = 'Web Result';
-          if (locationStr && eventStr) {
-            // Capitalize location and add short event descriptor
-            const locationLabel = locations.slice(0, 1).map(l => 
-              l.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-            ).join(' ');
-            // Extract short event name (first 1-2 words from event keywords)
-            const eventLabel = eventStr.split(' ').slice(0, 2).join(' ');
-            label = `${locationLabel} ${eventLabel}`;
-          } else if (locationStr) {
-            // Just location - capitalize first location only (avoid "Los Angeles La")
-            label = locations.slice(0, 1).map(l => 
-              l.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-            ).join(' ');
-          } else if (eventStr) {
-            label = eventStr.split(' ').slice(0, 2).join(' ');
+          // Create a descriptive label from title keywords (first 3-4 words)
+          // This shows what the image is actually about, not a location that might not be relevant
+          const titleWords = titleKeywords.split(' ').filter(w => w.length > 2).slice(0, 3);
+          let label = titleWords.length > 0 
+            ? titleWords.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+            : 'Web Result';
+          
+          // Add location context if found (but only as suffix)
+          if (locationStr && locations.length > 0) {
+            const locationLabel = locations[0].split(' ')
+              .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            label = `${label} - ${locationLabel}`;
           }
+          
           options.push({
             url: img.url,
             source: 'tavily',
