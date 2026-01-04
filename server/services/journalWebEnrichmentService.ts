@@ -17,6 +17,7 @@ import { tavily } from '@tavily/core';
 import Anthropic from '@anthropic-ai/sdk';
 import { tmdbService, TMDBSearchResult } from './tmdbService';
 import { spotifyEnrichmentService } from './spotifyEnrichmentService';
+import { generateSmartImageQueryCached } from './journalAIQueryService';
 
 // ============================================================================
 // TYPES
@@ -468,23 +469,29 @@ Respond with ONLY a JSON object in this format:
 
       console.log(`[JOURNAL_WEB_ENRICH] Category validation: original="${entry.category}", validated="${effectiveCategory}", confidence=${validation.confidence}${validation.tmdbResult ? ' (TMDB cached)' : ''}`);
 
-      // MOVIES/TV: Check FIRST because TMDB validation is most authoritative
-      // OPTIMIZATION: Use cached tmdbResult from validation if available (avoids duplicate API call)
-      const isMovie = effectiveCategory === 'movie' || effectiveCategory === 'movies' ||
-                      effectiveCategory === 'Movies & TV Shows' || effectiveCategory === 'Movies & TV' ||
-                      entry.category === 'movies' || entry.category === 'Movies & TV Shows' ||
-                      entry.category === 'Movies & TV' || entry.category === 'Entertainment' ||
-                      entry.category === 'custom-entertainment';
+      // AI-POWERED API SELECTION
+      // Let AI intelligently decide which enrichment API to use based on entry content
+      console.log(`[JOURNAL_WEB_ENRICH] Using AI to determine best enrichment API for: "${venueName}"`);
 
-      if (isMovie && tmdbService.isAvailable()) {
-        // Use cached result from validation if available, otherwise search
-        const tmdbResult = validation.tmdbResult || await tmdbService.searchMovie(venueName);
+      const aiRecommendation = await generateSmartImageQueryCached(
+        entry.text,
+        effectiveCategory || entry.category,
+        venueName
+      );
 
-        if (validation.tmdbResult) {
-          console.log(`[JOURNAL_WEB_ENRICH] Using cached TMDB result for movie: "${venueName}"`);
-        } else {
-          console.log(`[JOURNAL_WEB_ENRICH] Searching TMDB for movie: "${venueName}"`);
-        }
+      console.log(`[JOURNAL_WEB_ENRICH] AI recommendation:`, {
+        api: aiRecommendation.recommendedAPI,
+        query: aiRecommendation.searchQuery,
+        contentType: aiRecommendation.contentType,
+        confidence: aiRecommendation.confidence,
+        reasoning: aiRecommendation.reasoning
+      });
+
+      // Execute enrichment based on AI's recommendation
+      if (aiRecommendation.recommendedAPI === 'tmdb' && tmdbService.isAvailable()) {
+        // AI recommends TMDB (movies/TV)
+        const searchTitle = aiRecommendation.extractedTitle || venueName;
+        const tmdbResult = validation.tmdbResult || await tmdbService.searchMovie(searchTitle);
 
         if (tmdbResult) {
           const enrichedData: WebEnrichedData = {
@@ -506,7 +513,7 @@ Respond with ONLY a JSON object in this format:
             runtime: tmdbResult.runtime,
             genre: tmdbResult.genres?.join(', '),
             suggestedCategory: 'Movies & TV Shows',
-            categoryConfidence: validation.confidence, // Use dynamic confidence from validation
+            categoryConfidence: aiRecommendation.confidence,
             enrichedAt: new Date().toISOString(),
             enrichmentSource: 'google',
             streamingLinks: [
@@ -518,94 +525,76 @@ Respond with ONLY a JSON object in this format:
 
           this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
           const elapsed = Date.now() - startTime;
-          console.log(`[JOURNAL_WEB_ENRICH] Enriched movie ${entry.id} via TMDB in ${elapsed}ms: "${tmdbResult.title}"`);
+          console.log(`[JOURNAL_WEB_ENRICH] AI-recommended TMDB enrichment successful in ${elapsed}ms: "${tmdbResult.title}"`);
 
           return { entryId: entry.id, success: true, enrichedData };
         }
-        console.log(`[JOURNAL_WEB_ENRICH] TMDB returned no results for "${venueName}", checking other categories`);
+        console.log(`[JOURNAL_WEB_ENRICH] TMDB search failed, falling back to Tavily`);
       }
 
-      // BOOKS: Use Google Books API for reliable cover images and metadata
-      // Check AFTER movies since movies have higher confidence validation
-      const isBook = (effectiveCategory === 'book' || effectiveCategory === 'books' ||
-                      effectiveCategory === 'Books & Reading' ||
-                      entry.category === 'books' || entry.category === 'Books & Reading') &&
-                     // Don't treat as book if validator already corrected to movies
-                     effectiveCategory !== 'Movies & TV Shows';
-
-      if (isBook) {
-        const extractedAuthor = (extractedInfo as any).author;
-        const googleBooksResult = await this.searchGoogleBooks(venueName, extractedAuthor);
+      else if (aiRecommendation.recommendedAPI === 'google_books') {
+        // AI recommends Google Books
+        const searchTitle = aiRecommendation.extractedTitle || venueName;
+        const extractedAuthor = aiRecommendation.extractedDetails || (extractedInfo as any).author;
+        const googleBooksResult = await this.searchGoogleBooks(searchTitle, extractedAuthor);
 
         if (googleBooksResult) {
-          // Build enriched data from Google Books
           const enrichedData: WebEnrichedData = {
             venueVerified: true,
             venueType: 'book',
-            venueName,
+            venueName: searchTitle,
             venueDescription: googleBooksResult.description,
             primaryImageUrl: googleBooksResult.coverUrl,
             author: googleBooksResult.author,
             publisher: googleBooksResult.publisher,
             publicationYear: googleBooksResult.publishedDate?.substring(0, 4),
             suggestedCategory: 'Books & Reading',
-            categoryConfidence: validation.confidence, // Use dynamic confidence from validation
+            categoryConfidence: aiRecommendation.confidence,
             enrichedAt: new Date().toISOString(),
             enrichmentSource: 'google',
-            // Generate purchase links with ISBN for better results
             purchaseLinks: googleBooksResult.isbn ? [
               { platform: 'Amazon', url: `https://www.amazon.com/s?k=${googleBooksResult.isbn}&i=stripbooks` },
               { platform: 'Goodreads', url: `https://www.goodreads.com/search?q=${googleBooksResult.isbn}` },
               { platform: 'Google Books', url: googleBooksResult.infoLink || `https://books.google.com/books?isbn=${googleBooksResult.isbn}` }
             ] : [
-              { platform: 'Amazon', url: `https://www.amazon.com/s?k=${encodeURIComponent(venueName + (googleBooksResult.author ? ' ' + googleBooksResult.author : ''))}&i=stripbooks` },
-              { platform: 'Goodreads', url: `https://www.goodreads.com/search?q=${encodeURIComponent(venueName)}` }
+              { platform: 'Amazon', url: `https://www.amazon.com/s?k=${encodeURIComponent(searchTitle + (googleBooksResult.author ? ' ' + googleBooksResult.author : ''))}&i=stripbooks` },
+              { platform: 'Goodreads', url: `https://www.goodreads.com/search?q=${encodeURIComponent(searchTitle)}` }
             ]
           };
 
-          // Cache the result
           this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
-
           const elapsed = Date.now() - startTime;
-          console.log(`[JOURNAL_WEB_ENRICH] Enriched book ${entry.id} via Google Books in ${elapsed}ms`);
+          console.log(`[JOURNAL_WEB_ENRICH] AI-recommended Google Books enrichment successful in ${elapsed}ms`);
 
-          return {
-            entryId: entry.id,
-            success: true,
-            enrichedData
-          };
+          return { entryId: entry.id, success: true, enrichedData };
         }
-        // Fall through to Tavily search if Google Books fails
-        console.log(`[JOURNAL_WEB_ENRICH] Google Books API returned no results, falling back to Tavily`);
+        console.log(`[JOURNAL_WEB_ENRICH] Google Books search failed, falling back to Tavily`);
       }
 
-      // MUSIC: Use Spotify API for accurate artist/album images
-      const isMusic = effectiveCategory === 'music' || effectiveCategory === 'Music & Artists' ||
-                      entry.category === 'music' || entry.category === 'Music & Artists';
-      
-      if (isMusic) {
+      else if (aiRecommendation.recommendedAPI === 'spotify') {
+        // AI recommends Spotify
         const spotifyAvailable = await spotifyEnrichmentService.isAvailable();
         if (spotifyAvailable) {
-          console.log(`[JOURNAL_WEB_ENRICH] Using Spotify for music: "${venueName}"`);
-          const spotifyResult = await spotifyEnrichmentService.searchMusic(venueName);
-          
+          const searchTitle = aiRecommendation.extractedTitle || venueName;
+          const spotifyResult = await spotifyEnrichmentService.searchMusic(searchTitle);
+
           if (spotifyResult) {
             const enrichedData: WebEnrichedData = {
               venueVerified: true,
               venueType: spotifyResult.type === 'artist' ? 'artist' : 'music',
               venueName: spotifyResult.name,
-              venueDescription: spotifyResult.albumName 
+              venueDescription: spotifyResult.albumName
                 ? `${spotifyResult.type === 'track' ? 'Track' : 'Album'} by ${spotifyResult.artistName || 'Unknown Artist'}`
                 : `Artist on Spotify`,
               primaryImageUrl: spotifyResult.imageUrl || undefined,
-              mediaUrls: spotifyResult.imageUrl ? [{ 
-                url: spotifyResult.imageUrl, 
-                type: 'image' as const, 
-                source: 'spotify' 
+              mediaUrls: spotifyResult.imageUrl ? [{
+                url: spotifyResult.imageUrl,
+                type: 'image' as const,
+                source: 'spotify'
               }] : undefined,
               website: spotifyResult.spotifyUrl,
               suggestedCategory: 'music',
-              categoryConfidence: validation.confidence, // Use dynamic confidence from validation
+              categoryConfidence: aiRecommendation.confidence,
               enrichedAt: new Date().toISOString(),
               enrichmentSource: 'google',
               streamingLinks: [
@@ -616,23 +605,16 @@ Respond with ONLY a JSON object in this format:
 
             this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
             const elapsed = Date.now() - startTime;
-            console.log(`[JOURNAL_WEB_ENRICH] Enriched music ${entry.id} via Spotify in ${elapsed}ms: "${spotifyResult.name}"`);
+            console.log(`[JOURNAL_WEB_ENRICH] AI-recommended Spotify enrichment successful in ${elapsed}ms: "${spotifyResult.name}"`);
 
             return { entryId: entry.id, success: true, enrichedData };
           }
         }
-        console.log(`[JOURNAL_WEB_ENRICH] Spotify returned no results, falling back to Tavily`);
+        console.log(`[JOURNAL_WEB_ENRICH] Spotify search failed or unavailable, falling back to Tavily`);
       }
 
-      // RESTAURANTS/BARS: Fallback to Tavily as primary source for restaurant data
-      // (Google Places integration removed due to cost considerations)
-      const isRestaurant = effectiveCategory === 'restaurant' || effectiveCategory === 'restaurants' ||
-                           effectiveCategory === 'bar' || effectiveCategory === 'bars' ||
-                           entry.category === 'restaurants' || entry.category === 'bars' ||
-                           entry.category === 'Restaurants & Food';
-
-      // Build search query with the corrected category
-      const searchQuery = this.buildSearchQuery(venueName, city, effectiveCategory);
+      // Default: Use Tavily or AI-generated query for all other content
+      const searchQuery = aiRecommendation.searchQuery;
 
       // Search web for venue info (pass category for domain filtering)
       const searchResponse = await this.searchWeb(searchQuery, effectiveCategory);
@@ -660,7 +642,7 @@ Respond with ONLY a JSON object in this format:
       this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
 
       const elapsed = Date.now() - startTime;
-      console.log(`[JOURNAL_WEB_ENRICH] Enriched ${entry.id} in ${elapsed}ms - venue type: ${enrichedData.venueType}, category: ${enrichedData.suggestedCategory}`);
+      console.log(`[JOURNAL_WEB_ENRICH] AI-recommended Tavily enrichment successful in ${elapsed}ms - venue type: ${enrichedData.venueType}, category: ${enrichedData.suggestedCategory}`);
 
       return {
         entryId: entry.id,

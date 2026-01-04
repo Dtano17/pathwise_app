@@ -806,6 +806,30 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     },
   });
 
+  // AI Smart Enrichment mutation - Uses AI to recommend best API for each entry
+  const smartEnrichMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/journal/entries/enrich/batch-smart', {
+        forceAll: false // Only re-enrich low-confidence entries
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+      toast({
+        title: "AI Enrichment Complete!",
+        description: `Successfully enriched ${data.processed} journal entries with AI-powered image search.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Enrichment Failed",
+        description: "Could not enrich journal entries. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Create template mutation
   const createTemplateMutation = useMutation({
     mutationFn: async (data: { name: string; prompts: string[] }) => {
@@ -2643,8 +2667,32 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
             />
           </div>
         </div>
+
+        <Separator />
+
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium text-muted-foreground">AI Features</h4>
+
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Use AI to intelligently find better images for your journal entries by analyzing content and recommending the best data source (TMDB, Google Books, Spotify, or web search).
+            </p>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                smartEnrichMutation.mutate();
+                setShowSettingsDialog(false);
+              }}
+              disabled={smartEnrichMutation.isPending}
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              {smartEnrichMutation.isPending ? 'AI Enriching...' : 'AI Enrich All Entries'}
+            </Button>
+          </div>
+        </div>
       </div>
-      
+
       <DialogFooter>
         <Button
           variant="outline"

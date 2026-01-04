@@ -3104,6 +3104,84 @@ ${sitemaps.map(sitemap => `  <sitemap>
     }
   });
 
+  // POST /api/journal/entries/enrich/batch-smart - Re-enrich entries using AI-powered API selection
+  // AI intelligently determines which enrichment API to use (TMDB, Google Books, Spotify, or Tavily)
+  app.post("/api/journal/entries/enrich/batch-smart", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { entryIds, forceAll } = req.body;
+
+      // Get all user entries
+      const allUserEntries = await storage.getUserJournalEntries(userId);
+
+      // Filter entries to re-enrich
+      let entriesToEnrich = allUserEntries;
+
+      if (entryIds && Array.isArray(entryIds) && entryIds.length > 0) {
+        // Specific entries requested
+        entriesToEnrich = allUserEntries.filter(e => entryIds.includes(e.id));
+      } else if (!forceAll) {
+        // Re-enrich entries with low confidence or no enrichment
+        entriesToEnrich = allUserEntries.filter(e => {
+          const enrichment = e.metadata?.enrichment;
+
+          // Re-enrich if low confidence or no enrichment
+          return !enrichment || (enrichment.categoryConfidence !== undefined && enrichment.categoryConfidence < 0.7);
+        });
+      }
+
+      console.log(`[Batch Smart Enrich] Processing ${entriesToEnrich.length} entries`);
+
+      if (entriesToEnrich.length === 0) {
+        return res.json({
+          success: true,
+          processed: 0,
+          results: []
+        });
+      }
+
+      // Prepare entries for enrichment
+      const entriesForEnrichment = entriesToEnrich.map(e => ({
+        id: e.id,
+        text: e.content,
+        category: e.category,
+        existingEnrichment: e.metadata?.enrichment
+      }));
+
+      // Enrich in batches
+      const results = await journalWebEnrichmentService.enrichBatch(entriesForEnrichment, true); // forceRefresh = true
+
+      // Save results
+      for (const result of results) {
+        if (result.success && result.enrichedData) {
+          const entry = allUserEntries.find(e => e.id === result.entryId);
+          if (entry) {
+            await storage.updateJournalEntry(entry.id, {
+              metadata: {
+                ...(entry.metadata || {}),
+                enrichment: result.enrichedData
+              }
+            }, userId);
+          }
+        }
+      }
+
+      res.json({
+        success: true,
+        processed: entriesToEnrich.length,
+        results: results.map(r => ({
+          id: r.entryId,
+          success: r.success,
+          venueName: r.enrichedData?.venueName,
+          confidence: r.enrichedData?.categoryConfidence
+        }))
+      });
+    } catch (error) {
+      console.error('[Batch Smart Enrich] Error:', error);
+      res.status(500).json({ error: 'Failed to batch enrich entries' });
+    }
+  });
+
   // POST /api/journal/entries/enrich/low-confidence - Re-enrich entries with low confidence scores
   app.post("/api/journal/entries/enrich/low-confidence", async (req: any, res) => {
     try {
