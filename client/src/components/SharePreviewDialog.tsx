@@ -683,7 +683,7 @@ export function SharePreviewDialog({
           <DialogHeader className="space-y-2 flex-shrink-0">
             <div className="flex items-start justify-between gap-2">
               <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl flex-1">
-                <Sparkles className="w-5 h-5 text-primary flex-shrink-0" />
+                <Share2 className="w-5 h-5 text-primary flex-shrink-0" />
                 <span className="truncate">
                   Share & Customize Your Activity
                 </span>
