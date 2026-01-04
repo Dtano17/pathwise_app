@@ -583,31 +583,46 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
     <div className="space-y-4 sm:space-y-6">
       {!hideControls && (
         <>
-          {/* Platform Selector */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium">Choose Platform</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-              {Object.values(PLATFORM_TEMPLATES).map(template => {
-                const IconComponent = getPlatformIcon(template.id);
-                return (
-                  <Button
-                    key={template.id}
-                    variant={selectedPlatform === template.id ? 'default' : 'outline'}
-                    onClick={() => {
-                      handlePlatformChange(template.id);
-                      handleFormatChange(getRecommendedFormat(template.id));
-                    }}
-                    className="justify-start gap-2 h-auto py-3 min-h-[44px] w-full"
-                    data-testid={`button-platform-${template.id}`}
-                    aria-label={`Select ${template.name} format`}
-                    title={template.name}
-                  >
-                    <IconComponent className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                    <span className="text-sm font-medium text-left line-clamp-1">{template.name}</span>
-                  </Button>
-                );
-              })}
-            </div>
+          {/* Platform Selector - Compact Dropdown */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Choose Platform</label>
+            <Select 
+              value={selectedPlatform} 
+              onValueChange={(val: string) => {
+                handlePlatformChange(val);
+                handleFormatChange(getRecommendedFormat(val));
+              }}
+            >
+              <SelectTrigger 
+                className="min-h-[44px] w-full" 
+                data-testid="select-platform"
+              >
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const IconComponent = getPlatformIcon(selectedPlatform);
+                    return <IconComponent className="w-4 h-4 flex-shrink-0" aria-hidden="true" />;
+                  })()}
+                  <SelectValue placeholder="Select platform" />
+                </div>
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {Object.values(PLATFORM_TEMPLATES).map(template => {
+                  const IconComponent = getPlatformIcon(template.id);
+                  return (
+                    <SelectItem 
+                      key={template.id} 
+                      value={template.id}
+                      data-testid={`option-platform-${template.id}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <IconComponent className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                        <span>{template.name}</span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Actions */}
