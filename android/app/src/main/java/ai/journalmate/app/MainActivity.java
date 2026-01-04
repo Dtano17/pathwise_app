@@ -139,16 +139,26 @@ public class MainActivity extends BridgeActivity {
      * Notify the WebView about OAuth auth token received via deep link
      */
     private void notifyAuthDeepLink(String token) {
-        // Trigger a JavaScript event that the app can listen to
-        if (this.getBridge() != null) {
+        // Method 1: Try Capacitor bridge (works for local assets)
+        if (this.getBridge() != null && this.getBridge().getWebView() != null) {
             String js = String.format(
                 "window.dispatchEvent(new CustomEvent('authDeepLink', { detail: { token: '%s' } }));",
                 escapeJson(token)
             );
             runOnUiThread(() -> {
-                if (this.getBridge().getWebView() != null) {
-                    this.getBridge().getWebView().evaluateJavascript(js, null);
-                }
+                this.getBridge().getWebView().evaluateJavascript(js, null);
+            });
+            android.util.Log.d("MainActivity", "OAuth token dispatched via Capacitor bridge");
+        }
+
+        // Method 2: Navigate to URL with token (works for remote URLs like journalmate.ai)
+        // This ensures the web app receives the token even without Capacitor bridge
+        if (this.getBridge() != null && this.getBridge().getWebView() != null) {
+            runOnUiThread(() -> {
+                // Navigate to root with token parameter - the web app will handle it
+                String authUrl = "/?token=" + token;
+                this.getBridge().getWebView().loadUrl("javascript:window.location.href='" + authUrl + "'");
+                android.util.Log.d("MainActivity", "OAuth token passed via URL navigation");
             });
         }
     }
