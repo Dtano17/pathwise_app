@@ -5,7 +5,7 @@
  * Provides a unified API for requesting permissions and managing notifications
  */
 
-import { PushNotifications, type Token, type PushNotificationSchema, type ActionPerformed } from '@capacitor/push-notifications';
+// PushNotifications import is handled dynamically to avoid errors on web
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { isNative, isIOS, isAndroid } from './platform';
 import { apiRequest } from './queryClient';
@@ -33,6 +33,7 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
  */
 async function requestNativePermission(): Promise<NotificationPermissionStatus> {
   try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
     // Request permission
     const permission = await PushNotifications.requestPermissions();
 
@@ -85,6 +86,7 @@ async function requestWebPermission(): Promise<NotificationPermissionStatus> {
  */
 export async function checkNotificationPermission(): Promise<NotificationPermissionStatus> {
   if (isNative()) {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
     const permission = await PushNotifications.checkPermissions();
     return {
       granted: permission.receive === 'granted',
@@ -104,14 +106,16 @@ export async function checkNotificationPermission(): Promise<NotificationPermiss
 /**
  * Initialize push notification listeners for native platforms
  */
-export function initializePushNotifications() {
+export async function initializePushNotifications() {
   if (!isNative()) {
     console.log('Not on native platform, skipping push notification setup');
     return;
   }
 
+  const { PushNotifications } = await import('@capacitor/push-notifications');
+
   // Registration success - receive FCM/APNs token
-  PushNotifications.addListener('registration', async (token: Token) => {
+  PushNotifications.addListener('registration', async (token: any) => {
     console.log('Push registration success, token:', token.value);
 
     // Send token to backend
@@ -134,7 +138,7 @@ export function initializePushNotifications() {
   // Notification received while app is in foreground
   PushNotifications.addListener(
     'pushNotificationReceived',
-    (notification: PushNotificationSchema) => {
+    (notification: any) => {
       console.log('Push notification received:', notification);
 
       // Show as local notification when app is open
@@ -150,7 +154,7 @@ export function initializePushNotifications() {
   // Notification tapped/clicked
   PushNotifications.addListener(
     'pushNotificationActionPerformed',
-    (action: ActionPerformed) => {
+    (action: any) => {
       console.log('Push notification action performed:', action);
 
       // Handle notification tap - navigate to relevant screen
@@ -279,9 +283,9 @@ export async function getPendingNotifications() {
 export async function unregisterDevice() {
   if (isNative()) {
     try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
       // Get current token first
-      const deliveredNotifications = await PushNotifications.getDeliveredNotifications();
-      console.log('Unregistering device, delivered:', deliveredNotifications);
+      console.log('Unregistering device...');
 
       // Remove from server
       await apiRequest('POST', '/api/notifications/unregister-device', {

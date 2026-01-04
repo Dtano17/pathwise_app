@@ -1,4 +1,4 @@
-import { PushNotifications, type Token, type PushNotificationSchema } from '@capacitor/push-notifications';
+// PushNotifications import is handled dynamically to avoid errors on web
 import { Capacitor } from '@capacitor/core';
 import { isNative } from '@/lib/mobile';
 
@@ -21,6 +21,7 @@ export async function initializePushNotifications(userId: string): Promise<void>
   }
 
   try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
     console.log('[PUSH] Initializing for user:', userId);
 
     // Request permission to receive push notifications
@@ -37,7 +38,7 @@ export async function initializePushNotifications(userId: string): Promise<void>
     await PushNotifications.register();
 
     // Listen for registration success
-    await PushNotifications.addListener('registration', async (token: Token) => {
+    await PushNotifications.addListener('registration', async (token: any) => {
       console.log('[PUSH] Registration success:', token.value);
 
       // Send token to backend
@@ -52,7 +53,7 @@ export async function initializePushNotifications(userId: string): Promise<void>
     // Listen for push notifications when app is in foreground
     await PushNotifications.addListener(
       'pushNotificationReceived',
-      (notification: PushNotificationSchema) => {
+      (notification: any) => {
         console.log('[PUSH] Received notification (foreground):', notification);
 
         // You can show a custom in-app notification here
@@ -137,6 +138,7 @@ export async function unregisterPushNotifications(): Promise<void> {
   }
 
   try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
     console.log('[PUSH] Unregistering...');
 
     // Get current token to unregister from backend
