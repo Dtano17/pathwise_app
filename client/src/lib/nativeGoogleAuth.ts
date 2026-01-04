@@ -79,20 +79,44 @@ export interface NativeAuthResult {
  * browser-based OAuth instead of native Google Sign-In. The native plugin
  * requires a clientId that isn't available when loading remote content.
  */
+/**
+ * Check if we're running in a true Capacitor environment (not just Android WebView loading remote URL)
+ * True Capacitor apps load from localhost or capacitor:// scheme
+ */
+function isCapacitorLocalApp(): boolean {
+  const url = document.URL || window.location.href;
+  return url.startsWith('https://localhost') ||
+         url.startsWith('http://localhost') ||
+         url.startsWith('capacitor://');
+}
+
 export async function initializeGoogleAuth(): Promise<void> {
-  console.log('[GOOGLE_AUTH] initializeGoogleAuth called, isNative:', isNative());
+  console.log('[GOOGLE_AUTH] initializeGoogleAuth called, isNative:', isNative(), 'isCapacitorLocal:', isCapacitorLocalApp());
 
   if (!isNative()) {
     console.log('[GOOGLE_AUTH] Skipping initialization on web platform');
     return;
   }
 
-  // Skip native GoogleAuth initialization - we use browser OAuth flow instead
-  // The native GoogleAuth plugin crashes if initialized with empty clientId,
-  // and when loading a remote URL the capacitor.config.ts values aren't available
-  // to the plugin. Browser OAuth (via deep links) works better for our use case.
-  console.log('[GOOGLE_AUTH] Skipping native initialization - using browser OAuth flow');
-  return;
+  // Only initialize native GoogleAuth for true Capacitor apps (loading from localhost/capacitor://)
+  // Android WebView apps loading remote URLs should use browser OAuth instead
+  if (!isCapacitorLocalApp()) {
+    console.log('[GOOGLE_AUTH] Skipping native initialization - remote URL detected, using browser OAuth flow');
+    return;
+  }
+
+  // True Capacitor app - initialize native Google Sign-In
+  try {
+    console.log('[GOOGLE_AUTH] Initializing native Google Sign-In for Capacitor app');
+    await GoogleAuth.initialize({
+      scopes: ['profile', 'email'],
+      grantOfflineAccess: true,
+    });
+    console.log('[GOOGLE_AUTH] Native Google Sign-In initialized successfully');
+  } catch (error) {
+    console.error('[GOOGLE_AUTH] Native initialization failed:', error);
+    // Don't throw - fallback to browser OAuth will happen in signInWithGoogleNative
+  }
 }
 
 /**
