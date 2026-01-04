@@ -11819,6 +11819,84 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
+  // Personal Journal - Update a single entry (manual overrides)
+  app.patch("/api/user/journal/entry/:entryId", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { entryId } = req.params;
+      const { manualBackdrop, manualDescription, manualCategory, manualSubcategory, text } = req.body;
+      
+      console.log(`[JOURNAL EDIT] Updating entry ${entryId} for user ${userId}`);
+      
+      // Get existing preferences
+      const prefs = await storage.getUserPreferences(userId);
+      const currentPrefs = prefs?.preferences || {};
+      const journalData = { ...currentPrefs.journalData } || {};
+      
+      // Find the entry across all categories
+      let foundCategory: string | null = null;
+      let foundIndex: number = -1;
+      let foundEntry: any = null;
+      
+      for (const [category, entries] of Object.entries(journalData)) {
+        if (!Array.isArray(entries)) continue;
+        const idx = entries.findIndex((e: any) => 
+          (typeof e === 'object' && e.id === entryId)
+        );
+        if (idx !== -1) {
+          foundCategory = category;
+          foundIndex = idx;
+          foundEntry = entries[idx];
+          break;
+        }
+      }
+      
+      if (!foundCategory || foundIndex === -1 || !foundEntry) {
+        return res.status(404).json({ error: 'Entry not found' });
+      }
+      
+      // Update the entry with manual overrides
+      const updatedEntry = {
+        ...foundEntry,
+        ...(text !== undefined && { text }),
+        ...(manualBackdrop !== undefined && { manualBackdrop }),
+        ...(manualDescription !== undefined && { manualDescription }),
+        ...(manualSubcategory !== undefined && { manualSubcategory: manualSubcategory || undefined }),
+      };
+      
+      // If moving to a different category
+      if (manualCategory && manualCategory !== foundCategory) {
+        // Remove from old category
+        journalData[foundCategory] = journalData[foundCategory].filter((_: any, i: number) => i !== foundIndex);
+        
+        // Add to new category
+        if (!journalData[manualCategory]) {
+          journalData[manualCategory] = [];
+        }
+        journalData[manualCategory].push(updatedEntry);
+        
+        console.log(`[JOURNAL EDIT] Moved entry from ${foundCategory} to ${manualCategory}`);
+      } else {
+        // Update in place
+        journalData[foundCategory][foundIndex] = updatedEntry;
+      }
+      
+      // Save back to preferences
+      await storage.upsertUserPreferences(userId, {
+        preferences: {
+          ...currentPrefs,
+          journalData
+        }
+      });
+      
+      console.log(`[JOURNAL EDIT] Entry ${entryId} updated successfully`);
+      res.json({ success: true, entry: updatedEntry });
+    } catch (error) {
+      console.error('Error updating journal entry:', error);
+      res.status(500).json({ error: 'Failed to update journal entry' });
+    }
+  });
+
   // Personal Journal - Save custom categories
   app.put("/api/user/journal/custom-categories", async (req: any, res) => {
     try {

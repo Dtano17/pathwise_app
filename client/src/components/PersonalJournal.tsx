@@ -252,6 +252,12 @@ interface RichJournalEntry {
   venueName?: string;
   venueType?: string;
   subcategory?: string;
+  
+  // Manual override fields - user can edit these
+  manualBackdrop?: string;
+  manualDescription?: string;
+  manualCategory?: string;
+  manualSubcategory?: string;
 
   // Web enrichment data
   webEnrichment?: {
