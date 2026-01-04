@@ -25,6 +25,7 @@ const isAndroidWebView = (): boolean => {
   // Android WebView includes "wv" marker. Some WebViews also have specific patterns.
   const isAndroid = ua.includes('android');
   const hasWvMarker = ua.includes('wv');                    // Standard WebView marker
+  const hasWebViewMarker = ua.includes('webview');          // Alternative WebView marker
   const hasCapacitor = ua.includes('capacitor');            // Capacitor user agent
   const isLocalhost = document.URL.startsWith('https://localhost') ||
                       document.URL.startsWith('http://localhost') ||
@@ -33,7 +34,11 @@ const isAndroidWebView = (): boolean => {
   // Check if Capacitor bridge is injected (works even with remote URLs)
   const hasCapacitorBridge = !!(window as any).Capacitor?.isNativePlatform;
 
-  return isAndroid && (hasWvMarker || hasCapacitor || isLocalhost || hasCapacitorBridge);
+  // Also check if running inside a mobile app by looking at window properties
+  // Capacitor sets window.Capacitor when injected
+  const hasCapacitorWindow = typeof (window as any).Capacitor !== 'undefined';
+
+  return isAndroid && (hasWvMarker || hasWebViewMarker || hasCapacitor || isLocalhost || hasCapacitorBridge || hasCapacitorWindow);
 };
 
 /**
