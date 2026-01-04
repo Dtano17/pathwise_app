@@ -24,6 +24,7 @@ import ChatGPTPlanTracker from "@/pages/ChatGPTPlanTracker";
 import PerplexityPlans from "@/pages/PerplexityPlans";
 import WeekendPlans from "@/pages/WeekendPlans";
 import ImportPlan from "@/pages/ImportPlan";
+import MobileAuthCallback from "@/pages/MobileAuthCallback";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
@@ -67,7 +68,10 @@ function AppContent() {
       <Switch>
         {/* Auth Callback Page (no sidebar) */}
         <Route path="/auth/callback" component={AuthCallback} />
-        
+
+        {/* Mobile OAuth Callback Page (handles deep link redirect) */}
+        <Route path="/auth/mobile-callback" component={MobileAuthCallback} />
+
         {/* Login Page (no sidebar) */}
         <Route path="/login" component={Login} />
         
