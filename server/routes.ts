@@ -11856,13 +11856,34 @@ You can find these tasks in your task list and start working on them right away!
       }
       
       // Update the entry with manual overrides
+      // null means explicitly clear, undefined means don't change
       const updatedEntry = {
         ...foundEntry,
         ...(text !== undefined && { text }),
-        ...(manualBackdrop !== undefined && { manualBackdrop }),
-        ...(manualDescription !== undefined && { manualDescription }),
-        ...(manualSubcategory !== undefined && { manualSubcategory: manualSubcategory || undefined }),
       };
+      
+      // Handle nullable fields - null clears, undefined skips, value sets
+      if (manualBackdrop !== undefined) {
+        if (manualBackdrop === null || manualBackdrop === '') {
+          delete updatedEntry.manualBackdrop;
+        } else {
+          updatedEntry.manualBackdrop = manualBackdrop;
+        }
+      }
+      if (manualDescription !== undefined) {
+        if (manualDescription === null || manualDescription === '') {
+          delete updatedEntry.manualDescription;
+        } else {
+          updatedEntry.manualDescription = manualDescription;
+        }
+      }
+      if (manualSubcategory !== undefined) {
+        if (manualSubcategory === null || manualSubcategory === '') {
+          delete updatedEntry.manualSubcategory;
+        } else {
+          updatedEntry.manualSubcategory = manualSubcategory;
+        }
+      }
       
       // If moving to a different category
       if (manualCategory && manualCategory !== foundCategory) {

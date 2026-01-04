@@ -258,6 +258,9 @@ interface RichJournalEntry {
   manualDescription?: string;
   manualCategory?: string;
   manualSubcategory?: string;
+  
+  // Task/completion tracking
+  completed?: boolean;
 
   // Web enrichment data
   webEnrichment?: {
@@ -429,6 +432,16 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const [showRenameCategoryDialog, setShowRenameCategoryDialog] = useState(false);
   const [categoryToRename, setCategoryToRename] = useState<CustomCategory | null>(null);
   const [newCategoryLabel, setNewCategoryLabel] = useState('');
+  
+  // Edit entry states
+  const [showEditEntryDialog, setShowEditEntryDialog] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<RichJournalEntry | null>(null);
+  const [editingEntryCategory, setEditingEntryCategory] = useState<string>('');
+  const [editEntryText, setEditEntryText] = useState('');
+  const [editEntryDescription, setEditEntryDescription] = useState('');
+  const [editEntryBackdrop, setEditEntryBackdrop] = useState('');
+  const [editEntryCategory, setEditEntryCategory] = useState('');
+  const [editEntrySubcategory, setEditEntrySubcategory] = useState('');
 
   // Smart icon mapping for custom categories based on name/keywords
   const getIconForCategoryName = (name: string): LucideIcon => {
@@ -917,6 +930,86 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       });
     }
   });
+
+  // Edit entry mutation
+  const editEntryMutation = useMutation({
+    mutationFn: async ({ entryId, updates }: { 
+      entryId: string; 
+      updates: { 
+        text?: string;
+        manualBackdrop?: string;
+        manualDescription?: string;
+        manualCategory?: string;
+        manualSubcategory?: string;
+      } 
+    }) => {
+      const response = await apiRequest('PATCH', `/api/user/journal/entry/${entryId}`, updates);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      setShowEditEntryDialog(false);
+      setEditingEntry(null);
+      toast({
+        title: "Entry Updated",
+        description: "Your changes have been saved.",
+      });
+    },
+    onError: (error) => {
+      console.error('[EDIT ENTRY] Error:', error);
+      toast({
+        title: "Update Failed",
+        description: "Could not save changes. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Helper to open edit dialog with entry data
+  const handleEditEntry = (entry: RichJournalEntry, currentCategory: string) => {
+    setEditingEntry(entry);
+    setEditingEntryCategory(currentCategory);
+    setEditEntryText(entry.text || '');
+    setEditEntryDescription(entry.manualDescription || entry.webEnrichment?.venueDescription || '');
+    setEditEntryBackdrop(entry.manualBackdrop || entry.webEnrichment?.primaryImageUrl || '');
+    setEditEntryCategory(currentCategory);
+    setEditEntrySubcategory(entry.manualSubcategory || entry.subcategory || '');
+    setShowEditEntryDialog(true);
+  };
+
+  // Save edited entry
+  const handleSaveEditedEntry = () => {
+    if (!editingEntry?.id) return;
+    
+    const updates: any = {};
+    
+    // Only include changed fields - use null to explicitly clear a field
+    if (editEntryText !== editingEntry.text) {
+      updates.text = editEntryText;
+    }
+    
+    const currentBackdrop = editingEntry.manualBackdrop || '';
+    if (editEntryBackdrop !== currentBackdrop) {
+      // Send null to clear, or the new value to set
+      updates.manualBackdrop = editEntryBackdrop || null;
+    }
+    
+    const currentDescription = editingEntry.manualDescription || '';
+    if (editEntryDescription !== currentDescription) {
+      updates.manualDescription = editEntryDescription || null;
+    }
+    
+    if (editEntryCategory !== editingEntryCategory) {
+      updates.manualCategory = editEntryCategory;
+    }
+    
+    const currentSubcategory = editingEntry.manualSubcategory || editingEntry.subcategory || '';
+    if (editEntrySubcategory !== currentSubcategory) {
+      updates.manualSubcategory = editEntrySubcategory || null;
+    }
+    
+    editEntryMutation.mutate({ entryId: editingEntry.id, updates });
+  };
 
   const handleCopyPrompt = (prompt: string) => {
     navigator.clipboard.writeText(prompt);
@@ -1588,9 +1681,11 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                     // Find original index for removal
                     const originalIndex = journalData[activeCategory]?.indexOf(item) ?? -1;
 
-                    // Use web enrichment image if available
-                    const primaryImage = webEnrichment?.primaryImageUrl;
+                    // Use manual backdrop first, then web enrichment image
+                    const manualBackdrop = isRichEntry ? item.manualBackdrop : null;
+                    const primaryImage = manualBackdrop || webEnrichment?.primaryImageUrl;
                     const hasWebImage = !!primaryImage;
+                    const hasManualOverride = !!manualBackdrop;
 
                     return (
                       <Card
@@ -1642,8 +1737,14 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                 }
                               }}
                             />
+                            {/* Manual override badge */}
+                            {hasManualOverride && (
+                              <div className="absolute top-2 left-2 bg-blue-500/90 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                                <Pencil className="w-3 h-3" /> Custom
+                              </div>
+                            )}
                             {/* Verified badge - visible on all devices */}
-                            {webEnrichment?.venueVerified && (
+                            {webEnrichment?.venueVerified && !hasManualOverride && (
                               <div className="absolute top-2 right-2 bg-green-500/90 text-white text-xs sm:text-sm px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
                                 <Check className="w-3 h-3 sm:w-4 sm:h-4" /> Verified
                               </div>
@@ -2020,15 +2121,27 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                 </div>
                               )}
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity min-h-[44px] min-w-[44px] p-0"
-                              onClick={() => handleRemoveItem(originalIndex)}
-                              data-testid={`button-remove-${filteredIndex}`}
-                            >
-                              <X className="w-5 h-5" />
-                            </Button>
+                            <div className="flex flex-col gap-1 flex-shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity min-h-[44px] min-w-[44px] p-0"
+                                onClick={() => isRichEntry && handleEditEntry(item as RichJournalEntry, activeCategory)}
+                                disabled={!isRichEntry}
+                                data-testid={`button-edit-${filteredIndex}`}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity min-h-[44px] min-w-[44px] p-0"
+                                onClick={() => handleRemoveItem(originalIndex)}
+                                data-testid={`button-remove-${filteredIndex}`}
+                              >
+                                <X className="w-5 h-5" />
+                              </Button>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -2722,6 +2835,127 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
           onClick={() => setShowSettingsDialog(false)}
         >
           Done
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  {/* Edit Entry Dialog */}
+  <Dialog open={showEditEntryDialog} onOpenChange={setShowEditEntryDialog}>
+    <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>Edit Entry</DialogTitle>
+        <DialogDescription>
+          Update the details of this journal entry. You can change the title, description, image, and category.
+        </DialogDescription>
+      </DialogHeader>
+      
+      <div className="space-y-4 py-4">
+        {/* Entry Title/Text */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Title / Content</label>
+          <Textarea
+            placeholder="Entry title or content..."
+            value={editEntryText}
+            onChange={(e) => setEditEntryText(e.target.value)}
+            className="min-h-[80px]"
+            data-testid="input-edit-entry-text"
+          />
+        </div>
+
+        {/* Description */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Description (optional)</label>
+          <Textarea
+            placeholder="Add a description or notes..."
+            value={editEntryDescription}
+            onChange={(e) => setEditEntryDescription(e.target.value)}
+            className="min-h-[60px]"
+            data-testid="input-edit-entry-description"
+          />
+        </div>
+
+        {/* Category Selector */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Category</label>
+          <Select value={editEntryCategory} onValueChange={setEditEntryCategory}>
+            <SelectTrigger data-testid="select-edit-category">
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
+            <SelectContent>
+              {allCategories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  <div className="flex items-center gap-2">
+                    <cat.icon className="w-4 h-4" />
+                    {cat.label}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Subcategory */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Subcategory (optional)</label>
+          <Input
+            placeholder="e.g., Thriller, Italian, Indie..."
+            value={editEntrySubcategory}
+            onChange={(e) => setEditEntrySubcategory(e.target.value)}
+            data-testid="input-edit-entry-subcategory"
+          />
+        </div>
+
+        {/* Custom Image URL */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Image URL (optional)</label>
+          <Input
+            placeholder="https://example.com/image.jpg"
+            value={editEntryBackdrop}
+            onChange={(e) => setEditEntryBackdrop(e.target.value)}
+            data-testid="input-edit-entry-backdrop"
+          />
+          {editEntryBackdrop && (
+            <div className="relative w-full h-32 rounded-md overflow-hidden bg-muted">
+              <img
+                src={editEntryBackdrop}
+                alt="Preview"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Paste a direct image URL to use as the entry's backdrop. This overrides any AI-fetched image.
+          </p>
+        </div>
+      </div>
+      
+      <DialogFooter className="gap-2 sm:gap-0">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowEditEntryDialog(false);
+            setEditingEntry(null);
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSaveEditedEntry}
+          disabled={!editEntryText.trim() || editEntryMutation.isPending}
+          data-testid="button-save-edit-entry"
+        >
+          {editEntryMutation.isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Save Changes'
+          )}
         </Button>
       </DialogFooter>
     </DialogContent>
