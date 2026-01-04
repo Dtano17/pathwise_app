@@ -809,16 +809,16 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   // AI Smart Enrichment mutation - Uses AI to recommend best API for each entry
   const smartEnrichMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/journal/entries/enrich/batch-smart', {
-        forceAll: false // Only re-enrich low-confidence entries
+      const response = await apiRequest('POST', '/api/user/journal/web-enrich', {
+        forceRefresh: true // Force refresh all entries with AI-powered enrichment
       });
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
       toast({
         title: "AI Enrichment Complete!",
-        description: `Successfully enriched ${data.processed} journal entries with AI-powered image search.`,
+        description: `Successfully enriched ${data.enriched || 0} journal entries with AI-powered image search.`,
       });
     },
     onError: () => {
