@@ -293,15 +293,24 @@ export async function searchBackdropOptions(
   try {
     // Try Tavily search first
     if (process.env.TAVILY_API_KEY) {
-      // Extract location from description (keep existing regex logic)
-      let locationStr = '';
+      // Extract locations from BOTH title and description
+      const combinedText = `${activityTitle} ${description || ''}`;
+      const titleLocations = extractLocationKeywords(activityTitle);
+      const descLocations = extractLocationKeywords(description || '');
+      
+      // Also try regex extraction from description
+      let regexLocation = '';
       if (description && description.length > 0) {
         const descLower = description.toLowerCase();
         const locationMatch = descLower.match(/\b(?:in|at|near|around|visiting|exploring|going to)\s+([a-z\s,]+?)(?:\.|,|$|\s(?:to|for|with|during))/i);
         if (locationMatch) {
-          locationStr = locationMatch[1].trim().replace(/\s+/g, ' ');
+          regexLocation = locationMatch[1].trim().replace(/\s+/g, ' ');
         }
       }
+      
+      // Prioritize: title locations > description locations > regex match
+      const primaryLocation = titleLocations[0] || descLocations[0] || regexLocation;
+      const hasLocation = primaryLocation.length > 0;
 
       // Extract title keywords (keep existing, max 60 chars)
       const titleKeywords = activityTitle
@@ -311,11 +320,8 @@ export async function searchBackdropOptions(
         .replace(/\s+/g, ' ')
         .trim();
 
-      // NEW: Extract description content keywords (CORE of search)
+      // Extract description content keywords
       const descriptionKeywords = extractDescriptionKeywords(description || '', 8);
-
-      // NEW: Determine if activity is location-dependent
-      const needsLocation = isLocationDependent(activityTitle, description || '');
 
       // Get category-specific aesthetic keywords
       const aestheticKeywords = getCategoryAestheticKeywords(category);
@@ -326,17 +332,19 @@ export async function searchBackdropOptions(
       // Shuffle description keywords based on variation for query diversity
       const shuffledDescKeywords = shuffleWithSeed(descriptionKeywords, variation + 1);
 
-      // NEW: Build query with title+description as CORE
-      let searchQuery = titleKeywords; // Always start with title
-
-      // Add shuffled description keywords (CORE - always included if available)
-      if (shuffledDescKeywords.length > 0) {
-        searchQuery += ` ${shuffledDescKeywords.join(' ')}`;
+      // Build query - PRIORITIZE LOCATION at the start if found
+      let searchQuery = '';
+      
+      if (hasLocation) {
+        // Location-first query: "Los Angeles New Year celebration scenic..."
+        searchQuery = `${primaryLocation} ${titleKeywords}`;
+      } else {
+        searchQuery = titleKeywords;
       }
 
-      // CONDITIONALLY add location (ONLY if activity is location-dependent)
-      if (needsLocation && locationStr) {
-        searchQuery += ` ${locationStr}`;
+      // Add shuffled description keywords
+      if (shuffledDescKeywords.length > 0) {
+        searchQuery += ` ${shuffledDescKeywords.join(' ')}`;
       }
 
       // Fallback: Add category aesthetics ONLY if description is weak/missing
@@ -352,8 +360,8 @@ export async function searchBackdropOptions(
       console.log('  Variation:', variation);
       console.log('  Title keywords:', titleKeywords);
       console.log('  Description keywords (shuffled):', shuffledDescKeywords.join(', ') || 'none');
-      console.log('  Location-dependent activity?', needsLocation ? 'YES' : 'NO');
-      console.log('  Location context:', needsLocation && locationStr ? locationStr : 'not needed/not found');
+      console.log('  Location detected?', hasLocation ? 'YES' : 'NO');
+      console.log('  Primary location:', hasLocation ? primaryLocation : 'none');
       console.log('  Variation suffix:', variationMod.suffix);
       console.log('  Final query:', searchQuery);
 
@@ -377,9 +385,9 @@ export async function searchBackdropOptions(
             ? labelWords.map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
             : 'Web Result';
 
-          // Add location context if found AND activity is location-dependent
-          if (needsLocation && locationStr) {
-            const locationLabel = locationStr.split(' ')
+          // Add location context if found
+          if (hasLocation) {
+            const locationLabel = primaryLocation.split(' ')
               .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
             label = `${label} - ${locationLabel}`;
           }
