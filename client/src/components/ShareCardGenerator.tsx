@@ -597,13 +597,7 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
                 className="min-h-[44px] w-full" 
                 data-testid="select-platform"
               >
-                <div className="flex items-center gap-2">
-                  {(() => {
-                    const IconComponent = getPlatformIcon(selectedPlatform);
-                    return <IconComponent className="w-4 h-4 flex-shrink-0" aria-hidden="true" />;
-                  })()}
-                  <SelectValue placeholder="Select platform" />
-                </div>
+                <SelectValue placeholder="Select platform" />
               </SelectTrigger>
               <SelectContent className="max-h-[300px]">
                 {Object.values(PLATFORM_TEMPLATES).map(template => {
