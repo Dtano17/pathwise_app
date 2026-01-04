@@ -814,14 +814,22 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       });
       return response.json();
     },
+    onMutate: () => {
+      // Show immediate feedback when starting
+      toast({
+        title: "AI Enrichment Started",
+        description: "Processing your journal entries... This may take 1-2 minutes for many entries.",
+      });
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
       toast({
         title: "AI Enrichment Complete!",
-        description: `Successfully enriched ${data.enriched || 0} journal entries with AI-powered image search.`,
+        description: `Successfully enriched ${data.enriched || 0} journal entries with AI-powered images.${data.failed ? ` (${data.failed} failed)` : ''}`,
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('[ENRICH] Mutation error:', error);
       toast({
         title: "Enrichment Failed",
         description: "Could not enrich journal entries. Please try again.",
@@ -2686,8 +2694,17 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
               }}
               disabled={smartEnrichMutation.isPending}
             >
-              <Sparkles className="w-4 h-4 mr-2" />
-              {smartEnrichMutation.isPending ? 'AI Enriching...' : 'AI Enrich All Entries'}
+              {smartEnrichMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  AI Enriching... (check toast for updates)
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  AI Enrich All Entries
+                </>
+              )}
             </Button>
           </div>
         </div>
