@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ANDROID WEBVIEW SAFE AREAS - For apps loading remote URLs
+ * When an Android WebView loads a remote URL (not localhost/capacitor://),
+ * fitsSystemWindows doesn't automatically inset the web content.
+ * This CSS variable approach allows JavaScript to enable safe areas when
+ * it detects the app is running in an Android WebView.
+ */
+:root {
+  --mobile-safe-top: 0px;
+  --mobile-safe-bottom: 0px;
+}
+
+/* Android WebView: Set these via JavaScript or use fallback detection */
+/* The 'wv' marker in user agent indicates Android WebView */
+@media screen and (max-width: 768px) {
+  /* Apply mobile safe areas - these are 0 by default */
+  body {
+    padding-top: var(--mobile-safe-top) !important;
+    padding-bottom: var(--mobile-safe-bottom) !important;
+  }
+}
+
 /* MOBILE SAFE AREAS
  * On Android Capacitor apps: fitsSystemWindows=true handles safe areas natively
  * On iOS: CSS env() variables handle safe areas

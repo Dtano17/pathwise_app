@@ -3,7 +3,24 @@ import App from "./App";
 import "./index.css";
 import { initializeGoogleAuth } from "./lib/nativeGoogleAuth";
 import { initializeSafeArea, setupSafeAreaListeners } from "./lib/safeArea";
-import { isNative, getPlatform } from "./lib/platform";
+import { isNative, getPlatform, isAndroid } from "./lib/platform";
+
+// Detect Android WebView via User Agent - works even when loading remote URLs
+// The 'wv' marker in user agent indicates Android WebView
+const isAndroidWebView = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent.toLowerCase();
+  return ua.includes('android') && (ua.includes('wv') || ua.includes('webview'));
+};
+
+// Apply safe area padding for Android WebView IMMEDIATELY
+// This runs before React renders to prevent layout shift
+if (isAndroidWebView()) {
+  console.log('[INIT] Android WebView detected via User Agent, applying safe areas');
+  document.documentElement.style.setProperty('--mobile-safe-top', '28px');
+  document.documentElement.style.setProperty('--mobile-safe-bottom', '52px');
+  document.body.classList.add('platform-android');
+}
 
 // Add platform class IMMEDIATELY (before any async code) for CSS targeting
 // This ensures safe area CSS applies from the first render
