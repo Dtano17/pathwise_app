@@ -136,7 +136,9 @@ export async function generateSmartImageQueryCached(
   // Limit cache size to 1000 entries
   if (queryCache.size > 1000) {
     const firstKey = queryCache.keys().next().value;
-    queryCache.delete(firstKey);
+    if (firstKey) {
+      queryCache.delete(firstKey);
+    }
   }
 
   return result;

@@ -4,7 +4,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trophy, Star, Zap, X } from 'lucide-react';
 import Confetti from 'react-confetti';
-import celebrationImage from '@assets/generated_images/celebration_confetti_animation_0c7629fe.png';
 
 interface CelebrationModalProps {
   isOpen: boolean;
@@ -92,18 +91,16 @@ export default function CelebrationModal({ isOpen, onClose, achievement }: Celeb
                   <X className="w-4 h-4" />
                 </Button>
 
-                {/* Celebration Image */}
+                {/* Celebration Icon */}
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.2, type: "spring" }}
                   className="flex justify-center"
                 >
-                  <img 
-                    src={celebrationImage} 
-                    alt="Celebration" 
-                    className="w-24 h-24 object-contain"
-                  />
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+                    {getIcon()}
+                  </div>
                 </motion.div>
 
                 {/* Celebration Message */}
