@@ -73,8 +73,24 @@
                 <data android:mimeType="application/*" />
             </intent-filter>
 
-            <!-- Deep link handler for journalmate:// URLs -->
+            <!-- Deep link handler for journalmate://auth (OAuth callback) -->
             <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="journalmate" android:host="auth" />
+            </intent-filter>
+
+            <!-- Deep link handler for other journalmate:// URLs (share, etc.) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="journalmate" android:host="share" />
+            </intent-filter>
+
+            <!-- Fallback deep link handler for journalmate:// without host -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

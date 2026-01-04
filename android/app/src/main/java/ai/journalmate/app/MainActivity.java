@@ -18,6 +18,10 @@ public class MainActivity extends BridgeActivity {
     private static String pendingShareData = null;
     // Store pending deep link auth token for OAuth callback
     private static String pendingAuthToken = null;
+    // Track if periodic token checker is currently running
+    private boolean tokenCheckerActive = false;
+    // Handler for periodic checks
+    private android.os.Handler tokenCheckerHandler = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,6 +35,101 @@ public class MainActivity extends BridgeActivity {
 
         // Handle intent (share intents and deep links)
         handleIncomingIntent(getIntent());
+        
+        // Schedule a check for pending auth tokens after WebView fully loads
+        // This handles cold-start OAuth where the token arrives before WebView is ready
+        schedulePendingTokenCheck();
+    }
+    
+    /**
+     * Schedule periodic checks for pending auth tokens until delivered or timeout
+     * This ensures tokens are delivered even on slow cold starts
+     * NOTE: pendingAuthToken is only cleared after successful loadUrl, not before
+     * Can be called multiple times - will restart the checker if a new token arrives
+     */
+    private void schedulePendingTokenCheck() {
+        // If checker already active, it will pick up the new token
+        if (tokenCheckerActive) {
+            android.util.Log.d("MainActivity", "Token checker already active, will pick up new token");
+            return;
+        }
+        
+        final int CHECK_INTERVAL_MS = 1000;
+        final int MAX_CHECKS = 120; // Up to 120 seconds of checking (2 minutes)
+        
+        tokenCheckerHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        final int[] checkCount = {0};
+        tokenCheckerActive = true;
+        
+        Runnable tokenChecker = new Runnable() {
+            @Override
+            public void run() {
+                checkCount[0]++;
+                
+                if (pendingAuthToken != null && getBridge() != null && getBridge().getWebView() != null) {
+                    android.util.Log.d("MainActivity", "Pending token found on check #" + checkCount[0] + ", delivering...");
+                    // Don't clear token here - directNavigateWithTokenConfirmed will clear it after success
+                    directNavigateWithTokenConfirmed(pendingAuthToken);
+                    // Check again to confirm token was cleared
+                    tokenCheckerHandler.postDelayed(this, CHECK_INTERVAL_MS);
+                } else if (pendingAuthToken != null && checkCount[0] < MAX_CHECKS) {
+                    // Token pending but bridge not ready, check again later
+                    tokenCheckerHandler.postDelayed(this, CHECK_INTERVAL_MS);
+                } else if (pendingAuthToken != null) {
+                    android.util.Log.w("MainActivity", "Token delivery timeout after " + MAX_CHECKS + " checks");
+                    // Keep token - onResume will try again
+                    tokenCheckerActive = false;
+                } else {
+                    // Token was delivered successfully
+                    android.util.Log.d("MainActivity", "Token delivered, stopping checker");
+                    tokenCheckerActive = false;
+                }
+            }
+        };
+        
+        // Start checking after a short delay to allow initial setup
+        tokenCheckerHandler.postDelayed(tokenChecker, CHECK_INTERVAL_MS);
+    }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Check for pending auth token on every resume - handles cases where
+        // token arrived but couldn't be delivered, and user returns to app
+        if (pendingAuthToken != null) {
+            android.util.Log.d("MainActivity", "onResume: Found pending auth token, attempting delivery");
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                directNavigateWithTokenConfirmed(pendingAuthToken);
+            } else {
+                // Bridge not ready, start/restart the periodic checker
+                schedulePendingTokenCheck();
+            }
+        }
+    }
+    
+    /**
+     * Directly navigate with token and only clear pendingAuthToken after success
+     * This version confirms delivery before clearing the token
+     */
+    private void directNavigateWithTokenConfirmed(String token) {
+        if (this.getBridge() != null && this.getBridge().getWebView() != null) {
+            runOnUiThread(() -> {
+                try {
+                    String baseUrl = "https://journalmate.ai";
+                    String authUrl = baseUrl + "/?token=" + token;
+                    android.util.Log.d("MainActivity", "Confirmed navigation to: " + authUrl);
+                    this.getBridge().getWebView().loadUrl(authUrl);
+                    
+                    // Only clear after loadUrl succeeds (no exception thrown)
+                    pendingAuthToken = null;
+                    android.util.Log.d("MainActivity", "Token delivered and cleared successfully");
+                } catch (Exception e) {
+                    android.util.Log.e("MainActivity", "Confirmed navigation failed: " + e.getMessage());
+                    // Don't clear token - keep it for next attempt
+                }
+            });
+        }
+        // If bridge not ready, don't clear token - periodic checker will try again
     }
 
     /**
@@ -112,7 +211,11 @@ public class MainActivity extends BridgeActivity {
             if (token != null && !token.isEmpty()) {
                 android.util.Log.d("MainActivity", "OAuth auth token received via deep link");
                 pendingAuthToken = token;
-                // Notify the WebView via JavaScript event
+                // Reset checker state so it can be restarted for this new token
+                tokenCheckerActive = false;
+                // Start/restart the periodic checker for this new token
+                schedulePendingTokenCheck();
+                // Also try immediate notification via JavaScript event
                 notifyAuthDeepLink(token);
             }
         }
@@ -137,30 +240,132 @@ public class MainActivity extends BridgeActivity {
 
     /**
      * Notify the WebView about OAuth auth token received via deep link
+     * Uses multiple methods with retry logic to ensure token delivery
      */
     private void notifyAuthDeepLink(String token) {
-        // Method 1: Try Capacitor bridge (works for local assets)
-        if (this.getBridge() != null && this.getBridge().getWebView() != null) {
-            String js = String.format(
-                "window.dispatchEvent(new CustomEvent('authDeepLink', { detail: { token: '%s' } }));",
-                escapeJson(token)
-            );
-            runOnUiThread(() -> {
-                this.getBridge().getWebView().evaluateJavascript(js, null);
-            });
-            android.util.Log.d("MainActivity", "OAuth token dispatched via Capacitor bridge");
+        android.util.Log.d("MainActivity", "notifyAuthDeepLink called with token");
+        
+        // Store token for retry attempts
+        pendingAuthToken = token;
+        
+        // Try immediate notification
+        attemptTokenDelivery(token, 0);
+    }
+    
+    /**
+     * Attempt to deliver the auth token to the WebView
+     * Retries up to 5 times with increasing delays if WebView isn't ready
+     */
+    private void attemptTokenDelivery(String token, int attemptNumber) {
+        final int MAX_ATTEMPTS = 5;
+        final int BASE_DELAY_MS = 500;
+        
+        if (attemptNumber >= MAX_ATTEMPTS) {
+            android.util.Log.w("MainActivity", "Max token delivery attempts reached, using direct navigation");
+            // Final fallback: directly load the URL with token
+            directNavigateWithToken(token);
+            return;
         }
-
-        // Method 2: Navigate to URL with token (works for remote URLs like journalmate.ai)
-        // This ensures the web app receives the token even without Capacitor bridge
+        
+        android.util.Log.d("MainActivity", "Token delivery attempt " + (attemptNumber + 1) + "/" + MAX_ATTEMPTS);
+        
         if (this.getBridge() != null && this.getBridge().getWebView() != null) {
             runOnUiThread(() -> {
-                // Navigate to root with token parameter - the web app will handle it
-                String authUrl = "/?token=" + token;
-                this.getBridge().getWebView().loadUrl("javascript:window.location.href='" + authUrl + "'");
-                android.util.Log.d("MainActivity", "OAuth token passed via URL navigation");
+                try {
+                    // Method 1: Dispatch custom event (works when JS is ready)
+                    String eventJs = String.format(
+                        "(function() { " +
+                        "  try { " +
+                        "    window.dispatchEvent(new CustomEvent('authDeepLink', { detail: { token: '%s' } })); " +
+                        "    console.log('[MainActivity] authDeepLink event dispatched'); " +
+                        "    return 'dispatched'; " +
+                        "  } catch(e) { " +
+                        "    console.error('[MainActivity] Event dispatch failed:', e); " +
+                        "    return 'failed'; " +
+                        "  } " +
+                        "})();",
+                        escapeJson(token)
+                    );
+                    
+                    this.getBridge().getWebView().evaluateJavascript(eventJs, (result) -> {
+                        android.util.Log.d("MainActivity", "JS event result: " + result);
+                        // Note: Event "dispatched" doesn't confirm listener received it
+                        // Don't clear pendingAuthToken here - let directNavigate or periodic checker
+                        // handle confirmed delivery
+                    });
+                    
+                    // Method 2: Also navigate to URL with token (belt and suspenders)
+                    // This handles cases where the event listener isn't set up yet
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        directNavigateWithToken(token);
+                    }, 300);
+                    
+                } catch (Exception e) {
+                    android.util.Log.e("MainActivity", "Token delivery failed: " + e.getMessage());
+                    // Retry after delay
+                    scheduleRetry(token, attemptNumber + 1, BASE_DELAY_MS * (attemptNumber + 1));
+                }
             });
+        } else {
+            android.util.Log.d("MainActivity", "Bridge not ready, scheduling retry");
+            // Bridge not ready, retry after delay
+            scheduleRetry(token, attemptNumber + 1, BASE_DELAY_MS * (attemptNumber + 1));
         }
+    }
+    
+    /**
+     * Schedule a retry attempt for token delivery
+     */
+    private void scheduleRetry(String token, int nextAttempt, int delayMs) {
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            attemptTokenDelivery(token, nextAttempt);
+        }, delayMs);
+    }
+    
+    /**
+     * Directly navigate the WebView to a URL with the token parameter
+     * This is the most reliable method for remote URL WebViews
+     * Includes retry logic if bridge isn't ready yet
+     */
+    private void directNavigateWithToken(String token) {
+        directNavigateWithToken(token, 0);
+    }
+    
+    private void directNavigateWithToken(String token, int retryCount) {
+        // No longer capped - the periodic checker in schedulePendingTokenCheck handles the timeout
+        // This method just tries once and lets the periodic checker handle retries
+        final int NAVIGATION_RETRY_DELAY_MS = 500;
+        
+        if (this.getBridge() != null && this.getBridge().getWebView() != null) {
+            runOnUiThread(() -> {
+                try {
+                    // For remote URLs (journalmate.ai), navigate to the full URL with token
+                    String baseUrl = "https://journalmate.ai";
+                    String authUrl = baseUrl + "/?token=" + token;
+                    android.util.Log.d("MainActivity", "Direct navigation to: " + authUrl);
+                    this.getBridge().getWebView().loadUrl(authUrl);
+                    
+                    // Clear pending token only after successful loadUrl
+                    pendingAuthToken = null;
+                    android.util.Log.d("MainActivity", "Token delivered successfully via directNavigate");
+                } catch (Exception e) {
+                    android.util.Log.e("MainActivity", "Direct navigation failed: " + e.getMessage());
+                    // Don't clear token - periodic checker will retry
+                }
+            });
+        } else {
+            // Bridge not ready - don't clear token, periodic checker will handle it
+            android.util.Log.d("MainActivity", "Bridge not ready for navigation, relying on periodic checker");
+        }
+    }
+    
+    /**
+     * Schedule a retry for direct navigation
+     */
+    private void scheduleNavigationRetry(String token, int nextRetry, int delayMs) {
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            directNavigateWithToken(token, nextRetry);
+        }, delayMs);
     }
 
     /**
