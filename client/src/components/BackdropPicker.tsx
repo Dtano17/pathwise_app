@@ -27,13 +27,14 @@ export function BackdropPicker({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedUrl, setSelectedUrl] = useState<string | undefined>(currentBackdrop);
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
-  // Fetch backdrop options
-  const { data: options = [], isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['backdrop-options', activityId],
+  // Fetch backdrop options - refreshCounter in key forces new query each time
+  const { data: options = [], isLoading, isRefetching } = useQuery({
+    queryKey: ['backdrop-options', activityId, refreshCounter],
     queryFn: async () => {
-      // Add a random timestamp to bypass browser cache and force a new search on the server
-      const response = await fetch(`/api/activities/${activityId}/backdrop-options?refresh=${Date.now()}`, {
+      // Pass refresh counter to server for query variation
+      const response = await fetch(`/api/activities/${activityId}/backdrop-options?variation=${refreshCounter}`, {
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch backdrop options');
@@ -41,8 +42,14 @@ export function BackdropPicker({
       return data.options as BackdropOption[];
     },
     enabled: !!activityId,
-    staleTime: 0, // Don't cache when we want to allow refreshing
+    staleTime: 0,
+    gcTime: 0, // Don't cache at all - we want fresh results each refresh
   });
+  
+  // Handle refresh - increment counter to force new query
+  const handleRefresh = () => {
+    setRefreshCounter(prev => prev + 1);
+  };
 
   // Mutation to update backdrop
   const updateBackdropMutation = useMutation({
@@ -97,9 +104,10 @@ export function BackdropPicker({
           Choose Backdrop Image
         </h4>
         <button
-          onClick={() => refetch()}
-          disabled={isRefetching}
+          onClick={handleRefresh}
+          disabled={isRefetching || isLoading}
           className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1"
+          data-testid="button-refresh-backdrops"
         >
           <RefreshCw className={cn("h-3 w-3", isRefetching && "animate-spin")} />
           Refresh

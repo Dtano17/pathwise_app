@@ -238,16 +238,55 @@ function getCategoryAestheticKeywords(category: string): string {
 }
 
 /**
+ * Shuffle an array using Fisher-Yates algorithm with a seed
+ */
+function shuffleWithSeed<T>(array: T[], seed: number): T[] {
+  const result = [...array];
+  let currentSeed = seed;
+  
+  // Simple seeded random
+  const seededRandom = () => {
+    currentSeed = (currentSeed * 9301 + 49297) % 233280;
+    return currentSeed / 233280;
+  };
+  
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(seededRandom() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+/**
+ * Get variation-specific modifiers to get different results on each refresh
+ */
+function getVariationModifiers(variation: number): { suffix: string; offset: number } {
+  const modifierSets = [
+    { suffix: 'scenic photography no people', offset: 0 },
+    { suffix: 'aesthetic wallpaper landscape', offset: 2 },
+    { suffix: 'cinematic view background', offset: 4 },
+    { suffix: 'beautiful scenery photo', offset: 1 },
+    { suffix: 'professional backdrop image', offset: 3 },
+    { suffix: 'artistic photograph', offset: 5 },
+    { suffix: 'high resolution background', offset: 6 },
+    { suffix: 'stunning visual scene', offset: 7 },
+  ];
+  return modifierSets[variation % modifierSets.length];
+}
+
+/**
  * Search for multiple backdrop options (for image picker UI)
  * Returns up to 8 options: Tavily results + HD fallbacks
  * Uses activity description/planSummary for more specific search queries
  * Enhanced with location extraction and cinematic keywords
+ * Now supports variation parameter for getting different results on each refresh
  */
 export async function searchBackdropOptions(
   activityTitle: string,
   category: string,
   description?: string,
-  maxOptions: number = 8
+  maxOptions: number = 8,
+  variation: number = 0
 ): Promise<BackdropOption[]> {
   const options: BackdropOption[] = [];
 
@@ -281,12 +320,18 @@ export async function searchBackdropOptions(
       // Get category-specific aesthetic keywords
       const aestheticKeywords = getCategoryAestheticKeywords(category);
 
+      // Get variation-specific modifiers for different results on each refresh
+      const variationMod = getVariationModifiers(variation);
+      
+      // Shuffle description keywords based on variation for query diversity
+      const shuffledDescKeywords = shuffleWithSeed(descriptionKeywords, variation + 1);
+
       // NEW: Build query with title+description as CORE
       let searchQuery = titleKeywords; // Always start with title
 
-      // Add description keywords (CORE - always included if available)
-      if (descriptionKeywords.length > 0) {
-        searchQuery += ` ${descriptionKeywords.join(' ')}`;
+      // Add shuffled description keywords (CORE - always included if available)
+      if (shuffledDescKeywords.length > 0) {
+        searchQuery += ` ${shuffledDescKeywords.join(' ')}`;
       }
 
       // CONDITIONALLY add location (ONLY if activity is location-dependent)
@@ -295,20 +340,21 @@ export async function searchBackdropOptions(
       }
 
       // Fallback: Add category aesthetics ONLY if description is weak/missing
-      if (descriptionKeywords.length < 3 && aestheticKeywords) {
+      if (shuffledDescKeywords.length < 3 && aestheticKeywords) {
         searchQuery += ` ${aestheticKeywords}`;
       }
 
-      // Always add quality suffix
-      searchQuery += ' 4K HD wallpaper';
+      // Add variation-specific suffix (different each refresh) + explicit "no people" filter
+      searchQuery += ` ${variationMod.suffix} -people -faces -crowd -portrait`;
 
       // Enhanced logging for debugging
       console.log('🔍 Background Image Search Query Construction:');
+      console.log('  Variation:', variation);
       console.log('  Title keywords:', titleKeywords);
-      console.log('  Description keywords:', descriptionKeywords.join(', ') || 'none');
+      console.log('  Description keywords (shuffled):', shuffledDescKeywords.join(', ') || 'none');
       console.log('  Location-dependent activity?', needsLocation ? 'YES' : 'NO');
       console.log('  Location context:', needsLocation && locationStr ? locationStr : 'not needed/not found');
-      console.log('  Category aesthetics:', (descriptionKeywords.length < 3 && aestheticKeywords ? aestheticKeywords : 'skipped'));
+      console.log('  Variation suffix:', variationMod.suffix);
       console.log('  Final query:', searchQuery);
 
       const response = await tavilyClient.search(searchQuery, {
@@ -325,7 +371,7 @@ export async function searchBackdropOptions(
       for (const img of images.slice(0, maxOptions)) {
         if (img.url) {
           // Create a descriptive label from title + description keywords (first 3-4 words)
-          const allKeywords = titleKeywords.split(' ').concat(descriptionKeywords.slice(0, 2));
+          const allKeywords = titleKeywords.split(' ').concat(shuffledDescKeywords.slice(0, 2));
           const labelWords = allKeywords.filter((w: string) => w.length > 2).slice(0, 3);
           let label = labelWords.length > 0
             ? labelWords.map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')

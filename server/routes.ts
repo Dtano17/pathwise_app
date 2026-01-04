@@ -6665,6 +6665,7 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
   app.get("/api/activities/:activityId/backdrop-options", async (req, res) => {
     try {
       const { activityId } = req.params;
+      const variation = parseInt(req.query.variation as string) || 0;
       const userId = getUserId(req) || DEMO_USER_ID;
 
       // Get the activity
@@ -6674,11 +6675,13 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
       }
 
       // Fetch backdrop options based on activity title, category, and description
+      // Pass variation to get different results on each refresh
       const options = await searchBackdropOptions(
         activity.title,
         activity.category || 'personal',
         activity.planSummary || activity.description || undefined,
-        8 // max 8 options for more variety
+        8, // max 8 options for more variety
+        variation // different query variation for each refresh
       );
 
       // If activity already has a custom backdrop, include it first
