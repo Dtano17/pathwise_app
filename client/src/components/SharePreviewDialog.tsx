@@ -158,6 +158,7 @@ export function SharePreviewDialog({
   const [backdrop, setBackdrop] = useState(activity.backdrop || "");
   const [customBackdrop, setCustomBackdrop] = useState("");
   const [backdropLoaded, setBackdropLoaded] = useState(false);
+  const [backdropRefreshCounter, setBackdropRefreshCounter] = useState(0);
 
   // Preload backdrop image when it changes
   useEffect(() => {
@@ -180,12 +181,13 @@ export function SharePreviewDialog({
   }, [backdrop]);
 
   // Fetch dynamic backdrop options based on activity
-  const { data: backdropOptions = [], isLoading: isLoadingBackdrops, refetch: refetchBackdrops, isRefetching: isRefetchingBackdrops } =
+  // Include refreshCounter in query key to force new results on each refresh
+  const { data: backdropOptions = [], isLoading: isLoadingBackdrops, isRefetching: isRefetchingBackdrops } =
     useQuery({
-      queryKey: ["backdrop-options", activity.id],
+      queryKey: ["backdrop-options", activity.id, backdropRefreshCounter],
       queryFn: async () => {
         const response = await fetch(
-          `/api/activities/${activity.id}/backdrop-options`,
+          `/api/activities/${activity.id}/backdrop-options?variation=${backdropRefreshCounter}`,
           {
             credentials: "include",
           },
@@ -195,8 +197,14 @@ export function SharePreviewDialog({
         return data.options as BackdropOption[];
       },
       enabled: open && !!activity.id,
-      staleTime: 0, // Always fetch fresh on refetch
+      staleTime: 0,
+      gcTime: 0, // Don't cache - we want fresh results each refresh
     });
+  
+  // Handle backdrop refresh - increment counter to get new images
+  const handleBackdropRefresh = () => {
+    setBackdropRefreshCounter(prev => prev + 1);
+  };
 
   // Use dynamic options if available, otherwise fallback to defaults
   const backdropPresets =
@@ -873,9 +881,10 @@ export function SharePreviewDialog({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => refetchBackdrops()}
+                      onClick={handleBackdropRefresh}
                       className="h-7 px-2 text-xs gap-1"
                       disabled={isLoadingBackdrops || isRefetchingBackdrops}
+                      data-testid="button-refresh-share-backdrops"
                     >
                       <RotateCcw className={`w-3 h-3 ${(isLoadingBackdrops || isRefetchingBackdrops) ? 'animate-spin' : ''}`} />
                       Refresh
