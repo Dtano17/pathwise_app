@@ -5,9 +5,14 @@
  * Provides a unified API for requesting permissions and managing notifications
  */
 
-// PushNotifications import is handled dynamically to avoid errors on web
-import { LocalNotifications } from '@capacitor/local-notifications';
+// PushNotifications and LocalNotifications imports are handled dynamically to avoid errors on web
 import { isNative, isIOS, isAndroid } from './platform';
+
+// Dynamically import LocalNotifications only when needed
+const getLocalNotifications = async () => {
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  return LocalNotifications;
+};
 import { apiRequest } from './queryClient';
 
 export interface NotificationPermissionStatus {
@@ -180,6 +185,7 @@ export async function showLocalNotification(options: {
   if (isNative()) {
     // Use Capacitor Local Notifications for native
     try {
+      const LocalNotifications = await getLocalNotifications();
       // Request permission if not already granted
       const permission = await LocalNotifications.requestPermissions();
       if (permission.display !== 'granted') {
@@ -253,6 +259,7 @@ export async function scheduleReminder(options: {
 export async function cancelNotification(id: number) {
   if (isNative()) {
     try {
+      const LocalNotifications = await getLocalNotifications();
       await LocalNotifications.cancel({ notifications: [{ id }] });
     } catch (error) {
       console.error('Failed to cancel notification:', error);
@@ -267,6 +274,7 @@ export async function cancelNotification(id: number) {
 export async function getPendingNotifications() {
   if (isNative()) {
     try {
+      const LocalNotifications = await getLocalNotifications();
       const result = await LocalNotifications.getPending();
       return result.notifications;
     } catch (error) {
