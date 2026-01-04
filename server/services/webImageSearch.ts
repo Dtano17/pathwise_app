@@ -1,4 +1,5 @@
 import { tavily } from '@tavily/core';
+import Anthropic from '@anthropic-ai/sdk';
 
 interface ImageSearchResult {
   url: string;
@@ -12,6 +13,60 @@ export interface BackdropOption {
 }
 
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
+
+// Claude Haiku for fast, cheap location extraction
+const CLAUDE_HAIKU = "claude-3-5-haiku-20241022";
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+/**
+ * AI-powered location extraction using Claude Haiku
+ * Detects cities, states, countries, landmarks from text
+ * Returns the most relevant location for image search
+ */
+async function extractLocationWithAI(title: string, description?: string): Promise<string | null> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.log('[WebImageSearch] ANTHROPIC_API_KEY not configured - skipping AI location extraction');
+    return null;
+  }
+  
+  const combinedText = `Title: ${title}\nDescription: ${description || 'None'}`;
+  const prompt = `Extract the primary city, location, or landmark from this activity. Return ONLY the location name (e.g., "Los Angeles", "Paris", "Grand Canyon") or "NONE" if no specific location is mentioned.
+
+${combinedText}
+
+Location:`;
+  
+  try {
+    const response = await anthropic.messages.create({
+      model: CLAUDE_HAIKU,
+      max_tokens: 100,
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "text", text: prompt }]
+        }
+      ]
+    });
+    
+    const content = response.content[0];
+    if (content && content.type === 'text') {
+      const location = content.text.trim();
+      // Clean up any quotes or extra formatting
+      const cleanLocation = location.replace(/^["']|["']$/g, '').trim();
+      if (cleanLocation && cleanLocation.toUpperCase() !== 'NONE' && cleanLocation.length > 1) {
+        console.log(`[WebImageSearch] AI extracted location: "${cleanLocation}"`);
+        return cleanLocation;
+      }
+    }
+    console.log('[WebImageSearch] AI found no location in activity');
+    return null;
+  } catch (error) {
+    console.error('[WebImageSearch] AI location extraction failed:', error);
+    return null;
+  }
+}
 
 /**
  * Extracts meaningful keywords from activity description for image search
@@ -293,24 +348,9 @@ export async function searchBackdropOptions(
   try {
     // Try Tavily search first
     if (process.env.TAVILY_API_KEY) {
-      // Extract locations from BOTH title and description
-      const combinedText = `${activityTitle} ${description || ''}`;
-      const titleLocations = extractLocationKeywords(activityTitle);
-      const descLocations = extractLocationKeywords(description || '');
-      
-      // Also try regex extraction from description
-      let regexLocation = '';
-      if (description && description.length > 0) {
-        const descLower = description.toLowerCase();
-        const locationMatch = descLower.match(/\b(?:in|at|near|around|visiting|exploring|going to)\s+([a-z\s,]+?)(?:\.|,|$|\s(?:to|for|with|during))/i);
-        if (locationMatch) {
-          regexLocation = locationMatch[1].trim().replace(/\s+/g, ' ');
-        }
-      }
-      
-      // Prioritize: title locations > description locations > regex match
-      const primaryLocation = titleLocations[0] || descLocations[0] || regexLocation;
-      const hasLocation = primaryLocation.length > 0;
+      // Use AI to intelligently extract location from title and description
+      const aiLocation = await extractLocationWithAI(activityTitle, description);
+      const hasLocation = !!aiLocation;
 
       // Extract title keywords (keep existing, max 60 chars)
       const titleKeywords = activityTitle
@@ -332,12 +372,12 @@ export async function searchBackdropOptions(
       // Shuffle description keywords based on variation for query diversity
       const shuffledDescKeywords = shuffleWithSeed(descriptionKeywords, variation + 1);
 
-      // Build query - PRIORITIZE LOCATION at the start if found
+      // Build query - PRIORITIZE AI-DETECTED LOCATION at the start if found
       let searchQuery = '';
       
       if (hasLocation) {
         // Location-first query: "Los Angeles New Year celebration scenic..."
-        searchQuery = `${primaryLocation} ${titleKeywords}`;
+        searchQuery = `${aiLocation} ${titleKeywords}`;
       } else {
         searchQuery = titleKeywords;
       }
@@ -360,8 +400,8 @@ export async function searchBackdropOptions(
       console.log('  Variation:', variation);
       console.log('  Title keywords:', titleKeywords);
       console.log('  Description keywords (shuffled):', shuffledDescKeywords.join(', ') || 'none');
-      console.log('  Location detected?', hasLocation ? 'YES' : 'NO');
-      console.log('  Primary location:', hasLocation ? primaryLocation : 'none');
+      console.log('  AI Location detected?', hasLocation ? 'YES' : 'NO');
+      console.log('  AI Location:', aiLocation || 'none');
       console.log('  Variation suffix:', variationMod.suffix);
       console.log('  Final query:', searchQuery);
 
@@ -386,8 +426,8 @@ export async function searchBackdropOptions(
             : 'Web Result';
 
           // Add location context if found
-          if (hasLocation) {
-            const locationLabel = primaryLocation.split(' ')
+          if (hasLocation && aiLocation) {
+            const locationLabel = aiLocation.split(' ')
               .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
             label = `${label} - ${locationLabel}`;
           }
