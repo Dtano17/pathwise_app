@@ -62,6 +62,7 @@ const GoogleAuth = registerPlugin<GoogleAuthPlugin>('GoogleAuth', {
 
 export interface NativeAuthResult {
   success: boolean;
+  pending?: boolean; // True when browser OAuth is in progress (waiting for deep link callback)
   user?: {
     id: string;
     email: string;
@@ -138,11 +139,11 @@ async function openBrowserAuth(): Promise<NativeAuthResult> {
       presentationStyle: 'popover',
     });
 
-    // Return a message indicating we're redirecting
-    // The actual auth completion will happen via deep link (journalmate://auth?token=xxx)
+    // Return pending status - the actual auth completion happens via deep link
+    // Don't return error since browser opened successfully
     return {
       success: false,
-      error: 'Opening browser for sign-in. Please complete sign-in in browser.'
+      pending: true, // Indicates auth is in progress, not failed
     };
   } catch (browserError) {
     console.error('[GOOGLE_AUTH] Browser open failed:', browserError);
@@ -150,7 +151,7 @@ async function openBrowserAuth(): Promise<NativeAuthResult> {
     window.open(apiUrl('/api/auth/google?mobile=true'), '_system');
     return {
       success: false,
-      error: 'Opening browser for sign-in. Please complete sign-in in browser.'
+      pending: true, // Browser should still open via window.open
     };
   }
 }

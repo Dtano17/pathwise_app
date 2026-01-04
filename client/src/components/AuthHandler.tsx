@@ -100,11 +100,18 @@ export function AuthHandler() {
     }
   }, [toast]);
 
-  // Listen for deep link OAuth callbacks on native platforms
+  // Listen for deep link OAuth callbacks
+  // This must run even when isNative() returns false because Android WebView
+  // loading remote URLs still receives deep links via MainActivity.java
   useEffect(() => {
-    if (!isNative()) return;
+    // Check if we're on Android (even if isNative() returns false)
+    const isAndroidUA = typeof navigator !== 'undefined' &&
+                        navigator.userAgent.toLowerCase().includes('android');
 
-    console.log('[AuthHandler] Setting up deep link listeners for OAuth...');
+    // Only set up listeners on Android or when isNative() is true
+    if (!isNative() && !isAndroidUA) return;
+
+    console.log('[AuthHandler] Setting up deep link listeners for OAuth (isNative:', isNative(), 'isAndroidUA:', isAndroidUA, ')...');
 
     /**
      * Parse auth token from deep link URL

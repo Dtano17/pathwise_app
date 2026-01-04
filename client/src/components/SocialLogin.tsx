@@ -8,6 +8,13 @@ import { EmailAuthDialog } from './EmailAuthDialog';
 import { useAuth } from "@/hooks/useAuth";
 import { isNative } from "@/lib/platform";
 
+// Check for Android WebView via User Agent (works even when isNative() returns false)
+const isAndroidWebView = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent.toLowerCase();
+  return ua.includes('android') && (ua.includes('wv') || ua.includes('webview'));
+};
+
 interface SocialLoginProps {
   title?: string;
   description?: string;
@@ -35,16 +42,16 @@ export function SocialLogin({
   };
 
   const handleGoogleLogin = async () => {
-    // On native platforms, use native Google Sign-In
-    if (isNative()) {
+    // On native platforms or Android WebView, use native/browser OAuth flow
+    if (isNative() || isAndroidWebView()) {
       setIsGoogleLoading(true);
       try {
         console.log('[SocialLogin] Using native Google Sign-In');
         const result = await loginWithGoogle();
         console.log('[SocialLogin] Native Google Sign-In result:', result);
 
-        // Check if sign-in failed
-        if (!result.success) {
+        // Check if sign-in failed (but not if pending browser OAuth)
+        if (!result.success && !result.pending) {
           // Don't show error for user cancellation
           if (result.error && !result.error.includes('cancel')) {
             toast({
