@@ -32,7 +32,8 @@ export function BackdropPicker({
   const { data: options = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['backdrop-options', activityId],
     queryFn: async () => {
-      const response = await fetch(`/api/activities/${activityId}/backdrop-options`, {
+      // Add a random timestamp to bypass browser cache and force a new search on the server
+      const response = await fetch(`/api/activities/${activityId}/backdrop-options?refresh=${Date.now()}`, {
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch backdrop options');
@@ -40,7 +41,7 @@ export function BackdropPicker({
       return data.options as BackdropOption[];
     },
     enabled: !!activityId,
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    staleTime: 0, // Don't cache when we want to allow refreshing
   });
 
   // Mutation to update backdrop
