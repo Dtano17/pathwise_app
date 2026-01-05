@@ -117,7 +117,9 @@ export function useDailyTheme() {
       }
     },
     onSettled: () => {
+      // Invalidate both daily-theme and activities since theme creation affects activities
       queryClient.invalidateQueries({ queryKey: ['/api/user/daily-theme'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
     },
   });
 
@@ -155,6 +157,7 @@ export function useDailyTheme() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user/daily-theme'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
     },
   });
 

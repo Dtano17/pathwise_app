@@ -484,6 +484,14 @@ export default function MainApp({
     setActiveTab("tasks");
   };
 
+  const handleThemeClear = () => {
+    if (onThemeClear) {
+      onThemeClear();
+      // Optimistically clear the theme data in the cache to prevent "popping back up"
+      queryClient.setQueryData(['/api/user/daily-theme'], { dailyTheme: null });
+    }
+  };
+
   // Natural language command parser for plan control
   // Returns true if command was handled, false if should proceed to goal processing
   const handlePlanCommand = (text: string): boolean => {
@@ -2313,8 +2321,9 @@ export default function MainApp({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={onThemeClear}
+                              onClick={handleThemeClear}
                               className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                              data-testid="button-clear-theme"
                             >
                               <X className="w-3.5 h-3.5" />
                             </Button>

@@ -120,7 +120,10 @@ export default function ThemeSelector({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setSelectedThemeData(null)}
+              onClick={() => {
+                setSelectedThemeData(null);
+                onThemeSelect(''); // Signal 'no theme' to parent
+              }}
               className="w-full"
               data-testid="button-change-theme"
             >
