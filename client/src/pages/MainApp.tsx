@@ -25,6 +25,7 @@ import ConversationalPlanner from "@/components/ConversationalPlanner";
 import QuickCaptureButton from "@/components/QuickCaptureButton";
 import PostActivityPrompt from "@/components/PostActivityPrompt";
 import EndOfDayReview from "@/components/EndOfDayReview";
+import ThemeSelector from "@/components/ThemeSelector";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
 import JoinGroupDialog from "@/components/JoinGroupDialog";
 import GroupCard from "@/components/GroupCard";
@@ -2193,101 +2194,147 @@ export default function MainApp({
                   </p>
                 </div>
 
-                {/* Theme Banner - wraps around goal input when activated from sidebar */}
-                {showThemeSelector && (
-                  <div className="max-w-2xl mx-auto mb-4 px-2 sm:px-3 lg:px-6">
-                    <div className="rounded-xl border bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <Target className="w-4 h-4 text-primary" />
-                          <span className="text-sm font-medium">Today's Focus</span>
-                        </div>
+                {/* Theme Selector Dialog */}
+                <Dialog open={showThemeSelector} onOpenChange={onShowThemeSelector}>
+                  <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[85vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Set Your Daily Theme</DialogTitle>
+                      <DialogDescription>
+                        Choose a focus area to guide today's AI recommendations
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-2">
+                      {/* No Theme Option */}
+                      <div className="mb-4 pb-4 border-b">
                         <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onShowThemeSelector(false)}
-                          className="h-7 w-7 p-0"
+                          variant={!selectedTheme ? "secondary" : "outline"}
+                          className="w-full justify-start gap-2"
+                          onClick={() => {
+                            if (onThemeClear) onThemeClear();
+                            onShowThemeSelector(false);
+                          }}
                         >
-                          <X className="w-4 h-4" />
+                          <Circle className="w-4 h-4" />
+                          <span>No Theme</span>
+                          <span className="text-muted-foreground ml-auto text-sm">Use default AI recommendations</span>
                         </Button>
                       </div>
-                      {selectedTheme ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2">
-                            {selectedTheme === 'work' && <Briefcase className="w-5 h-5 text-blue-600" />}
-                            {selectedTheme === 'investment' && <TrendingUp className="w-5 h-5 text-emerald-600" />}
-                            {selectedTheme === 'spiritual' && <BookOpen className="w-5 h-5 text-violet-600" />}
-                            {selectedTheme === 'romance' && <Heart className="w-5 h-5 text-pink-600" />}
-                            {selectedTheme === 'adventure' && <Mountain className="w-5 h-5 text-orange-600" />}
-                            {selectedTheme === 'wellness' && <Activity className="w-5 h-5 text-teal-600" />}
-                            <Badge variant="secondary" className="text-sm">
-                              {selectedTheme === 'work' && 'Work Focus'}
-                              {selectedTheme === 'investment' && 'Investment'}
-                              {selectedTheme === 'spiritual' && 'Spiritual'}
-                              {selectedTheme === 'romance' && 'Romance'}
-                              {selectedTheme === 'adventure' && 'Adventure'}
-                              {selectedTheme === 'wellness' && 'Health & Wellness'}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            AI will prioritize {selectedTheme} activities in your plans today
-                          </p>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => onThemeSelect('')}
-                              className="text-xs"
-                            >
-                              Change Theme
-                            </Button>
-                            {onThemeClear && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  onThemeClear();
-                                  onShowThemeSelector(false);
-                                }}
-                                className="text-xs text-muted-foreground"
-                              >
-                                Clear
-                              </Button>
-                            )}
-                          </div>
+                      <ThemeSelector
+                        selectedTheme={selectedTheme}
+                        onThemeSelect={(themeId) => {
+                          onThemeSelect(themeId);
+                          onShowThemeSelector(false);
+                        }}
+                        onGenerateGoal={(goal) => {
+                          processGoalMutation.mutate(goal);
+                          onShowThemeSelector(false);
+                        }}
+                      />
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Voice Input with Theme Wrapper */}
+                {selectedTheme ? (
+                  <div className="max-w-2xl mx-auto px-2 sm:px-3 lg:px-6">
+                    <div className={`rounded-2xl p-1 ${
+                      selectedTheme === 'work' ? 'bg-gradient-to-r from-blue-500/20 via-blue-400/10 to-blue-500/20 ring-1 ring-blue-500/30' :
+                      selectedTheme === 'investment' ? 'bg-gradient-to-r from-emerald-500/20 via-emerald-400/10 to-emerald-500/20 ring-1 ring-emerald-500/30' :
+                      selectedTheme === 'spiritual' ? 'bg-gradient-to-r from-violet-500/20 via-violet-400/10 to-violet-500/20 ring-1 ring-violet-500/30' :
+                      selectedTheme === 'romance' ? 'bg-gradient-to-r from-pink-500/20 via-pink-400/10 to-pink-500/20 ring-1 ring-pink-500/30' :
+                      selectedTheme === 'adventure' ? 'bg-gradient-to-r from-orange-500/20 via-orange-400/10 to-orange-500/20 ring-1 ring-orange-500/30' :
+                      selectedTheme === 'wellness' ? 'bg-gradient-to-r from-teal-500/20 via-teal-400/10 to-teal-500/20 ring-1 ring-teal-500/30' :
+                      ''
+                    }`}>
+                      {/* Theme indicator header */}
+                      <div className={`flex items-center justify-between px-4 py-2 rounded-t-xl ${
+                        selectedTheme === 'work' ? 'bg-blue-500/10' :
+                        selectedTheme === 'investment' ? 'bg-emerald-500/10' :
+                        selectedTheme === 'spiritual' ? 'bg-violet-500/10' :
+                        selectedTheme === 'romance' ? 'bg-pink-500/10' :
+                        selectedTheme === 'adventure' ? 'bg-orange-500/10' :
+                        selectedTheme === 'wellness' ? 'bg-teal-500/10' :
+                        ''
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          {selectedTheme === 'work' && <Briefcase className="w-4 h-4 text-blue-600" />}
+                          {selectedTheme === 'investment' && <TrendingUp className="w-4 h-4 text-emerald-600" />}
+                          {selectedTheme === 'spiritual' && <BookOpen className="w-4 h-4 text-violet-600" />}
+                          {selectedTheme === 'romance' && <Heart className="w-4 h-4 text-pink-600" />}
+                          {selectedTheme === 'adventure' && <Mountain className="w-4 h-4 text-orange-600" />}
+                          {selectedTheme === 'wellness' && <Activity className="w-4 h-4 text-teal-600" />}
+                          <span className={`text-sm font-medium ${
+                            selectedTheme === 'work' ? 'text-blue-700 dark:text-blue-300' :
+                            selectedTheme === 'investment' ? 'text-emerald-700 dark:text-emerald-300' :
+                            selectedTheme === 'spiritual' ? 'text-violet-700 dark:text-violet-300' :
+                            selectedTheme === 'romance' ? 'text-pink-700 dark:text-pink-300' :
+                            selectedTheme === 'adventure' ? 'text-orange-700 dark:text-orange-300' :
+                            selectedTheme === 'wellness' ? 'text-teal-700 dark:text-teal-300' :
+                            ''
+                          }`}>
+                            {selectedTheme === 'work' && 'Work Focus'}
+                            {selectedTheme === 'investment' && 'Investment'}
+                            {selectedTheme === 'spiritual' && 'Spiritual'}
+                            {selectedTheme === 'romance' && 'Romance'}
+                            {selectedTheme === 'adventure' && 'Adventure'}
+                            {selectedTheme === 'wellness' && 'Health & Wellness'}
+                          </span>
+                          <Badge variant="outline" className={`text-xs ${
+                            selectedTheme === 'work' ? 'border-blue-500/50 text-blue-600' :
+                            selectedTheme === 'investment' ? 'border-emerald-500/50 text-emerald-600' :
+                            selectedTheme === 'spiritual' ? 'border-violet-500/50 text-violet-600' :
+                            selectedTheme === 'romance' ? 'border-pink-500/50 text-pink-600' :
+                            selectedTheme === 'adventure' ? 'border-orange-500/50 text-orange-600' :
+                            selectedTheme === 'wellness' ? 'border-teal-500/50 text-teal-600' :
+                            ''
+                          }`}>
+                            Today's Focus
+                          </Badge>
                         </div>
-                      ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {[
-                            { id: 'work', name: 'Work Focus', icon: Briefcase, color: 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950' },
-                            { id: 'investment', name: 'Investment', icon: TrendingUp, color: 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950' },
-                            { id: 'spiritual', name: 'Spiritual', icon: BookOpen, color: 'text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950' },
-                            { id: 'romance', name: 'Romance', icon: Heart, color: 'text-pink-600 hover:bg-pink-50 dark:hover:bg-pink-950' },
-                            { id: 'adventure', name: 'Adventure', icon: Mountain, color: 'text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950' },
-                            { id: 'wellness', name: 'Wellness', icon: Activity, color: 'text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950' },
-                          ].map((theme) => (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onShowThemeSelector(true)}
+                            className={`h-7 text-xs ${
+                              selectedTheme === 'work' ? 'text-blue-600 hover:text-blue-700 hover:bg-blue-500/10' :
+                              selectedTheme === 'investment' ? 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10' :
+                              selectedTheme === 'spiritual' ? 'text-violet-600 hover:text-violet-700 hover:bg-violet-500/10' :
+                              selectedTheme === 'romance' ? 'text-pink-600 hover:text-pink-700 hover:bg-pink-500/10' :
+                              selectedTheme === 'adventure' ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-500/10' :
+                              selectedTheme === 'wellness' ? 'text-teal-600 hover:text-teal-700 hover:bg-teal-500/10' :
+                              ''
+                            }`}
+                          >
+                            Change
+                          </Button>
+                          {onThemeClear && (
                             <Button
-                              key={theme.id}
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
-                              onClick={() => onThemeSelect(theme.id)}
-                              disabled={isSettingTheme}
-                              className={`h-auto py-2.5 px-3 justify-start gap-2 ${theme.color}`}
+                              onClick={onThemeClear}
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
                             >
-                              <theme.icon className="w-4 h-4 flex-shrink-0" />
-                              <span className="text-xs">{theme.name}</span>
+                              <X className="w-3.5 h-3.5" />
                             </Button>
-                          ))}
+                          )}
                         </div>
-                      )}
+                      </div>
+                      {/* VoiceInput inside themed wrapper */}
+                      <div className="bg-background rounded-b-xl">
+                        <VoiceInput
+                          onSubmit={(text) => processGoalMutation.mutate(text)}
+                          isGenerating={processGoalMutation.isPending}
+                        />
+                      </div>
                     </div>
                   </div>
+                ) : (
+                  <VoiceInput
+                    onSubmit={(text) => processGoalMutation.mutate(text)}
+                    isGenerating={processGoalMutation.isPending}
+                  />
                 )}
-
-                <VoiceInput
-                  onSubmit={(text) => processGoalMutation.mutate(text)}
-                  isGenerating={processGoalMutation.isPending}
-                />
 
                 {/* Interactive Options */}
                 {!currentPlanOutput &&
