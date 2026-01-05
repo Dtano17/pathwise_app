@@ -3,6 +3,12 @@
 ### Overview
 JournalMate (journalmate.ai) is an AI-powered journaling application designed to transform user intentions into actionable plans. It provides a mobile-first experience with features like swipeable task management, celebratory feedback, and comprehensive authentication. The application aims to be a lifestyle planner that guides users through setting, executing, and celebrating their goals, integrating advanced AI for intelligent planning and personalized journaling.
 
+### Recent Changes
+- Fixed duplicate `@concert` key in `server/config/journalTags.ts` which was causing deployment failures.
+- Improved daily theme clearing functionality to prevent reappearances.
+- Updated theme selection logic to robustly handle null data on both frontend and backend.
+- (In Progress) Implementing code-splitting for large components to optimize bundle size.
+
 ### User Preferences
 - Wants fully functional authentication with Facebook support
 - Requires separate Supabase-based Facebook OAuth (not Replit Auth)

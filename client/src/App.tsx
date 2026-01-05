@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Switch, Route } from "wouter";
 import { HelmetProvider } from "react-helmet-async";
 import { queryClient } from "./lib/queryClient";
@@ -7,24 +7,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import MainApp from "@/pages/MainApp";
-import SharedActivity from "@/pages/SharedActivity";
-import AuthCallback from "@/pages/AuthCallback";
-import Login from "@/pages/Login";
-import CommunityPlansPage from "@/pages/CommunityPlansPage";
-import GroupGoalsPage from "@/pages/GroupGoalsPage";
-import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
-import SubscriptionCanceled from "@/pages/SubscriptionCanceled";
-import Updates from "@/pages/Updates";
-import Privacy from "@/pages/Privacy";
-import Terms from "@/pages/Terms";
-import Support from "@/pages/Support";
-import LandingPageWrapper from "@/pages/LandingPageWrapper";
-import ChatGPTPlanTracker from "@/pages/ChatGPTPlanTracker";
-import PerplexityPlans from "@/pages/PerplexityPlans";
-import WeekendPlans from "@/pages/WeekendPlans";
-import ImportPlan from "@/pages/ImportPlan";
-import MobileAuthCallback from "@/pages/MobileAuthCallback";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import NotificationService from "@/components/NotificationService";
 import { AuthHandler } from "@/components/AuthHandler";
@@ -34,6 +16,33 @@ import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { initializeMobileFeatures } from "@/lib/mobile";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useDailyTheme, type ThemeId } from "@/hooks/useDailyTheme";
+
+// Lazy load pages for code-splitting
+const MainApp = lazy(() => import("@/pages/MainApp"));
+const SharedActivity = lazy(() => import("@/pages/SharedActivity"));
+const AuthCallback = lazy(() => import("@/pages/AuthCallback"));
+const Login = lazy(() => import("@/pages/Login"));
+const CommunityPlansPage = lazy(() => import("@/pages/CommunityPlansPage"));
+const GroupGoalsPage = lazy(() => import("@/pages/GroupGoalsPage"));
+const SubscriptionSuccess = lazy(() => import("@/pages/SubscriptionSuccess"));
+const SubscriptionCanceled = lazy(() => import("@/pages/SubscriptionCanceled"));
+const Updates = lazy(() => import("@/pages/Updates"));
+const Privacy = lazy(() => import("@/pages/Privacy"));
+const Terms = lazy(() => import("@/pages/Terms"));
+const Support = lazy(() => import("@/pages/Support"));
+const LandingPageWrapper = lazy(() => import("@/pages/LandingPageWrapper"));
+const ChatGPTPlanTracker = lazy(() => import("@/pages/ChatGPTPlanTracker"));
+const PerplexityPlans = lazy(() => import("@/pages/PerplexityPlans"));
+const WeekendPlans = lazy(() => import("@/pages/WeekendPlans"));
+const ImportPlan = lazy(() => import("@/pages/ImportPlan"));
+const MobileAuthCallback = lazy(() => import("@/pages/MobileAuthCallback"));
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  </div>
+);
 
 function AppContent() {
   // Get authenticated user
@@ -77,113 +86,115 @@ function AppContent() {
   return (
     <TooltipProvider>
       <AuthHandler />
-      <Switch>
-        {/* Auth Callback Page (no sidebar) */}
-        <Route path="/auth/callback" component={AuthCallback} />
+      <Suspense fallback={<PageLoader />}>
+        <Switch>
+          {/* Auth Callback Page (no sidebar) */}
+          <Route path="/auth/callback" component={AuthCallback} />
 
-        {/* Mobile OAuth Callback Page (handles deep link redirect) */}
-        <Route path="/auth/mobile-callback" component={MobileAuthCallback} />
+          {/* Mobile OAuth Callback Page (handles deep link redirect) */}
+          <Route path="/auth/mobile-callback" component={MobileAuthCallback} />
 
-        {/* Login Page (no sidebar) */}
-        <Route path="/login" component={Login} />
-        
-        {/* Shared Activity Page (no sidebar) */}
-        <Route path="/share/:token" component={SharedActivity} />
-        
-        {/* Community Plans Discovery Page (no sidebar, publicly accessible) */}
-        <Route path="/discover" component={CommunityPlansPage} />
-        
-        {/* Group Goals Page (no sidebar) */}
-        <Route path="/groups" component={GroupGoalsPage} />
-        
-        {/* Subscription Success Page (no sidebar) */}
-        <Route path="/subscription/success" component={SubscriptionSuccess} />
-        
-        {/* Subscription Canceled Page (no sidebar) */}
-        <Route path="/subscription/canceled" component={SubscriptionCanceled} />
+          {/* Login Page (no sidebar) */}
+          <Route path="/login" component={Login} />
+          
+          {/* Shared Activity Page (no sidebar) */}
+          <Route path="/share/:token" component={SharedActivity} />
+          
+          {/* Community Plans Discovery Page (no sidebar, publicly accessible) */}
+          <Route path="/discover" component={CommunityPlansPage} />
+          
+          {/* Group Goals Page (no sidebar) */}
+          <Route path="/groups" component={GroupGoalsPage} />
+          
+          {/* Subscription Success Page (no sidebar) */}
+          <Route path="/subscription/success" component={SubscriptionSuccess} />
+          
+          {/* Subscription Canceled Page (no sidebar) */}
+          <Route path="/subscription/canceled" component={SubscriptionCanceled} />
 
-        {/* Product Updates & News Page (no sidebar) */}
-        <Route path="/updates" component={Updates} />
+          {/* Product Updates & News Page (no sidebar) */}
+          <Route path="/updates" component={Updates} />
 
-        {/* Footer Pages (no sidebar) */}
-        <Route path="/privacy" component={Privacy} />
-        <Route path="/terms" component={Terms} />
-        <Route path="/support" component={Support} />
+          {/* Footer Pages (no sidebar) */}
+          <Route path="/privacy" component={Privacy} />
+          <Route path="/terms" component={Terms} />
+          <Route path="/support" component={Support} />
 
-        {/* Marketing Pages (no sidebar) */}
-        <Route path="/chatgpt-plan-tracker" component={ChatGPTPlanTracker} />
-        <Route path="/perplexity-plans" component={PerplexityPlans} />
-        <Route path="/weekend-plans" component={WeekendPlans} />
+          {/* Marketing Pages (no sidebar) */}
+          <Route path="/chatgpt-plan-tracker" component={ChatGPTPlanTracker} />
+          <Route path="/perplexity-plans" component={PerplexityPlans} />
+          <Route path="/weekend-plans" component={WeekendPlans} />
 
-        {/* Import Plan Page (publicly accessible with sign-in wall) */}
-        <Route path="/import-plan" component={ImportPlan} />
+          {/* Import Plan Page (publicly accessible with sign-in wall) */}
+          <Route path="/import-plan" component={ImportPlan} />
 
-        {/* Main App Route - Protected with Sidebar */}
-        <Route path="/app">
-          <ProtectedRoute>
-            <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
-              <div className="flex h-screen w-full overflow-auto">
-                <AppSidebar
-                  selectedTheme={selectedTheme}
-                  onThemeSelect={handleThemeSelect}
-                  onShowThemeSelector={() => setShowThemeSelector(true)}
-                  isSettingTheme={isSettingTheme}
-                  onShowDatePlanner={() => setShowLocationDatePlanner(true)}
-                  onShowContacts={() => setShowContacts(true)}
-                  onShowChatHistory={() => setShowChatHistory(true)}
-                  onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
-                  onShowRecentGoals={() => setShowRecentGoals(true)}
-                  onShowProgressReport={() => setShowProgressReport(true)}
-                  onShowEndOfDayReview={() => setShowEndOfDayReview(true)}
-                  onOpenUpgradeModal={(trigger) => {
-                    setUpgradeTrigger(trigger);
-                    setShowUpgradeModal(true);
-                  }}
-                  onShowGoalInput={() => mainAppTabRef.current('input')}
-                  onShowDiscover={() => mainAppTabRef.current('discover')}
-                  onShowActivities={() => mainAppTabRef.current('activities')}
-                  onShowAllTasks={() => mainAppTabRef.current('tasks')}
-                  onShowProgress={() => mainAppTabRef.current('progress')}
-                  onShowGroups={() => mainAppTabRef.current('groups')}
-                  onShowIntegrations={() => mainAppTabRef.current('sync')}
-                />
-                <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-                  <MainApp
+          {/* Main App Route - Protected with Sidebar */}
+          <Route path="/app">
+            <ProtectedRoute>
+              <SidebarProvider defaultOpen={window.innerWidth >= 1024} style={style as React.CSSProperties}>
+                <div className="flex h-screen w-full overflow-auto">
+                  <AppSidebar
                     selectedTheme={selectedTheme}
                     onThemeSelect={handleThemeSelect}
-                    onThemeClear={handleThemeClear}
+                    onShowThemeSelector={() => setShowThemeSelector(true)}
                     isSettingTheme={isSettingTheme}
-                    showThemeSelector={showThemeSelector}
-                    onShowThemeSelector={setShowThemeSelector}
-                    showLocationDatePlanner={showLocationDatePlanner}
-                    onShowLocationDatePlanner={setShowLocationDatePlanner}
-                    showContacts={showContacts}
-                    onShowContacts={setShowContacts}
-                    showChatHistory={showChatHistory}
-                    onShowChatHistory={setShowChatHistory}
-                    showLifestylePlanner={showLifestylePlanner}
-                    onShowLifestylePlanner={setShowLifestylePlanner}
-                    showRecentGoals={showRecentGoals}
-                    onShowRecentGoals={setShowRecentGoals}
-                    showProgressReport={showProgressReport}
-                    onShowProgressReport={setShowProgressReport}
-                    showEndOfDayReview={showEndOfDayReview}
-                    onShowEndOfDayReview={setShowEndOfDayReview}
-                    onTabChange={(setter) => {
-                      mainAppTabRef.current = setter;
+                    onShowDatePlanner={() => setShowLocationDatePlanner(true)}
+                    onShowContacts={() => setShowContacts(true)}
+                    onShowChatHistory={() => setShowChatHistory(true)}
+                    onShowLifestylePlanner={() => setShowLifestylePlanner(true)}
+                    onShowRecentGoals={() => setShowRecentGoals(true)}
+                    onShowProgressReport={() => setShowProgressReport(true)}
+                    onShowEndOfDayReview={() => setShowEndOfDayReview(true)}
+                    onOpenUpgradeModal={(trigger) => {
+                      setUpgradeTrigger(trigger);
+                      setShowUpgradeModal(true);
                     }}
+                    onShowGoalInput={() => mainAppTabRef.current('input')}
+                    onShowDiscover={() => mainAppTabRef.current('discover')}
+                    onShowActivities={() => mainAppTabRef.current('activities')}
+                    onShowAllTasks={() => mainAppTabRef.current('tasks')}
+                    onShowProgress={() => mainAppTabRef.current('progress')}
+                    onShowGroups={() => mainAppTabRef.current('groups')}
+                    onShowIntegrations={() => mainAppTabRef.current('sync')}
                   />
+                  <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+                    <MainApp
+                      selectedTheme={selectedTheme}
+                      onThemeSelect={handleThemeSelect}
+                      onThemeClear={handleThemeClear}
+                      isSettingTheme={isSettingTheme}
+                      showThemeSelector={showThemeSelector}
+                      onShowThemeSelector={setShowThemeSelector}
+                      showLocationDatePlanner={showLocationDatePlanner}
+                      onShowLocationDatePlanner={setShowLocationDatePlanner}
+                      showContacts={showContacts}
+                      onShowContacts={setShowContacts}
+                      showChatHistory={showChatHistory}
+                      onShowChatHistory={setShowChatHistory}
+                      showLifestylePlanner={showLifestylePlanner}
+                      onShowLifestylePlanner={setShowLifestylePlanner}
+                      showRecentGoals={showRecentGoals}
+                      onShowRecentGoals={setShowRecentGoals}
+                      showProgressReport={showProgressReport}
+                      onShowProgressReport={setShowProgressReport}
+                      showEndOfDayReview={showEndOfDayReview}
+                      onShowEndOfDayReview={setShowEndOfDayReview}
+                      onTabChange={(setter) => {
+                        mainAppTabRef.current = setter;
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-            </SidebarProvider>
-          </ProtectedRoute>
-        </Route>
+              </SidebarProvider>
+            </ProtectedRoute>
+          </Route>
 
-        {/* Root Route - Always show landing page wrapper for consistent auth handling */}
-        <Route>
-          <LandingPageWrapper />
-        </Route>
-      </Switch>
+          {/* Root Route - Always show landing page wrapper for consistent auth handling */}
+          <Route>
+            <LandingPageWrapper />
+          </Route>
+        </Switch>
+      </Suspense>
       {user?.id && <NotificationService userId={user.id} />}
       <Toaster />
       
