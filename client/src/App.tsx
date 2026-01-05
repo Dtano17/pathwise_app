@@ -40,12 +40,15 @@ function AppContent() {
   const { user } = useAuth();
 
   // Daily theme state - persisted to backend API
-  const { currentThemeId, setTheme, isSettingTheme } = useDailyTheme();
+  const { currentThemeId, setTheme, clearTheme, isSettingTheme } = useDailyTheme();
   const selectedTheme = currentThemeId || '';
   const handleThemeSelect = (themeId: string) => {
     if (themeId) {
       setTheme(themeId as ThemeId);
     }
+  };
+  const handleThemeClear = () => {
+    clearTheme();
   };
 
   // Shared state for sidebar and main app communication
@@ -148,6 +151,8 @@ function AppContent() {
                   <MainApp
                     selectedTheme={selectedTheme}
                     onThemeSelect={handleThemeSelect}
+                    onThemeClear={handleThemeClear}
+                    isSettingTheme={isSettingTheme}
                     showThemeSelector={showThemeSelector}
                     onShowThemeSelector={setShowThemeSelector}
                     showLocationDatePlanner={showLocationDatePlanner}

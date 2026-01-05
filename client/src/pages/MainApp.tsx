@@ -13,14 +13,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import VoiceInput from "@/components/VoiceInput";
-import TodaysThemeWidget from "@/components/TodaysThemeWidget";
 import LiveChatInterface from "@/components/LiveChatInterface";
 import TaskCard from "@/components/TaskCard";
 import ProgressDashboard from "@/components/ProgressDashboard";
 import ClaudePlanOutput, {
   type ClaudePlanCommandRef,
 } from "@/components/ClaudePlanOutput";
-import ThemeSelector from "@/components/ThemeSelector";
 import LocationDatePlanner from "@/components/LocationDatePlanner";
 import PersonalJournal from "@/components/PersonalJournal";
 import ConversationalPlanner from "@/components/ConversationalPlanner";
@@ -195,6 +193,8 @@ interface ProgressData {
 interface MainAppProps {
   selectedTheme: string;
   onThemeSelect: (theme: string) => void;
+  onThemeClear?: () => void;
+  isSettingTheme?: boolean;
   showThemeSelector: boolean;
   onShowThemeSelector: (show: boolean) => void;
   showLocationDatePlanner: boolean;
@@ -217,6 +217,8 @@ interface MainAppProps {
 export default function MainApp({
   selectedTheme,
   onThemeSelect,
+  onThemeClear,
+  isSettingTheme,
   showThemeSelector,
   onShowThemeSelector,
   showLocationDatePlanner,
@@ -2191,10 +2193,94 @@ export default function MainApp({
                   </p>
                 </div>
 
-                {/* Today's Theme Widget - Shows above goal input */}
-                {!currentPlanOutput && !editingActivity && !showThemeSelector && !showLocationDatePlanner && !showLifestylePlanner && (
-                  <div className="max-w-4xl mx-auto mb-4 px-4">
-                    <TodaysThemeWidget />
+                {/* Theme Banner - wraps around goal input when activated from sidebar */}
+                {showThemeSelector && (
+                  <div className="max-w-2xl mx-auto mb-4 px-2 sm:px-3 lg:px-6">
+                    <div className="rounded-xl border bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">Today's Focus</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onShowThemeSelector(false)}
+                          className="h-7 w-7 p-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      {selectedTheme ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            {selectedTheme === 'work' && <Briefcase className="w-5 h-5 text-blue-600" />}
+                            {selectedTheme === 'investment' && <TrendingUp className="w-5 h-5 text-emerald-600" />}
+                            {selectedTheme === 'spiritual' && <BookOpen className="w-5 h-5 text-violet-600" />}
+                            {selectedTheme === 'romance' && <Heart className="w-5 h-5 text-pink-600" />}
+                            {selectedTheme === 'adventure' && <Mountain className="w-5 h-5 text-orange-600" />}
+                            {selectedTheme === 'wellness' && <Activity className="w-5 h-5 text-teal-600" />}
+                            <Badge variant="secondary" className="text-sm">
+                              {selectedTheme === 'work' && 'Work Focus'}
+                              {selectedTheme === 'investment' && 'Investment'}
+                              {selectedTheme === 'spiritual' && 'Spiritual'}
+                              {selectedTheme === 'romance' && 'Romance'}
+                              {selectedTheme === 'adventure' && 'Adventure'}
+                              {selectedTheme === 'wellness' && 'Health & Wellness'}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            AI will prioritize {selectedTheme} activities in your plans today
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onThemeSelect('')}
+                              className="text-xs"
+                            >
+                              Change Theme
+                            </Button>
+                            {onThemeClear && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  onThemeClear();
+                                  onShowThemeSelector(false);
+                                }}
+                                className="text-xs text-muted-foreground"
+                              >
+                                Clear
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {[
+                            { id: 'work', name: 'Work Focus', icon: Briefcase, color: 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950' },
+                            { id: 'investment', name: 'Investment', icon: TrendingUp, color: 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950' },
+                            { id: 'spiritual', name: 'Spiritual', icon: BookOpen, color: 'text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950' },
+                            { id: 'romance', name: 'Romance', icon: Heart, color: 'text-pink-600 hover:bg-pink-50 dark:hover:bg-pink-950' },
+                            { id: 'adventure', name: 'Adventure', icon: Mountain, color: 'text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950' },
+                            { id: 'wellness', name: 'Wellness', icon: Activity, color: 'text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950' },
+                          ].map((theme) => (
+                            <Button
+                              key={theme.id}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onThemeSelect(theme.id)}
+                              disabled={isSettingTheme}
+                              className={`h-auto py-2.5 px-3 justify-start gap-2 ${theme.color}`}
+                            >
+                              <theme.icon className="w-4 h-4 flex-shrink-0" />
+                              <span className="text-xs">{theme.name}</span>
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -2332,30 +2418,6 @@ export default function MainApp({
                       </div>
                     </div>
                   )}
-
-                {/* Theme Selector Modal */}
-                <Dialog
-                  open={showThemeSelector}
-                  onOpenChange={onShowThemeSelector}
-                >
-                  <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[80vh] overflow-y-auto">
-                    <DialogHeader backLabel="Back to Planning">
-                      <DialogTitle>Set Your Daily Theme</DialogTitle>
-                      <DialogDescription>
-                        Choose a focus area to get personalized goal suggestions
-                        and themed planning
-                      </DialogDescription>
-                    </DialogHeader>
-                    <ThemeSelector
-                      selectedTheme={selectedTheme}
-                      onThemeSelect={onThemeSelect}
-                      onGenerateGoal={(goal) => {
-                        processGoalMutation.mutate(goal);
-                        onShowThemeSelector(false);
-                      }}
-                    />
-                  </DialogContent>
-                </Dialog>
 
                 {/* Location Date Planner Modal */}
                 <Dialog

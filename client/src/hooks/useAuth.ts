@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { initializeSocket, disconnectSocket, isSocketConnected } from "@/lib/socket";
 import { initializePushNotifications, unregisterPushNotifications } from "@/lib/pushNotifications";
 import { apiUrl, isNativePlatform, shouldUseNativeTokenAuth } from "@/lib/api";
+import { isNative } from "@/lib/platform";
 import { signInWithGoogleNative, signOutGoogleNative, getStoredAuthToken } from "@/lib/nativeGoogleAuth";
 
 interface User {
@@ -191,8 +192,12 @@ export function useAuth() {
       return result;
     }
     // Web OAuth for both web and Android WebView loading remote URL
-    const authUrl = apiUrl('/api/auth/google');
-    console.log('[useAuth] Redirecting to web OAuth:', authUrl);
+    // Add mobile=true flag for Android WebView so server redirects via deep link
+    // isNative() detects Android WebView via user agent even when loading remote URLs
+    const isMobileWebView = isNative() && !shouldUseNativeTokenAuth();
+    const mobileParam = isMobileWebView ? '?mobile=true' : '';
+    const authUrl = apiUrl(`/api/auth/google${mobileParam}`);
+    console.log('[useAuth] Redirecting to web OAuth:', authUrl, 'isMobileWebView:', isMobileWebView);
     window.location.href = authUrl;
     return { success: false, error: 'Redirecting to web OAuth' };
   };
