@@ -43,12 +43,17 @@ export function SocialLogin({
 
   const handleGoogleLogin = async () => {
     // On native platforms or Android WebView, use native/browser OAuth flow
+    console.log('[SocialLogin] handleGoogleLogin called');
+    console.log('[SocialLogin] isNative():', isNative());
+    console.log('[SocialLogin] isAndroidWebView():', isAndroidWebView());
+    console.log('[SocialLogin] document.URL:', document.URL);
+
     if (isNative() || isAndroidWebView()) {
       setIsGoogleLoading(true);
       try {
-        console.log('[SocialLogin] Using native Google Sign-In');
+        console.log('[SocialLogin] Using native/WebView Google Sign-In path');
         const result = await loginWithGoogle();
-        console.log('[SocialLogin] Native Google Sign-In result:', result);
+        console.log('[SocialLogin] loginWithGoogle result:', result);
 
         // Check if sign-in failed (but not if pending browser OAuth)
         if (!result.success && !result.pending) {

@@ -176,8 +176,12 @@ export function useAuth() {
 
   // Google login - specifically for Google OAuth button
   const loginWithGoogle = async () => {
+    console.log('[useAuth] loginWithGoogle called');
+    console.log('[useAuth] shouldUseNativeTokenAuth():', shouldUseNativeTokenAuth());
+
     if (shouldUseNativeTokenAuth()) {
       // Use native Google sign-in for Capacitor local apps
+      console.log('[useAuth] Using native token auth path');
       const result = await signInWithGoogleNative();
       if (result.success) {
         // Refetch user data after successful native sign-in
@@ -187,7 +191,9 @@ export function useAuth() {
       return result;
     }
     // Web OAuth for both web and Android WebView loading remote URL
-    window.location.href = apiUrl('/api/auth/google');
+    const authUrl = apiUrl('/api/auth/google');
+    console.log('[useAuth] Redirecting to web OAuth:', authUrl);
+    window.location.href = authUrl;
     return { success: false, error: 'Redirecting to web OAuth' };
   };
 

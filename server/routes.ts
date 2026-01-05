@@ -10338,13 +10338,42 @@ Return ONLY valid JSON, no markdown or explanation.`;
         });
       }
 
+      // Fetch today's theme for user (if set)
+      let todaysTheme: { themeId: string; themeName: string; } | null = null;
+      try {
+        const preferences = await storage.getUserPreferences(userId);
+        if (preferences?.preferences?.dailyTheme) {
+          const today = new Date().toISOString().split('T')[0];
+          if (preferences.preferences.dailyTheme.date === today) {
+            const themeTitle = preferences.preferences.dailyTheme.activityTitle;
+            // Map title to themeId
+            const themeMapping: Record<string, string> = {
+              'Work Focus': 'work',
+              'Investment': 'investment',
+              'Spiritual': 'spiritual',
+              'Romance': 'romance',
+              'Adventure': 'adventure',
+              'Health & Wellness': 'wellness'
+            };
+            todaysTheme = {
+              themeId: themeMapping[themeTitle] || 'other',
+              themeName: themeTitle
+            };
+            console.log(`[SIMPLE PLAN] 🎯 Today's theme: ${themeTitle}`);
+          }
+        }
+      } catch (err) {
+        console.warn('[SIMPLE PLAN] Failed to fetch daily theme:', err);
+      }
+
       // Process message with simple planner
       const plannerResponse = await simpleConversationalPlanner.processMessage(
         userId,
         message,
         session.conversationHistory || conversationHistory,
         storage,
-        mode
+        mode,
+        { todaysTheme }
       );
 
       // Log what was extracted

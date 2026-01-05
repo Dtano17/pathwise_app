@@ -27,6 +27,7 @@ import type { User, UserProfile, UserPreferences, JournalEntry } from '@shared/s
 import { DOMAIN_TO_JOURNAL_CATEGORIES } from '../config/journalTags';
 import { transcriptFilterService, FilteredContent } from './transcriptFilterService';
 import { socialMediaVideoService } from './socialMediaVideoService';
+import { parseDateReference, type DateReference } from './dateReferenceParser';
 
 // ============================================================================
 // SEARCH CACHE
@@ -515,6 +516,16 @@ interface PlanningContext {
   detectedBudget?: number | null;
   detectedDomain?: string;  // Early domain detection for journal search
   fallbackLocation?: string;
+  // Today's Theme support
+  dateReference?: {
+    isTodayPlan: boolean;
+    confidence: 'high' | 'medium' | 'low';
+    matchedPhrase: string | null;
+  };
+  todaysTheme?: {
+    themeId: string;
+    themeName: string;
+  } | null;
 }
 
 // ============================================================================
@@ -1088,7 +1099,7 @@ class AnthropicProvider implements LLMProvider {
 // ============================================================================
 
 function buildSystemPrompt(context: PlanningContext, mode: 'quick' | 'smart', isPreviewTurn: boolean = false): string {
-  const { user, profile, preferences, recentJournal, journalInsights, detectedDomain, extractedUrlContent } = context;
+  const { user, profile, preferences, recentJournal, journalInsights, detectedDomain, extractedUrlContent, dateReference, todaysTheme } = context;
 
   const modeDescription = mode === 'smart'
     ? 'comprehensive planning with detailed research, real-time data, and enrichment'
@@ -1247,11 +1258,34 @@ ${user.sleepSchedule ? `**Sleep Schedule:** ${user.sleepSchedule.bedtime} - ${us
 ${recentJournal && recentJournal.length > 0 ? `**Recent Journal Entries:**\n${recentJournal.map(j => `- ${j.date}: Mood ${j.mood}, ${j.reflection || 'No reflection'}`).join('\n')}` : ''}${journalInsightsSection}${urlContentSection}
 `.trim();
 
+  // Build today's theme section (only for today's plans)
+  const shouldApplyThemeBias = todaysTheme && (dateReference?.isTodayPlan !== false);
+  const themeBiasSection = shouldApplyThemeBias
+    ? `
+
+## 🎯 Today's Focus Theme: ${todaysTheme.themeName}
+
+**The user has set "${todaysTheme.themeName}" as their focus theme for today.**
+
+When generating plans and suggestions for TODAY:
+- **Bias your recommendations** toward ${todaysTheme.themeName.toLowerCase()}-related activities when naturally relevant
+- If the user's request aligns with ${todaysTheme.themeName}, emphasize and enrich those aspects
+- **ALWAYS respect explicit user requests** - theme is a gentle bias, not a hard filter
+- If the plan is clearly unrelated to ${todaysTheme.themeName}, proceed normally without forcing the theme
+
+**Theme Context Examples:**
+- Theme "Investment" + "Plan my day" → Include portfolio check, financial news, market analysis
+- Theme "Wellness" + "Plan my day" → Include healthy meals, walking breaks, mindfulness
+- Theme "Investment" + "Plan dinner with friends" → Just plan dinner, don't force investment topics
+
+`
+    : '';
+
   // COMPRESSED BUDGET-FIRST SYSTEM PROMPT
   return `You are JournalMate Planning Agent - an expert planner specializing in budget-conscious, personalized plans.
 
 ${userContext}
-
+${themeBiasSection}
 ## Mission
 Help ${user.firstName || 'the user'} plan ANY activity via smart questions and actionable plans. **${mode.toUpperCase()} MODE** - ${modeDescription}.
 
@@ -2250,7 +2284,10 @@ export class SimpleConversationalPlanner {
     userMessage: string,
     conversationHistory: ConversationMessage[],
     storage: IStorage,
-    mode: 'quick' | 'smart' = 'quick'
+    mode: 'quick' | 'smart' = 'quick',
+    options?: {
+      todaysTheme?: { themeId: string; themeName: string; } | null;
+    }
   ): Promise<PlanningResponse> {
     console.log(`[SIMPLE_PLANNER] Processing message for user ${userId} in ${mode} mode`);
 
@@ -2289,6 +2326,12 @@ export class SimpleConversationalPlanner {
 
       // Add URL extraction results to context
       context.extractedUrlContent = urlExtractionResults;
+
+      // Add today's theme to context (if provided)
+      if (options?.todaysTheme) {
+        context.todaysTheme = options.todaysTheme;
+        console.log(`[SIMPLE_PLANNER] 🎯 Today's theme: ${options.todaysTheme.themeName} (will apply: ${context.dateReference?.isTodayPlan !== false})`);
+      }
 
       // 2. Build conversation history
       const messages = [
@@ -2543,13 +2586,22 @@ export class SimpleConversationalPlanner {
     storage: IStorage,
     mode: 'quick' | 'smart' = 'quick',
     onToken: (token: string) => void,
-    onProgress?: (phase: string, message: string) => void
+    onProgress?: (phase: string, message: string) => void,
+    options?: {
+      todaysTheme?: { themeId: string; themeName: string; } | null;
+    }
   ): Promise<PlanningResponse> {
     console.log(`[SIMPLE_PLANNER] Processing message with streaming for user ${userId} in ${mode} mode`);
 
     try {
       // 1. Gather user context (pass user message for smart extraction)
       const context = await this.gatherUserContext(userId, storage, userMessage);
+
+      // Add today's theme to context (if provided)
+      if (options?.todaysTheme) {
+        context.todaysTheme = options.todaysTheme;
+        console.log(`[SIMPLE_PLANNER] 🎯 Today's theme (stream): ${options.todaysTheme.themeName}`);
+      }
 
       // 2. Build conversation history
       const messages = [
@@ -3027,12 +3079,16 @@ export class SimpleConversationalPlanner {
       let detectedLocation: string | null = null;
       let detectedBudget: number | null = null;
       let detectedDomain: string = 'other';
+      let dateReference: DateReference | undefined;
 
       // Smart extraction from user message if provided
       if (userMessage) {
         detectedLocation = this.extractLocationFromMessage(userMessage);
         detectedBudget = this.extractBudgetFromMessage(userMessage);
         detectedDomain = detectDomainFromMessage(userMessage);
+        // NEW: Detect if plan is for today or future (for theme application)
+        dateReference = parseDateReference(userMessage, user?.timezone || undefined);
+        console.log(`[SIMPLE_PLANNER] 📅 Date reference: ${dateReference.isTodayPlan ? 'TODAY' : 'FUTURE'} (confidence: ${dateReference.confidence}, phrase: "${dateReference.matchedPhrase || 'none'}")`);
       }
 
       // NEW: Domain-based journal search for personalization
@@ -3073,6 +3129,7 @@ export class SimpleConversationalPlanner {
         detectedBudget,
         detectedDomain,
         fallbackLocation,
+        dateReference,
       };
     } catch (error) {
       console.error('[SIMPLE_PLANNER] Error gathering user context:', error);

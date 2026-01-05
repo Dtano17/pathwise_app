@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import VoiceInput from "@/components/VoiceInput";
+import TodaysThemeWidget from "@/components/TodaysThemeWidget";
 import LiveChatInterface from "@/components/LiveChatInterface";
 import TaskCard from "@/components/TaskCard";
 import ProgressDashboard from "@/components/ProgressDashboard";
@@ -2189,6 +2190,13 @@ export default function MainApp({
                       : "Share your goals through voice or text - AI will create actionable tasks for you"}
                   </p>
                 </div>
+
+                {/* Today's Theme Widget - Shows above goal input */}
+                {!currentPlanOutput && !editingActivity && !showThemeSelector && !showLocationDatePlanner && !showLifestylePlanner && (
+                  <div className="max-w-4xl mx-auto mb-4 px-4">
+                    <TodaysThemeWidget />
+                  </div>
+                )}
 
                 <VoiceInput
                   onSubmit={(text) => processGoalMutation.mutate(text)}

@@ -33,13 +33,22 @@ import { UpgradeModal } from "@/components/UpgradeModal";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { initializeMobileFeatures } from "@/lib/mobile";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { useDailyTheme, type ThemeId } from "@/hooks/useDailyTheme";
 
 function AppContent() {
   // Get authenticated user
   const { user } = useAuth();
-  
+
+  // Daily theme state - persisted to backend API
+  const { currentThemeId, setTheme, isSettingTheme } = useDailyTheme();
+  const selectedTheme = currentThemeId || '';
+  const handleThemeSelect = (themeId: string) => {
+    if (themeId) {
+      setTheme(themeId as ThemeId);
+    }
+  };
+
   // Shared state for sidebar and main app communication
-  const [selectedTheme, setSelectedTheme] = useState<string>('');
   const [showThemeSelector, setShowThemeSelector] = useState(false);
   const [showLocationDatePlanner, setShowLocationDatePlanner] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
@@ -113,8 +122,9 @@ function AppContent() {
               <div className="flex h-screen w-full overflow-auto">
                 <AppSidebar
                   selectedTheme={selectedTheme}
-                  onThemeSelect={setSelectedTheme}
+                  onThemeSelect={handleThemeSelect}
                   onShowThemeSelector={() => setShowThemeSelector(true)}
+                  isSettingTheme={isSettingTheme}
                   onShowDatePlanner={() => setShowLocationDatePlanner(true)}
                   onShowContacts={() => setShowContacts(true)}
                   onShowChatHistory={() => setShowChatHistory(true)}
@@ -137,7 +147,7 @@ function AppContent() {
                 <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
                   <MainApp
                     selectedTheme={selectedTheme}
-                    onThemeSelect={setSelectedTheme}
+                    onThemeSelect={handleThemeSelect}
                     showThemeSelector={showThemeSelector}
                     onShowThemeSelector={setShowThemeSelector}
                     showLocationDatePlanner={showLocationDatePlanner}

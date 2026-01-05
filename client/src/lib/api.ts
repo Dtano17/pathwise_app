@@ -71,7 +71,11 @@ export function isCapacitorLocalApp(): boolean {
  * WebViews loading remote URLs use session cookies instead.
  */
 export function shouldUseNativeTokenAuth(): boolean {
-  return isNative() && isCapacitorLocalApp();
+  const native = isNative();
+  const localApp = isCapacitorLocalApp();
+  const result = native && localApp;
+  console.log('[API] shouldUseNativeTokenAuth:', { native, localApp, result, url: document.URL });
+  return result;
 }
 
 /**

@@ -62,6 +62,7 @@ interface AppSidebarProps {
   selectedTheme?: string;
   onThemeSelect?: (themeId: string) => void;
   onShowThemeSelector?: () => void;
+  isSettingTheme?: boolean;
   onShowDatePlanner?: () => void;
   onShowContacts?: () => void;
   onShowChatHistory?: () => void;
@@ -84,6 +85,7 @@ export function AppSidebar({
   selectedTheme,
   onThemeSelect,
   onShowThemeSelector,
+  isSettingTheme,
   onShowDatePlanner,
   onShowContacts,
   onShowChatHistory,
@@ -294,8 +296,9 @@ export function AppSidebar({
               <SidebarMenu>
                 {themes.map((theme) => (
                   <SidebarMenuItem key={theme.id}>
-                    <SidebarMenuButton 
+                    <SidebarMenuButton
                       onClick={() => handleThemeSelect(theme.id)}
+                      disabled={isSettingTheme}
                       data-testid={`button-theme-${theme.id}-sidebar`}
                     >
                       <theme.icon className="w-4 h-4" />
