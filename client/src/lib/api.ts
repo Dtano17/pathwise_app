@@ -54,6 +54,27 @@ export function isNativePlatform(): boolean {
 }
 
 /**
+ * Check if we're running in a true Capacitor local app (not WebView loading remote URL)
+ * True Capacitor apps load from localhost or capacitor:// scheme and use token-based auth.
+ * Android WebView apps loading remote URLs should use session cookie auth instead.
+ */
+export function isCapacitorLocalApp(): boolean {
+  const url = document.URL || window.location.href;
+  return url.startsWith('https://localhost') ||
+         url.startsWith('http://localhost') ||
+         url.startsWith('capacitor://');
+}
+
+/**
+ * Check if the app should use native token-based authentication
+ * Only true Capacitor local apps should use token auth.
+ * WebViews loading remote URLs use session cookies instead.
+ */
+export function shouldUseNativeTokenAuth(): boolean {
+  return isNative() && isCapacitorLocalApp();
+}
+
+/**
  * Get the current platform
  * Uses robust detection with fallback for Android WebView timing issues
  */
@@ -117,5 +138,7 @@ export default {
   apiGet,
   apiPost,
   isNativePlatform,
+  isCapacitorLocalApp,
+  shouldUseNativeTokenAuth,
   getPlatform,
 };

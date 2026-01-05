@@ -4,7 +4,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect, useRef } from "react";
 import { initializeSocket, disconnectSocket, isSocketConnected } from "@/lib/socket";
 import { initializePushNotifications, unregisterPushNotifications } from "@/lib/pushNotifications";
-import { apiUrl, isNativePlatform } from "@/lib/api";
+import { apiUrl, isNativePlatform, shouldUseNativeTokenAuth } from "@/lib/api";
 import { signInWithGoogleNative, signOutGoogleNative, getStoredAuthToken } from "@/lib/nativeGoogleAuth";
 
 interface User {
@@ -27,11 +27,12 @@ export function useAuth() {
   const { data: user, isLoading, error, refetch } = useQuery<User | null>({
     queryKey: ['/api/user'],
     queryFn: async () => {
-      // For native platforms, use token-based auth
-      if (isNativePlatform()) {
+      // For true Capacitor local apps, use token-based auth
+      // Android WebViews loading remote URLs use session cookies instead
+      if (shouldUseNativeTokenAuth()) {
         const authToken = await getStoredAuthToken();
         if (authToken) {
-          console.log('[AUTH] Using token-based auth for native platform');
+          console.log('[AUTH] Using token-based auth for Capacitor local app');
           // Verify token and get user info
           const res = await fetch(apiUrl('/api/auth/verify-token'), {
             headers: {
@@ -52,7 +53,7 @@ export function useAuth() {
         return null;
       }
 
-      // Web platform - use session cookie
+      // Web platform or Android WebView loading remote URL - use session cookie
       const res = await fetch(apiUrl('/api/user'), { credentials: 'include' });
       if (!res.ok) {
         if (res.status === 401) return null;
@@ -114,8 +115,8 @@ export function useAuth() {
   // Logout mutation
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // Sign out from native Google Auth if on native platform
-      if (isNativePlatform()) {
+      // Sign out from native Google Auth if in Capacitor local app
+      if (shouldUseNativeTokenAuth()) {
         await signOutGoogleNative();
       }
       // Call backend logout
@@ -152,10 +153,10 @@ export function useAuth() {
   const isAuthenticated = !!user && user.authenticated === true && !error;
   const isUnauthenticated = !user || user.authenticated === false || user.isGuest === true || (error && isUnauthorizedError(error as Error));
 
-  // Login redirect - uses native Google Auth on mobile, web OAuth on web
+  // Login redirect - uses native Google Auth on Capacitor local apps, web OAuth otherwise
   const login = async () => {
-    if (isNativePlatform()) {
-      // Use native Google sign-in on mobile
+    if (shouldUseNativeTokenAuth()) {
+      // Use native Google sign-in for Capacitor local apps
       try {
         const result = await signInWithGoogleNative();
         if (result.success) {
@@ -169,14 +170,14 @@ export function useAuth() {
         console.error('[AUTH] Native Google auth error:', error);
       }
     }
-    // Fallback to web OAuth
+    // Web OAuth for both web and Android WebView loading remote URL
     window.location.href = apiUrl('/api/login');
   };
 
   // Google login - specifically for Google OAuth button
   const loginWithGoogle = async () => {
-    if (isNativePlatform()) {
-      // Use native Google sign-in on mobile
+    if (shouldUseNativeTokenAuth()) {
+      // Use native Google sign-in for Capacitor local apps
       const result = await signInWithGoogleNative();
       if (result.success) {
         // Refetch user data after successful native sign-in
@@ -185,7 +186,7 @@ export function useAuth() {
       }
       return result;
     }
-    // Fallback to web OAuth
+    // Web OAuth for both web and Android WebView loading remote URL
     window.location.href = apiUrl('/api/auth/google');
     return { success: false, error: 'Redirecting to web OAuth' };
   };

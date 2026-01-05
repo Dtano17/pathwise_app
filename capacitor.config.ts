@@ -23,15 +23,15 @@ const config: CapacitorConfig = {
       androidSpinnerStyle: 'large',
       iosSpinnerStyle: 'small',
       spinnerColor: '#ffffff',
-      splashFullScreen: true,
-      splashImmersive: true,
+      splashFullScreen: false,
+      splashImmersive: false,
     },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
     StatusBar: {
-      style: 'dark', // Dark text for light backgrounds
-      backgroundColor: '#6C5CE7', // JournalMate purple theme
+      style: 'light', // Light text for dark backgrounds
+      backgroundColor: '#0f0f23', // Dark background matching app theme
     },
     Camera: {
       // Allow users to choose from camera or photo library

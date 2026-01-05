@@ -526,13 +526,16 @@ export async function setupMultiProviderAuth(app: Express) {
           console.log('[Google OAuth] Session passport user:', req.session?.passport?.user);
           console.log('[Google OAuth] Mobile auth:', isMobileAuth);
 
-          // For mobile app: create one-time token and redirect via deep link
+          // For mobile app: create one-time token and redirect via intermediate page
+          // Chrome doesn't reliably handle direct custom scheme redirects, so we use
+          // a web page that triggers the deep link via JavaScript and provides fallbacks
           if (isMobileAuth && user.id) {
             try {
               const authToken = crypto.randomBytes(32).toString('hex');
               await storage.createMobileAuthToken(parseInt(user.id), authToken);
-              console.log('[Google OAuth] Mobile auth - redirecting to deep link');
-              return res.redirect(`journalmate://auth?token=${authToken}`);
+              console.log('[Google OAuth] Mobile auth - redirecting to auth callback page');
+              // Redirect to a web page that will handle the deep link
+              return res.redirect(`/auth/mobile-callback?token=${authToken}`);
             } catch (tokenErr) {
               console.error('[Google OAuth] Failed to create mobile token:', tokenErr);
               // Fall back to web redirect
