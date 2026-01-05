@@ -74,7 +74,8 @@
             </intent-filter>
 
             <!-- Deep link handler for journalmate://auth (OAuth callback) -->
-            <intent-filter android:autoVerify="true">
+            <!-- Note: autoVerify is NOT used for custom schemes, only for HTTPS App Links -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -82,7 +83,7 @@
             </intent-filter>
 
             <!-- Deep link handler for other journalmate:// URLs (share, etc.) -->
-            <intent-filter android:autoVerify="true">
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

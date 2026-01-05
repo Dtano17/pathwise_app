@@ -30,8 +30,22 @@ export default function MobileAuthCallback() {
     // This works for native apps that have registered the journalmate:// scheme
     const deepLinkUrl = `journalmate://auth?token=${token}`;
 
-    // Create a hidden iframe to trigger the deep link
-    // This is more reliable than window.location for custom schemes
+    // On Android, use Intent URL format which is more reliable for launching apps
+    // This tells Chrome to launch the app directly without security restrictions
+    const isAndroid = /android/i.test(navigator.userAgent);
+    const intentUrl = isAndroid
+      ? `intent://auth?token=${token}#Intent;scheme=journalmate;package=ai.journalmate.app;end`
+      : deepLinkUrl;
+
+    console.log('[MobileAuthCallback] Using URL:', isAndroid ? 'Intent URL' : 'Deep Link URL');
+
+    // Try the Intent URL first on Android (most reliable)
+    if (isAndroid) {
+      window.location.href = intentUrl;
+    }
+
+    // Create a hidden iframe to trigger the deep link as backup
+    // This is more reliable than window.location for custom schemes on iOS
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
     iframe.src = deepLinkUrl;
