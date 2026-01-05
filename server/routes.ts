@@ -11531,18 +11531,20 @@ You can find these tasks in your task list and start working on them right away!
         return res.status(401).json({ error: 'Authentication required' });
       }
       
-      const { activityId, activityTitle, tasks } = req.body;
+      const { activityId, activityTitle, tasks, date } = req.body;
       
-      if (!activityId || !activityTitle) {
-        return res.status(400).json({ error: 'activityId and activityTitle are required' });
+      if (!activityId) {
+        return res.status(400).json({ error: 'activityId is required' });
       }
       
-      const today = new Date().toISOString().split('T')[0];
+      // If activityTitle is empty, it means we're clearing the theme
+      const isClearing = !activityTitle || activityId.startsWith('cleared-');
+      const themeDate = date || new Date().toISOString().split('T')[0];
       
-      const dailyTheme = {
+      const dailyTheme = isClearing ? null : {
         activityId,
         activityTitle,
-        date: today,
+        date: themeDate,
         tasks: tasks || []
       };
       
@@ -11550,12 +11552,12 @@ You can find these tasks in your task list and start working on them right away!
       const currentPrefs = await storage.getUserPreferences(userId);
       const updatedPrefs = {
         ...(currentPrefs?.preferences || {}),
-        dailyTheme
+        dailyTheme: dailyTheme
       };
       
       await storage.upsertUserPreferences(userId, { preferences: updatedPrefs });
       
-      console.log('[DAILY THEME] Set daily theme for user:', userId, 'activity:', activityTitle);
+      console.log('[DAILY THEME]', isClearing ? 'Cleared' : 'Set', 'daily theme for user:', userId);
       res.json({ success: true, dailyTheme });
     } catch (error) {
       console.error('[DAILY THEME] Error setting daily theme:', error);

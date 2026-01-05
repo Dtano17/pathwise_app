@@ -128,7 +128,7 @@ export function useDailyTheme() {
     mutationFn: async () => {
       // To clear, we set a theme with a past date
       const response = await apiRequest('POST', '/api/user/daily-theme', {
-        activityId: 'cleared',
+        activityId: 'cleared-' + Date.now(),
         activityTitle: '',
         date: '1970-01-01', // Past date so it won't be returned
         tasks: [],

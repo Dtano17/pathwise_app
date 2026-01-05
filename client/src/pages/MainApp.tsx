@@ -487,7 +487,8 @@ export default function MainApp({
   const handleThemeClear = () => {
     if (onThemeClear) {
       onThemeClear();
-      // Optimistically clear the theme data in the cache to prevent "popping back up"
+      // Ensure we immediately clear the local state in the cache
+      // AND remove the query to force a fresh fetch from the server
       queryClient.setQueryData(['/api/user/daily-theme'], { dailyTheme: null });
     }
   };
