@@ -9,6 +9,11 @@ import { storage } from "./storage";
 import { type AuthIdentity } from "@shared/schema";
 import { sendWelcomeEmail } from "./emailService";
 
+// Track processed OAuth codes to prevent duplicate callback processing
+// OAuth codes are single-use, so we need to reject duplicates before passport tries to exchange them
+const processedOAuthCodes = new Set<string>();
+const OAUTH_CODE_EXPIRY_MS = 60000; // Clean up codes after 1 minute
+
 // OAuth configuration interfaces
 interface GoogleProfile {
   id: string;
@@ -494,11 +499,40 @@ export async function setupMultiProviderAuth(app: Express) {
     passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
   });
 
-  app.get('/api/auth/google/callback',
+  app.get('/api/auth/google/callback', (req: any, res, next) => {
+    // Check if user is already authenticated (duplicate callback protection)
+    if (req.isAuthenticated() && req.user) {
+      console.log('[Google OAuth] User already authenticated, redirecting without re-auth');
+      return res.redirect('/?auth=success&provider=google');
+    }
+
+    // Check if this is a duplicate request without a code (already processed)
+    if (!req.query.code && !req.query.error) {
+      console.log('[Google OAuth] No code in callback, redirecting to home');
+      return res.redirect('/');
+    }
+
+    // Duplicate OAuth code protection: OAuth codes are single-use
+    // Android WebView sometimes makes duplicate requests, causing "TokenError: Bad Request"
+    const oauthCode = req.query.code as string;
+    if (oauthCode) {
+      if (processedOAuthCodes.has(oauthCode)) {
+        console.log('[Google OAuth] Duplicate OAuth code detected, redirecting to success');
+        return res.redirect('/?auth=success&provider=google');
+      }
+      // Mark this code as being processed
+      processedOAuthCodes.add(oauthCode);
+      // Clean up after expiry to prevent memory leak
+      setTimeout(() => {
+        processedOAuthCodes.delete(oauthCode);
+      }, OAUTH_CODE_EXPIRY_MS);
+    }
+
     passport.authenticate('google', {
       failureRedirect: '/?auth=error&provider=google',
       failureMessage: true
-    }),
+    })(req, res, next);
+  },
     async (req: any, res) => {
       const user = req.user as OAuthUser;
       console.log('[Google OAuth] Callback successful, user:', user);

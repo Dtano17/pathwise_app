@@ -57,8 +57,9 @@ export function SocialLogin({
 
         // Check if sign-in failed (but not if pending browser OAuth)
         if (!result.success && !result.pending) {
-          // Don't show error for user cancellation
-          if (result.error && !result.error.includes('cancel')) {
+          // Don't show error for user cancellation or redirect messages
+          // "Redirecting to web OAuth" is normal behavior, not an error
+          if (result.error && !result.error.includes('cancel') && !result.error.includes('Redirecting')) {
             toast({
               title: "Sign-in failed",
               description: result.error || "Could not sign in with Google. Please try again.",
