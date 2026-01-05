@@ -92,7 +92,7 @@ public class MainActivity extends BridgeActivity {
     }
     
     @Override
-    protected void onResume() {
+    public void onResume() {
         super.onResume();
         // Check for pending auth token on every resume - handles cases where
         // token arrived but couldn't be delivered, and user returns to app
