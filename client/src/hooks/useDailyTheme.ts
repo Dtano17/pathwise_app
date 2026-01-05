@@ -75,7 +75,7 @@ export function useDailyTheme() {
     refetchOnWindowFocus: false,
   });
 
-  // Set theme mutation
+  // Set theme mutation with optimistic update
   const setThemeMutation = useMutation({
     mutationFn: async (themeId: ThemeId) => {
       const theme = themes.find(t => t.id === themeId);
@@ -88,12 +88,40 @@ export function useDailyTheme() {
       });
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async (themeId: ThemeId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['/api/user/daily-theme'] });
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData<DailyThemeResponse>(['/api/user/daily-theme']);
+
+      // Optimistically update to the new value
+      const theme = themes.find(t => t.id === themeId);
+      if (theme) {
+        queryClient.setQueryData<DailyThemeResponse>(['/api/user/daily-theme'], {
+          dailyTheme: {
+            activityId: `theme-${themeId}-${Date.now()}`,
+            activityTitle: theme.name,
+            date: new Date().toISOString().split('T')[0],
+            tasks: [],
+          },
+        });
+      }
+
+      return { previousData };
+    },
+    onError: (_err, _themeId, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/user/daily-theme'], context.previousData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user/daily-theme'] });
     },
   });
 
-  // Clear theme mutation
+  // Clear theme mutation with optimistic update
   const clearThemeMutation = useMutation({
     mutationFn: async () => {
       // To clear, we set a theme with a past date
@@ -105,7 +133,27 @@ export function useDailyTheme() {
       });
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async () => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['/api/user/daily-theme'] });
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData<DailyThemeResponse>(['/api/user/daily-theme']);
+
+      // Optimistically clear the theme
+      queryClient.setQueryData<DailyThemeResponse>(['/api/user/daily-theme'], {
+        dailyTheme: null,
+      });
+
+      return { previousData };
+    },
+    onError: (_err, _vars, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/user/daily-theme'], context.previousData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user/daily-theme'] });
     },
   });

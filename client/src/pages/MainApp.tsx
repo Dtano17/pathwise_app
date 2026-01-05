@@ -1122,6 +1122,7 @@ export default function MainApp({
         goalText: fullContext,
         sessionId: currentSessionId,
         activityId: activityIdRef.current, // Pass activityId when in edit mode
+        theme: selectedTheme || undefined, // Pass selected theme to guide AI planning
         conversationHistory: [...conversationHistory, goalText].map(
           (msg, idx) => ({
             role: "user" as const,

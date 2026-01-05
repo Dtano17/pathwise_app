@@ -334,7 +334,8 @@ export class AIService {
     goalText: string,
     preferredModel: "openai" | "claude" = "claude",
     userId?: string,
-    existingActivity?: { title: string; tasks: Array<{ title: string; description?: string }> }
+    existingActivity?: { title: string; tasks: Array<{ title: string; description?: string }> },
+    theme?: string
   ): Promise<GoalProcessingResult> {
     // Step 1: Extract URL content if present
     let processedGoal = goalText;
@@ -384,9 +385,9 @@ export class AIService {
     }
 
     if (preferredModel === "claude" && process.env.ANTHROPIC_API_KEY) {
-      return this.processGoalWithClaude(processedGoal, userPriorities, userContext, existingActivity);
+      return this.processGoalWithClaude(processedGoal, userPriorities, userContext, existingActivity, theme);
     }
-    return this.processGoalWithOpenAI(processedGoal, userPriorities, userContext, existingActivity);
+    return this.processGoalWithOpenAI(processedGoal, userPriorities, userContext, existingActivity, theme);
   }
 
   async chatConversation(
@@ -1302,7 +1303,8 @@ Create actionable tasks from these conversations that can help hold the user acc
     goalText: string,
     userPriorities: any[] = [],
     userContext: string | null = null,
-    existingActivity?: { title: string; tasks: Array<{ title: string; description?: string }> }
+    existingActivity?: { title: string; tasks: Array<{ title: string; description?: string }> },
+    theme?: string
   ): Promise<GoalProcessingResult> {
     try {
       const prioritiesContext =
@@ -1311,7 +1313,7 @@ Create actionable tasks from these conversations that can help hold the user acc
 ${userPriorities.map((p) => `- ${p.title}: ${p.description}`).join("\n")}`
           : "";
 
-      const personalizationContext = userContext 
+      const personalizationContext = userContext
         ? `\n\nPersonalized Context (use this to make recommendations more relevant):\n${userContext}`
         : "";
 
@@ -1324,7 +1326,25 @@ ${existingActivity.tasks.map((task, idx) => `${idx + 1}. ${task.title}${task.des
 IMPORTANT: The user is asking you to MODIFY the above activity. Build upon the existing tasks - add, remove, or update tasks based on the user's request. Keep the activity title unless the user explicitly asks to change it. Your response should be a refined version of this existing plan, not a completely new one.`
         : "";
 
-      const prompt = `You are an AI productivity assistant. Transform the user's goal into a structured, actionable plan like Claude AI would format it - clear, organized, and visually appealing.
+      // Theme context for focused planning
+      const themeDescriptions: Record<string, string> = {
+        'work': 'Work Focus - productivity, meetings, professional goals, career development',
+        'investment': 'Investment - trading, portfolio analysis, financial planning, wealth building, stock market research',
+        'spiritual': 'Spiritual - devotion, meditation, personal growth, scripture study, mindfulness',
+        'romance': 'Romance - date planning, relationship building, connection, quality time with partner',
+        'adventure': 'Adventure - exploration, outdoor activities, new experiences, travel, thrill-seeking',
+        'wellness': 'Health & Wellness - fitness, nutrition, self-care, exercise, mental health'
+      };
+
+      const themeContext = theme && themeDescriptions[theme]
+        ? `\n\n🎯 TODAY'S FOCUS THEME: ${themeDescriptions[theme]}
+IMPORTANT: The user has set "${themeDescriptions[theme].split(' - ')[0]}" as their focus theme for today.
+You MUST tailor the plan specifically to this theme. All tasks should align with and support this focus area.
+For example, if the theme is "Investment" and user says "plan my day", create tasks focused on investment activities like market research, portfolio review, trading strategies, financial reading, etc.
+Do NOT create a generic balanced day plan - focus specifically on the selected theme.`
+        : "";
+
+      const prompt = `You are an AI productivity assistant. Transform the user's goal into a structured, actionable plan like Claude AI would format it - clear, organized, and visually appealing.${themeContext}
 
 User's ${existingActivity ? 'refinement request' : 'goal'}: "${goalText}"${prioritiesContext}${personalizationContext}${existingActivityContext}
 
@@ -1437,6 +1457,7 @@ For longer goals (like "2 months"), create milestone-based progression with spec
     userPriorities: any[] = [],
     userContext: string | null = null,
     existingActivity?: { title: string; tasks: Array<{ title: string; description?: string }> },
+    theme?: string,
     retryAttempt: number = 0
   ): Promise<GoalProcessingResult> {
     const MAX_RETRIES = 1; // Allow one retry for incomplete extractions
@@ -1466,6 +1487,24 @@ Current Tasks:
 ${existingActivity.tasks.map((task, idx) => `${idx + 1}. ${task.title}${task.description ? ` - ${task.description}` : ''}`).join('\n')}
 
 IMPORTANT: The user is asking you to MODIFY the above activity. Build upon the existing tasks - add, remove, or update tasks based on the user's request. Keep the activity title unless the user explicitly asks to change it. Your response should be a refined version of this existing plan, not a completely new one.`
+        : "";
+
+      // Theme context for focused planning
+      const themeDescriptions: Record<string, string> = {
+        'work': 'Work Focus - productivity, meetings, professional goals, career development',
+        'investment': 'Investment - trading, portfolio analysis, financial planning, wealth building, stock market research',
+        'spiritual': 'Spiritual - devotion, meditation, personal growth, scripture study, mindfulness',
+        'romance': 'Romance - date planning, relationship building, connection, quality time with partner',
+        'adventure': 'Adventure - exploration, outdoor activities, new experiences, travel, thrill-seeking',
+        'wellness': 'Health & Wellness - fitness, nutrition, self-care, exercise, mental health'
+      };
+
+      const themeContext = theme && themeDescriptions[theme]
+        ? `\n\n🎯 TODAY'S FOCUS THEME: ${themeDescriptions[theme]}
+IMPORTANT: The user has set "${themeDescriptions[theme].split(' - ')[0]}" as their focus theme for today.
+You MUST tailor the plan specifically to this theme. All tasks should align with and support this focus area.
+For example, if the theme is "Investment" and user says "plan my day", create tasks focused on investment activities like market research, portfolio review, trading strategies, financial reading, etc.
+Do NOT create a generic balanced day plan - focus specifically on the selected theme.`
         : "";
 
       // GROUNDING RULES FOR SOCIAL MEDIA CONTENT
@@ -1523,7 +1562,7 @@ NEVER skip any item. NEVER output fewer items than you counted.
         ? `"planTitle": "EXTRACT the actual title from the URL content - use the main headline, article title, or Instagram post topic (e.g., '18 Hot New Lagos Restaurants', 'Weekend Brunch Guide', 'Fitness Transformation Plan'). NEVER use 'Generated Plan', 'Plan from URL', or generic titles!",`
         : `"planTitle": "A catchy, concise title for this action plan (3-5 words)",`;
 
-      const prompt = `You are an AI productivity assistant. Transform the user's goal or intention into specific, actionable tasks with realistic time estimates.${groundingRules}
+      const prompt = `You are an AI productivity assistant. Transform the user's goal or intention into specific, actionable tasks with realistic time estimates.${groundingRules}${themeContext}
 
 User's ${existingActivity ? 'refinement request' : 'goal'}: "${goalText}"${prioritiesContext}${personalizationContext}${existingActivityContext}
 
@@ -1719,7 +1758,7 @@ Time Estimate Examples:
             // Retry with stronger emphasis on counting
             const retryGoalText = `${goalText}\n\n### CRITICAL RETRY INSTRUCTION ###\nThe previous extraction attempt only captured ${extractedCount} venues but there should be approximately ${estimatedVenueCount} venues in this content. COUNT EVERY SINGLE VENUE and include ALL of them in allExtractedVenues. Do NOT skip any.`;
             
-            return this.processGoalWithClaude(retryGoalText, userPriorities, userContext, existingActivity, retryAttempt + 1);
+            return this.processGoalWithClaude(retryGoalText, userPriorities, userContext, existingActivity, theme, retryAttempt + 1);
           }
           
           // Log warning if still below threshold after retries
@@ -1739,7 +1778,7 @@ Time Estimate Examples:
           if (retryAttempt < MAX_RETRIES) {
             console.warn(`[AISERVICE] RETRYING extraction [${requestId}]...`);
             const retryGoalText = `${goalText}\n\n### CRITICAL RETRY INSTRUCTION ###\nThe previous extraction attempt returned ZERO venues but there should be approximately ${estimatedVenueCount} venues in this content. COUNT EVERY SINGLE VENUE and include ALL of them in allExtractedVenues.`;
-            return this.processGoalWithClaude(retryGoalText, userPriorities, userContext, existingActivity, retryAttempt + 1);
+            return this.processGoalWithClaude(retryGoalText, userPriorities, userContext, existingActivity, theme, retryAttempt + 1);
           }
         }
       }

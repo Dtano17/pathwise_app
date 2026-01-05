@@ -3309,7 +3309,7 @@ ${sitemaps.map(sitemap => `  <sitemap>
   // Tasks are only created when user clicks "Create Activity" button
   app.post("/api/goals/process", async (req, res) => {
     try {
-      const { goalText, sessionId, activityId } = req.body;
+      const { goalText, sessionId, activityId, theme } = req.body;
       const userId = getUserId(req) || DEMO_USER_ID;
       
       if (!goalText || typeof goalText !== 'string') {
@@ -3341,7 +3341,7 @@ ${sitemaps.map(sitemap => `  <sitemap>
       }
       
       // Use AI to process the goal into tasks - switched to Claude as default
-      const result = await aiService.processGoalIntoTasks(goalText, 'claude', userId, existingActivity);
+      const result = await aiService.processGoalIntoTasks(goalText, 'claude', userId, existingActivity, theme);
       
       // Generate importId if goal contains URL and has extracted venues
       let importId: string | undefined;
