@@ -67,13 +67,14 @@ body {
   }
 }
 
-/* Android-specific: With fitsSystemWindows=true, Android system handles insets automatically */
-/* The WebView content area is already inset from status bar and navigation bar */
-/* We set padding to 0 to avoid double-insets */
+/* Android WebView loading remote URLs: Use CSS safe area variables.
+ * The --mobile-safe-top/bottom variables are set in main.tsx when Android WebView is detected.
+ * This ensures content stays within the device's display safe boundaries.
+ */
 body.platform-android {
-  /* System handles safe areas via fitsSystemWindows=true in MainActivity */
-  padding-top: 0;
-  padding-bottom: 0;
+  /* Use CSS safe area variables set by main.tsx for Android WebView */
+  padding-top: var(--mobile-safe-top, 0px);
+  padding-bottom: var(--mobile-safe-bottom, 0px);
 }
 
 /* Utility classes for safe area handling */
@@ -81,20 +82,20 @@ body.platform-android {
   padding-top: var(--safe-area-inset-top);
 }
 
-/* Android-specific safe top - no extra padding needed with fitsSystemWindows */
+/* Android-specific safe top - use CSS variables for remote URL WebViews */
 .platform-android .safe-top,
 body.platform-android .safe-top {
-  padding-top: 0;
+  padding-top: var(--mobile-safe-top, 0px);
 }
 
 .safe-bottom {
   padding-bottom: var(--safe-area-inset-bottom);
 }
 
-/* Android-specific safe bottom - no extra padding needed with fitsSystemWindows */
+/* Android-specific safe bottom - use CSS variables for remote URL WebViews */
 .platform-android .safe-bottom,
 body.platform-android .safe-bottom {
-  padding-bottom: 0;
+  padding-bottom: var(--mobile-safe-bottom, 0px);
 }
 
 .safe-left {
@@ -115,11 +116,11 @@ body.platform-android .safe-bottom {
   padding-bottom: var(--safe-area-inset-bottom);
 }
 
-/* Android-specific safe-y - no extra padding needed with fitsSystemWindows */
+/* Android-specific safe-y - use CSS variables for remote URL WebViews */
 .platform-android .safe-y,
 body.platform-android .safe-y {
-  padding-top: 0;
-  padding-bottom: 0;
+  padding-top: var(--mobile-safe-top, 0px);
+  padding-bottom: var(--mobile-safe-bottom, 0px);
 }
 
 .safe-all {
@@ -129,16 +130,37 @@ body.platform-android .safe-y {
   padding-right: var(--safe-area-inset-right);
 }
 
-/* Android-specific safe-all - no extra padding needed with fitsSystemWindows */
+/* Android-specific safe-all - use CSS variables for remote URL WebViews */
 .platform-android .safe-all,
 body.platform-android .safe-all {
-  padding-top: 0;
-  padding-bottom: 0;
+  padding-top: var(--mobile-safe-top, 0px);
+  padding-bottom: var(--mobile-safe-bottom, 0px);
 }
 
-/* Android with fitsSystemWindows=true: System handles safe areas automatically
- * No manual padding needed on content containers - removed the aggressive
- * padding rules that were causing content to be double-inset.
+/* Margin-based safe area utilities (for dialogs, modals that need spacing instead of padding) */
+.mt-safe {
+  margin-top: var(--safe-area-inset-top);
+}
+
+.mb-safe {
+  margin-bottom: var(--safe-area-inset-bottom);
+}
+
+/* Android-specific margin safe areas */
+.platform-android .mt-safe,
+body.platform-android .mt-safe {
+  margin-top: var(--mobile-safe-top, 0px);
+}
+
+.platform-android .mb-safe,
+body.platform-android .mb-safe {
+  margin-bottom: var(--mobile-safe-bottom, 0px);
+}
+
+/* Note: For Android WebViews loading remote URLs (like journalmate.ai),
+ * safe areas are handled via CSS variables set in main.tsx.
+ * The variables --mobile-safe-top and --mobile-safe-bottom are
+ * set when Android WebView is detected via User Agent.
  */
 
 /* LIGHT MODE */

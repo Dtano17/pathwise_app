@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Bell, BellOff, Clock, Settings, AlertTriangle } from 'lucide-react';
+import { Bell, BellOff, Clock, Settings, AlertTriangle, Smartphone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { type NotificationPreferences } from '@shared/schema';
+import { isNative } from '@/lib/platform';
+import { initializePushNotifications } from '@/lib/pushNotifications';
 
 interface NotificationManagerProps {
   userId: string;
@@ -54,22 +56,44 @@ export default function NotificationManager({ userId, compact = false }: Notific
     }
   });
 
-  // Request browser notification permission
+  // Request notification permission (push on mobile, browser on web)
   const requestPermission = async () => {
+    // For native mobile apps, use push notifications
+    if (isNative()) {
+      try {
+        await initializePushNotifications(userId);
+        setNotificationPermission('granted');
+        toast({
+          title: "Push Notifications Enabled",
+          description: "You'll now receive push notifications for your tasks!",
+        });
+        updatePreferencesMutation.mutate({ enableBrowserNotifications: true });
+      } catch (error) {
+        console.error('Error initializing push notifications:', error);
+        toast({
+          title: "Permission Error",
+          description: "Failed to enable push notifications. Please check your device settings.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
+    // For web browser, use browser notifications
     if ('Notification' in window && Notification.permission === 'default') {
       try {
         const permission = await Notification.requestPermission();
         setNotificationPermission(permission);
-        
+
         if (permission === 'granted') {
           toast({
             title: "Notifications Enabled",
             description: "You'll now receive browser notifications for your tasks!",
           });
-          
+
           // Update preferences to enable notifications
           updatePreferencesMutation.mutate({ enableBrowserNotifications: true });
-          
+
           // Send test notification
           new Notification('JournalMate', {
             body: 'Notifications are now enabled! You\'ll get reminders for your tasks.',
@@ -127,17 +151,18 @@ export default function NotificationManager({ userId, compact = false }: Notific
 
   // Compact version for sidebar
   if (compact) {
+    const notificationLabel = isNative() ? 'Push' : 'Browser';
     return (
       <div className="space-y-2">
-        {/* Browser Permission Status */}
+        {/* Notification Permission Status - shows "Push" on mobile, "Browser" on web */}
         <div className="flex items-center justify-between">
-          <span className="text-sm">Browser</span>
+          <span className="text-sm">{notificationLabel}</span>
           {notificationPermission === 'granted' ? (
             <Badge variant="default" className="text-xs">On</Badge>
           ) : (
-            <Button 
-              size="sm" 
-              variant="outline" 
+            <Button
+              size="sm"
+              variant="outline"
               onClick={requestPermission}
               className="h-6 text-xs px-2"
             >
@@ -179,14 +204,17 @@ export default function NotificationManager({ userId, compact = false }: Notific
     );
   }
 
+  const notificationTypeLabel = isNative() ? 'Push Notifications' : 'Browser Notifications';
+  const NotificationIcon = isNative() ? Smartphone : Bell;
+
   return (
     <div className="space-y-6">
-      {/* Browser Notification Permission */}
+      {/* Push/Browser Notification Permission */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Bell className="w-5 h-5" />
-            Browser Notifications
+            <NotificationIcon className="w-5 h-5" />
+            {notificationTypeLabel}
           </CardTitle>
           <CardDescription>
             Get instant notifications for task reminders and deadlines

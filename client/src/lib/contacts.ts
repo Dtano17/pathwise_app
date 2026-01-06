@@ -242,32 +242,39 @@ function transformContact(contact: Contact): SimpleContact | null {
 }
 
 /**
- * Sync contacts with backend for friend suggestions
- * (Privacy note: Only send hashed contact info to server)
+ * Sync contacts with backend to store and display in app
+ * Sends actual contact data (name, emails, phones) for storage
  */
-export async function syncContactsWithServer(contacts: SimpleContact[]): Promise<void> {
+export async function syncContactsWithServer(contacts: SimpleContact[]): Promise<{ syncedCount: number }> {
   try {
-    // Hash contact info for privacy
-    const hashedContacts = contacts.map((contact) => ({
-      id: hashString(contact.id),
-      phoneHashes: contact.phoneNumbers?.map(hashString) || [],
-      emailHashes: contact.emails?.map((e) => hashString(e.toLowerCase())) || [],
+    // Transform contacts to the format expected by the backend (syncContactsSchema)
+    const formattedContacts = contacts.map((contact) => ({
+      name: contact.displayName,
+      emails: contact.emails || [],
+      tel: contact.phoneNumbers || [],
     }));
 
-    // Send to server for friend matching
+    console.log('[CONTACTS] Syncing contacts with server:', formattedContacts.length);
+
+    // Send to server for storage
     const response = await fetch('/api/contacts/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contacts: hashedContacts }),
+      credentials: 'include',
+      body: JSON.stringify({ contacts: formattedContacts }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to sync contacts');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to sync contacts');
     }
 
-    console.log('Contacts synced successfully');
+    const result = await response.json();
+    console.log('[CONTACTS] Contacts synced successfully:', result);
+    return { syncedCount: result.syncedCount || 0 };
   } catch (error) {
-    console.error('Failed to sync contacts:', error);
+    console.error('[CONTACTS] Failed to sync contacts:', error);
+    throw error;
   }
 }
 

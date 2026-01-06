@@ -6,4 +6,6 @@
     <string name="custom_url_scheme">ai.journalmate.app</string>
     <!-- Google OAuth Web Client ID from Google Cloud Console -->
     <string name="server_client_id">481740120979-76fs0ru0uikj5o33mr87vhua8c54657f.apps.googleusercontent.com</string>
+    <!-- Widget -->
+    <string name="widget_description">Quick access to JournalMate - tap to plan your day</string>
 </resources>

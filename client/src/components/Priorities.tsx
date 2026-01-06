@@ -153,7 +153,7 @@ export default function Priorities() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-3 sm:px-0">
       <div className="text-center px-2">
         <h2 className="text-xl sm:text-2xl font-bold mb-2 flex items-center justify-center gap-2">
           <Target className="w-5 h-5 sm:w-6 sm:h-6" />

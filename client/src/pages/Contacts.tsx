@@ -126,7 +126,7 @@ export default function Contacts() {
     try {
       // Get contacts from device using Capacitor
       const phoneContacts = await getContacts();
-      
+
       if (phoneContacts.length === 0) {
         toast({
           title: "No Contacts Found",
@@ -135,14 +135,16 @@ export default function Contacts() {
         });
         return;
       }
-      
-      // Sync with server
-      await syncContactsWithServer(phoneContacts);
+
+      // Sync with server - this stores the contacts in the database
+      const result = await syncContactsWithServer(phoneContacts);
+
+      // Refresh the contacts list to show newly synced contacts
       queryClient.invalidateQueries({ queryKey: ['/api/contacts'] });
-      
+
       toast({
         title: "Contacts Imported!",
-        description: `Successfully imported ${phoneContacts.length} contacts from your device.`,
+        description: `Successfully imported ${result.syncedCount} contacts from your device.`,
       });
     } catch (error: any) {
       console.error('Contact sync error:', error);

@@ -6,7 +6,16 @@
  */
 
 import { Share, ShareResult } from '@capacitor/share';
-import { isNative, isIOS } from './platform';
+import { registerPlugin } from '@capacitor/core';
+import { isNative, isIOS, isAndroid } from './platform';
+
+// Define the SharePlugin interface for our custom Android plugin
+interface SharePluginInterface {
+  getPendingShare(): Promise<{ hasData: boolean; data: string | null }>;
+}
+
+// Register our custom SharePlugin (defined in MainActivity.java)
+const SharePlugin = registerPlugin<SharePluginInterface>('SharePlugin');
 
 // Import the share extension plugin for iOS
 let ShareExtension: any = null;
@@ -305,10 +314,12 @@ export function initIncomingShareListener(): void {
     }
   }
 
-  // Android: Check for cold start share data
-  if (!isIOS() && (window as any).Capacitor?.Plugins?.SharePlugin) {
-    (window as any).Capacitor.Plugins.SharePlugin.getPendingShare()
-      .then((result: any) => {
+  // Android: Check for cold start share data using our registered SharePlugin
+  if (isAndroid()) {
+    console.log('[SHARE ANDROID] Checking for cold start share data...');
+    SharePlugin.getPendingShare()
+      .then((result) => {
+        console.log('[SHARE ANDROID] getPendingShare result:', result);
         if (result.hasData && result.data) {
           try {
             const shareData = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
@@ -317,6 +328,8 @@ export function initIncomingShareListener(): void {
           } catch (error) {
             console.error('[SHARE ANDROID] Failed to parse cold start share:', error);
           }
+        } else {
+          console.log('[SHARE ANDROID] No pending share data found');
         }
       })
       .catch((error: any) => {
@@ -325,15 +338,20 @@ export function initIncomingShareListener(): void {
   }
 
   // Android: Listen for 'incomingShare' events from MainActivity (hot start)
+  // MainActivity dispatches CustomEvent with share data in event.detail (already parsed JSON object)
   window.addEventListener('incomingShare', (event: any) => {
+    console.log('[SHARE ANDROID] incomingShare event received');
+    console.log('[SHARE ANDROID] event.detail:', event.detail);
     try {
-      // MainActivity sends JSON string via CustomEvent - must parse it
-      const rawData = event.detail || event;
-      const shareData = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-      console.log('[SHARE ANDROID] Received hot start share:', shareData);
-      setPendingShareData(shareData);
+      const shareData = event.detail;
+      if (shareData && (shareData.text || shareData.files || shareData.url || shareData.type)) {
+        console.log('[SHARE ANDROID] Valid hot start share received:', shareData);
+        setPendingShareData(shareData);
+      } else {
+        console.log('[SHARE ANDROID] Invalid or empty share data:', shareData);
+      }
     } catch (error) {
-      console.error('[SHARE ANDROID] Failed to parse hot start share:', error);
+      console.error('[SHARE ANDROID] Failed to process hot start share:', error);
     }
   });
 

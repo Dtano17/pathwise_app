@@ -12,6 +12,6 @@
     <color name="statusBarColor">#0f0f23</color>
     <color name="navigationBarColor">#0f0f23</color>
 
-    <!-- Splash screen background -->
-    <color name="splashBackground">#6C5CE7</color>
+    <!-- Splash screen background - dark navy to match app theme -->
+    <color name="splashBackground">#0a0a1a</color>
 </resources>

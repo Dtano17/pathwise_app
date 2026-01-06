@@ -482,8 +482,27 @@ public class MainActivity extends BridgeActivity {
     
     private void notifyBridge(String shareJson) {
         // Only notify if bridge is ready (app in foreground)
-        if (this.getBridge() != null) {
-            this.getBridge().triggerJSEvent("incomingShare", shareJson);
+        if (this.getBridge() != null && this.getBridge().getWebView() != null) {
+            android.util.Log.d("MainActivity", "[SHARE] Notifying bridge with share data: " + shareJson);
+            runOnUiThread(() -> {
+                try {
+                    // Dispatch a CustomEvent with the share data in the detail property
+                    String js = String.format(
+                        "(function() { " +
+                        "  var event = new CustomEvent('incomingShare', { detail: %s }); " +
+                        "  window.dispatchEvent(event); " +
+                        "  console.log('[MainActivity] incomingShare event dispatched with detail:', %s); " +
+                        "})();",
+                        shareJson, shareJson
+                    );
+                    this.getBridge().getWebView().evaluateJavascript(js, null);
+                    android.util.Log.d("MainActivity", "[SHARE] JavaScript event dispatched successfully");
+                } catch (Exception e) {
+                    android.util.Log.e("MainActivity", "[SHARE] Failed to dispatch JS event: " + e.getMessage());
+                }
+            });
+        } else {
+            android.util.Log.d("MainActivity", "[SHARE] Bridge not ready, share data stored for cold start retrieval");
         }
     }
     

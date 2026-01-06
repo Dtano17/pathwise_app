@@ -679,7 +679,7 @@ export function SharePreviewDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[90vh] w-[95vw] md:w-[85vw] lg:w-[70vw] p-4 sm:p-6 flex flex-col overflow-hidden">
+        <DialogContent className="max-w-3xl max-h-[85vh] w-[95vw] md:w-[85vw] lg:w-[70vw] p-4 sm:p-6 mt-safe mb-safe flex flex-col overflow-hidden">
           <DialogHeader className="space-y-2 flex-shrink-0">
             <div className="flex items-start justify-between gap-2">
               <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl flex-1">
