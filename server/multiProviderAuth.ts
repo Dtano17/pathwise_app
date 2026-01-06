@@ -493,10 +493,15 @@ export async function setupMultiProviderAuth(app: Express) {
       req.session.returnTo = returnTo;
     }
     // Store mobile flag for deep link redirect after OAuth
-    if (req.query.mobile === 'true') {
-      req.session.mobileAuth = true;
-    }
-    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+    const state = Buffer.from(JSON.stringify({
+      mobile: req.query.mobile === 'true',
+      returnTo: (req.query.returnTo as string) || '/'
+    })).toString('base64');
+
+    passport.authenticate('google', { 
+      scope: ['profile', 'email'],
+      state: state
+    })(req, res, next);
   });
 
   app.get('/api/auth/google/callback', (req: any, res, next) => {
@@ -536,11 +541,22 @@ export async function setupMultiProviderAuth(app: Express) {
     async (req: any, res) => {
       const user = req.user as OAuthUser;
       console.log('[Google OAuth] Callback successful, user:', user);
-      console.log('[Google OAuth] Session ID before regenerate:', req.sessionID);
+      
+      // Parse state parameter to recover mobile flag and returnTo
+      let isMobileAuth = false;
+      let returnTo = '/';
+      try {
+        if (req.query.state) {
+          const stateData = JSON.parse(Buffer.from(req.query.state as string, 'base64').toString());
+          isMobileAuth = stateData.mobile === true;
+          returnTo = stateData.returnTo || '/';
+          console.log('[Google OAuth] State parsed:', stateData);
+        }
+      } catch (e) {
+        console.error('[Google OAuth] Could not parse state, using defaults');
+      }
 
-      // Get returnTo and mobile flag from session before regenerating
-      const returnTo = req.session.returnTo || '/';
-      const isMobileAuth = req.session.mobileAuth === true;
+      console.log('[Google OAuth] Session ID before regenerate:', req.sessionID);
 
       // Regenerate session to prevent session fixation and ensure proper cookie setup
       req.session.regenerate(async (regenerateErr: any) => {
