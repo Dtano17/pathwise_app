@@ -84,9 +84,9 @@ export function AuthHandler() {
         description: `Successfully signed in${provider ? ` with ${formatProvider(provider)}` : ''}.`,
       });
 
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, '', cleanUrl);
-      window.location.reload();
+      // Redirect directly to /app instead of reloading
+      // This avoids race conditions with auth state detection on the landing page
+      window.location.href = '/app';
     } else if (authStatus === 'error') {
       const errorMessage = getErrorMessage(provider);
       toast({
