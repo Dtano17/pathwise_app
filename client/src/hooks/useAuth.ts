@@ -28,8 +28,8 @@ export function useAuth() {
   const { data: user, isLoading, error, refetch } = useQuery<User | null>({
     queryKey: ['/api/user'],
     queryFn: async () => {
-      // For true Capacitor local apps, use token-based auth
-      // Android WebViews loading remote URLs use session cookies instead
+      // For true Capacitor local apps, try token-based auth first
+      // If no token, fall through to session-based auth (for web OAuth flows)
       if (shouldUseNativeTokenAuth()) {
         const authToken = await getStoredAuthToken();
         if (authToken) {
@@ -46,12 +46,12 @@ export function useAuth() {
               return { ...data.user, authenticated: true };
             }
           }
-          // Token invalid or expired - clear it
-          console.log('[AUTH] Token invalid or expired');
-          return null;
+          // Token invalid or expired - clear it and fall through to session auth
+          console.log('[AUTH] Token invalid or expired, falling through to session auth');
+        } else {
+          console.log('[AUTH] No native token stored, falling through to session auth');
         }
-        // No token stored
-        return null;
+        // Fall through to session-based auth below
       }
 
       // Web platform or Android WebView loading remote URL - use session cookie
