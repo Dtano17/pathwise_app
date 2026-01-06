@@ -9,6 +9,7 @@
  */
 
 import { isNative, getPlatform as getPlatformFromLib } from './platform';
+import { Capacitor } from '@capacitor/core';
 
 /**
  * Production API base URL - used when running on native platforms
@@ -55,8 +56,7 @@ export function isNativePlatform(): boolean {
 
 /**
  * Check if we're running in a true Capacitor local app (not WebView loading remote URL)
- * True Capacitor apps load from localhost or capacitor:// scheme and use token-based auth.
- * Android WebView apps loading remote URLs should use session cookie auth instead.
+ * True Capacitor apps load from localhost or capacitor:// scheme.
  */
 export function isCapacitorLocalApp(): boolean {
   const url = document.URL || window.location.href;
@@ -66,15 +66,54 @@ export function isCapacitorLocalApp(): boolean {
 }
 
 /**
+ * Check if we're running in a Capacitor environment (WebView with native bridge)
+ * This is true even when loading remote URLs like journalmate.ai
+ */
+export function isCapacitorEnvironment(): boolean {
+  // Check if Capacitor bridge is available
+  const hasCapacitorWindow = typeof (window as any).Capacitor !== 'undefined';
+  if (hasCapacitorWindow) {
+    console.log('[API] isCapacitorEnvironment: detected window.Capacitor');
+    return true;
+  }
+  // Fallback: check user agent for Android WebView markers
+  if (typeof navigator !== 'undefined') {
+    const ua = navigator.userAgent.toLowerCase();
+    const isAndroid = ua.includes('android');
+    const hasWvMarker = ua.includes('wv') || ua.includes('webview');
+    console.log('[API] isCapacitorEnvironment UA check:', { isAndroid, hasWvMarker, ua: ua.substring(0, 100) });
+    if (isAndroid && hasWvMarker) {
+      return true;
+    }
+  }
+  console.log('[API] isCapacitorEnvironment: NOT in Capacitor environment');
+  return false;
+}
+
+/**
+ * Check if native Google Auth plugin is available
+ */
+export function isNativeGoogleAuthAvailable(): boolean {
+  try {
+    const available = Capacitor.isPluginAvailable('GoogleAuth');
+    console.log('[API] isNativeGoogleAuthAvailable:', available);
+    return available;
+  } catch (e) {
+    console.log('[API] isNativeGoogleAuthAvailable error:', e);
+    return false;
+  }
+}
+
+/**
  * Check if the app should use native token-based authentication
- * Only true Capacitor local apps should use token auth.
- * WebViews loading remote URLs use session cookies instead.
+ * True when running in Capacitor environment with GoogleAuth plugin available.
+ * This enables native Google Sign-In even when loading remote URLs in WebView.
  */
 export function shouldUseNativeTokenAuth(): boolean {
-  const native = isNative();
-  const localApp = isCapacitorLocalApp();
-  const result = native && localApp;
-  console.log('[API] shouldUseNativeTokenAuth:', { native, localApp, result, url: document.URL });
+  const inCapacitor = isCapacitorEnvironment();
+  const hasGoogleAuth = isNativeGoogleAuthAvailable();
+  const result = inCapacitor && hasGoogleAuth;
+  console.log('[API] shouldUseNativeTokenAuth:', { inCapacitor, hasGoogleAuth, result });
   return result;
 }
 
@@ -143,6 +182,8 @@ export default {
   apiPost,
   isNativePlatform,
   isCapacitorLocalApp,
+  isCapacitorEnvironment,
+  isNativeGoogleAuthAvailable,
   shouldUseNativeTokenAuth,
   getPlatform,
 };

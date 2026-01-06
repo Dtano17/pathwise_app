@@ -9,9 +9,9 @@
  */
 
 import { Preferences } from '@capacitor/preferences';
-import { registerPlugin } from '@capacitor/core';
+import { registerPlugin, Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
-import { apiUrl } from './api';
+import { apiUrl, isCapacitorEnvironment, isNativeGoogleAuthAvailable } from './api';
 import { isNative } from './platform';
 
 // Storage key for auth token
@@ -76,39 +76,24 @@ export interface NativeAuthResult {
  * Initialize Google Auth plugin
  * Call this early in app lifecycle (e.g., in App.tsx or main.tsx)
  *
- * NOTE: When app loads a remote URL (like https://journalmate.ai), we use
- * browser-based OAuth instead of native Google Sign-In. The native plugin
- * requires a clientId that isn't available when loading remote content.
+ * Works for both Capacitor local apps AND Android WebView loading remote URLs,
+ * as long as the GoogleAuth plugin is available.
  */
-/**
- * Check if we're running in a true Capacitor environment (not just Android WebView loading remote URL)
- * True Capacitor apps load from localhost or capacitor:// scheme
- */
-function isCapacitorLocalApp(): boolean {
-  const url = document.URL || window.location.href;
-  return url.startsWith('https://localhost') ||
-         url.startsWith('http://localhost') ||
-         url.startsWith('capacitor://');
-}
-
 export async function initializeGoogleAuth(): Promise<void> {
-  console.log('[GOOGLE_AUTH] initializeGoogleAuth called, isNative:', isNative(), 'isCapacitorLocal:', isCapacitorLocalApp());
+  const inCapacitor = isCapacitorEnvironment();
+  const hasGoogleAuth = isNativeGoogleAuthAvailable();
 
-  if (!isNative()) {
-    console.log('[GOOGLE_AUTH] Skipping initialization on web platform');
+  console.log('[GOOGLE_AUTH] initializeGoogleAuth called, inCapacitor:', inCapacitor, 'hasGoogleAuth:', hasGoogleAuth);
+
+  // Initialize if we're in a Capacitor environment with GoogleAuth plugin available
+  if (!inCapacitor || !hasGoogleAuth) {
+    console.log('[GOOGLE_AUTH] Skipping initialization - not in Capacitor or plugin unavailable');
     return;
   }
 
-  // Only initialize native GoogleAuth for true Capacitor apps (loading from localhost/capacitor://)
-  // Android WebView apps loading remote URLs should use browser OAuth instead
-  if (!isCapacitorLocalApp()) {
-    console.log('[GOOGLE_AUTH] Skipping native initialization - remote URL detected, using browser OAuth flow');
-    return;
-  }
-
-  // True Capacitor app - initialize native Google Sign-In
+  // Capacitor environment with GoogleAuth plugin - initialize native Google Sign-In
   try {
-    console.log('[GOOGLE_AUTH] Initializing native Google Sign-In for Capacitor app');
+    console.log('[GOOGLE_AUTH] Initializing native Google Sign-In');
     await GoogleAuth.initialize({
       scopes: ['profile', 'email'],
       grantOfflineAccess: true,
@@ -163,17 +148,26 @@ async function openBrowserAuth(): Promise<NativeAuthResult> {
  * On web, redirects to the web OAuth flow
  */
 export async function signInWithGoogleNative(): Promise<NativeAuthResult> {
-  console.log('[GOOGLE_AUTH] signInWithGoogleNative called, isNative:', isNative());
+  const inCapacitor = isCapacitorEnvironment();
+  const hasGoogleAuth = isNativeGoogleAuthAvailable();
+  const native = isNative();
 
-  // On web, just redirect to OAuth flow
-  if (!isNative()) {
-    console.log('[GOOGLE_AUTH] Redirecting to web OAuth flow');
+  console.log('[GOOGLE_AUTH] signInWithGoogleNative called:', {
+    isNative: native,
+    inCapacitor,
+    hasGoogleAuth,
+    url: document.URL?.substring(0, 50)
+  });
+
+  // On web (not in Capacitor), just redirect to OAuth flow
+  if (!native && !inCapacitor) {
+    console.log('[GOOGLE_AUTH] Redirecting to web OAuth flow (not native/Capacitor)');
     window.location.href = '/api/auth/google';
     return { success: false, error: 'Redirecting to web OAuth' };
   }
 
   try {
-    console.log('[GOOGLE_AUTH] Starting native sign-in...');
+    console.log('[GOOGLE_AUTH] Starting native sign-in via GoogleAuth.signIn()...');
 
     // Trigger native Google Sign-In dialog
     const result = await GoogleAuth.signIn();
@@ -229,9 +223,16 @@ export async function signInWithGoogleNative(): Promise<NativeAuthResult> {
     };
   } catch (error: any) {
     console.error('[GOOGLE_AUTH] Native sign-in failed:', error);
+    console.error('[GOOGLE_AUTH] Error details:', {
+      message: error.message,
+      code: error.code,
+      name: error.name,
+      stack: error.stack?.substring(0, 200)
+    });
 
     // Check for user cancellation - don't fallback for intentional cancellation
     if (error.message?.includes('cancel') || error.code === 'SIGN_IN_CANCELLED') {
+      console.log('[GOOGLE_AUTH] User cancelled sign-in');
       return { success: false, error: 'Sign-in cancelled by user' };
     }
 
@@ -240,7 +241,7 @@ export async function signInWithGoogleNative(): Promise<NativeAuthResult> {
     // 1. Native plugin isn't configured properly
     // 2. Google Play Services isn't available
     // 3. SHA-1 fingerprint mismatch
-    console.log('[GOOGLE_AUTH] Falling back to browser OAuth...');
+    console.log('[GOOGLE_AUTH] Falling back to browser OAuth due to native failure...');
     return openBrowserAuth();
   }
 }
