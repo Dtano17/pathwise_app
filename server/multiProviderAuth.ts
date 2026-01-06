@@ -493,9 +493,10 @@ export async function setupMultiProviderAuth(app: Express) {
       req.session.returnTo = returnTo;
     }
     // Store mobile flag for deep link redirect after OAuth
+    // Default to /app instead of / to avoid auth detection race conditions
     const state = Buffer.from(JSON.stringify({
       mobile: req.query.mobile === 'true',
-      returnTo: (req.query.returnTo as string) || '/'
+      returnTo: (req.query.returnTo as string) || '/app'
     })).toString('base64');
 
     passport.authenticate('google', { 
@@ -507,14 +508,14 @@ export async function setupMultiProviderAuth(app: Express) {
   app.get('/api/auth/google/callback', (req: any, res, next) => {
     // Check if user is already authenticated (duplicate callback protection)
     if (req.isAuthenticated() && req.user) {
-      console.log('[Google OAuth] User already authenticated, redirecting without re-auth');
-      return res.redirect('/?auth=success&provider=google');
+      console.log('[Google OAuth] User already authenticated, redirecting to app');
+      return res.redirect('/app');
     }
 
     // Check if this is a duplicate request without a code (already processed)
     if (!req.query.code && !req.query.error) {
-      console.log('[Google OAuth] No code in callback, redirecting to home');
-      return res.redirect('/');
+      console.log('[Google OAuth] No code in callback, redirecting to app');
+      return res.redirect('/app');
     }
 
     // Duplicate OAuth code protection: OAuth codes are single-use
@@ -522,8 +523,8 @@ export async function setupMultiProviderAuth(app: Express) {
     const oauthCode = req.query.code as string;
     if (oauthCode) {
       if (processedOAuthCodes.has(oauthCode)) {
-        console.log('[Google OAuth] Duplicate OAuth code detected, redirecting to success');
-        return res.redirect('/?auth=success&provider=google');
+        console.log('[Google OAuth] Duplicate OAuth code detected, redirecting to app');
+        return res.redirect('/app');
       }
       // Mark this code as being processed
       processedOAuthCodes.add(oauthCode);
@@ -544,12 +545,12 @@ export async function setupMultiProviderAuth(app: Express) {
       
       // Parse state parameter to recover mobile flag and returnTo
       let isMobileAuth = false;
-      let returnTo = '/';
+      let returnTo = '/app';
       try {
         if (req.query.state) {
           const stateData = JSON.parse(Buffer.from(req.query.state as string, 'base64').toString());
           isMobileAuth = stateData.mobile === true;
-          returnTo = stateData.returnTo || '/';
+          returnTo = stateData.returnTo || '/app';
           console.log('[Google OAuth] State parsed:', stateData);
         }
       } catch (e) {
@@ -592,9 +593,10 @@ export async function setupMultiProviderAuth(app: Express) {
             }
           }
 
-          // Append auth success parameter for web
-          const separator = returnTo.includes('?') ? '&' : '?';
-          const redirectUrl = `${returnTo}${separator}auth=success&provider=google`;
+          // Redirect authenticated users to returnTo or /app by default
+          // Use /app as default instead of / to avoid auth detection race conditions
+          const finalRedirect = returnTo === '/' ? '/app' : returnTo;
+          const redirectUrl = finalRedirect;
 
           // Explicitly save session before redirecting
           req.session.save((saveErr: any) => {
