@@ -1465,9 +1465,9 @@ export function SharePreviewDialog({
 
             {/* Tab 2: Download Cards */}
             <TabsContent value="download-cards" className="flex flex-col py-0 focus-visible:outline-none focus-visible:ring-0 flex-1 min-h-0 overflow-hidden">
-              <div className="flex-1 min-h-0 overflow-auto pr-4">
-                <div className="w-full -mx-4 px-4 sm:mx-0 sm:px-0">
-                  <div className="sm:max-w-2xl sm:mx-auto space-y-6 py-4">
+              <div className="flex-1 min-h-0 overflow-auto px-4 sm:px-4">
+                <div className="w-full">
+                  <div className="max-w-full sm:max-w-2xl mx-auto space-y-6 py-4">
                     {!backdropLoaded ? (
                       <div className="flex flex-col items-center justify-center py-12 gap-4">
                         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -1492,7 +1492,7 @@ export function SharePreviewDialog({
 
             {/* Tab 3: Social Verification */}
             <TabsContent value="social-verify" className="flex flex-col py-4 flex-1 min-h-0 overflow-hidden">
-              <div className="flex-1 min-h-0 overflow-auto pr-4">
+              <div className="flex-1 min-h-0 overflow-auto px-4 sm:px-4">
                 <SocialVerificationTab
                   activityId={activity.id}
                   existingLinks={socialLinks}

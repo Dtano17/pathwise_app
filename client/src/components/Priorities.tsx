@@ -153,26 +153,26 @@ export default function Priorities() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-3 sm:px-0">
-      <div className="text-center px-2">
+    <div className="space-y-4 sm:space-y-6 px-4 sm:px-0 w-full max-w-full overflow-hidden">
+      <div className="text-center">
         <h2 className="text-xl sm:text-2xl font-bold mb-2 flex items-center justify-center gap-2">
           <Target className="w-5 h-5 sm:w-6 sm:h-6" />
           Life Priorities
         </h2>
-        <p className="text-sm sm:text-base text-muted-foreground">
+        <p className="text-sm sm:text-base text-muted-foreground px-2">
           Define your core values and priorities to help AI create more meaningful and aligned action plans
         </p>
       </div>
 
       {/* Priority Categories Overview */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-3 w-full">
         {priorityCategories.map((category) => {
           const Icon = category.icon;
           const count = priorities.filter(p => p.category === category.id).length;
           return (
-            <Card key={category.id} className="p-2 sm:p-3 text-center hover-elevate">
+            <Card key={category.id} className="p-3 sm:p-3 text-center hover-elevate min-w-0 overflow-hidden">
               <Icon className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-1 sm:mb-2 text-muted-foreground" />
-              <p className="text-xs sm:text-sm font-medium break-words">{category.name}</p>
+              <p className="text-xs sm:text-sm font-medium break-words hyphens-auto leading-tight">{category.name}</p>
               <Badge variant="outline" className="text-xs mt-1">
                 {count} {count === 1 ? 'priority' : 'priorities'}
               </Badge>
