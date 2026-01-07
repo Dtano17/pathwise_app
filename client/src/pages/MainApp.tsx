@@ -401,16 +401,30 @@ export default function MainApp({
   } | null>(null);
 
   // Onboarding tutorial state
-  const [showTutorial, setShowTutorial] = useState(() => {
-    // Check if tutorial has been completed
-    const completed = localStorage.getItem("journalmate_tutorial_completed");
-    return completed !== "true";
+  const { data: userData } = useQuery({
+    queryKey: ["/api/user"],
   });
 
-  const handleTutorialComplete = () => {
-    localStorage.setItem("journalmate_tutorial_completed", "true");
-    setShowTutorial(false);
-  };
+  const [showTutorial, setShowTutorial] = useState(false);
+
+  useEffect(() => {
+    const handleOpenTutorial = () => setShowTutorial(true);
+    window.addEventListener('open-tutorial', handleOpenTutorial);
+    return () => window.removeEventListener('open-tutorial', handleOpenTutorial);
+  }, []);
+
+  useEffect(() => {
+    if (userData) {
+      const isDemo = userData.id === "demo-user";
+      const completed = isDemo 
+        ? localStorage.getItem("demo-tutorial-completed") === "true"
+        : userData.tutorialCompleted;
+      
+      if (!completed) {
+        setShowTutorial(true);
+      }
+    }
+  }, [userData]);
 
   // Upgrade modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -1613,6 +1627,7 @@ export default function MainApp({
 
   const handleTutorialComplete = () => {
     completeTutorialMutation.mutate();
+    setShowTutorial(false);
   };
 
   // Create activity from plan mutation
