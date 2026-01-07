@@ -640,20 +640,6 @@ export function AppSidebar({
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          const event = new CustomEvent('open-tutorial');
-                          window.dispatchEvent(event);
-                        }}
-                        className="w-full justify-start gap-2"
-                        data-testid="button-app-tutorial"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        App Tutorial
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
                           setModalTab('profile');
                           setIsModalOpen(true);
                         }}

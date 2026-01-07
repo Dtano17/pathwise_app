@@ -4811,7 +4811,12 @@ export default function MainApp({
       {/* Onboarding Tutorial */}
       <OnboardingTutorial
         open={showTutorial}
-        onOpenChange={setShowTutorial}
+        onOpenChange={(open) => {
+          if (!open) {
+            sessionStorage.setItem("tutorial-dismissed", "true");
+          }
+          setShowTutorial(open);
+        }}
         onComplete={handleTutorialComplete}
       />
 
