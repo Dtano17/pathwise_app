@@ -31,14 +31,19 @@ const isAndroidWebView = (): boolean => {
                       document.URL.startsWith('http://localhost') ||
                       document.URL.startsWith('capacitor://');
 
+  // Check for production app URL loaded in WebView
+  const isProductionApp = document.URL.includes('journalmate.ai');
+
   // Check if Capacitor bridge is injected (works even with remote URLs)
-  const hasCapacitorBridge = !!(window as any).Capacitor?.isNativePlatform;
+  // Call the function to verify it's actually a native platform
+  const hasCapacitorBridge = !!(window as any).Capacitor?.isNativePlatform?.();
 
   // Also check if running inside a mobile app by looking at window properties
   // Capacitor sets window.Capacitor when injected
   const hasCapacitorWindow = typeof (window as any).Capacitor !== 'undefined';
 
-  return isAndroid && (hasWvMarker || hasWebViewMarker || hasCapacitor || isLocalhost || hasCapacitorBridge || hasCapacitorWindow);
+  // If we detect Android AND any WebView/Capacitor indicator, we're in native
+  return isAndroid && (hasWvMarker || hasWebViewMarker || hasCapacitor || isLocalhost || isProductionApp || hasCapacitorBridge || hasCapacitorWindow);
 };
 
 /**
@@ -51,11 +56,20 @@ const isIOSWebView = (): boolean => {
   const ua = navigator.userAgent.toLowerCase();
   // Check for iOS WebView indicators
   const isIOS = /iphone|ipad|ipod/.test(ua);
+
+  // Check for production app URL loaded in WebView
+  const isProductionApp = document.URL.includes('journalmate.ai');
+
+  // Check if Capacitor window object exists
+  const hasCapacitorWindow = typeof (window as any).Capacitor !== 'undefined';
+
   return isIOS && (
     document.URL.startsWith('capacitor://') ||
     document.URL.startsWith('ionic://') ||
     // Standalone mode (added to home screen)
-    (window.navigator as any).standalone === true
+    (window.navigator as any).standalone === true ||
+    // Production app in WebView
+    (isProductionApp && hasCapacitorWindow)
   );
 };
 

@@ -1,18 +1,35 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { 
-  Bell, 
-  Calendar, 
-  Settings as SettingsIcon, 
+import { isNative, isAndroid } from '@/lib/platform';
+import {
+  requestNotificationPermission,
+  checkNotificationPermission,
+  showLocalNotification
+} from '@/lib/notifications';
+import {
+  requestContactsPermission,
+  getContacts,
+  syncContactsWithServer
+} from '@/lib/contacts';
+import {
+  requestCalendarPermission,
+  addActivityToCalendar,
+  openCalendarApp
+} from '@/lib/calendar';
+import {
+  Bell,
+  Calendar,
+  Settings as SettingsIcon,
   Smartphone,
   Clock,
   Zap,
@@ -21,7 +38,11 @@ import {
   Globe,
   CreditCard,
   Crown,
-  BookmarkCheck
+  BookmarkCheck,
+  Loader2,
+  Users,
+  CalendarPlus,
+  LayoutGrid
 } from 'lucide-react';
 
 interface UserPreferences {
@@ -63,6 +84,12 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
     return today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
   });
   const [browserNotificationsEnabled, setBrowserNotificationsEnabled] = useState(false);
+
+  // Mobile integrations state
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState<'granted' | 'denied' | 'default'>('default');
 
   // Get user preferences
   const { data: preferences } = useQuery<UserPreferences>({
@@ -122,9 +149,17 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
     },
   });
 
-  // Check browser notification permission on load
+  // Check notification permission on load (both browser and native)
   useEffect(() => {
-    if ('Notification' in window) {
+    if (isNative()) {
+      // Check native push notification permission
+      checkNotificationPermission().then(result => {
+        setNotificationStatus(result.granted ? 'granted' : 'default');
+      }).catch(() => {
+        setNotificationStatus('default');
+      });
+    } else if ('Notification' in window) {
+      // Check browser notification permission
       setBrowserNotificationsEnabled(Notification.permission === 'granted');
     }
   }, []);
@@ -204,6 +239,118 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
         title: "Notifications disabled",
         description: "Browser notifications have been turned off.",
       });
+    }
+  };
+
+  // Mobile integration handlers
+  const handleEnableNotifications = async () => {
+    setNotificationLoading(true);
+    try {
+      const result = await requestNotificationPermission();
+      setNotificationStatus(result.granted ? 'granted' : 'denied');
+      toast({
+        title: result.granted ? 'Notifications Enabled' : 'Permission Denied',
+        description: result.granted
+          ? 'You will receive push notifications'
+          : 'Please enable notifications in device settings',
+        variant: result.granted ? 'default' : 'destructive'
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to enable notifications',
+        variant: 'destructive'
+      });
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
+
+  const handleTestNotification = async () => {
+    try {
+      await showLocalNotification({
+        title: 'Test Notification',
+        body: 'Push notifications are working!',
+        id: Date.now()
+      });
+      toast({ title: 'Notification Sent', description: 'Check your notification shade' });
+    } catch (error) {
+      toast({
+        title: 'Failed',
+        description: 'Could not send test notification',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleSyncContacts = async () => {
+    setContactsLoading(true);
+    try {
+      const hasPermission = await requestContactsPermission();
+      if (!hasPermission) {
+        toast({
+          title: 'Permission Required',
+          description: 'Please grant contacts access',
+          variant: 'destructive'
+        });
+        setContactsLoading(false);
+        return;
+      }
+
+      const contacts = await getContacts();
+      const result = await syncContactsWithServer(contacts);
+
+      toast({
+        title: 'Contacts Synced',
+        description: `Synced ${result.syncedCount} contacts`
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Sync Failed',
+        description: error.message || 'Failed to sync contacts',
+        variant: 'destructive'
+      });
+    } finally {
+      setContactsLoading(false);
+    }
+  };
+
+  const handleTestCalendar = async () => {
+    setCalendarLoading(true);
+    try {
+      const permission = await requestCalendarPermission();
+      if (!permission.granted) {
+        toast({
+          title: 'Permission Required',
+          description: 'Please grant calendar access',
+          variant: 'destructive'
+        });
+        setCalendarLoading(false);
+        return;
+      }
+
+      const result = await addActivityToCalendar({
+        title: 'JournalMate Test Event',
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 60 * 60 * 1000), // 1 hour from now
+        notes: 'This is a test event from JournalMate'
+      });
+
+      toast({
+        title: result.success ? 'Event Added' : 'Failed',
+        description: result.success
+          ? 'Test event added to your calendar'
+          : result.error || 'Failed to add event',
+        variant: result.success ? 'default' : 'destructive'
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Calendar Error',
+        description: error.message || 'Failed to test calendar',
+        variant: 'destructive'
+      });
+    } finally {
+      setCalendarLoading(false);
     }
   };
 
@@ -306,10 +453,12 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
               <Smartphone className="w-4 h-4 text-muted-foreground mt-0.5 sm:mt-0 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <Label htmlFor="browser-notifications" className="text-sm sm:text-base">
-                  Browser
+                  {isNative() ? 'Push' : 'Browser'}
                 </Label>
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  Receive desktop notifications for important updates
+                  {isNative()
+                    ? 'Receive push notifications on your device'
+                    : 'Receive desktop notifications for important updates'}
                 </p>
               </div>
             </div>
@@ -500,6 +649,127 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Mobile Integrations - Only show on native mobile */}
+      {isNative() && (
+        <Card data-testid="card-mobile-integrations">
+          <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <Smartphone className="w-4 h-4 sm:w-5 sm:h-5" />
+              Mobile Integrations
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              Test and manage native mobile features
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 p-3 sm:p-6">
+
+            {/* Push Notifications */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm">Push Notifications</Label>
+                <p className="text-xs text-muted-foreground">
+                  {notificationStatus === 'granted' ? 'Enabled' : 'Not enabled'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleEnableNotifications}
+                  disabled={notificationLoading || notificationStatus === 'granted'}
+                >
+                  {notificationLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enable'}
+                </Button>
+                {notificationStatus === 'granted' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleTestNotification}
+                  >
+                    Test
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Contacts Sync */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Contacts Sync
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Import contacts to share goals
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSyncContacts}
+                disabled={contactsLoading}
+              >
+                {contactsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sync'}
+              </Button>
+            </div>
+
+            <Separator />
+
+            {/* Calendar Integration */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm flex items-center gap-2">
+                  <CalendarPlus className="w-4 h-4" />
+                  Calendar Integration
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Add activities to your calendar
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleTestCalendar}
+                  disabled={calendarLoading}
+                >
+                  {calendarLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Test'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openCalendarApp()}
+                >
+                  Open
+                </Button>
+              </div>
+            </div>
+
+            {/* Widget Info (Android only) */}
+            {isAndroid() && (
+              <>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm flex items-center gap-2">
+                      <LayoutGrid className="w-4 h-4" />
+                      Home Screen Widget
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Long-press home screen → Widgets → JournalMate
+                    </p>
+                  </div>
+                  <Badge variant="outline">Available</Badge>
+                </div>
+              </>
+            )}
+
+          </CardContent>
+        </Card>
+      )}
 
     </div>
   );
