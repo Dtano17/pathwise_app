@@ -29,6 +29,10 @@ export default function SmartScheduler({ userId, tasks, compact = false }: Smart
   // Fetch scheduling suggestions
   const { data: suggestions = [], isLoading } = useQuery<SchedulingSuggestionWithTasks[]>({
     queryKey: ['/api/scheduling/suggestions', userId, selectedDate],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/scheduling/suggestions?date=${selectedDate}`);
+      return response.json();
+    },
     staleTime: 30000, // 30 seconds
   });
 

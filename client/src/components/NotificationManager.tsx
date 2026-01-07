@@ -21,11 +21,36 @@ export default function NotificationManager({ userId, compact = false }: Notific
   const queryClient = useQueryClient();
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
 
-  // Check browser notification permission on mount
+  // Check notification permission on mount (works for both native and web)
   useEffect(() => {
-    if ('Notification' in window) {
-      setNotificationPermission(Notification.permission);
-    }
+    const checkPermission = async () => {
+      if (isNative()) {
+        // Use Capacitor's permission check for native
+        try {
+          const { PushNotifications } = await import('@capacitor/push-notifications');
+          const result = await PushNotifications.checkPermissions();
+          console.log('[NOTIFICATION] Native permission check:', result);
+          // Map Capacitor permission to browser-like states
+          if (result.receive === 'granted') {
+            setNotificationPermission('granted');
+          } else if (result.receive === 'denied') {
+            setNotificationPermission('denied');
+          } else {
+            setNotificationPermission('default');
+          }
+        } catch (error) {
+          console.error('[NOTIFICATION] Failed to check native permission:', error);
+          setNotificationPermission('default');
+        }
+      } else {
+        // Use browser Notification API for web
+        if ('Notification' in window) {
+          setNotificationPermission(Notification.permission);
+        }
+      }
+    };
+
+    checkPermission();
   }, []);
 
   // Fetch notification preferences

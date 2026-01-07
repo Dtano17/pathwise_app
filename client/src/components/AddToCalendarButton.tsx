@@ -44,10 +44,12 @@ export function AddToCalendarButton({
         // Use Capacitor Calendar plugin
         const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
 
-        // Request permission
+        // Request permission - returns { readCalendar: boolean, writeCalendar: boolean }
         const permission = await CapacitorCalendar.requestAllPermissions();
+        console.log('[CALENDAR] Permission result:', permission);
 
-        if (permission.every((p) => p.result === 'granted')) {
+        // Check if write permission is granted
+        if (permission.writeCalendar) {
           // Create calendar event
           const result = await CapacitorCalendar.createEvent({
             title: event.title,
@@ -58,6 +60,7 @@ export function AddToCalendarButton({
             isAllDay: event.allDay,
           });
 
+          console.log('[CALENDAR] Event creation result:', result);
           if (result) {
             hapticsSuccess();
             toast({
