@@ -144,6 +144,7 @@
     "stripe-replit-sync": "^0.0.12",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "terser": "^5.44.1",
     "to-ico": "^1.0.1",
     "tw-animate-css": "^1.2.5",
     "twilio": "^5.10.4",
