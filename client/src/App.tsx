@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { HelmetProvider } from "react-helmet-async";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { initializeMobileFeatures } from "@/lib/mobile";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useDailyTheme, type ThemeId } from "@/hooks/useDailyTheme";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // Lazy load pages for code-splitting
 const MainApp = lazy(() => import("@/pages/MainApp"));
@@ -47,6 +48,9 @@ const PageLoader = () => (
 function AppContent() {
   // Get authenticated user
   const { user } = useAuth();
+  
+  // Get current location for error boundary reset
+  const [location] = useLocation();
 
   // Daily theme state - persisted to backend API
   const { currentThemeId, setTheme, clearTheme, isSettingTheme } = useDailyTheme();
@@ -86,8 +90,9 @@ function AppContent() {
   return (
     <TooltipProvider>
       <AuthHandler />
-      <Suspense fallback={<PageLoader />}>
-        <Switch>
+      <ErrorBoundary resetOnPropsChange={location}>
+        <Suspense fallback={<PageLoader />}>
+          <Switch>
           {/* Auth Callback Page (no sidebar) */}
           <Route path="/auth/callback" component={AuthCallback} />
 
@@ -193,8 +198,9 @@ function AppContent() {
           <Route>
             <LandingPageWrapper />
           </Route>
-        </Switch>
-      </Suspense>
+          </Switch>
+        </Suspense>
+      </ErrorBoundary>
       {user?.id && <NotificationService userId={user.id} />}
       <Toaster />
       

@@ -47,6 +47,26 @@ class ErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('[ERROR BOUNDARY] Caught an error:', error, errorInfo);
 
+    // Check if this is a lazy-loading/module import failure
+    const isModuleLoadError = this.isModuleLoadingError(error, errorInfo);
+    
+    if (isModuleLoadError) {
+      console.log('[ERROR BOUNDARY] Module loading failure detected, attempting automatic reload...');
+      
+      // Check if we've already reloaded recently to prevent infinite loop
+      const lastReload = sessionStorage.getItem('error-boundary-reload');
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload, 10) > 30000) {
+        sessionStorage.setItem('error-boundary-reload', now.toString());
+        // Small delay to ensure any pending SW operations complete
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
+        return;
+      }
+      console.log('[ERROR BOUNDARY] Skipping auto-reload - already reloaded recently');
+    }
+
     this.setState(prevState => ({
       error,
       errorInfo,
@@ -62,6 +82,33 @@ class ErrorBoundary extends Component<Props, State> {
     if (import.meta.env.PROD) {
       this.reportError(error, errorInfo);
     }
+  }
+  
+  private isModuleLoadingError(error: Error, errorInfo: ErrorInfo): boolean {
+    const errorMessage = error.message?.toLowerCase() || '';
+    const errorStack = error.stack?.toLowerCase() || '';
+    const componentStack = errorInfo.componentStack?.toLowerCase() || '';
+    
+    // Detect common lazy loading/dynamic import failures
+    const moduleLoadPatterns = [
+      'failed to fetch dynamically imported module',
+      'importing a module script failed',
+      'loading chunk',
+      'loading css chunk',
+      'chunkloaderror',
+    ];
+    
+    // Check if this is a module loading error
+    const isModuleError = moduleLoadPatterns.some(pattern => 
+      errorMessage.includes(pattern) || errorStack.includes(pattern)
+    );
+    
+    // Also detect Invalid Hook Call that occurs in Lazy components during reload
+    const isLazyHookError = 
+      errorMessage.includes('invalid hook call') &&
+      componentStack.includes('lazy');
+    
+    return isModuleError || isLazyHookError;
   }
 
   public componentDidUpdate(prevProps: Props) {
