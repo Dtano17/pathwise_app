@@ -638,11 +638,11 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
               </Select>
             </div>
 
-            <div className="flex gap-2 sm:pt-6 flex-wrap">
-              <Button 
-                onClick={handleDownloadSingle} 
+            <div className="flex gap-3 sm:gap-4 sm:pt-6 flex-wrap">
+              <Button
+                onClick={handleDownloadSingle}
                 disabled={isGenerating}
-                className="flex-1 sm:flex-none min-h-[44px]"
+                className="flex-1 min-w-[90px] sm:flex-none min-h-[44px]"
                 data-testid="button-download-single"
               >
                 {isGenerating && !downloadProgress ? (
@@ -652,11 +652,11 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
                 )}
                 Download
               </Button>
-              <Button 
+              <Button
                 variant="default"
-                onClick={handleShareImage} 
+                onClick={handleShareImage}
                 disabled={isGenerating || selectedFormat === 'pdf'}
-                className="flex-1 sm:flex-none min-h-[44px]"
+                className="flex-1 min-w-[90px] sm:flex-none min-h-[44px]"
                 data-testid="button-share-image"
                 title={canShareFiles ? 'Share via native share menu' : 'Download image and caption for manual sharing'}
               >
@@ -667,10 +667,10 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
                 )}
                 {canShareFiles ? 'Share' : 'Share (Download)'}
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleCopyCaption}
-                className="flex-1 sm:flex-none min-h-[44px]"
+                className="flex-1 min-w-[90px] sm:flex-none min-h-[44px]"
                 data-testid="button-copy-caption"
               >
                 <FileText className="w-4 h-4 mr-2" />

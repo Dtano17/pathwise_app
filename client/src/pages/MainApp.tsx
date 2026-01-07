@@ -416,13 +416,16 @@ export default function MainApp({
   useEffect(() => {
     if (userData && Object.keys(userData).length > 0) {
       const isDemo = (userData as any).id === "demo-user";
-      const completed = isDemo 
+      const completed = isDemo
         ? localStorage.getItem("demo-tutorial-completed") === "true"
-        : (userData as any).tutorialCompleted;
-      
+        : (userData as any).hasCompletedTutorial;  // Fixed: was tutorialCompleted
+
       const dismissed = sessionStorage.getItem("tutorial-dismissed") === "true";
-      
-      if (!completed && !dismissed) {
+
+      // Don't show tutorial if user has pending share data (incoming share should take priority)
+      const hasPendingShare = sessionStorage.getItem("pending-share-data") !== null;
+
+      if (!completed && !dismissed && !hasPendingShare) {
         setShowTutorial(true);
       }
     }
@@ -808,45 +811,8 @@ export default function MainApp({
   const [showJournalSignIn, setShowJournalSignIn] = useState(false);
   const [showDiscoverSignIn, setShowDiscoverSignIn] = useState(false);
 
-  // Check if user has completed tutorial (show on first login/visit)
-  useEffect(() => {
-    if (user && typeof user === "object" && "id" in user) {
-      const userId = (user as any).id;
-      const isDemo = userId === "demo-user";
-
-      if (isDemo) {
-        // For demo users, use localStorage to track tutorial completion
-        const demoTutorialCompleted = localStorage.getItem(
-          "demo-tutorial-completed",
-        );
-        console.log("[TUTORIAL] Demo user tutorial status:", {
-          demoTutorialCompleted,
-        });
-
-        if (!demoTutorialCompleted) {
-          // Show tutorial immediately for demo users on first visit
-          setTimeout(() => {
-            setShowTutorial(true);
-          }, 500);
-        }
-      } else {
-        // For authenticated users, use database value
-        const hasCompletedTutorial = (user as any).hasCompletedTutorial;
-        console.log("[TUTORIAL] User tutorial status:", {
-          hasCompletedTutorial,
-          userId,
-        });
-
-        // Show tutorial if not completed
-        if (!hasCompletedTutorial) {
-          // Small delay to let the app load first
-          setTimeout(() => {
-            setShowTutorial(true);
-          }, 1000);
-        }
-      }
-    }
-  }, [user]);
+  // Tutorial check is handled in the earlier useEffect (around line 416)
+  // that checks userData.hasCompletedTutorial - removed duplicate check here
 
   // Initialize WebSocket connection when user logs in
   useEffect(() => {
@@ -1926,13 +1892,13 @@ export default function MainApp({
       value: "activities",
       label: `Activities (${activities.length})`,
       shortLabel: "Activities",
-      icon: CheckSquare,
+      icon: Activity,
     },
     {
       value: "tasks",
       label: `All Tasks (${tasks.length})`,
       shortLabel: "Tasks",
-      icon: Target,
+      icon: CheckSquare,
     },
     {
       value: "progress",
@@ -2120,7 +2086,7 @@ export default function MainApp({
                     className="gap-2 text-sm font-medium"
                     data-testid="tab-activities"
                   >
-                    <CheckSquare className="w-4 h-4" />
+                    <Activity className="w-4 h-4" />
                     <span>Activities ({activities.length})</span>
                   </TabsTrigger>
                   <TabsTrigger
@@ -2128,7 +2094,7 @@ export default function MainApp({
                     className="gap-2 text-sm font-medium"
                     data-testid="tab-all-tasks"
                   >
-                    <Target className="w-4 h-4" />
+                    <CheckSquare className="w-4 h-4" />
                     <span>All Tasks ({tasks.length})</span>
                   </TabsTrigger>
                   <TabsTrigger
@@ -2555,8 +2521,8 @@ export default function MainApp({
                           className="gap-2"
                           data-testid="button-view-your-activity"
                         >
-                          <Target className="w-4 h-4" />
-                          Your Activity
+                          <Activity className="w-4 h-4" />
+                          {currentPlanOutput.planTitle || "Your Activity"}
                         </Button>
                       ) : (
                         <div className="text-sm text-muted-foreground">
@@ -4814,6 +4780,8 @@ export default function MainApp({
         onOpenChange={(open) => {
           if (!open) {
             sessionStorage.setItem("tutorial-dismissed", "true");
+            // Also save to database when skipping/dismissing to prevent showing again
+            completeTutorialMutation.mutate();
           }
           setShowTutorial(open);
         }}

@@ -247,14 +247,29 @@ function transformContact(contact: Contact): SimpleContact | null {
  */
 export async function syncContactsWithServer(contacts: SimpleContact[]): Promise<{ syncedCount: number }> {
   try {
-    // Transform contacts to the format expected by the backend (syncContactsSchema)
-    const formattedContacts = contacts.map((contact) => ({
-      name: contact.displayName,
-      emails: contact.emails || [],
-      tel: contact.phoneNumbers || [],
-    }));
+    // Simple email validation regex
+    const isValidEmail = (email: string): boolean => {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    };
 
-    console.log('[CONTACTS] Syncing contacts with server:', formattedContacts.length);
+    // Transform and validate contacts to match backend syncContactsSchema requirements:
+    // - name: min 1 char, max 100 chars
+    // - emails: array of valid email strings
+    // - tel: array of non-empty strings
+    const formattedContacts = contacts
+      .filter(c => c.displayName && c.displayName.trim().length > 0)  // Must have a name
+      .map((contact) => ({
+        name: contact.displayName.trim().slice(0, 100),  // Ensure max 100 chars
+        emails: (contact.emails || [])
+          .filter((e): e is string => typeof e === 'string' && e.trim().length > 0 && isValidEmail(e.trim()))
+          .map(e => e.trim()),
+        tel: (contact.phoneNumbers || [])
+          .filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
+          .map(p => p.trim()),
+      }))
+      .filter(c => c.emails.length > 0 || c.tel.length > 0);  // Must have at least one contact method
+
+    console.log('[CONTACTS] Syncing contacts with server:', formattedContacts.length, 'valid contacts');
 
     // Send to server for storage
     const response = await fetch('/api/contacts/sync', {

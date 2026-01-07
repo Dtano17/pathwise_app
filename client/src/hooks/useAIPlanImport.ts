@@ -321,14 +321,18 @@ export function useAIPlanImport() {
   useEffect(() => {
     if (hasPendingShareData()) {
       const shareData = consumePendingShareData();
-      if (shareData?.text) {
-        handleIncomingText(shareData.text);
+      // Handle both text and url fields from share data
+      const sharedContent = shareData?.text || shareData?.url;
+      if (sharedContent) {
+        handleIncomingText(sharedContent);
       }
     }
 
     const cleanup = onIncomingShare((data: IncomingShareData) => {
-      if (data.text) {
-        handleIncomingText(data.text);
+      // Handle both text and url fields - URLs shared without text come in url field
+      const sharedContent = data.text || data.url;
+      if (sharedContent) {
+        handleIncomingText(sharedContent);
       }
     });
 

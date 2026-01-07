@@ -239,6 +239,10 @@ function Sidebar({
             : "group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)] group-data-[side=left]:border-r group-data-[side=right]:border-l",
           className
         )}
+        style={{
+          paddingTop: 'var(--mobile-safe-top, 0px)',
+          paddingBottom: 'var(--mobile-safe-bottom, 0px)'
+        }}
         {...props}
       >
         <div
@@ -503,6 +507,7 @@ function SidebarMenuButton({
   size = "default",
   tooltip,
   className,
+  onClick,
   ...props
 }: React.ComponentProps<"button"> & {
   asChild?: boolean
@@ -510,7 +515,15 @@ function SidebarMenuButton({
   tooltip?: string | React.ComponentProps<typeof TooltipContent>
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const Comp = asChild ? Slot : "button"
-  const { isMobile, state } = useSidebar()
+  const { isMobile, state, setOpenMobile } = useSidebar()
+
+  // Wrap onClick to close mobile sidebar when item is clicked
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (isMobile) {
+      setOpenMobile(false)
+    }
+    onClick?.(e)
+  }
 
   const button = (
     <Comp
@@ -519,6 +532,7 @@ function SidebarMenuButton({
       data-size={size}
       data-active={isActive}
       className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
+      onClick={handleClick}
       {...props}
     />
   )
