@@ -165,15 +165,15 @@ export default function Priorities() {
       </div>
 
       {/* Priority Categories Overview */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-3 w-full">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 w-full">
         {priorityCategories.map((category) => {
           const Icon = category.icon;
           const count = priorities.filter(p => p.category === category.id).length;
           return (
-            <Card key={category.id} className="p-3 sm:p-3 text-center hover-elevate min-w-0 overflow-hidden">
-              <Icon className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-1 sm:mb-2 text-muted-foreground" />
-              <p className="text-xs sm:text-sm font-medium break-words hyphens-auto leading-tight">{category.name}</p>
-              <Badge variant="outline" className="text-xs mt-1">
+            <Card key={category.id} className="p-2 sm:p-3 text-center hover-elevate min-w-0 overflow-hidden">
+              <Icon className="w-5 h-5 sm:w-8 sm:h-8 mx-auto mb-1 sm:mb-2 text-muted-foreground" />
+              <p className="text-[10px] sm:text-sm font-medium break-words hyphens-auto leading-tight">{category.name}</p>
+              <Badge variant="outline" className="text-[9px] sm:text-xs mt-1 px-1 h-4 sm:h-5">
                 {count} {count === 1 ? 'priority' : 'priorities'}
               </Badge>
             </Card>
@@ -185,7 +185,7 @@ export default function Priorities() {
       <Card className="p-3 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
           <Star className="w-4 h-4 sm:w-5 sm:h-5" />
-          Quick Add Common Priorities
+          Quick Add
         </h3>
         <div className="grid gap-2">
           {priorityPresets.map((preset, index) => {
@@ -194,26 +194,24 @@ export default function Priorities() {
             const alreadyAdded = priorities.some(p => p.title.toLowerCase() === preset.title.toLowerCase());
             
             return (
-              <div key={index} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                  <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs sm:text-sm font-medium line-clamp-1">{preset.title}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-1 hidden sm:block">{preset.description}</p>
-                  </div>
+              <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg min-w-0">
+                <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm font-medium truncate">{preset.title}</p>
                 </div>
-                <div className="flex items-center gap-2 ml-6 sm:ml-0">
-                  <Badge className={`${getImportanceColor(preset.importance)} text-xs`}>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Badge className={`${getImportanceColor(preset.importance)} text-[10px] px-1 h-4 sm:h-5 hidden xs:inline-flex`}>
                     {preset.importance}
                   </Badge>
                   <Button
-                    size="sm"
-                    variant="outline"
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 sm:h-8 sm:w-8"
                     onClick={() => handleAddPreset(preset)}
                     disabled={alreadyAdded || addPriorityMutation.isPending}
                     data-testid={`button-add-preset-${index}`}
                   >
-                    {alreadyAdded ? <span className="text-xs">Added</span> : <Plus className="w-3 h-3" />}
+                    {alreadyAdded ? <span className="text-[10px]">✓</span> : <Plus className="w-3 h-3" />}
                   </Button>
                 </div>
               </div>
@@ -223,56 +221,58 @@ export default function Priorities() {
       </Card>
 
       {/* Add Custom Priority */}
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            Add Custom Priority
+          <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+            Add Custom
           </h3>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsAddingPriority(!isAddingPriority)}
             data-testid="button-toggle-add-priority"
+            className="h-8 text-xs px-2"
           >
-            {isAddingPriority ? 'Cancel' : 'Add Custom'}
+            {isAddingPriority ? 'Cancel' : 'Add New'}
           </Button>
         </div>
 
         {isAddingPriority && (
           <div className="space-y-4">
             <div>
-              <Label htmlFor="priority-title">Priority Title</Label>
+              <Label htmlFor="priority-title" className="text-xs">Priority Title</Label>
               <Input
                 id="priority-title"
                 value={newPriority.title}
                 onChange={(e) => setNewPriority(prev => ({ ...prev, title: e.target.value }))}
                 placeholder="e.g., Daily meditation practice"
                 data-testid="input-priority-title"
+                className="h-9 text-sm"
               />
             </div>
 
             <div>
-              <Label htmlFor="priority-description">Description (optional)</Label>
+              <Label htmlFor="priority-description" className="text-xs">Description (optional)</Label>
               <Textarea
                 id="priority-description"
                 value={newPriority.description}
                 onChange={(e) => setNewPriority(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Describe why this priority is important to you..."
-                className="resize-none"
-                rows={3}
+                placeholder="Why is this important?"
+                className="resize-none text-sm"
+                rows={2}
                 data-testid="textarea-priority-description"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="priority-category">Category</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="min-w-0">
+                <Label htmlFor="priority-category" className="text-xs">Category</Label>
                 <Select 
                   value={newPriority.category} 
                   onValueChange={(value: any) => setNewPriority(prev => ({ ...prev, category: value }))}
                 >
-                  <SelectTrigger data-testid="select-priority-category">
+                  <SelectTrigger data-testid="select-priority-category" className="h-9 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -281,8 +281,8 @@ export default function Priorities() {
                       return (
                         <SelectItem key={category.id} value={category.id}>
                           <div className="flex items-center gap-2">
-                            <Icon className="w-4 h-4" />
-                            {category.name}
+                            <Icon className="w-3 h-3" />
+                            <span className="truncate">{category.name}</span>
                           </div>
                         </SelectItem>
                       );
@@ -291,19 +291,19 @@ export default function Priorities() {
                 </Select>
               </div>
 
-              <div>
-                <Label htmlFor="priority-importance">Importance</Label>
+              <div className="min-w-0">
+                <Label htmlFor="priority-importance" className="text-xs">Importance</Label>
                 <Select 
                   value={newPriority.importance} 
                   onValueChange={(value: any) => setNewPriority(prev => ({ ...prev, importance: value }))}
                 >
-                  <SelectTrigger data-testid="select-priority-importance">
+                  <SelectTrigger data-testid="select-priority-importance" className="h-9 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="high">High Priority</SelectItem>
-                    <SelectItem value="medium">Medium Priority</SelectItem>
-                    <SelectItem value="low">Low Priority</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -312,7 +312,7 @@ export default function Priorities() {
             <Button
               onClick={handleAddPriority}
               disabled={addPriorityMutation.isPending || !newPriority.title.trim()}
-              className="w-full"
+              className="w-full h-9 text-sm"
               data-testid="button-save-priority"
             >
               {addPriorityMutation.isPending ? 'Adding...' : 'Add Priority'}
@@ -322,10 +322,10 @@ export default function Priorities() {
       </Card>
 
       {/* Current Priorities */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Target className="w-5 h-5" />
-          Your Current Priorities ({priorities.length})
+      <Card className="p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2">
+          <Target className="w-4 h-4 sm:w-5 sm:h-5" />
+          Your Priorities ({priorities.length})
         </h3>
         
         {isLoading ? (
@@ -338,44 +338,39 @@ export default function Priorities() {
             ))}
           </div>
         ) : priorities.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Target className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>No priorities set yet. Add some priorities to help AI create better plans for you!</p>
+          <div className="text-center py-6 text-muted-foreground">
+            <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p className="text-xs px-4">No priorities set yet. Add some to personalize your plans!</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {priorities.map((priority) => {
               const categoryInfo = getCategoryInfo(priority.category);
               const Icon = categoryInfo.icon;
               
               return (
-                <div key={priority.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg hover-elevate">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Icon className="w-5 h-5 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{priority.title}</p>
-                      {priority.description && (
-                        <p className="text-sm text-muted-foreground truncate">{priority.description}</p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge className={categoryInfo.color} variant="outline">
-                          {categoryInfo.name}
-                        </Badge>
-                        <Badge className={getImportanceColor(priority.importance)}>
-                          {priority.importance}
-                        </Badge>
-                      </div>
+                <div key={priority.id} className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg hover-elevate group">
+                  <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs sm:text-sm font-medium truncate">{priority.title}</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Badge className={`${categoryInfo.color} text-[9px] px-1 h-4`} variant="outline">
+                        {categoryInfo.name}
+                      </Badge>
+                      <Badge className={`${getImportanceColor(priority.importance)} text-[9px] px-1 h-4`}>
+                        {priority.importance}
+                      </Badge>
                     </div>
                   </div>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-100 sm:opacity-0 group-hover:opacity-100"
                     onClick={() => deletePriorityMutation.mutate(priority.id)}
                     disabled={deletePriorityMutation.isPending}
-                    className="text-destructive hover:text-destructive"
                     data-testid={`button-delete-priority-${priority.id}`}
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" />
                   </Button>
                 </div>
               );

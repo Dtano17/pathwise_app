@@ -401,7 +401,16 @@ export default function MainApp({
   } | null>(null);
 
   // Onboarding tutorial state
-  const [showTutorial, setShowTutorial] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(() => {
+    // Check if tutorial has been completed
+    const completed = localStorage.getItem("journalmate_tutorial_completed");
+    return completed !== "true";
+  });
+
+  const handleTutorialComplete = () => {
+    localStorage.setItem("journalmate_tutorial_completed", "true");
+    setShowTutorial(false);
+  };
 
   // Upgrade modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
