@@ -414,13 +414,15 @@ export default function MainApp({
   }, []);
 
   useEffect(() => {
-    if (userData) {
-      const isDemo = userData.id === "demo-user";
+    if (userData && Object.keys(userData).length > 0) {
+      const isDemo = (userData as any).id === "demo-user";
       const completed = isDemo 
         ? localStorage.getItem("demo-tutorial-completed") === "true"
-        : userData.tutorialCompleted;
+        : (userData as any).tutorialCompleted;
       
-      if (!completed) {
+      const dismissed = sessionStorage.getItem("tutorial-dismissed") === "true";
+      
+      if (!completed && !dismissed) {
         setShowTutorial(true);
       }
     }
@@ -1626,6 +1628,7 @@ export default function MainApp({
   });
 
   const handleTutorialComplete = () => {
+    sessionStorage.setItem("tutorial-dismissed", "true");
     completeTutorialMutation.mutate();
     setShowTutorial(false);
   };

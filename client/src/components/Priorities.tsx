@@ -165,15 +165,15 @@ export default function Priorities() {
       </div>
 
       {/* Priority Categories Overview */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 w-full">
+      <div className="grid grid-cols-2 xs:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 w-full">
         {priorityCategories.map((category) => {
           const Icon = category.icon;
           const count = priorities.filter(p => p.category === category.id).length;
           return (
-            <Card key={category.id} className="p-2 sm:p-3 text-center hover-elevate min-w-0 overflow-hidden">
-              <Icon className="w-5 h-5 sm:w-8 sm:h-8 mx-auto mb-1 sm:mb-2 text-muted-foreground" />
-              <p className="text-[10px] sm:text-sm font-medium break-words hyphens-auto leading-tight">{category.name}</p>
-              <Badge variant="outline" className="text-[9px] sm:text-xs mt-1 px-1 h-4 sm:h-5">
+            <Card key={category.id} className="p-2 sm:p-3 text-center hover-elevate min-w-0 overflow-hidden flex flex-col items-center justify-center min-h-[100px] sm:min-h-[120px]">
+              <Icon className="w-5 h-5 sm:w-8 sm:h-8 mb-1 sm:mb-2 text-muted-foreground shrink-0" />
+              <p className="text-[10px] sm:text-sm font-medium break-words hyphens-auto leading-tight line-clamp-2 px-1">{category.name}</p>
+              <Badge variant="outline" className="text-[9px] sm:text-xs mt-auto px-1 h-4 sm:h-5">
                 {count} {count === 1 ? 'priority' : 'priorities'}
               </Badge>
             </Card>
