@@ -54,7 +54,15 @@ if ('serviceWorker' in navigator) {
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // Check if we've already reloaded recently to prevent infinite loop
+                const lastReload = sessionStorage.getItem('pwa-last-reload');
+                const now = Date.now();
+                if (lastReload && now - parseInt(lastReload, 10) < 30000) {
+                  console.log('[PWA] Skipping reload - already reloaded recently');
+                  return;
+                }
                 console.log('[PWA] New version available, reloading...');
+                sessionStorage.setItem('pwa-last-reload', now.toString());
                 newWorker.postMessage({ type: 'SKIP_WAITING' });
                 window.location.reload();
               }
@@ -62,7 +70,8 @@ if ('serviceWorker' in navigator) {
           }
         });
         
-        registration.update();
+        // Don't force update check on every page load - let service worker handle it
+        // registration.update();
       })
       .catch((error) => {
         console.log('[PWA] Service Worker registration failed:', error);
@@ -72,7 +81,15 @@ if ('serviceWorker' in navigator) {
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!refreshing) {
+      // Check if we've already reloaded recently to prevent infinite loop
+      const lastReload = sessionStorage.getItem('pwa-last-reload');
+      const now = Date.now();
+      if (lastReload && now - parseInt(lastReload, 10) < 30000) {
+        console.log('[PWA] Skipping controllerchange reload - already reloaded recently');
+        return;
+      }
       refreshing = true;
+      sessionStorage.setItem('pwa-last-reload', now.toString());
       window.location.reload();
     }
   });
