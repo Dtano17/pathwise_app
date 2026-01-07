@@ -7036,7 +7036,7 @@ ${emoji} ${progressLine}
       // If shareProgress is enabled and activity has a targetGroupId, link to the group activity
       const activityData: any = {
         userId: userId,
-        title: groupIdToJoin ? sharedActivity.title : `${sharedActivity.title} (Copy)`,
+        title: joinGroup ? sharedActivity.title : `${sharedActivity.title} (Copy)`,
         description: sharedActivity.description || 'No description provided',
         category: sharedActivity.category,
         planSummary: sharedActivity.planSummary,
