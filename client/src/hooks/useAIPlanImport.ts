@@ -1,15 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { 
-  onIncomingShare, 
-  consumePendingShareData, 
-  hasPendingShareData,
-  initIncomingShareListener,
-  type IncomingShareData 
-} from '@/lib/shareSheet';
+import { initIncomingShareListener } from '@/lib/shareSheet';
 import { useLocation } from 'wouter';
-import { isSocialMediaUrl, extractUrlFromText } from '@/components/SocialMediaShareDialog';
 
 export interface ParsedTask {
   title: string;
@@ -283,22 +276,8 @@ export function useAIPlanImport() {
     setState({ status: 'idle' });
   }, []);
 
-  const handleIncomingText = useCallback((text: string) => {
-    const url = extractUrlFromText(text);
-    
-    if (url && isSocialMediaUrl(url)) {
-      setState({
-        status: 'social_media_choice',
-        rawText: text,
-        socialMediaUrl: url,
-        source: 'mobile_share'
-      });
-      setLocation('/import-plan');
-    } else {
-      startImport(text, 'mobile_share');
-      setLocation('/import-plan');
-    }
-  }, [startImport, setLocation]);
+  // NOTE: handleIncomingText removed - share handling moved to MainApp.tsx
+  // which uses the integrations tab flow (setChatText + setActiveTab)
 
   const setSocialMediaExtractedContent = useCallback((content: string) => {
     setState(prev => ({
@@ -318,26 +297,13 @@ export function useAIPlanImport() {
     }
   }, [state.rawText, state.source, startImport]);
 
+  // NOTE: Share handling moved to MainApp.tsx to use the integrations tab flow
+  // This hook no longer processes incoming shares automatically
+  // Instead, users can manually trigger imports from the integrations tab
   useEffect(() => {
-    if (hasPendingShareData()) {
-      const shareData = consumePendingShareData();
-      // Handle both text and url fields from share data
-      const sharedContent = shareData?.text || shareData?.url;
-      if (sharedContent) {
-        handleIncomingText(sharedContent);
-      }
-    }
-
-    const cleanup = onIncomingShare((data: IncomingShareData) => {
-      // Handle both text and url fields - URLs shared without text come in url field
-      const sharedContent = data.text || data.url;
-      if (sharedContent) {
-        handleIncomingText(sharedContent);
-      }
-    });
-
-    return cleanup;
-  }, [handleIncomingText]);
+    // Do nothing - share handling is now in MainApp.tsx
+    // which sets chatText and switches to integrations tab
+  }, []);
 
   return {
     state,

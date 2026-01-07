@@ -17,37 +17,48 @@ export async function initializePushNotifications(userId: string): Promise<void>
   // Only initialize on native platforms (iOS/Android)
   if (!isNative()) {
     console.log('[PUSH] Web push notifications not yet supported');
-    return;
+    throw new Error('Push notifications are only available on mobile devices');
   }
 
   try {
+    console.log('[PUSH] Starting initialization for user:', userId);
+
+    // Check if Capacitor is available
+    if (!(window as any).Capacitor) {
+      console.error('[PUSH] Capacitor not available');
+      throw new Error('Native features not available. Please use the mobile app.');
+    }
+
     const { PushNotifications } = await import('@capacitor/push-notifications');
-    console.log('[PUSH] Initializing for user:', userId);
+    console.log('[PUSH] PushNotifications plugin loaded');
 
     // Request permission to receive push notifications
+    console.log('[PUSH] Requesting permissions...');
     const permResult = await PushNotifications.requestPermissions();
+    console.log('[PUSH] Permission result:', permResult);
 
     if (permResult.receive !== 'granted') {
       console.warn('[PUSH] Permission not granted:', permResult.receive);
-      return;
+      throw new Error(`Notification permission ${permResult.receive}. Please enable notifications in your device settings.`);
     }
 
     console.log('[PUSH] Permission granted');
 
-    // Register with APNs/FCM to get a token
-    await PushNotifications.register();
-
+    // Set up listeners BEFORE registering
     // Listen for registration success
     await PushNotifications.addListener('registration', async (token: any) => {
-      console.log('[PUSH] Registration success:', token.value);
-
-      // Send token to backend
-      await registerDeviceToken(token.value, userId);
+      console.log('[PUSH] Registration success, token received');
+      try {
+        await registerDeviceToken(token.value, userId);
+        console.log('[PUSH] Token registered with backend');
+      } catch (tokenError) {
+        console.error('[PUSH] Failed to register token with backend:', tokenError);
+      }
     });
 
     // Listen for registration errors
     await PushNotifications.addListener('registrationError', (error: any) => {
-      console.error('[PUSH] Registration error:', error);
+      console.error('[PUSH] FCM/APNs registration error:', JSON.stringify(error));
     });
 
     // Listen for push notifications when app is in foreground
@@ -55,9 +66,6 @@ export async function initializePushNotifications(userId: string): Promise<void>
       'pushNotificationReceived',
       (notification: any) => {
         console.log('[PUSH] Received notification (foreground):', notification);
-
-        // You can show a custom in-app notification here
-        // For now, just log it
       }
     );
 
@@ -66,20 +74,23 @@ export async function initializePushNotifications(userId: string): Promise<void>
       'pushNotificationActionPerformed',
       (notification: any) => {
         console.log('[PUSH] Notification action performed:', notification);
-
-        // Handle deep linking based on notification data
         const data = notification.notification.data;
         if (data?.route) {
-          // Navigate to the route specified in notification data
           window.location.href = data.route;
         }
       }
     );
 
+    // Register with APNs/FCM to get a token
+    console.log('[PUSH] Registering with FCM/APNs...');
+    await PushNotifications.register();
+
     isInitialized = true;
     console.log('[PUSH] Initialization complete');
-  } catch (error) {
+  } catch (error: any) {
     console.error('[PUSH] Initialization failed:', error);
+    // Re-throw with more context
+    throw new Error(error?.message || 'Failed to initialize push notifications. Please check your device settings.');
   }
 }
 

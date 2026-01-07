@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap, Moon, LineChart, Mail, CheckSquare, Globe2, Plug, SettingsIcon, Newspaper, FileText } from 'lucide-react';
+import { Target, Heart, Sparkles, Briefcase, TrendingUp, BookOpen, Mountain, Dumbbell, Activity, LogIn, LogOut, User, Settings, Bell, Calendar, ChevronDown, ChevronRight, History, Clock, BarChart3, Users, MessageSquare, Brain, Zap, Moon, LineChart, Mail, CheckSquare, Globe2, Plug, SettingsIcon, Newspaper, FileText, Mic } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
@@ -49,9 +49,9 @@ interface QuickAction {
 }
 
 const AVAILABLE_QUICK_ACTIONS: Record<string, Omit<QuickAction, 'action'>> = {
-  goalInput: { id: 'goalInput', name: 'Goal Input', icon: Target, href: '/?tab=input', testId: 'button-goal-input-quick' },
+  goalInput: { id: 'goalInput', name: 'Goal Input', icon: Mic, href: '/?tab=input', testId: 'button-goal-input-quick' },
   discover: { id: 'discover', name: 'Discover', icon: Globe2, href: '/?tab=discover', testId: 'button-discover-quick' },
-  activities: { id: 'activities', name: 'Activities', icon: Activity, href: '/?tab=activities', testId: 'button-activities-quick' },
+  activities: { id: 'activities', name: 'Activities', icon: Target, href: '/?tab=activities', testId: 'button-activities-quick' },
   allTasks: { id: 'allTasks', name: 'All Tasks', icon: CheckSquare, href: '/?tab=tasks', testId: 'button-all-tasks-quick' },
   progress: { id: 'progress', name: 'Progress', icon: BarChart3, href: '/?tab=progress', testId: 'button-progress-quick' },
   groups: { id: 'groups', name: 'Groups', icon: Users, href: '/?tab=groups', testId: 'button-groups-quick' },

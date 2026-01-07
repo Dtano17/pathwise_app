@@ -4,6 +4,7 @@ import {
   useRef,
   forwardRef,
   useImperativeHandle,
+  useCallback,
 } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -179,6 +180,14 @@ import { useNotificationTitle } from "@/hooks/useNotificationTitle";
 import Confetti from "react-confetti";
 import { Share as CapacitorShare } from "@capacitor/share";
 import { isNative } from "@/lib/mobile";
+import {
+  onIncomingShare,
+  consumePendingShareData,
+  hasPendingShareData,
+  initIncomingShareListener,
+  type IncomingShareData
+} from "@/lib/shareSheet";
+import { readClipboard } from "@/lib/clipboard";
 
 interface ProgressData {
   completedToday: number;
@@ -406,6 +415,8 @@ export default function MainApp({
   });
 
   const [showTutorial, setShowTutorial] = useState(false);
+  // Track if tutorial was shown this session to prevent race condition re-shows
+  const tutorialShownThisSession = useRef(false);
 
   useEffect(() => {
     const handleOpenTutorial = () => setShowTutorial(true);
@@ -415,21 +426,82 @@ export default function MainApp({
 
   useEffect(() => {
     if (userData && Object.keys(userData).length > 0) {
+      // If we've already shown/dismissed tutorial this session, don't show again
+      if (tutorialShownThisSession.current) {
+        return;
+      }
+
       const isDemo = (userData as any).id === "demo-user";
+      const userId = (userData as any).id;
+
+      // Check if tutorial was completed (from database or localStorage)
       const completed = isDemo
         ? localStorage.getItem("demo-tutorial-completed") === "true"
-        : (userData as any).hasCompletedTutorial;  // Fixed: was tutorialCompleted
-
-      const dismissed = sessionStorage.getItem("tutorial-dismissed") === "true";
+        : (userData as any).hasCompletedTutorial || localStorage.getItem(`tutorial-completed-${userId}`) === "true";
 
       // Don't show tutorial if user has pending share data (incoming share should take priority)
       const hasPendingShare = sessionStorage.getItem("pending-share-data") !== null;
 
-      if (!completed && !dismissed && !hasPendingShare) {
+      // CRITICAL: Only show tutorial once - when user first signs up
+      // Never show it again after dismissing or completing
+      if (!completed && !hasPendingShare) {
+        tutorialShownThisSession.current = true; // Mark as shown for this session
         setShowTutorial(true);
       }
     }
   }, [userData]);
+
+  // State to hold pending share content that needs processing after mutation is available
+  const [pendingShareContent, setPendingShareContent] = useState<string | null>(null);
+
+  // Initialize share listener early (but don't process yet - wait for mutation)
+  useEffect(() => {
+    // Initialize share listener for native platforms
+    initIncomingShareListener();
+
+    // Check for pending share data and store it for later processing
+    const checkPendingTimeout = setTimeout(() => {
+      if (hasPendingShareData()) {
+        const shareData = consumePendingShareData();
+        if (shareData) {
+          const sharedContent = shareData.text || shareData.url || '';
+          if (sharedContent) {
+            console.log('[SHARE MainApp] Storing pending share for processing:', sharedContent.substring(0, 100));
+            setPendingShareContent(sharedContent);
+          }
+        }
+      }
+    }, 100);
+
+    // Listen for future incoming shares via custom event
+    const shareHandler = (data: IncomingShareData) => {
+      const sharedContent = data.text || data.url || '';
+      if (sharedContent) {
+        console.log('[SHARE MainApp] Received share, storing for processing:', sharedContent.substring(0, 100));
+        setPendingShareContent(sharedContent);
+      }
+    };
+    const cleanup = onIncomingShare(shareHandler);
+
+    // Also listen directly for the incomingShare event as a backup
+    const directHandler = (event: any) => {
+      console.log('[SHARE MainApp] Direct incomingShare event received');
+      const shareData = event.detail;
+      if (shareData) {
+        const sharedContent = shareData.text || shareData.url || '';
+        if (sharedContent) {
+          setPendingShareContent(sharedContent);
+        }
+      }
+    };
+    window.addEventListener('incomingShare', directHandler);
+
+    return () => {
+      clearTimeout(checkPendingTimeout);
+      cleanup();
+      window.removeEventListener('incomingShare', directHandler);
+    };
+  }, []);
 
   // Upgrade modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -678,7 +750,7 @@ export default function MainApp({
 
   const handleImportPaste = async () => {
     // Prevent duplicate processing
-    if (importQueue.isProcessing || processGoalMutation.isPending) {
+    if (importQueue.isProcessing) {
       toast({
         title: "Already processing",
         description: "Please wait for the current import to complete.",
@@ -687,7 +759,8 @@ export default function MainApp({
     }
 
     try {
-      const text = await navigator.clipboard.readText();
+      // Use Capacitor clipboard on native, browser API on web
+      const text = await readClipboard();
       if (!text || text.trim().length < 5) {
         toast({
           title: "Clipboard is empty",
@@ -697,14 +770,10 @@ export default function MainApp({
         return;
       }
 
-      // Enqueue the content (validation happens inside the hook)
-      const success = importQueue.enqueue(text.trim());
-
-      if (success) {
-        // Switch to Goal Input tab to process the content
-        setActiveTab("input");
-      }
+      // Set pending share content - will be processed by useEffect
+      setPendingShareContent(text.trim());
     } catch (error) {
+      console.error('[CLIPBOARD] Paste error:', error);
       toast({
         title: "Cannot access clipboard",
         description: "Please allow clipboard access or paste manually.",
@@ -1282,6 +1351,48 @@ export default function MainApp({
     }
   }, [autoImportProcessed, toast, processGoalMutation]);
 
+  // Process shared content (from share sheet or clipboard paste)
+  // This is defined after processGoalMutation so it can use it
+  const processSharedContent = useCallback((sharedContent: string) => {
+    if (!sharedContent || sharedContent.trim().length === 0) return;
+
+    console.log('[SHARE MainApp] Processing share data:', sharedContent.substring(0, 100));
+
+    // Close tutorial if open
+    setShowTutorial(false);
+
+    // Navigate to input tab
+    setActiveTab("input");
+
+    // Format the goal text appropriately (same as pendingImportUrl logic)
+    const isUrl = /^https?:\/\//i.test(sharedContent.trim());
+    const goalText = isUrl
+      ? `Create an action plan from this content: ${sharedContent.trim()}`
+      : sharedContent.trim();
+
+    // Set the text in the input field so user can see what's being processed
+    setChatText(goalText);
+
+    // Show toast to let user know we're processing their content
+    toast({
+      title: "Processing your content",
+      description: "Creating an action plan from your shared content...",
+    });
+
+    // Trigger the goal processing mutation after a brief delay
+    setTimeout(() => {
+      processGoalMutation.mutate(goalText);
+    }, 500);
+  }, [toast, processGoalMutation]);
+
+  // Process any pending shared content when it's set
+  useEffect(() => {
+    if (pendingShareContent) {
+      processSharedContent(pendingShareContent);
+      setPendingShareContent(null); // Clear after processing
+    }
+  }, [pendingShareContent, processSharedContent]);
+
   // Complete task mutation
   const completeTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
@@ -1581,12 +1692,17 @@ export default function MainApp({
 
       return response.json();
     },
-    onSuccess: (data) => {
-      if (data && !(data as any).isDemo) {
-        // Only refetch for authenticated users
-        queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      }
-      console.log("[TUTORIAL] Tutorial marked as completed");
+    onSuccess: () => {
+      // IMPORTANT: Don't invalidate/refetch - directly update cache to prevent race condition
+      // The race condition was: invalidate triggers refetch, refetch completes before DB commits,
+      // so we get old data with hasCompletedTutorial: false, causing tutorial to show again
+      queryClient.setQueryData(["/api/user"], (oldData: any) => {
+        if (oldData) {
+          return { ...oldData, hasCompletedTutorial: true };
+        }
+        return oldData;
+      });
+      console.log("[TUTORIAL] Tutorial marked as completed (cache updated directly)");
     },
     onError: (error) => {
       console.error("[TUTORIAL] Failed to mark tutorial as completed:", error);
@@ -1594,7 +1710,12 @@ export default function MainApp({
   });
 
   const handleTutorialComplete = () => {
-    sessionStorage.setItem("tutorial-dismissed", "true");
+    // Save to localStorage as backup (persists across sessions)
+    const userId = user && typeof user === 'object' && 'id' in user ? (user as any).id : null;
+    if (userId) {
+      localStorage.setItem(`tutorial-completed-${userId}`, "true");
+    }
+    // Save to database
     completeTutorialMutation.mutate();
     setShowTutorial(false);
   };
@@ -2086,7 +2207,7 @@ export default function MainApp({
                     className="gap-2 text-sm font-medium"
                     data-testid="tab-activities"
                   >
-                    <Activity className="w-4 h-4" />
+                    <Target className="w-4 h-4" />
                     <span>Activities ({activities.length})</span>
                   </TabsTrigger>
                   <TabsTrigger
@@ -2521,7 +2642,7 @@ export default function MainApp({
                           className="gap-2"
                           data-testid="button-view-your-activity"
                         >
-                          <Activity className="w-4 h-4" />
+                          <Target className="w-4 h-4" />
                           {currentPlanOutput.planTitle || "Your Activity"}
                         </Button>
                       ) : (
@@ -3485,16 +3606,20 @@ export default function MainApp({
                         <Button
                           onClick={async () => {
                             try {
-                              const text = await navigator.clipboard.readText();
-                              if (text) {
-                                setChatText(text);
+                              // Use Capacitor clipboard on native, browser API on web
+                              const text = await readClipboard();
+                              if (text && text.trim()) {
+                                // Set pending share content - will be processed by useEffect
+                                setPendingShareContent(text.trim());
+                              } else {
                                 toast({
-                                  title: "Content pasted",
-                                  description:
-                                    "Content from clipboard has been added. Click Import to create your plan.",
+                                  title: "Clipboard is empty",
+                                  description: "Copy a URL or content first, then try again.",
+                                  variant: "destructive",
                                 });
                               }
                             } catch (err) {
+                              console.error('[CLIPBOARD] Paste error:', err);
                               toast({
                                 title: "Clipboard access denied",
                                 description:
@@ -4779,8 +4904,12 @@ export default function MainApp({
         open={showTutorial}
         onOpenChange={(open) => {
           if (!open) {
-            sessionStorage.setItem("tutorial-dismissed", "true");
-            // Also save to database when skipping/dismissing to prevent showing again
+            // Save to localStorage as backup (persists across sessions)
+            const userId = user && typeof user === 'object' && 'id' in user ? (user as any).id : null;
+            if (userId) {
+              localStorage.setItem(`tutorial-completed-${userId}`, "true");
+            }
+            // Also save to database when skipping/dismissing
             completeTutorialMutation.mutate();
           }
           setShowTutorial(open);

@@ -247,29 +247,43 @@ function transformContact(contact: Contact): SimpleContact | null {
  */
 export async function syncContactsWithServer(contacts: SimpleContact[]): Promise<{ syncedCount: number }> {
   try {
-    // Simple email validation regex
+    // Strict email validation matching Zod's z.string().email() validator
+    // This regex is compatible with RFC 5322 and matches what Zod expects
     const isValidEmail = (email: string): boolean => {
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      if (!email || typeof email !== 'string') return false;
+      const trimmed = email.trim().toLowerCase();
+      if (trimmed.length === 0 || trimmed.length > 254) return false;
+      // Zod-compatible email regex
+      return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(trimmed);
     };
 
     // Transform and validate contacts to match backend syncContactsSchema requirements:
     // - name: min 1 char, max 100 chars
-    // - emails: array of valid email strings
+    // - emails: array of valid email strings (Zod-compatible)
     // - tel: array of non-empty strings
     const formattedContacts = contacts
       .filter(c => c.displayName && c.displayName.trim().length > 0)  // Must have a name
-      .map((contact) => ({
-        name: contact.displayName.trim().slice(0, 100),  // Ensure max 100 chars
-        emails: (contact.emails || [])
-          .filter((e): e is string => typeof e === 'string' && e.trim().length > 0 && isValidEmail(e.trim()))
-          .map(e => e.trim()),
-        tel: (contact.phoneNumbers || [])
+      .map((contact) => {
+        const name = contact.displayName.trim().slice(0, 100);
+        const emails = (contact.emails || [])
+          .filter((e): e is string => typeof e === 'string' && e.trim().length > 0)
+          .map(e => e.trim().toLowerCase())
+          .filter(e => isValidEmail(e));
+        const tel = (contact.phoneNumbers || [])
           .filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
-          .map(p => p.trim()),
-      }))
+          .map(p => p.trim().replace(/[^\d+\-() ]/g, ''));  // Clean phone numbers
+
+        return { name, emails, tel };
+      })
       .filter(c => c.emails.length > 0 || c.tel.length > 0);  // Must have at least one contact method
 
     console.log('[CONTACTS] Syncing contacts with server:', formattedContacts.length, 'valid contacts');
+    console.log('[CONTACTS] Sample formatted contact:', formattedContacts.length > 0 ? JSON.stringify(formattedContacts[0]) : 'none');
+
+    if (formattedContacts.length === 0) {
+      console.warn('[CONTACTS] No valid contacts to sync after filtering');
+      return { syncedCount: 0 };
+    }
 
     // Send to server for storage
     const response = await fetch('/api/contacts/sync', {
@@ -281,6 +295,7 @@ export async function syncContactsWithServer(contacts: SimpleContact[]): Promise
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('[CONTACTS] Server validation error:', JSON.stringify(errorData));
       throw new Error(errorData.error || 'Failed to sync contacts');
     }
 

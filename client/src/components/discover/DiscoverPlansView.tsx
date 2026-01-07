@@ -554,16 +554,22 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
   // Copy plan to personal mutation
   const copyPlanMutation = useMutation({
     mutationFn: async ({ activityId, shareToken, title, forceUpdate }: { activityId: string; shareToken: string; title: string; forceUpdate?: boolean }) => {
+      console.log('[ADOPT PLAN] Starting copy mutation:', { activityId, shareToken, title, forceUpdate });
+
       const response = await fetch(apiUrl(`/api/activities/copy/${shareToken}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ forceUpdate }),
         credentials: "include",
       });
-      
+
+      console.log('[ADOPT PLAN] Response status:', response.status, response.statusText);
+
       const data = await response.json();
-      
+      console.log('[ADOPT PLAN] Response data:', data);
+
       if (response.status === 409 && data.requiresConfirmation) {
+        console.log('[ADOPT PLAN] Duplicate detected, needs confirmation');
         throw {
           status: 409,
           requiresConfirmation: true,
@@ -571,17 +577,19 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
           existingActivity: data.existingActivity,
         };
       }
-      
+
       if (!response.ok) {
+        console.error('[ADOPT PLAN] Copy failed:', { status: response.status, error: data.error, data });
         throw new Error(data.error || "Failed to copy activity");
       }
-      
+
+      console.log('[ADOPT PLAN] Copy successful, incrementing views');
       try {
         await apiRequest("POST", `/api/activities/${activityId}/increment-views`);
       } catch (error) {
         console.warn('[COPY] Failed to increment views:', error);
       }
-      
+
       return { ...data, originalTitle: title };
     },
     onSuccess: (data: any) => {
@@ -596,7 +604,16 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
       setAdoptDialogOpen(false);
     },
     onError: (error: any) => {
+      console.error('[ADOPT PLAN] Mutation error:', error);
+      console.error('[ADOPT PLAN] Error details:', {
+        message: error?.message,
+        status: error?.status,
+        name: error?.name,
+        stack: error?.stack,
+      });
+
       if (error.status === 409 && error.requiresConfirmation) {
+        console.log('[ADOPT PLAN] Handling duplicate confirmation');
         setDuplicateConfirmation({
           show: true,
           message: error.message || "You already have this plan. Update it with the latest version?",
@@ -604,7 +621,7 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
         });
         return;
       }
-      
+
       toast({
         title: "Failed to adopt plan",
         description: error.message || "Please try again",
@@ -991,21 +1008,26 @@ export default function DiscoverPlansView({ onSignInRequired }: DiscoverPlansVie
   };
 
   const handleUsePlan = (activityId: string, shareToken: string | null, title: string) => {
+    console.log('[ADOPT PLAN] handleUsePlan called:', { activityId, shareToken, title, hasShareToken: !!shareToken });
+
     // Check authentication - demo users cannot use plans
     const isAuthenticated = user && user.id !== 'demo-user';
     if (!isAuthenticated && onSignInRequired) {
+      console.log('[ADOPT PLAN] User not authenticated, prompting sign in');
       onSignInRequired();
       return;
     }
-    
+
     if (!shareToken) {
+      console.error('[ADOPT PLAN] No shareToken available for plan:', { activityId, title });
       toast({
         title: "Cannot use plan",
-        description: "This plan is not available for use",
+        description: "This plan is not available for use (no share token)",
         variant: "destructive",
       });
       return;
     }
+    console.log('[ADOPT PLAN] Opening adopt dialog for:', { activityId, shareToken, title });
     setSelectedPlan({ id: activityId, shareToken, title });
     setAdoptDialogOpen(true);
   };

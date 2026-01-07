@@ -638,44 +638,43 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
               </Select>
             </div>
 
-            <div className="flex gap-3 sm:gap-4 sm:pt-6 flex-wrap">
+            <div className="flex flex-row gap-2 sm:gap-3 sm:pt-6">
               <Button
                 onClick={handleDownloadSingle}
                 disabled={isGenerating}
-                className="flex-1 min-w-[90px] sm:flex-none min-h-[44px]"
+                className="flex-1 sm:flex-none sm:w-auto min-h-[44px]"
                 data-testid="button-download-single"
               >
                 {isGenerating && !downloadProgress ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  <Loader2 className="w-4 h-4 animate-spin sm:mr-2" />
                 ) : (
-                  <Download className="w-4 h-4 mr-2" />
+                  <Download className="w-4 h-4 sm:mr-2" />
                 )}
-                Download
+                <span className="hidden sm:inline">Download</span>
               </Button>
               <Button
                 variant="default"
                 onClick={handleShareImage}
                 disabled={isGenerating || selectedFormat === 'pdf'}
-                className="flex-1 min-w-[90px] sm:flex-none min-h-[44px]"
+                className="flex-1 sm:flex-none sm:w-auto min-h-[44px]"
                 data-testid="button-share-image"
                 title={canShareFiles ? 'Share via native share menu' : 'Download image and caption for manual sharing'}
               >
                 {isGenerating ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  <Loader2 className="w-4 h-4 animate-spin sm:mr-2" />
                 ) : (
-                  <Share2 className="w-4 h-4 mr-2" />
+                  <Share2 className="w-4 h-4 sm:mr-2" />
                 )}
-                {canShareFiles ? 'Share' : 'Share (Download)'}
+                <span className="hidden sm:inline">{canShareFiles ? 'Share' : 'Share (Download)'}</span>
               </Button>
               <Button
                 variant="outline"
                 onClick={handleCopyCaption}
-                className="flex-1 min-w-[90px] sm:flex-none min-h-[44px]"
+                className="flex-1 sm:flex-none sm:w-auto min-h-[44px]"
                 data-testid="button-copy-caption"
               >
-                <FileText className="w-4 h-4 mr-2" />
+                <FileText className="w-4 h-4 sm:mr-2" />
                 <span className="hidden sm:inline">Copy Caption</span>
-                <span className="sm:hidden">Caption</span>
               </Button>
             </div>
           </div>
