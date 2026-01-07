@@ -2013,7 +2013,7 @@ export default function MainApp({
       value: "activities",
       label: `Activities (${activities.length})`,
       shortLabel: "Activities",
-      icon: Activity,
+      icon: Target,
     },
     {
       value: "tasks",
@@ -2386,7 +2386,7 @@ export default function MainApp({
                           {selectedTheme === 'spiritual' && <BookOpen className="w-4 h-4 text-violet-600" />}
                           {selectedTheme === 'romance' && <Heart className="w-4 h-4 text-pink-600" />}
                           {selectedTheme === 'adventure' && <Mountain className="w-4 h-4 text-orange-600" />}
-                          {selectedTheme === 'wellness' && <Activity className="w-4 h-4 text-teal-600" />}
+                          {selectedTheme === 'wellness' && <Target className="w-4 h-4 text-teal-600" />}
                           <span className={`text-sm font-medium ${
                             selectedTheme === 'work' ? 'text-blue-700 dark:text-blue-300' :
                             selectedTheme === 'investment' ? 'text-emerald-700 dark:text-emerald-300' :
