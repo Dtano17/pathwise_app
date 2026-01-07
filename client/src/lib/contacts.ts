@@ -7,6 +7,7 @@
 
 import { Contacts, type GetContactsResult } from '@capacitor-community/contacts';
 import { isNative } from './platform';
+import { z } from 'zod';
 
 // Define Contact type locally to match Capacitor ContactPayload
 interface Contact {
@@ -247,20 +248,22 @@ function transformContact(contact: Contact): SimpleContact | null {
  */
 export async function syncContactsWithServer(contacts: SimpleContact[]): Promise<{ syncedCount: number }> {
   try {
-    // Strict email validation matching Zod's z.string().email() validator
-    // This regex is compatible with RFC 5322 and matches what Zod expects
+    // Use Zod's email validator directly - guarantees 100% compatibility with backend validation
+    const emailSchema = z.string().email();
     const isValidEmail = (email: string): boolean => {
       if (!email || typeof email !== 'string') return false;
-      const trimmed = email.trim().toLowerCase();
-      if (trimmed.length === 0 || trimmed.length > 254) return false;
-      // Zod-compatible email regex
-      return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(trimmed);
+      try {
+        emailSchema.parse(email.trim().toLowerCase());
+        return true;
+      } catch {
+        return false;
+      }
     };
 
     // Transform and validate contacts to match backend syncContactsSchema requirements:
     // - name: min 1 char, max 100 chars
     // - emails: array of valid email strings (Zod-compatible)
-    // - tel: array of non-empty strings
+    // - tel: array of non-empty strings (min 1 char)
     const formattedContacts = contacts
       .filter(c => c.displayName && c.displayName.trim().length > 0)  // Must have a name
       .map((contact) => {
@@ -271,7 +274,8 @@ export async function syncContactsWithServer(contacts: SimpleContact[]): Promise
           .filter(e => isValidEmail(e));
         const tel = (contact.phoneNumbers || [])
           .filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
-          .map(p => p.trim().replace(/[^\d+\-() ]/g, ''));  // Clean phone numbers
+          .map(p => p.trim().replace(/[^\d+\-() ]/g, ''))  // Clean phone numbers
+          .filter(p => p.length > 0);  // CRITICAL: Filter empty strings after cleaning
 
         return { name, emails, tel };
       })
