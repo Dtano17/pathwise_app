@@ -14924,9 +14924,9 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   // Sync phone contacts (demo user & authenticated)
   app.post("/api/contacts/sync", async (req, res) => {
     try {
-      // Support both authenticated users and demo users
-      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || getDemoUserId(req);
-      console.log('[CONTACTS SYNC] User ID:', userId, 'Auth user:', (req.user as any)?.id || (req.user as any)?.claims?.sub);
+      // Support both authenticated users and demo users using proper helper
+      const userId = getUserId(req) || getDemoUserId(req);
+      console.log('[CONTACTS SYNC] User ID:', userId, 'getUserId:', getUserId(req), 'isAuthenticated:', req.isAuthenticated?.());
       if (!userId) {
         return res.status(401).json({ error: 'Unable to identify user' });
       }
@@ -14961,8 +14961,8 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   // Add manual contact (demo user & authenticated)
   app.post("/api/contacts", async (req, res) => {
     try {
-      // Support both authenticated users and demo users
-      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || getDemoUserId(req);
+      // Support both authenticated users and demo users using proper helper
+      const userId = getUserId(req) || getDemoUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Unable to identify user' });
       }
@@ -14996,9 +14996,9 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   // Get user's contacts with JournalMate status (demo user & authenticated)
   app.get("/api/contacts", async (req, res) => {
     try {
-      // Support both authenticated users and demo users
-      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || getDemoUserId(req);
-      console.log('[CONTACTS GET] User ID:', userId, 'Auth user:', (req.user as any)?.id || (req.user as any)?.claims?.sub);
+      // Support both authenticated users and demo users using proper helper
+      const userId = getUserId(req) || getDemoUserId(req);
+      console.log('[CONTACTS GET] User ID:', userId, 'getUserId:', getUserId(req), 'isAuthenticated:', req.isAuthenticated?.());
       if (!userId) {
         return res.status(401).json({ error: 'Unable to identify user' });
       }
