@@ -383,9 +383,13 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
         console.warn('Could not copy to clipboard:', clipboardError);
       }
 
+      // Track whether a share sheet was shown to prevent double actions
+      let shareSheetShown = false;
+
       // On native platforms, use Capacitor Share (proper Android/iOS native share sheet)
       if (isNative()) {
         console.log('[SHARE] Using native Capacitor Share');
+        shareSheetShown = true; // Mark that we're showing a share sheet
         const result = await shareContent({
           title: 'JournalMate Activity',
           text: captionToShare,
@@ -396,13 +400,13 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
           await trackShare();
           toast({ title: 'Shared Successfully!' });
         } else if (result.error !== 'Cancelled') {
-          // Fallback: download image manually
-          downloadImage(blob, shareFormat);
+          // Share sheet was shown but failed - don't download, just inform user
           toast({
-            title: 'Image Downloaded',
-            description: 'Share it manually from your downloads folder.',
+            title: 'Sharing Failed',
+            description: 'Try again or use the Download tab to save the image.',
           });
         }
+        // Native share was attempted - exit without fallback download
         return;
       }
 
@@ -415,22 +419,30 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
         const shareData: ShareData = { files: [file], text: captionToShare };
 
         if (navigator.canShare(shareData)) {
+          shareSheetShown = true; // Mark that we're about to show a share sheet
           try {
             await navigator.share(shareData);
             await trackShare();
             toast({ title: 'Shared Successfully!' });
-            return;
+            return; // Success - exit
           } catch (shareError: any) {
+            // User cancelled - that's okay, just exit silently
             if (shareError.name === 'AbortError') {
-              // User cancelled - that's okay
               return;
             }
+            // Share sheet was shown but failed - don't download, just inform user
             console.warn('Web Share API failed:', shareError);
+            toast({
+              title: 'Sharing Failed',
+              description: 'Try again or use the Download tab to save the image.',
+            });
+            return; // Exit - don't fall through to download since share sheet was shown
           }
         }
       }
 
-      // Fallback: download image
+      // Only reach here if share sheet was NEVER shown (Web Share API unavailable)
+      // Download the image as the intended fallback behavior
       downloadImage(blob, shareFormat);
       toast({
         title: 'Image Downloaded',
