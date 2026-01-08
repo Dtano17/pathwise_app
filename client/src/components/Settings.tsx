@@ -79,6 +79,13 @@ interface SettingsProps {
 export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
+
+  // Debug logging for platform detection
+  console.log('[SETTINGS] Platform detection:', {
+    isNative: isNative(),
+    isAndroid: isAndroid(),
+    capacitorWindow: typeof (window as any).Capacitor !== 'undefined'
+  });
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     return today.toISOString().split('T')[0]; // Format: YYYY-MM-DD

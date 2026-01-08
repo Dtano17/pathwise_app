@@ -2,12 +2,14 @@ import { useState, useRef, useEffect, memo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Calendar, X, Pause, Undo, Archive, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { CheckCircle, Clock, Calendar, CalendarPlus, X, Pause, Undo, Archive, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
 import Confetti from 'react-confetti';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
+import { isNative } from '@/lib/platform';
+import { addTaskToCalendar } from '@/lib/calendar';
 
 interface Task {
   id: string;
@@ -33,7 +35,8 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
   const [showCelebration, setShowCelebration] = useState(false);
   const [pendingAction, setPendingAction] = useState<'complete' | 'skip' | 'snooze' | 'archive' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  
+  const [isAddingToCalendar, setIsAddingToCalendar] = useState(false);
+
   const { toast, dismiss } = useToast();
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentToastIdRef = useRef<string | null>(null);
@@ -209,6 +212,55 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
     setShowCelebration(false);
   };
 
+  const handleAddToCalendar = async () => {
+    if (isAddingToCalendar) return;
+
+    setIsAddingToCalendar(true);
+    triggerHapticFeedback('light');
+
+    try {
+      // Use task due date or default to tomorrow at 9 AM
+      const dueDate = task.dueDate
+        ? new Date(task.dueDate)
+        : (() => {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(9, 0, 0, 0);
+            return tomorrow;
+          })();
+
+      const result = await addTaskToCalendar(
+        task.title,
+        dueDate,
+        task.description,
+        30 // 30 minutes reminder
+      );
+
+      if (result.success) {
+        triggerHapticFeedback('heavy');
+        toast({
+          title: 'Added to Calendar',
+          description: 'Task has been added to your calendar with a reminder',
+        });
+      } else {
+        toast({
+          title: 'Calendar Error',
+          description: result.error || 'Failed to add to calendar',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      console.error('[TASK CARD] Calendar error:', error);
+      toast({
+        title: 'Calendar Error',
+        description: error.message || 'Failed to add task to calendar',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAddingToCalendar(false);
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
@@ -351,6 +403,25 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
               <Pause className="w-4 h-4 mr-2 flex-shrink-0" />
               <span className="truncate">Snooze</span>
             </Button>
+
+            {/* Calendar button - only show on native mobile */}
+            {isNative() && (
+              <Button
+                onClick={handleAddToCalendar}
+                disabled={isProcessing || isAddingToCalendar}
+                variant="outline"
+                size="default"
+                className="w-full min-h-[44px]"
+                data-testid={`button-calendar-${task.id}`}
+              >
+                {isAddingToCalendar ? (
+                  <Loader2 className="w-4 h-4 mr-2 flex-shrink-0 animate-spin" />
+                ) : (
+                  <CalendarPlus className="w-4 h-4 mr-2 flex-shrink-0" />
+                )}
+                <span className="truncate">Calendar</span>
+              </Button>
+            )}
 
             {onArchive && (
               <Button

@@ -245,8 +245,12 @@ function transformContact(contact: Contact): SimpleContact | null {
 /**
  * Sync contacts with backend to store and display in app
  * Sends actual contact data (name, emails, phones) for storage
+ * Batches contacts in groups of 100 to comply with backend limits
  */
-export async function syncContactsWithServer(contacts: SimpleContact[]): Promise<{ syncedCount: number }> {
+export async function syncContactsWithServer(
+  contacts: SimpleContact[],
+  onProgress?: (synced: number, total: number) => void
+): Promise<{ syncedCount: number }> {
   try {
     // Use Zod's email validator directly - guarantees 100% compatibility with backend validation
     const emailSchema = z.string().email();
@@ -260,52 +264,94 @@ export async function syncContactsWithServer(contacts: SimpleContact[]): Promise
       }
     };
 
+    console.log('[CONTACTS] Starting sync with', contacts.length, 'raw contacts');
+
     // Transform and validate contacts to match backend syncContactsSchema requirements:
     // - name: min 1 char, max 100 chars
     // - emails: array of valid email strings (Zod-compatible)
     // - tel: array of non-empty strings (min 1 char)
     const formattedContacts = contacts
-      .filter(c => c.displayName && c.displayName.trim().length > 0)  // Must have a name
+      .filter(c => {
+        const hasName = c.displayName && c.displayName.trim().length > 0;
+        return hasName;
+      })
       .map((contact) => {
         const name = contact.displayName.trim().slice(0, 100);
+
+        // Process emails - filter and validate
         const emails = (contact.emails || [])
           .filter((e): e is string => typeof e === 'string' && e.trim().length > 0)
           .map(e => e.trim().toLowerCase())
           .filter(e => isValidEmail(e));
+
+        // Process phone numbers - clean and filter
         const tel = (contact.phoneNumbers || [])
           .filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
-          .map(p => p.trim().replace(/[^\d+\-() ]/g, ''))  // Clean phone numbers
-          .filter(p => p.length > 0);  // CRITICAL: Filter empty strings after cleaning
+          .map(p => p.trim().replace(/[^\d+\-() ]/g, ''))
+          .filter(p => p.length > 0);
 
         return { name, emails, tel };
       })
-      .filter(c => c.emails.length > 0 || c.tel.length > 0);  // Must have at least one contact method
+      .filter(c => c.emails.length > 0 || c.tel.length > 0);
 
-    console.log('[CONTACTS] Syncing contacts with server:', formattedContacts.length, 'valid contacts');
-    console.log('[CONTACTS] Sample formatted contact:', formattedContacts.length > 0 ? JSON.stringify(formattedContacts[0]) : 'none');
+    console.log('[CONTACTS] After filtering:', formattedContacts.length, 'valid contacts');
 
     if (formattedContacts.length === 0) {
       console.warn('[CONTACTS] No valid contacts to sync after filtering');
       return { syncedCount: 0 };
     }
 
-    // Send to server for storage
-    const response = await fetch('/api/contacts/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ contacts: formattedContacts }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('[CONTACTS] Server validation error:', JSON.stringify(errorData));
-      throw new Error(errorData.error || 'Failed to sync contacts');
+    // Batch contacts in groups of 100 (backend limit)
+    const BATCH_SIZE = 100;
+    const batches: Array<typeof formattedContacts> = [];
+    for (let i = 0; i < formattedContacts.length; i += BATCH_SIZE) {
+      batches.push(formattedContacts.slice(i, i + BATCH_SIZE));
     }
 
-    const result = await response.json();
-    console.log('[CONTACTS] Contacts synced successfully:', result);
-    return { syncedCount: result.syncedCount || 0 };
+    console.log('[CONTACTS] Syncing in', batches.length, 'batches of up to', BATCH_SIZE);
+
+    let totalSynced = 0;
+
+    // Process each batch sequentially
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      console.log(`[CONTACTS] Syncing batch ${i + 1}/${batches.length} (${batch.length} contacts)`);
+
+      const response = await fetch('/api/contacts/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ contacts: batch }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`[CONTACTS] Batch ${i + 1} failed:`, response.status, JSON.stringify(errorData));
+
+        // Show more specific error message
+        if (errorData.details && Array.isArray(errorData.details)) {
+          const firstError = errorData.details[0];
+          const errorPath = firstError?.path?.join('.') || 'unknown field';
+          const errorMsg = firstError?.message || 'validation failed';
+          throw new Error(`Batch ${i + 1} validation error: ${errorPath} - ${errorMsg}`);
+        }
+
+        throw new Error(errorData.error || `Failed to sync batch ${i + 1}`);
+      }
+
+      const result = await response.json();
+      totalSynced += result.syncedCount || batch.length;
+
+      // Report progress
+      if (onProgress) {
+        onProgress(totalSynced, formattedContacts.length);
+      }
+
+      console.log(`[CONTACTS] Batch ${i + 1} complete. Total synced: ${totalSynced}`);
+    }
+
+    console.log('[CONTACTS] All contacts synced successfully:', totalSynced);
+    return { syncedCount: totalSynced };
   } catch (error) {
     console.error('[CONTACTS] Failed to sync contacts:', error);
     throw error;

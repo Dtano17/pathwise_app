@@ -81,6 +81,7 @@ export const isNative = (): boolean => {
   // Try Capacitor's native detection first
   try {
     if (Capacitor.isNativePlatform()) {
+      console.log('[PLATFORM] isNative: true (Capacitor.isNativePlatform)');
       return true;
     }
   } catch (e) {
@@ -88,7 +89,21 @@ export const isNative = (): boolean => {
   }
 
   // Fallback: Check for WebView environment
-  return isAndroidWebView() || isIOSWebView();
+  const androidWebView = isAndroidWebView();
+  const iosWebView = isIOSWebView();
+  const result = androidWebView || iosWebView;
+
+  console.log('[PLATFORM] isNative debug:', {
+    capacitorExists: typeof (window as any).Capacitor !== 'undefined',
+    capacitorIsNative: (window as any).Capacitor?.isNativePlatform?.(),
+    userAgent: navigator.userAgent,
+    documentURL: document.URL,
+    isAndroidWebView: androidWebView,
+    isIOSWebView: iosWebView,
+    result
+  });
+
+  return result;
 };
 
 /**
