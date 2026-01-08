@@ -14925,23 +14925,27 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   app.post("/api/contacts/sync", async (req, res) => {
     try {
       // Support both authenticated users and demo users
-      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || getDemoUserId();
+      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || getDemoUserId(req);
+      console.log('[CONTACTS SYNC] User ID:', userId, 'Auth user:', (req.user as any)?.id || (req.user as any)?.claims?.sub);
       if (!userId) {
         return res.status(401).json({ error: 'Unable to identify user' });
       }
-      
+
       // Validate request body using Zod
       const validationResult = syncContactsSchema.safeParse(req.body);
       if (!validationResult.success) {
-        return res.status(400).json({ 
+        console.log('[CONTACTS SYNC] Validation failed:', validationResult.error.errors);
+        return res.status(400).json({
           error: 'Invalid request data',
           details: validationResult.error.errors
         });
       }
-      
+
       const { contacts: phoneContacts } = validationResult.data;
+      console.log('[CONTACTS SYNC] Syncing', phoneContacts.length, 'contacts for user', userId);
       const result = await contactSyncService.syncPhoneContacts(userId, phoneContacts);
-      
+      console.log('[CONTACTS SYNC] Sync complete:', result.syncedCount, 'contacts synced');
+
       res.json({
         success: true,
         syncedCount: result.syncedCount,
@@ -14949,7 +14953,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         message: `Successfully synced ${result.syncedCount} contacts!`
       });
     } catch (error) {
-      console.error('Contact sync error:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('[CONTACTS SYNC] Error:', error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({ error: 'Failed to sync contacts' });
     }
   });
@@ -14958,7 +14962,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   app.post("/api/contacts", async (req, res) => {
     try {
       // Support both authenticated users and demo users
-      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || getDemoUserId();
+      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || getDemoUserId(req);
       if (!userId) {
         return res.status(401).json({ error: 'Unable to identify user' });
       }
@@ -14993,15 +14997,17 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   app.get("/api/contacts", async (req, res) => {
     try {
       // Support both authenticated users and demo users
-      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || getDemoUserId();
+      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || getDemoUserId(req);
+      console.log('[CONTACTS GET] User ID:', userId, 'Auth user:', (req.user as any)?.id || (req.user as any)?.claims?.sub);
       if (!userId) {
         return res.status(401).json({ error: 'Unable to identify user' });
       }
-      
+
       const contacts = await contactSyncService.getUserContactsWithStatus(userId);
+      console.log('[CONTACTS GET] Returning', contacts.length, 'contacts for user', userId);
       res.json(contacts);
     } catch (error) {
-      console.error('Get contacts error:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('[CONTACTS GET] Error:', error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({ error: 'Failed to fetch contacts' });
     }
   });

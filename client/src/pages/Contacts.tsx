@@ -62,8 +62,11 @@ export default function Contacts() {
 
   // Get user's contacts
   const { data: contacts = [], isLoading } = useQuery<Contact[]>({
-    queryKey: ['/api/contacts']
+    queryKey: ['/api/contacts'],
   });
+
+  // Debug: Log contacts data when it changes
+  console.log('[CONTACTS PAGE] Contacts data:', contacts.length, 'contacts loaded');
 
   // Sync phone contacts mutation
   const syncContactsMutation = useMutation({
@@ -139,8 +142,10 @@ export default function Contacts() {
       // Sync with server - this stores the contacts in the database
       const result = await syncContactsWithServer(phoneContacts);
 
-      // Refresh the contacts list to show newly synced contacts
-      queryClient.invalidateQueries({ queryKey: ['/api/contacts'] });
+      // Force refresh the contacts list to show newly synced contacts
+      console.log('[CONTACTS] Sync complete, forcing refetch...');
+      await queryClient.refetchQueries({ queryKey: ['/api/contacts'] });
+      console.log('[CONTACTS] Refetch complete');
 
       toast({
         title: "Contacts Imported!",
