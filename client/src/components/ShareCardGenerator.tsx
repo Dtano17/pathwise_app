@@ -386,23 +386,48 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
       // On native platforms, use Capacitor Share (proper Android/iOS native share sheet)
       if (isNative()) {
         console.log('[SHARE] Using native Capacitor Share');
-        const result = await shareContent({
-          title: 'JournalMate Activity',
-          text: captionToShare,
-          dialogTitle: 'Share Activity',
-        });
 
-        if (result.success) {
-          await trackShare();
-          toast({ title: 'Shared Successfully!' });
-        } else if (result.error !== 'Cancelled') {
-          // Fallback: download image manually
-          downloadImage(blob, shareFormat);
-          toast({
-            title: 'Image Downloaded',
-            description: 'Share it manually from your downloads folder.',
-          });
+        // Retry logic for native share - up to 2 attempts
+        let lastError: string | undefined;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const result = await shareContent({
+              title: 'JournalMate Activity',
+              text: captionToShare,
+              dialogTitle: 'Share Activity',
+            });
+
+            if (result.success) {
+              // Share sheet opened successfully - that's all we can confirm on Android
+              await trackShare();
+              toast({ title: 'Shared!' });
+              return;
+            } else if (result.error === 'Cancelled') {
+              // User cancelled - that's fine, just exit without any message
+              console.log('[SHARE] User cancelled share');
+              return;
+            } else {
+              // Share had an issue, store error for potential retry
+              lastError = result.error;
+              console.warn(`[SHARE] Attempt ${attempt} failed:`, result.error);
+            }
+          } catch (error: any) {
+            lastError = error.message || 'Unknown error';
+            console.error(`[SHARE] Attempt ${attempt} error:`, error);
+          }
+
+          // If first attempt failed, wait briefly before retry
+          if (attempt === 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
         }
+
+        // Both attempts failed - show error
+        toast({
+          title: 'Share Failed',
+          description: lastError || 'Please try again.',
+          variant: 'destructive',
+        });
         return;
       }
 
