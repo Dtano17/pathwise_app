@@ -7,7 +7,7 @@ import { apiRequest } from '@/lib/queryClient';
 
 interface BackdropOption {
   url: string;
-  source: 'tavily' | 'unsplash' | 'user';
+  source: 'tavily' | 'unsplash' | 'pexels' | 'user';
   label?: string;
 }
 
@@ -167,8 +167,8 @@ export function BackdropPicker({
                 </div>
               )}
 
-              {/* Source badge */}
-              {option.source === 'unsplash' && (
+              {/* Source badge - HD for free providers */}
+              {(option.source === 'unsplash' || option.source === 'pexels') && (
                 <div className="absolute top-2 left-2 bg-black/50 rounded px-1.5 py-0.5">
                   <span className="text-[10px] text-white/80">HD</span>
                 </div>

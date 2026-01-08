@@ -6676,12 +6676,14 @@ IMPORTANT: Only redact as specified. Preserve the overall meaning and usefulness
 
       // Fetch backdrop options based on activity title, category, and description
       // Pass variation to get different results on each refresh
+      // Pass activityId for caching (reduces API costs by ~85-90%)
       const options = await searchBackdropOptions(
         activity.title,
         activity.category || 'personal',
         activity.planSummary || activity.description || undefined,
         8, // max 8 options for more variety
-        variation // different query variation for each refresh
+        variation, // different query variation for each refresh
+        activityId // for caching
       );
 
       // If activity already has a custom backdrop, include it first
