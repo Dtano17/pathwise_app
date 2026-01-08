@@ -305,7 +305,13 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       }
 
       const contacts = await getContacts();
+      console.log('[SETTINGS] Got', contacts.length, 'contacts from device');
       const result = await syncContactsWithServer(contacts);
+      console.log('[SETTINGS] Sync result:', result);
+
+      // Invalidate contacts cache so Contacts page shows fresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/contacts'] });
+      console.log('[SETTINGS] Invalidated contacts cache');
 
       toast({
         title: 'Contacts Synced',

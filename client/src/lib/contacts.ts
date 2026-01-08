@@ -340,6 +340,11 @@ export async function syncContactsWithServer(
       }
 
       const result = await response.json();
+      console.log(`[CONTACTS] Batch ${i + 1} response:`, {
+        syncedCount: result.syncedCount,
+        contactsReturned: result.contacts?.length || 0,
+        message: result.message
+      });
       totalSynced += result.syncedCount || batch.length;
 
       // Report progress
