@@ -10,6 +10,8 @@ import { Badge } from './ui/badge';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { shareContent } from '@/lib/shareSheet';
+import { isNative } from '@/lib/platform';
 import {
   PLATFORM_TEMPLATES,
   PLATFORM_PACKS,
@@ -322,7 +324,37 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
   };
 
   /**
-   * Share single share card using native share API
+   * Helper function to download image
+   */
+  const downloadImage = (blob: Blob, format: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `journalmate-${selectedPlatform}.${format}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  /**
+   * Helper function to track share
+   */
+  const trackShare = async () => {
+    try {
+      await fetch(`/api/activities/${activityId}/track-share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ platform: selectedPlatform }),
+      });
+    } catch (e) {
+      console.warn('Failed to track share:', e);
+    }
+  };
+
+  /**
+   * Share single share card using native share API on mobile, Web Share API on web
    */
   const handleShareImage = async () => {
     setIsGenerating(true);
@@ -336,97 +368,79 @@ export const ShareCardGenerator = forwardRef<ShareCardGeneratorRef, ShareCardGen
         throw new Error('Failed to generate share card');
       }
 
-      // Create a File object from the blob
-      const file = new File([blob], `journalmate-${selectedPlatform}.${shareFormat}`, {
-        type: shareFormat === 'jpg' ? 'image/jpeg' : 'image/png'
-      });
-
       // Use the platform-specific caption
       const captionToShare = platformCaption;
 
-      // Try to use Web Share API if supported
-      let shareSuccessful = false;
+      // Copy caption to clipboard first
+      try {
+        await navigator.clipboard.writeText(captionToShare);
+        toast({
+          title: '📋 Caption Copied!',
+          description: 'Caption ready to paste when sharing',
+          duration: 3000
+        });
+      } catch (clipboardError) {
+        console.warn('Could not copy to clipboard:', clipboardError);
+      }
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          // Copy caption to clipboard first
-          try {
-            await navigator.clipboard.writeText(captionToShare);
-            toast({
-              title: '📋 Caption Copied!',
-              description: 'Caption ready to paste when sharing',
-              duration: 3000
-            });
-          } catch (clipboardError) {
-            console.warn('Could not copy to clipboard:', clipboardError);
-          }
+      // On native platforms, use Capacitor Share (proper Android/iOS native share sheet)
+      if (isNative()) {
+        console.log('[SHARE] Using native Capacitor Share');
+        const result = await shareContent({
+          title: 'JournalMate Activity',
+          text: captionToShare,
+          dialogTitle: 'Share Activity',
+        });
 
-          // Try sharing with both file and text (better for WhatsApp, Telegram)
-          // Some platforms like WhatsApp need text included to show in share menu
-          const shareData: ShareData = {
-            files: [file],
-            text: captionToShare,
-          };
-
-          // Check if the full share data is supported, if not fall back to file only
-          if (navigator.canShare(shareData)) {
-            await navigator.share(shareData);
-          } else {
-            // Fallback to file-only sharing (iOS Safari)
-            await navigator.share({ files: [file] });
-          }
-
-          // Track share count
-          await fetch(`/api/activities/${activityId}/track-share`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ platform: selectedPlatform }),
-          });
-
+        if (result.success) {
+          await trackShare();
           toast({ title: 'Shared Successfully!' });
-          shareSuccessful = true;
-        } catch (shareError: any) {
-          if (shareError.name === 'AbortError') {
-            // User cancelled - that's okay
-            shareSuccessful = true;
-          } else {
-            // If share fails, fall back to download
-            console.warn('Share API failed, falling back to download:', shareError);
+        } else if (result.error !== 'Cancelled') {
+          // Fallback: download image manually
+          downloadImage(blob, shareFormat);
+          toast({
+            title: 'Image Downloaded',
+            description: 'Share it manually from your downloads folder.',
+          });
+        }
+        return;
+      }
+
+      // Web: Try Web Share API with file
+      if (navigator.canShare) {
+        const file = new File([blob], `journalmate-${selectedPlatform}.${shareFormat}`, {
+          type: shareFormat === 'jpg' ? 'image/jpeg' : 'image/png'
+        });
+
+        const shareData: ShareData = { files: [file], text: captionToShare };
+
+        if (navigator.canShare(shareData)) {
+          try {
+            await navigator.share(shareData);
+            await trackShare();
+            toast({ title: 'Shared Successfully!' });
+            return;
+          } catch (shareError: any) {
+            if (shareError.name === 'AbortError') {
+              // User cancelled - that's okay
+              return;
+            }
+            console.warn('Web Share API failed:', shareError);
           }
         }
       }
-      
-      // Fallback: Download the image and copy caption if share didn't work
-      if (!shareSuccessful) {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `journalmate-${selectedPlatform}.${shareFormat}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
 
-        try {
-          await navigator.clipboard.writeText(captionToShare);
-          toast({
-            title: 'Image Downloaded',
-            description: 'Caption copied to clipboard. Image has been downloaded - share it manually.',
-            duration: 3000
-          });
-        } catch {
-          toast({
-            title: 'Image Downloaded',
-            description: 'Image has been downloaded. Share it manually from your downloads folder.'
-          });
-        }
-      }
+      // Fallback: download image
+      downloadImage(blob, shareFormat);
+      toast({
+        title: 'Image Downloaded',
+        description: 'Caption copied to clipboard. Share manually.',
+      });
     } catch (error: any) {
       if (error.name !== 'AbortError') {
         toast({
           title: 'Share Failed',
-          description: error.message || 'Could not share image. Please try again.',
+          description: error.message || 'Could not share. Please try again.',
           variant: 'destructive',
         });
       }

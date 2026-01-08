@@ -123,17 +123,58 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
-        <!-- Home Screen Widget -->
+        <!-- Home Screen Widgets (Multiple Sizes) -->
+
+        <!-- 2x1 Compact Widget - Stats Only -->
         <receiver
-            android:name=".JournalMateWidget"
+            android:name=".widgets.JournalMateWidget2x1"
             android:exported="true"
-            android:label="@string/app_name">
+            android:label="JournalMate (Compact)">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info" />
+                android:resource="@xml/widget_info_2x1" />
+        </receiver>
+
+        <!-- 2x2 Small Widget - Ring + Stats -->
+        <receiver
+            android:name=".widgets.JournalMateWidget2x2"
+            android:exported="true"
+            android:label="JournalMate (Small)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_2x2" />
+        </receiver>
+
+        <!-- 4x1 Wide Widget - Ring + Labeled Stats -->
+        <receiver
+            android:name=".widgets.JournalMateWidget4x1"
+            android:exported="true"
+            android:label="JournalMate (Wide)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_4x1" />
+        </receiver>
+
+        <!-- 4x2 Large Widget - Ring + Stats + Streak -->
+        <receiver
+            android:name=".widgets.JournalMateWidget4x2"
+            android:exported="true"
+            android:label="JournalMate (Large)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_4x2" />
         </receiver>
 
         <!-- Foreground Service (persistent notification at top) -->

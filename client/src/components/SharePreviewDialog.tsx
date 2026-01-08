@@ -1439,7 +1439,7 @@ export function SharePreviewDialog({
                 )}
               </div>
 
-              {/* Save Settings Button */}
+              {/* Share Activity Button */}
               <div className="flex flex-col sm:flex-row flex-wrap justify-end gap-2 pt-4 border-t">
                 <Button
                   variant="outline"
@@ -1455,8 +1455,8 @@ export function SharePreviewDialog({
                   data-testid="button-confirm-share"
                   className="gap-2 min-h-[44px]"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  {updateMutation.isPending ? "Saving..." : "Save Settings"}
+                  <Share2 className="w-4 h-4" />
+                  {updateMutation.isPending ? "Sharing..." : "Share Activity"}
                 </Button>
               </div>
                 </div>

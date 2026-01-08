@@ -188,6 +188,12 @@ import {
   type IncomingShareData
 } from "@/lib/shareSheet";
 import { readClipboard } from "@/lib/clipboard";
+import {
+  updateTaskProgress,
+  isBackgroundServiceAvailable,
+  getBackgroundServiceStatus,
+  startForegroundService
+} from "@/lib/backgroundService";
 
 interface ProgressData {
   completedToday: number;
@@ -1143,6 +1149,33 @@ export default function MainApp({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks]); // Only re-run when tasks array changes
+
+  // Auto-update foreground notification when task data changes
+  useEffect(() => {
+    const updateNotification = async () => {
+      if (!isBackgroundServiceAvailable()) return;
+
+      // Check if foreground service is enabled
+      const status = await getBackgroundServiceStatus();
+      if (!status?.backgroundSyncEnabled) return;
+
+      // Calculate task stats
+      const completedTasks = tasks.filter(t => t.completed).length;
+      const totalTasks = tasks.length;
+      const nextTask = tasks.find(t => !t.completed && t.dueDate);
+
+      // Update the notification
+      await updateTaskProgress({
+        completedTasks,
+        totalTasks,
+        streak: progressData?.weeklyStreak || 0,
+        nextTaskTitle: nextTask?.title,
+        nextTaskTime: nextTask?.dueDate ? new Date(nextTask.dueDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+      });
+    };
+
+    updateNotification();
+  }, [tasks, progressData?.weeklyStreak]);
 
   // Load activity data when entering edit mode
   useEffect(() => {

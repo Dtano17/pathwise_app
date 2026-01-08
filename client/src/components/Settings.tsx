@@ -27,6 +27,12 @@ import {
   openCalendarApp
 } from '@/lib/calendar';
 import {
+  startForegroundService,
+  stopForegroundService,
+  getBackgroundServiceStatus,
+  isBackgroundServiceAvailable
+} from '@/lib/backgroundService';
+import {
   Bell,
   Calendar,
   Settings as SettingsIcon,
@@ -97,6 +103,8 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
   const [contactsLoading, setContactsLoading] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [notificationStatus, setNotificationStatus] = useState<'granted' | 'denied' | 'default'>('default');
+  const [foregroundServiceEnabled, setForegroundServiceEnabled] = useState(false);
+  const [foregroundServiceLoading, setForegroundServiceLoading] = useState(false);
 
   // Get user preferences
   const { data: preferences } = useQuery<UserPreferences>({
@@ -165,6 +173,17 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       }).catch(() => {
         setNotificationStatus('default');
       });
+
+      // Check foreground service status
+      if (isBackgroundServiceAvailable()) {
+        getBackgroundServiceStatus().then(status => {
+          if (status) {
+            setForegroundServiceEnabled(status.backgroundSyncEnabled);
+          }
+        }).catch(() => {
+          setForegroundServiceEnabled(false);
+        });
+      }
     } else if ('Notification' in window) {
       // Check browser notification permission
       setBrowserNotificationsEnabled(Notification.permission === 'granted');
@@ -364,6 +383,44 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       });
     } finally {
       setCalendarLoading(false);
+    }
+  };
+
+  // Handle foreground service (lock screen notification) toggle
+  const handleForegroundServiceToggle = async (enabled: boolean) => {
+    setForegroundServiceLoading(true);
+    try {
+      if (enabled) {
+        const success = await startForegroundService();
+        if (success) {
+          setForegroundServiceEnabled(true);
+          toast({
+            title: 'Lock Screen Notification Enabled',
+            description: 'Task progress will appear in your notification bar',
+          });
+        } else {
+          toast({
+            title: 'Failed to Enable',
+            description: 'Could not start the notification service',
+            variant: 'destructive'
+          });
+        }
+      } else {
+        const success = await stopForegroundService();
+        setForegroundServiceEnabled(false);
+        toast({
+          title: 'Lock Screen Notification Disabled',
+          description: 'Notification has been removed',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to toggle notification service',
+        variant: 'destructive'
+      });
+    } finally {
+      setForegroundServiceLoading(false);
     }
   };
 
@@ -760,6 +817,31 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
                 </Button>
               </div>
             </div>
+
+            {/* Lock Screen Notification (Android only) */}
+            {isAndroid() && (
+              <>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm flex items-center gap-2">
+                      <Bell className="w-4 h-4" />
+                      Lock Screen Notification
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {foregroundServiceEnabled
+                        ? 'Showing task progress in notification bar'
+                        : 'Show task progress on lock screen'}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={foregroundServiceEnabled}
+                    onCheckedChange={handleForegroundServiceToggle}
+                    disabled={foregroundServiceLoading}
+                  />
+                </div>
+              </>
+            )}
 
             {/* Widget Info (Android only) */}
             {isAndroid() && (
