@@ -8,4 +8,14 @@
     <string name="server_client_id">481740120979-76fs0ru0uikj5o33mr87vhua8c54657f.apps.googleusercontent.com</string>
     <!-- Widget -->
     <string name="widget_description">Quick access to JournalMate - tap to plan your day</string>
+
+    <!-- App Shortcuts -->
+    <string name="shortcut_add_task">Add Task</string>
+    <string name="shortcut_add_task_long">Quick Add a New Task</string>
+    <string name="shortcut_today">Today</string>
+    <string name="shortcut_today_long">View Today\'s Tasks</string>
+    <string name="shortcut_journal">Journal</string>
+    <string name="shortcut_journal_long">Write Journal Entry</string>
+    <string name="shortcut_activities">Activities</string>
+    <string name="shortcut_activities_long">View My Activities</string>
 </resources>

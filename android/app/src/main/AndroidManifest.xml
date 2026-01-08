@@ -24,6 +24,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- App Shortcuts (Long-press app icon) -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
             <!-- Share text content (URLs, links from any app) -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
@@ -130,6 +135,46 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info" />
         </receiver>
+
+        <!-- Foreground Service (persistent notification at top) -->
+        <service
+            android:name=".JournalMateService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- Task Reminder Receiver (triggered by AlarmManager) -->
+        <receiver
+            android:name=".TaskReminderReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="TASK_REMINDER" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Task Action Receiver (notification button actions) -->
+        <receiver
+            android:name=".TaskActionReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="MARK_DONE" />
+                <action android:name="SNOOZE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Boot Receiver (reschedule reminders after device restart) -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
     <!-- Permissions -->
@@ -172,6 +217,17 @@
 
     <!-- Wake Lock (for background tasks) -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Foreground Service Permission (Android 9+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!-- Exact Alarms (for precise task reminders) -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+    <!-- Boot Completed (to reschedule reminders after restart) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Feature declarations (optional, but recommended) -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />

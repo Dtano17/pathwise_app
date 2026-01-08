@@ -30,8 +30,10 @@ public class MainActivity extends BridgeActivity {
         // Configure system bars to NOT use edge-to-edge (content stays within safe bounds)
         configureSystemBars();
 
-        // Register our Share plugin
+        // Register our custom plugins
         registerPlugin(SharePlugin.class);
+        registerPlugin(NotificationPlugin.class);
+        registerPlugin(BackgroundServicePlugin.class);
 
         // Handle intent (share intents and deep links)
         handleIncomingIntent(getIntent());
@@ -168,6 +170,30 @@ public class MainActivity extends BridgeActivity {
         String action = intent.getAction();
         String type = intent.getType();
 
+        // Handle app shortcuts and notification actions
+        if (action != null) {
+            switch (action) {
+                case "ADD_TASK":
+                    navigateToRoute("/tasks?action=add");
+                    return;
+                case "VIEW_TODAY":
+                    navigateToRoute("/tasks?view=today");
+                    return;
+                case "QUICK_JOURNAL":
+                    navigateToRoute("/journal?action=new");
+                    return;
+                case "VIEW_ACTIVITIES":
+                    navigateToRoute("/activities");
+                    return;
+                case "VIEW_TASK":
+                    String taskId = intent.getStringExtra("taskId");
+                    if (taskId != null) {
+                        navigateToRoute("/tasks/" + taskId);
+                    }
+                    return;
+            }
+        }
+
         // Handle deep links (OAuth callbacks, etc.)
         if (Intent.ACTION_VIEW.equals(action)) {
             Uri data = intent.getData();
@@ -192,6 +218,26 @@ public class MainActivity extends BridgeActivity {
             } else if (type.startsWith("video/")) {
                 handleSendMultipleVideos(intent);
             }
+        }
+    }
+
+    /**
+     * Navigate the WebView to a specific route via JavaScript
+     */
+    private void navigateToRoute(String route) {
+        if (this.getBridge() != null && this.getBridge().getWebView() != null) {
+            final String fullUrl = "https://journalmate.ai" + route;
+            runOnUiThread(() -> {
+                try {
+                    android.util.Log.d("MainActivity", "Navigating to: " + fullUrl);
+                    this.getBridge().getWebView().loadUrl(fullUrl);
+                } catch (Exception e) {
+                    android.util.Log.e("MainActivity", "Navigation failed: " + e.getMessage());
+                }
+            });
+        } else {
+            // Store for when bridge is ready
+            android.util.Log.d("MainActivity", "Bridge not ready, route pending: " + route);
         }
     }
 
