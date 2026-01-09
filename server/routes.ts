@@ -3623,20 +3623,54 @@ ${sitemaps.map(sitemap => `  <sitemap>
   });
 
   // Widget API: Get compact data for home screen widgets (v2 - new design)
+  // Supports both Bearer token auth (Authorization header) and X-User-ID header
   app.get("/api/tasks/widget", async (req, res) => {
     try {
-      const userId = getUserId(req) || DEMO_USER_ID;
+      // First try to authenticate via Bearer token
+      let userId: string | null = null;
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        try {
+          const tokenData = await storage.getNativeAuthToken(token);
+          if (tokenData) {
+            userId = tokenData.userId;
+          }
+        } catch (e) {
+          // Token lookup failed, fall through to other methods
+        }
+      }
+
+      // Fall back to X-User-ID header or session
+      if (!userId) {
+        userId = getUserId(req) || DEMO_USER_ID;
+      }
 
       // Fetch all data in parallel for performance
-      const [allTasks, goals, activities, groups] = await Promise.all([
+      // Returns completed/total for each metric as a mini dashboard
+      const [allTasks, goals, activities, unreadNotifications, totalNotifications] = await Promise.all([
         storage.getUserTasks(userId),
         storage.getUserGoals(userId),
         storage.getUserActivities(userId),
-        storage.getUserGroups(userId)
+        storage.getUnreadNotificationsCount(userId),
+        storage.getTotalNotificationsCount(userId)
       ]);
 
-      // Count pending tasks (not completed, not skipped)
-      const tasksCount = allTasks.filter((t: any) => !t.completed && !t.skipped).length;
+      // Tasks: completed vs total (excluding skipped)
+      const activeTasks = allTasks.filter((t: any) => !t.skipped);
+      const completedTasks = activeTasks.filter((t: any) => t.completed).length;
+      const totalTasks = activeTasks.length;
+
+      // Goals: completed vs total
+      const completedGoals = goals.filter((g: any) => g.completed).length;
+      const totalGoals = goals.length;
+
+      // Activities: completed vs total
+      const completedActivities = activities.filter((a: any) => a.completed).length;
+      const totalActivities = activities.length;
+
+      // Notifications: read vs total
+      const readNotifications = totalNotifications - unreadNotifications;
 
       // Calculate streak count from progress
       let streak = 0;
@@ -3651,10 +3685,15 @@ ${sitemaps.map(sitemap => `  <sitemap>
       }
 
       res.json({
-        goalsCount: goals.length,
-        tasksCount,
-        activitiesCount: activities.length,
-        groupsCount: groups.length,
+        // New format: completed/total for mini dashboard
+        goalsCompleted: completedGoals,
+        goalsTotal: totalGoals,
+        tasksCompleted: completedTasks,
+        tasksTotal: totalTasks,
+        activitiesCompleted: completedActivities,
+        activitiesTotal: totalActivities,
+        notificationsRead: readNotifications,
+        notificationsTotal: totalNotifications,
         streak,
         timestamp: new Date().toISOString()
       });

@@ -34,6 +34,11 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SharePlugin.class);
         registerPlugin(NotificationPlugin.class);
         registerPlugin(BackgroundServicePlugin.class);
+        registerPlugin(ContactsPlugin.class);
+        registerPlugin(HapticsPlugin.class);
+        registerPlugin(BiometricPlugin.class);
+        registerPlugin(AppShortcutsPlugin.class);
+        registerPlugin(SpeechPlugin.class);
 
         // Handle intent (share intents and deep links)
         handleIncomingIntent(getIntent());

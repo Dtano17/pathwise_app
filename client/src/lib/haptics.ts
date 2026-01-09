@@ -169,6 +169,39 @@ export async function hapticsLongPress(): Promise<void> {
 }
 
 /**
+ * Celebration haptic pattern (special pattern for achievements/milestones)
+ */
+export async function hapticsCelebrate(): Promise<void> {
+  if (!isNative()) {
+    // Web fallback: exciting pattern
+    if ('vibrate' in navigator) {
+      navigator.vibrate([50, 50, 50, 50, 100, 100, 150]);
+    }
+    return;
+  }
+
+  try {
+    // Try native Android celebrate pattern
+    const capacitor = (window as any).Capacitor;
+    if (capacitor?.Plugins?.NativeHaptics) {
+      await capacitor.Plugins.NativeHaptics.celebrate();
+      return;
+    }
+
+    // Fallback: multiple haptic bursts
+    await triggerHaptic('light');
+    await new Promise(resolve => setTimeout(resolve, 50));
+    await triggerHaptic('medium');
+    await new Promise(resolve => setTimeout(resolve, 50));
+    await triggerHaptic('heavy');
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await triggerHaptic('success');
+  } catch (error) {
+    console.warn('Celebration haptic failed:', error);
+  }
+}
+
+/**
  * Check if haptics are supported
  */
 export function isHapticsSupported(): boolean {
@@ -194,5 +227,6 @@ export default {
   hapticsSwipe,
   hapticsRefresh,
   hapticsLongPress,
+  hapticsCelebrate,
   isHapticsSupported,
 };

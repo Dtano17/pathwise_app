@@ -274,6 +274,8 @@ export interface IStorage {
   createUserNotification(notification: { userId: string; sourceGroupId: string | null; actorUserId: string | null; type: string; title: string; body: string | null; metadata: any }): Promise<any>;
   getUserNotifications(userId: string, limit?: number): Promise<any[]>;
   markNotificationRead(notificationId: string, userId: string): Promise<void>;
+  getUnreadNotificationsCount(userId: string): Promise<number>;
+  getTotalNotificationsCount(userId: string): Promise<number>;
 
   // Task Reminders
   createTaskReminder(reminder: InsertTaskReminder & { userId: string }): Promise<TaskReminder>;
@@ -1670,6 +1672,23 @@ export class DatabaseStorage implements IStorage {
     await db.update(userNotifications)
       .set({ readAt: new Date() })
       .where(and(eq(userNotifications.id, notificationId), eq(userNotifications.userId, userId)));
+  }
+
+  async getUnreadNotificationsCount(userId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(userNotifications)
+      .where(and(
+        eq(userNotifications.userId, userId),
+        isNull(userNotifications.readAt)
+      ));
+    return result[0]?.count || 0;
+  }
+
+  async getTotalNotificationsCount(userId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(userNotifications)
+      .where(eq(userNotifications.userId, userId));
+    return result[0]?.count || 0;
   }
 
   // Task Reminders

@@ -33,6 +33,14 @@ import {
   isBackgroundServiceAvailable
 } from '@/lib/backgroundService';
 import {
+  checkBiometricAvailability,
+  authenticateWithBiometric,
+  getBiometryTypeName
+} from '@/lib/biometric';
+import { triggerHaptic, hapticsCelebrate } from '@/lib/haptics';
+import { setupDefaultShortcuts, isShortcutsSupported, getShortcuts } from '@/lib/appShortcuts';
+import { checkSpeechAvailability, startSpeechRecognition, requestSpeechPermission } from '@/lib/speech';
+import {
   Bell,
   Calendar,
   Settings as SettingsIcon,
@@ -48,7 +56,13 @@ import {
   Loader2,
   Users,
   CalendarPlus,
-  LayoutGrid
+  LayoutGrid,
+  Fingerprint,
+  Vibrate,
+  Mic,
+  Command,
+  PartyPopper,
+  ScanFace
 } from 'lucide-react';
 
 interface UserPreferences {
@@ -105,6 +119,17 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
   const [notificationStatus, setNotificationStatus] = useState<'granted' | 'denied' | 'default'>('default');
   const [foregroundServiceEnabled, setForegroundServiceEnabled] = useState(false);
   const [foregroundServiceLoading, setForegroundServiceLoading] = useState(false);
+
+  // Native features state
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometryType, setBiometryType] = useState<string | undefined>();
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [shortcutsSupported, setShortcutsSupported] = useState(false);
+  const [shortcutsCount, setShortcutsCount] = useState(0);
+  const [shortcutsLoading, setShortcutsLoading] = useState(false);
+  const [speechAvailable, setSpeechAvailable] = useState(false);
+  const [speechLoading, setSpeechLoading] = useState(false);
+  const [speechText, setSpeechText] = useState('');
 
   // Get user preferences
   const { data: preferences } = useQuery<UserPreferences>({
@@ -184,6 +209,33 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
           setForegroundServiceEnabled(false);
         });
       }
+
+      // Check biometric availability
+      checkBiometricAvailability().then(caps => {
+        setBiometricAvailable(caps.isAvailable);
+        setBiometryType(caps.biometryType);
+      }).catch(() => {
+        setBiometricAvailable(false);
+      });
+
+      // Check app shortcuts support (Android only)
+      if (isAndroid()) {
+        isShortcutsSupported().then(supported => {
+          setShortcutsSupported(supported);
+          if (supported) {
+            getShortcuts().then(shortcuts => {
+              setShortcutsCount(shortcuts.length);
+            });
+          }
+        });
+      }
+
+      // Check speech recognition availability
+      checkSpeechAvailability().then(caps => {
+        setSpeechAvailable(caps.isAvailable);
+      }).catch(() => {
+        setSpeechAvailable(false);
+      });
     } else if ('Notification' in window) {
       // Check browser notification permission
       setBrowserNotificationsEnabled(Notification.permission === 'granted');
@@ -467,6 +519,132 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       });
     } finally {
       setForegroundServiceLoading(false);
+    }
+  };
+
+  // Test biometric authentication
+  const handleTestBiometric = async () => {
+    setBiometricLoading(true);
+    try {
+      const result = await authenticateWithBiometric({
+        title: 'Test Biometric',
+        reason: 'Testing biometric authentication',
+      });
+
+      if (result.success) {
+        await hapticsCelebrate();
+        toast({
+          title: 'Authentication Successful',
+          description: `${getBiometryTypeName(biometryType)} verified!`,
+        });
+      } else {
+        toast({
+          title: 'Authentication Failed',
+          description: result.error || 'Could not verify identity',
+          variant: 'destructive'
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Biometric test failed',
+        variant: 'destructive'
+      });
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
+
+  // Test haptic feedback
+  const handleTestHaptics = async (type: 'light' | 'medium' | 'heavy' | 'celebrate') => {
+    if (type === 'celebrate') {
+      await hapticsCelebrate();
+      toast({ title: 'Celebration!', description: 'Did you feel the celebration pattern?' });
+    } else {
+      await triggerHaptic(type);
+      toast({ title: `${type.charAt(0).toUpperCase() + type.slice(1)} Impact`, description: 'Haptic feedback triggered' });
+    }
+  };
+
+  // Setup app shortcuts
+  const handleSetupShortcuts = async () => {
+    setShortcutsLoading(true);
+    try {
+      const success = await setupDefaultShortcuts();
+      if (success) {
+        const shortcuts = await getShortcuts();
+        setShortcutsCount(shortcuts.length);
+        toast({
+          title: 'Shortcuts Created',
+          description: `${shortcuts.length} shortcuts added. Long-press app icon to see them!`,
+        });
+      } else {
+        toast({
+          title: 'Failed',
+          description: 'Could not create app shortcuts',
+          variant: 'destructive'
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to setup shortcuts',
+        variant: 'destructive'
+      });
+    } finally {
+      setShortcutsLoading(false);
+    }
+  };
+
+  // Test speech recognition
+  const handleTestSpeech = async () => {
+    setSpeechLoading(true);
+    setSpeechText('');
+    try {
+      // Request permission first
+      const hasPermission = await requestSpeechPermission();
+      if (!hasPermission) {
+        toast({
+          title: 'Permission Required',
+          description: 'Please grant microphone access',
+          variant: 'destructive'
+        });
+        setSpeechLoading(false);
+        return;
+      }
+
+      toast({ title: 'Listening...', description: 'Speak now!' });
+
+      const result = await startSpeechRecognition({
+        language: 'en-US',
+        partialResults: true,
+        onPartialResult: (text) => setSpeechText(text),
+      });
+
+      if (result.success && result.transcript) {
+        setSpeechText(result.transcript);
+        await triggerHaptic('medium');
+        toast({
+          title: 'Speech Recognized',
+          description: result.transcript,
+        });
+      } else if (result.cancelled) {
+        toast({ title: 'Cancelled', description: 'Speech recognition was cancelled' });
+      } else {
+        toast({
+          title: 'No Speech Detected',
+          description: result.error || 'Please try again',
+          variant: 'destructive'
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Speech recognition failed',
+        variant: 'destructive'
+      });
+    } finally {
+      setSpeechLoading(false);
     }
   };
 
@@ -909,6 +1087,163 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
                 </div>
               </>
             )}
+
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Native Features - Only show on native mobile */}
+      {isNative() && (
+        <Card data-testid="card-native-features">
+          <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <Fingerprint className="w-4 h-4 sm:w-5 sm:h-5" />
+              Native Features
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              Test device-specific features
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 p-3 sm:p-6">
+
+            {/* Biometric Authentication */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm flex items-center gap-2">
+                  {biometryType?.includes('FACE') ? <ScanFace className="w-4 h-4" /> : <Fingerprint className="w-4 h-4" />}
+                  Biometric Authentication
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {biometricAvailable
+                    ? `${getBiometryTypeName(biometryType)} available`
+                    : 'Not available on this device'}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleTestBiometric}
+                disabled={biometricLoading || !biometricAvailable}
+              >
+                {biometricLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Test'}
+              </Button>
+            </div>
+
+            <Separator />
+
+            {/* Haptic Feedback */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm flex items-center gap-2">
+                  <Vibrate className="w-4 h-4" />
+                  Haptic Feedback
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Test vibration patterns
+                </p>
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleTestHaptics('light')}
+                  className="px-2"
+                >
+                  Light
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleTestHaptics('medium')}
+                  className="px-2"
+                >
+                  Med
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleTestHaptics('heavy')}
+                  className="px-2"
+                >
+                  Heavy
+                </Button>
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => handleTestHaptics('celebrate')}
+                  className="px-2"
+                >
+                  <PartyPopper className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* App Shortcuts (Android only) */}
+            {isAndroid() && (
+              <>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm flex items-center gap-2">
+                      <Command className="w-4 h-4" />
+                      App Shortcuts
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {shortcutsSupported
+                        ? shortcutsCount > 0
+                          ? `${shortcutsCount} shortcuts active (long-press app icon)`
+                          : 'Create quick actions for app icon'
+                        : 'Not supported on this device'}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSetupShortcuts}
+                    disabled={shortcutsLoading || !shortcutsSupported}
+                  >
+                    {shortcutsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : shortcutsCount > 0 ? 'Update' : 'Setup'}
+                  </Button>
+                </div>
+              </>
+            )}
+
+            <Separator />
+
+            {/* Speech Recognition */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm flex items-center gap-2">
+                    <Mic className="w-4 h-4" />
+                    Speech Recognition
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {speechAvailable ? 'Voice-to-text available' : 'Not available'}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={speechLoading ? 'destructive' : 'outline'}
+                  onClick={handleTestSpeech}
+                  disabled={!speechAvailable}
+                >
+                  {speechLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                      Listening...
+                    </>
+                  ) : (
+                    'Test'
+                  )}
+                </Button>
+              </div>
+              {speechText && (
+                <div className="p-2 bg-muted rounded-md text-sm">
+                  "{speechText}"
+                </div>
+              )}
+            </div>
 
           </CardContent>
         </Card>

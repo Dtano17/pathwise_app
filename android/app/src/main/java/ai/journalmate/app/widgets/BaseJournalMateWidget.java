@@ -27,8 +27,7 @@ import ai.journalmate.app.R;
  * Base class for all JournalMate widget providers.
  * Contains shared logic for data fetching, caching, and common UI updates.
  *
- * v2 - Updated for new dark navy design with 4 metrics:
- * Goals, Tasks, Activities, Groups (no progress rings)
+ * v3 - Mini dashboard showing completed/total for each metric
  */
 public abstract class BaseJournalMateWidget extends AppWidgetProvider {
 
@@ -58,13 +57,21 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
 
         // Load cached data first for instant display
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        int goalsCount = prefs.getInt("goalsCount", 0);
-        int tasksCount = prefs.getInt("tasksCount", 0);
-        int activitiesCount = prefs.getInt("activitiesCount", 0);
-        int groupsCount = prefs.getInt("groupsCount", 0);
+        int goalsCompleted = prefs.getInt("goalsCompleted", 0);
+        int goalsTotal = prefs.getInt("goalsTotal", 0);
+        int tasksCompleted = prefs.getInt("tasksCompleted", 0);
+        int tasksTotal = prefs.getInt("tasksTotal", 0);
+        int activitiesCompleted = prefs.getInt("activitiesCompleted", 0);
+        int activitiesTotal = prefs.getInt("activitiesTotal", 0);
+        int notificationsRead = prefs.getInt("notificationsRead", 0);
+        int notificationsTotal = prefs.getInt("notificationsTotal", 0);
 
         // Update views with cached data
-        updateWidgetViews(context, views, goalsCount, tasksCount, activitiesCount, groupsCount);
+        updateWidgetViews(context, views,
+            goalsCompleted, goalsTotal,
+            tasksCompleted, tasksTotal,
+            activitiesCompleted, activitiesTotal,
+            notificationsRead, notificationsTotal);
 
         // Set click listener to open app
         Intent intent = new Intent(context, MainActivity.class);
@@ -82,29 +89,39 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
         fetchWidgetData(context, appWidgetManager, appWidgetId);
     }
 
-    protected void updateWidgetViews(Context context, RemoteViews views, int goals, int tasks, int activities, int groups) {
-        // Update all 4 stat counts
-        views.setTextViewText(R.id.widget_goals_count, String.valueOf(goals));
-        views.setTextViewText(R.id.widget_tasks_count, String.valueOf(tasks));
-        views.setTextViewText(R.id.widget_activities_count, String.valueOf(activities));
-        views.setTextViewText(R.id.widget_groups_count, String.valueOf(groups));
+    protected void updateWidgetViews(Context context, RemoteViews views,
+            int goalsCompleted, int goalsTotal,
+            int tasksCompleted, int tasksTotal,
+            int activitiesCompleted, int activitiesTotal,
+            int notificationsRead, int notificationsTotal) {
+        // Update all 4 stat counts in "completed/total" format for mini dashboard
+        views.setTextViewText(R.id.widget_goals_count, goalsCompleted + "/" + goalsTotal);
+        views.setTextViewText(R.id.widget_tasks_count, tasksCompleted + "/" + tasksTotal);
+        views.setTextViewText(R.id.widget_activities_count, activitiesCompleted + "/" + activitiesTotal);
+        views.setTextViewText(R.id.widget_groups_count, notificationsRead + "/" + notificationsTotal);
     }
 
     protected void fetchWidgetData(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
         SharedPreferences prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
-        String userId = prefs.getString("userId", null);
 
+        // First try to get authToken for authentication
+        String authToken = prefs.getString("journalmate_auth_token", null);
+
+        // Also try to get userId as fallback
+        String userId = prefs.getString("userId", null);
         if (userId == null) {
-            // Try alternative storage location
+            // Try alternative storage location for userId
             SharedPreferences altPrefs = context.getSharedPreferences("journalmate_prefs", Context.MODE_PRIVATE);
             userId = altPrefs.getString("userId", null);
         }
 
-        if (userId == null) {
-            Log.d(TAG, "No user ID found, skipping data fetch");
+        // Need at least authToken or userId to fetch data
+        if (authToken == null && userId == null) {
+            Log.d(TAG, "No auth credentials found, skipping data fetch");
             return;
         }
 
+        final String finalAuthToken = authToken;
         final String finalUserId = userId;
 
         executor.execute(() -> {
@@ -112,7 +129,16 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
                 URL url = new URL(API_BASE_URL + "/api/tasks/widget");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
-                conn.setRequestProperty("X-User-ID", finalUserId);
+
+                // Use authToken if available (preferred), otherwise use userId
+                if (finalAuthToken != null) {
+                    conn.setRequestProperty("Authorization", "Bearer " + finalAuthToken);
+                    Log.d(TAG, "Using auth token for widget API");
+                } else if (finalUserId != null) {
+                    conn.setRequestProperty("X-User-ID", finalUserId);
+                    Log.d(TAG, "Using user ID for widget API");
+                }
+
                 conn.setConnectTimeout(10000);
                 conn.setReadTimeout(10000);
 
@@ -128,26 +154,38 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
 
                     JSONObject json = new JSONObject(response.toString());
 
-                    // Parse new API response format
-                    int goalsCount = json.optInt("goalsCount", 0);
-                    int tasksCount = json.optInt("tasksCount", 0);
-                    int activitiesCount = json.optInt("activitiesCount", 0);
-                    int groupsCount = json.optInt("groupsCount", 0);
+                    // Parse new API response format with completed/total for each metric
+                    int goalsCompleted = json.optInt("goalsCompleted", 0);
+                    int goalsTotal = json.optInt("goalsTotal", 0);
+                    int tasksCompleted = json.optInt("tasksCompleted", 0);
+                    int tasksTotal = json.optInt("tasksTotal", 0);
+                    int activitiesCompleted = json.optInt("activitiesCompleted", 0);
+                    int activitiesTotal = json.optInt("activitiesTotal", 0);
+                    int notificationsRead = json.optInt("notificationsRead", 0);
+                    int notificationsTotal = json.optInt("notificationsTotal", 0);
 
                     // Cache the data
                     SharedPreferences widgetPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                     widgetPrefs.edit()
-                        .putInt("goalsCount", goalsCount)
-                        .putInt("tasksCount", tasksCount)
-                        .putInt("activitiesCount", activitiesCount)
-                        .putInt("groupsCount", groupsCount)
+                        .putInt("goalsCompleted", goalsCompleted)
+                        .putInt("goalsTotal", goalsTotal)
+                        .putInt("tasksCompleted", tasksCompleted)
+                        .putInt("tasksTotal", tasksTotal)
+                        .putInt("activitiesCompleted", activitiesCompleted)
+                        .putInt("activitiesTotal", activitiesTotal)
+                        .putInt("notificationsRead", notificationsRead)
+                        .putInt("notificationsTotal", notificationsTotal)
                         .putLong("lastFetchTime", System.currentTimeMillis())
                         .apply();
 
                     // Update widget on main thread
                     mainHandler.post(() -> {
                         RemoteViews views = new RemoteViews(context.getPackageName(), getLayoutId());
-                        updateWidgetViews(context, views, goalsCount, tasksCount, activitiesCount, groupsCount);
+                        updateWidgetViews(context, views,
+                            goalsCompleted, goalsTotal,
+                            tasksCompleted, tasksTotal,
+                            activitiesCompleted, activitiesTotal,
+                            notificationsRead, notificationsTotal);
 
                         // Re-set click listener
                         Intent intent = new Intent(context, MainActivity.class);
@@ -159,9 +197,10 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
                         views.setOnClickPendingIntent(R.id.widget_container, pendingIntent);
 
                         appWidgetManager.updateAppWidget(appWidgetId, views);
-                        Log.d(TAG, "Widget updated with fresh data: goals=" + goalsCount +
-                              ", tasks=" + tasksCount + ", activities=" + activitiesCount +
-                              ", groups=" + groupsCount);
+                        Log.d(TAG, "Widget updated with fresh data: goals=" + goalsCompleted + "/" + goalsTotal +
+                              ", tasks=" + tasksCompleted + "/" + tasksTotal +
+                              ", activities=" + activitiesCompleted + "/" + activitiesTotal +
+                              ", notifications=" + notificationsRead + "/" + notificationsTotal);
                     });
                 } else {
                     Log.e(TAG, "API returned error: " + responseCode);

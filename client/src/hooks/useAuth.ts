@@ -5,8 +5,10 @@ import { useEffect, useRef } from "react";
 import { initializeSocket, disconnectSocket, isSocketConnected } from "@/lib/socket";
 import { initializePushNotifications, unregisterPushNotifications } from "@/lib/pushNotifications";
 import { apiUrl, isNativePlatform, shouldUseNativeTokenAuth } from "@/lib/api";
-import { isNative } from "@/lib/platform";
+import { isNative, isAndroid } from "@/lib/platform";
 import { signInWithGoogleNative, signOutGoogleNative, getStoredAuthToken } from "@/lib/nativeGoogleAuth";
+import { setBackgroundCredentials, clearBackgroundCredentials } from "@/lib/backgroundService";
+import { Preferences } from "@capacitor/preferences";
 
 interface User {
   id: string;
@@ -101,6 +103,33 @@ export function useAuth() {
       initializePushNotifications(currentUserId).catch(error => {
         console.error('[AUTH] Failed to initialize push notifications:', error);
       });
+
+      // Store credentials for Android widget and background services
+      // This enables the widget to fetch data using the userId
+      if (isAndroid()) {
+        // Store userId directly in Capacitor Preferences for widget access
+        // The widget reads from CapacitorStorage SharedPreferences
+        Preferences.set({ key: 'userId', value: currentUserId }).then(() => {
+          console.log('[AUTH] userId stored in Capacitor Preferences for widget');
+        }).catch(err => {
+          console.warn('[AUTH] Failed to store userId in Preferences:', err);
+        });
+
+        // Also store in native SharedPreferences via BackgroundService plugin
+        getStoredAuthToken().then(authToken => {
+          if (authToken) {
+            setBackgroundCredentials(currentUserId, authToken).then(success => {
+              if (success) {
+                console.log('[AUTH] Background credentials stored for widget');
+              }
+            }).catch(err => {
+              console.warn('[AUTH] Failed to store background credentials:', err);
+            });
+          }
+        }).catch(err => {
+          console.warn('[AUTH] Failed to get auth token for widget:', err);
+        });
+      }
     } else {
       // User is not authenticated - disconnect socket
       console.log('[AUTH] User not authenticated, disconnecting WebSocket');
@@ -110,6 +139,16 @@ export function useAuth() {
       unregisterPushNotifications().catch(error => {
         console.error('[AUTH] Failed to unregister push notifications:', error);
       });
+
+      // Clear background credentials on logout
+      if (isAndroid()) {
+        Preferences.remove({ key: 'userId' }).catch(err => {
+          console.warn('[AUTH] Failed to remove userId from Preferences:', err);
+        });
+        clearBackgroundCredentials().catch(err => {
+          console.warn('[AUTH] Failed to clear background credentials:', err);
+        });
+      }
     }
   }, [user?.id, user?.authenticated, user?.isGuest, queryClient]);
 
