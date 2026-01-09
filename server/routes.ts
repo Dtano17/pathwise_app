@@ -3622,38 +3622,40 @@ ${sitemaps.map(sitemap => `  <sitemap>
     }
   });
 
-  // Widget API: Get compact task data for home screen widgets
+  // Widget API: Get compact data for home screen widgets (v2 - new design)
   app.get("/api/tasks/widget", async (req, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
-      const allTasks = await storage.getUserTasks(userId);
-      
-      // Filter incomplete tasks and take first 3
-      const upcomingTasks = allTasks
-        .filter((task: any) => !task.completed && !task.skipped)
-        .slice(0, 3)
-        .map((task: any) => ({
-          id: task.id,
-          title: task.title,
-          completed: task.completed || false
-        }));
-      
+
+      // Fetch all data in parallel for performance
+      const [allTasks, goals, activities, groups] = await Promise.all([
+        storage.getUserTasks(userId),
+        storage.getUserGoals(userId),
+        storage.getUserActivities(userId),
+        storage.getUserGroups(userId)
+      ]);
+
+      // Count pending tasks (not completed, not skipped)
+      const tasksCount = allTasks.filter((t: any) => !t.completed && !t.skipped).length;
+
       // Calculate streak count from progress
-      let streakCount = 0;
+      let streak = 0;
       try {
         const progress = await storage.calculateProgress(userId);
         if (progress && progress.dailyStreaks) {
-          streakCount = progress.dailyStreaks.current || 0;
+          streak = progress.dailyStreaks.current || 0;
         }
       } catch (error) {
         console.error('Failed to calculate streak for widget:', error);
-        streakCount = 0;
+        streak = 0;
       }
-      
+
       res.json({
-        tasks: upcomingTasks,
-        streakCount,
-        totalTasksToday: allTasks.filter((t: any) => !t.completed && !t.skipped).length,
+        goalsCount: goals.length,
+        tasksCount,
+        activitiesCount: activities.length,
+        groupsCount: groups.length,
+        streak,
         timestamp: new Date().toISOString()
       });
     } catch (error) {

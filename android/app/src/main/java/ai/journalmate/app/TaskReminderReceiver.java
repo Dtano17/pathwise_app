@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 
+import android.graphics.Color;
 import androidx.core.app.NotificationCompat;
 
 /**
@@ -115,7 +116,10 @@ public class TaskReminderReceiver extends BroadcastReceiver {
         // Default notification sound
         Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 
-        // Build notification
+        // Purple accent color matching widget design (#8b5cf6)
+        int accentColor = Color.parseColor("#8b5cf6");
+
+        // Build notification with dark theme styling
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("⏰ Task Reminder")
@@ -128,6 +132,8 @@ public class TaskReminderReceiver extends BroadcastReceiver {
             .setSound(soundUri)
             .setVibrate(new long[]{0, 500, 200, 500})
             .setContentIntent(openPendingIntent)
+            .setColor(accentColor)
+            .setColorized(true)
             .addAction(R.drawable.ic_notification, "✓ Done", donePendingIntent)
             .addAction(R.drawable.ic_notification, "⏰ Snooze 15m", snoozePendingIntent);
 

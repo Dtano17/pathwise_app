@@ -1916,7 +1916,9 @@ export class DatabaseStorage implements IStorage {
     if (source) {
       conditions.push(eq(contacts.source, source));
     }
-    return await db.select().from(contacts).where(and(...conditions)).orderBy(contacts.name);
+    const result = await db.select().from(contacts).where(and(...conditions)).orderBy(contacts.name);
+    console.log('[STORAGE] getUserContacts for userId:', userId, 'source:', source || 'all', 'count:', result.length);
+    return result;
   }
 
   async updateContact(contactId: string, ownerUserId: string, updates: Partial<Omit<Contact, 'id' | 'ownerUserId' | 'createdAt' | 'updatedAt'>>): Promise<Contact> {

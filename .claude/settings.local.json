@@ -8,7 +8,18 @@
       "Bash(git pull:*)",
       "Bash(git checkout:*)",
       "Bash(dir:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat -d -t 500)",
+      "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat -d -t 1000)",
+      "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat -d -t 100)",
+      "Bash(powershell -Command \"Set-Location ''c:\\\\Users\\\\tanar\\\\private\\\\pathwise_app\\\\android''; .\\\\gradlew.bat assembleDebug\")",
+      "Bash(set \"JAVA_HOME=C:\\\\Program Files\\\\Android\\\\Android Studio\\\\jbr\")",
+      "Bash(gradlew.bat assembleDebug:*)",
+      "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat -d)",
+      "Bash(JAVA_HOME=\"/c/Program Files/Android/Android Studio/jbr\" ./gradlew:*)"
     ],
     "deny": [],
     "ask": []

@@ -26,6 +26,9 @@ import ai.journalmate.app.R;
 /**
  * Base class for all JournalMate widget providers.
  * Contains shared logic for data fetching, caching, and common UI updates.
+ *
+ * v2 - Updated for new dark navy design with 4 metrics:
+ * Goals, Tasks, Activities, Groups (no progress rings)
  */
 public abstract class BaseJournalMateWidget extends AppWidgetProvider {
 
@@ -41,22 +44,6 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
      */
     protected abstract int getLayoutId();
 
-    /**
-     * Check if this widget size has progress rings.
-     * Override in subclasses that have rings.
-     */
-    protected boolean hasProgressRings() {
-        return false;
-    }
-
-    /**
-     * Check if this widget size has streak display.
-     * Override in subclasses that show streak.
-     */
-    protected boolean hasStreak() {
-        return false;
-    }
-
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         for (int appWidgetId : appWidgetIds) {
@@ -71,13 +58,13 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
 
         // Load cached data first for instant display
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        int doneCount = prefs.getInt("doneCount", 0);
-        int pendingCount = prefs.getInt("pendingCount", 0);
+        int goalsCount = prefs.getInt("goalsCount", 0);
+        int tasksCount = prefs.getInt("tasksCount", 0);
         int activitiesCount = prefs.getInt("activitiesCount", 0);
-        int streakCount = prefs.getInt("streakCount", 0);
+        int groupsCount = prefs.getInt("groupsCount", 0);
 
         // Update views with cached data
-        updateWidgetViews(context, views, doneCount, pendingCount, activitiesCount, streakCount);
+        updateWidgetViews(context, views, goalsCount, tasksCount, activitiesCount, groupsCount);
 
         // Set click listener to open app
         Intent intent = new Intent(context, MainActivity.class);
@@ -95,34 +82,12 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
         fetchWidgetData(context, appWidgetManager, appWidgetId);
     }
 
-    protected void updateWidgetViews(Context context, RemoteViews views, int done, int pending, int activities, int streak) {
-        // Update stat counts (all widget sizes have these)
-        views.setTextViewText(R.id.widget_done_count, String.valueOf(done));
-        views.setTextViewText(R.id.widget_pending_count, String.valueOf(pending));
+    protected void updateWidgetViews(Context context, RemoteViews views, int goals, int tasks, int activities, int groups) {
+        // Update all 4 stat counts
+        views.setTextViewText(R.id.widget_goals_count, String.valueOf(goals));
+        views.setTextViewText(R.id.widget_tasks_count, String.valueOf(tasks));
         views.setTextViewText(R.id.widget_activities_count, String.valueOf(activities));
-
-        // Update progress rings if this widget has them
-        if (hasProgressRings()) {
-            int totalTasks = done + pending;
-
-            // Outer ring (Done): percentage of done out of total tasks
-            int donePercent = totalTasks > 0 ? (done * 100 / totalTasks) : 0;
-            views.setProgressBar(R.id.widget_ring_outer, 100, donePercent, false);
-
-            // Middle ring (Pending): percentage of pending out of total tasks
-            int pendingPercent = totalTasks > 0 ? (pending * 100 / totalTasks) : 0;
-            views.setProgressBar(R.id.widget_ring_middle, 100, pendingPercent, false);
-
-            // Inner ring (Activities): show as full if there are activities, else proportional
-            // For activities, we show a fill based on count (max out at 10 for visual purposes)
-            int activitiesPercent = Math.min(activities * 10, 100);
-            views.setProgressBar(R.id.widget_ring_inner, 100, activitiesPercent, false);
-        }
-
-        // Update streak if this widget has it
-        if (hasStreak()) {
-            views.setTextViewText(R.id.widget_streak_count, String.valueOf(streak));
-        }
+        views.setTextViewText(R.id.widget_groups_count, String.valueOf(groups));
     }
 
     protected void fetchWidgetData(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
@@ -162,25 +127,27 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
                     reader.close();
 
                     JSONObject json = new JSONObject(response.toString());
-                    int doneCount = json.optInt("completedTasks", 0);
-                    int pendingCount = json.optInt("pendingTasks", 0);
+
+                    // Parse new API response format
+                    int goalsCount = json.optInt("goalsCount", 0);
+                    int tasksCount = json.optInt("tasksCount", 0);
                     int activitiesCount = json.optInt("activitiesCount", 0);
-                    int streakCount = json.optInt("streak", 0);
+                    int groupsCount = json.optInt("groupsCount", 0);
 
                     // Cache the data
                     SharedPreferences widgetPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                     widgetPrefs.edit()
-                        .putInt("doneCount", doneCount)
-                        .putInt("pendingCount", pendingCount)
+                        .putInt("goalsCount", goalsCount)
+                        .putInt("tasksCount", tasksCount)
                         .putInt("activitiesCount", activitiesCount)
-                        .putInt("streakCount", streakCount)
+                        .putInt("groupsCount", groupsCount)
                         .putLong("lastFetchTime", System.currentTimeMillis())
                         .apply();
 
                     // Update widget on main thread
                     mainHandler.post(() -> {
                         RemoteViews views = new RemoteViews(context.getPackageName(), getLayoutId());
-                        updateWidgetViews(context, views, doneCount, pendingCount, activitiesCount, streakCount);
+                        updateWidgetViews(context, views, goalsCount, tasksCount, activitiesCount, groupsCount);
 
                         // Re-set click listener
                         Intent intent = new Intent(context, MainActivity.class);
@@ -192,7 +159,9 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
                         views.setOnClickPendingIntent(R.id.widget_container, pendingIntent);
 
                         appWidgetManager.updateAppWidget(appWidgetId, views);
-                        Log.d(TAG, "Widget updated with fresh data: done=" + doneCount + ", pending=" + pendingCount + ", activities=" + activitiesCount);
+                        Log.d(TAG, "Widget updated with fresh data: goals=" + goalsCount +
+                              ", tasks=" + tasksCount + ", activities=" + activitiesCount +
+                              ", groups=" + groupsCount);
                     });
                 } else {
                     Log.e(TAG, "API returned error: " + responseCode);

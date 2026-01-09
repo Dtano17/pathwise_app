@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Groups Icon: People/users (Orange/Amber #f59e0b) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Main person head -->
+    <path
+        android:strokeColor="#f59e0b"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M9,7m-3,0a3,3 0,1 0,6 0a3,3 0,1 0,-6 0"/>
+    <!-- Main person body -->
+    <path
+        android:strokeColor="#f59e0b"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M3,21v-2a4,4 0,0 1,4 -4h4a4,4 0,0 1,4 4v2"/>
+    <!-- Secondary person head -->
+    <path
+        android:strokeColor="#f59e0b"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000"
+        android:pathData="M17,7m-2.5,0a2.5,2.5 0,1 0,5 0a2.5,2.5 0,1 0,-5 0"/>
+    <!-- Secondary person body -->
+    <path
+        android:strokeColor="#f59e0b"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M17,12c2,0 3.5,1.5 3.5,3.5V17"/>
+</vector>

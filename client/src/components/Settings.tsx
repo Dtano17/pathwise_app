@@ -230,8 +230,44 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
     }
   };
 
-  // Request browser notification permission
+  // Request browser/push notification permission
   const handleBrowserNotificationToggle = async (enabled: boolean) => {
+    // Handle native platforms (Android/iOS) differently - use native push notifications
+    if (isNative()) {
+      if (enabled) {
+        setNotificationLoading(true);
+        try {
+          const result = await requestNotificationPermission();
+          setNotificationStatus(result.granted ? 'granted' : 'denied');
+          setBrowserNotificationsEnabled(result.granted);
+          toast({
+            title: result.granted ? 'Push Notifications Enabled' : 'Permission Denied',
+            description: result.granted
+              ? 'You will receive push notifications'
+              : 'Please enable notifications in device settings',
+            variant: result.granted ? 'default' : 'destructive'
+          });
+        } catch (error) {
+          toast({
+            title: 'Error',
+            description: 'Failed to enable notifications',
+            variant: 'destructive'
+          });
+        } finally {
+          setNotificationLoading(false);
+        }
+      } else {
+        setBrowserNotificationsEnabled(false);
+        setNotificationStatus('default');
+        toast({
+          title: 'Notifications disabled',
+          description: 'Push notifications have been turned off.',
+        });
+      }
+      return;
+    }
+
+    // Web browser notification handling
     if (!('Notification' in window)) {
       toast({
         title: "Not supported",
@@ -244,7 +280,7 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
     if (enabled) {
       const permission = await Notification.requestPermission();
       setBrowserNotificationsEnabled(permission === 'granted');
-      
+
       if (permission === 'granted') {
         updatePreferencesMutation.mutate({ browserNotifications: true });
         toast({
@@ -268,23 +304,33 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
     }
   };
 
-  // Mobile integration handlers
-  const handleEnableNotifications = async () => {
+  // Mobile integration handlers - Push notification toggle
+  const handlePushNotificationToggle = async (enabled: boolean) => {
     setNotificationLoading(true);
     try {
-      const result = await requestNotificationPermission();
-      setNotificationStatus(result.granted ? 'granted' : 'denied');
-      toast({
-        title: result.granted ? 'Notifications Enabled' : 'Permission Denied',
-        description: result.granted
-          ? 'You will receive push notifications'
-          : 'Please enable notifications in device settings',
-        variant: result.granted ? 'default' : 'destructive'
-      });
+      if (enabled) {
+        const result = await requestNotificationPermission();
+        setNotificationStatus(result.granted ? 'granted' : 'denied');
+        toast({
+          title: result.granted ? 'Push Notifications Enabled' : 'Permission Denied',
+          description: result.granted
+            ? 'You will receive push notifications'
+            : 'Please enable notifications in device settings',
+          variant: result.granted ? 'default' : 'destructive'
+        });
+      } else {
+        // User turned off notifications - we can't revoke system permission,
+        // but we can track the preference
+        setNotificationStatus('default');
+        toast({
+          title: 'Push Notifications Disabled',
+          description: 'You will no longer receive push notifications from this app',
+        });
+      }
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to enable notifications',
+        description: 'Failed to update notification settings',
         variant: 'destructive'
       });
     } finally {
@@ -537,10 +583,13 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
                 id="browser-notifications"
                 checked={browserNotificationsEnabled}
                 onCheckedChange={handleBrowserNotificationToggle}
+                disabled={notificationLoading}
                 data-testid="switch-browser-notifications"
               />
               <span className="text-xs sm:text-sm font-medium">
-                {browserNotificationsEnabled ? (
+                {notificationLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                ) : browserNotificationsEnabled ? (
                   <span className="text-green-600 dark:text-green-400">Enable</span>
                 ) : (
                   <span className="text-muted-foreground">Enable</span>
@@ -567,9 +616,10 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
               <Switch
                 id="general-notifications"
                 checked={preferences?.notifications ?? true}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   updatePreferencesMutation.mutate({ notifications: checked })
                 }
+                disabled={updatePreferencesMutation.isPending}
                 data-testid="switch-general-notifications"
               />
             </div>
@@ -742,15 +792,13 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
                   {notificationStatus === 'granted' ? 'Enabled' : 'Not enabled'}
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleEnableNotifications}
-                  disabled={notificationLoading || notificationStatus === 'granted'}
-                >
-                  {notificationLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enable'}
-                </Button>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={notificationStatus === 'granted'}
+                  onCheckedChange={handlePushNotificationToggle}
+                  disabled={notificationLoading}
+                />
+                {notificationLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                 {notificationStatus === 'granted' && (
                   <Button
                     size="sm"

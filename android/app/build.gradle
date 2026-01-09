@@ -59,6 +59,10 @@ dependencies {
 
     // WorkManager for background task sync
     implementation "androidx.work:work-runtime:2.9.0"
+
+    // Firebase Cloud Messaging for push notifications
+    implementation platform('com.google.firebase:firebase-bom:33.0.0')
+    implementation 'com.google.firebase:firebase-messaging'
 }
 
 apply from: 'capacitor.build.gradle'

@@ -76,6 +76,18 @@ export default function UserProfile() {
     enabled: isAuthenticated,
   });
 
+  // Debug: Log profile image URL when profile data changes
+  useEffect(() => {
+    if (profile) {
+      console.log('[PROFILE IMAGE] Profile loaded, image URL:', {
+        hasImage: !!profile.profileImageUrl,
+        imageLength: profile.profileImageUrl?.length || 0,
+        isDataUrl: profile.profileImageUrl?.startsWith('data:') || false,
+        first50chars: profile.profileImageUrl?.substring(0, 50) || 'none'
+      });
+    }
+  }, [profile]);
+
   // Device location state
   const deviceLocation = useDeviceLocation();
 
@@ -159,15 +171,23 @@ export default function UserProfile() {
       return new Promise<string>((resolve, reject) => {
         reader.onloadend = () => {
           const base64String = reader.result as string;
+          console.log('[PROFILE IMAGE] Uploading image, size:', base64String.length);
           apiRequest('PUT', '/api/user/profile/image', { imageData: base64String })
-            .then(() => resolve(base64String))
-            .catch(reject);
+            .then(() => {
+              console.log('[PROFILE IMAGE] Upload successful');
+              resolve(base64String);
+            })
+            .catch((err) => {
+              console.error('[PROFILE IMAGE] Upload failed:', err);
+              reject(err);
+            });
         };
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
     },
     onSuccess: () => {
+      console.log('[PROFILE IMAGE] Invalidating query cache');
       queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
       toast({
         title: "Image uploaded",
@@ -175,6 +195,7 @@ export default function UserProfile() {
       });
     },
     onError: (error: any) => {
+      console.error('[PROFILE IMAGE] Mutation error:', error);
       toast({
         title: "Upload failed",
         description: error.message || "Failed to upload image. Please try again.",

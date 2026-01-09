@@ -52,15 +52,63 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 }
 
 /**
- * Request Android notification permission using custom NativeNotifications plugin
+ * Request Android notification permission and register with FCM for push notifications
  */
 async function requestAndroidPermission(): Promise<NotificationPermissionStatus> {
   try {
     console.log('[NOTIFICATIONS] Requesting Android permission via NativeNotifications plugin');
+
+    // Step 1: Request OS notification permission
     const result = await NativeNotifications.requestPermission();
     console.log('[NOTIFICATIONS] Android permission result:', result);
+
+    if (!result.granted) {
+      return {
+        granted: false,
+        platform: 'android',
+      };
+    }
+
+    // Step 2: Register with FCM to get push token
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+
+      // Add listener for FCM token
+      await PushNotifications.addListener('registration', async (token) => {
+        console.log('[NOTIFICATIONS] FCM token received:', token.value);
+
+        // Send token to server
+        try {
+          await apiRequest('/api/user/device-token', {
+            method: 'POST',
+            body: JSON.stringify({
+              token: token.value,
+              platform: 'android',
+              deviceName: 'Android Device'
+            })
+          });
+          console.log('[NOTIFICATIONS] FCM token registered with server');
+        } catch (serverError) {
+          console.error('[NOTIFICATIONS] Failed to send token to server:', serverError);
+        }
+      });
+
+      // Add listener for registration errors
+      await PushNotifications.addListener('registrationError', (error) => {
+        console.error('[NOTIFICATIONS] FCM registration error:', error);
+      });
+
+      // Register with FCM
+      await PushNotifications.register();
+      console.log('[NOTIFICATIONS] FCM registration initiated');
+
+    } catch (fcmError) {
+      console.error('[NOTIFICATIONS] FCM registration failed:', fcmError);
+      // Permission was granted but FCM failed - still return success for local notifications
+    }
+
     return {
-      granted: result.granted,
+      granted: true,
       platform: 'android',
     };
   } catch (error: any) {
@@ -71,7 +119,7 @@ async function requestAndroidPermission(): Promise<NotificationPermissionStatus>
 }
 
 /**
- * Request iOS notification permission using Capacitor plugins
+ * Request iOS notification permission using Capacitor plugins and register with APNs
  */
 async function requestIOSPermission(): Promise<NotificationPermissionStatus> {
   try {
@@ -79,6 +127,31 @@ async function requestIOSPermission(): Promise<NotificationPermissionStatus> {
     const permission = await PushNotifications.requestPermissions();
 
     if (permission.receive === 'granted') {
+      // Add listener for APNs token
+      await PushNotifications.addListener('registration', async (token) => {
+        console.log('[NOTIFICATIONS] APNs token received:', token.value);
+
+        // Send token to server
+        try {
+          await apiRequest('/api/user/device-token', {
+            method: 'POST',
+            body: JSON.stringify({
+              token: token.value,
+              platform: 'ios',
+              deviceName: 'iOS Device'
+            })
+          });
+          console.log('[NOTIFICATIONS] APNs token registered with server');
+        } catch (serverError) {
+          console.error('[NOTIFICATIONS] Failed to send token to server:', serverError);
+        }
+      });
+
+      // Add listener for registration errors
+      await PushNotifications.addListener('registrationError', (error) => {
+        console.error('[NOTIFICATIONS] APNs registration error:', error);
+      });
+
       await PushNotifications.register();
       return {
         granted: true,

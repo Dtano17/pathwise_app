@@ -16,7 +16,7 @@ const config: CapacitorConfig = {
       launchShowDuration: 2000,
       launchAutoHide: true,
       launchFadeOutDuration: 300,
-      backgroundColor: '#0f0f23', // Dark navy background matching app theme
+      backgroundColor: '#0B0F1A', // Deep navy-black background for premium aesthetic
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
@@ -31,7 +31,7 @@ const config: CapacitorConfig = {
     },
     StatusBar: {
       style: 'light', // Light text for dark backgrounds
-      backgroundColor: '#0f0f23', // Dark background matching app theme
+      backgroundColor: '#0B0F1A', // Deep navy-black background for premium aesthetic
     },
     Camera: {
       // Allow users to choose from camera or photo library
@@ -61,7 +61,7 @@ const config: CapacitorConfig = {
     // Enable clear text traffic for development
     allowMixedContent: false,
     // Background color while app loads
-    backgroundColor: '#0f0f23', // Matches background_color from manifest.json
+    backgroundColor: '#0B0F1A', // Deep navy-black for premium aesthetic
   },
 };
 

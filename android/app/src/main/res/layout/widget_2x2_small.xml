@@ -1,185 +1,154 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 2x2 Small Widget - Triple Ring + Stats -->
+<!-- 2x2 Small Square Widget - Dark Navy Design -->
+<!-- Layout: Logo (56dp) with glow + 2x2 grid of stats -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="12dp"
+    android:gravity="center"
+    android:padding="16dp"
     android:background="@drawable/widget_background">
 
-    <!-- Header -->
-    <TextView
-        android:id="@+id/widget_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="JournalMate"
-        android:textColor="#1a1a1a"
-        android:textSize="12sp"
-        android:textStyle="bold" />
-
-    <!-- Triple Ring Section -->
+    <!-- App Logo with Glow -->
     <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="4dp">
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_marginBottom="12dp">
 
-        <!-- Outer Ring Background (Done - Gray) -->
-        <ProgressBar
-            android:id="@+id/widget_ring_outer_bg"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
+        <!-- Glow effect behind logo (ImageView allowed in RemoteViews, View is not) -->
+        <ImageView
+            android:layout_width="100dp"
+            android:layout_height="100dp"
             android:layout_gravity="center"
-            android:indeterminate="false"
-            android:max="100"
-            android:progress="100"
-            android:progressDrawable="@drawable/widget_ring_outer_bg" />
+            android:src="@drawable/widget_logo_glow"
+            android:contentDescription="@null" />
 
-        <!-- Outer Ring (Done - Green) -->
-        <ProgressBar
-            android:id="@+id/widget_ring_outer"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
+        <ImageView
+            android:layout_width="56dp"
+            android:layout_height="56dp"
             android:layout_gravity="center"
-            android:indeterminate="false"
-            android:max="100"
-            android:progress="0"
-            android:progressDrawable="@drawable/widget_ring_outer" />
-
-        <!-- Middle Ring Background (Pending - Gray) -->
-        <ProgressBar
-            android:id="@+id/widget_ring_middle_bg"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
-            android:layout_gravity="center"
-            android:indeterminate="false"
-            android:max="100"
-            android:progress="100"
-            android:progressDrawable="@drawable/widget_ring_middle_bg" />
-
-        <!-- Middle Ring (Pending - Orange) -->
-        <ProgressBar
-            android:id="@+id/widget_ring_middle"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
-            android:layout_gravity="center"
-            android:indeterminate="false"
-            android:max="100"
-            android:progress="0"
-            android:progressDrawable="@drawable/widget_ring_middle" />
-
-        <!-- Inner Ring Background (Activities - Gray) -->
-        <ProgressBar
-            android:id="@+id/widget_ring_inner_bg"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
-            android:layout_gravity="center"
-            android:indeterminate="false"
-            android:max="100"
-            android:progress="100"
-            android:progressDrawable="@drawable/widget_ring_inner_bg" />
-
-        <!-- Inner Ring (Activities - Blue) -->
-        <ProgressBar
-            android:id="@+id/widget_ring_inner"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
-            android:layout_gravity="center"
-            android:indeterminate="false"
-            android:max="100"
-            android:progress="0"
-            android:progressDrawable="@drawable/widget_ring_inner" />
-
+            android:src="@mipmap/ic_launcher"
+            android:contentDescription="JournalMate" />
     </FrameLayout>
 
-    <!-- Stats Row -->
+    <!-- 2x2 Data Grid -->
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_marginTop="4dp">
+        android:orientation="vertical">
 
-        <!-- Done Stat -->
+        <!-- Row 1: Goals, Tasks -->
         <LinearLayout
-            android:layout_width="0dp"
-            android:layout_weight="1"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center">
+            android:layout_marginBottom="8dp">
 
-            <ImageView
-                android:layout_width="12dp"
-                android:layout_height="12dp"
-                android:src="@drawable/ic_widget_done"
-                android:contentDescription="Done" />
-
-            <TextView
-                android:id="@+id/widget_done_count"
+            <!-- Goals -->
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="2dp"
-                android:text="0"
-                android:textColor="#1a1a1a"
-                android:textSize="11sp"
-                android:textStyle="bold" />
+                android:orientation="vertical"
+                android:gravity="center"
+                android:layout_marginEnd="16dp">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_widget_goals"
+                    android:contentDescription="Goals" />
+
+                <TextView
+                    android:id="@+id/widget_goals_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="0"
+                    android:textColor="#10b981"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Tasks -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_widget_tasks"
+                    android:contentDescription="Tasks" />
+
+                <TextView
+                    android:id="@+id/widget_tasks_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="0"
+                    android:textColor="#3b82f6"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- Pending Stat -->
+        <!-- Row 2: Activities, Groups -->
         <LinearLayout
-            android:layout_width="0dp"
-            android:layout_weight="1"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center">
+            android:orientation="horizontal">
 
-            <ImageView
-                android:layout_width="12dp"
-                android:layout_height="12dp"
-                android:src="@drawable/ic_widget_pending"
-                android:contentDescription="Pending" />
-
-            <TextView
-                android:id="@+id/widget_pending_count"
+            <!-- Activities -->
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="2dp"
-                android:text="0"
-                android:textColor="#1a1a1a"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+                android:orientation="vertical"
+                android:gravity="center"
+                android:layout_marginEnd="16dp">
 
-        <!-- Activities Stat -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center">
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_widget_activities"
+                    android:contentDescription="Activities" />
 
-            <ImageView
-                android:layout_width="12dp"
-                android:layout_height="12dp"
-                android:src="@drawable/ic_widget_activities"
-                android:contentDescription="Activities" />
+                <TextView
+                    android:id="@+id/widget_activities_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="0"
+                    android:textColor="#f472b6"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
-            <TextView
-                android:id="@+id/widget_activities_count"
+            <!-- Groups -->
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="2dp"
-                android:text="0"
-                android:textColor="#1a1a1a"
-                android:textSize="11sp"
-                android:textStyle="bold" />
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_widget_groups"
+                    android:contentDescription="Groups" />
+
+                <TextView
+                    android:id="@+id/widget_groups_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="0"
+                    android:textColor="#f59e0b"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
 
     </LinearLayout>

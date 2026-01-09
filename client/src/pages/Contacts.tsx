@@ -61,17 +61,19 @@ export default function Contacts() {
   });
 
   // Get user's contacts
-  const { data: contacts = [], isLoading, isFetching, dataUpdatedAt } = useQuery<Contact[]>({
+  const { data: contacts = [], isLoading, isFetching, dataUpdatedAt, error } = useQuery<Contact[]>({
     queryKey: ['/api/contacts'],
   });
 
-  // Debug: Log contacts query state
+  // Debug: Log contacts query state including error
   console.log('[CONTACTS PAGE] Query state:', {
     count: contacts.length,
     isLoading,
     isFetching,
+    error: error ? (error as Error).message : 'none',
     dataUpdatedAt: dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : 'never',
-    firstContact: contacts[0]?.name || 'none'
+    firstContact: contacts[0]?.name || 'none',
+    allContacts: contacts.slice(0, 5).map(c => ({ name: c.name, source: c.source, status: c.status }))
   });
 
   // Sync phone contacts mutation
