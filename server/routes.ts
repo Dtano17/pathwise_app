@@ -3646,20 +3646,27 @@ ${sitemaps.map(sitemap => `  <sitemap>
         userId = getUserId(req) || DEMO_USER_ID;
       }
 
-      // Fetch all data in parallel for performance
-      // Returns completed/total for each metric as a mini dashboard
-      const [allTasks, goals, activities, unreadNotifications, totalNotifications] = await Promise.all([
-        storage.getUserTasks(userId),
+      // Use the SAME query as /api/progress to ensure matching numbers
+      // Query ALL tasks (including completed) - same as Progress Dashboard
+      const tasks = await db.select().from(tasksTable)
+        .where(and(
+          eq(tasksTable.userId, userId),
+          or(eq(tasksTable.archived, false), isNull(tasksTable.archived))
+        ));
+
+      // Fetch goals, activities, notifications in parallel
+      const [goals, activities, unreadNotifications, totalNotifications] = await Promise.all([
         storage.getUserGoals(userId),
         storage.getUserActivities(userId),
         storage.getUnreadNotificationsCount(userId),
         storage.getTotalNotificationsCount(userId)
       ]);
 
-      // Tasks: completed vs total (excluding skipped)
-      const activeTasks = allTasks.filter((t: any) => !t.skipped);
-      const completedTasks = activeTasks.filter((t: any) => t.completed).length;
-      const totalTasks = activeTasks.length;
+      // Tasks: Use SAME calculation as /api/progress
+      // totalCompleted = all completed tasks, totalTasks = all non-archived tasks
+      const completedTasksList = tasks.filter((t: any) => t.completed === true);
+      const completedTasks = completedTasksList.length;
+      const totalTasks = tasks.length;
 
       // Goals: completed vs total
       const completedGoals = goals.filter((g: any) => g.completed).length;
@@ -3672,20 +3679,11 @@ ${sitemaps.map(sitemap => `  <sitemap>
       // Notifications: read vs total
       const readNotifications = totalNotifications - unreadNotifications;
 
-      // Calculate streak count from progress
-      let streak = 0;
-      try {
-        const progress = await storage.calculateProgress(userId);
-        if (progress && progress.dailyStreaks) {
-          streak = progress.dailyStreaks.current || 0;
-        }
-      } catch (error) {
-        console.error('Failed to calculate streak for widget:', error);
-        streak = 0;
-      }
+      // Streak: Use same simple calculation as /api/progress
+      const weeklyStreak = Math.min(completedTasks, 7);
 
       res.json({
-        // New format: completed/total for mini dashboard
+        // Format matches widget expectation, values match Progress Dashboard
         goalsCompleted: completedGoals,
         goalsTotal: totalGoals,
         tasksCompleted: completedTasks,
@@ -3694,7 +3692,7 @@ ${sitemaps.map(sitemap => `  <sitemap>
         activitiesTotal: totalActivities,
         notificationsRead: readNotifications,
         notificationsTotal: totalNotifications,
-        streak,
+        streak: weeklyStreak,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
@@ -14282,6 +14280,393 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     } catch (error: any) {
       console.error(`[PARSE-URL] Error: ${error.message}`);
       res.status(500).json({ error: `Failed to parse URL: ${error.message}` });
+    }
+  });
+
+  // Helper functions for URL prefetching (shared with /api/parse-url)
+  const normalizeUrlForCachePrefetch = (urlString: string): string => {
+    try {
+      const parsed = new URL(urlString);
+
+      if (parsed.hostname.includes('instagram.com')) {
+        const pathMatch = parsed.pathname.match(/\/(reel|p|stories)\/([^\/]+)/);
+        if (pathMatch) {
+          return `https://www.instagram.com/${pathMatch[1]}/${pathMatch[2]}/`;
+        }
+      }
+
+      if (parsed.hostname.includes('tiktok.com')) {
+        const pathMatch = parsed.pathname.match(/\/@[^\/]+\/video\/(\d+)/);
+        if (pathMatch) {
+          const username = parsed.pathname.split('/')[1];
+          return `https://www.tiktok.com/${username}/video/${pathMatch[1]}`;
+        }
+      }
+
+      if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) {
+        let videoId: string | null = null;
+        if (parsed.hostname.includes('youtu.be')) {
+          videoId = parsed.pathname.slice(1);
+        } else if (parsed.pathname.includes('/shorts/')) {
+          videoId = parsed.pathname.split('/shorts/')[1]?.split('/')[0];
+        } else {
+          videoId = parsed.searchParams.get('v');
+        }
+        if (videoId) {
+          return `https://www.youtube.com/watch?v=${videoId}`;
+        }
+      }
+
+      const paramsToRemove = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid', 'ref', 'source', 'igsh'];
+      paramsToRemove.forEach(param => parsed.searchParams.delete(param));
+
+      return parsed.toString();
+    } catch {
+      return urlString;
+    }
+  };
+
+  const resolveShortUrlPrefetch = async (shortUrl: string): Promise<string> => {
+    try {
+      const shortenedPatterns = [
+        /tiktok\.com\/t\//i,
+        /bit\.ly\//i,
+        /t\.co\//i,
+        /goo\.gl\//i,
+        /ow\.ly\//i,
+        /tiny\.cc\//i,
+      ];
+
+      const isShortened = shortenedPatterns.some(p => p.test(shortUrl));
+      if (!isShortened) return shortUrl;
+
+      let finalUrl = shortUrl;
+      try {
+        const headResponse = await fetch(shortUrl, {
+          method: 'HEAD',
+          redirect: 'follow',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        finalUrl = headResponse.url || shortUrl;
+      } catch {
+        const getResponse = await fetch(shortUrl, {
+          method: 'GET',
+          redirect: 'follow',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        finalUrl = getResponse.url || shortUrl;
+      }
+
+      return finalUrl;
+    } catch {
+      return shortUrl;
+    }
+  };
+
+  const isSocialMediaUrl = (urlString: string): boolean => {
+    const patterns = [
+      /tiktok\.com/i,
+      /instagram\.com\/(reel|p)\//i,
+      /youtube\.com\/watch|youtu\.be\//i,
+      /youtube\.com\/shorts\//i,
+    ];
+    return patterns.some(p => p.test(urlString));
+  };
+
+  // In-memory prefetch status tracking
+  const prefetchStatus = new Map<string, {
+    status: 'pending' | 'processing' | 'complete' | 'error';
+    progress: number;
+    startedAt: number;
+    error?: string;
+  }>();
+
+  // Cleanup old prefetch status entries every 10 minutes
+  setInterval(() => {
+    const now = Date.now();
+    const MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
+    prefetchStatus.forEach((value, key) => {
+      if (now - value.startedAt > MAX_AGE_MS) {
+        prefetchStatus.delete(key);
+      }
+    });
+  }, 10 * 60 * 1000);
+
+  /**
+   * Fire-and-forget prefetch endpoint
+   * Native apps call this immediately when a URL is shared (before WebView loads)
+   * Returns immediately, processes in background
+   */
+  app.post("/api/parse-url/prefetch", async (req, res) => {
+    const { url } = req.body;
+
+    if (!url) {
+      return res.status(400).json({ error: "URL is required" });
+    }
+
+    // Check if it's a social media URL worth prefetching
+    if (!isSocialMediaUrl(url)) {
+      return res.json({ status: 'skipped', reason: 'not_social_media', url });
+    }
+
+    console.log(`[PREFETCH] Received prefetch request for: ${url}`);
+
+    // Return immediately - don't wait for extraction
+    res.json({ status: 'prefetching', url });
+
+    // Process in background (non-blocking)
+    setImmediate(async () => {
+      try {
+        // Resolve shortened URLs
+        const resolvedUrl = await resolveShortUrlPrefetch(url);
+        const normalizedUrl = normalizeUrlForCachePrefetch(resolvedUrl);
+
+        // Update status
+        prefetchStatus.set(normalizedUrl, {
+          status: 'processing',
+          progress: 10,
+          startedAt: Date.now()
+        });
+
+        // Check cache first
+        const cached = await storage.getUrlContentCache(normalizedUrl);
+        if (cached) {
+          console.log(`[PREFETCH] Cache hit for ${url}, no extraction needed`);
+          prefetchStatus.set(normalizedUrl, {
+            status: 'complete',
+            progress: 100,
+            startedAt: Date.now()
+          });
+          return;
+        }
+
+        console.log(`[PREFETCH] Starting background extraction for: ${resolvedUrl}`);
+        prefetchStatus.set(normalizedUrl, {
+          status: 'processing',
+          progress: 20,
+          startedAt: Date.now()
+        });
+
+        // Run full extraction
+        const platform = socialMediaVideoService.detectPlatform(resolvedUrl);
+        if (!platform) {
+          prefetchStatus.set(normalizedUrl, {
+            status: 'error',
+            progress: 0,
+            startedAt: Date.now(),
+            error: 'unsupported_platform'
+          });
+          return;
+        }
+
+        prefetchStatus.set(normalizedUrl, {
+          status: 'processing',
+          progress: 30,
+          startedAt: Date.now()
+        });
+
+        const socialResult = await socialMediaVideoService.extractContent(resolvedUrl);
+
+        if (socialResult.success) {
+          const combinedContent = socialMediaVideoService.combineExtractedContent(socialResult);
+
+          // Cache the result
+          const wordCount = combinedContent.split(/\s+/).length;
+
+          await storage.createUrlContentCache({
+            normalizedUrl,
+            originalUrl: resolvedUrl,
+            platform: platform,
+            extractedContent: combinedContent,
+            extractionSource: 'prefetch',
+            wordCount,
+            metadata: {
+              hasAudioTranscript: !!socialResult.audioTranscript,
+              hasOcrText: !!socialResult.ocrText,
+              caption: socialResult.caption || undefined,
+              author: socialResult.metadata?.author,
+              carouselItemCount: socialResult.carouselItems?.length
+            }
+          });
+
+          prefetchStatus.set(normalizedUrl, {
+            status: 'complete',
+            progress: 100,
+            startedAt: Date.now()
+          });
+
+          console.log(`[PREFETCH] ✅ Prefetch complete for ${url} (${wordCount} words cached)`);
+        } else {
+          prefetchStatus.set(normalizedUrl, {
+            status: 'error',
+            progress: 0,
+            startedAt: Date.now(),
+            error: socialResult.error || 'extraction_failed'
+          });
+          console.log(`[PREFETCH] ❌ Prefetch failed for ${url}: ${socialResult.error}`);
+        }
+      } catch (err: any) {
+        console.error('[PREFETCH] Background extraction error:', err.message);
+        try {
+          const resolvedUrl = await resolveShortUrlPrefetch(url);
+          const normalizedUrl = normalizeUrlForCachePrefetch(resolvedUrl);
+          prefetchStatus.set(normalizedUrl, {
+            status: 'error',
+            progress: 0,
+            startedAt: Date.now(),
+            error: err.message
+          });
+        } catch {}
+      }
+    });
+  });
+
+  /**
+   * SSE streaming endpoint for prefetch progress
+   * Frontend uses this to show progress bar while URL is being extracted
+   */
+  app.get("/api/parse-url/prefetch-stream", async (req, res) => {
+    const { url } = req.query as { url: string };
+
+    if (!url) {
+      return res.status(400).json({ error: "URL is required" });
+    }
+
+    // Set up SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+
+    const sendProgress = (progress: number, status?: string, error?: string) => {
+      res.write(`data: ${JSON.stringify({ progress, status, error })}\n\n`);
+    };
+
+    try {
+      // Resolve and normalize URL
+      const resolvedUrl = await resolveShortUrlPrefetch(url);
+      const normalizedUrl = normalizeUrlForCachePrefetch(resolvedUrl);
+
+      // Check if already cached (instant completion)
+      const cached = await storage.getUrlContentCache(normalizedUrl);
+      if (cached) {
+        sendProgress(100, 'complete');
+        return res.end();
+      }
+
+      // Check current prefetch status
+      const currentStatus = prefetchStatus.get(normalizedUrl);
+      if (currentStatus) {
+        if (currentStatus.status === 'complete') {
+          sendProgress(100, 'complete');
+          return res.end();
+        }
+        if (currentStatus.status === 'error') {
+          sendProgress(0, 'error', currentStatus.error);
+          return res.end();
+        }
+        // Already processing - send current progress
+        sendProgress(currentStatus.progress, 'processing');
+      } else {
+        // Not started - trigger prefetch
+        sendProgress(5, 'starting');
+
+        // Fire prefetch in background
+        fetch(`${req.protocol}://${req.get('host')}/api/parse-url/prefetch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        }).catch(() => {});
+      }
+
+      // Poll for updates every 500ms (max 2 minutes)
+      let pollCount = 0;
+      const maxPolls = 240; // 2 minutes at 500ms intervals
+
+      const pollInterval = setInterval(async () => {
+        pollCount++;
+
+        // Check cache (extraction may have completed)
+        const nowCached = await storage.getUrlContentCache(normalizedUrl);
+        if (nowCached) {
+          sendProgress(100, 'complete');
+          clearInterval(pollInterval);
+          return res.end();
+        }
+
+        // Check status
+        const status = prefetchStatus.get(normalizedUrl);
+        if (status) {
+          sendProgress(status.progress, status.status, status.error);
+
+          if (status.status === 'complete' || status.status === 'error') {
+            clearInterval(pollInterval);
+            return res.end();
+          }
+        }
+
+        // Timeout after max polls
+        if (pollCount >= maxPolls) {
+          sendProgress(0, 'timeout');
+          clearInterval(pollInterval);
+          return res.end();
+        }
+      }, 500);
+
+      // Handle client disconnect
+      req.on('close', () => {
+        clearInterval(pollInterval);
+      });
+
+    } catch (err: any) {
+      sendProgress(0, 'error', err.message);
+      res.end();
+    }
+  });
+
+  /**
+   * Check prefetch status (simple polling alternative to SSE)
+   */
+  app.get("/api/parse-url/prefetch-status", async (req, res) => {
+    const { url } = req.query as { url: string };
+
+    if (!url) {
+      return res.status(400).json({ error: "URL is required" });
+    }
+
+    try {
+      const resolvedUrl = await resolveShortUrlPrefetch(url);
+      const normalizedUrl = normalizeUrlForCachePrefetch(resolvedUrl);
+
+      // Check cache first
+      const cached = await storage.getUrlContentCache(normalizedUrl);
+      if (cached) {
+        return res.json({
+          status: 'complete',
+          progress: 100,
+          cached: true,
+          wordCount: cached.wordCount
+        });
+      }
+
+      // Check prefetch status
+      const status = prefetchStatus.get(normalizedUrl);
+      if (status) {
+        return res.json({
+          status: status.status,
+          progress: status.progress,
+          error: status.error
+        });
+      }
+
+      // Not started
+      return res.json({ status: 'not_started', progress: 0 });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
     }
   });
 

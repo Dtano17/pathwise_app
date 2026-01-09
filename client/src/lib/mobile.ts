@@ -41,6 +41,11 @@ import {
   compressPhoto,
   isCameraAvailable,
   requestCameraPermissions,
+  // Geotagged camera functions
+  capturePhotoWithLocation,
+  takePhotoWithLocation,
+  selectFromGalleryWithLocation,
+  captureMultiplePhotosWithLocation,
 } from './camera';
 
 // Import sharing functions
@@ -156,6 +161,10 @@ export {
   compressPhoto,
   isCameraAvailable,
   requestCameraPermissions,
+  capturePhotoWithLocation,
+  takePhotoWithLocation,
+  selectFromGalleryWithLocation,
+  captureMultiplePhotosWithLocation,
   share,
   shareActivity,
   shareJournal,
@@ -225,7 +234,7 @@ export {
 
 // Convenience re-exports of types
 export type { NotificationPermissionStatus } from './notifications';
-export type { CameraOptions, CapturedPhoto } from './camera';
+export type { CameraOptions, CapturedPhoto, GeotaggedPhoto } from './camera';
 export type { ShareContentOptions, ShareActivityOptions, ShareJournalOptions, ShareAchievementOptions } from './sharing';
 export type { SimpleContact, ContactInviteOptions } from './contacts';
 export type { CachedData, StorageOptions } from './storage';
@@ -262,6 +271,9 @@ export default {
   takePhoto,
   selectFromGallery,
   capturePhoto,
+  // Geotagged camera
+  capturePhotoWithLocation,
+  takePhotoWithLocation,
 
   // Sharing
   share,

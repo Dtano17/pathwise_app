@@ -192,7 +192,8 @@ import {
   updateTaskProgress,
   isBackgroundServiceAvailable,
   getBackgroundServiceStatus,
-  startForegroundService
+  startForegroundService,
+  refreshWidgets
 } from "@/lib/backgroundService";
 
 interface ProgressData {
@@ -1177,6 +1178,20 @@ export default function MainApp({
     updateNotification();
   }, [tasks, progressData?.weeklyStreak]);
 
+  // Refresh Android widgets when progress data changes
+  useEffect(() => {
+    if (progressData) {
+      // Use dynamic import to prevent tree-shaking
+      import("@/lib/backgroundService").then((module) => {
+        module.refreshWidgets().then((result) => {
+          console.log("[WIDGET] Progress changed, refresh result:", result);
+        }).catch((err) => {
+          console.log("[WIDGET] Progress changed, refresh error:", err);
+        });
+      });
+    }
+  }, [progressData?.completedToday, progressData?.totalToday, progressData?.weeklyStreak]);
+
   // Load activity data when entering edit mode
   useEffect(() => {
     if (editingActivity && !currentPlanOutput) {
@@ -1465,6 +1480,8 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+      // Refresh Android widgets to show updated progress (dynamic import prevents tree-shaking)
+      import("@/lib/backgroundService").then((m) => m.refreshWidgets().then((r) => console.log("[WIDGET] complete task refresh:", r)));
     },
   });
 
@@ -1504,6 +1521,8 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+      // Refresh Android widgets to show updated progress (dynamic import prevents tree-shaking)
+      import("@/lib/backgroundService").then((m) => m.refreshWidgets().then((r) => console.log("[WIDGET] skip task refresh:", r)));
       toast({
         title: "Task Skipped",
         description: data.message,
@@ -1557,6 +1576,8 @@ export default function MainApp({
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+      // Refresh Android widgets to show updated progress (dynamic import prevents tree-shaking)
+      import("@/lib/backgroundService").then((m) => m.refreshWidgets().then((r) => console.log("[WIDGET] snooze task refresh:", r)));
       toast({
         title: "Task Snoozed",
         description: `Task postponed for ${hours} hour${hours !== 1 ? "s" : ""}`,

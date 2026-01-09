@@ -194,30 +194,78 @@ class ShareViewController: UIViewController {
     }
     
     @objc private func planNowTapped() {
+        // Fire prefetch request BEFORE opening app for social media URLs
+        // This starts content extraction while the app is loading
+        if let url = sharedURL, isSocialMediaURL(url) {
+            prefetchURL(url)
+        }
         openAppWithAction(action: "plan")
     }
-    
+
     @objc private func saveLaterTapped() {
         openAppWithAction(action: "save")
     }
-    
+
+    /// Check if the URL is from a social media platform that supports prefetching
+    private func isSocialMediaURL(_ urlString: String) -> Bool {
+        let lowercased = urlString.lowercased()
+        return lowercased.contains("instagram.com") ||
+               lowercased.contains("tiktok.com") ||
+               lowercased.contains("youtube.com") ||
+               lowercased.contains("youtu.be")
+    }
+
+    /// Fire a prefetch request to start extracting content in the background
+    /// This is fire-and-forget - we don't wait for the response
+    private func prefetchURL(_ urlString: String) {
+        print("[ShareExtension] Starting prefetch for: \(urlString)")
+
+        guard let prefetchURL = URL(string: "https://journalmate.ai/api/parse-url/prefetch") else {
+            print("[ShareExtension] Invalid prefetch endpoint URL")
+            return
+        }
+
+        var request = URLRequest(url: prefetchURL)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 5.0
+
+        // Escape the URL for JSON
+        let escapedURL = urlString
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        let jsonBody = "{\"url\":\"\(escapedURL)\"}"
+
+        request.httpBody = jsonBody.data(using: .utf8)
+
+        // Fire and forget - don't wait for response
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("[ShareExtension] Prefetch error: \(error.localizedDescription)")
+            } else if let httpResponse = response as? HTTPURLResponse {
+                print("[ShareExtension] Prefetch response: \(httpResponse.statusCode)")
+            }
+        }.resume()
+    }
+
     private func openAppWithAction(action: String) {
         showLoading(true)
-        
+
         let content = sharedURL ?? sharedText ?? ""
-        
+
         // Construct deep link URL
         var urlComponents = URLComponents(string: "journalmate://share")!
         urlComponents.queryItems = [
             URLQueryItem(name: "action", value: action),
             URLQueryItem(name: "content", value: content)
         ]
-        
+
         if let url = urlComponents.url {
             // Open the main app with the deep link
             openURL(url)
         }
-        
+
         // Complete the extension
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)

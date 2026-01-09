@@ -7,6 +7,8 @@
 
 import { Camera, CameraResultType, CameraSource, Photo } from '@capacitor/camera';
 import { isNative } from './platform';
+import { getCurrentLocationWithAddress, type LocationWithAddress } from './geolocation';
+import { hapticsLight, hapticsSuccess } from './haptics';
 
 export interface CameraOptions {
   quality?: number; // 0-100
@@ -22,6 +24,11 @@ export interface CapturedPhoto {
   format: string;
   webPath?: string;
   exif?: any;
+}
+
+export interface GeotaggedPhoto extends CapturedPhoto {
+  location?: LocationWithAddress;
+  capturedAt: string; // ISO timestamp
 }
 
 /**
@@ -282,6 +289,95 @@ export async function requestCameraPermissions(): Promise<boolean> {
   }
 }
 
+/**
+ * Capture photo with automatic geotagging
+ * Takes a photo and captures current GPS location simultaneously
+ */
+export async function capturePhotoWithLocation(
+  options: CameraOptions = {}
+): Promise<GeotaggedPhoto | null> {
+  try {
+    // Haptic feedback when starting
+    if (isNative()) {
+      await hapticsLight();
+    }
+
+    // Capture photo and location in parallel for speed
+    const [photo, location] = await Promise.all([
+      capturePhoto(options),
+      getCurrentLocationWithAddress().catch((err) => {
+        console.warn('[CAMERA] Failed to get location:', err);
+        return null;
+      }),
+    ]);
+
+    if (!photo) {
+      return null;
+    }
+
+    // Success haptic
+    if (isNative()) {
+      await hapticsSuccess();
+    }
+
+    return {
+      ...photo,
+      location: location || undefined,
+      capturedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('[CAMERA] Failed to capture geotagged photo:', error);
+    return null;
+  }
+}
+
+/**
+ * Take photo with camera and geotag it
+ */
+export async function takePhotoWithLocation(
+  options: Omit<CameraOptions, 'source'> = {}
+): Promise<GeotaggedPhoto | null> {
+  return capturePhotoWithLocation({ ...options, source: 'camera' });
+}
+
+/**
+ * Select from gallery with current location tag
+ * Note: Location will be current position, not where photo was originally taken
+ */
+export async function selectFromGalleryWithLocation(
+  options: Omit<CameraOptions, 'source'> = {}
+): Promise<GeotaggedPhoto | null> {
+  return capturePhotoWithLocation({ ...options, source: 'gallery' });
+}
+
+/**
+ * Capture multiple photos with location
+ * All photos get the same location (captured once at start)
+ */
+export async function captureMultiplePhotosWithLocation(
+  options: CameraOptions = {}
+): Promise<GeotaggedPhoto[]> {
+  try {
+    // Get location first
+    const location = await getCurrentLocationWithAddress().catch((err) => {
+      console.warn('[CAMERA] Failed to get location for batch:', err);
+      return null;
+    });
+
+    const photos = await selectMultiplePhotos(options);
+    const capturedAt = new Date().toISOString();
+
+    return photos.map((photo) => ({
+      ...photo,
+      location: location || undefined,
+      capturedAt,
+    }));
+  } catch (error) {
+    console.error('[CAMERA] Failed to capture geotagged photos:', error);
+    return [];
+  }
+}
+
 export default {
   capturePhoto,
   takePhoto,
@@ -290,4 +386,9 @@ export default {
   compressPhoto,
   isCameraAvailable,
   requestCameraPermissions,
+  // Geotagged versions
+  capturePhotoWithLocation,
+  takePhotoWithLocation,
+  selectFromGalleryWithLocation,
+  captureMultiplePhotosWithLocation,
 };

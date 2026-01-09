@@ -224,6 +224,30 @@ export const isPluginAvailable = (pluginName: string): boolean => {
 };
 
 /**
+ * Wait for a Capacitor plugin to be available
+ * Useful when loading from remote URLs where bridge initialization is async
+ * @param pluginName - The name of the plugin to wait for
+ * @param timeoutMs - Maximum time to wait in milliseconds (default: 2000ms)
+ * @returns true if plugin became available, false if timeout
+ */
+export const waitForCapacitorPlugin = async (
+  pluginName: string,
+  timeoutMs: number = 2000
+): Promise<boolean> => {
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeoutMs) {
+    const capacitor = (window as any).Capacitor;
+    if (capacitor?.Plugins?.[pluginName]) {
+      console.log(`[PLATFORM] Plugin ${pluginName} became available after ${Date.now() - startTime}ms`);
+      return true;
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  console.log(`[PLATFORM] Plugin ${pluginName} not available after ${timeoutMs}ms timeout`);
+  return false;
+};
+
+/**
  * Get platform-specific configuration values
  */
 export const getPlatformConfig = () => {
@@ -283,4 +307,5 @@ export default {
   getPlatformConfig,
   platformSwitch,
   isPluginAvailable,
+  waitForCapacitorPlugin,
 };

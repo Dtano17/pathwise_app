@@ -53,7 +53,34 @@ function getNativeSpeechPlugin(): NativeSpeechPlugin | null {
 }
 
 /**
+ * Get plugin with retry logic for when Capacitor bridge hasn't fully initialized
+ * This is needed when loading from remote URLs where bridge initialization is async
+ */
+async function getNativeSpeechPluginWithRetry(maxRetries: number = 5): Promise<NativeSpeechPlugin | null> {
+  // Try immediately first
+  let plugin = getNativeSpeechPlugin();
+  if (plugin) {
+    console.log('[SPEECH] Plugin found immediately');
+    return plugin;
+  }
+
+  // Retry with delays
+  for (let i = 0; i < maxRetries; i++) {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    plugin = getNativeSpeechPlugin();
+    if (plugin) {
+      console.log(`[SPEECH] Plugin found after ${i + 1} retries`);
+      return plugin;
+    }
+  }
+
+  console.log('[SPEECH] Plugin not found after retries');
+  return null;
+}
+
+/**
  * Check if speech recognition is available
+ * Uses retry logic because Capacitor bridge may not be ready on component mount
  */
 export async function checkSpeechAvailability(): Promise<SpeechCapabilities> {
   // Check web speech API first (works on all platforms)
@@ -69,13 +96,15 @@ export async function checkSpeechAvailability(): Promise<SpeechCapabilities> {
   // Check Android native plugin
   if (isAndroid()) {
     try {
-      const plugin = getNativeSpeechPlugin();
+      // Use retry version since this is often called on mount before bridge is ready
+      const plugin = await getNativeSpeechPluginWithRetry();
       if (plugin) {
         const [availability, permission] = await Promise.all([
           plugin.isAvailable(),
           plugin.checkPermission(),
         ]);
 
+        console.log('[SPEECH] Availability check result:', { availability, permission });
         return {
           isAvailable: availability.available,
           hasPermission: permission.granted,

@@ -431,18 +431,77 @@ public class MainActivity extends BridgeActivity {
     private void handleSendText(Intent intent) {
         String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
         String sharedSubject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
-        
+
         if (sharedText != null) {
+            // Fire prefetch request IMMEDIATELY for social media URLs (before WebView loads)
+            // This starts content extraction in the background while the app is loading
+            if (isSocialMediaUrl(sharedText)) {
+                prefetchUrl(sharedText);
+            }
+
             String shareJson = String.format(
                 "{\"type\":\"text\",\"text\":\"%s\",\"title\":\"%s\"}",
                 escapeJson(sharedText),
                 escapeJson(sharedSubject != null ? sharedSubject : "")
             );
-            
+
             // Store for cold start AND notify if bridge ready
             pendingShareData = shareJson;
             notifyBridge(shareJson);
         }
+    }
+
+    /**
+     * Check if a URL is from a social media platform that supports prefetching
+     */
+    private boolean isSocialMediaUrl(String text) {
+        if (text == null) return false;
+        String lowerText = text.toLowerCase();
+        return lowerText.contains("instagram.com") ||
+               lowerText.contains("tiktok.com") ||
+               lowerText.contains("youtube.com") ||
+               lowerText.contains("youtu.be");
+    }
+
+    /**
+     * Fire a prefetch request to start extracting social media content in the background
+     * This runs before the WebView loads, so content may be cached by the time user interacts
+     */
+    private void prefetchUrl(String url) {
+        android.util.Log.d("MainActivity", "[PREFETCH] Starting background prefetch for: " + url);
+
+        // Run in background thread to avoid blocking UI
+        new Thread(() -> {
+            java.net.HttpURLConnection conn = null;
+            try {
+                // Use the remote server URL for prefetch
+                java.net.URL prefetchEndpoint = new java.net.URL("https://journalmate.ai/api/parse-url/prefetch");
+                conn = (java.net.HttpURLConnection) prefetchEndpoint.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("Accept", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
+
+                // Send the URL to prefetch
+                String jsonBody = "{\"url\":\"" + escapeJson(url) + "\"}";
+                byte[] outputBytes = jsonBody.getBytes("UTF-8");
+                conn.getOutputStream().write(outputBytes);
+
+                // Fire and forget - we don't wait for the response
+                int responseCode = conn.getResponseCode();
+                android.util.Log.d("MainActivity", "[PREFETCH] Prefetch request sent, response: " + responseCode);
+
+            } catch (Exception e) {
+                android.util.Log.e("MainActivity", "[PREFETCH] Prefetch failed: " + e.getMessage());
+                // Fail silently - prefetch is an optimization, not critical
+            } finally {
+                if (conn != null) {
+                    conn.disconnect();
+                }
+            }
+        }).start();
     }
     
     private void handleSendImage(Intent intent) {

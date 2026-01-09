@@ -192,50 +192,78 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
   // Check notification permission on load (both browser and native)
   useEffect(() => {
     if (isNative()) {
-      // Check native push notification permission
-      checkNotificationPermission().then(result => {
-        setNotificationStatus(result.granted ? 'granted' : 'default');
-      }).catch(() => {
-        setNotificationStatus('default');
-      });
+      // Initialize native features with a small delay to ensure Capacitor bridge is ready
+      // When loading from remote URLs, the bridge initializes asynchronously
+      const initNativeFeatures = async () => {
+        console.log('[SETTINGS] Starting native features initialization...');
 
-      // Check foreground service status
-      if (isBackgroundServiceAvailable()) {
-        getBackgroundServiceStatus().then(status => {
-          if (status) {
-            setForegroundServiceEnabled(status.backgroundSyncEnabled);
+        // Small initial delay to help bridge initialization
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // Check native push notification permission
+        try {
+          const result = await checkNotificationPermission();
+          setNotificationStatus(result.granted ? 'granted' : 'default');
+          console.log('[SETTINGS] Notification status:', result.granted ? 'granted' : 'default');
+        } catch (error) {
+          console.error('[SETTINGS] Failed to check notification permission:', error);
+          setNotificationStatus('default');
+        }
+
+        // Check foreground service status
+        if (isBackgroundServiceAvailable()) {
+          try {
+            const status = await getBackgroundServiceStatus();
+            if (status) {
+              setForegroundServiceEnabled(status.backgroundSyncEnabled);
+            }
+          } catch (error) {
+            setForegroundServiceEnabled(false);
           }
-        }).catch(() => {
-          setForegroundServiceEnabled(false);
-        });
-      }
+        }
 
-      // Check biometric availability
-      checkBiometricAvailability().then(caps => {
-        setBiometricAvailable(caps.isAvailable);
-        setBiometryType(caps.biometryType);
-      }).catch(() => {
-        setBiometricAvailable(false);
-      });
+        // Check biometric availability
+        try {
+          const caps = await checkBiometricAvailability();
+          setBiometricAvailable(caps.isAvailable);
+          setBiometryType(caps.biometryType);
+          console.log('[SETTINGS] Biometric available:', caps.isAvailable);
+        } catch (error) {
+          setBiometricAvailable(false);
+        }
 
-      // Check app shortcuts support (Android only)
-      if (isAndroid()) {
-        isShortcutsSupported().then(supported => {
-          setShortcutsSupported(supported);
-          if (supported) {
-            getShortcuts().then(shortcuts => {
+        // Check app shortcuts support (Android only)
+        // The isShortcutsSupported() function now includes retry logic
+        if (isAndroid()) {
+          try {
+            const supported = await isShortcutsSupported();
+            console.log('[SETTINGS] App shortcuts supported:', supported);
+            setShortcutsSupported(supported);
+            if (supported) {
+              const shortcuts = await getShortcuts();
               setShortcutsCount(shortcuts.length);
-            });
+            }
+          } catch (error) {
+            console.error('[SETTINGS] Failed to check shortcuts support:', error);
+            setShortcutsSupported(false);
           }
-        });
-      }
+        }
 
-      // Check speech recognition availability
-      checkSpeechAvailability().then(caps => {
-        setSpeechAvailable(caps.isAvailable);
-      }).catch(() => {
-        setSpeechAvailable(false);
-      });
+        // Check speech recognition availability
+        // The checkSpeechAvailability() function now includes retry logic
+        try {
+          const caps = await checkSpeechAvailability();
+          console.log('[SETTINGS] Speech available:', caps.isAvailable);
+          setSpeechAvailable(caps.isAvailable);
+        } catch (error) {
+          console.error('[SETTINGS] Failed to check speech availability:', error);
+          setSpeechAvailable(false);
+        }
+
+        console.log('[SETTINGS] Native features initialization complete');
+      };
+
+      initNativeFeatures();
     } else if ('Notification' in window) {
       // Check browser notification permission
       setBrowserNotificationsEnabled(Notification.permission === 'granted');

@@ -1,10 +1,16 @@
 package ai.journalmate.app;
 
+import android.appwidget.AppWidgetManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.util.Log;
+
+import ai.journalmate.app.widgets.JournalMateWidget2x2;
+import ai.journalmate.app.widgets.JournalMateWidget4x1;
+import ai.journalmate.app.widgets.JournalMateWidget4x2;
 
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
@@ -281,6 +287,45 @@ public class BackgroundServicePlugin extends Plugin {
         } catch (Exception e) {
             Log.e(TAG, "Failed to set reminder preferences: " + e.getMessage());
             call.reject("Failed to set preferences: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Refresh all home screen widgets
+     * Call this when task/goal progress changes
+     */
+    @PluginMethod
+    public void refreshWidgets(PluginCall call) {
+        Log.d(TAG, "Refreshing all widgets");
+
+        try {
+            Context context = getContext();
+            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+
+            // Refresh all widget types
+            refreshWidgetClass(context, appWidgetManager, JournalMateWidget2x2.class);
+            refreshWidgetClass(context, appWidgetManager, JournalMateWidget4x1.class);
+            refreshWidgetClass(context, appWidgetManager, JournalMateWidget4x2.class);
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to refresh widgets: " + e.getMessage());
+            call.reject("Failed to refresh widgets: " + e.getMessage());
+        }
+    }
+
+    private void refreshWidgetClass(Context context, AppWidgetManager manager, Class<?> widgetClass) {
+        ComponentName widget = new ComponentName(context, widgetClass);
+        int[] ids = manager.getAppWidgetIds(widget);
+        if (ids.length > 0) {
+            Intent intent = new Intent(context, widgetClass);
+            intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+            intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
+            context.sendBroadcast(intent);
+            Log.d(TAG, "Refreshed " + ids.length + " widgets of type: " + widgetClass.getSimpleName());
         }
     }
 

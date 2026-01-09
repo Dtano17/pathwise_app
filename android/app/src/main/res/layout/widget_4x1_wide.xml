@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 4x1 Wide Strip Widget - Dark Navy Design -->
-<!-- Layout: Logo (40dp) + 4 labeled data items (icon 18dp + value 15sp + label 11sp) -->
+<!-- Layout: Logo (44dp square) + 4 data items (icon 20dp + value 13sp, vertical stacking, no labels) -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
@@ -8,32 +8,32 @@
     android:orientation="horizontal"
     android:gravity="center_vertical"
     android:paddingHorizontal="20dp"
-    android:paddingVertical="12dp"
+    android:paddingVertical="8dp"
     android:background="@drawable/widget_background">
 
-    <!-- App Logo with Glow -->
+    <!-- App Logo with Glow (Square with rounded corners) -->
     <FrameLayout
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginEnd="20dp">
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginEnd="16dp">
 
-        <!-- Glow effect behind logo (ImageView allowed in RemoteViews, View is not) -->
+        <!-- Glow effect behind logo -->
         <ImageView
-            android:layout_width="56dp"
-            android:layout_height="56dp"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
             android:layout_gravity="center"
             android:src="@drawable/widget_logo_glow"
             android:contentDescription="@null" />
 
         <ImageView
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:layout_gravity="center"
             android:src="@mipmap/ic_launcher"
             android:contentDescription="JournalMate" />
     </FrameLayout>
 
-    <!-- Data Row: Goals, Tasks, Activities, Groups with labels -->
+    <!-- Data Row: Goals, Tasks, Activities, Notifications - Icons + Counts only -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_weight="1"
@@ -46,39 +46,24 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:gravity="center">
 
             <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:src="@drawable/ic_widget_goals"
                 android:contentDescription="Goals" />
 
-            <LinearLayout
+            <TextView
+                android:id="@+id/widget_goals_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginStart="6dp">
-
-                <TextView
-                    android:id="@+id/widget_goals_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textColor="#10b981"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="5dp"
-                    android:text="Goals"
-                    android:textColor="#6b7280"
-                    android:textSize="11sp" />
-            </LinearLayout>
+                android:layout_marginTop="4dp"
+                android:text="0/0"
+                android:textColor="#10b981"
+                android:textSize="13sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <!-- Tasks -->
@@ -86,39 +71,24 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:gravity="center">
 
             <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:src="@drawable/ic_widget_tasks"
                 android:contentDescription="Tasks" />
 
-            <LinearLayout
+            <TextView
+                android:id="@+id/widget_tasks_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginStart="6dp">
-
-                <TextView
-                    android:id="@+id/widget_tasks_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textColor="#3b82f6"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="5dp"
-                    android:text="Tasks"
-                    android:textColor="#6b7280"
-                    android:textSize="11sp" />
-            </LinearLayout>
+                android:layout_marginTop="4dp"
+                android:text="0/0"
+                android:textColor="#3b82f6"
+                android:textSize="13sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <!-- Activities -->
@@ -126,79 +96,49 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:gravity="center">
 
             <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:src="@drawable/ic_widget_activities"
                 android:contentDescription="Activities" />
 
-            <LinearLayout
+            <TextView
+                android:id="@+id/widget_activities_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginStart="6dp">
-
-                <TextView
-                    android:id="@+id/widget_activities_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textColor="#f472b6"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="5dp"
-                    android:text="Activities"
-                    android:textColor="#6b7280"
-                    android:textSize="11sp" />
-            </LinearLayout>
+                android:layout_marginTop="4dp"
+                android:text="0/0"
+                android:textColor="#f472b6"
+                android:textSize="13sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Groups -->
+        <!-- Notifications (was Groups) -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:gravity="center">
 
             <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:src="@drawable/ic_widget_groups"
-                android:contentDescription="Groups" />
+                android:contentDescription="Notifications" />
 
-            <LinearLayout
+            <TextView
+                android:id="@+id/widget_groups_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginStart="6dp">
-
-                <TextView
-                    android:id="@+id/widget_groups_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textColor="#f59e0b"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="5dp"
-                    android:text="Groups"
-                    android:textColor="#6b7280"
-                    android:textSize="11sp" />
-            </LinearLayout>
+                android:layout_marginTop="4dp"
+                android:text="0/0"
+                android:textColor="#f59e0b"
+                android:textSize="13sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
     </LinearLayout>

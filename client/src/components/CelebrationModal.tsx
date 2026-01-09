@@ -4,6 +4,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trophy, Star, Zap, X } from 'lucide-react';
 import Confetti from 'react-confetti';
+import { hapticsCelebrate, hapticsLight } from '@/lib/haptics';
+import { isNative } from '@/lib/platform';
 
 interface CelebrationModalProps {
   isOpen: boolean;
@@ -22,10 +24,24 @@ export default function CelebrationModal({ isOpen, onClose, achievement }: Celeb
   useEffect(() => {
     if (isOpen) {
       setShowConfetti(true);
+
+      // Trigger celebration haptic when modal opens
+      if (isNative()) {
+        hapticsCelebrate();
+      }
+
       const timer = setTimeout(() => setShowConfetti(false), 4000);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
+
+  // Haptic feedback when closing
+  const handleClose = async () => {
+    if (isNative()) {
+      await hapticsLight();
+    }
+    onClose();
+  };
 
   const getIcon = () => {
     switch (achievement.type) {
@@ -69,7 +85,7 @@ export default function CelebrationModal({ isOpen, onClose, achievement }: Celeb
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={onClose}
+            onClick={handleClose}
             data-testid="modal-celebration"
           >
             <motion.div
@@ -84,7 +100,7 @@ export default function CelebrationModal({ isOpen, onClose, achievement }: Celeb
                 <Button
                   size="icon"
                   variant="ghost"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="absolute top-4 right-4 h-8 w-8"
                   data-testid="button-close-celebration"
                 >
@@ -154,7 +170,7 @@ export default function CelebrationModal({ isOpen, onClose, achievement }: Celeb
                   transition={{ delay: 0.5 }}
                 >
                   <Button
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="w-full gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90"
                     data-testid="button-continue"
                   >

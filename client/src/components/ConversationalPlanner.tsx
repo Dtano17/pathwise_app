@@ -132,6 +132,14 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const [autocompleteSearch, setAutocompleteSearch] = useState('');
   const [autocompletePosition, setAutocompletePosition] = useState({ top: 0, left: 0 });
 
+  // URL Prefetch state for speeding up social media link processing
+  const [prefetchStatus, setPrefetchStatus] = useState<{
+    url: string | null;
+    progress: number;
+    status: 'idle' | 'prefetching' | 'complete' | 'error';
+  }>({ url: null, progress: 0, status: 'idle' });
+  const prefetchEventSourceRef = useRef<EventSource | null>(null);
+
   // Template selector state
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
 
@@ -198,6 +206,86 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentSession?.conversationHistory]);
+
+  // URL Prefetch: Start extraction when social media URL is detected in the message
+  // This runs BEFORE user clicks send, so content is ready faster
+  useEffect(() => {
+    // Only prefetch in quick/smart planning modes
+    if (planningMode !== 'quick' && planningMode !== 'smart') return;
+
+    // Detect social media URL in the message
+    const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/gi;
+    const match = message.match(urlRegex);
+    const detectedUrl = match ? match[0] : null;
+
+    // Check if it's a social media URL worth prefetching
+    const isSocialMediaUrl = detectedUrl && /instagram\.com|tiktok\.com|youtube\.com|youtu\.be/i.test(detectedUrl);
+
+    // Skip if no social media URL or same URL already being processed
+    if (!isSocialMediaUrl || detectedUrl === prefetchStatus.url) return;
+
+    // Close existing EventSource if any
+    if (prefetchEventSourceRef.current) {
+      prefetchEventSourceRef.current.close();
+      prefetchEventSourceRef.current = null;
+    }
+
+    console.log('[PREFETCH] Starting prefetch for:', detectedUrl);
+    setPrefetchStatus({ url: detectedUrl, progress: 5, status: 'prefetching' });
+
+    // Start SSE connection for progress updates
+    const eventSource = new EventSource(
+      `/api/parse-url/prefetch-stream?url=${encodeURIComponent(detectedUrl)}`
+    );
+    prefetchEventSourceRef.current = eventSource;
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('[PREFETCH] Progress update:', data);
+
+        if (data.status === 'complete' || data.progress >= 100) {
+          setPrefetchStatus(prev => ({ ...prev, progress: 100, status: 'complete' }));
+          eventSource.close();
+          prefetchEventSourceRef.current = null;
+        } else if (data.status === 'error' || data.error) {
+          setPrefetchStatus(prev => ({ ...prev, status: 'error' }));
+          eventSource.close();
+          prefetchEventSourceRef.current = null;
+        } else {
+          setPrefetchStatus(prev => ({ ...prev, progress: data.progress || prev.progress }));
+        }
+      } catch (e) {
+        console.error('[PREFETCH] Error parsing SSE data:', e);
+      }
+    };
+
+    eventSource.onerror = () => {
+      console.log('[PREFETCH] SSE connection error, closing');
+      setPrefetchStatus(prev => ({ ...prev, status: 'error' }));
+      eventSource.close();
+      prefetchEventSourceRef.current = null;
+    };
+
+    // Cleanup on unmount or URL change
+    return () => {
+      if (prefetchEventSourceRef.current) {
+        prefetchEventSourceRef.current.close();
+        prefetchEventSourceRef.current = null;
+      }
+    };
+  }, [message, planningMode, prefetchStatus.url]);
+
+  // Reset prefetch status when message is cleared
+  useEffect(() => {
+    if (!message.trim() && prefetchStatus.url) {
+      setPrefetchStatus({ url: null, progress: 0, status: 'idle' });
+      if (prefetchEventSourceRef.current) {
+        prefetchEventSourceRef.current.close();
+        prefetchEventSourceRef.current = null;
+      }
+    }
+  }, [message, prefetchStatus.url]);
 
   // Fetch journal entries - TanStack Query will handle caching
   const { data: journalEntriesData, refetch: refetchJournalEntries } = useQuery<{ entries: any[] }>({
@@ -2571,10 +2659,33 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
+
+                {/* URL Prefetch Progress Bar - shows when extracting social media content */}
+                {prefetchStatus.status === 'prefetching' && prefetchStatus.url && (
+                  <div className="mt-2 px-1">
+                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Pre-loading content...</span>
+                      <span className="ml-auto">{Math.round(prefetchStatus.progress)}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 to-blue-500 h-1.5 rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${prefetchStatus.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {prefetchStatus.status === 'complete' && prefetchStatus.url && (
+                  <div className="mt-2 px-1 flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+                    <Check className="h-3 w-3" />
+                    <span>Content ready</span>
+                  </div>
+                )}
               </div>
             </>
           )}
-          
+
           {/* Action Buttons */}
           {currentSession && (
             <>

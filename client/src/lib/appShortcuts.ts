@@ -47,7 +47,34 @@ function getNativeShortcutsPlugin(): NativeAppShortcutsPlugin | null {
 }
 
 /**
+ * Get plugin with retry logic for when Capacitor bridge hasn't fully initialized
+ * This is needed when loading from remote URLs where bridge initialization is async
+ */
+async function getNativeShortcutsPluginWithRetry(maxRetries: number = 5): Promise<NativeAppShortcutsPlugin | null> {
+  // Try immediately first
+  let plugin = getNativeShortcutsPlugin();
+  if (plugin) {
+    console.log('[SHORTCUTS] Plugin found immediately');
+    return plugin;
+  }
+
+  // Retry with delays
+  for (let i = 0; i < maxRetries; i++) {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    plugin = getNativeShortcutsPlugin();
+    if (plugin) {
+      console.log(`[SHORTCUTS] Plugin found after ${i + 1} retries`);
+      return plugin;
+    }
+  }
+
+  console.log('[SHORTCUTS] Plugin not found after retries');
+  return null;
+}
+
+/**
  * Check if app shortcuts are supported on this device
+ * Uses retry logic because Capacitor bridge may not be ready on component mount
  */
 export async function isShortcutsSupported(): Promise<boolean> {
   if (!isNative() || !isAndroid()) {
@@ -55,9 +82,11 @@ export async function isShortcutsSupported(): Promise<boolean> {
   }
 
   try {
-    const plugin = getNativeShortcutsPlugin();
+    // Use retry version since this is often called on mount before bridge is ready
+    const plugin = await getNativeShortcutsPluginWithRetry();
     if (plugin) {
       const result = await plugin.isSupported();
+      console.log('[SHORTCUTS] isSupported result:', result);
       return result.supported;
     }
     return false;

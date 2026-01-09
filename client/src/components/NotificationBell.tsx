@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Bell, Check, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { subscribeToEvent } from '@/lib/socket';
+import { hapticsLight, hapticsMedium, hapticsSuccess } from '@/lib/haptics';
+import { isNative } from '@/lib/platform';
 
 interface Notification {
   id: string;
@@ -28,6 +30,7 @@ interface Notification {
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
+  const prevUnreadCountRef = useRef<number>(0);
 
   // Fetch notifications
   const { data: notificationsData } = useQuery<{ notifications: Notification[] }>({
@@ -38,9 +41,29 @@ export function NotificationBell() {
   const notifications = notificationsData?.notifications || [];
   const unreadCount = notifications.filter(n => !n.readAt).length;
 
+  // Haptic feedback when new notification arrives
+  useEffect(() => {
+    if (unreadCount > prevUnreadCountRef.current && prevUnreadCountRef.current >= 0) {
+      // New notification arrived - trigger haptic
+      if (isNative()) {
+        hapticsMedium();
+      }
+    }
+    prevUnreadCountRef.current = unreadCount;
+  }, [unreadCount]);
+
   // Subscribe to real-time notification events
   useEffect(() => {
-    const unsubscribe = subscribeToEvent('notification', () => {
+    const unsubscribe = subscribeToEvent('notification', async (data: any) => {
+      // Haptic feedback for real-time notifications
+      if (isNative()) {
+        // Different haptic based on notification type
+        if (data?.type === 'member_joined' || data?.type === 'invite_accepted') {
+          await hapticsSuccess();
+        } else {
+          await hapticsMedium();
+        }
+      }
       // Invalidate query to refetch notifications
       queryClient.invalidateQueries({ queryKey: ['/api/user/notifications'] });
     });
@@ -59,8 +82,11 @@ export function NotificationBell() {
     },
   });
 
-  const handleMarkRead = (notificationId: string, e: React.MouseEvent) => {
+  const handleMarkRead = async (notificationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isNative()) {
+      await hapticsLight();
+    }
     markReadMutation.mutate(notificationId);
   };
 

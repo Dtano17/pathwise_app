@@ -28,6 +28,7 @@ interface BackgroundServicePlugin {
   setUserCredentials(options: { userId: string; authToken: string }): Promise<{ success: boolean }>;
   clearUserCredentials(): Promise<{ success: boolean }>;
   setReminderPreferences(options: { minutesBefore: number }): Promise<{ success: boolean }>;
+  refreshWidgets(): Promise<{ success: boolean }>;
   getStatus(): Promise<{
     backgroundSyncEnabled: boolean;
     syncIntervalMinutes: number;
@@ -215,6 +216,29 @@ export async function setReminderTime(minutesBefore: number): Promise<boolean> {
 }
 
 /**
+ * Refresh all home screen widgets
+ * Call this when task/goal progress changes to update widget immediately
+ */
+export async function refreshWidgets(): Promise<boolean> {
+  console.log('[BACKGROUND] refreshWidgets called');
+
+  if (!isAndroid()) {
+    console.log('[BACKGROUND] refreshWidgets: not Android, skipping');
+    return false;
+  }
+
+  console.log('[BACKGROUND] refreshWidgets: calling BackgroundService.refreshWidgets()');
+  try {
+    const result = await BackgroundService.refreshWidgets();
+    console.log('[BACKGROUND] Widgets refreshed successfully:', result);
+    return result.success;
+  } catch (error) {
+    console.error('[BACKGROUND] Failed to refresh widgets:', error);
+    return false;
+  }
+}
+
+/**
  * Get current background service status
  */
 export async function getBackgroundServiceStatus(): Promise<{
@@ -305,6 +329,7 @@ export default {
   setBackgroundCredentials,
   clearBackgroundCredentials,
   setReminderTime,
+  refreshWidgets,
   getBackgroundServiceStatus,
   initializeBackgroundServices,
   cleanupBackgroundServices,
