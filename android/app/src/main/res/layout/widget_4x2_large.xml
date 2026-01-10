@@ -58,45 +58,6 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
-        <!-- Goals Card -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:paddingVertical="10dp"
-            android:paddingHorizontal="8dp"
-            android:layout_marginEnd="10dp"
-            android:background="@drawable/widget_card_background">
-
-            <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:src="@drawable/ic_widget_goals"
-                android:contentDescription="Goals" />
-
-            <TextView
-                android:id="@+id/widget_goals_count"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:text="0"
-                android:textColor="#10b981"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:text="GOALS"
-                android:textColor="#6b7280"
-                android:textSize="9sp"
-                android:letterSpacing="0.05"
-                android:textAllCaps="true" />
-        </LinearLayout>
-
         <!-- Tasks Card -->
         <LinearLayout
             android:layout_width="0dp"
@@ -120,7 +81,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="3dp"
-                android:text="0"
+                android:text="0/0"
                 android:textColor="#3b82f6"
                 android:textSize="20sp"
                 android:textStyle="bold" />
@@ -136,7 +97,46 @@
                 android:textAllCaps="true" />
         </LinearLayout>
 
-        <!-- Activities Card -->
+        <!-- Streak Card -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="10dp"
+            android:paddingHorizontal="8dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/widget_card_background">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_widget_goals"
+                android:contentDescription="Streak" />
+
+            <TextView
+                android:id="@+id/widget_streak_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="0"
+                android:textColor="#10b981"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="STREAK"
+                android:textColor="#6b7280"
+                android:textSize="9sp"
+                android:letterSpacing="0.05"
+                android:textAllCaps="true" />
+        </LinearLayout>
+
+        <!-- Total Card -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_weight="1"
@@ -152,10 +152,10 @@
                 android:layout_width="18dp"
                 android:layout_height="18dp"
                 android:src="@drawable/ic_widget_activities"
-                android:contentDescription="Activities" />
+                android:contentDescription="Total" />
 
             <TextView
-                android:id="@+id/widget_activities_count"
+                android:id="@+id/widget_total_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="3dp"
@@ -168,14 +168,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="3dp"
-                android:text="ACTIVITIES"
+                android:text="TOTAL"
                 android:textColor="#6b7280"
                 android:textSize="9sp"
                 android:letterSpacing="0.05"
                 android:textAllCaps="true" />
         </LinearLayout>
 
-        <!-- Groups Card -->
+        <!-- Notifications Card -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_weight="1"
@@ -190,10 +190,10 @@
                 android:layout_width="18dp"
                 android:layout_height="18dp"
                 android:src="@drawable/ic_widget_groups"
-                android:contentDescription="Groups" />
+                android:contentDescription="Notifications" />
 
             <TextView
-                android:id="@+id/widget_groups_count"
+                android:id="@+id/widget_notifications_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="3dp"
@@ -206,7 +206,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="3dp"
-                android:text="GROUPS"
+                android:text="NOTIFS"
                 android:textColor="#6b7280"
                 android:textSize="9sp"
                 android:letterSpacing="0.05"

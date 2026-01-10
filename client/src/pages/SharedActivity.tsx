@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CheckSquare, Calendar, Clock, Lock, Share2, ChevronRight, ArrowLeft, Edit, Link2, Twitter, Facebook, Linkedin, Dumbbell, HeartPulse, Briefcase, BookOpen, DollarSign, Heart, Palette, Plane, Home, Star, ClipboardList, Moon, Sun, Sparkles, Users, Loader2, RefreshCw, AlertTriangle, type LucideIcon } from 'lucide-react';
 const journalMateLogo = '/journalmate-logo-transparent.png';
 import { motion } from 'framer-motion';
+import Confetti from 'react-confetti';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -231,7 +232,8 @@ export default function SharedActivity() {
   const [pendingCopy, setPendingCopy] = useState<{ forceUpdate: boolean } | null>(null);
   const [shareProgress, setShareProgress] = useState(true); // Default to sharing progress
   const [authRefreshTriggered, setAuthRefreshTriggered] = useState(false); // Track if we've triggered a refresh
-  
+  const [showConfetti, setShowConfetti] = useState(false);
+
   // Initialize theme from localStorage or default to dark
   const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -387,6 +389,22 @@ export default function SharedActivity() {
       setMetaTag('meta[name="twitter:title"]', 'content', pageTitle);
       setMetaTag('meta[name="twitter:description"]', 'content', pageDescription);
       setMetaTag('meta[name="twitter:image"]', 'content', ogImageUrl);
+    }
+  }, [data]);
+
+  // Trigger confetti celebration when viewing a completed activity
+  useEffect(() => {
+    if (data?.activity && data?.tasks) {
+      const completedTasks = data.tasks.filter(t => t.completed).length;
+      const totalTasks = data.tasks.length;
+      const isComplete = totalTasks > 0 && completedTasks === totalTasks;
+
+      if (isComplete) {
+        setShowConfetti(true);
+        // Stop confetti after 5 seconds
+        const timer = setTimeout(() => setShowConfetti(false), 5000);
+        return () => clearTimeout(timer);
+      }
     }
   }, [data]);
 
@@ -976,6 +994,18 @@ export default function SharedActivity() {
 
   return (
     <div className={`min-h-screen ${previewTheme === 'dark' ? 'dark' : ''}`}>
+      {/* Confetti celebration for completed activities */}
+      {showConfetti && (
+        <Confetti
+          width={window.innerWidth}
+          height={window.innerHeight}
+          recycle={false}
+          numberOfPieces={300}
+          colors={['#6C5CE7', '#00B894', '#FDCB6E', '#FF6B6B', '#4ECDC4']}
+          gravity={0.3}
+          style={{ position: 'fixed', top: 0, left: 0, zIndex: 9999 }}
+        />
+      )}
       <div className="min-h-screen bg-background">
         {/* Hero Section with Dynamic Themed Background Image - Optimized for all screens */}
         <div

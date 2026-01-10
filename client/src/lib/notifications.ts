@@ -4,14 +4,24 @@
  * Handles both web (browser) and native (iOS/Android) push notifications
  * Provides a unified API for requesting permissions and managing notifications
  *
- * For Android: Uses custom NativeNotifications plugin that works with remote URLs
- * For iOS: Uses standard Capacitor plugins
+ * For Android & iOS: Uses @capacitor/local-notifications (official plugin)
  * For Web: Uses browser Notification API
  */
 
 import { isNative, isIOS, isAndroid } from './platform';
 import { apiRequest } from './queryClient';
 
+// Dynamically import Capacitor LocalNotifications for native platforms
+const getLocalNotifications = async () => {
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  return LocalNotifications;
+};
+
+// =============================================================================
+// LEGACY: Custom NativeNotifications plugin (commented out - kept for reference)
+// This was used before switching to @capacitor/local-notifications
+// =============================================================================
+/*
 // Define interface for our custom NativeNotifications plugin
 interface NativeNotificationsPlugin {
   checkPermission(): Promise<{ granted: boolean; platform: string }>;
@@ -21,13 +31,22 @@ interface NativeNotificationsPlugin {
   cancelAll(): Promise<{ success: boolean }>;
 }
 
-/**
- * Get the custom NativeNotifications plugin from the Capacitor bridge
- * Uses direct bridge access which works with remote URLs (unlike registerPlugin)
- */
+// Get the custom NativeNotifications plugin from the Capacitor bridge
+// Uses direct bridge access which works with remote URLs (unlike registerPlugin)
 function getNativeNotificationsPlugin(): NativeNotificationsPlugin | null {
   try {
     const capacitor = (window as any).Capacitor;
+
+    // Enhanced diagnostic logging for debugging Android notification issues
+    console.log('[NOTIFICATIONS] Plugin lookup:', {
+      hasCapacitor: !!capacitor,
+      hasPlugins: !!capacitor?.Plugins,
+      hasNativeNotifications: !!capacitor?.Plugins?.NativeNotifications,
+      allPlugins: capacitor?.Plugins ? Object.keys(capacitor.Plugins) : [],
+      isNativePlatform: capacitor?.isNativePlatform?.() ?? false,
+      platform: capacitor?.getPlatform?.() ?? 'unknown'
+    });
+
     if (capacitor?.Plugins?.NativeNotifications) {
       return capacitor.Plugins.NativeNotifications as NativeNotificationsPlugin;
     }
@@ -37,12 +56,8 @@ function getNativeNotificationsPlugin(): NativeNotificationsPlugin | null {
     return null;
   }
 }
-
-// Dynamically import Capacitor LocalNotifications for iOS (fallback)
-const getLocalNotifications = async () => {
-  const { LocalNotifications } = await import('@capacitor/local-notifications');
-  return LocalNotifications;
-};
+*/
+// =============================================================================
 
 export interface NotificationPermissionStatus {
   granted: boolean;
@@ -65,23 +80,21 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 }
 
 /**
- * Request Android notification permission and register with FCM for push notifications
+ * Request Android notification permission using official Capacitor plugins
+ * Uses @capacitor/local-notifications for local notifications
+ * Uses @capacitor/push-notifications for FCM push notifications
  */
 async function requestAndroidPermission(): Promise<NotificationPermissionStatus> {
   try {
-    console.log('[NOTIFICATIONS] Requesting Android permission via NativeNotifications plugin');
+    console.log('[NOTIFICATIONS] Requesting Android permission via @capacitor/local-notifications');
 
-    const plugin = getNativeNotificationsPlugin();
-    if (!plugin) {
-      console.warn('[NOTIFICATIONS] NativeNotifications plugin not available, falling back to web');
-      return await requestWebPermission();
-    }
+    // Step 1: Request local notification permission
+    const LocalNotifications = await getLocalNotifications();
+    const localPermResult = await LocalNotifications.requestPermissions();
+    console.log('[NOTIFICATIONS] Local notification permission result:', localPermResult);
 
-    // Step 1: Request OS notification permission
-    const result = await plugin.requestPermission();
-    console.log('[NOTIFICATIONS] Android permission result:', result);
-
-    if (!result.granted) {
+    if (localPermResult.display !== 'granted') {
+      console.warn('[NOTIFICATIONS] Local notification permission not granted');
       return {
         granted: false,
         platform: 'android',
@@ -92,34 +105,37 @@ async function requestAndroidPermission(): Promise<NotificationPermissionStatus>
     try {
       const { PushNotifications } = await import('@capacitor/push-notifications');
 
-      // Add listener for FCM token
-      await PushNotifications.addListener('registration', async (token) => {
-        console.log('[NOTIFICATIONS] FCM token received:', token.value);
+      // Request push notification permission (needed on Android 13+)
+      const pushPermResult = await PushNotifications.requestPermissions();
+      console.log('[NOTIFICATIONS] Push notification permission result:', pushPermResult);
 
-        // Send token to server
-        try {
-          await apiRequest('/api/user/device-token', {
-            method: 'POST',
-            body: JSON.stringify({
+      if (pushPermResult.receive === 'granted') {
+        // Add listener for FCM token
+        await PushNotifications.addListener('registration', async (token) => {
+          console.log('[NOTIFICATIONS] FCM token received:', token.value);
+
+          // Send token to server
+          try {
+            await apiRequest('POST', '/api/user/device-token', {
               token: token.value,
               platform: 'android',
               deviceName: 'Android Device'
-            })
-          });
-          console.log('[NOTIFICATIONS] FCM token registered with server');
-        } catch (serverError) {
-          console.error('[NOTIFICATIONS] Failed to send token to server:', serverError);
-        }
-      });
+            });
+            console.log('[NOTIFICATIONS] FCM token registered with server');
+          } catch (serverError) {
+            console.error('[NOTIFICATIONS] Failed to send token to server:', serverError);
+          }
+        });
 
-      // Add listener for registration errors
-      await PushNotifications.addListener('registrationError', (error) => {
-        console.error('[NOTIFICATIONS] FCM registration error:', error);
-      });
+        // Add listener for registration errors
+        await PushNotifications.addListener('registrationError', (error) => {
+          console.error('[NOTIFICATIONS] FCM registration error:', error);
+        });
 
-      // Register with FCM
-      await PushNotifications.register();
-      console.log('[NOTIFICATIONS] FCM registration initiated');
+        // Register with FCM
+        await PushNotifications.register();
+        console.log('[NOTIFICATIONS] FCM registration initiated');
+      }
 
     } catch (fcmError) {
       console.error('[NOTIFICATIONS] FCM registration failed:', fcmError);
@@ -132,7 +148,7 @@ async function requestAndroidPermission(): Promise<NotificationPermissionStatus>
     };
   } catch (error: any) {
     console.error('[NOTIFICATIONS] Failed to request Android permission:', error);
-    // Fallback to web notifications if custom plugin fails
+    // Fallback to web notifications if plugin fails
     return await requestWebPermission();
   }
 }
@@ -152,13 +168,10 @@ async function requestIOSPermission(): Promise<NotificationPermissionStatus> {
 
         // Send token to server
         try {
-          await apiRequest('/api/user/device-token', {
-            method: 'POST',
-            body: JSON.stringify({
-              token: token.value,
-              platform: 'ios',
-              deviceName: 'iOS Device'
-            })
+          await apiRequest('POST', '/api/user/device-token', {
+            token: token.value,
+            platform: 'ios',
+            deviceName: 'iOS Device'
           });
           console.log('[NOTIFICATIONS] APNs token registered with server');
         } catch (serverError) {
@@ -218,23 +231,12 @@ async function requestWebPermission(): Promise<NotificationPermissionStatus> {
 export async function checkNotificationPermission(): Promise<NotificationPermissionStatus> {
   if (isAndroid()) {
     try {
-      console.log('[NOTIFICATIONS] Checking Android permission via NativeNotifications plugin');
-      const plugin = getNativeNotificationsPlugin();
-      if (!plugin) {
-        console.warn('[NOTIFICATIONS] NativeNotifications plugin not available');
-        // Fallback to web permission check
-        if (!('Notification' in window)) {
-          return { granted: false, platform: 'web' };
-        }
-        return {
-          granted: Notification.permission === 'granted',
-          platform: 'web',
-        };
-      }
-      const result = await plugin.checkPermission();
+      console.log('[NOTIFICATIONS] Checking Android permission via @capacitor/local-notifications');
+      const LocalNotifications = await getLocalNotifications();
+      const result = await LocalNotifications.checkPermissions();
       console.log('[NOTIFICATIONS] Android permission status:', result);
       return {
-        granted: result.granted,
+        granted: result.display === 'granted',
         platform: 'android',
       };
     } catch (error: any) {
@@ -281,11 +283,35 @@ export async function initializePushNotifications() {
   }
 
   if (isAndroid()) {
+    // Android uses @capacitor/local-notifications (official plugin)
+    // Set up listeners for notification actions
+    try {
+      const LocalNotifications = await getLocalNotifications();
+
+      // Listen for notification tap actions
+      await LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+        console.log('[NOTIFICATIONS] Android notification action performed:', action);
+        const data = action.notification.extra;
+        if (data?.route) {
+          window.location.href = data.route;
+        }
+      });
+
+      console.log('[NOTIFICATIONS] Android native notifications initialized via @capacitor/local-notifications');
+    } catch (error) {
+      console.error('[NOTIFICATIONS] Failed to initialize Android notifications:', error);
+    }
+    return;
+  }
+
+  /* LEGACY: Custom NativeNotifications plugin approach (commented out)
+  if (isAndroid()) {
     // Android uses our custom NativeNotifications plugin
     // No additional setup needed - it's ready to use
     console.log('[NOTIFICATIONS] Android native notifications initialized via custom plugin');
     return;
   }
+  */
 
   // iOS uses standard Capacitor PushNotifications
   try {
@@ -354,7 +380,44 @@ export async function showLocalNotification(options: {
   const notificationId = options.id || Date.now();
 
   if (isAndroid()) {
-    // Use custom NativeNotifications plugin for Android
+    // Use @capacitor/local-notifications for Android (official plugin)
+    try {
+      console.log('[NOTIFICATIONS] Showing Android notification via @capacitor/local-notifications:', options.title);
+      const LocalNotifications = await getLocalNotifications();
+
+      // Check permission first
+      const permResult = await LocalNotifications.checkPermissions();
+      if (permResult.display !== 'granted') {
+        console.warn('[NOTIFICATIONS] Android notification permission not granted, requesting...');
+        const requestResult = await LocalNotifications.requestPermissions();
+        if (requestResult.display !== 'granted') {
+          console.error('[NOTIFICATIONS] Android notification permission denied');
+          showWebNotification(options);
+          return;
+        }
+      }
+
+      // Schedule the notification (immediate if no scheduleAt)
+      await LocalNotifications.schedule({
+        notifications: [{
+          title: options.title,
+          body: options.body,
+          id: notificationId,
+          extra: options.data,
+          schedule: options.scheduleAt ? { at: options.scheduleAt } : undefined,
+          // Android-specific options for notification shade appearance
+          smallIcon: 'ic_stat_notification',
+          largeIcon: 'ic_launcher',
+          sound: 'default',
+        }],
+      });
+      console.log('[NOTIFICATIONS] Android notification scheduled successfully, id:', notificationId);
+    } catch (error: any) {
+      console.error('[NOTIFICATIONS] Failed to show Android notification:', error);
+      showWebNotification(options);
+    }
+
+    /* LEGACY: Custom NativeNotifications plugin approach (commented out)
     try {
       const plugin = getNativeNotificationsPlugin();
       if (!plugin) {
@@ -372,13 +435,13 @@ export async function showLocalNotification(options: {
 
       if (!result.success) {
         console.error('[NOTIFICATIONS] Android notification failed:', result.error);
-        // Fallback to web notification
         showWebNotification(options);
       }
     } catch (error: any) {
       console.error('[NOTIFICATIONS] Failed to show Android notification:', error);
       showWebNotification(options);
     }
+    */
   } else if (isIOS()) {
     // Use Capacitor LocalNotifications for iOS
     try {
@@ -474,6 +537,16 @@ export async function scheduleReminder(options: {
  */
 export async function cancelNotification(id: number) {
   if (isAndroid()) {
+    // Use @capacitor/local-notifications for Android
+    try {
+      const LocalNotifications = await getLocalNotifications();
+      await LocalNotifications.cancel({ notifications: [{ id }] });
+      console.log('[NOTIFICATIONS] Android notification cancelled, id:', id);
+    } catch (error) {
+      console.error('[NOTIFICATIONS] Failed to cancel Android notification:', error);
+    }
+
+    /* LEGACY: Custom NativeNotifications plugin approach (commented out)
     try {
       const plugin = getNativeNotificationsPlugin();
       if (plugin) {
@@ -482,6 +555,7 @@ export async function cancelNotification(id: number) {
     } catch (error) {
       console.error('[NOTIFICATIONS] Failed to cancel Android notification:', error);
     }
+    */
   } else if (isIOS()) {
     try {
       const LocalNotifications = await getLocalNotifications();
@@ -497,7 +571,8 @@ export async function cancelNotification(id: number) {
  * Get all pending/scheduled notifications
  */
 export async function getPendingNotifications() {
-  if (isIOS()) {
+  // Now works for both iOS and Android since we use @capacitor/local-notifications for both
+  if (isIOS() || isAndroid()) {
     try {
       const LocalNotifications = await getLocalNotifications();
       const result = await LocalNotifications.getPending();
@@ -507,7 +582,7 @@ export async function getPendingNotifications() {
       return [];
     }
   }
-  // Android custom plugin doesn't support pending notifications query
+  // Web doesn't support pending notifications query
   return [];
 }
 

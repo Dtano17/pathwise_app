@@ -3623,6 +3623,7 @@ ${sitemaps.map(sitemap => `  <sitemap>
   });
 
   // Widget API: Get compact data for home screen widgets (v2 - new design)
+  // Returns EXACT same values as Progress Dashboard - Tasks, Streak, Total, Rate, Notifications
   // Supports both Bearer token auth (Authorization header) and X-User-ID header
   app.get("/api/tasks/widget", async (req, res) => {
     try {
@@ -3646,7 +3647,7 @@ ${sitemaps.map(sitemap => `  <sitemap>
         userId = getUserId(req) || DEMO_USER_ID;
       }
 
-      // Use the SAME query as /api/progress to ensure matching numbers
+      // Use the EXACT SAME query and calculation as /api/progress endpoint
       // Query ALL tasks (including completed) - same as Progress Dashboard
       const tasks = await db.select().from(tasksTable)
         .where(and(
@@ -3654,45 +3655,58 @@ ${sitemaps.map(sitemap => `  <sitemap>
           or(eq(tasksTable.archived, false), isNull(tasksTable.archived))
         ));
 
-      // Fetch goals, activities, notifications in parallel
-      const [goals, activities, unreadNotifications, totalNotifications] = await Promise.all([
-        storage.getUserGoals(userId),
-        storage.getUserActivities(userId),
-        storage.getUnreadNotificationsCount(userId),
-        storage.getTotalNotificationsCount(userId)
-      ]);
+      // Get unread notifications count
+      const unreadNotifications = await storage.getUnreadNotificationsCount(userId);
 
-      // Tasks: Use SAME calculation as /api/progress
-      // totalCompleted = all completed tasks, totalTasks = all non-archived tasks
-      const completedTasksList = tasks.filter((t: any) => t.completed === true);
-      const completedTasks = completedTasksList.length;
-      const totalTasks = tasks.length;
+      // Get today's date in YYYY-MM-DD format (local timezone) - SAME as /api/progress
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-      // Goals: completed vs total
-      const completedGoals = goals.filter((g: any) => g.completed).length;
-      const totalGoals = goals.length;
+      // Calculate completed tasks - SAME as /api/progress
+      const completedTasks = tasks.filter((task: any) => task.completed === true);
 
-      // Activities: completed vs total
-      const completedActivities = activities.filter((a: any) => a.completed).length;
-      const totalActivities = activities.length;
+      // Calculate completed TODAY - SAME as /api/progress
+      const completedToday = completedTasks.filter((task: any) => {
+        if (!task.completedAt) return false;
+        const completionDate = task.completedAt instanceof Date
+          ? `${task.completedAt.getFullYear()}-${String(task.completedAt.getMonth() + 1).padStart(2, '0')}-${String(task.completedAt.getDate()).padStart(2, '0')}`
+          : task.completedAt.toString().split('T')[0];
+        return completionDate === today;
+      }).length;
 
-      // Notifications: read vs total
-      const readNotifications = totalNotifications - unreadNotifications;
+      // Count active tasks for today - SAME as /api/progress
+      const activeTasks = tasks.filter((task: any) => {
+        if (!task.completed) return true;
+        if (!task.completedAt) return false;
+        const completionDate = task.completedAt instanceof Date
+          ? `${task.completedAt.getFullYear()}-${String(task.completedAt.getMonth() + 1).padStart(2, '0')}-${String(task.completedAt.getDate()).padStart(2, '0')}`
+          : task.completedAt.toString().split('T')[0];
+        return completionDate === today;
+      });
+      const totalToday = activeTasks.length;
 
-      // Streak: Use same simple calculation as /api/progress
-      const weeklyStreak = Math.min(completedTasks, 7);
+      // Streak - SAME as /api/progress
+      const weeklyStreak = Math.min(completedTasks.length, 7);
 
+      // Total completed - SAME as /api/progress
+      const totalCompleted = completedTasks.length;
+
+      // Completion rate - SAME as /api/progress
+      const completionRate = tasks.length > 0 ? Math.round((totalCompleted / tasks.length) * 100) : 0;
+
+      // Response matches Progress Dashboard exactly:
+      // - Tasks: completedToday / totalToday (e.g., 15/185)
+      // - Streak: weeklyStreak (e.g., 7)
+      // - Total: totalCompleted (e.g., 43)
+      // - Rate: completionRate (e.g., 20%)
+      // - Notifications: unreadNotifications (badge count)
       res.json({
-        // Format matches widget expectation, values match Progress Dashboard
-        goalsCompleted: completedGoals,
-        goalsTotal: totalGoals,
-        tasksCompleted: completedTasks,
-        tasksTotal: totalTasks,
-        activitiesCompleted: completedActivities,
-        activitiesTotal: totalActivities,
-        notificationsRead: readNotifications,
-        notificationsTotal: totalNotifications,
+        tasksCompleted: completedToday,
+        tasksTotal: totalToday,
         streak: weeklyStreak,
+        totalCompleted: totalCompleted,
+        completionRate: completionRate,
+        unreadNotifications: unreadNotifications,
         timestamp: new Date().toISOString()
       });
     } catch (error) {

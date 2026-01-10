@@ -189,6 +189,7 @@ export default function UserProfile() {
     onSuccess: () => {
       console.log('[PROFILE IMAGE] Invalidating query cache');
       queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] }); // Also refresh auth user for sidebar!
       toast({
         title: "Image uploaded",
         description: "Your profile picture has been updated successfully.",

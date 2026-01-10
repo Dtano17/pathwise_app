@@ -27,7 +27,7 @@ import ai.journalmate.app.R;
  * Base class for all JournalMate widget providers.
  * Contains shared logic for data fetching, caching, and common UI updates.
  *
- * v3 - Mini dashboard showing completed/total for each metric
+ * v4 - Progress Dashboard mirror: Tasks, Streak, Total, Rate, Notifications
  */
 public abstract class BaseJournalMateWidget extends AppWidgetProvider {
 
@@ -57,25 +57,24 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
 
         // Load cached data first for instant display
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        int goalsCompleted = prefs.getInt("goalsCompleted", 0);
-        int goalsTotal = prefs.getInt("goalsTotal", 0);
         int tasksCompleted = prefs.getInt("tasksCompleted", 0);
         int tasksTotal = prefs.getInt("tasksTotal", 0);
-        int activitiesCompleted = prefs.getInt("activitiesCompleted", 0);
-        int activitiesTotal = prefs.getInt("activitiesTotal", 0);
-        int notificationsRead = prefs.getInt("notificationsRead", 0);
-        int notificationsTotal = prefs.getInt("notificationsTotal", 0);
+        int streak = prefs.getInt("streak", 0);
+        int totalCompleted = prefs.getInt("totalCompleted", 0);
+        int completionRate = prefs.getInt("completionRate", 0);
+        int unreadNotifications = prefs.getInt("unreadNotifications", 0);
 
         // Update views with cached data
         updateWidgetViews(context, views,
-            goalsCompleted, goalsTotal,
             tasksCompleted, tasksTotal,
-            activitiesCompleted, activitiesTotal,
-            notificationsRead, notificationsTotal);
+            streak, totalCompleted,
+            completionRate, unreadNotifications);
 
-        // Set click listener to open app
+        // Set click listener to open app at Progress Dashboard
         Intent intent = new Intent(context, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        // Add extra to navigate to Progress Dashboard
+        intent.putExtra("navigate_to", "progress");
         PendingIntent pendingIntent = PendingIntent.getActivity(
             context, appWidgetId, intent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
@@ -90,15 +89,16 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
     }
 
     protected void updateWidgetViews(Context context, RemoteViews views,
-            int goalsCompleted, int goalsTotal,
             int tasksCompleted, int tasksTotal,
-            int activitiesCompleted, int activitiesTotal,
-            int notificationsRead, int notificationsTotal) {
-        // Update all 4 stat counts in "completed/total" format for mini dashboard
-        views.setTextViewText(R.id.widget_goals_count, goalsCompleted + "/" + goalsTotal);
+            int streak, int totalCompleted,
+            int completionRate, int unreadNotifications) {
+        // Update 4 metrics in 2x2 grid matching Progress Dashboard
+        // Row 1: Tasks (blue), Streak (green)
+        // Row 2: Total (pink), Notifications (orange)
         views.setTextViewText(R.id.widget_tasks_count, tasksCompleted + "/" + tasksTotal);
-        views.setTextViewText(R.id.widget_activities_count, activitiesCompleted + "/" + activitiesTotal);
-        views.setTextViewText(R.id.widget_groups_count, notificationsRead + "/" + notificationsTotal);
+        views.setTextViewText(R.id.widget_streak_count, String.valueOf(streak));
+        views.setTextViewText(R.id.widget_total_count, String.valueOf(totalCompleted));
+        views.setTextViewText(R.id.widget_notifications_count, String.valueOf(unreadNotifications));
     }
 
     protected void fetchWidgetData(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
@@ -154,27 +154,23 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
 
                     JSONObject json = new JSONObject(response.toString());
 
-                    // Parse new API response format with completed/total for each metric
-                    int goalsCompleted = json.optInt("goalsCompleted", 0);
-                    int goalsTotal = json.optInt("goalsTotal", 0);
+                    // Parse API response - matches Progress Dashboard exactly
                     int tasksCompleted = json.optInt("tasksCompleted", 0);
                     int tasksTotal = json.optInt("tasksTotal", 0);
-                    int activitiesCompleted = json.optInt("activitiesCompleted", 0);
-                    int activitiesTotal = json.optInt("activitiesTotal", 0);
-                    int notificationsRead = json.optInt("notificationsRead", 0);
-                    int notificationsTotal = json.optInt("notificationsTotal", 0);
+                    int streak = json.optInt("streak", 0);
+                    int totalCompleted = json.optInt("totalCompleted", 0);
+                    int completionRate = json.optInt("completionRate", 0);
+                    int unreadNotifications = json.optInt("unreadNotifications", 0);
 
                     // Cache the data
                     SharedPreferences widgetPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                     widgetPrefs.edit()
-                        .putInt("goalsCompleted", goalsCompleted)
-                        .putInt("goalsTotal", goalsTotal)
                         .putInt("tasksCompleted", tasksCompleted)
                         .putInt("tasksTotal", tasksTotal)
-                        .putInt("activitiesCompleted", activitiesCompleted)
-                        .putInt("activitiesTotal", activitiesTotal)
-                        .putInt("notificationsRead", notificationsRead)
-                        .putInt("notificationsTotal", notificationsTotal)
+                        .putInt("streak", streak)
+                        .putInt("totalCompleted", totalCompleted)
+                        .putInt("completionRate", completionRate)
+                        .putInt("unreadNotifications", unreadNotifications)
                         .putLong("lastFetchTime", System.currentTimeMillis())
                         .apply();
 
@@ -182,14 +178,14 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
                     mainHandler.post(() -> {
                         RemoteViews views = new RemoteViews(context.getPackageName(), getLayoutId());
                         updateWidgetViews(context, views,
-                            goalsCompleted, goalsTotal,
                             tasksCompleted, tasksTotal,
-                            activitiesCompleted, activitiesTotal,
-                            notificationsRead, notificationsTotal);
+                            streak, totalCompleted,
+                            completionRate, unreadNotifications);
 
-                        // Re-set click listener
+                        // Re-set click listener to open Progress Dashboard
                         Intent intent = new Intent(context, MainActivity.class);
                         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                        intent.putExtra("navigate_to", "progress");
                         PendingIntent pendingIntent = PendingIntent.getActivity(
                             context, appWidgetId, intent,
                             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
@@ -197,10 +193,9 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
                         views.setOnClickPendingIntent(R.id.widget_container, pendingIntent);
 
                         appWidgetManager.updateAppWidget(appWidgetId, views);
-                        Log.d(TAG, "Widget updated with fresh data: goals=" + goalsCompleted + "/" + goalsTotal +
-                              ", tasks=" + tasksCompleted + "/" + tasksTotal +
-                              ", activities=" + activitiesCompleted + "/" + activitiesTotal +
-                              ", notifications=" + notificationsRead + "/" + notificationsTotal);
+                        Log.d(TAG, "Widget updated with fresh data: tasks=" + tasksCompleted + "/" + tasksTotal +
+                              ", streak=" + streak + ", total=" + totalCompleted +
+                              ", rate=" + completionRate + "%, notifications=" + unreadNotifications);
                     });
                 } else {
                     Log.e(TAG, "API returned error: " + responseCode);
