@@ -291,6 +291,47 @@ public class BackgroundServicePlugin extends Plugin {
     }
 
     /**
+     * Update widget data cache directly from app
+     * This allows instant widget updates without API calls
+     * Call this when task/goal progress changes, then call refreshWidgets()
+     */
+    @PluginMethod
+    public void updateWidgetData(PluginCall call) {
+        int tasksCompleted = call.getInt("tasksCompleted", 0);
+        int tasksTotal = call.getInt("tasksTotal", 0);
+        int streak = call.getInt("streak", 0);
+        int totalCompleted = call.getInt("totalCompleted", 0);
+        int completionRate = call.getInt("completionRate", 0);
+        int unreadNotifications = call.getInt("unreadNotifications", 0);
+
+        Log.d(TAG, "Updating widget data cache: tasks=" + tasksCompleted + "/" + tasksTotal +
+              ", streak=" + streak + ", total=" + totalCompleted + ", notifications=" + unreadNotifications);
+
+        try {
+            // Write directly to widget cache (same prefs the widget reads from)
+            SharedPreferences widgetPrefs = getContext()
+                .getSharedPreferences("journalmate_widget", Context.MODE_PRIVATE);
+            widgetPrefs.edit()
+                .putInt("tasksCompleted", tasksCompleted)
+                .putInt("tasksTotal", tasksTotal)
+                .putInt("streak", streak)
+                .putInt("totalCompleted", totalCompleted)
+                .putInt("completionRate", completionRate)
+                .putInt("unreadNotifications", unreadNotifications)
+                .putLong("lastFetchTime", System.currentTimeMillis())
+                .apply();
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to update widget data: " + e.getMessage());
+            call.reject("Failed to update widget data: " + e.getMessage());
+        }
+    }
+
+    /**
      * Refresh all home screen widgets
      * Call this when task/goal progress changes
      */

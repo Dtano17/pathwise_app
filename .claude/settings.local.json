@@ -22,7 +22,11 @@
       "Bash(JAVA_HOME=\"/c/Program Files/Android/Android Studio/jbr\" ./gradlew:*)",
       "Bash(JAVA_HOME=\"/c/Program Files/Android/Android Studio/jbr\" ./gradlew assembleDebug:*)",
       "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" install -r \"c:\\\\Users\\\\tanar\\\\private\\\\pathwise_app\\\\android\\\\app\\\\build\\\\outputs\\\\apk\\\\debug\\\\app-debug.apk\")",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npx cap:*)",
+      "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat -d -t 300)",
+      "Bash(npm run build:*)",
+      "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat -c)"
     ],
     "deny": [],
     "ask": []

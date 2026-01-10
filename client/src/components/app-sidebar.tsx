@@ -123,7 +123,19 @@ export function AppSidebar({
   const [isProfileExpanded, setIsProfileExpanded] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState<'profile' | 'settings' | 'priorities'>('profile');
-  
+
+  // Fetch profile data directly to get updated profile image
+  // This ensures sidebar stays in sync with profile page uploads
+  const { data: profileData } = useQuery<{ profileImageUrl?: string }>({
+    queryKey: ['/api/user/profile'],
+    enabled: isAuthenticated,
+    select: (data: any) => ({ profileImageUrl: data?.profileImageUrl }),
+  });
+
+  // Use profile image from /api/user/profile (which has the uploaded image)
+  // Fall back to user.profileImageUrl from useAuth (OAuth image)
+  const effectiveProfileImageUrl = profileData?.profileImageUrl || user?.profileImageUrl;
+
   // Collapsible section states
   const [isThemeExpanded, setIsThemeExpanded] = useState(false);
   const [isJournalExpanded, setIsJournalExpanded] = useState(false);
@@ -588,7 +600,7 @@ export function AppSidebar({
                   {isAuthenticated && user ? (
                     <>
                       <Avatar className="w-8 h-8">
-                        <AvatarImage src={user.profileImageUrl} alt={user.firstName || user.email || 'User'} />
+                        <AvatarImage src={effectiveProfileImageUrl} alt={user.firstName || user.email || 'User'} />
                         <AvatarFallback>
                           {user.firstName ? user.firstName.charAt(0).toUpperCase() : 
                            user.email ? user.email.charAt(0).toUpperCase() : 

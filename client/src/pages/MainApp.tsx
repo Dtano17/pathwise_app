@@ -180,6 +180,7 @@ import { useNotificationTitle } from "@/hooks/useNotificationTitle";
 import Confetti from "react-confetti";
 import { Share as CapacitorShare } from "@capacitor/share";
 import { isNative } from "@/lib/mobile";
+import { hapticsCelebrate } from "@/lib/haptics";
 import {
   onIncomingShare,
   consumePendingShareData,
@@ -193,6 +194,7 @@ import {
   isBackgroundServiceAvailable,
   getBackgroundServiceStatus,
   startForegroundService,
+  updateWidgetData,
   refreshWidgets
 } from "@/lib/backgroundService";
 
@@ -411,6 +413,7 @@ export default function MainApp({
     new Set<string>(),
   );
   const [showActivityConfetti, setShowActivityConfetti] = useState(false);
+  const [showCelebrationFlash, setShowCelebrationFlash] = useState(false);
   const [activityCelebration, setActivityCelebration] = useState<{
     title: string;
     description: string;
@@ -866,6 +869,10 @@ export default function MainApp({
 
   const handleSnoozeTask = (taskId: string, hours: number) => {
     snoozeTaskMutation.mutate({ taskId, hours });
+  };
+
+  const handleUncompleteTask = (taskId: string) => {
+    uncompleteTaskMutation.mutate(taskId);
   };
 
   // These states are now managed in App.tsx and passed as props
@@ -1476,12 +1483,82 @@ export default function MainApp({
         variant: "destructive",
       });
     },
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
-      // Refresh Android widgets to show updated progress (dynamic import prevents tree-shaking)
-      import("@/lib/backgroundService").then((m) => m.refreshWidgets().then((r) => console.log("[WIDGET] complete task refresh:", r)));
+      // Update Android widget cache with fresh progress, then refresh display
+      try {
+        const freshProgress = await queryClient.fetchQuery<ProgressData>({ queryKey: ["/api/progress"] });
+        if (freshProgress) {
+          await updateWidgetData({
+            tasksCompleted: freshProgress.completedToday,
+            tasksTotal: freshProgress.totalToday,
+            streak: freshProgress.weeklyStreak,
+            totalCompleted: freshProgress.totalCompleted,
+            completionRate: freshProgress.completionRate,
+            unreadNotifications: 0,
+          });
+          refreshWidgets().then((r) => console.log("[WIDGET] complete task refresh:", r));
+        }
+      } catch (e) { console.log("[WIDGET] Error updating widget:", e); }
+    },
+  });
+
+  // Uncomplete task mutation (undo completion)
+  const uncompleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/tasks/${taskId}/uncomplete`,
+      );
+      return response.json();
+    },
+    onMutate: async (taskId: string) => {
+      // Optimistic update
+      await queryClient.cancelQueries({ queryKey: ["/api/tasks"] });
+      const previousTasks = queryClient.getQueryData<Task[]>(["/api/tasks"]);
+
+      queryClient.setQueryData<Task[]>(["/api/tasks"], (old = []) =>
+        old.map((task) =>
+          task.id === taskId ? { ...task, completed: false, completedAt: null } : task,
+        ),
+      );
+
+      return { previousTasks };
+    },
+    onError: (error: any, taskId: string, context: any) => {
+      // Rollback optimistic update
+      if (context?.previousTasks) {
+        queryClient.setQueryData(["/api/tasks"], context.previousTasks);
+      }
+      const errorMessage =
+        error?.response?.error || error.message || "Failed to uncomplete task";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+    onSuccess: async (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
+      // Update Android widget cache with fresh progress, then refresh display
+      try {
+        const freshProgress = await queryClient.fetchQuery<ProgressData>({ queryKey: ["/api/progress"] });
+        if (freshProgress) {
+          await updateWidgetData({
+            tasksCompleted: freshProgress.completedToday,
+            tasksTotal: freshProgress.totalToday,
+            streak: freshProgress.weeklyStreak,
+            totalCompleted: freshProgress.totalCompleted,
+            completionRate: freshProgress.completionRate,
+            unreadNotifications: 0,
+          });
+          refreshWidgets().then((r) => console.log("[WIDGET] uncomplete task refresh:", r));
+        }
+      } catch (e) { console.log("[WIDGET] Error updating widget:", e); }
     },
   });
 
@@ -1517,12 +1594,25 @@ export default function MainApp({
         variant: "destructive",
       });
     },
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
-      // Refresh Android widgets to show updated progress (dynamic import prevents tree-shaking)
-      import("@/lib/backgroundService").then((m) => m.refreshWidgets().then((r) => console.log("[WIDGET] skip task refresh:", r)));
+      // Update Android widget cache with fresh progress, then refresh display
+      try {
+        const freshProgress = await queryClient.fetchQuery<ProgressData>({ queryKey: ["/api/progress"] });
+        if (freshProgress) {
+          await updateWidgetData({
+            tasksCompleted: freshProgress.completedToday,
+            tasksTotal: freshProgress.totalToday,
+            streak: freshProgress.weeklyStreak,
+            totalCompleted: freshProgress.totalCompleted,
+            completionRate: freshProgress.completionRate,
+            unreadNotifications: 0,
+          });
+          refreshWidgets().then((r) => console.log("[WIDGET] skip task refresh:", r));
+        }
+      } catch (e) { console.log("[WIDGET] Error updating widget:", e); }
       toast({
         title: "Task Skipped",
         description: data.message,
@@ -1572,12 +1662,25 @@ export default function MainApp({
         variant: "destructive",
       });
     },
-    onSuccess: (data: any, { hours }: { taskId: string; hours: number }) => {
+    onSuccess: async (data: any, { hours }: { taskId: string; hours: number }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/progress"] });
-      // Refresh Android widgets to show updated progress (dynamic import prevents tree-shaking)
-      import("@/lib/backgroundService").then((m) => m.refreshWidgets().then((r) => console.log("[WIDGET] snooze task refresh:", r)));
+      // Update Android widget cache with fresh progress, then refresh display
+      try {
+        const freshProgress = await queryClient.fetchQuery<ProgressData>({ queryKey: ["/api/progress"] });
+        if (freshProgress) {
+          await updateWidgetData({
+            tasksCompleted: freshProgress.completedToday,
+            tasksTotal: freshProgress.totalToday,
+            streak: freshProgress.weeklyStreak,
+            totalCompleted: freshProgress.totalCompleted,
+            completionRate: freshProgress.completionRate,
+            unreadNotifications: 0,
+          });
+          refreshWidgets().then((r) => console.log("[WIDGET] snooze task refresh:", r));
+        }
+      } catch (e) { console.log("[WIDGET] Error updating widget:", e); }
       toast({
         title: "Task Snoozed",
         description: `Task postponed for ${hours} hour${hours !== 1 ? "s" : ""}`,
@@ -1985,6 +2088,15 @@ export default function MainApp({
             (prev) => new Set([...Array.from(prev), activity.id]),
           );
 
+          // MAXIMUM CELEBRATION! Trigger haptic celebration immediately
+          if (isNative()) {
+            hapticsCelebrate();
+          }
+
+          // Show screen flash effect
+          setShowCelebrationFlash(true);
+          setTimeout(() => setShowCelebrationFlash(false), 500);
+
           // Show confetti celebration
           setShowActivityConfetti(true);
           setActivityCelebration({
@@ -1992,7 +2104,7 @@ export default function MainApp({
             description: `Congratulations! You've completed "${activity.title}"! All tasks are done! 🚀`,
           });
 
-          // Auto-hide confetti after 5 seconds, then show journal prompt
+          // Auto-hide confetti after 8 seconds (extended from 5), then show journal prompt
           setTimeout(() => {
             setShowActivityConfetti(false);
             setActivityCelebration(null);
@@ -2001,7 +2113,7 @@ export default function MainApp({
             if (!promptedActivities.has(activity.id)) {
               setPostActivityPrompt({ open: true, activity });
             }
-          }, 5000);
+          }, 8000);
 
           // Show toast notification
           toast({
@@ -2670,41 +2782,37 @@ export default function MainApp({
                 {/* Claude-style Plan Output */}
                 {currentPlanOutput && (
                   <div className="max-w-4xl mx-auto overflow-y-auto">
-                    {/* Back to Input Button */}
-                    <div className="flex items-center justify-between mb-6 p-4 bg-muted/30 rounded-lg">
+                    {/* Back to Input Button - Icon only for clean mobile display */}
+                    <div className="flex items-center gap-2 mb-6 px-4">
                       <Button
-                        variant="outline"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => {
                           // Don't reset conversation history here - user might want to refine
                           setCurrentPlanOutput(null);
                         }}
-                        className="gap-2"
+                        className="h-9 w-9"
                         data-testid="button-back-to-input"
+                        title="Back to Goal Input"
                       >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Goal Input
+                        <ArrowLeft className="w-5 h-5" />
                       </Button>
-                      {currentPlanOutput.activityId ? (
+                      {currentPlanOutput.activityId && (
                         <Button
-                          variant="outline"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => {
                             setSelectedActivityId(
                               currentPlanOutput.activityId || null,
                             );
                             setActiveTab("activities");
                           }}
-                          className="gap-2"
+                          className="h-9 w-9"
                           data-testid="button-view-your-activity"
+                          title={currentPlanOutput.planTitle || "View Activity"}
                         >
-                          <Target className="w-4 h-4" />
-                          {currentPlanOutput.planTitle || "Your Activity"}
+                          <Target className="w-5 h-5" />
                         </Button>
-                      ) : (
-                        <div className="text-sm text-muted-foreground">
-                          {planVersion === 1
-                            ? "AI-Generated Action Plan"
-                            : `Refined Plan v${planVersion}`}
-                        </div>
                       )}
                     </div>
 
@@ -2733,6 +2841,9 @@ export default function MainApp({
                       importId={currentPlanOutput.importId}
                       onCompleteTask={(taskId) =>
                         completeTaskMutation.mutate(taskId)
+                      }
+                      onUncompleteTask={(taskId) =>
+                        uncompleteTaskMutation.mutate(taskId)
                       }
                       onCreateActivity={(planData) => {
                         if (!createActivityMutation.isPending) {
@@ -3509,6 +3620,7 @@ export default function MainApp({
                           onArchive={(taskId: string) =>
                             handleArchiveTask.mutate(taskId)
                           }
+                          onUncomplete={handleUncompleteTask}
                           showConfetti={true}
                           data-testid={`task-card-${task.id}`}
                         />
@@ -4659,14 +4771,19 @@ export default function MainApp({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Activity Completion Confetti */}
+      {/* Celebration Screen Flash Effect */}
+      {showCelebrationFlash && (
+        <div className="fixed inset-0 z-40 pointer-events-none bg-yellow-400/30 animate-pulse" />
+      )}
+
+      {/* Activity Completion Confetti - Enhanced! */}
       {showActivityConfetti && (
         <div className="fixed inset-0 z-50 pointer-events-none">
           <Confetti
             width={window.innerWidth}
             height={window.innerHeight}
             recycle={false}
-            numberOfPieces={400}
+            numberOfPieces={800}
             colors={[
               "#6C5CE7",
               "#00B894",
@@ -4675,9 +4792,11 @@ export default function MainApp({
               "#4ECDC4",
               "#FFD93D",
               "#A8E6CF",
+              "#FF85A2",
+              "#B8F2E6",
             ]}
-            gravity={0.3}
-            wind={0.01}
+            gravity={0.15}
+            wind={0.02}
           />
         </div>
       )}

@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { eq, and, desc, isNull, or, lte, inArray, sql } from "drizzle-orm";
+import { eq, and, desc, isNull, isNotNull, or, lte, inArray, sql } from "drizzle-orm";
 import crypto from "crypto";
 import { 
   type User, 
@@ -274,6 +274,7 @@ export interface IStorage {
   createUserNotification(notification: { userId: string; sourceGroupId: string | null; actorUserId: string | null; type: string; title: string; body: string | null; metadata: any }): Promise<any>;
   getUserNotifications(userId: string, limit?: number): Promise<any[]>;
   markNotificationRead(notificationId: string, userId: string): Promise<void>;
+  clearReadNotifications(userId: string): Promise<void>;
   getUnreadNotificationsCount(userId: string): Promise<number>;
   getTotalNotificationsCount(userId: string): Promise<number>;
 
@@ -1672,6 +1673,14 @@ export class DatabaseStorage implements IStorage {
     await db.update(userNotifications)
       .set({ readAt: new Date() })
       .where(and(eq(userNotifications.id, notificationId), eq(userNotifications.userId, userId)));
+  }
+
+  async clearReadNotifications(userId: string): Promise<void> {
+    await db.delete(userNotifications)
+      .where(and(
+        eq(userNotifications.userId, userId),
+        isNotNull(userNotifications.readAt)
+      ));
   }
 
   async getUnreadNotificationsCount(userId: string): Promise<number> {

@@ -3847,7 +3847,51 @@ ${sitemaps.map(sitemap => `  <sitemap>
     }
   });
 
-  // Skip a task (swipe left) 
+  // Uncomplete a task (undo completion)
+  app.post("/api/tasks/:taskId/uncomplete", async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Reset task completion status
+      const task = await storage.updateTask(taskId, {
+        completed: false,
+        completedAt: null
+      }, userId);
+
+      if (!task) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+
+      // If task belongs to an activity, uncomplete the activity too (since it's no longer 100% complete)
+      const activityTaskLinks = await storage.getActivityTasksForTask(taskId);
+      let activityUncompleted = false;
+
+      for (const link of activityTaskLinks) {
+        const activity = await storage.getActivity(link.activityId, userId);
+        if (activity && activity.completedAt) {
+          // Activity was completed, now uncomplete it since a task is incomplete
+          await storage.updateActivity(link.activityId, {
+            completedAt: null
+          }, userId);
+          activityUncompleted = true;
+        }
+      }
+
+      res.json({
+        task,
+        activityUncompleted,
+        message: activityUncompleted
+          ? 'Task and activity marked as incomplete. You can complete them again when ready!'
+          : 'Task marked as incomplete. You can complete it again when ready!'
+      });
+    } catch (error) {
+      console.error('Uncomplete task error:', error);
+      res.status(500).json({ error: 'Failed to uncomplete task' });
+    }
+  });
+
+  // Skip a task (swipe left)
   app.post("/api/tasks/:taskId/skip", async (req, res) => {
     try {
       const { taskId } = req.params;
@@ -10205,6 +10249,18 @@ Return ONLY valid JSON, no markdown or explanation.`;
     }
   });
 
+  // Clear all read notifications
+  app.delete("/api/user/notifications/clear-read", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      await storage.clearReadNotifications(userId);
+      res.json({ success: true, message: 'Read notifications cleared' });
+    } catch (error) {
+      console.error('Error clearing read notifications:', error);
+      res.status(500).json({ error: 'Failed to clear read notifications' });
+    }
+  });
+
   // NEW: Simple Plan Conversation Handler (replaces complex LangGraph)
   async function handleSimplePlanConversation(req: any, res: any, message: string, conversationHistory: any[], userId: string, mode: 'quick' | 'smart') {
     try {
@@ -11645,7 +11701,18 @@ You can find these tasks in your task list and start working on them right away!
       
       // Also fetch user preferences for journal data
       const preferences = await storage.getUserPreferences(userId);
-      
+
+      // Calculate actual task stats (same logic as /api/progress endpoint)
+      const tasks = await db.select().from(tasksTable)
+        .where(and(
+          eq(tasksTable.userId, userId),
+          or(eq(tasksTable.archived, false), isNull(tasksTable.archived))
+        ));
+
+      const completedTasks = tasks.filter(task => task.completed === true);
+      const totalTasksCompleted = completedTasks.length;
+      const weeklyStreak = Math.min(completedTasks.length, 7); // Simple streak calculation
+
       // Compute the effective profileImageUrl:
       // - Use profileImageUrlOverride if user uploaded a custom image
       // - Otherwise fall back to user's OAuth profile image
@@ -11670,10 +11737,10 @@ You can find these tasks in your task list and start working on them right away!
         // Computed fields
         profileImageUrl, // Add computed field for frontend compatibility
         preferences: preferences?.preferences,
-        // Gamification fields from user
+        // Gamification fields - calculated from actual task data
         smartScore: user?.creatorPoints || 0,
-        totalTasksCompleted: user?.totalPlansCreated || 0,
-        streakDays: 0, // This would need to be calculated
+        totalTasksCompleted: totalTasksCompleted,
+        streakDays: weeklyStreak,
         interests: user?.interests || [],
         lifeGoals: user?.currentChallenges || [],
         createdAt: user?.createdAt || null,

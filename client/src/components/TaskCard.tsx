@@ -27,10 +27,11 @@ interface TaskCardProps {
   onSkip: (taskId: string) => void;
   onSnooze: (taskId: string, hours: number) => void;
   onArchive?: (taskId: string) => void;
+  onUncomplete?: (taskId: string) => void;
   showConfetti?: boolean;
 }
 
-const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive, showConfetti = false }: TaskCardProps) {
+const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive, onUncomplete, showConfetti = false }: TaskCardProps) {
   const [isCompleted, setIsCompleted] = useState(task.completed || false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [pendingAction, setPendingAction] = useState<'complete' | 'skip' | 'snooze' | 'archive' | null>(null);
@@ -40,6 +41,11 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
   const { toast, dismiss } = useToast();
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentToastIdRef = useRef<string | null>(null);
+
+  // Sync local completed state with prop when it changes (e.g., from server refresh)
+  useEffect(() => {
+    setIsCompleted(task.completed || false);
+  }, [task.completed]);
 
   // TEMPORARILY DISABLED: Fetch task feedback (causing N+1 query performance issues)
   // const { data: feedbackData } = useQuery<{ userFeedback: { feedbackType: 'like' | 'dislike' } | null; stats: { likes: number; dislikes: number } }>({
@@ -212,6 +218,24 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
     setShowCelebration(false);
   };
 
+  const handleUncomplete = () => {
+    if (isProcessing || !onUncomplete) return;
+
+    setIsProcessing(true);
+    triggerHapticFeedback('medium');
+
+    // Show confirmation toast
+    toast({
+      title: "Task marked incomplete",
+      description: "You can complete this task again when ready.",
+    });
+
+    // Call the uncomplete handler
+    onUncomplete(task.id);
+    setIsCompleted(false);
+    setIsProcessing(false);
+  };
+
   const handleAddToCalendar = async () => {
     if (isAddingToCalendar) return;
 
@@ -296,13 +320,27 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
         </div>
       )}
 
-      <Card className={`p-6 mb-4 transition-all duration-300 hover-elevate ${
+      <Card className={`relative p-6 mb-4 transition-all duration-300 hover-elevate ${
         pendingAction === 'complete' ? 'ring-2 ring-green-500 border-green-200' :
         pendingAction === 'skip' ? 'ring-2 ring-red-500 border-red-200' :
         pendingAction === 'snooze' ? 'ring-2 ring-yellow-500 border-yellow-200' :
         pendingAction === 'archive' ? 'ring-2 ring-blue-500 border-blue-200' : ''
       }`} data-testid={`task-card-${task.id}`}>
-        
+
+        {/* Undo button in upper-right corner for completed tasks */}
+        {isCompleted && onUncomplete && (
+          <Button
+            onClick={handleUncomplete}
+            disabled={isProcessing}
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-8 w-8 text-muted-foreground hover:text-foreground"
+            data-testid={`button-uncomplete-${task.id}`}
+          >
+            <Undo className="w-4 h-4" />
+          </Button>
+        )}
+
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
@@ -457,19 +495,21 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
               <CheckCircle className="w-5 h-5" />
               <span>Great job! Task completed.</span>
             </div>
-            {onArchive && (
-              <Button
-                onClick={handleArchive}
-                disabled={isProcessing}
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto"
-                data-testid={`button-archive-completed-${task.id}`}
-              >
-                <Archive className="w-4 h-4 mr-2 flex-shrink-0" />
-                Archive this task
-              </Button>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {onArchive && (
+                <Button
+                  onClick={handleArchive}
+                  disabled={isProcessing}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 sm:flex-none"
+                  data-testid={`button-archive-completed-${task.id}`}
+                >
+                  <Archive className="w-4 h-4 mr-2 flex-shrink-0" />
+                  Archive
+                </Button>
+              )}
+            </div>
           </div>
         )}
 

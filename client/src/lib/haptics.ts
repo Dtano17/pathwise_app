@@ -170,12 +170,13 @@ export async function hapticsLongPress(): Promise<void> {
 
 /**
  * Celebration haptic pattern (special pattern for achievements/milestones)
+ * Enhanced for maximum impact on activity completion
  */
 export async function hapticsCelebrate(): Promise<void> {
   if (!isNative()) {
-    // Web fallback: exciting pattern
+    // Web fallback: dramatic celebration pattern
     if ('vibrate' in navigator) {
-      navigator.vibrate([50, 50, 50, 50, 100, 100, 150]);
+      navigator.vibrate([100, 50, 100, 50, 100, 100, 200, 100, 300]);
     }
     return;
   }
@@ -188,11 +189,13 @@ export async function hapticsCelebrate(): Promise<void> {
       return;
     }
 
-    // Fallback: multiple haptic bursts
-    await triggerHaptic('light');
-    await new Promise(resolve => setTimeout(resolve, 50));
-    await triggerHaptic('medium');
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // Enhanced fallback: dramatic multi-burst celebration
+    await triggerHaptic('heavy');
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await triggerHaptic('heavy');
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await triggerHaptic('success');
+    await new Promise(resolve => setTimeout(resolve, 150));
     await triggerHaptic('heavy');
     await new Promise(resolve => setTimeout(resolve, 100));
     await triggerHaptic('success');

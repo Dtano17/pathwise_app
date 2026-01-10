@@ -21,6 +21,12 @@ interface CelebrationModalProps {
 export default function CelebrationModal({ isOpen, onClose, achievement }: CelebrationModalProps) {
   const [showConfetti, setShowConfetti] = useState(false);
 
+  // Milestone achievements get enhanced celebration
+  const isMilestone = achievement.type === 'milestone';
+  const confettiPieces = isMilestone ? 500 : 300;
+  const confettiDuration = isMilestone ? 6000 : 4000;
+  const confettiGravity = isMilestone ? 0.15 : 0.25;
+
   useEffect(() => {
     if (isOpen) {
       setShowConfetti(true);
@@ -30,10 +36,10 @@ export default function CelebrationModal({ isOpen, onClose, achievement }: Celeb
         hapticsCelebrate();
       }
 
-      const timer = setTimeout(() => setShowConfetti(false), 4000);
+      const timer = setTimeout(() => setShowConfetti(false), confettiDuration);
       return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, confettiDuration]);
 
   // Haptic feedback when closing
   const handleClose = async () => {
@@ -74,9 +80,10 @@ export default function CelebrationModal({ isOpen, onClose, achievement }: Celeb
               width={window.innerWidth}
               height={window.innerHeight}
               recycle={false}
-              numberOfPieces={300}
-              colors={['#6C5CE7', '#00B894', '#FDCB6E', '#FF6B6B', '#4ECDC4']}
-              gravity={0.3}
+              numberOfPieces={confettiPieces}
+              colors={['#6C5CE7', '#00B894', '#FDCB6E', '#FF6B6B', '#4ECDC4', '#FFD93D', '#FF85A2']}
+              gravity={confettiGravity}
+              wind={0.02}
             />
           )}
           
@@ -107,15 +114,29 @@ export default function CelebrationModal({ isOpen, onClose, achievement }: Celeb
                   <X className="w-4 h-4" />
                 </Button>
 
-                {/* Celebration Icon */}
+                {/* Celebration Icon with Glow Effect */}
                 <motion.div
                   initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2, type: "spring" }}
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{
+                    delay: 0.2,
+                    type: "spring",
+                    scale: isMilestone ? { repeat: 3, duration: 0.6 } : undefined
+                  }}
                   className="flex justify-center"
                 >
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-                    {getIcon()}
+                  <div className="relative">
+                    {/* Pulsing glow effect for milestones */}
+                    {isMilestone && (
+                      <div className="absolute inset-0 w-24 h-24 rounded-full bg-yellow-400/40 animate-ping" />
+                    )}
+                    <div className={`w-24 h-24 rounded-full flex items-center justify-center relative ${
+                      isMilestone
+                        ? 'bg-gradient-to-br from-yellow-400/30 to-orange-400/30 shadow-lg shadow-yellow-400/30'
+                        : 'bg-gradient-to-br from-primary/20 to-secondary/20'
+                    }`}>
+                      {getIcon()}
+                    </div>
                   </div>
                 </motion.div>
 

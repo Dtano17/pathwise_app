@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { apiRequest, queryClient } from '@/lib/queryClient';
+import { apiRequest } from '@/lib/queryClient';
 import { ProBadge } from '@/components/ProBadge';
 import { useDeviceLocation } from '@/hooks/useDeviceLocation';
 import {
@@ -64,7 +64,8 @@ interface UserProfile {
 }
 
 export default function UserProfile() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, refetch: refetchAuth } = useAuth();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
@@ -186,10 +187,33 @@ export default function UserProfile() {
         reader.readAsDataURL(file);
       });
     },
-    onSuccess: () => {
-      console.log('[PROFILE IMAGE] Invalidating query cache');
+    onSuccess: async (uploadedImageUrl: string) => {
+      console.log('[PROFILE IMAGE] Upload success, updating caches directly');
+
+      // Directly update the profile cache with new image
+      queryClient.setQueryData(['/api/user/profile'], (old: any) => {
+        if (old) {
+          return { ...old, profileImageUrl: uploadedImageUrl };
+        }
+        return old;
+      });
+
+      // Directly update the user cache with new image
+      queryClient.setQueryData(['/api/user'], (old: any) => {
+        if (old) {
+          return { ...old, profileImageUrl: uploadedImageUrl };
+        }
+        return old;
+      });
+
+      // Also invalidate to ensure next fetch gets fresh data
       queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/user'] }); // Also refresh auth user for sidebar!
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+
+      // Dispatch custom event for sidebar to listen to (backup)
+      window.dispatchEvent(new CustomEvent('profileImageUpdated', { detail: { imageUrl: uploadedImageUrl } }));
+
+      console.log('[PROFILE IMAGE] Caches updated and event dispatched');
       toast({
         title: "Image uploaded",
         description: "Your profile picture has been updated successfully.",

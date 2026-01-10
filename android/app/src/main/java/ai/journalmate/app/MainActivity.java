@@ -1,5 +1,6 @@
 package ai.journalmate.app;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -7,6 +8,11 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
+import android.webkit.WebView;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
@@ -23,9 +29,31 @@ public class MainActivity extends BridgeActivity {
     // Handler for periodic checks
     private android.os.Handler tokenCheckerHandler = null;
 
+    // File chooser callback for handling <input type="file"> in WebView
+    private ValueCallback<Uri[]> filePathCallback;
+    private ActivityResultLauncher<Intent> fileChooserLauncher;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Initialize file chooser launcher for handling file input in WebView
+        fileChooserLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (filePathCallback != null) {
+                    Uri[] results = null;
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        String dataString = result.getData().getDataString();
+                        if (dataString != null) {
+                            results = new Uri[]{Uri.parse(dataString)};
+                        }
+                    }
+                    filePathCallback.onReceiveValue(results);
+                    filePathCallback = null;
+                }
+            }
+        );
 
         // Configure system bars to NOT use edge-to-edge (content stays within safe bounds)
         configureSystemBars();
@@ -42,10 +70,57 @@ public class MainActivity extends BridgeActivity {
 
         // Handle intent (share intents and deep links)
         handleIncomingIntent(getIntent());
-        
+
         // Schedule a check for pending auth tokens after WebView fully loads
         // This handles cold-start OAuth where the token arrives before WebView is ready
         schedulePendingTokenCheck();
+
+        // Setup WebChromeClient to handle file input (<input type="file">) in WebView
+        // This is required for profile image upload and other file selections to work
+        setupFileChooser();
+    }
+
+    /**
+     * Setup WebChromeClient to handle file input in WebView
+     * Without this, <input type="file"> clicks do nothing in Android WebView
+     */
+    private void setupFileChooser() {
+        // Delay setup to ensure bridge and webview are ready
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                WebView webView = getBridge().getWebView();
+                webView.setWebChromeClient(new WebChromeClient() {
+                    @Override
+                    public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallbackParam,
+                                                     FileChooserParams fileChooserParams) {
+                        android.util.Log.d("MainActivity", "[FILE CHOOSER] onShowFileChooser called");
+
+                        // Cancel any existing callback
+                        if (filePathCallback != null) {
+                            filePathCallback.onReceiveValue(null);
+                        }
+                        filePathCallback = filePathCallbackParam;
+
+                        // Create intent for file picker
+                        Intent intent = fileChooserParams.createIntent();
+                        try {
+                            fileChooserLauncher.launch(intent);
+                            android.util.Log.d("MainActivity", "[FILE CHOOSER] File picker launched");
+                            return true;
+                        } catch (Exception e) {
+                            android.util.Log.e("MainActivity", "[FILE CHOOSER] Failed to launch file picker: " + e.getMessage());
+                            filePathCallback = null;
+                            return false;
+                        }
+                    }
+                });
+                android.util.Log.d("MainActivity", "[FILE CHOOSER] WebChromeClient setup complete");
+            } else {
+                android.util.Log.w("MainActivity", "[FILE CHOOSER] Bridge or WebView not ready, retrying...");
+                // Retry after another delay
+                setupFileChooser();
+            }
+        }, 500);
     }
     
     /**

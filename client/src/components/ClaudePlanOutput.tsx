@@ -2,7 +2,7 @@ import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap, BookOpen, RefreshCw, ChevronDown, MapPin, Loader2, DollarSign, Calculator, Link2 } from 'lucide-react';
+import { CheckCircle, Clock, Target, Sparkles, ChevronRight, Share2, Zap, BookOpen, RefreshCw, ChevronDown, MapPin, Loader2, DollarSign, Calculator, Link2, Undo } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 import ShareDialog from './ShareDialog';
@@ -94,6 +94,7 @@ interface ClaudePlanOutputProps {
   estimatedTimeframe?: string;
   motivationalNote?: string;
   onCompleteTask: (taskId: string) => void;
+  onUncompleteTask?: (taskId: string) => void;
   onCreateActivity?: (planData: { title: string; description: string; tasks: Task[]; mode?: 'create' | 'update'; activityId?: string }) => void;
   onSetAsTheme?: (data: { activityId: string; activityTitle: string; tasks: { title: string; completed: boolean }[] }) => void;
   onOpenSharePreview?: (activityId: string) => void;
@@ -319,6 +320,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
   estimatedTimeframe,
   motivationalNote,
   onCompleteTask,
+  onUncompleteTask,
   onCreateActivity,
   onSetAsTheme,
   onOpenSharePreview,
@@ -767,11 +769,31 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
               transition={{ delay: index * 0.1 }}
               className="w-full"
             >
-              <Card className={`p-3 sm:p-5 transition-all duration-300 ${
-                isCompleted 
-                  ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700' 
+              <Card className={`relative p-3 sm:p-5 transition-all duration-300 ${
+                isCompleted
+                  ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700'
                   : 'hover-elevate'
               }`}>
+                {/* Undo button in upper-right corner for completed tasks */}
+                {isCompleted && onUncompleteTask && task.id && (
+                  <Button
+                    onClick={() => {
+                      onUncompleteTask(task.id);
+                      setCompletedTasks(prev => {
+                        const next = new Set(prev);
+                        next.delete(task.id);
+                        return next;
+                      });
+                    }}
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 h-8 w-8 text-muted-foreground hover:text-foreground"
+                    data-testid={`button-uncomplete-task-${index}`}
+                  >
+                    <Undo className="w-4 h-4" />
+                  </Button>
+                )}
+
                 <div className="space-y-3 sm:space-y-4">
                   {/* Task Header */}
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">

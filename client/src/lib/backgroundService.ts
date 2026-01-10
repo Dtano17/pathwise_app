@@ -28,6 +28,14 @@ interface BackgroundServicePlugin {
   setUserCredentials(options: { userId: string; authToken: string }): Promise<{ success: boolean }>;
   clearUserCredentials(): Promise<{ success: boolean }>;
   setReminderPreferences(options: { minutesBefore: number }): Promise<{ success: boolean }>;
+  updateWidgetData(options: {
+    tasksCompleted: number;
+    tasksTotal: number;
+    streak: number;
+    totalCompleted: number;
+    completionRate: number;
+    unreadNotifications: number;
+  }): Promise<{ success: boolean }>;
   refreshWidgets(): Promise<{ success: boolean }>;
   getStatus(): Promise<{
     backgroundSyncEnabled: boolean;
@@ -216,6 +224,35 @@ export async function setReminderTime(minutesBefore: number): Promise<boolean> {
 }
 
 /**
+ * Update widget data cache directly (instant update without API call)
+ * Call this with progress data, then call refreshWidgets() to update display
+ */
+export async function updateWidgetData(data: {
+  tasksCompleted: number;
+  tasksTotal: number;
+  streak: number;
+  totalCompleted: number;
+  completionRate: number;
+  unreadNotifications: number;
+}): Promise<boolean> {
+  console.log('[BACKGROUND] updateWidgetData called:', data);
+
+  if (!isAndroid()) {
+    console.log('[BACKGROUND] updateWidgetData: not Android, skipping');
+    return false;
+  }
+
+  try {
+    const result = await BackgroundService.updateWidgetData(data);
+    console.log('[BACKGROUND] Widget data updated successfully:', result);
+    return result.success;
+  } catch (error) {
+    console.error('[BACKGROUND] Failed to update widget data:', error);
+    return false;
+  }
+}
+
+/**
  * Refresh all home screen widgets
  * Call this when task/goal progress changes to update widget immediately
  */
@@ -329,6 +366,7 @@ export default {
   setBackgroundCredentials,
   clearBackgroundCredentials,
   setReminderTime,
+  updateWidgetData,
   refreshWidgets,
   getBackgroundServiceStatus,
   initializeBackgroundServices,

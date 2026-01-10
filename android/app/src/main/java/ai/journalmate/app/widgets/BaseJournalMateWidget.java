@@ -55,7 +55,7 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
 
         RemoteViews views = new RemoteViews(context.getPackageName(), getLayoutId());
 
-        // Load cached data first for instant display
+        // Load cached data for display
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         int tasksCompleted = prefs.getInt("tasksCompleted", 0);
         int tasksTotal = prefs.getInt("tasksTotal", 0);
@@ -63,6 +63,7 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
         int totalCompleted = prefs.getInt("totalCompleted", 0);
         int completionRate = prefs.getInt("completionRate", 0);
         int unreadNotifications = prefs.getInt("unreadNotifications", 0);
+        long lastFetchTime = prefs.getLong("lastFetchTime", 0);
 
         // Update views with cached data
         updateWidgetViews(context, views,
@@ -84,8 +85,16 @@ public abstract class BaseJournalMateWidget extends AppWidgetProvider {
         // Update widget with cached data immediately
         appWidgetManager.updateAppWidget(appWidgetId, views);
 
-        // Fetch fresh data from server in background
-        fetchWidgetData(context, appWidgetManager, appWidgetId);
+        // Only fetch from API if cache is older than 5 minutes
+        // This prevents unnecessary API calls when app updates cache directly
+        long cacheAge = System.currentTimeMillis() - lastFetchTime;
+        long fiveMinutes = 5 * 60 * 1000;
+        if (cacheAge > fiveMinutes) {
+            Log.d(TAG, "Cache is " + (cacheAge / 1000) + "s old, fetching fresh data from API");
+            fetchWidgetData(context, appWidgetManager, appWidgetId);
+        } else {
+            Log.d(TAG, "Using cached data (age: " + (cacheAge / 1000) + "s)");
+        }
     }
 
     protected void updateWidgetViews(Context context, RemoteViews views,

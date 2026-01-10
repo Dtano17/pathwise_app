@@ -2,6 +2,8 @@ package ai.journalmate.app;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
+import android.appwidget.AppWidgetManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -11,6 +13,10 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
+
+import ai.journalmate.app.widgets.JournalMateWidget2x2;
+import ai.journalmate.app.widgets.JournalMateWidget4x1;
+import ai.journalmate.app.widgets.JournalMateWidget4x2;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -67,6 +73,9 @@ public class TaskSyncWorker extends Worker {
 
                 // Update foreground service with new data
                 updateForegroundService(tasksData);
+
+                // Refresh all home screen widgets with latest data
+                refreshAllWidgets();
 
                 Log.d(TAG, "Background sync completed successfully");
                 return Result.success();
@@ -290,5 +299,40 @@ public class TaskSyncWorker extends Worker {
             Log.e(TAG, "Failed to parse date: " + dateStr);
         }
         return 0;
+    }
+
+    /**
+     * Refresh all home screen widgets with latest data
+     * This triggers onUpdate() for all widget types, which will fetch fresh data from API
+     */
+    private void refreshAllWidgets() {
+        try {
+            Context context = getApplicationContext();
+            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+
+            // Refresh all widget types
+            refreshWidgetClass(context, appWidgetManager, JournalMateWidget2x2.class);
+            refreshWidgetClass(context, appWidgetManager, JournalMateWidget4x1.class);
+            refreshWidgetClass(context, appWidgetManager, JournalMateWidget4x2.class);
+
+            Log.d(TAG, "All widgets refreshed from background sync");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to refresh widgets: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Refresh a specific widget class by sending update broadcast
+     */
+    private void refreshWidgetClass(Context context, AppWidgetManager manager, Class<?> widgetClass) {
+        ComponentName widget = new ComponentName(context, widgetClass);
+        int[] ids = manager.getAppWidgetIds(widget);
+        if (ids.length > 0) {
+            Intent intent = new Intent(context, widgetClass);
+            intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+            intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
+            context.sendBroadcast(intent);
+            Log.d(TAG, "Refreshed " + ids.length + " widgets of type: " + widgetClass.getSimpleName());
+        }
     }
 }
