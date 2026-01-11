@@ -126,10 +126,11 @@ export function AppSidebar({
 
   // Fetch profile data directly to get updated profile image
   // This ensures sidebar stays in sync with profile page uploads
+  // Note: We fetch the full profile object (not using select) to ensure
+  // cache updates from UserProfile.tsx are properly reflected on Android
   const { data: profileData } = useQuery<{ profileImageUrl?: string }>({
     queryKey: ['/api/user/profile'],
     enabled: isAuthenticated,
-    select: (data: any) => ({ profileImageUrl: data?.profileImageUrl }),
   });
 
   // Use profile image from /api/user/profile (which has the uploaded image)
