@@ -12620,15 +12620,21 @@ You can find these tasks in your task list and start working on them right away!
         });
       } else {
         console.log(`[JOURNAL SINGLE ENRICH] Enrichment failed: ${result.error}`);
-        res.status(500).json({
+        // Return 200 with success: false so frontend can display specific error message
+        res.json({
           success: false,
-          error: result.error || 'Enrichment failed',
-          entryId: targetEntry.id
+          error: result.error || 'Could not find matching information for this entry',
+          entryId: targetEntry.id,
+          entryText: targetEntry.text?.substring(0, 100)
         });
       }
     } catch (error) {
       console.error('[JOURNAL SINGLE ENRICH] Error:', error);
-      res.status(500).json({ error: 'Failed to refresh journal entry' });
+      // Return 200 with success: false for consistent error handling
+      res.json({ 
+        success: false, 
+        error: 'Failed to refresh journal entry. Please try again.' 
+      });
     }
   });
 

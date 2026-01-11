@@ -882,9 +882,15 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
             : "Entry image and details updated successfully.",
         });
       } else {
+        // Show specific error message from the backend
+        const errorMessage = data.error?.includes('No venue name') 
+          ? "Could not identify what to search for. Try adding more details to your entry."
+          : data.error?.includes('No web results')
+          ? "No matching information found online. Try editing the entry title."
+          : data.error || "Could not find a better match. Try editing manually.";
         toast({
           title: "Refresh Issue",
-          description: data.error || "Could not find a better match. Try editing manually.",
+          description: errorMessage,
           variant: "destructive",
         });
       }
@@ -894,7 +900,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       console.error('[SINGLE_REFRESH] Error:', error);
       toast({
         title: "Refresh Failed",
-        description: "Could not refresh this entry. Please try again.",
+        description: "Network error. Please check your connection and try again.",
         variant: "destructive",
       });
     },
