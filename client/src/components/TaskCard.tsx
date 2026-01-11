@@ -10,6 +10,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { isNative } from '@/lib/platform';
 import { addTaskToCalendar } from '@/lib/calendar';
+import { hapticsSuccess, hapticsLight, hapticsCelebrate } from '@/lib/haptics';
 
 interface Task {
   id: string;
@@ -64,18 +65,44 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
   //   }
   // });
 
-  const triggerHapticFeedback = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
-    if ('vibrate' in navigator && navigator.vibrate) {
+  // Enhanced haptic feedback that respects user preferences
+  const triggerHapticFeedback = async (type: 'light' | 'success' | 'celebrate' = 'success') => {
+    try {
+      // Check if completion haptic is enabled
+      const response = await fetch('/api/mobile/preferences');
+      if (response.ok) {
+        const prefs = await response.json();
+        if (!prefs.enableHaptics || !prefs.enableCompletionHaptic) {
+          return; // User disabled haptics
+        }
+      }
+
+      // Trigger the appropriate haptic
       switch (type) {
         case 'light':
-          navigator.vibrate(50);
+          await hapticsLight();
           break;
-        case 'medium':
-          navigator.vibrate(100);
+        case 'success':
+          await hapticsSuccess();
           break;
-        case 'heavy':
-          navigator.vibrate([100, 50, 100]);
+        case 'celebrate':
+          await hapticsCelebrate();
           break;
+      }
+    } catch (error) {
+      // Fallback to web vibration API
+      if ('vibrate' in navigator && navigator.vibrate) {
+        switch (type) {
+          case 'light':
+            navigator.vibrate(50);
+            break;
+          case 'success':
+            navigator.vibrate(100);
+            break;
+          case 'celebrate':
+            navigator.vibrate([100, 50, 100, 50, 100]);
+            break;
+        }
       }
     }
   };
@@ -94,11 +121,11 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
 
   const handleComplete = () => {
     if (isProcessing) return;
-    
+
     setIsProcessing(true);
     clearPendingAction();
     setPendingAction('complete');
-    triggerHapticFeedback('heavy');
+    triggerHapticFeedback('celebrate'); // Celebration haptic on task completion
 
     // Show celebration immediately
     setShowCelebration(true);

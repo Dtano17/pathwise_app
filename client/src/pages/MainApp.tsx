@@ -919,6 +919,31 @@ export default function MainApp({
     }
   }, [user]);
 
+  // App launch haptic feedback
+  useEffect(() => {
+    const triggerLaunchHaptic = async () => {
+      if (!isNative()) return;
+
+      try {
+        // Check if launch haptic is enabled in user preferences
+        const response = await fetch('/api/mobile/preferences');
+        if (response.ok) {
+          const prefs = await response.json();
+          if (prefs.enableHaptics && prefs.enableLaunchHaptic) {
+            // Trigger a medium haptic feedback on app launch
+            const { triggerHaptic } = await import('@/lib/haptics');
+            await triggerHaptic('medium');
+            console.log('[HAPTIC] App launch haptic triggered');
+          }
+        }
+      } catch (error) {
+        console.log('[HAPTIC] Could not trigger launch haptic:', error);
+      }
+    };
+
+    triggerLaunchHaptic();
+  }, []); // Only run once on mount
+
   // Profile completion for OAuth new users
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   const [oauthUserId, setOauthUserId] = useState<string | null>(null);

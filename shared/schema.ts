@@ -2158,3 +2158,49 @@ export const insertContentImportSchema = createInsertSchema(contentImports).omit
 
 export type ContentImport = typeof contentImports.$inferSelect;
 export type InsertContentImport = z.infer<typeof insertContentImportSchema>;
+
+// Mobile preferences for app-wide mobile feature toggles
+export const mobilePreferences = pgTable("mobile_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull().unique(),
+
+  // Haptic feedback settings
+  enableHaptics: boolean("enable_haptics").default(true),
+  enableLaunchHaptic: boolean("enable_launch_haptic").default(true),
+  enableCompletionHaptic: boolean("enable_completion_haptic").default(true),
+
+  // Biometric authentication
+  enableBiometric: boolean("enable_biometric").default(false),
+
+  // Calendar sync settings
+  enableCalendarSync: boolean("enable_calendar_sync").default(false),
+  calendarSyncDirection: text("calendar_sync_direction").default("export"), // 'export' | 'import' | 'bidirectional'
+  defaultCalendarId: varchar("default_calendar_id"),
+
+  // Notifications (unified push + general)
+  enableNotifications: boolean("enable_notifications").default(true),
+  enableTaskReminders: boolean("enable_task_reminders").default(true),
+  enableActivityReminders: boolean("enable_activity_reminders").default(true),
+
+  // Lock screen / foreground service
+  enableLockScreenNotification: boolean("enable_lock_screen_notification").default(false),
+
+  // Widget settings
+  enableWidgetSync: boolean("enable_widget_sync").default(true),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: uniqueIndex("mobile_preferences_user_id_idx").on(table.userId),
+}));
+
+// Zod schema for mobile preferences
+export const insertMobilePreferencesSchema = createInsertSchema(mobilePreferences).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type MobilePreferences = typeof mobilePreferences.$inferSelect;
+export type InsertMobilePreferences = z.infer<typeof insertMobilePreferencesSchema>;

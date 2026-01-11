@@ -456,6 +456,195 @@ export async function addRecurringActivity(
   });
 }
 
+// =============================================
+// BIDIRECTIONAL SYNC - Import Calendar Events
+// =============================================
+
+export interface CalendarEventImport {
+  id: string;
+  title: string;
+  startDate: Date;
+  endDate?: Date;
+  isAllDay: boolean;
+  notes?: string;
+  location?: string;
+  calendarId?: string;
+  calendarName?: string;
+}
+
+export interface ImportEventsResult {
+  success: boolean;
+  events: CalendarEventImport[];
+  error?: string;
+}
+
+/**
+ * Get calendar events from device for a date range
+ * Used for importing events as tasks/activities
+ */
+export async function getCalendarEvents(
+  startDate: Date,
+  endDate: Date,
+  calendarIds?: string[]
+): Promise<ImportEventsResult> {
+  if (!isNative()) {
+    console.warn('[CALENDAR] Import only available on native platforms');
+    return {
+      success: false,
+      events: [],
+      error: 'Not available on web'
+    };
+  }
+
+  try {
+    // Check/request permission
+    let permission = await checkCalendarPermission();
+    if (!permission.granted && !permission.readOnly) {
+      permission = await requestCalendarPermission();
+      if (!permission.granted && !permission.readOnly) {
+        return {
+          success: false,
+          events: [],
+          error: 'Calendar permission denied'
+        };
+      }
+    }
+
+    // Get events from calendars
+    const result = await CapacitorCalendar.listEventsInRange({
+      startDate: startDate.getTime(),
+      endDate: endDate.getTime(),
+    });
+
+    // Get calendar list for names
+    const calendars = await getCalendars();
+    const calendarMap = new Map(calendars.map(c => [c.id, c]));
+
+    // Filter by calendar IDs if provided and map to our format
+    const events: CalendarEventImport[] = (result.events || [])
+      .filter((event: any) => {
+        if (calendarIds && calendarIds.length > 0) {
+          return calendarIds.includes(event.calendarId);
+        }
+        return true;
+      })
+      .map((event: any) => ({
+        id: event.id,
+        title: event.title || 'Untitled Event',
+        startDate: new Date(event.startDate),
+        endDate: event.endDate ? new Date(event.endDate) : undefined,
+        isAllDay: event.isAllDay || false,
+        notes: event.notes,
+        location: event.location,
+        calendarId: event.calendarId,
+        calendarName: calendarMap.get(event.calendarId)?.title,
+      }));
+
+    console.log(`[CALENDAR] Retrieved ${events.length} events from calendar`);
+    return {
+      success: true,
+      events
+    };
+  } catch (error: any) {
+    console.error('[CALENDAR] Failed to get calendar events:', error);
+    return {
+      success: false,
+      events: [],
+      error: error.message || 'Failed to get calendar events'
+    };
+  }
+}
+
+/**
+ * Get today's calendar events
+ */
+export async function getTodaysCalendarEvents(calendarIds?: string[]): Promise<ImportEventsResult> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  return getCalendarEvents(today, tomorrow, calendarIds);
+}
+
+/**
+ * Get this week's calendar events
+ */
+export async function getWeeksCalendarEvents(calendarIds?: string[]): Promise<ImportEventsResult> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const weekEnd = new Date(today);
+  weekEnd.setDate(weekEnd.getDate() + 7);
+
+  return getCalendarEvents(today, weekEnd, calendarIds);
+}
+
+/**
+ * Convert calendar events to task-like objects for import
+ */
+export function convertEventsToTasks(events: CalendarEventImport[]): Array<{
+  title: string;
+  description?: string;
+  category: string;
+  priority: 'low' | 'medium' | 'high';
+  dueDate: Date;
+  sourceCalendarId?: string;
+  sourceEventId?: string;
+}> {
+  return events.map(event => ({
+    title: event.title,
+    description: [
+      event.notes,
+      event.location ? `Location: ${event.location}` : null,
+      event.calendarName ? `From: ${event.calendarName}` : null,
+    ].filter(Boolean).join('\n') || undefined,
+    category: 'calendar',
+    priority: 'medium' as const,
+    dueDate: event.startDate,
+    sourceCalendarId: event.calendarId,
+    sourceEventId: event.id,
+  }));
+}
+
+/**
+ * Sync calendar events for a date range and return tasks to import
+ */
+export async function syncCalendarToTasks(
+  startDate: Date,
+  endDate: Date,
+  calendarIds?: string[]
+): Promise<{
+  success: boolean;
+  tasks: Array<{
+    title: string;
+    description?: string;
+    category: string;
+    priority: 'low' | 'medium' | 'high';
+    dueDate: Date;
+    sourceCalendarId?: string;
+    sourceEventId?: string;
+  }>;
+  error?: string;
+}> {
+  const result = await getCalendarEvents(startDate, endDate, calendarIds);
+
+  if (!result.success) {
+    return {
+      success: false,
+      tasks: [],
+      error: result.error
+    };
+  }
+
+  const tasks = convertEventsToTasks(result.events);
+  return {
+    success: true,
+    tasks
+  };
+}
+
 /**
  * React Query integration example for calendar permissions
  *
@@ -491,4 +680,10 @@ export default {
   deleteCalendarEvent,
   addActivityWithTasksToCalendar,
   addRecurringActivity,
+  // Bidirectional sync functions
+  getCalendarEvents,
+  getTodaysCalendarEvents,
+  getWeeksCalendarEvents,
+  convertEventsToTasks,
+  syncCalendarToTasks,
 };
