@@ -12505,6 +12505,133 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
+  // ==========================================================================
+  // PER-ELEMENT REFRESH - Refresh a single journal entry, not the whole category
+  // This is used when the user clicks refresh on a specific item (e.g., one movie)
+  // ==========================================================================
+  app.post("/api/user/journal/web-enrich/single", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { category, entryIndex, entryId, entryText } = req.body;
+
+      if (!category) {
+        return res.status(400).json({ error: 'Category is required' });
+      }
+
+      if (entryIndex === undefined && !entryId && !entryText) {
+        return res.status(400).json({ error: 'Either entryIndex, entryId, or entryText is required to identify the entry' });
+      }
+
+      console.log(`[JOURNAL SINGLE ENRICH] User ${userId} refreshing single entry in ${category}`);
+
+      // Get user's journal data
+      const user = await storage.getUser(userId);
+      if (!user || !user.journalData) {
+        return res.status(404).json({ error: 'No journal data found' });
+      }
+
+      const journalData = user.journalData as Record<string, any[]>;
+      const entries = journalData[category];
+
+      if (!entries || !Array.isArray(entries)) {
+        return res.status(404).json({ error: `Category "${category}" not found` });
+      }
+
+      // Find the target entry by index, ID, or text
+      let targetIndex = entryIndex !== undefined ? entryIndex : -1;
+
+      if (targetIndex === -1 && entryId) {
+        targetIndex = entries.findIndex((e: any) => e.id === entryId);
+      }
+
+      if (targetIndex === -1 && entryText) {
+        targetIndex = entries.findIndex((e: any) =>
+          e.text === entryText || e.text?.includes(entryText) || entryText?.includes(e.text)
+        );
+      }
+
+      if (targetIndex === -1 || targetIndex >= entries.length) {
+        return res.status(404).json({ error: 'Entry not found' });
+      }
+
+      const targetEntry = entries[targetIndex];
+      console.log(`[JOURNAL SINGLE ENRICH] Found entry at index ${targetIndex}: "${targetEntry.text?.substring(0, 50)}..."`);
+
+      // Prepare entry for enrichment
+      const entryForEnrichment = {
+        id: targetEntry.id || `${category}-${targetIndex}`,
+        text: targetEntry.text || '',
+        category: category,
+        venueName: targetEntry.venueName || targetEntry.title || targetEntry.name,
+        location: targetEntry.location,
+        existingEnrichment: undefined // Force refresh by not passing existing enrichment
+      };
+
+      // Enrich this single entry (forceRefresh = true)
+      const result = await journalWebEnrichmentService.enrichJournalEntry(entryForEnrichment, true);
+
+      if (result.success && result.enrichedData) {
+        // Update the entry with new enrichment data
+        entries[targetIndex] = {
+          ...targetEntry,
+          webEnrichment: result.enrichedData,
+          primaryImageUrl: result.enrichedData.primaryImageUrl || targetEntry.primaryImageUrl,
+          // Keep other existing fields
+        };
+
+        // Handle category change if suggested and different
+        let categoryChanged = false;
+        let newCategory = category;
+
+        if (result.enrichedData.suggestedCategory &&
+            result.enrichedData.suggestedCategory !== category &&
+            result.enrichedData.categoryConfidence &&
+            result.enrichedData.categoryConfidence > 0.7) {
+
+          newCategory = result.enrichedData.suggestedCategory;
+          categoryChanged = true;
+
+          console.log(`[JOURNAL SINGLE ENRICH] Category change suggested: ${category} -> ${newCategory}`);
+
+          // Move entry to the new category
+          const updatedEntry = entries.splice(targetIndex, 1)[0];
+
+          if (!journalData[newCategory]) {
+            journalData[newCategory] = [];
+          }
+          journalData[newCategory].push(updatedEntry);
+        }
+
+        // Save the updated journal data
+        await storage.updateUser(userId, { journalData });
+
+        console.log(`[JOURNAL SINGLE ENRICH] Successfully refreshed entry${categoryChanged ? ` (moved to ${newCategory})` : ''}`);
+
+        res.json({
+          success: true,
+          entryId: targetEntry.id,
+          enrichedData: result.enrichedData,
+          categoryChanged,
+          oldCategory: category,
+          newCategory,
+          message: categoryChanged
+            ? `Entry refreshed and moved to ${newCategory}`
+            : 'Entry refreshed successfully'
+        });
+      } else {
+        console.log(`[JOURNAL SINGLE ENRICH] Enrichment failed: ${result.error}`);
+        res.status(500).json({
+          success: false,
+          error: result.error || 'Enrichment failed',
+          entryId: targetEntry.id
+        });
+      }
+    } catch (error) {
+      console.error('[JOURNAL SINGLE ENRICH] Error:', error);
+      res.status(500).json({ error: 'Failed to refresh journal entry' });
+    }
+  });
+
   // Upload media for journal entries
   app.post("/api/journal/upload", upload.array('media', 5), async (req: any, res) => {
     try {
