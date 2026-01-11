@@ -421,7 +421,7 @@ Make sure each step has a clear, actionable title and helpful description.`
         );
 
         return {
-          message: `📋 **Plan Preview** (based on what you've shared so far)\n\n${previewPlan.richContent}\n\n---\n⚠️ *This is a preview. Continue answering questions for a more personalized plan, or say "create plan" to finalize now.*${this.STANDARD_HINTS}`,
+          message: `📋 **Plan Preview** (based on what you've shared so far)\n\n${previewPlan.richContent}\n\n---\n⚠️ *This is a preview. Continue answering questions for a more personalized plan, or say "create plan" to finalize now.*`,
           phase: 'gathering',
           progress: previewPlan.progress || { percentage: 50, answered: 3, total: 7 },
           readyToGenerate: false,
@@ -492,7 +492,7 @@ Make sure each step has a clear, actionable title and helpful description.`
         // If we have conversation history, don't reset - just ask for clarification
         if (conversationHistory && conversationHistory.length > 0) {
           return {
-            message: "I didn't quite catch that. Could you rephrase what you said?" + this.STANDARD_HINTS,
+            message: "I didn't quite catch that. Could you rephrase what you said?",
             phase: 'gathering',
             readyToGenerate: false,
             planReady: false,
@@ -884,8 +884,7 @@ Make sure each step has a clear, actionable title and helpful description.`
 
         responseMessage += `\n\n📊 Progress: ${gapAnalysis.progress.answered}/${gapAnalysis.progress.total} (${gapAnalysis.progress.percentage}%)`;
 
-        // Add standard hints footer for all gathering responses
-        responseMessage += this.STANDARD_HINTS;
+        // Command hints are now shown as clickable buttons in the frontend
 
         return {
           message: responseMessage,
@@ -906,7 +905,7 @@ Make sure each step has a clear, actionable title and helpful description.`
     } catch (error) {
       console.error('[UNIVERSAL AGENT] Error:', error);
       return {
-        message: "I didn't quite catch that. Could you rephrase what you said?" + this.STANDARD_HINTS,
+        message: "I didn't quite catch that. Could you rephrase what you said?",
         phase: 'gathering',
         readyToGenerate: false,
         updatedSlots: currentSlots,
@@ -1258,8 +1257,7 @@ Example for interview_prep:
     return createPatterns.some(p => p.test(lower));
   }
 
-  // Standard hints footer for all responses
-  private readonly STANDARD_HINTS = `\n\n---\n💡 **Commands:** "continue" | "preview" | "create plan"`;
+  // Command hints are now shown as clickable buttons in the frontend (removed STANDARD_HINTS)
 
   /**
    * Detect if user is saying "none" to indicate suggestions don't apply
