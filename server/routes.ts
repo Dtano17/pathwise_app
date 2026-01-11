@@ -12505,6 +12505,108 @@ You can find these tasks in your task list and start working on them right away!
     }
   });
 
+  // PER-ELEMENT REFRESH - Refresh a single journal entry, not the whole category
+  // This is more efficient and prevents refreshing unrelated items
+  app.post("/api/user/journal/web-enrich/single", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { category, entryIndex, entryId } = req.body;
+
+      if (!category) {
+        return res.status(400).json({ error: 'category is required' });
+      }
+
+      if (entryIndex === undefined && !entryId) {
+        return res.status(400).json({ error: 'entryIndex or entryId is required' });
+      }
+
+      console.log(`[JOURNAL SINGLE ENRICH] Refreshing single entry in ${category} (index: ${entryIndex}, id: ${entryId})`);
+
+      // Get existing preferences
+      const prefs = await storage.getUserPreferences(userId);
+      const journalData = prefs?.preferences?.journalData || {} as Record<string, any[]>;
+      const entries = journalData[category] || [];
+
+      if (entries.length === 0) {
+        return res.status(404).json({ error: `No entries found in category "${category}"` });
+      }
+
+      // Find the entry to refresh (by index or ID)
+      let targetIndex = entryIndex !== undefined ? entryIndex : -1;
+      if (targetIndex === -1 && entryId) {
+        targetIndex = entries.findIndex((e: any) => e.id === entryId);
+      }
+
+      if (targetIndex === -1 || targetIndex >= entries.length) {
+        return res.status(404).json({ error: 'Entry not found' });
+      }
+
+      const entry = entries[targetIndex];
+      if (!entry.text) {
+        return res.status(400).json({ error: 'Entry has no text content to enrich' });
+      }
+
+      // Enrich just this single entry (forceRefresh = true)
+      const entryForEnrichment = {
+        id: entry.id || `temp_${Date.now()}`,
+        text: entry.text,
+        category,
+        venueName: undefined, // Clear so it re-extracts from text
+        location: entry.location,
+        existingEnrichment: undefined // Clear to force re-fetch
+      };
+
+      const result = await journalWebEnrichmentService.enrichJournalEntry(entryForEnrichment, true);
+
+      if (result.success && result.enrichedData) {
+        // Update just this entry
+        entries[targetIndex] = {
+          ...entry,
+          webEnrichment: result.enrichedData
+        };
+
+        // Check if category should change
+        const suggestedCat = result.enrichedData.suggestedCategory;
+        if (suggestedCat && suggestedCat !== category && result.enrichedData.categoryConfidence > 0.7) {
+          // Move entry to suggested category
+          if (!journalData[suggestedCat]) {
+            journalData[suggestedCat] = [];
+          }
+          journalData[suggestedCat].push({
+            ...entries[targetIndex],
+            category: suggestedCat
+          });
+          // Remove from original category
+          entries.splice(targetIndex, 1);
+          console.log(`[JOURNAL SINGLE ENRICH] Moved entry from ${category} to ${suggestedCat}`);
+        }
+
+        // Save updated journal data
+        await storage.upsertUserPreferences(userId, {
+          preferences: { ...prefs?.preferences, journalData }
+        });
+        aiService.invalidateUserContext(userId);
+
+        console.log(`[JOURNAL SINGLE ENRICH] Successfully refreshed entry: "${entry.text?.substring(0, 50)}..."`);
+
+        res.json({
+          success: true,
+          enrichedData: result.enrichedData,
+          movedTo: suggestedCat && suggestedCat !== category ? suggestedCat : null
+        });
+      } else {
+        console.log(`[JOURNAL SINGLE ENRICH] Failed to refresh entry: ${result.error}`);
+        res.json({
+          success: false,
+          error: result.error || 'Enrichment failed'
+        });
+      }
+    } catch (error) {
+      console.error('Single journal enrichment error:', error);
+      res.status(500).json({ error: 'Failed to enrich journal entry' });
+    }
+  });
+
   // Upload media for journal entries
   app.post("/api/journal/upload", upload.array('media', 5), async (req: any, res) => {
     try {
