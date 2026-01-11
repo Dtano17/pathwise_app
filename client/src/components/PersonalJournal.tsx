@@ -1695,7 +1695,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                       >
                         {/* Web enrichment image header - full image display */}
                         {hasWebImage && (
-                          <div className="relative w-full aspect-video bg-muted overflow-hidden">
+                          <div className="relative w-full aspect-square sm:aspect-video bg-muted overflow-hidden">
                             {/* Blurred background for cinematic feel */}
                             <div 
                               className="absolute inset-0 bg-cover bg-center blur-xl scale-110 opacity-50"
@@ -1705,7 +1705,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                             <img
                               src={primaryImage}
                               alt={webEnrichment?.venueName || text.substring(0, 30)}
-                              className="relative w-full h-full object-contain z-10 scale-[1.05]"
+                              className="relative w-full h-full object-contain z-10 scale-[1.1]"
                               loading="lazy"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
