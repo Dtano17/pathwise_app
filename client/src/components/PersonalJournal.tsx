@@ -1705,7 +1705,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                             <img
                               src={primaryImage}
                               alt={webEnrichment?.venueName || text.substring(0, 30)}
-                              className="relative w-full h-full object-contain z-10"
+                              className="relative w-full h-full object-contain z-10 scale-[1.05]"
                               loading="lazy"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
@@ -1749,10 +1749,10 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                 <Pencil className="w-3 h-3" /> Custom
                               </div>
                             )}
-                            {/* Verified badge - positioned safely */}
+                            {/* Verified badge - positioned safely with background for visibility */}
                             {webEnrichment?.venueVerified && !hasManualOverride && (
-                              <div className="absolute top-2 right-2 bg-green-500/95 text-white text-[10px] sm:text-xs px-2 py-1 rounded-full flex items-center gap-1 shadow-lg z-20">
-                                <Check className="w-3 h-3" /> Verified
+                              <div className="absolute top-3 right-3 bg-green-500/95 text-white text-[10px] sm:text-xs px-2.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-xl z-30 border border-white/20">
+                                <Check className="w-3.5 h-3.5" /> <span>Verified</span>
                               </div>
                             )}
                             {/* Mark as Watched/Read/Attended button - floating on image */}
