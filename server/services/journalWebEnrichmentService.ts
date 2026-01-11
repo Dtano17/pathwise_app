@@ -118,6 +118,47 @@ export interface JournalEntryForEnrichment {
   existingEnrichment?: WebEnrichedData;
 }
 
+/**
+ * Universal Batch Context - AI-inferred understanding of a collection
+ * Works across ALL categories: restaurants, books, music, fitness, movies, events, etc.
+ *
+ * Example: ["Nobu", "Per Se", "Eleven Madison Park"] →
+ *   { contentType: "restaurant", collectionDescription: "high-end NYC fine dining, Michelin starred",
+ *     inferredCuisine: "upscale American/Japanese fusion", inferredPriceRange: "$$$$" }
+ */
+export interface UniversalBatchContext {
+  // What type of content is this collection?
+  contentType: 'movie' | 'tv_show' | 'book' | 'music' | 'restaurant' | 'bar' | 'fitness' | 'travel' | 'event' | 'product' | 'mixed' | 'unknown';
+
+  // AI-generated description of what the collection is
+  collectionDescription: string | null;
+
+  // Common characteristics inferred from the batch
+  inferredGenre?: string;        // e.g., "horror movies", "self-help books", "electronic music"
+  inferredEra?: string;          // e.g., "2025-2026 releases", "80s classics", "contemporary"
+  inferredRegion?: string;       // e.g., "US", "Korea", "NYC", "European"
+  inferredStyle?: string;        // e.g., "minimalist", "luxury", "casual", "high-intensity"
+
+  // Category-specific inferred attributes
+  inferredCuisine?: string;      // For restaurants: "Italian", "Japanese fusion", etc.
+  inferredPriceRange?: '$' | '$$' | '$$$' | '$$$$';  // For restaurants, venues
+  inferredDifficulty?: string;   // For fitness: "beginner", "advanced"
+  inferredMuscleGroups?: string[];  // For fitness: ["chest", "back", "legs"]
+  inferredArtist?: string;       // For music: common artist/band
+  inferredAuthor?: string;       // For books: common author
+
+  // Temporal context
+  isUpcoming?: boolean;          // Are these future/upcoming items?
+  isClassic?: boolean;           // Are these classic/historical items?
+  yearRange?: { min: number; max: number } | null;
+
+  // Confidence in the inference (0-1)
+  confidence: number;
+
+  // Raw titles analyzed
+  analyzedTitles: string[];
+}
+
 export interface EnrichmentResult {
   entryId: string;
   success: boolean;
@@ -233,6 +274,155 @@ class JournalWebEnrichmentService {
     }
   }
 
+  // Current batch context for collective inference across all categories
+  private currentBatchContext: UniversalBatchContext | null = null;
+
+  // ==========================================================================
+  // UNIVERSAL BATCH CONTEXT INFERENCE
+  // Uses AI to understand what a collection of items IS before searching
+  // ==========================================================================
+
+  /**
+   * AI-powered batch context inference for ANY category type.
+   *
+   * Step 1: Look at collection like ["Nobu", "Per Se", "Eleven Madison Park"]
+   * Step 2: AI infers "These are high-end NYC fine dining restaurants, Michelin starred"
+   * Step 3: Use that context to constrain searches (e.g., search "Eleven Madison Park" as NYC fine dining)
+   *
+   * This prevents mismatches where generic names get wrong results.
+   */
+  async inferUniversalBatchContext(entries: JournalEntryForEnrichment[]): Promise<UniversalBatchContext | null> {
+    if (!this.anthropic || entries.length < 2) {
+      console.log(`[BATCH_CONTEXT] Skipping batch inference: ${!this.anthropic ? 'no API' : 'too few entries'}`);
+      return null;
+    }
+
+    // Extract titles/names from entries
+    const titles: string[] = [];
+    for (const entry of entries.slice(0, 15)) { // Limit for performance
+      const extracted = this.extractVenueInfo(entry.text);
+      if (extracted.venueName) {
+        titles.push(extracted.venueName);
+      } else {
+        // Fallback: use first 50 chars of text
+        titles.push(entry.text.substring(0, 50).trim());
+      }
+    }
+
+    if (titles.length < 2) {
+      console.log(`[BATCH_CONTEXT] Not enough valid titles extracted`);
+      return null;
+    }
+
+    console.log(`[BATCH_CONTEXT] Analyzing ${titles.length} items with AI: ${titles.slice(0, 5).join(', ')}...`);
+
+    try {
+      const response = await this.anthropic.messages.create({
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 500,
+        messages: [{
+          role: 'user',
+          content: `Analyze this list of items and determine what they have in common.
+
+Items:
+${titles.map((t, i) => `${i + 1}. ${t}`).join('\n')}
+
+Your task:
+1. Identify WHAT type of content this is (movies, TV shows, books, music/artists, restaurants, bars/clubs, fitness/exercises, travel destinations, events, products)
+2. Identify common characteristics (genre, era, style, region, cuisine type, difficulty level, etc.)
+3. Determine if these are upcoming/new releases or classics
+
+Respond ONLY with valid JSON:
+{
+  "contentType": "movie" | "tv_show" | "book" | "music" | "restaurant" | "bar" | "fitness" | "travel" | "event" | "product" | "mixed" | "unknown",
+  "collectionDescription": "brief description of what this collection is (e.g., '2025-2026 upcoming Hollywood blockbusters', 'NYC Michelin-starred restaurants', 'contemporary female pop artists', 'compound strength exercises')",
+  "inferredGenre": "genre/category if applicable",
+  "inferredEra": "time period (e.g., '2025-2026', '80s classics', 'contemporary')",
+  "inferredRegion": "geographic region if applicable (e.g., 'US', 'Korea', 'NYC', 'European')",
+  "inferredStyle": "style descriptor if applicable",
+  "inferredCuisine": "for restaurants only",
+  "inferredPriceRange": "$" | "$$" | "$$$" | "$$$$" (for restaurants/venues),
+  "inferredDifficulty": "for fitness: beginner/intermediate/advanced",
+  "inferredMuscleGroups": ["list", "of", "muscle", "groups"] (for fitness),
+  "inferredArtist": "common artist/band for music",
+  "inferredAuthor": "common author for books",
+  "isUpcoming": true/false,
+  "isClassic": true/false,
+  "yearRange": { "min": 2025, "max": 2026 } | null,
+  "confidence": 0.0-1.0
+}`
+        }]
+      });
+
+      const textContent = response.content[0];
+      if (textContent.type !== 'text') {
+        return null;
+      }
+
+      // Parse AI response
+      const text = textContent.text.trim();
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.warn(`[BATCH_CONTEXT] AI did not return valid JSON`);
+        return null;
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      const batchContext: UniversalBatchContext = {
+        contentType: parsed.contentType || 'unknown',
+        collectionDescription: parsed.collectionDescription || null,
+        inferredGenre: parsed.inferredGenre,
+        inferredEra: parsed.inferredEra,
+        inferredRegion: parsed.inferredRegion,
+        inferredStyle: parsed.inferredStyle,
+        inferredCuisine: parsed.inferredCuisine,
+        inferredPriceRange: parsed.inferredPriceRange,
+        inferredDifficulty: parsed.inferredDifficulty,
+        inferredMuscleGroups: parsed.inferredMuscleGroups,
+        inferredArtist: parsed.inferredArtist,
+        inferredAuthor: parsed.inferredAuthor,
+        isUpcoming: parsed.isUpcoming || false,
+        isClassic: parsed.isClassic || false,
+        yearRange: parsed.yearRange || null,
+        confidence: parsed.confidence || 0.5,
+        analyzedTitles: titles
+      };
+
+      console.log(`[BATCH_CONTEXT] AI inference result:`, {
+        contentType: batchContext.contentType,
+        description: batchContext.collectionDescription,
+        genre: batchContext.inferredGenre,
+        era: batchContext.inferredEra,
+        region: batchContext.inferredRegion,
+        confidence: batchContext.confidence
+      });
+
+      // Store for use in individual enrichments
+      this.currentBatchContext = batchContext;
+
+      return batchContext;
+
+    } catch (error) {
+      console.error(`[BATCH_CONTEXT] AI inference failed:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get the current batch context (set during batch enrichment)
+   */
+  getBatchContext(): UniversalBatchContext | null {
+    return this.currentBatchContext;
+  }
+
+  /**
+   * Clear the current batch context (call after batch is complete)
+   */
+  clearBatchContext(): void {
+    this.currentBatchContext = null;
+  }
+
   // ==========================================================================
   // GOOGLE BOOKS API - For reliable book cover and metadata
   // ==========================================================================
@@ -314,6 +504,7 @@ class JournalWebEnrichmentService {
    * Returns the TMDB result if a movie/TV show is detected to avoid duplicate API calls.
    *
    * This replaces hardcoded keyword matching with AI-driven context analysis.
+   * Now enhanced with batch context for better inference of ambiguous items.
    */
   private async validateAndCorrectCategory(
     text: string,
@@ -323,6 +514,42 @@ class JournalWebEnrichmentService {
     // Use AI to extract rich context from the input
     const inputForContext = venueName ? `${venueName} - ${text}` : text;
     const context = await extractContext(inputForContext);
+
+    // =========================================================================
+    // BATCH CONTEXT BOOST
+    // If we have batch context, use it to boost confidence for matching types
+    // =========================================================================
+    const batchCtx = this.currentBatchContext;
+    if (batchCtx && batchCtx.confidence > 0.6) {
+      // Map batch content types to context entity types
+      const batchToEntityType: Record<string, string> = {
+        'movie': 'movie',
+        'tv_show': 'tv_show',
+        'book': 'book',
+        'music': 'music',
+        'restaurant': 'restaurant',
+        'bar': 'bar_club',
+        'fitness': 'fitness',
+        'travel': 'travel',
+        'event': 'event',
+        'product': 'product'
+      };
+
+      const expectedEntityType = batchToEntityType[batchCtx.contentType];
+
+      // If batch says these are movies and context is unsure, boost toward movie
+      if (expectedEntityType && context.entityType === 'unknown') {
+        console.log(`[CATEGORY_VALIDATOR] Batch context override: setting type to ${expectedEntityType} (batch confidence: ${batchCtx.confidence})`);
+        (context as any).entityType = expectedEntityType;
+        context.confidence = Math.max(context.confidence, 0.7);
+      }
+
+      // If batch and context agree, boost confidence
+      if (expectedEntityType === context.entityType) {
+        context.confidence = Math.min(1.0, context.confidence + 0.15);
+        console.log(`[CATEGORY_VALIDATOR] Batch context agreement: boosted confidence to ${context.confidence}`);
+      }
+    }
 
     console.log(`[CATEGORY_VALIDATOR] Extracted context: type=${context.entityType}, name="${context.entityName}", year=${context.year || 'none'}, platform=${context.platform || 'none'}, confidence=${context.confidence}`);
 
@@ -758,7 +985,26 @@ Respond with ONLY a JSON object in this format:
 
     console.log(`[JOURNAL_WEB_ENRICH] ${needsEnrichment.length} entries need enrichment`);
 
-    // Process in parallel with rate limiting (max 3 concurrent)
+    // =========================================================================
+    // STEP 1: UNIVERSAL BATCH CONTEXT INFERENCE
+    // Before processing individual items, analyze the batch as a whole
+    // This helps us understand what type of collection we're dealing with
+    // =========================================================================
+    if (needsEnrichment.length >= 2) {
+      try {
+        const batchContext = await this.inferUniversalBatchContext(needsEnrichment);
+        if (batchContext && batchContext.confidence > 0.5) {
+          console.log(`[JOURNAL_WEB_ENRICH] Batch context established: ${batchContext.contentType} - "${batchContext.collectionDescription}"`);
+        }
+      } catch (error) {
+        console.warn(`[JOURNAL_WEB_ENRICH] Batch context inference failed, continuing without context:`, error);
+      }
+    }
+
+    // =========================================================================
+    // STEP 2: PROCESS INDIVIDUAL ENTRIES WITH BATCH CONTEXT
+    // Each entry enrichment can now use the batch context for better matching
+    // =========================================================================
     const results: EnrichmentResult[] = [];
     const batchSize = 3;
 
@@ -774,6 +1020,12 @@ Respond with ONLY a JSON object in this format:
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
+
+    // =========================================================================
+    // STEP 3: CLEAR BATCH CONTEXT
+    // Clean up after batch processing is complete
+    // =========================================================================
+    this.clearBatchContext();
 
     const successCount = results.filter(r => r.success).length;
     console.log(`[JOURNAL_WEB_ENRICH] Batch complete: ${successCount}/${results.length} successful`);
@@ -1169,6 +1421,42 @@ Respond with ONLY a JSON object in this format:
     // This prevents "Wicked for Good" from returning "Puppy Love" results
     let query = `"${venueName}"`;
 
+    // =========================================================================
+    // BATCH CONTEXT ENHANCEMENT
+    // If we have batch context, use it to add relevant search constraints
+    // =========================================================================
+    const batchCtx = this.currentBatchContext;
+    if (batchCtx && batchCtx.confidence > 0.5) {
+      // Add region/location context
+      if (batchCtx.inferredRegion) {
+        query += ` ${batchCtx.inferredRegion}`;
+      }
+
+      // Add cuisine context for restaurants
+      if (batchCtx.inferredCuisine) {
+        query += ` ${batchCtx.inferredCuisine}`;
+      }
+
+      // Add era/year context for temporal items
+      if (batchCtx.inferredEra) {
+        query += ` ${batchCtx.inferredEra}`;
+      } else if (batchCtx.yearRange) {
+        query += ` ${batchCtx.yearRange.min}-${batchCtx.yearRange.max}`;
+      }
+
+      // Add genre context
+      if (batchCtx.inferredGenre) {
+        query += ` ${batchCtx.inferredGenre}`;
+      }
+
+      // Add style context (luxury, casual, etc.)
+      if (batchCtx.inferredStyle) {
+        query += ` ${batchCtx.inferredStyle}`;
+      }
+
+      console.log(`[SEARCH_QUERY] Enhanced with batch context: "${query.substring(0, 100)}..."`);
+    }
+
     // Category-specific search strategies for better image/info retrieval
     // OPTIMIZED: Better search terms for music and movies to get album art, posters, streaming links
     const categorySearchConfig: Record<string, { suffix: string; imageHint: string }> = {
@@ -1206,7 +1494,7 @@ Respond with ONLY a JSON object in this format:
     };
 
     const config = category ? categorySearchConfig[category] : null;
-    
+
     if (config) {
       query += ` ${config.suffix}`;
     } else if (city) {
