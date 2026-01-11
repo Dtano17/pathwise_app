@@ -18,6 +18,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import { tmdbService, TMDBSearchResult } from './tmdbService';
 import { spotifyEnrichmentService } from './spotifyEnrichmentService';
 import { generateSmartImageQueryCached } from './journalAIQueryService';
+import {
+  extractContext,
+  ExtractedContext,
+  validateEnrichment,
+  getDynamicThreshold,
+} from './dynamicCategorizationService';
 
 // ============================================================================
 // TYPES
@@ -299,73 +305,142 @@ class JournalWebEnrichmentService {
   }
 
   // ==========================================================================
-  // AI CATEGORY VALIDATOR - Detects if content belongs to a different category
+  // DYNAMIC CONTEXT-AWARE CATEGORY VALIDATOR
+  // Uses AI to extract rich context and score matches - no hardcoded keywords
   // ==========================================================================
 
   /**
-   * Validate and potentially correct the category based on content signals.
-   * Returns the TMDB result if a movie is detected to avoid duplicate API calls.
+   * Validate and potentially correct the category using dynamic context extraction.
+   * Returns the TMDB result if a movie/TV show is detected to avoid duplicate API calls.
+   *
+   * This replaces hardcoded keyword matching with AI-driven context analysis.
    */
   private async validateAndCorrectCategory(
     text: string,
     currentCategory: string,
     venueName?: string
-  ): Promise<{ category: string; confidence: number; tmdbResult?: TMDBSearchResult }> {
-    const textLower = text.toLowerCase();
+  ): Promise<{ category: string; confidence: number; tmdbResult?: TMDBSearchResult; context?: ExtractedContext }> {
+    // Use AI to extract rich context from the input
+    const inputForContext = venueName ? `${venueName} - ${text}` : text;
+    const context = await extractContext(inputForContext);
 
-    // 1. Check for Movie/TV signals - be aggressive for Entertainment category
-    const movieKeywords = ['movie', 'film', 'cinema', 'watch', 'streaming', 'netflix', 'hulu', 'hbo', 'disney+', 'theater', 'premiere', 'ranked movie', 'stream', '#1 ranked', '#2 ranked', '#3 ranked'];
-    const isMovieSignal = movieKeywords.some(kw => textLower.includes(kw));
-    const isEntertainmentCategory = currentCategory === 'Entertainment' ||
-                                     currentCategory === 'custom-entertainment' ||
-                                     currentCategory === 'movies' ||
-                                     currentCategory === 'Movies & TV Shows';
+    console.log(`[CATEGORY_VALIDATOR] Extracted context: type=${context.entityType}, name="${context.entityName}", year=${context.year || 'none'}, platform=${context.platform || 'none'}, confidence=${context.confidence}`);
 
-    // For Entertainment category, ALWAYS check TMDB to verify if it's a movie
-    // OPTIMIZATION: Return the TMDB result to avoid calling TMDB again in enrichment
-    if ((isMovieSignal || isEntertainmentCategory) && tmdbService.isAvailable() && venueName) {
-      const tmdbResult = await tmdbService.searchMovie(venueName);
+    // Get dynamic threshold based on context (short names need stricter matching)
+    const threshold = getDynamicThreshold(context);
+
+    // Map entity type to category
+    const ENTITY_TO_DISPLAY_CATEGORY: Record<string, string> = {
+      'movie': 'Movies & TV Shows',
+      'tv_show': 'Movies & TV Shows',
+      'book': 'Books & Reading',
+      'music': 'Music & Artists',
+      'restaurant': 'Restaurants & Food',
+      'bar_club': 'Bars & Nightlife',
+      'event': 'Events & Activities',
+      'fitness': 'Fitness & Exercise',
+      'travel': 'Travel & Places',
+      'product': 'Shopping',
+      'unknown': currentCategory
+    };
+
+    // For movies/TV shows: Validate with TMDB using extracted context
+    if ((context.entityType === 'movie' || context.entityType === 'tv_show') && tmdbService.isAvailable()) {
+      const searchName = context.entityName;
+
+      // Use the appropriate TMDB search based on entity type
+      let tmdbResult: TMDBSearchResult | null = null;
+
+      if (context.entityType === 'tv_show') {
+        // For TV shows, search TV directly with year if available
+        console.log(`[CATEGORY_VALIDATOR] TV show detected, searching TMDB TV: "${searchName}" (year: ${context.year || 'any'})`);
+        tmdbResult = await tmdbService.searchTV(searchName, context.year?.toString() || null);
+      } else {
+        // For movies, use searchMovie which handles year extraction
+        console.log(`[CATEGORY_VALIDATOR] Movie detected, searching TMDB: "${searchName}" (year: ${context.year || 'any'})`);
+        tmdbResult = await tmdbService.searchMovie(context.year ? `${searchName} ${context.year}` : searchName);
+      }
+
       if (tmdbResult) {
-        console.log(`[CATEGORY_VALIDATOR] Confirmed "${venueName}" as movie via TMDB (cached for enrichment)`);
-        return { category: 'Movies & TV Shows', confidence: 0.98, tmdbResult };
+        // Validate the TMDB result matches our context
+        const validation = await validateEnrichment(context, {
+          title: tmdbResult.title,
+          year: tmdbResult.releaseYear ? parseInt(tmdbResult.releaseYear, 10) : undefined
+        }, context.entityType === 'tv_show' ? 'tmdb_tv' : 'tmdb_movie');
+
+        if (validation.isValid) {
+          console.log(`[CATEGORY_VALIDATOR] TMDB match validated: "${tmdbResult.title}" (${tmdbResult.releaseYear}) - confidence: ${validation.confidence}`);
+          return {
+            category: 'Movies & TV Shows',
+            confidence: validation.confidence,
+            tmdbResult,
+            context
+          };
+        } else {
+          console.log(`[CATEGORY_VALIDATOR] TMDB match rejected: ${validation.reason}`);
+        }
       }
     }
 
-    // 2. Check for Book signals - but NOT if in Entertainment (might be a movie)
-    const bookKeywords = ['read', 'book', 'novel', 'author', 'biography', 'memoir', 'chapters', 'finished reading', 'hardcover', 'paperback'];
-    const isBookSignal = bookKeywords.some(kw => textLower.includes(kw));
-    if (isBookSignal && currentCategory !== 'Books & Reading' && !isEntertainmentCategory) {
-      return { category: 'Books & Reading', confidence: 0.90 };
+    // For books: Direct category assignment if confident
+    if (context.entityType === 'book' && context.confidence >= 0.7) {
+      console.log(`[CATEGORY_VALIDATOR] High-confidence book detection`);
+      return { category: 'Books & Reading', confidence: context.confidence, context };
     }
 
-    // 3. Check for Restaurant signals
-    const foodKeywords = ['ate at', 'dinner', 'lunch', 'breakfast', 'brunch', 'delicious', 'menu', 'tasting', 'reservation at'];
-    const isFoodSignal = foodKeywords.some(kw => textLower.includes(kw));
-    if (isFoodSignal && currentCategory !== 'Restaurants & Food') {
-      return { category: 'Restaurants & Food', confidence: 0.85 };
+    // For music: Direct category assignment if confident
+    if (context.entityType === 'music' && context.confidence >= 0.7) {
+      console.log(`[CATEGORY_VALIDATOR] High-confidence music detection`);
+      return { category: 'Music & Artists', confidence: context.confidence, context };
     }
 
-    // 4. Check for Travel signals
-    const travelKeywords = ['stayed at', 'hotel', 'resort', 'visit', 'trip to', 'flight', 'traveling', 'landmark', 'museum', 'vacation'];
-    const isTravelSignal = travelKeywords.some(kw => textLower.includes(kw));
-    if (isTravelSignal && currentCategory !== 'Travel & Places') {
-      return { category: 'Travel & Places', confidence: 0.85 };
+    // For restaurants: Use context signals
+    if (context.entityType === 'restaurant' && context.confidence >= 0.6) {
+      console.log(`[CATEGORY_VALIDATOR] Restaurant detected: cuisine=${context.cuisine || 'unknown'}, location=${context.location || 'unknown'}`);
+      return { category: 'Restaurants & Food', confidence: context.confidence, context };
     }
 
-    // 5. LOW CONFIDENCE - Use AI + Tavily to validate category
-    // For entries with no clear signals, search the web to determine what this content actually is
-    if (venueName && this.tavilyClient) {
+    // For bars/clubs: Use context signals (venue type, location, "near me")
+    if (context.entityType === 'bar_club' && context.confidence >= 0.6) {
+      console.log(`[CATEGORY_VALIDATOR] Bar/Club detected: venueType=${context.venueType || 'unknown'}, location=${context.location || 'unknown'}, isNearMe=${context.isNearMe}`);
+      return { category: 'Bars & Nightlife', confidence: context.confidence, context };
+    }
+
+    // For events: Use context signals (event type, date, location)
+    if (context.entityType === 'event' && context.confidence >= 0.6) {
+      console.log(`[CATEGORY_VALIDATOR] Event detected: eventType=${context.eventType || 'unknown'}, eventDate=${context.eventDate || 'unknown'}, location=${context.location || 'unknown'}`);
+      return { category: 'Events & Activities', confidence: context.confidence, context };
+    }
+
+    // For fitness: Use context signals
+    if (context.entityType === 'fitness' && context.confidence >= 0.6) {
+      console.log(`[CATEGORY_VALIDATOR] Fitness detected: activity=${context.activityType || 'unknown'}, muscles=${context.muscleGroups?.join(', ') || 'unknown'}`);
+      return { category: 'Fitness & Exercise', confidence: context.confidence, context };
+    }
+
+    // For travel: Use context signals
+    if (context.entityType === 'travel' && context.confidence >= 0.6) {
+      console.log(`[CATEGORY_VALIDATOR] Travel detected: location=${context.location || 'unknown'}`);
+      return { category: 'Travel & Places', confidence: context.confidence, context };
+    }
+
+    // LOW CONFIDENCE: Use Tavily + AI for validation
+    if (venueName && context.confidence < 0.6 && this.tavilyClient) {
       try {
-        console.log(`[CATEGORY_VALIDATOR] Low confidence for "${venueName}", using Tavily + AI for validation`);
+        console.log(`[CATEGORY_VALIDATOR] Low confidence (${context.confidence}), using Tavily + AI for validation`);
 
-        // Search web for this entity
-        const searchResponse = await this.tavilyClient.search(venueName, {
+        // Build a smarter search query using extracted context
+        let searchQuery = context.entityName;
+        if (context.year) searchQuery += ` ${context.year}`;
+        if (context.cuisine) searchQuery += ` ${context.cuisine} restaurant`;
+        if (context.location) searchQuery += ` ${context.location}`;
+
+        const searchResponse = await this.tavilyClient.search(searchQuery, {
           maxResults: 3,
           searchDepth: 'basic'
         });
 
         if (searchResponse.results && searchResponse.results.length > 0) {
-          // Use AI to analyze search results and determine category
           const combinedContent = searchResponse.results
             .map(r => `${r.title}\n${r.content}`)
             .join('\n\n');
@@ -382,7 +457,7 @@ ${combinedContent}
 
 Respond with ONLY a JSON object in this format:
 {
-  "category": "Movies & TV Shows" | "Books & Reading" | "Music & Artists" | "Restaurants & Food" | "Travel & Places" | "Fitness & Exercise" | "Shopping" | "Activities" | "Notes",
+  "category": "Movies & TV Shows" | "Books & Reading" | "Music & Artists" | "Restaurants & Food" | "Bars & Nightlife" | "Events & Activities" | "Travel & Places" | "Fitness & Exercise" | "Shopping" | "Notes",
   "confidence": 0.0-1.0,
   "reasoning": "brief explanation"
 }`
@@ -394,21 +469,23 @@ Respond with ONLY a JSON object in this format:
 
             if (jsonMatch) {
               const aiResult = JSON.parse(jsonMatch[0]);
-              console.log(`[CATEGORY_VALIDATOR] AI validation result: ${aiResult.category} (confidence: ${aiResult.confidence})`);
-              return {
-                category: aiResult.category,
-                confidence: aiResult.confidence
-              };
+              console.log(`[CATEGORY_VALIDATOR] Tavily+AI validation: ${aiResult.category} (confidence: ${aiResult.confidence}) - ${aiResult.reasoning}`);
+              return { category: aiResult.category, confidence: aiResult.confidence, context };
             }
           }
         }
       } catch (error) {
-        console.warn(`[CATEGORY_VALIDATOR] AI validation failed:`, error);
-        // Fall through to default
+        console.warn(`[CATEGORY_VALIDATOR] Tavily+AI validation failed:`, error);
       }
     }
 
-    return { category: currentCategory, confidence: 0.5 };
+    // Return based on context if we have moderate confidence
+    if (context.confidence >= 0.5) {
+      const category = ENTITY_TO_DISPLAY_CATEGORY[context.entityType] || currentCategory;
+      return { category, confidence: context.confidence, context };
+    }
+
+    return { category: currentCategory, confidence: 0.5, context };
   }
 
   // ==========================================================================
