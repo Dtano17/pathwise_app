@@ -164,6 +164,47 @@ class TMDBService {
     return matches / queryWordsArray.length;
   }
 
+  /**
+   * Detect if query is clearly about a TV show (contains "Season X", "Episode X", "series", etc.)
+   */
+  private isTVShowQuery(query: string): boolean {
+    const tvPatterns = [
+      /season\s*\d+/i,           // "Season 4", "season 1"
+      /\bS\d{1,2}\b/i,           // "S04", "S1"
+      /episode\s*\d+/i,          // "Episode 5"
+      /\bE\d{1,2}\b/i,           // "E05"
+      /\bseries\b/i,             // "series"
+      /\bTV\s*show\b/i,          // "TV show"
+      /\bpremier(e|ing)\b/i,     // "premiering"
+      /\bHBO\b/i,                // HBO (usually TV)
+      /\bNetflix\b/i,            // Netflix (usually TV)
+      /\bDisney\+?\b/i,          // Disney+
+      /\bParamount\+?\b/i,       // Paramount+
+      /\bApple\s*TV\+?\b/i,      // Apple TV+
+      /\bAmazon\s*Prime\b/i,     // Amazon Prime
+      /\bHulu\b/i,               // Hulu
+      /\bMax\b/i,                // Max (HBO Max)
+    ];
+    return tvPatterns.some(p => p.test(query));
+  }
+
+  /**
+   * Extract the core show/movie name by removing season/episode info and service names
+   */
+  private extractCoreName(query: string): string {
+    return query
+      .replace(/\s*[-–—]\s*.*$/i, '')              // Remove everything after dash
+      .replace(/\s*season\s*\d+.*$/i, '')          // Remove "Season X" and after
+      .replace(/\s*S\d{1,2}E?\d*.*$/i, '')         // Remove "S04E01" and after
+      .replace(/\s*episode\s*\d+.*$/i, '')         // Remove "Episode X" and after
+      .replace(/\s*\(.*\)\s*$/i, '')               // Remove parenthetical info
+      .replace(/\s*(HBO|Netflix|Disney\+?|Paramount\+?|Apple\s*TV\+?|Amazon|Hulu|Max)\s*/gi, '') // Remove service names
+      .replace(/\s*(series|show|TV)\s*/gi, '')     // Remove generic terms
+      .replace(/\s*(premiering|premiere|TBA)\s*/gi, '') // Remove premiere info
+      .replace(/\s+/g, ' ')                        // Collapse whitespace
+      .trim();
+  }
+
   async searchMovie(query: string): Promise<TMDBSearchResult | null> {
     if (!this.apiKey) {
       console.warn('[TMDB] Cannot search - no API key configured');
@@ -171,6 +212,13 @@ class TMDBService {
     }
 
     try {
+      // CRITICAL: If query looks like a TV show, skip movie search entirely
+      if (this.isTVShowQuery(query)) {
+        console.log(`[TMDB] Query "${query}" looks like a TV show - skipping movie search`);
+        const coreName = this.extractCoreName(query);
+        return await this.searchTV(coreName, null);
+      }
+
       const cleanQuery = this.extractMovieTitle(query);
 
       // Extract year from query for more accurate matching
@@ -332,9 +380,13 @@ class TMDBService {
         searchYear = year;
       }
 
-      console.log(`[TMDB] Searching for TV show: "${searchTitle}"${searchYear ? ` (year: ${searchYear})` : ''}`);
+      // Count words in search title for stricter matching on short queries
+      const wordCount = searchTitle.split(/\s+/).filter(w => w.length > 1).length;
+      const isShortTitle = wordCount <= 2;
 
-      // Build URL with year filter if available
+      console.log(`[TMDB] Searching for TV show: "${searchTitle}"${searchYear ? ` (year: ${searchYear})` : ''} (${wordCount} words)`);
+
+      // Build URL - always use language=en-US for English content
       let url = `${TMDB_BASE_URL}/search/tv?api_key=${this.apiKey}&query=${encodeURIComponent(searchTitle)}&include_adult=false&language=en-US`;
       if (searchYear) {
         url += `&first_air_date_year=${searchYear}`;
@@ -350,28 +402,62 @@ class TMDBService {
         return null;
       }
 
-      // CRITICAL FIX: Find the best matching TV show with title AND year matching
+      // CRITICAL FIX: Find the best matching TV show with stricter criteria
       let bestMatch: TMDBTVShow | null = null;
       let bestScore = 0;
 
-      for (const show of data.results.slice(0, 10) as TMDBTVShow[]) {
+      // Current year for recency calculations
+      const currentYear = new Date().getFullYear();
+
+      for (const show of data.results.slice(0, 15) as TMDBTVShow[]) {
         let score = this.calculateTitleSimilarity(searchTitle, show.name);
         const showYear = show.first_air_date ? parseInt(show.first_air_date.substring(0, 4), 10) : null;
 
-        // Boost/penalize based on year matching
+        // For short titles (1-2 words like "Industry", "Euphoria"), require MUCH stricter matching
+        if (isShortTitle) {
+          // Must be exact title match (not just contains)
+          const normalizedSearch = searchTitle.toLowerCase().trim();
+          const normalizedShow = show.name.toLowerCase().trim();
+          if (normalizedSearch !== normalizedShow) {
+            // Penalize partial matches heavily for short titles
+            score -= 0.3;
+            console.log(`[TMDB] TV match: "${show.name}" (${showYear || '?'}) = ${(score * 100).toFixed(0)}% (short title - not exact match)`);
+            if (score < 0.5) continue; // Skip if too low after penalty
+          }
+        }
+
+        // Year-based scoring
         if (searchYear && showYear) {
           if (showYear === searchYear) {
-            score += 0.2; // Boost for exact year match
+            score += 0.25; // Strong boost for exact year match
             console.log(`[TMDB] TV match: "${show.name}" (${showYear}) = ${(score * 100).toFixed(0)}% (year match bonus)`);
           } else if (Math.abs(showYear - searchYear) <= 1) {
-            score += 0.1; // Small boost for off-by-one year
+            score += 0.1;
             console.log(`[TMDB] TV match: "${show.name}" (${showYear}) = ${(score * 100).toFixed(0)}% (year close)`);
           } else {
-            score -= 0.15; // Penalize wrong year
+            score -= 0.2; // Stronger penalty for wrong year
             console.log(`[TMDB] TV match: "${show.name}" (${showYear}) = ${(score * 100).toFixed(0)}% (year mismatch: wanted ${searchYear})`);
           }
+        } else if (showYear) {
+          // No target year specified - prefer recent shows (2015+)
+          if (showYear >= 2015) {
+            score += 0.15; // Boost recent content
+            console.log(`[TMDB] TV match: "${show.name}" (${showYear}) = ${(score * 100).toFixed(0)}% (recent content bonus)`);
+          } else if (showYear < 2000) {
+            score -= 0.25; // Heavily penalize old content when searching for modern TV
+            console.log(`[TMDB] TV match: "${show.name}" (${showYear}) = ${(score * 100).toFixed(0)}% (old content penalty)`);
+          } else {
+            console.log(`[TMDB] TV match: "${show.name}" (${showYear}) = ${(score * 100).toFixed(0)}%`);
+          }
         } else {
-          console.log(`[TMDB] TV match: "${show.name}" (${showYear || 'unknown'}) = ${(score * 100).toFixed(0)}%`);
+          console.log(`[TMDB] TV match: "${show.name}" (unknown year) = ${(score * 100).toFixed(0)}%`);
+        }
+
+        // Popularity bonus - prefer well-known shows
+        if (show.vote_count > 500) {
+          score += 0.1;
+        } else if (show.vote_count > 100) {
+          score += 0.05;
         }
 
         if (score > bestScore) {
@@ -379,12 +465,16 @@ class TMDBService {
           bestMatch = show;
         }
 
-        if (score >= 1.0) break;
+        // Perfect match with right year - stop searching
+        if (score >= 1.2) break;
       }
 
+      // For short titles, require even higher threshold
+      const effectiveThreshold = isShortTitle ? 0.75 : this.SIMILARITY_THRESHOLD;
+
       // Reject if no result meets threshold
-      if (!bestMatch || bestScore < this.SIMILARITY_THRESHOLD) {
-        console.log(`[TMDB] No good TV match for "${searchTitle}" (best score: ${(bestScore * 100).toFixed(0)}%)`);
+      if (!bestMatch || bestScore < effectiveThreshold) {
+        console.log(`[TMDB] No good TV match for "${searchTitle}" (best score: ${(bestScore * 100).toFixed(0)}%, threshold: ${(effectiveThreshold * 100).toFixed(0)}%)`);
         return null;
       }
 
