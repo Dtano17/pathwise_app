@@ -2,6 +2,8 @@
 <resources>
     <string name="app_name">JournalMate</string>
     <string name="title_activity_main">JournalMate</string>
+    <!-- Short label for share sheet (fits better in limited space) -->
+    <string name="share_target_label">Planner</string>
     <string name="package_name">ai.journalmate.app</string>
     <string name="custom_url_scheme">ai.journalmate.app</string>
     <!-- Google OAuth Web Client ID from Google Cloud Console -->
