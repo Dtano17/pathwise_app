@@ -24,8 +24,11 @@ import {
 import {
   requestCalendarPermission,
   addActivityToCalendar,
-  openCalendarApp
+  openCalendarApp,
+  getWeeksCalendarEvents,
+  syncCalendarToTasks
 } from '@/lib/calendar';
+import type { MobilePreferences } from '@shared/schema';
 import {
   startForegroundService,
   stopForegroundService,
@@ -35,9 +38,12 @@ import {
 import {
   checkBiometricAvailability,
   authenticateWithBiometric,
-  getBiometryTypeName
+  getBiometryTypeName,
+  enableBiometricLogin,
+  disableBiometricLogin,
+  isBiometricLoginEnabled
 } from '@/lib/biometric';
-import { triggerHaptic, hapticsCelebrate } from '@/lib/haptics';
+import { triggerHaptic, hapticsCelebrate, hapticsToggle } from '@/lib/haptics';
 import { setupDefaultShortcuts, isShortcutsSupported, getShortcuts } from '@/lib/appShortcuts';
 import { checkSpeechAvailability, startSpeechRecognition, requestSpeechPermission } from '@/lib/speech';
 import {
@@ -130,11 +136,40 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
   const [speechAvailable, setSpeechAvailable] = useState(false);
   const [speechLoading, setSpeechLoading] = useState(false);
   const [speechText, setSpeechText] = useState('');
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [calendarSyncLoading, setCalendarSyncLoading] = useState(false);
 
   // Get user preferences
   const { data: preferences } = useQuery<UserPreferences>({
     queryKey: ['/api/user/preferences'],
     enabled: isAuthenticated,
+  });
+
+  // Get mobile preferences (for native features toggles)
+  const { data: mobilePrefs, refetch: refetchMobilePrefs } = useQuery<MobilePreferences>({
+    queryKey: ['/api/mobile/preferences'],
+    enabled: isAuthenticated && isNative(),
+  });
+
+  // Update mobile preferences mutation
+  const updateMobilePrefsMutation = useMutation({
+    mutationFn: (updates: Partial<MobilePreferences>) =>
+      apiRequest('PATCH', '/api/mobile/preferences', updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/mobile/preferences'] });
+      hapticsToggle(true);
+      toast({
+        title: "Mobile settings updated",
+        description: "Your mobile preferences have been saved.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update mobile settings.",
+        variant: "destructive",
+      });
+    },
   });
 
   // Get scheduling suggestions for selected date
@@ -581,6 +616,122 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
     } finally {
       setBiometricLoading(false);
     }
+  };
+
+  // Toggle biometric login (enable/disable)
+  const handleBiometricToggle = async (enabled: boolean) => {
+    setBiometricLoading(true);
+    try {
+      if (enabled) {
+        // Enable biometric - requires user credentials for secure storage
+        // For now, we just enable the preference - actual credential storage happens at login
+        const result = await authenticateWithBiometric({
+          title: 'Enable Biometric Login',
+          reason: 'Verify your identity to enable biometric login',
+        });
+
+        if (result.success) {
+          await updateMobilePrefsMutation.mutateAsync({ enableBiometric: true });
+          setBiometricEnabled(true);
+          await hapticsCelebrate();
+          toast({
+            title: 'Biometric Login Enabled',
+            description: `You can now use ${getBiometryTypeName(biometryType)} to sign in`,
+          });
+        } else {
+          toast({
+            title: 'Could not enable',
+            description: result.error || 'Biometric verification required',
+            variant: 'destructive'
+          });
+        }
+      } else {
+        // Disable biometric login
+        await disableBiometricLogin();
+        await updateMobilePrefsMutation.mutateAsync({ enableBiometric: false });
+        setBiometricEnabled(false);
+        toast({
+          title: 'Biometric Login Disabled',
+          description: 'You will need to use your password to sign in',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update biometric settings',
+        variant: 'destructive'
+      });
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
+
+  // Import calendar events as tasks (bidirectional sync)
+  const handleImportCalendarEvents = async () => {
+    setCalendarSyncLoading(true);
+    try {
+      const today = new Date();
+      const weekEnd = new Date(today);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+
+      const result = await syncCalendarToTasks(today, weekEnd);
+
+      if (!result.success) {
+        toast({
+          title: 'Import Failed',
+          description: result.error || 'Could not import calendar events',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      if (result.tasks.length === 0) {
+        toast({
+          title: 'No Events Found',
+          description: 'No calendar events found for the next 7 days',
+        });
+        return;
+      }
+
+      // Create tasks from calendar events
+      let imported = 0;
+      for (const task of result.tasks) {
+        try {
+          await apiRequest('POST', '/api/tasks', {
+            title: task.title,
+            description: task.description,
+            category: 'calendar',
+            priority: task.priority,
+            dueDate: task.dueDate.toISOString(),
+          });
+          imported++;
+        } catch (e) {
+          console.warn('Failed to import task:', task.title, e);
+        }
+      }
+
+      // Refresh tasks list
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+
+      await hapticsCelebrate();
+      toast({
+        title: 'Calendar Imported',
+        description: `${imported} events imported as tasks`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Import Error',
+        description: error.message || 'Failed to import calendar events',
+        variant: 'destructive'
+      });
+    } finally {
+      setCalendarSyncLoading(false);
+    }
+  };
+
+  // Toggle mobile preference
+  const handleMobilePrefToggle = async (key: keyof MobilePreferences, value: boolean) => {
+    await updateMobilePrefsMutation.mutateAsync({ [key]: value });
   };
 
   // Test haptic feedback
@@ -1042,34 +1193,74 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
 
             <Separator />
 
-            {/* Calendar Integration */}
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm flex items-center gap-2">
-                  <CalendarPlus className="w-4 h-4" />
-                  Calendar Integration
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Add activities to your calendar
-                </p>
+            {/* Calendar Integration - Bidirectional Sync */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm flex items-center gap-2">
+                    <CalendarPlus className="w-4 h-4" />
+                    Calendar Integration
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Sync activities with your calendar
+                  </p>
+                </div>
+                <Switch
+                  checked={mobilePrefs?.enableCalendarSync ?? false}
+                  onCheckedChange={(checked) => handleMobilePrefToggle('enableCalendarSync', checked)}
+                  disabled={updateMobilePrefsMutation.isPending}
+                />
               </div>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleTestCalendar}
-                  disabled={calendarLoading}
-                >
-                  {calendarLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Test'}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => openCalendarApp()}
-                >
-                  Open
-                </Button>
-              </div>
+
+              {mobilePrefs?.enableCalendarSync && (
+                <div className="pl-6 space-y-3">
+                  {/* Sync Direction */}
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Sync Direction</Label>
+                    <select
+                      className="text-xs bg-background border rounded px-2 py-1"
+                      value={mobilePrefs?.calendarSyncDirection ?? 'export'}
+                      onChange={(e) => updateMobilePrefsMutation.mutate({
+                        calendarSyncDirection: e.target.value as 'export' | 'import' | 'bidirectional'
+                      })}
+                    >
+                      <option value="export">Export to Calendar</option>
+                      <option value="import">Import from Calendar</option>
+                      <option value="bidirectional">Both Ways</option>
+                    </select>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2">
+                    {(mobilePrefs?.calendarSyncDirection === 'import' ||
+                      mobilePrefs?.calendarSyncDirection === 'bidirectional') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleImportCalendarEvents}
+                        disabled={calendarSyncLoading}
+                      >
+                        {calendarSyncLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Import Events'}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleTestCalendar}
+                      disabled={calendarLoading}
+                    >
+                      {calendarLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Test Event'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => openCalendarApp()}
+                    >
+                      Open
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Lock Screen Notification (Android only) */}
@@ -1134,76 +1325,123 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
           </CardHeader>
           <CardContent className="space-y-4 p-3 sm:p-6">
 
-            {/* Biometric Authentication */}
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm flex items-center gap-2">
-                  {biometryType?.includes('FACE') ? <ScanFace className="w-4 h-4" /> : <Fingerprint className="w-4 h-4" />}
-                  Biometric Authentication
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  {biometricAvailable
-                    ? `${getBiometryTypeName(biometryType)} available`
-                    : 'Not available on this device'}
-                </p>
+            {/* Biometric Authentication - Toggle */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm flex items-center gap-2">
+                    {biometryType?.includes('FACE') ? <ScanFace className="w-4 h-4" /> : <Fingerprint className="w-4 h-4" />}
+                    Biometric Login
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {biometricAvailable
+                      ? `Use ${getBiometryTypeName(biometryType)} to sign in`
+                      : 'Not available on this device'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={mobilePrefs?.enableBiometric ?? false}
+                    onCheckedChange={handleBiometricToggle}
+                    disabled={biometricLoading || !biometricAvailable}
+                  />
+                  {biometricLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                </div>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleTestBiometric}
-                disabled={biometricLoading || !biometricAvailable}
-              >
-                {biometricLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Test'}
-              </Button>
+              {mobilePrefs?.enableBiometric && biometricAvailable && (
+                <div className="pl-6">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleTestBiometric}
+                    disabled={biometricLoading}
+                  >
+                    Test {getBiometryTypeName(biometryType)}
+                  </Button>
+                </div>
+              )}
             </div>
 
             <Separator />
 
-            {/* Haptic Feedback */}
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm flex items-center gap-2">
-                  <Vibrate className="w-4 h-4" />
-                  Haptic Feedback
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Test vibration patterns
-                </p>
+            {/* Haptic Feedback - Toggle with Options */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm flex items-center gap-2">
+                    <Vibrate className="w-4 h-4" />
+                    Haptic Feedback
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Vibration feedback for actions
+                  </p>
+                </div>
+                <Switch
+                  checked={mobilePrefs?.enableHaptics ?? true}
+                  onCheckedChange={(checked) => handleMobilePrefToggle('enableHaptics', checked)}
+                  disabled={updateMobilePrefsMutation.isPending}
+                />
               </div>
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleTestHaptics('light')}
-                  className="px-2"
-                >
-                  Light
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleTestHaptics('medium')}
-                  className="px-2"
-                >
-                  Med
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleTestHaptics('heavy')}
-                  className="px-2"
-                >
-                  Heavy
-                </Button>
-                <Button
-                  size="sm"
-                  variant="default"
-                  onClick={() => handleTestHaptics('celebrate')}
-                  className="px-2"
-                >
-                  <PartyPopper className="w-4 h-4" />
-                </Button>
-              </div>
+
+              {mobilePrefs?.enableHaptics && (
+                <div className="pl-6 space-y-3">
+                  {/* Launch Haptic */}
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Haptic on app launch</Label>
+                    <Switch
+                      checked={mobilePrefs?.enableLaunchHaptic ?? true}
+                      onCheckedChange={(checked) => handleMobilePrefToggle('enableLaunchHaptic', checked)}
+                      disabled={updateMobilePrefsMutation.isPending}
+                    />
+                  </div>
+
+                  {/* Completion Haptic */}
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Haptic on task completion</Label>
+                    <Switch
+                      checked={mobilePrefs?.enableCompletionHaptic ?? true}
+                      onCheckedChange={(checked) => handleMobilePrefToggle('enableCompletionHaptic', checked)}
+                      disabled={updateMobilePrefsMutation.isPending}
+                    />
+                  </div>
+
+                  {/* Test Haptics */}
+                  <div className="flex gap-1 pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleTestHaptics('light')}
+                      className="px-2"
+                    >
+                      Light
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleTestHaptics('medium')}
+                      className="px-2"
+                    >
+                      Med
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleTestHaptics('heavy')}
+                      className="px-2"
+                    >
+                      Heavy
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => handleTestHaptics('celebrate')}
+                      className="px-2"
+                    >
+                      <PartyPopper className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* App Shortcuts (Android only) */}

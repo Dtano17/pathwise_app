@@ -1,8 +1,11 @@
+import { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { TrendingUp, Calendar, Target, Flame, Award, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { isNative } from '@/lib/platform';
+import { syncWidgetWithApp, updateWidgetData } from '@/lib/widgetManager';
 
 interface ProgressData {
   completedToday: number;
@@ -12,6 +15,12 @@ interface ProgressData {
   completionRate: number;
   categories: { name: string; completed: number; total: number; }[];
   recentAchievements: string[];
+  pendingTasks?: Array<{
+    id: string;
+    title: string;
+    dueDate?: string;
+    priority?: string;
+  }>;
 }
 
 interface ProgressDashboardProps {
@@ -19,6 +28,37 @@ interface ProgressDashboardProps {
 }
 
 export default function ProgressDashboard({ data }: ProgressDashboardProps) {
+  // Sync progress data to widget when it changes
+  useEffect(() => {
+    const syncToWidget = async () => {
+      if (!isNative()) return;
+
+      try {
+        // Update widget with progress data
+        await updateWidgetData({
+          streakCount: data.weeklyStreak,
+          stats: {
+            completedToday: data.completedToday,
+            totalToday: data.totalToday,
+            completionRate: data.completionRate,
+          },
+          tasks: (data.pendingTasks || []).slice(0, 5).map(task => ({
+            id: task.id,
+            title: task.title,
+            dueDate: task.dueDate,
+            priority: task.priority as 'low' | 'medium' | 'high' | undefined,
+          })),
+          lastUpdated: new Date().toISOString(),
+          version: 1,
+        });
+        console.log('[WIDGET] Progress dashboard synced to widget');
+      } catch (error) {
+        console.log('[WIDGET] Failed to sync progress to widget:', error);
+      }
+    };
+
+    syncToWidget();
+  }, [data.weeklyStreak, data.completedToday, data.totalToday, data.completionRate, data.pendingTasks]);
   const todayPercentage = data.totalToday > 0 ? (data.completedToday / data.totalToday) * 100 : 0;
 
   return (

@@ -22,6 +22,7 @@ import {
   insertChatImportSchema,
   insertPrioritySchema,
   insertNotificationPreferencesSchema,
+  insertMobilePreferencesSchema,
   insertTaskReminderSchema,
   insertSchedulingSuggestionSchema,
   insertUserProfileSchema,
@@ -45,6 +46,7 @@ import {
   type Activity,
   type ActivityTask,
   type NotificationPreferences,
+  type MobilePreferences,
   type SignupUser,
   type ProfileCompletion,
   type LifestylePlannerSession,
@@ -10152,6 +10154,42 @@ Return ONLY valid JSON, no markdown or explanation.`;
     } catch (error) {
       console.error('Error updating notification preferences:', error);
       res.status(500).json({ error: 'Failed to update notification preferences' });
+    }
+  });
+
+  // Mobile Preferences (haptics, biometrics, calendar sync, etc.)
+  app.get("/api/mobile/preferences", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const preferences = await storage.getOrCreateMobilePreferences(userId);
+      res.json(preferences);
+    } catch (error) {
+      console.error('Error fetching mobile preferences:', error);
+      res.status(500).json({ error: 'Failed to fetch mobile preferences' });
+    }
+  });
+
+  app.patch("/api/mobile/preferences", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const updates = insertMobilePreferencesSchema.partial().parse(req.body);
+
+      // Ensure preferences exist first
+      await storage.getOrCreateMobilePreferences(userId);
+
+      const preferences = await storage.updateMobilePreferences(userId, updates);
+
+      if (!preferences) {
+        return res.status(404).json({ error: 'Mobile preferences not found' });
+      }
+
+      res.json({ success: true, preferences });
+    } catch (error) {
+      console.error('Error updating mobile preferences:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Invalid preferences data', details: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to update mobile preferences' });
     }
   });
 

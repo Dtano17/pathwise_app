@@ -35,7 +35,8 @@ import {
   Navigation,
   Loader2,
   Check,
-  AlertCircle
+  AlertCircle,
+  Plus
 } from 'lucide-react';
 
 interface UserProfile {
@@ -307,18 +308,23 @@ export default function UserProfile() {
     });
   };
 
-  const ProfileEditSection = ({ 
-    title, 
-    sectionKey, 
-    children 
-  }: { 
+  const ProfileEditSection = ({
+    title,
+    sectionKey,
+    children,
+    icon
+  }: {
     title: string;
     sectionKey: string;
     children: React.ReactNode;
+    icon?: React.ReactNode;
   }) => (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-base font-medium">{title}</CardTitle>
+        <CardTitle className="text-base font-medium flex items-center gap-2">
+          {icon}
+          {title}
+        </CardTitle>
         <Button
           variant="ghost"
           size="sm"
@@ -825,16 +831,68 @@ export default function UserProfile() {
               </Card>
             </TabsContent>
 
-            {/* Interests & Goals Tab */}
+            {/* Interests & Goals Tab - Editable */}
             <TabsContent value="interests" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Heart className="w-4 h-4" />
-                    Interests & Hobbies
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+              <ProfileEditSection title="Interests & Hobbies" sectionKey="interests" icon={<Heart className="w-4 h-4" />}>
+                {editingSection === 'interests' ? (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap gap-2">
+                      {(profile.interests || []).map((interest, index) => (
+                        <Badge key={index} variant="secondary" className="flex items-center gap-1 pr-1">
+                          {interest}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-4 w-4 p-0 hover:bg-destructive/20"
+                            onClick={() => {
+                              const newInterests = [...(profile.interests || [])];
+                              newInterests.splice(index, 1);
+                              updateProfileMutation.mutate({ interests: newInterests });
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Add an interest (e.g., hiking, cooking)"
+                        id="new-interest-input"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const input = e.target as HTMLInputElement;
+                            const value = input.value.trim();
+                            if (value) {
+                              const newInterests = [...(profile.interests || []), value];
+                              updateProfileMutation.mutate({ interests: newInterests });
+                              input.value = '';
+                            }
+                          }
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const input = document.getElementById('new-interest-input') as HTMLInputElement;
+                          const value = input?.value.trim();
+                          if (value) {
+                            const newInterests = [...(profile.interests || []), value];
+                            updateProfileMutation.mutate({ interests: newInterests });
+                            input.value = '';
+                          }
+                        }}
+                        disabled={updateProfileMutation.isPending}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Add your hobbies and interests to help personalize your experience
+                    </p>
+                  </div>
+                ) : (
                   <div className="flex flex-wrap gap-2">
                     {profile.interests && profile.interests.length > 0 ? (
                       profile.interests.map((interest, index) => (
@@ -843,20 +901,73 @@ export default function UserProfile() {
                         </Badge>
                       ))
                     ) : (
-                      <p className="text-muted-foreground text-sm">No interests added yet</p>
+                      <p className="text-muted-foreground text-sm">No interests added yet. Click edit to add your hobbies!</p>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                )}
+              </ProfileEditSection>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Target className="w-4 h-4" />
-                    Life Goals
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+              <ProfileEditSection title="Life Goals" sectionKey="lifeGoals" icon={<Target className="w-4 h-4" />}>
+                {editingSection === 'lifeGoals' ? (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      {(profile.lifeGoals || []).map((goal, index) => (
+                        <div key={index} className="flex items-center gap-2 group">
+                          <Target className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                          <span className="text-sm flex-1">{goal}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => {
+                              const newGoals = [...(profile.lifeGoals || [])];
+                              newGoals.splice(index, 1);
+                              updateProfileMutation.mutate({ lifeGoals: newGoals });
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Add a life goal (e.g., Travel to Japan)"
+                        id="new-goal-input"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const input = e.target as HTMLInputElement;
+                            const value = input.value.trim();
+                            if (value) {
+                              const newGoals = [...(profile.lifeGoals || []), value];
+                              updateProfileMutation.mutate({ lifeGoals: newGoals });
+                              input.value = '';
+                            }
+                          }
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const input = document.getElementById('new-goal-input') as HTMLInputElement;
+                          const value = input?.value.trim();
+                          if (value) {
+                            const newGoals = [...(profile.lifeGoals || []), value];
+                            updateProfileMutation.mutate({ lifeGoals: newGoals });
+                            input.value = '';
+                          }
+                        }}
+                        disabled={updateProfileMutation.isPending}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Add your long-term aspirations and dreams to track your progress
+                    </p>
+                  </div>
+                ) : (
                   <div className="space-y-2">
                     {profile.lifeGoals && profile.lifeGoals.length > 0 ? (
                       profile.lifeGoals.map((goal, index) => (
@@ -866,11 +977,11 @@ export default function UserProfile() {
                         </div>
                       ))
                     ) : (
-                      <p className="text-muted-foreground text-sm">No life goals added yet</p>
+                      <p className="text-muted-foreground text-sm">No life goals added yet. Click edit to add your aspirations!</p>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                )}
+              </ProfileEditSection>
             </TabsContent>
 
             {/* Private Notes Tab */}

@@ -86,6 +86,8 @@ import {
   type InsertUserSavedContent,
   type ContentImport,
   type InsertContentImport,
+  type MobilePreferences,
+  type InsertMobilePreferences,
   users,
   goals,
   tasks,
@@ -126,7 +128,8 @@ import {
   extensionTokens,
   urlContentCache,
   userSavedContent,
-  contentImports
+  contentImports,
+  mobilePreferences
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -514,6 +517,12 @@ export interface IStorage {
     estimatedCost?: number;
     category?: string;
   }>>;
+
+  // Mobile Preferences
+  getMobilePreferences(userId: string): Promise<MobilePreferences | undefined>;
+  createMobilePreferences(prefs: InsertMobilePreferences & { userId: string }): Promise<MobilePreferences>;
+  updateMobilePreferences(userId: string, updates: Partial<InsertMobilePreferences>): Promise<MobilePreferences | undefined>;
+  getOrCreateMobilePreferences(userId: string): Promise<MobilePreferences>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4322,6 +4331,40 @@ export class DatabaseStorage implements IStorage {
     mobileAuthTokens.delete(token); // One-time use
     console.log(`[MOBILE_AUTH] Token consumed for user ${record.userId}`);
     return { userId: record.userId };
+  }
+
+  // Mobile Preferences
+  async getMobilePreferences(userId: string): Promise<MobilePreferences | undefined> {
+    const [result] = await db
+      .select()
+      .from(mobilePreferences)
+      .where(eq(mobilePreferences.userId, userId));
+    return result;
+  }
+
+  async createMobilePreferences(prefs: InsertMobilePreferences & { userId: string }): Promise<MobilePreferences> {
+    const [result] = await db
+      .insert(mobilePreferences)
+      .values(prefs)
+      .returning();
+    return result;
+  }
+
+  async updateMobilePreferences(userId: string, updates: Partial<InsertMobilePreferences>): Promise<MobilePreferences | undefined> {
+    const [result] = await db
+      .update(mobilePreferences)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(mobilePreferences.userId, userId))
+      .returning();
+    return result;
+  }
+
+  async getOrCreateMobilePreferences(userId: string): Promise<MobilePreferences> {
+    const existing = await this.getMobilePreferences(userId);
+    if (existing) {
+      return existing;
+    }
+    return this.createMobilePreferences({ userId });
   }
 }
 
