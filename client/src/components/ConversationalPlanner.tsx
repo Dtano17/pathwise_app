@@ -487,6 +487,14 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
         }
         
         // Handle completed plan creation
+        console.log('[PLANNER DEBUG] Final data received:', {
+          activityCreated: finalData.activityCreated,
+          hasCreatedTasks: !!finalData.createdTasks,
+          taskCount: finalData.createdTasks?.length,
+          activityId: finalData.activity?.id,
+          activityTitle: finalData.activity?.title
+        });
+
         if (finalData.activityCreated && finalData.createdTasks) {
           queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
           queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
@@ -515,11 +523,13 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
             });
             
             // Store created activity info for display in chat
-            setCreatedActivityInfo({
+            const activityInfo = {
               id: finalData.activity.id,
               title: finalData.activity.title,
               taskCount: finalData.createdTasks.length
-            });
+            };
+            console.log('[PLANNER DEBUG] Setting createdActivityInfo:', activityInfo);
+            setCreatedActivityInfo(activityInfo);
             
             // Show toast with navigation option
             toast({
@@ -2517,28 +2527,24 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 {/* Activity Link Display - Shows when session is complete with activity created */}
                 {currentSession?.isComplete && createdActivityInfo && (
                   <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 border border-emerald-200 dark:border-emerald-700">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-800 flex items-center justify-center">
-                        <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
+                    <button
+                      onClick={() => setLocation(`/?tab=activities&activity=${createdActivityInfo.id}`)}
+                      className="flex items-center gap-3 w-full text-left hover:opacity-80 transition-opacity group"
+                      data-testid="link-created-activity"
+                    >
+                      <div className="h-10 w-10 rounded-full bg-emerald-500 dark:bg-emerald-600 flex items-center justify-center flex-shrink-0">
+                        <Target className="h-5 w-5 text-white" />
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
-                          Activity Created Successfully!
+                      <div className="flex-1 min-w-0">
+                        <p className="text-base font-semibold text-emerald-700 dark:text-emerald-300 truncate group-hover:underline">
+                          {createdActivityInfo.title}
                         </p>
-                        <button
-                          onClick={() => setLocation(`/?tab=activities&activity=${createdActivityInfo.id}`)}
-                          className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 mt-0.5"
-                          data-testid="link-created-activity"
-                        >
-                          <Target className="h-3 w-3" />
-                          <span className="font-semibold">{createdActivityInfo.title}</span>
-                          <span className="text-emerald-500 dark:text-emerald-500">
-                            ({createdActivityInfo.taskCount} tasks)
-                          </span>
-                          <ExternalLink className="h-3 w-3 ml-1" />
-                        </button>
+                        <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                          {createdActivityInfo.taskCount} tasks • Click to view activity
+                        </p>
                       </div>
-                    </div>
+                      <ExternalLink className="h-4 w-4 text-emerald-500 dark:text-emerald-400 flex-shrink-0" />
+                    </button>
                   </div>
                 )}
                 
@@ -2560,8 +2566,57 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                       <span>Paste a URL, upload a video/audio/document, or combine multiple sources</span>
                     </div>
                     {currentSession?.conversationHistory && currentSession.conversationHistory.length > 0 && (
-                      <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-                        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">💡 Hint: Say "continue" to answer more questions, or "create plan" to generate now</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-slate-500 dark:text-slate-400">💡 Quick actions:</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs px-3 bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 border-slate-200 dark:border-slate-700"
+                          onClick={() => {
+                            setMessage('continue');
+                            setTimeout(() => sendMessageMutation.mutate({
+                              message: 'continue',
+                              conversationHistory: currentSession?.conversationHistory || [],
+                              mode: planningMode || 'quick'
+                            }), 100);
+                          }}
+                          disabled={isGenerating}
+                        >
+                          Continue
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs px-3 bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 border-slate-200 dark:border-slate-700"
+                          onClick={() => {
+                            setMessage('preview');
+                            setTimeout(() => sendMessageMutation.mutate({
+                              message: 'preview',
+                              conversationHistory: currentSession?.conversationHistory || [],
+                              mode: planningMode || 'quick'
+                            }), 100);
+                          }}
+                          disabled={isGenerating}
+                        >
+                          Preview
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="h-7 text-xs px-3 bg-emerald-600 hover:bg-emerald-700 text-white"
+                          onClick={() => {
+                            setMessage('create plan');
+                            setTimeout(() => sendMessageMutation.mutate({
+                              message: 'create plan',
+                              conversationHistory: currentSession?.conversationHistory || [],
+                              mode: planningMode || 'quick'
+                            }), 100);
+                          }}
+                          disabled={isGenerating}
+                        >
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          Create Plan
+                        </Button>
                       </div>
                     )}
                   </div>
