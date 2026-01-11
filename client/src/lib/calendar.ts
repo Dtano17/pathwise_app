@@ -57,6 +57,7 @@ export interface BatchCalendarResult {
 
 /**
  * Request calendar permissions
+ * Uses the newer requestFullCalendarAccess() for Android (READ_CALENDAR + WRITE_CALENDAR)
  */
 export async function requestCalendarPermission(): Promise<CalendarPermissionStatus> {
   if (!isNative()) {
@@ -65,16 +66,24 @@ export async function requestCalendarPermission(): Promise<CalendarPermissionSta
   }
 
   try {
-    const permission = await CapacitorCalendar.requestAllPermissions();
+    console.log('[CALENDAR] Requesting full calendar access...');
 
-    // iOS returns { readCalendar: true, writeCalendar: true }
-    // Android returns { readCalendar: true, writeCalendar: true }
-    const granted = permission.readCalendar && permission.writeCalendar;
-    const readOnly = permission.readCalendar && !permission.writeCalendar;
-    const denied = !permission.readCalendar && !permission.writeCalendar;
+    // Use the non-deprecated method for requesting full calendar access
+    const permission = await CapacitorCalendar.requestFullCalendarAccess();
 
-    console.log('[CALENDAR] Permission status:', { granted, readOnly, denied });
-    return { granted, readOnly, denied };
+    console.log('[CALENDAR] requestFullCalendarAccess result:', JSON.stringify(permission));
+
+    // permission.result is a PermissionState: 'granted' | 'denied' | 'prompt'
+    const isGranted = permission.result === 'granted';
+    const isDenied = permission.result === 'denied';
+
+    console.log('[CALENDAR] Permission state:', permission.result, '- granted:', isGranted);
+
+    return {
+      granted: isGranted,
+      readOnly: false,
+      denied: isDenied
+    };
   } catch (error) {
     console.error('[CALENDAR] Failed to request permission:', error);
     return { granted: false, readOnly: false, denied: true };
@@ -91,9 +100,18 @@ export async function checkCalendarPermission(): Promise<CalendarPermissionStatu
 
   try {
     const permission = await CapacitorCalendar.checkAllPermissions();
-    const granted = permission.readCalendar && permission.writeCalendar;
-    const readOnly = permission.readCalendar && !permission.writeCalendar;
-    const denied = !permission.readCalendar && !permission.writeCalendar;
+
+    console.log('[CALENDAR] checkAllPermissions result:', JSON.stringify(permission));
+
+    // permission.result contains { readCalendar: PermissionState, writeCalendar: PermissionState, ... }
+    const readState = permission.result?.readCalendar;
+    const writeState = permission.result?.writeCalendar;
+
+    const granted = readState === 'granted' && writeState === 'granted';
+    const readOnly = readState === 'granted' && writeState !== 'granted';
+    const denied = readState === 'denied' && writeState === 'denied';
+
+    console.log('[CALENDAR] Permission check - read:', readState, 'write:', writeState, 'granted:', granted);
 
     return { granted, readOnly, denied };
   } catch (error) {

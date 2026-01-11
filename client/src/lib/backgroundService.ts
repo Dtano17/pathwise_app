@@ -66,11 +66,16 @@ export async function startForegroundService(): Promise<boolean> {
   }
 
   try {
+    console.log('[BACKGROUND] Starting foreground service...');
     const result = await BackgroundService.startForegroundService();
     console.log('[BACKGROUND] Foreground service started:', result.success);
     return result.success;
-  } catch (error) {
+  } catch (error: any) {
+    // Log detailed error info for debugging
     console.error('[BACKGROUND] Failed to start foreground service:', error);
+    console.error('[BACKGROUND] Error message:', error?.message);
+    console.error('[BACKGROUND] Error code:', error?.code);
+    console.error('[BACKGROUND] Error details:', JSON.stringify(error, null, 2));
     return false;
   }
 }

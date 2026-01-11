@@ -8,6 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { isNative, isAndroid } from '@/lib/platform';
@@ -19,14 +26,18 @@ import {
 import {
   requestContactsPermission,
   getContacts,
-  syncContactsWithServer
+  syncContactsWithServer,
+  pickContact,
+  shareInviteWithContact
 } from '@/lib/contacts';
 import {
   requestCalendarPermission,
   addActivityToCalendar,
   openCalendarApp,
   getWeeksCalendarEvents,
-  syncCalendarToTasks
+  syncCalendarToTasks,
+  getCalendars,
+  type Calendar as DeviceCalendar
 } from '@/lib/calendar';
 import type { MobilePreferences } from '@shared/schema';
 import {
@@ -138,6 +149,14 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
   const [speechText, setSpeechText] = useState('');
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [calendarSyncLoading, setCalendarSyncLoading] = useState(false);
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
+  const [availableCalendars, setAvailableCalendars] = useState<DeviceCalendar[]>([]);
+  const [pendingCalendarEvent, setPendingCalendarEvent] = useState<{
+    title: string;
+    startDate: Date;
+    endDate: Date;
+    notes?: string;
+  } | null>(null);
 
   // Get user preferences
   const { data: preferences } = useQuery<UserPreferences>({
@@ -470,6 +489,49 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
     }
   };
 
+  // Invite a friend by picking from contacts
+  const handleInviteFromContacts = async () => {
+    setContactsLoading(true);
+    try {
+      console.log('[SETTINGS] Opening contact picker for invite...');
+      const contact = await pickContact();
+
+      if (!contact) {
+        // User cancelled - not an error
+        setContactsLoading(false);
+        return;
+      }
+
+      console.log('[SETTINGS] Contact selected:', contact.displayName);
+
+      // Open SMS/email to invite the contact
+      const success = await shareInviteWithContact(contact);
+
+      if (success) {
+        toast({
+          title: 'Invite Sent',
+          description: `Opening messaging to invite ${contact.displayName}`
+        });
+      } else {
+        toast({
+          title: 'Unable to Invite',
+          description: 'Contact has no phone number or email',
+          variant: 'destructive'
+        });
+      }
+    } catch (error: any) {
+      console.error('[SETTINGS] Invite error:', error);
+      toast({
+        title: 'Invite Failed',
+        description: error.message || 'Failed to open contacts',
+        variant: 'destructive'
+      });
+    } finally {
+      setContactsLoading(false);
+    }
+  };
+
+  // Keep the old sync function for the Contacts page
   const handleSyncContacts = async () => {
     setContactsLoading(true);
     try {
@@ -511,39 +573,92 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
   const handleTestCalendar = async () => {
     setCalendarLoading(true);
     try {
+      console.log('[SETTINGS] Testing calendar - requesting permission...');
       const permission = await requestCalendarPermission();
+      console.log('[SETTINGS] Permission result:', permission);
+
       if (!permission.granted) {
         toast({
           title: 'Permission Required',
-          description: 'Please grant calendar access',
+          description: 'Please grant calendar access in your device settings',
           variant: 'destructive'
         });
         setCalendarLoading(false);
         return;
       }
 
-      const result = await addActivityToCalendar({
+      // After permission granted, fetch available calendars and show picker
+      console.log('[SETTINGS] Permission granted, fetching calendars...');
+      const calendars = await getCalendars();
+      console.log('[SETTINGS] Found calendars:', calendars.length);
+
+      if (calendars.length === 0) {
+        toast({
+          title: 'No Calendars Found',
+          description: 'No writable calendars found on your device',
+          variant: 'destructive'
+        });
+        setCalendarLoading(false);
+        return;
+      }
+
+      // Store the pending event and show calendar picker
+      setPendingCalendarEvent({
         title: 'JournalMate Test Event',
         startDate: new Date(),
         endDate: new Date(Date.now() + 60 * 60 * 1000), // 1 hour from now
         notes: 'This is a test event from JournalMate'
       });
+      setAvailableCalendars(calendars);
+      setShowCalendarPicker(true);
+      setCalendarLoading(false);
+    } catch (error: any) {
+      console.error('[SETTINGS] Calendar error:', error);
+      toast({
+        title: 'Calendar Error',
+        description: error.message || 'Failed to access calendar',
+        variant: 'destructive'
+      });
+      setCalendarLoading(false);
+    }
+  };
+
+  // Handle selecting a calendar from the picker
+  const handleCalendarSelect = async (calendarId: string) => {
+    setShowCalendarPicker(false);
+
+    if (!pendingCalendarEvent) return;
+
+    setCalendarLoading(true);
+    try {
+      const result = await addActivityToCalendar({
+        ...pendingCalendarEvent,
+        calendarId
+      });
+
+      const selectedCalendar = availableCalendars.find(c => c.id === calendarId);
 
       toast({
         title: result.success ? 'Event Added' : 'Failed',
         description: result.success
-          ? 'Test event added to your calendar'
+          ? `Event added to "${selectedCalendar?.title || 'calendar'}"`
           : result.error || 'Failed to add event',
         variant: result.success ? 'default' : 'destructive'
       });
+
+      // Save selected calendar as default if successful
+      if (result.success && selectedCalendar) {
+        updateMobilePrefsMutation.mutate({ defaultCalendarId: calendarId });
+      }
     } catch (error: any) {
       toast({
         title: 'Calendar Error',
-        description: error.message || 'Failed to test calendar',
+        description: error.message || 'Failed to add event',
         variant: 'destructive'
       });
     } finally {
       setCalendarLoading(false);
+      setPendingCalendarEvent(null);
     }
   };
 
@@ -1170,24 +1285,24 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
 
             <Separator />
 
-            {/* Contacts Sync */}
+            {/* Invite Friends from Contacts */}
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-sm flex items-center gap-2">
                   <Users className="w-4 h-4" />
-                  Contacts Sync
+                  Invite Friends
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Import contacts to share goals
+                  Invite friends from your contacts
                 </p>
               </div>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={handleSyncContacts}
+                onClick={handleInviteFromContacts}
                 disabled={contactsLoading}
               >
-                {contactsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sync'}
+                {contactsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Invite'}
               </Button>
             </div>
 
@@ -1514,6 +1629,54 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
           </CardContent>
         </Card>
       )}
+
+      {/* Calendar Picker Dialog */}
+      <Dialog open={showCalendarPicker} onOpenChange={setShowCalendarPicker}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Select Calendar
+            </DialogTitle>
+            <DialogDescription>
+              Choose which calendar to add the event to
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {availableCalendars.map((calendar) => (
+              <Button
+                key={calendar.id}
+                variant={calendar.id === mobilePrefs?.defaultCalendarId ? "default" : "outline"}
+                className="w-full justify-start gap-2"
+                onClick={() => handleCalendarSelect(calendar.id)}
+                disabled={calendar.isReadOnly}
+              >
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: calendar.color || '#6366f1' }}
+                />
+                <span className="truncate flex-1 text-left">{calendar.title}</span>
+                {calendar.isPrimary && (
+                  <Badge variant="secondary" className="text-xs">Primary</Badge>
+                )}
+                {calendar.isReadOnly && (
+                  <Badge variant="outline" className="text-xs">Read-only</Badge>
+                )}
+              </Button>
+            ))}
+          </div>
+          <Button
+            variant="ghost"
+            className="w-full mt-2"
+            onClick={() => {
+              setShowCalendarPicker(false);
+              setPendingCalendarEvent(null);
+            }}
+          >
+            Cancel
+          </Button>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
