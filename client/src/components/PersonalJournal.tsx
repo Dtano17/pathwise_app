@@ -861,15 +861,13 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
   const [refreshingEntryId, setRefreshingEntryId] = useState<string | null>(null);
   const refreshSingleEntryMutation = useMutation({
     mutationFn: async ({ category, entryIndex, entryId }: { category: string; entryIndex: number; entryId?: string }) => {
+      setRefreshingEntryId(entryId || `idx-${entryIndex}`);
       const response = await apiRequest('POST', '/api/user/journal/web-enrich/single', {
         category,
         entryIndex,
         entryId
       });
       return response.json();
-    },
-    onMutate: ({ entryId }) => {
-      setRefreshingEntryId(entryId || null);
     },
     onSuccess: (data) => {
       setRefreshingEntryId(null);
