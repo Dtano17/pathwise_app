@@ -107,12 +107,14 @@ export async function setupDefaultShortcuts(): Promise<boolean> {
   }
 
   try {
-    const plugin = getNativeShortcutsPlugin();
+    // Use retry version since Capacitor bridge may not be ready immediately
+    const plugin = await getNativeShortcutsPluginWithRetry();
     if (plugin) {
       const result = await plugin.setupDefaultShortcuts();
       console.log('[SHORTCUTS] Default shortcuts setup:', result);
       return result.success;
     }
+    console.log('[SHORTCUTS] Plugin not available after retries');
     return false;
   } catch (error) {
     console.error('[SHORTCUTS] Failed to setup default shortcuts:', error);
@@ -129,7 +131,7 @@ export async function setShortcuts(shortcuts: ShortcutConfig[]): Promise<boolean
   }
 
   try {
-    const plugin = getNativeShortcutsPlugin();
+    const plugin = await getNativeShortcutsPluginWithRetry();
     if (plugin) {
       const result = await plugin.setShortcuts({ shortcuts });
       console.log('[SHORTCUTS] Set shortcuts:', result);
@@ -151,7 +153,7 @@ export async function addShortcut(shortcut: ShortcutConfig): Promise<boolean> {
   }
 
   try {
-    const plugin = getNativeShortcutsPlugin();
+    const plugin = await getNativeShortcutsPluginWithRetry();
     if (plugin) {
       const result = await plugin.addShortcut(shortcut);
       console.log('[SHORTCUTS] Added shortcut:', shortcut.id);
@@ -173,7 +175,7 @@ export async function removeShortcut(id: string): Promise<boolean> {
   }
 
   try {
-    const plugin = getNativeShortcutsPlugin();
+    const plugin = await getNativeShortcutsPluginWithRetry();
     if (plugin) {
       const result = await plugin.removeShortcut({ id });
       console.log('[SHORTCUTS] Removed shortcut:', id);
@@ -195,7 +197,7 @@ export async function getShortcuts(): Promise<ShortcutInfo[]> {
   }
 
   try {
-    const plugin = getNativeShortcutsPlugin();
+    const plugin = await getNativeShortcutsPluginWithRetry();
     if (plugin) {
       const result = await plugin.getShortcuts();
       return result.shortcuts || [];

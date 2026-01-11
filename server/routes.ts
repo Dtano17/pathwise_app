@@ -62,7 +62,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import Stripe from 'stripe';
-import { sendGroupNotification } from './services/notificationService';
+import { sendGroupNotification, sendUserNotification } from './services/notificationService';
 import { tavily } from '@tavily/core';
 import { getActivityImage, searchBackdropOptions } from './services/webImageSearch';
 import { socialMediaVideoService } from './services/socialMediaVideoService';
@@ -4693,15 +4693,17 @@ ${sitemaps.map(sitemap => `  <sitemap>
         );
 
         // If this user was invited via email/phone, send special notification to inviter
+        // Use sendUserNotification to send both in-app AND push notification
         if (inviterUserId) {
-          await storage.createUserNotification({
-            userId: inviterUserId,
-            sourceGroupId: result.group.id,
-            actorUserId: userId,
-            type: 'group_invite_accepted',
+          await sendUserNotification(storage, inviterUserId, {
             title: 'Invite accepted!',
             body: `${joiningUser?.username || 'Someone'} accepted your invite and joined "${result.group.name}"`,
-            metadata: { groupId: result.group.id, newMemberId: userId, route: `/groups/${result.group.id}` }
+            data: {
+              groupId: result.group.id,
+              newMemberId: userId,
+              type: 'group_invite_accepted'
+            },
+            route: `/groups/${result.group.id}`,
           });
         }
       } catch (notifError) {

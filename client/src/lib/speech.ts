@@ -134,12 +134,15 @@ export async function requestSpeechPermission(): Promise<boolean> {
 
   if (isAndroid()) {
     try {
-      const plugin = getNativeSpeechPlugin();
+      // Use retry version since Capacitor bridge may not be ready immediately
+      const plugin = await getNativeSpeechPluginWithRetry();
       if (plugin) {
+        console.log('[SPEECH] Requesting microphone permission...');
         const result = await plugin.requestPermission();
         console.log('[SPEECH] Permission request result:', result);
         return result.granted;
       }
+      console.log('[SPEECH] Plugin not available for permission request');
     } catch (error) {
       console.error('[SPEECH] Failed to request permission:', error);
     }
@@ -162,7 +165,7 @@ export async function startSpeechRecognition(options: {
 
   // Try Android native plugin first
   if (isNative() && isAndroid()) {
-    const plugin = getNativeSpeechPlugin();
+    const plugin = await getNativeSpeechPluginWithRetry();
     if (plugin) {
       try {
         console.log('[SPEECH] Starting Android native recognition');
@@ -192,7 +195,7 @@ export async function startSpeechRecognition(options: {
  */
 export async function stopSpeechRecognition(): Promise<void> {
   if (isNative() && isAndroid()) {
-    const plugin = getNativeSpeechPlugin();
+    const plugin = await getNativeSpeechPluginWithRetry();
     if (plugin) {
       try {
         await plugin.stopListening();
@@ -213,7 +216,7 @@ export async function stopSpeechRecognition(): Promise<void> {
  */
 export async function cancelSpeechRecognition(): Promise<void> {
   if (isNative() && isAndroid()) {
-    const plugin = getNativeSpeechPlugin();
+    const plugin = await getNativeSpeechPluginWithRetry();
     if (plugin) {
       try {
         await plugin.cancel();
