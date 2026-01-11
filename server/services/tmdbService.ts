@@ -77,8 +77,14 @@ export interface TMDBSearchResult {
  */
 export interface BatchContext {
   inferredYear: number | null;
+  inferredYearRange: { min: number; max: number } | null;
   inferredLanguage: string | null;
   inferredMediaType: 'movie' | 'tv' | null;
+  inferredGenre: string | null;
+  inferredRegion: string | null; // "US", "UK", "Korea", etc.
+  collectionDescription: string | null; // AI-generated description of what the collection is
+  isUpcoming: boolean;
+  isClassic: boolean;
   confidence: number; // 0-1 based on how many items agreed
 }
 
@@ -103,14 +109,123 @@ class TMDBService {
   }
 
   /**
-   * Analyze a batch of titles to extract common context for inference.
-   * Call this BEFORE searching individual items to enable collective inference.
+   * AI-POWERED BATCH CONTEXT INFERENCE
    *
-   * Example: If 7/10 items are 2026 English movies, the remaining 3 ambiguous
-   * items will be searched with a preference for 2026 English movies.
+   * Step 1: Use AI to semantically understand WHAT the collection represents
+   * Step 2: Use that context to constrain TMDB searches
+   *
+   * Example:
+   *   Input: ["Wicked Part Two", "Mission Impossible 8", "Eternity", "The Secret Agent"]
+   *   AI Output: "These are 2025-2026 upcoming US theatrical releases"
+   *   Context: { yearRange: {min: 2025, max: 2026}, region: "US", mediaType: "movie", isUpcoming: true }
    */
   async analyzeBatchContext(titles: string[]): Promise<BatchContext> {
-    console.log(`[TMDB] Analyzing batch context for ${titles.length} items...`);
+    console.log(`[TMDB] AI-powered batch context inference for ${titles.length} items...`);
+
+    // For single items, skip batch analysis
+    if (titles.length <= 1) {
+      this.batchContext = this.getEmptyBatchContext();
+      return this.batchContext;
+    }
+
+    try {
+      // Use AI to understand what the collection represents
+      const aiContext = await this.inferCollectionContextWithAI(titles);
+
+      if (aiContext) {
+        this.batchContext = aiContext;
+        console.log(`[TMDB] AI inferred: "${aiContext.collectionDescription}" - year=${aiContext.inferredYear || aiContext.inferredYearRange?.min + '-' + aiContext.inferredYearRange?.max}, region=${aiContext.inferredRegion}, type=${aiContext.inferredMediaType}, genre=${aiContext.inferredGenre}`);
+        return this.batchContext;
+      }
+    } catch (error) {
+      console.warn('[TMDB] AI batch inference failed, falling back to statistical analysis:', error);
+    }
+
+    // Fallback: Statistical analysis if AI fails
+    return await this.analyzeStatisticalBatchContext(titles);
+  }
+
+  /**
+   * Use AI (Claude Haiku) to semantically understand WHAT the collection represents.
+   * This is the FIRST step before any TMDB searches.
+   */
+  private async inferCollectionContextWithAI(titles: string[]): Promise<BatchContext | null> {
+    // Check if Anthropic API is available
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (!anthropicKey) {
+      console.log('[TMDB] No Anthropic API key, skipping AI inference');
+      return null;
+    }
+
+    try {
+      const Anthropic = (await import('@anthropic-ai/sdk')).default;
+      const anthropic = new Anthropic({ apiKey: anthropicKey });
+
+      const currentYear = new Date().getFullYear();
+      const titlesPreview = titles.slice(0, 15).join('\n- ');
+
+      const response = await anthropic.messages.create({
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 300,
+        messages: [{
+          role: 'user',
+          content: `Analyze this list of titles and determine what they have in common. What category/type of content is this collection?
+
+Titles:
+- ${titlesPreview}
+
+Current year: ${currentYear}
+
+Respond ONLY with valid JSON (no explanation):
+{
+  "collectionDescription": "brief description of what this collection is, e.g., '2025-2026 upcoming US blockbuster movies' or 'classic 1990s action films' or 'Korean drama TV series'",
+  "mediaType": "movie" | "tv" | "mixed" | null,
+  "yearRange": { "min": number, "max": number } | null,
+  "primaryYear": number | null,
+  "language": "en" | "ko" | "ja" | "es" | "fr" | null,
+  "region": "US" | "UK" | "Korea" | "Japan" | "France" | "International" | null,
+  "genre": "action" | "drama" | "comedy" | "thriller" | "horror" | "sci-fi" | "romance" | "animation" | "documentary" | "mixed" | null,
+  "isUpcoming": boolean,
+  "isClassic": boolean,
+  "confidence": 0.0-1.0
+}`
+        }]
+      });
+
+      const textContent = response.content[0];
+      if (textContent.type !== 'text') return null;
+
+      // Parse AI response
+      const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return null;
+
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      return {
+        inferredYear: parsed.primaryYear || null,
+        inferredYearRange: parsed.yearRange || null,
+        inferredLanguage: parsed.language || null,
+        inferredMediaType: parsed.mediaType === 'mixed' ? null : parsed.mediaType,
+        inferredGenre: parsed.genre === 'mixed' ? null : parsed.genre,
+        inferredRegion: parsed.region || null,
+        collectionDescription: parsed.collectionDescription || null,
+        isUpcoming: parsed.isUpcoming || false,
+        isClassic: parsed.isClassic || false,
+        confidence: parsed.confidence || 0.7
+      };
+
+    } catch (error) {
+      console.error('[TMDB] AI inference error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Fallback: Statistical analysis when AI is unavailable.
+   * Searches TMDB for each title and counts patterns.
+   */
+  private async analyzeStatisticalBatchContext(titles: string[]): Promise<BatchContext> {
+    console.log(`[TMDB] Statistical batch context analysis for ${titles.length} items...`);
 
     const yearCounts = new Map<number, number>();
     const langCounts = new Map<string, number>();
@@ -118,16 +233,14 @@ class TMDBService {
     let analyzedCount = 0;
 
     // Quick search each title to gather context
-    for (const title of titles.slice(0, 15)) { // Limit to 15 for performance
+    for (const title of titles.slice(0, 10)) { // Limit for performance
       try {
         const { title: cleanTitle, year } = this.extractYearFromQuery(title);
 
-        // If year is in the title, count it
         if (year) {
           yearCounts.set(year, (yearCounts.get(year) || 0) + 1);
         }
 
-        // Quick TMDB search to get language/type hints
         const movieUrl = `${TMDB_BASE_URL}/search/movie?api_key=${this.apiKey}&query=${encodeURIComponent(cleanTitle)}&include_adult=false&language=en-US&page=1`;
         const movieResp = await fetch(movieUrl);
         const movieData = await movieResp.json();
@@ -179,7 +292,7 @@ class TMDBService {
       }
     }
 
-    // Find most common year (with > 50% agreement)
+    // Find most common year
     let inferredYear: number | null = null;
     let maxYearCount = 0;
     for (const [year, count] of yearCounts) {
@@ -189,10 +302,16 @@ class TMDBService {
       }
     }
     if (maxYearCount < analyzedCount * 0.5) {
-      inferredYear = null; // Not enough agreement
+      inferredYear = null;
     }
 
-    // Find most common language (with > 60% agreement)
+    // Find year range
+    const years = Array.from(yearCounts.keys()).sort();
+    const inferredYearRange = years.length >= 2
+      ? { min: years[0], max: years[years.length - 1] }
+      : inferredYear ? { min: inferredYear, max: inferredYear } : null;
+
+    // Find most common language
     let inferredLanguage: string | null = null;
     let maxLangCount = 0;
     for (const [lang, count] of langCounts) {
@@ -205,7 +324,7 @@ class TMDBService {
       inferredLanguage = null;
     }
 
-    // Infer media type (with > 60% agreement)
+    // Infer media type
     let inferredMediaType: 'movie' | 'tv' | null = null;
     if (mediaTypeCounts.movie > mediaTypeCounts.tv && mediaTypeCounts.movie > analyzedCount * 0.6) {
       inferredMediaType = 'movie';
@@ -214,17 +333,44 @@ class TMDBService {
     }
 
     const confidence = analyzedCount > 0 ? Math.min(analyzedCount / titles.length, 1) : 0;
+    const currentYear = new Date().getFullYear();
 
     this.batchContext = {
       inferredYear,
+      inferredYearRange,
       inferredLanguage,
       inferredMediaType,
+      inferredGenre: null, // Statistical analysis can't infer genre
+      inferredRegion: inferredLanguage === 'en' ? 'US' : null,
+      collectionDescription: inferredMediaType
+        ? `${inferredYear || 'various'} ${inferredLanguage === 'en' ? 'English' : ''} ${inferredMediaType}s`
+        : null,
+      isUpcoming: inferredYear ? inferredYear >= currentYear : false,
+      isClassic: inferredYear ? inferredYear < currentYear - 20 : false,
       confidence
     };
 
-    console.log(`[TMDB] Batch context inferred: year=${inferredYear}, lang=${inferredLanguage}, type=${inferredMediaType}, confidence=${(confidence * 100).toFixed(0)}%`);
+    console.log(`[TMDB] Statistical context: year=${inferredYear}, range=${inferredYearRange?.min}-${inferredYearRange?.max}, lang=${inferredLanguage}, type=${inferredMediaType}, confidence=${(confidence * 100).toFixed(0)}%`);
 
     return this.batchContext;
+  }
+
+  /**
+   * Get empty batch context for single-item searches.
+   */
+  private getEmptyBatchContext(): BatchContext {
+    return {
+      inferredYear: null,
+      inferredYearRange: null,
+      inferredLanguage: null,
+      inferredMediaType: null,
+      inferredGenre: null,
+      inferredRegion: null,
+      collectionDescription: null,
+      isUpcoming: false,
+      isClassic: false,
+      confidence: 0
+    };
   }
 
   /**
@@ -672,12 +818,22 @@ class TMDBService {
           signals.push('minimal engagement');
         }
 
-        // === SIGNAL 6: Batch context inference ===
-        // If we have batch context (from analyzing multiple items), use it
+        // === SIGNAL 6: AI-Powered Batch Context Inference ===
+        // Use the rich context inferred from the collection (year range, region, genre, etc.)
         const ctx = this.batchContext;
         if (ctx && ctx.confidence > 0.5) {
-          // Year inference from batch
-          if (!targetYear && ctx.inferredYear && movieYear) {
+          // Year range inference (e.g., "2025-2026 upcoming movies")
+          if (movieYear && ctx.inferredYearRange) {
+            const { min, max } = ctx.inferredYearRange;
+            if (movieYear >= min && movieYear <= max) {
+              score += 0.2;
+              signals.push(`batch year range match (${min}-${max})`);
+            } else if (movieYear < min - 2 || movieYear > max + 2) {
+              score -= 0.15;
+              signals.push(`batch year range mismatch`);
+            }
+          } else if (!targetYear && ctx.inferredYear && movieYear) {
+            // Fallback to single year if no range
             if (movieYear === ctx.inferredYear) {
               score += 0.15;
               signals.push(`batch year match (${ctx.inferredYear})`);
@@ -687,15 +843,41 @@ class TMDBService {
             }
           }
 
-          // Language inference from batch
+          // Upcoming content bonus (if batch is upcoming releases)
+          if (ctx.isUpcoming && movieYear) {
+            const currentYear = new Date().getFullYear();
+            if (movieYear >= currentYear) {
+              score += 0.1;
+              signals.push('upcoming release');
+            } else if (movieYear < currentYear - 1) {
+              score -= 0.1;
+              signals.push('not upcoming');
+            }
+          }
+
+          // Region/Language inference
           if (ctx.inferredLanguage && movie.original_language) {
             if (movie.original_language === ctx.inferredLanguage) {
               score += 0.1;
               signals.push(`batch lang match (${ctx.inferredLanguage})`);
             } else if (ctx.inferredLanguage === 'en' && movie.original_language !== 'en') {
-              score -= 0.1;
+              score -= 0.15;
               signals.push('batch expects English');
             }
+          }
+
+          // Region inference (US, UK, Korea, etc.)
+          if (ctx.inferredRegion === 'US' && movie.original_language !== 'en') {
+            score -= 0.1;
+            signals.push('batch expects US content');
+          } else if (ctx.inferredRegion === 'Korea' && movie.original_language !== 'ko') {
+            score -= 0.1;
+            signals.push('batch expects Korean content');
+          }
+
+          // Collection description logging for debugging
+          if (ctx.collectionDescription) {
+            signals.push(`ctx: "${ctx.collectionDescription}"`);
           }
         }
 
@@ -893,11 +1075,20 @@ class TMDBService {
           signals.push('minimal engagement');
         }
 
-        // === SIGNAL 6: Batch context inference ===
+        // === SIGNAL 6: AI-Powered Batch Context Inference ===
         const ctx = this.batchContext;
         if (ctx && ctx.confidence > 0.5) {
-          // Year inference from batch
-          if (!searchYear && ctx.inferredYear && showYear) {
+          // Year range inference
+          if (showYear && ctx.inferredYearRange) {
+            const { min, max } = ctx.inferredYearRange;
+            if (showYear >= min && showYear <= max) {
+              score += 0.2;
+              signals.push(`batch year range match (${min}-${max})`);
+            } else if (showYear < min - 2 || showYear > max + 2) {
+              score -= 0.15;
+              signals.push('batch year range mismatch');
+            }
+          } else if (!searchYear && ctx.inferredYear && showYear) {
             if (showYear === ctx.inferredYear) {
               score += 0.15;
               signals.push(`batch year match (${ctx.inferredYear})`);
@@ -907,20 +1098,41 @@ class TMDBService {
             }
           }
 
-          // Language inference from batch
+          // Upcoming content bonus
+          if (ctx.isUpcoming && showYear) {
+            const currentYear = new Date().getFullYear();
+            if (showYear >= currentYear) {
+              score += 0.1;
+              signals.push('upcoming release');
+            } else if (showYear < currentYear - 1) {
+              score -= 0.1;
+              signals.push('not upcoming');
+            }
+          }
+
+          // Language inference
           if (ctx.inferredLanguage && show.original_language) {
             if (show.original_language === ctx.inferredLanguage) {
               score += 0.1;
               signals.push(`batch lang match (${ctx.inferredLanguage})`);
             } else if (ctx.inferredLanguage === 'en' && show.original_language !== 'en') {
-              score -= 0.1;
+              score -= 0.15;
               signals.push('batch expects English');
             }
           }
 
-          // Media type inference from batch (prefer movies if batch is mostly movies)
-          if (ctx.inferredMediaType === 'movie') {
+          // Region inference
+          if (ctx.inferredRegion === 'US' && show.original_language !== 'en') {
             score -= 0.1;
+            signals.push('batch expects US content');
+          } else if (ctx.inferredRegion === 'Korea' && show.original_language !== 'ko') {
+            score -= 0.1;
+            signals.push('batch expects Korean content');
+          }
+
+          // Media type inference (prefer movies if batch is mostly movies)
+          if (ctx.inferredMediaType === 'movie') {
+            score -= 0.15;
             signals.push('batch prefers movies');
           }
         }
