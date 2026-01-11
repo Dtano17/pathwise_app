@@ -857,6 +857,49 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     },
   });
 
+  // Per-element refresh mutation - Refresh a single entry without refreshing the entire category
+  const [refreshingEntryId, setRefreshingEntryId] = useState<string | null>(null);
+  const refreshSingleEntryMutation = useMutation({
+    mutationFn: async ({ category, entryIndex, entryId }: { category: string; entryIndex: number; entryId?: string }) => {
+      const response = await apiRequest('POST', '/api/user/journal/web-enrich/single', {
+        category,
+        entryIndex,
+        entryId
+      });
+      return response.json();
+    },
+    onMutate: ({ entryId }) => {
+      setRefreshingEntryId(entryId || null);
+    },
+    onSuccess: (data) => {
+      setRefreshingEntryId(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      if (data.success) {
+        toast({
+          title: "Entry Refreshed!",
+          description: data.categoryChanged
+            ? `Entry updated and moved to ${data.newCategory}`
+            : "Entry image and details updated successfully.",
+        });
+      } else {
+        toast({
+          title: "Refresh Issue",
+          description: data.error || "Could not find a better match. Try editing manually.",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      setRefreshingEntryId(null);
+      console.error('[SINGLE_REFRESH] Error:', error);
+      toast({
+        title: "Refresh Failed",
+        description: "Could not refresh this entry. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Create template mutation
   const createTemplateMutation = useMutation({
     mutationFn: async (data: { name: string; prompts: string[] }) => {
@@ -2126,6 +2169,25 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                               )}
                             </div>
                             <div className="flex flex-col gap-1 flex-shrink-0">
+                              {/* Refresh single entry button */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity min-h-[44px] min-w-[44px] p-0"
+                                onClick={() => {
+                                  const entryId = isRichEntry ? (item as RichJournalEntry).id : undefined;
+                                  refreshSingleEntryMutation.mutate({
+                                    category: activeCategory,
+                                    entryIndex: originalIndex,
+                                    entryId
+                                  });
+                                }}
+                                disabled={refreshingEntryId === (isRichEntry ? (item as RichJournalEntry).id : `idx-${originalIndex}`)}
+                                title="Refresh this entry's image and details"
+                                data-testid={`button-refresh-${filteredIndex}`}
+                              >
+                                <RefreshCw className={`w-4 h-4 ${refreshingEntryId === (isRichEntry ? (item as RichJournalEntry).id : `idx-${originalIndex}`) ? 'animate-spin' : ''}`} />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
