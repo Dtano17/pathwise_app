@@ -304,21 +304,44 @@ public class MainActivity extends BridgeActivity {
     /**
      * Navigate the WebView to a specific route via JavaScript
      */
+    // Store pending route for cold start shortcuts
+    private static String pendingShortcutRoute = null;
+
     private void navigateToRoute(String route) {
         if (this.getBridge() != null && this.getBridge().getWebView() != null) {
-            final String fullUrl = "https://journalmate.ai" + route;
             runOnUiThread(() -> {
                 try {
-                    android.util.Log.d("MainActivity", "Navigating to: " + fullUrl);
-                    this.getBridge().getWebView().loadUrl(fullUrl);
+                    android.util.Log.d("MainActivity", "Navigating to route: " + route);
+                    // Use JavaScript to navigate within the SPA instead of loading external URL
+                    String jsCode = "javascript:window.location.href = '" + route + "';";
+                    this.getBridge().getWebView().evaluateJavascript(
+                        "window.location.href = '" + route + "';",
+                        null
+                    );
                 } catch (Exception e) {
                     android.util.Log.e("MainActivity", "Navigation failed: " + e.getMessage());
                 }
             });
         } else {
-            // Store for when bridge is ready
-            android.util.Log.d("MainActivity", "Bridge not ready, route pending: " + route);
+            // Store for when bridge is ready (cold start)
+            android.util.Log.d("MainActivity", "Bridge not ready, storing pending route: " + route);
+            pendingShortcutRoute = route;
+            // Schedule a check to navigate once bridge is ready
+            schedulePendingRouteCheck();
         }
+    }
+
+    private void schedulePendingRouteCheck() {
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            if (pendingShortcutRoute != null && getBridge() != null && getBridge().getWebView() != null) {
+                String route = pendingShortcutRoute;
+                pendingShortcutRoute = null;
+                navigateToRoute(route);
+            } else if (pendingShortcutRoute != null) {
+                // Retry if bridge still not ready
+                schedulePendingRouteCheck();
+            }
+        }, 500);
     }
 
     /**

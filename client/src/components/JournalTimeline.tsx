@@ -773,7 +773,7 @@ export default function JournalTimeline({ onClose }: JournalTimelineProps) {
                                 <img
                                   src={item.url}
                                   alt={`Media ${idx + 1}`}
-                                  className="w-full h-full object-cover"
+                                  className="w-full h-full object-contain"
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center">
