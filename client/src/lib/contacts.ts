@@ -131,23 +131,88 @@ export async function getContactById(contactId: string): Promise<SimpleContact |
 }
 
 /**
- * Pick a single contact (native contact picker)
+ * Pick a single contact using native contact picker
+ * Opens the device's native contact selection UI
  */
 export async function pickContact(): Promise<SimpleContact | null> {
   if (!isNative()) {
-    console.warn('Contact picker only available on native platforms');
+    console.warn('[CONTACTS] Contact picker only available on native platforms');
     return null;
   }
 
   try {
-    // Note: @capacitor-community/contacts doesn't have a picker yet
-    // This is a placeholder for future implementation
-    // You might need to use a different plugin or native module
-    console.warn('Contact picker not implemented yet');
+    // Check permission first
+    const hasPermission = await checkContactsPermission();
+    if (!hasPermission) {
+      console.log('[CONTACTS] Requesting contacts permission...');
+      const granted = await requestContactsPermission();
+      if (!granted) {
+        console.warn('[CONTACTS] Contacts permission not granted');
+        return null;
+      }
+    }
+
+    console.log('[CONTACTS] Opening native contact picker...');
+
+    // Use the pickContact method from @capacitor-community/contacts
+    const result = await Contacts.pickContact({
+      projection: {
+        name: true,
+        phones: true,
+        emails: true,
+        image: true,
+      },
+    });
+
+    console.log('[CONTACTS] Contact picked:', result.contact);
+
+    if (!result.contact) {
+      return null;
+    }
+
+    // Transform the picked contact to our SimpleContact format
+    const contact = result.contact as unknown as Contact;
+    return transformContact(contact);
+  } catch (error: any) {
+    // User cancelled the picker - this is not an error
+    if (error?.message?.includes('cancel') || error?.code === 'CANCELLED') {
+      console.log('[CONTACTS] User cancelled contact picker');
+      return null;
+    }
+    console.error('[CONTACTS] Failed to pick contact:', error);
     return null;
+  }
+}
+
+/**
+ * Open native share dialog to invite a contact
+ */
+export async function shareInviteWithContact(contact: SimpleContact): Promise<boolean> {
+  const message = `Hey ${contact.displayName.split(' ')[0]}! I'm using JournalMate to plan my goals and track my journey. Join me! 🚀\n\nhttps://journalmate.ai/invite`;
+  const subject = "Join me on JournalMate!";
+
+  try {
+    // Try SMS first if phone available
+    if (contact.phoneNumbers && contact.phoneNumbers.length > 0) {
+      const phoneNumber = contact.phoneNumbers[0];
+      const smsUrl = `sms:${phoneNumber}?body=${encodeURIComponent(message)}`;
+      window.location.href = smsUrl;
+      return true;
+    }
+
+    // Fall back to email
+    if (contact.emails && contact.emails.length > 0) {
+      const email = contact.emails[0];
+      const emailUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+      window.location.href = emailUrl;
+      return true;
+    }
+
+    console.warn('[CONTACTS] Contact has no phone or email');
+    return false;
   } catch (error) {
-    console.error('Failed to pick contact:', error);
-    return null;
+    console.error('[CONTACTS] Failed to share invite:', error);
+    return false;
   }
 }
 

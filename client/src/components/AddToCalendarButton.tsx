@@ -44,12 +44,13 @@ export function AddToCalendarButton({
         // Use Capacitor Calendar plugin
         const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
 
-        // Request permission - returns { readCalendar: boolean, writeCalendar: boolean }
-        const permission = await CapacitorCalendar.requestAllPermissions();
-        console.log('[CALENDAR] Permission result:', permission);
+        // Request permission - requestFullCalendarAccess returns { result: PermissionState }
+        console.log('[CALENDAR] Requesting full calendar access...');
+        const permission = await CapacitorCalendar.requestFullCalendarAccess();
+        console.log('[CALENDAR] Permission result:', JSON.stringify(permission));
 
-        // Check if write permission is granted
-        if (permission.writeCalendar) {
+        // Check if permission is granted (PermissionState is 'granted' | 'denied' | 'prompt')
+        if (permission.result === 'granted') {
           // Create calendar event
           const result = await CapacitorCalendar.createEvent({
             title: event.title,
@@ -69,6 +70,7 @@ export function AddToCalendarButton({
             });
           }
         } else {
+          console.log('[CALENDAR] Permission not granted:', permission.result);
           toast({
             title: 'Calendar permission required',
             description: 'Please grant calendar access to add events',

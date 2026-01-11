@@ -35,6 +35,17 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // IMPORTANT: Register custom plugins BEFORE super.onCreate()
+        // The bridge starts in super.onCreate() and won't see plugins registered after
+        registerPlugin(SharePlugin.class);
+        registerPlugin(NotificationPlugin.class);
+        registerPlugin(BackgroundServicePlugin.class);
+        registerPlugin(ContactsPlugin.class);
+        registerPlugin(HapticsPlugin.class);
+        registerPlugin(BiometricPlugin.class);
+        registerPlugin(AppShortcutsPlugin.class);
+        registerPlugin(SpeechPlugin.class);
+
         super.onCreate(savedInstanceState);
 
         // Initialize file chooser launcher for handling file input in WebView
@@ -57,16 +68,6 @@ public class MainActivity extends BridgeActivity {
 
         // Configure system bars to NOT use edge-to-edge (content stays within safe bounds)
         configureSystemBars();
-
-        // Register our custom plugins
-        registerPlugin(SharePlugin.class);
-        registerPlugin(NotificationPlugin.class);
-        registerPlugin(BackgroundServicePlugin.class);
-        registerPlugin(ContactsPlugin.class);
-        registerPlugin(HapticsPlugin.class);
-        registerPlugin(BiometricPlugin.class);
-        registerPlugin(AppShortcutsPlugin.class);
-        registerPlugin(SpeechPlugin.class);
 
         // Handle intent (share intents and deep links)
         handleIncomingIntent(getIntent());

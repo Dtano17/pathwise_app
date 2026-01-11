@@ -922,26 +922,50 @@ export default function MainApp({
   // App launch haptic feedback
   useEffect(() => {
     const triggerLaunchHaptic = async () => {
-      if (!isNative()) return;
+      if (!isNative()) {
+        console.log('[HAPTIC] Not native platform, skipping launch haptic');
+        return;
+      }
+
+      console.log('[HAPTIC] Attempting to trigger launch haptic...');
 
       try {
-        // Check if launch haptic is enabled in user preferences
+        // Try to check if launch haptic is enabled in user preferences
         const response = await fetch('/api/mobile/preferences');
+
         if (response.ok) {
           const prefs = await response.json();
+          console.log('[HAPTIC] Mobile preferences:', { enableHaptics: prefs.enableHaptics, enableLaunchHaptic: prefs.enableLaunchHaptic });
+
           if (prefs.enableHaptics && prefs.enableLaunchHaptic) {
-            // Trigger a medium haptic feedback on app launch
             const { triggerHaptic } = await import('@/lib/haptics');
             await triggerHaptic('medium');
-            console.log('[HAPTIC] App launch haptic triggered');
+            console.log('[HAPTIC] App launch haptic triggered successfully');
+          } else {
+            console.log('[HAPTIC] Launch haptic disabled in preferences');
           }
+        } else {
+          // API failed - trigger haptic anyway as a fallback (defaults are true)
+          console.log('[HAPTIC] API returned non-ok status, triggering fallback haptic');
+          const { triggerHaptic } = await import('@/lib/haptics');
+          await triggerHaptic('medium');
+          console.log('[HAPTIC] Fallback launch haptic triggered');
         }
       } catch (error) {
-        console.log('[HAPTIC] Could not trigger launch haptic:', error);
+        // API call failed - trigger haptic anyway as a fallback (defaults are true)
+        console.log('[HAPTIC] Error fetching preferences, triggering fallback haptic:', error);
+        try {
+          const { triggerHaptic } = await import('@/lib/haptics');
+          await triggerHaptic('medium');
+          console.log('[HAPTIC] Fallback launch haptic triggered after error');
+        } catch (hapticError) {
+          console.error('[HAPTIC] Failed to trigger fallback haptic:', hapticError);
+        }
       }
     };
 
-    triggerLaunchHaptic();
+    // Small delay to ensure Capacitor bridge is ready
+    setTimeout(triggerLaunchHaptic, 500);
   }, []); // Only run once on mount
 
   // Profile completion for OAuth new users

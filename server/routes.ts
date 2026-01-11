@@ -10172,24 +10172,32 @@ Return ONLY valid JSON, no markdown or explanation.`;
   app.patch("/api/mobile/preferences", async (req: any, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
+      console.log('[MOBILE_PREFS] PATCH request for user:', userId, 'body:', JSON.stringify(req.body));
+
       const updates = insertMobilePreferencesSchema.partial().parse(req.body);
+      console.log('[MOBILE_PREFS] Parsed updates:', JSON.stringify(updates));
 
       // Ensure preferences exist first
-      await storage.getOrCreateMobilePreferences(userId);
+      const existing = await storage.getOrCreateMobilePreferences(userId);
+      console.log('[MOBILE_PREFS] Existing preferences found:', existing?.id);
 
       const preferences = await storage.updateMobilePreferences(userId, updates);
+      console.log('[MOBILE_PREFS] Update result:', preferences ? 'success' : 'failed');
 
       if (!preferences) {
         return res.status(404).json({ error: 'Mobile preferences not found' });
       }
 
       res.json({ success: true, preferences });
-    } catch (error) {
-      console.error('Error updating mobile preferences:', error);
+    } catch (error: any) {
+      console.error('[MOBILE_PREFS] Error updating mobile preferences:', error);
+      console.error('[MOBILE_PREFS] Error name:', error?.name);
+      console.error('[MOBILE_PREFS] Error message:', error?.message);
+      console.error('[MOBILE_PREFS] Error stack:', error?.stack);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: 'Invalid preferences data', details: error.errors });
       }
-      res.status(500).json({ error: 'Failed to update mobile preferences' });
+      res.status(500).json({ error: 'Failed to update mobile preferences', details: error?.message });
     }
   });
 
