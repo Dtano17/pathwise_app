@@ -2554,12 +2554,8 @@ export class SimpleConversationalPlanner {
         console.log(`[SIMPLE_PLANNER] Generated ${response.conversationHints.length} conversation hints`);
       }
 
-      // 8. Add mandatory hints footer to ALL responses (unless plan is ready)
-      const STANDARD_HINTS = `\n\n---\n💡 **Commands:** "continue" | "preview" | "create plan"`;
-      if (!response.readyToGenerate && !response.message.includes('Commands:')) {
-        response.message += STANDARD_HINTS;
-        console.log(`[SIMPLE_PLANNER] Added standard hints footer to response`);
-      }
+      // 8. Command hints are now shown as clickable buttons in the frontend
+      // No longer adding text hints to responses
 
       // 9. Ensure first response has questions (fix empty first response issue)
       if (questionCount === 0 && !response.message.includes('?') && !response.readyToGenerate) {
@@ -2790,12 +2786,8 @@ export class SimpleConversationalPlanner {
         console.log(`[SIMPLE_PLANNER_STREAM] Generated ${response.conversationHints.length} conversation hints`);
       }
 
-      // 8. Add mandatory hints footer to ALL responses (unless plan is ready)
-      const STANDARD_HINTS = `\n\n---\n💡 **Commands:** "continue" | "preview" | "create plan"`;
-      if (!response.readyToGenerate && !response.message.includes('Commands:')) {
-        response.message += STANDARD_HINTS;
-        console.log(`[SIMPLE_PLANNER_STREAM] Added standard hints footer to response`);
-      }
+      // 8. Command hints are now shown as clickable buttons in the frontend
+      // No longer adding text hints to responses
 
       // 9. Ensure first response has questions (fix empty first response issue)
       if (questionCount === 0 && !response.message.includes('?') && !response.readyToGenerate) {
