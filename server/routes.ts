@@ -12524,13 +12524,17 @@ You can find these tasks in your task list and start working on them right away!
 
       console.log(`[JOURNAL SINGLE ENRICH] User ${userId} refreshing single entry in ${category}`);
 
-      // Get user's journal data
-      const user = await storage.getUser(userId);
-      if (!user || !user.journalData) {
-        return res.status(404).json({ error: 'No journal data found' });
+      // Get user's journal data from preferences (where it's actually stored)
+      const prefs = await storage.getUserPreferences(userId);
+      if (!prefs || !prefs.preferences?.journalData) {
+        console.log(`[JOURNAL SINGLE ENRICH] No journal data found for user ${userId}`);
+        return res.json({ 
+          success: false, 
+          error: 'No journal entries found. Please add some entries first.' 
+        });
       }
 
-      const journalData = user.journalData as Record<string, any[]>;
+      const journalData = prefs.preferences.journalData as Record<string, any[]>;
       const entries = journalData[category];
 
       if (!entries || !Array.isArray(entries)) {
@@ -12602,8 +12606,13 @@ You can find these tasks in your task list and start working on them right away!
           journalData[newCategory].push(updatedEntry);
         }
 
-        // Save the updated journal data
-        await storage.updateUser(userId, { journalData });
+        // Save the updated journal data to user preferences
+        await storage.updateUserPreferences(userId, {
+          preferences: {
+            ...prefs.preferences,
+            journalData
+          }
+        });
 
         console.log(`[JOURNAL SINGLE ENRICH] Successfully refreshed entry${categoryChanged ? ` (moved to ${newCategory})` : ''}`);
 
