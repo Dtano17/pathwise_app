@@ -1869,22 +1869,20 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                     </div>
                                   )}
 
-                                  {/* MOVIE-specific info */}
+                              {/* MOVIE-specific info */}
                                   {webEnrichment.venueType === 'movie' && (
-                                    <div className="space-y-2">
+                                    <div className="space-y-3">
                                       {webEnrichment.director && (
                                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                           <Film className="w-3.5 h-3.5" />
                                           <span>Directed by <span className="font-medium text-foreground">{webEnrichment.director}</span></span>
                                         </div>
                                       )}
-                                      {(webEnrichment.releaseYear || webEnrichment.runtime || webEnrichment.genre) && (
-                                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                          {webEnrichment.releaseYear && <Badge variant="outline" className="text-xs">{webEnrichment.releaseYear}</Badge>}
-                                          {webEnrichment.runtime && <Badge variant="outline" className="text-xs">{webEnrichment.runtime}</Badge>}
-                                          {webEnrichment.genre && <Badge variant="outline" className="text-xs">{webEnrichment.genre}</Badge>}
-                                        </div>
-                                      )}
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        {webEnrichment.releaseYear && <Badge variant="outline" className="text-[10px] sm:text-xs">{webEnrichment.releaseYear}</Badge>}
+                                        {webEnrichment.runtime && <Badge variant="outline" className="text-[10px] sm:text-xs">{webEnrichment.runtime}</Badge>}
+                                        {webEnrichment.genre && <Badge variant="outline" className="text-[10px] sm:text-xs whitespace-normal text-left">{webEnrichment.genre}</Badge>}
+                                      </div>
                                     </div>
                                   )}
 
