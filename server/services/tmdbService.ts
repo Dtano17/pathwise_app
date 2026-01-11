@@ -69,8 +69,9 @@ class TMDBService {
   private apiKey: string | null = null;
 
   // Minimum similarity threshold for accepting a TMDB result
-  // 0.5 = at least 50% of query words must match the result title
-  private readonly SIMILARITY_THRESHOLD = 0.4;
+  // 0.6 = at least 60% of query words must match the result title
+  // Increased from 0.4 to prevent "The Pitt" matching "Pittsburgh Steelers"
+  private readonly SIMILARITY_THRESHOLD = 0.6;
 
   constructor() {
     this.apiKey = process.env.TMDB_API_KEY || null;
@@ -88,6 +89,37 @@ class TMDBService {
   private getImageUrl(path: string | null, size: 'w92' | 'w154' | 'w185' | 'w342' | 'w500' | 'w780' | 'original' = 'w500'): string | null {
     if (!path) return null;
     return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
+  }
+
+  /**
+   * Extract year from a query string (e.g., "The Pitt 2025", "Movie (2024)")
+   * Returns { title: cleanTitle, year: extractedYear }
+   */
+  private extractYearFromQuery(query: string): { title: string; year: number | null } {
+    // Match year patterns: (2025), [2025], 2025, - 2025
+    const yearPatterns = [
+      /\((\d{4})\)\s*$/,          // "Movie Title (2025)"
+      /\[(\d{4})\]\s*$/,          // "Movie Title [2025]"
+      /\s+-\s+(\d{4})\s*$/,       // "Movie Title - 2025"
+      /\s+(\d{4})\s*$/,           // "Movie Title 2025"
+      /\b(20\d{2}|19\d{2})\b/,    // Any 4-digit year in text
+    ];
+
+    for (const pattern of yearPatterns) {
+      const match = query.match(pattern);
+      if (match) {
+        const year = parseInt(match[1], 10);
+        // Validate year is reasonable (1900-2030)
+        if (year >= 1900 && year <= 2030) {
+          // Remove year from title
+          const title = query.replace(pattern, '').trim();
+          console.log(`[TMDB] Extracted year ${year} from query, clean title: "${title}"`);
+          return { title, year };
+        }
+      }
+    }
+
+    return { title: query, year: null };
   }
 
   /**
@@ -140,27 +172,30 @@ class TMDBService {
 
     try {
       const cleanQuery = this.extractMovieTitle(query);
-      console.log(`[TMDB] Searching for movie: "${cleanQuery}"`);
 
-      // Try primary search
-      let result = await this.searchMovieByTitle(cleanQuery);
-      
+      // Extract year from query for more accurate matching
+      const { title: titleWithoutYear, year: extractedYear } = this.extractYearFromQuery(cleanQuery);
+      console.log(`[TMDB] Searching for movie: "${titleWithoutYear}"${extractedYear ? ` (year: ${extractedYear})` : ''}`);
+
+      // Try primary search with year if available
+      let result = await this.searchMovieByTitle(titleWithoutYear, extractedYear);
+
       // If no result and the query was transformed, try original title too
-      if (!result && cleanQuery !== query) {
+      if (!result && titleWithoutYear !== query) {
         const originalTitle = query.replace(/^watch\s+/i, '').replace(/^find\s+and\s+watch\s+/i, '').trim();
-        if (originalTitle !== cleanQuery) {
-          console.log(`[TMDB] Trying fallback search with original: "${originalTitle}"`);
-          result = await this.searchMovieByTitle(originalTitle);
+        const { title: origWithoutYear, year: origYear } = this.extractYearFromQuery(originalTitle);
+        if (origWithoutYear !== titleWithoutYear) {
+          console.log(`[TMDB] Trying fallback search with original: "${origWithoutYear}"`);
+          result = await this.searchMovieByTitle(origWithoutYear, origYear || extractedYear);
         }
       }
-      
-      // If still no result, try with simplified query (just first few words)
-      if (!result && cleanQuery.split(' ').length > 2) {
-        const simplifiedQuery = cleanQuery.split(' ').slice(0, 2).join(' ');
-        console.log(`[TMDB] Trying simplified search: "${simplifiedQuery}"`);
-        result = await this.searchMovieByTitle(simplifiedQuery);
+
+      // If still no result, try without year constraint
+      if (!result && extractedYear) {
+        console.log(`[TMDB] Trying search without year constraint: "${titleWithoutYear}"`);
+        result = await this.searchMovieByTitle(titleWithoutYear, null);
       }
-      
+
       return result;
     } catch (error) {
       console.error('[TMDB] Search error:', error);
@@ -168,10 +203,16 @@ class TMDBService {
     }
   }
 
-  private async searchMovieByTitle(cleanQuery: string): Promise<TMDBSearchResult | null> {
+  private async searchMovieByTitle(cleanQuery: string, targetYear: number | null = null): Promise<TMDBSearchResult | null> {
     try {
-      // Always request English language results to avoid foreign-language posters
-      const url = `${TMDB_BASE_URL}/search/movie?api_key=${this.apiKey}&query=${encodeURIComponent(cleanQuery)}&include_adult=false&language=en-US`;
+      // Build URL with year filter if available
+      let url = `${TMDB_BASE_URL}/search/movie?api_key=${this.apiKey}&query=${encodeURIComponent(cleanQuery)}&include_adult=false&language=en-US`;
+      if (targetYear) {
+        // Use primary_release_year for exact year matching
+        url += `&primary_release_year=${targetYear}`;
+      }
+
+      console.log(`[TMDB] Movie search: "${cleanQuery}"${targetYear ? ` year=${targetYear}` : ''}`);
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -183,18 +224,33 @@ class TMDBService {
 
       if (!data.results || data.results.length === 0) {
         console.log(`[TMDB] No movies found for: "${cleanQuery}"`);
-        return await this.searchTV(cleanQuery);
+        return await this.searchTV(cleanQuery, targetYear);
       }
 
-      // CRITICAL FIX: Find the best matching result instead of blindly taking first
-      // This prevents "Wicked for Good" from returning "Puppy Love" poster
+      // CRITICAL FIX: Find the best matching result with title AND year matching
       let bestMatch: TMDBMovie | null = null;
       let bestScore = 0;
 
-      // Check top 5 results for best title match
-      for (const movie of data.results.slice(0, 5) as TMDBMovie[]) {
-        const score = this.calculateTitleSimilarity(cleanQuery, movie.title);
-        console.log(`[TMDB] Title match: "${movie.title}" = ${(score * 100).toFixed(0)}%`);
+      // Check top 10 results for best title+year match
+      for (const movie of data.results.slice(0, 10) as TMDBMovie[]) {
+        let score = this.calculateTitleSimilarity(cleanQuery, movie.title);
+        const movieYear = movie.release_date ? parseInt(movie.release_date.substring(0, 4), 10) : null;
+
+        // Boost score if year matches (or penalize if it doesn't match when we have a target year)
+        if (targetYear && movieYear) {
+          if (movieYear === targetYear) {
+            score += 0.2; // Boost for exact year match
+            console.log(`[TMDB] Title match: "${movie.title}" (${movieYear}) = ${(score * 100).toFixed(0)}% (year match bonus)`);
+          } else if (Math.abs(movieYear - targetYear) <= 1) {
+            score += 0.1; // Small boost for off-by-one year
+            console.log(`[TMDB] Title match: "${movie.title}" (${movieYear}) = ${(score * 100).toFixed(0)}% (year close)`);
+          } else {
+            score -= 0.15; // Penalize wrong year
+            console.log(`[TMDB] Title match: "${movie.title}" (${movieYear}) = ${(score * 100).toFixed(0)}% (year mismatch: wanted ${targetYear})`);
+          }
+        } else {
+          console.log(`[TMDB] Title match: "${movie.title}" (${movieYear || 'unknown'}) = ${(score * 100).toFixed(0)}%`);
+        }
 
         if (score > bestScore) {
           bestScore = score;
@@ -202,45 +258,47 @@ class TMDBService {
         }
 
         // Perfect or near-perfect match - stop searching
-        if (score >= 0.9) break;
+        if (score >= 1.0) break;
       }
 
       // Reject if no result meets the similarity threshold
       if (!bestMatch || bestScore < this.SIMILARITY_THRESHOLD) {
         console.log(`[TMDB] No good movie match for "${cleanQuery}" (best score: ${(bestScore * 100).toFixed(0)}%, threshold: ${this.SIMILARITY_THRESHOLD * 100}%)`);
         // Try TV as fallback
-        return await this.searchTV(cleanQuery);
+        return await this.searchTV(cleanQuery, targetYear);
       }
 
       console.log(`[TMDB] Best match: "${bestMatch.title}" (${bestMatch.release_date?.substring(0, 4)}) with ${(bestScore * 100).toFixed(0)}% similarity`);
 
       const details = await this.getMovieDetails(bestMatch.id);
-      
-      // Determine poster URL with multiple fallbacks:
-      // 1. Search result poster_path
-      // 2. Details endpoint poster_path  
-      // 3. Images endpoint (dedicated poster gallery)
-      // 4. Backdrop as last resort
+
+      // PRIORITY: Use BACKDROP (landscape) images for better display on cards
+      // Fetch English backdrop from images endpoint for best quality
+      let backdropPath = await this.getEnglishBackdrop(bestMatch.id, 'movie');
+      if (!backdropPath) {
+        backdropPath = bestMatch.backdrop_path || details?.backdrop_path || null;
+      }
+
+      // Poster as fallback
       let posterPath = bestMatch.poster_path || details?.poster_path;
-      
       if (!posterPath) {
-        console.log(`[TMDB] No poster in search/details for "${bestMatch.title}" - fetching from images endpoint`);
         posterPath = await this.getMovieImages(bestMatch.id);
       }
-      
-      const posterUrl = this.getImageUrl(posterPath, 'w500') || 
-                        this.getImageUrl(bestMatch.backdrop_path, 'w780') ||
-                        this.getImageUrl(details?.backdrop_path || null, 'w780');
-      
-      if (!posterUrl) {
-        console.log(`[TMDB] WARNING: No poster or backdrop found for "${bestMatch.title}"`);
+
+      // Primary image is now BACKDROP (landscape), with poster as fallback
+      const backdropUrl = this.getImageUrl(backdropPath, 'w780') || this.getImageUrl(backdropPath, 'original');
+      const posterUrl = this.getImageUrl(posterPath, 'w500');
+
+      if (!backdropUrl && !posterUrl) {
+        console.log(`[TMDB] WARNING: No backdrop or poster found for "${bestMatch.title}"`);
       } else {
-        console.log(`[TMDB] Got poster for "${bestMatch.title}": ${posterUrl.substring(0, 60)}...`);
+        console.log(`[TMDB] Got images for "${bestMatch.title}": backdrop=${backdropUrl ? 'yes' : 'no'}, poster=${posterUrl ? 'yes' : 'no'}`);
       }
 
       return {
-        posterUrl,
-        backdropUrl: this.getImageUrl(bestMatch.backdrop_path, 'w780') || this.getImageUrl(details?.backdrop_path || null, 'w780'),
+        // Return backdrop as primary for landscape display
+        posterUrl: backdropUrl || posterUrl,
+        backdropUrl: backdropUrl,
         title: bestMatch.title,
         overview: bestMatch.overview,
         releaseYear: bestMatch.release_date?.substring(0, 4) || '',
@@ -259,57 +317,95 @@ class TMDBService {
     }
   }
 
-  async searchTV(query: string): Promise<TMDBSearchResult | null> {
+  async searchTV(query: string, targetYear: number | null = null): Promise<TMDBSearchResult | null> {
     if (!this.apiKey) return null;
 
     try {
       const cleanQuery = this.extractMovieTitle(query);
-      console.log(`[TMDB] Searching for TV show: "${cleanQuery}"`);
 
-      // Always request English language results to avoid foreign-language posters
-      const url = `${TMDB_BASE_URL}/search/tv?api_key=${this.apiKey}&query=${encodeURIComponent(cleanQuery)}&include_adult=false&language=en-US`;
+      // Extract year if not provided
+      let searchYear = targetYear;
+      let searchTitle = cleanQuery;
+      if (!searchYear) {
+        const { title, year } = this.extractYearFromQuery(cleanQuery);
+        searchTitle = title;
+        searchYear = year;
+      }
+
+      console.log(`[TMDB] Searching for TV show: "${searchTitle}"${searchYear ? ` (year: ${searchYear})` : ''}`);
+
+      // Build URL with year filter if available
+      let url = `${TMDB_BASE_URL}/search/tv?api_key=${this.apiKey}&query=${encodeURIComponent(searchTitle)}&include_adult=false&language=en-US`;
+      if (searchYear) {
+        url += `&first_air_date_year=${searchYear}`;
+      }
+
       const response = await fetch(url);
-
       if (!response.ok) return null;
 
       const data = await response.json();
 
       if (!data.results || data.results.length === 0) {
-        console.log(`[TMDB] No TV shows found for: "${cleanQuery}"`);
+        console.log(`[TMDB] No TV shows found for: "${searchTitle}"`);
         return null;
       }
 
-      // CRITICAL FIX: Find the best matching TV show instead of blindly taking first
+      // CRITICAL FIX: Find the best matching TV show with title AND year matching
       let bestMatch: TMDBTVShow | null = null;
       let bestScore = 0;
 
-      for (const show of data.results.slice(0, 5) as TMDBTVShow[]) {
-        const score = this.calculateTitleSimilarity(cleanQuery, show.name);
-        console.log(`[TMDB] TV match: "${show.name}" = ${(score * 100).toFixed(0)}%`);
+      for (const show of data.results.slice(0, 10) as TMDBTVShow[]) {
+        let score = this.calculateTitleSimilarity(searchTitle, show.name);
+        const showYear = show.first_air_date ? parseInt(show.first_air_date.substring(0, 4), 10) : null;
+
+        // Boost/penalize based on year matching
+        if (searchYear && showYear) {
+          if (showYear === searchYear) {
+            score += 0.2; // Boost for exact year match
+            console.log(`[TMDB] TV match: "${show.name}" (${showYear}) = ${(score * 100).toFixed(0)}% (year match bonus)`);
+          } else if (Math.abs(showYear - searchYear) <= 1) {
+            score += 0.1; // Small boost for off-by-one year
+            console.log(`[TMDB] TV match: "${show.name}" (${showYear}) = ${(score * 100).toFixed(0)}% (year close)`);
+          } else {
+            score -= 0.15; // Penalize wrong year
+            console.log(`[TMDB] TV match: "${show.name}" (${showYear}) = ${(score * 100).toFixed(0)}% (year mismatch: wanted ${searchYear})`);
+          }
+        } else {
+          console.log(`[TMDB] TV match: "${show.name}" (${showYear || 'unknown'}) = ${(score * 100).toFixed(0)}%`);
+        }
 
         if (score > bestScore) {
           bestScore = score;
           bestMatch = show;
         }
 
-        if (score >= 0.9) break;
+        if (score >= 1.0) break;
       }
 
       // Reject if no result meets threshold
       if (!bestMatch || bestScore < this.SIMILARITY_THRESHOLD) {
-        console.log(`[TMDB] No good TV match for "${cleanQuery}" (best score: ${(bestScore * 100).toFixed(0)}%)`);
+        console.log(`[TMDB] No good TV match for "${searchTitle}" (best score: ${(bestScore * 100).toFixed(0)}%)`);
         return null;
       }
 
       console.log(`[TMDB] Best TV match: "${bestMatch.name}" (${bestMatch.first_air_date?.substring(0, 4)}) with ${(bestScore * 100).toFixed(0)}% similarity`);
 
-      // Use poster if available, otherwise fall back to backdrop
-      const posterUrl = this.getImageUrl(bestMatch.poster_path, 'w500') || 
-                        this.getImageUrl(bestMatch.backdrop_path, 'w780');
+      // PRIORITY: Use BACKDROP (landscape) images for better display on cards
+      let backdropPath = await this.getEnglishBackdrop(bestMatch.id, 'tv');
+      if (!backdropPath) {
+        backdropPath = bestMatch.backdrop_path;
+      }
+
+      const posterPath = bestMatch.poster_path;
+
+      // Primary image is now BACKDROP (landscape), with poster as fallback
+      const backdropUrl = this.getImageUrl(backdropPath, 'w780');
+      const posterUrl = this.getImageUrl(posterPath, 'w500');
 
       return {
-        posterUrl,
-        backdropUrl: this.getImageUrl(bestMatch.backdrop_path, 'w780'),
+        // Return backdrop as primary for landscape display
+        posterUrl: backdropUrl || posterUrl,
+        backdropUrl: backdropUrl,
         title: bestMatch.name,
         overview: bestMatch.overview,
         releaseYear: bestMatch.first_air_date?.substring(0, 4) || '',
@@ -332,12 +428,58 @@ class TMDBService {
       // Always request English language results to avoid foreign-language posters
       const url = `${TMDB_BASE_URL}/movie/${movieId}?api_key=${this.apiKey}&append_to_response=credits&language=en-US`;
       const response = await fetch(url);
-      
+
       if (!response.ok) return null;
-      
+
       return await response.json();
     } catch (error) {
       console.error('[TMDB] Get details error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch English backdrop image from the images endpoint.
+   * Backdrops are landscape format - better for card displays.
+   * Prioritizes English backdrops, then language-neutral backdrops.
+   */
+  private async getEnglishBackdrop(id: number, mediaType: 'movie' | 'tv'): Promise<string | null> {
+    if (!this.apiKey) return null;
+
+    try {
+      const endpoint = mediaType === 'movie' ? 'movie' : 'tv';
+      // Request images with English language preference, with fallback to null (language-neutral)
+      const url = `${TMDB_BASE_URL}/${endpoint}/${id}/images?api_key=${this.apiKey}&include_image_language=en,null`;
+      const response = await fetch(url);
+
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      const backdrops = data.backdrops || [];
+
+      if (backdrops.length === 0) {
+        console.log(`[TMDB] No backdrops found for ${mediaType} ${id}`);
+        return null;
+      }
+
+      // Sort by vote_average to get best quality backdrop
+      const sortedBackdrops = backdrops.sort((a: { vote_average: number }, b: { vote_average: number }) =>
+        (b.vote_average || 0) - (a.vote_average || 0)
+      );
+
+      // Prefer English backdrops, then language-neutral (null), then any
+      const englishBackdrop = sortedBackdrops.find((b: { iso_639_1: string | null }) => b.iso_639_1 === 'en');
+      const neutralBackdrop = sortedBackdrops.find((b: { iso_639_1: string | null }) => b.iso_639_1 === null);
+      const bestBackdrop = englishBackdrop || neutralBackdrop || sortedBackdrops[0];
+
+      if (bestBackdrop?.file_path) {
+        console.log(`[TMDB] Found English/neutral backdrop for ${mediaType} ${id}: ${bestBackdrop.iso_639_1 || 'neutral'}`);
+        return bestBackdrop.file_path;
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`[TMDB] Get ${mediaType} backdrops error:`, error);
       return null;
     }
   }
