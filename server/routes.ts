@@ -12607,7 +12607,7 @@ You can find these tasks in your task list and start working on them right away!
         }
 
         // Save the updated journal data to user preferences
-        await storage.updateUserPreferences(userId, {
+        await storage.upsertUserPreferences(userId, {
           preferences: {
             ...prefs.preferences,
             journalData
