@@ -1695,11 +1695,17 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                       >
                         {/* Web enrichment image header - full image display */}
                         {hasWebImage && (
-                          <div className="relative w-full aspect-video bg-black/90">
+                          <div className="relative w-full aspect-video bg-muted overflow-hidden">
+                            {/* Blurred background for cinematic feel */}
+                            <div 
+                              className="absolute inset-0 bg-cover bg-center blur-xl scale-110 opacity-50"
+                              style={{ backgroundImage: `url(${primaryImage})` }}
+                            />
+                            
                             <img
                               src={primaryImage}
                               alt={webEnrichment?.venueName || text.substring(0, 30)}
-                              className="w-full h-full object-contain"
+                              className="relative w-full h-full object-contain z-10"
                               loading="lazy"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
@@ -1743,10 +1749,10 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
                                 <Pencil className="w-3 h-3" /> Custom
                               </div>
                             )}
-                            {/* Verified badge - visible on all devices */}
+                            {/* Verified badge - positioned safely */}
                             {webEnrichment?.venueVerified && !hasManualOverride && (
-                              <div className="absolute top-2 right-2 bg-green-500/90 text-white text-xs sm:text-sm px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
-                                <Check className="w-3 h-3 sm:w-4 sm:h-4" /> Verified
+                              <div className="absolute top-2 right-2 bg-green-500/95 text-white text-[10px] sm:text-xs px-2 py-1 rounded-full flex items-center gap-1 shadow-lg z-20">
+                                <Check className="w-3 h-3" /> Verified
                               </div>
                             )}
                             {/* Mark as Watched/Read/Attended button - floating on image */}
