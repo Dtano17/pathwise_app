@@ -591,12 +591,27 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       console.log('[SETTINGS] Permission granted, fetching calendars...');
       const calendars = await getCalendars();
       console.log('[SETTINGS] Found calendars:', calendars.length);
+      console.log('[SETTINGS] Calendars raw data:', JSON.stringify(calendars));
+
+      // Log each calendar for debugging
+      if (calendars.length > 0) {
+        calendars.forEach((cal, i) => {
+          console.log(`[SETTINGS] Calendar #${i + 1}:`, JSON.stringify(cal));
+        });
+      } else {
+        console.warn('[SETTINGS] No calendars returned from getCalendars()');
+        console.warn('[SETTINGS] This could mean:');
+        console.warn('[SETTINGS] - Samsung Calendar is not using CalendarContract API');
+        console.warn('[SETTINGS] - No Google Calendar account is synced to device');
+        console.warn('[SETTINGS] - Calendar provider permissions issue');
+      }
 
       if (calendars.length === 0) {
         toast({
           title: 'No Calendars Found',
-          description: 'No writable calendars found on your device',
-          variant: 'destructive'
+          description: 'Samsung Calendar is not compatible with this feature. Please add a Google account and sync Google Calendar to your device.',
+          variant: 'destructive',
+          duration: 8000,
         });
         setCalendarLoading(false);
         return;
@@ -783,13 +798,27 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
 
   // Import calendar events as tasks (bidirectional sync)
   const handleImportCalendarEvents = async () => {
+    console.log('[SETTINGS] ========== handleImportCalendarEvents START ==========');
     setCalendarSyncLoading(true);
     try {
       const today = new Date();
+      console.log('[SETTINGS] today (raw):', today);
+      console.log('[SETTINGS] today.toISOString():', today.toISOString());
+      console.log('[SETTINGS] today.getTime():', today.getTime());
+
       const weekEnd = new Date(today);
       weekEnd.setDate(weekEnd.getDate() + 7);
+      console.log('[SETTINGS] weekEnd (raw):', weekEnd);
+      console.log('[SETTINGS] weekEnd.toISOString():', weekEnd.toISOString());
+      console.log('[SETTINGS] weekEnd.getTime():', weekEnd.getTime());
 
+      console.log('[SETTINGS] Calling syncCalendarToTasks...');
       const result = await syncCalendarToTasks(today, weekEnd);
+      console.log('[SETTINGS] syncCalendarToTasks result:', JSON.stringify({
+        success: result.success,
+        taskCount: result.tasks?.length ?? 0,
+        error: result.error
+      }));
 
       if (!result.success) {
         toast({
@@ -834,12 +863,17 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
         description: `${imported} events imported as tasks`,
       });
     } catch (error: any) {
+      console.error('[SETTINGS] Import error:', error);
+      console.error('[SETTINGS] Error name:', error?.name);
+      console.error('[SETTINGS] Error message:', error?.message);
+      console.error('[SETTINGS] Error stack:', error?.stack);
       toast({
         title: 'Import Error',
         description: error.message || 'Failed to import calendar events',
         variant: 'destructive'
       });
     } finally {
+      console.log('[SETTINGS] ========== handleImportCalendarEvents END ==========');
       setCalendarSyncLoading(false);
     }
   };

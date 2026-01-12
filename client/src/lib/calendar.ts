@@ -124,26 +124,64 @@ export async function checkCalendarPermission(): Promise<CalendarPermissionStatu
  * Get list of available calendars on device
  */
 export async function getCalendars(): Promise<Calendar[]> {
+  console.log('[CALENDAR] getCalendars() called');
+  console.log('[CALENDAR] Platform info - isNative:', isNative(), 'isIOS:', isIOS(), 'isAndroid:', isAndroid());
+
   if (!isNative()) {
+    console.log('[CALENDAR] Not native platform, returning empty array');
     return [];
   }
 
   try {
     // Check permission first
+    console.log('[CALENDAR] Checking permissions before listing calendars...');
     const permission = await checkCalendarPermission();
+    console.log('[CALENDAR] Current permission state:', JSON.stringify(permission));
+
     if (!permission.granted && !permission.readOnly) {
+      console.log('[CALENDAR] Permission not yet granted, requesting...');
       const requested = await requestCalendarPermission();
+      console.log('[CALENDAR] Permission request result:', JSON.stringify(requested));
       if (!requested.granted && !requested.readOnly) {
-        console.warn('[CALENDAR] Permission not granted');
+        console.warn('[CALENDAR] Permission not granted after request');
         return [];
       }
     }
 
-    const { calendars } = await CapacitorCalendar.listCalendars();
+    console.log('[CALENDAR] Calling CapacitorCalendar.listCalendars()...');
+    const result = await CapacitorCalendar.listCalendars();
+    console.log('[CALENDAR] listCalendars raw result:', JSON.stringify(result));
+
+    const { calendars } = result;
     console.log(`[CALENDAR] Found ${calendars.length} calendars`);
+
+    // Log each calendar's details
+    if (calendars.length > 0) {
+      calendars.forEach((cal, index) => {
+        console.log(`[CALENDAR] Calendar #${index + 1}:`, JSON.stringify({
+          id: cal.id,
+          title: cal.title,
+          isPrimary: cal.isPrimary,
+          isReadOnly: cal.isReadOnly,
+          color: cal.color,
+          // Log any other properties the calendar might have
+          ...cal
+        }));
+      });
+    } else {
+      console.warn('[CALENDAR] No calendars found! Possible reasons:');
+      console.warn('[CALENDAR] - No calendar accounts configured on device');
+      console.warn('[CALENDAR] - Samsung Calendar not synced with CalendarContract API');
+      console.warn('[CALENDAR] - Google Calendar account not added to device');
+      console.warn('[CALENDAR] - Calendar provider not accessible');
+    }
+
     return calendars;
-  } catch (error) {
+  } catch (error: any) {
     console.error('[CALENDAR] Failed to get calendars:', error);
+    console.error('[CALENDAR] Error name:', error?.name);
+    console.error('[CALENDAR] Error message:', error?.message);
+    console.error('[CALENDAR] Error stack:', error?.stack);
     return [];
   }
 }
@@ -505,6 +543,19 @@ export async function getCalendarEvents(
   endDate: Date,
   calendarIds?: string[]
 ): Promise<ImportEventsResult> {
+  console.log('[CALENDAR] ========== getCalendarEvents() START ==========');
+  console.log('[CALENDAR] Input parameters:');
+  console.log('[CALENDAR]   startDate:', startDate);
+  console.log('[CALENDAR]   startDate.toISOString():', startDate?.toISOString?.() ?? 'N/A');
+  console.log('[CALENDAR]   startDate.getTime():', startDate?.getTime?.() ?? 'N/A');
+  console.log('[CALENDAR]   startDate valid:', startDate instanceof Date && !isNaN(startDate.getTime()));
+  console.log('[CALENDAR]   endDate:', endDate);
+  console.log('[CALENDAR]   endDate.toISOString():', endDate?.toISOString?.() ?? 'N/A');
+  console.log('[CALENDAR]   endDate.getTime():', endDate?.getTime?.() ?? 'N/A');
+  console.log('[CALENDAR]   endDate valid:', endDate instanceof Date && !isNaN(endDate.getTime()));
+  console.log('[CALENDAR]   calendarIds:', calendarIds);
+  console.log('[CALENDAR] Platform - isNative:', isNative(), 'isIOS:', isIOS(), 'isAndroid:', isAndroid());
+
   if (!isNative()) {
     console.warn('[CALENDAR] Import only available on native platforms');
     return {
@@ -514,11 +565,39 @@ export async function getCalendarEvents(
     };
   }
 
+  // Validate dates early
+  if (!startDate || !(startDate instanceof Date) || isNaN(startDate.getTime())) {
+    const error = 'Invalid or missing startDate - From date must be provided';
+    console.error('[CALENDAR] Validation failed:', error);
+    console.error('[CALENDAR] startDate value:', startDate, 'type:', typeof startDate);
+    return {
+      success: false,
+      events: [],
+      error
+    };
+  }
+
+  if (!endDate || !(endDate instanceof Date) || isNaN(endDate.getTime())) {
+    const error = 'Invalid or missing endDate - To date must be provided';
+    console.error('[CALENDAR] Validation failed:', error);
+    console.error('[CALENDAR] endDate value:', endDate, 'type:', typeof endDate);
+    return {
+      success: false,
+      events: [],
+      error
+    };
+  }
+
   try {
     // Check/request permission
+    console.log('[CALENDAR] Checking permissions...');
     let permission = await checkCalendarPermission();
+    console.log('[CALENDAR] Permission check result:', JSON.stringify(permission));
+
     if (!permission.granted && !permission.readOnly) {
+      console.log('[CALENDAR] Requesting permission...');
       permission = await requestCalendarPermission();
+      console.log('[CALENDAR] Permission request result:', JSON.stringify(permission));
       if (!permission.granted && !permission.readOnly) {
         return {
           success: false,
@@ -529,17 +608,31 @@ export async function getCalendarEvents(
     }
 
     // Get events from calendars
+    // NOTE: Plugin v7.1.0+ uses 'from' and 'to' instead of 'startDate' and 'endDate'
+    const startTimestamp = startDate.getTime();
+    const endTimestamp = endDate.getTime();
+    console.log('[CALENDAR] Calling listEventsInRange with timestamps:');
+    console.log('[CALENDAR]   from (startDate) timestamp:', startTimestamp);
+    console.log('[CALENDAR]   to (endDate) timestamp:', endTimestamp);
+
     const result = await CapacitorCalendar.listEventsInRange({
-      startDate: startDate.getTime(),
-      endDate: endDate.getTime(),
+      from: startTimestamp,
+      to: endTimestamp,
     });
 
+    console.log('[CALENDAR] listEventsInRange raw result:', JSON.stringify(result));
+    // Plugin v7.1.0+ returns 'result' not 'events'
+    const rawEvents = result.result || result.events || [];
+    console.log('[CALENDAR] Number of events returned:', rawEvents.length);
+
     // Get calendar list for names
+    console.log('[CALENDAR] Getting calendar list for mapping...');
     const calendars = await getCalendars();
     const calendarMap = new Map(calendars.map(c => [c.id, c]));
+    console.log('[CALENDAR] Calendar map size:', calendarMap.size);
 
     // Filter by calendar IDs if provided and map to our format
-    const events: CalendarEventImport[] = (result.events || [])
+    const events: CalendarEventImport[] = (rawEvents)
       .filter((event: any) => {
         if (calendarIds && calendarIds.length > 0) {
           return calendarIds.includes(event.calendarId);
@@ -559,12 +652,17 @@ export async function getCalendarEvents(
       }));
 
     console.log(`[CALENDAR] Retrieved ${events.length} events from calendar`);
+    console.log('[CALENDAR] ========== getCalendarEvents() END ==========');
     return {
       success: true,
       events
     };
   } catch (error: any) {
     console.error('[CALENDAR] Failed to get calendar events:', error);
+    console.error('[CALENDAR] Error name:', error?.name);
+    console.error('[CALENDAR] Error message:', error?.message);
+    console.error('[CALENDAR] Error stack:', error?.stack);
+    console.log('[CALENDAR] ========== getCalendarEvents() END (ERROR) ==========');
     return {
       success: false,
       events: [],
@@ -577,11 +675,18 @@ export async function getCalendarEvents(
  * Get today's calendar events
  */
 export async function getTodaysCalendarEvents(calendarIds?: string[]): Promise<ImportEventsResult> {
+  console.log('[CALENDAR] getTodaysCalendarEvents() called');
+  console.log('[CALENDAR]   calendarIds:', calendarIds);
+
   const today = new Date();
+  console.log('[CALENDAR]   Current date/time before reset:', today.toISOString());
+
   today.setHours(0, 0, 0, 0);
+  console.log('[CALENDAR]   Today (start of day):', today.toISOString());
 
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
+  console.log('[CALENDAR]   Tomorrow (end of range):', tomorrow.toISOString());
 
   return getCalendarEvents(today, tomorrow, calendarIds);
 }
@@ -590,11 +695,18 @@ export async function getTodaysCalendarEvents(calendarIds?: string[]): Promise<I
  * Get this week's calendar events
  */
 export async function getWeeksCalendarEvents(calendarIds?: string[]): Promise<ImportEventsResult> {
+  console.log('[CALENDAR] getWeeksCalendarEvents() called');
+  console.log('[CALENDAR]   calendarIds:', calendarIds);
+
   const today = new Date();
+  console.log('[CALENDAR]   Current date/time before reset:', today.toISOString());
+
   today.setHours(0, 0, 0, 0);
+  console.log('[CALENDAR]   Today (start of day):', today.toISOString());
 
   const weekEnd = new Date(today);
   weekEnd.setDate(weekEnd.getDate() + 7);
+  console.log('[CALENDAR]   Week end (7 days out):', weekEnd.toISOString());
 
   return getCalendarEvents(today, weekEnd, calendarIds);
 }
@@ -646,9 +758,39 @@ export async function syncCalendarToTasks(
   }>;
   error?: string;
 }> {
+  console.log('[CALENDAR] ========== syncCalendarToTasks() START ==========');
+  console.log('[CALENDAR] Input parameters:');
+  console.log('[CALENDAR]   startDate:', startDate);
+  console.log('[CALENDAR]   startDate type:', typeof startDate);
+  console.log('[CALENDAR]   startDate instanceof Date:', startDate instanceof Date);
+  console.log('[CALENDAR]   startDate.toISOString():', startDate?.toISOString?.() ?? 'INVALID');
+  console.log('[CALENDAR]   startDate.getTime():', startDate?.getTime?.() ?? 'INVALID');
+  console.log('[CALENDAR]   endDate:', endDate);
+  console.log('[CALENDAR]   endDate type:', typeof endDate);
+  console.log('[CALENDAR]   endDate instanceof Date:', endDate instanceof Date);
+  console.log('[CALENDAR]   endDate.toISOString():', endDate?.toISOString?.() ?? 'INVALID');
+  console.log('[CALENDAR]   endDate.getTime():', endDate?.getTime?.() ?? 'INVALID');
+  console.log('[CALENDAR]   calendarIds:', calendarIds);
+
+  // Additional validation logging
+  if (!startDate) {
+    console.error('[CALENDAR] ERROR: startDate is falsy!', startDate);
+  }
+  if (!endDate) {
+    console.error('[CALENDAR] ERROR: endDate is falsy!', endDate);
+  }
+
   const result = await getCalendarEvents(startDate, endDate, calendarIds);
 
+  console.log('[CALENDAR] getCalendarEvents result:', JSON.stringify({
+    success: result.success,
+    eventCount: result.events?.length ?? 0,
+    error: result.error
+  }));
+
   if (!result.success) {
+    console.error('[CALENDAR] syncCalendarToTasks failed:', result.error);
+    console.log('[CALENDAR] ========== syncCalendarToTasks() END (FAILED) ==========');
     return {
       success: false,
       tasks: [],
@@ -657,6 +799,8 @@ export async function syncCalendarToTasks(
   }
 
   const tasks = convertEventsToTasks(result.events);
+  console.log('[CALENDAR] Converted', tasks.length, 'events to tasks');
+  console.log('[CALENDAR] ========== syncCalendarToTasks() END ==========');
   return {
     success: true,
     tasks
