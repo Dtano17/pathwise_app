@@ -9,6 +9,8 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
+import android.view.View;
+import android.widget.RemoteViews;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -109,7 +111,7 @@ public class JournalMateService extends Service {
     }
 
     /**
-     * Build the foreground notification
+     * Build the foreground notification with custom layout
      */
     private Notification buildNotification() {
         // Intent to open app when notification is tapped
@@ -138,43 +140,72 @@ public class JournalMateService extends Service {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        // Build content text
+        // Create custom RemoteViews layout
+        RemoteViews customView = new RemoteViews(getPackageName(), R.layout.notification_live_progress);
+
+        // Calculate progress percentage
+        int percentage = totalTasks > 0 ? (int) ((completedTasks * 100.0) / totalTasks) : 0;
+
+        // Update progress ring
+        customView.setProgressBar(R.id.progress_ring, 100, percentage, false);
+        customView.setTextViewText(R.id.progress_percentage, percentage + "%");
+
+        // Update title
+        String title = totalTasks > 0 ? "Today's Progress" : "Ready to Start";
+        customView.setTextViewText(R.id.notification_title, title);
+
+        // Update task count
+        String taskText;
+        if (totalTasks > 0) {
+            taskText = String.format("%d/%d tasks completed", completedTasks, totalTasks);
+        } else {
+            taskText = "No tasks for today";
+        }
+        customView.setTextViewText(R.id.task_count, taskText);
+
+        // Update streak badge
+        if (currentStreak > 0) {
+            customView.setViewVisibility(R.id.streak_badge, View.VISIBLE);
+            customView.setTextViewText(R.id.streak_badge, "\uD83D\uDD25 " + currentStreak);
+        } else {
+            customView.setViewVisibility(R.id.streak_badge, View.GONE);
+        }
+
+        // Update next task if available
+        if (!nextTaskTitle.isEmpty()) {
+            customView.setViewVisibility(R.id.next_task, View.VISIBLE);
+            String nextText = "\uD83D\uDCCB Next: " + nextTaskTitle;
+            if (!nextTaskTime.isEmpty()) {
+                nextText += " at " + nextTaskTime;
+            }
+            customView.setTextViewText(R.id.next_task, nextText);
+        } else {
+            customView.setViewVisibility(R.id.next_task, View.GONE);
+        }
+
+        // Build content text for fallback/accessibility
         String contentText;
         if (totalTasks > 0) {
-            int percentage = (int) ((completedTasks * 100.0) / totalTasks);
             contentText = String.format("%d/%d tasks done (%d%%)", completedTasks, totalTasks, percentage);
             if (currentStreak > 0) {
-                contentText += String.format(" • %d day streak 🔥", currentStreak);
+                contentText += String.format(" • %d day streak", currentStreak);
             }
         } else {
             contentText = "No tasks for today. Tap to add one!";
-        }
-
-        // Build expanded content
-        String bigText = contentText;
-        if (!nextTaskTitle.isEmpty()) {
-            bigText += "\n\n📋 Next: " + nextTaskTitle;
-            if (!nextTaskTime.isEmpty()) {
-                bigText += " at " + nextTaskTime;
-            }
         }
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("JournalMate")
             .setContentText(contentText)
-            .setStyle(new NotificationCompat.BigTextStyle().bigText(bigText))
+            .setCustomContentView(customView)
+            .setCustomBigContentView(customView)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true) // Can't be dismissed
             .setShowWhen(false) // Don't show timestamp
             .setContentIntent(openPendingIntent)
             .addAction(R.drawable.ic_notification, "Add Task", addTaskPendingIntent)
             .addAction(R.drawable.ic_notification, "Today", viewTodayPendingIntent);
-
-        // Progress bar if tasks exist
-        if (totalTasks > 0) {
-            builder.setProgress(totalTasks, completedTasks, false);
-        }
 
         return builder.build();
     }
