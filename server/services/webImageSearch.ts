@@ -524,14 +524,13 @@ function getVariationModifiers(variation: number): { suffix: string; offset: num
 /**
  * Search for multiple backdrop options (for image picker UI)
  *
- * HYBRID PROVIDER SELECTION STRATEGY (Cost Optimized):
+ * PROVIDER PRIORITY STRATEGY (Unsplash/Pexels First):
  * 1. Check cache first (FREE, instant)
- * 2. Run CHEAP location detection (regex, no API calls)
- * 3. IF location signals found → Use Tavily (expensive but contextual)
- * 4. IF no location → Use Unsplash/Pexels round-robin (FREE)
- * 5. Cache results with appropriate TTL
+ * 2. ALWAYS try Unsplash/Pexels FIRST (FREE, high quality)
+ * 3. IF free providers fail or return insufficient results AND location detected → Use Tavily as fallback
+ * 4. Cache results with appropriate TTL
  *
- * This reduces costs by ~85-90% compared to always using Tavily
+ * This prioritizes free providers to minimize costs while keeping Tavily as a last resort
  */
 export async function searchBackdropOptions(
   activityTitle: string,
@@ -558,19 +557,30 @@ export async function searchBackdropOptions(
   let hasLocation = false;
 
   // ========================================
-  // STEP 2: CHEAP location detection (NO API calls)
+  // STEP 2: ALWAYS try FREE providers FIRST (Unsplash/Pexels)
   // ========================================
+  console.log('[WebImageSearch] 🎨 Trying FREE providers first (Unsplash/Pexels)');
+
+  try {
+    const freeOptions = await getFreeProviderImages(category, activityTitle, maxOptions, variation);
+    options.push(...freeOptions);
+    console.log(`[WebImageSearch] Free providers returned ${options.length} images`);
+  } catch (error) {
+    console.error('[WebImageSearch] Free providers failed:', error);
+  }
+
+  // ========================================
+  // STEP 3: Only use Tavily as FALLBACK if free providers returned insufficient results
+  // AND location is detected (to keep it contextually relevant)
+  // ========================================
+  const MIN_ACCEPTABLE_RESULTS = 4;
   const cheapLocationDetected = detectLocationCheap(activityTitle, description);
 
-  // ========================================
-  // STEP 3: Provider selection based on location detection
-  // ========================================
-  if (cheapLocationDetected && process.env.TAVILY_API_KEY) {
-    // Location signals found → Use AI + Tavily for contextual images
-    console.log('[WebImageSearch] 🌍 Location detected, using Tavily for contextual search');
+  if (options.length < MIN_ACCEPTABLE_RESULTS && cheapLocationDetected && process.env.TAVILY_API_KEY) {
+    console.log(`[WebImageSearch] 🌍 Only ${options.length} free results, falling back to Tavily for location: "${activityTitle}"`);
 
     try {
-      // Only call Claude Haiku if we detected location signals (saves money)
+      // Only call Claude Haiku if we need Tavily fallback
       const aiLocation = await extractLocationWithAI(activityTitle, description);
       hasLocation = !!aiLocation;
 
@@ -599,19 +609,20 @@ export async function searchBackdropOptions(
         }
         searchQuery += ` ${variationMod.suffix} -people -faces -crowd -portrait`;
 
-        console.log('🔍 Tavily Search Query:', searchQuery);
+        console.log('🔍 Tavily Fallback Search Query:', searchQuery);
 
         const response = await tavilyClient.search(searchQuery, {
           searchDepth: 'advanced',
-          maxResults: 8,
+          maxResults: maxOptions - options.length, // Only fetch what we need
           includeImages: true,
           includeAnswer: false,
         });
 
         const images = response.images || [];
-        console.log(`[WebImageSearch] Tavily returned ${images.length} images`);
+        console.log(`[WebImageSearch] Tavily fallback returned ${images.length} images`);
 
-        for (const img of images.slice(0, maxOptions)) {
+        const slotsRemaining = maxOptions - options.length;
+        for (const img of images.slice(0, slotsRemaining)) {
           if (img.url) {
             const allKeywords = titleKeywords.split(' ').concat(shuffledDescKeywords.slice(0, 2));
             const labelWords = allKeywords.filter((w: string) => w.length > 2).slice(0, 3);
@@ -634,27 +645,16 @@ export async function searchBackdropOptions(
         }
       }
     } catch (error) {
-      console.error('[WebImageSearch] Tavily search failed:', error);
-      // Will fall through to free providers below
+      console.error('[WebImageSearch] Tavily fallback failed:', error);
     }
+  } else if (options.length >= MIN_ACCEPTABLE_RESULTS) {
+    console.log(`[WebImageSearch] ✅ Got ${options.length} images from free providers, skipping Tavily`);
   } else if (!cheapLocationDetected) {
-    // No location signals → Skip Tavily entirely, use FREE providers
-    console.log('[WebImageSearch] 💰 No location detected, using FREE providers (Unsplash/Pexels)');
-  } else {
-    console.log('[WebImageSearch] TAVILY_API_KEY not configured, using FREE providers');
+    console.log('[WebImageSearch] No location detected, not using Tavily fallback');
   }
 
   // ========================================
-  // STEP 4: Fill remaining slots with FREE providers
-  // ========================================
-  const remainingSlots = maxOptions - options.length;
-  if (remainingSlots > 0) {
-    const freeOptions = await getFreeProviderImages(category, activityTitle, remainingSlots, variation);
-    options.push(...freeOptions);
-  }
-
-  // ========================================
-  // STEP 5: Cache results with appropriate TTL
+  // STEP 4: Cache results with appropriate TTL
   // ========================================
   if (activityId && options.length > 0) {
     backdropCache.set(activityId, variation, options, hasLocation);
@@ -663,7 +663,7 @@ export async function searchBackdropOptions(
 
   const tavilyCount = options.filter(o => o.source === 'tavily').length;
   const freeCount = options.filter(o => o.source === 'unsplash' || o.source === 'pexels').length;
-  console.log(`[WebImageSearch] Returning ${options.length} options (${tavilyCount} Tavily, ${freeCount} free)`);
+  console.log(`[WebImageSearch] Returning ${options.length} options (${freeCount} free, ${tavilyCount} Tavily fallback)`);
 
   return options.slice(0, maxOptions);
 }
@@ -810,7 +810,7 @@ export function getCategoryFallbackImage(category: string, activityTitle?: strin
 
 /**
  * Get the best available image for an activity
- * Priority: 1) User's custom backdrop, 2) Web search, 3) Category fallback
+ * Priority: 1) User's custom backdrop, 2) Unsplash/Pexels, 3) Tavily (last resort), 4) Category fallback
  */
 export async function getActivityImage(
   activityTitle: string,
@@ -821,7 +821,7 @@ export async function getActivityImage(
   // Priority 1: User's custom backdrop
   if (userBackdrop) {
     console.log('[WebImageSearch] Using user-provided backdrop');
-    
+
     // If backdrop starts with /community-backdrops/, convert to absolute URL
     if (userBackdrop.startsWith('/community-backdrops/')) {
       const publicBaseUrl = baseUrl || process.env.PUBLIC_BASE_URL || 'http://localhost:5000';
@@ -829,17 +829,43 @@ export async function getActivityImage(
       console.log('[WebImageSearch] Converting community backdrop to absolute URL:', absoluteUrl);
       return absoluteUrl;
     }
-    
+
     return userBackdrop;
   }
 
-  // Priority 2: Search for relevant image via Tavily
-  const searchedImage = await searchActivityImage(activityTitle, category);
-  if (searchedImage) {
-    return searchedImage;
+  // Priority 2: Try Unsplash first (FREE)
+  try {
+    const unsplashImages = await unsplashService.getSuggestedBackdrops(category, activityTitle, 'landscape', 1);
+    if (unsplashImages.length > 0 && unsplashImages[0].url) {
+      console.log('[WebImageSearch] Using Unsplash image');
+      return unsplashImages[0].url;
+    }
+  } catch (error) {
+    console.error('[WebImageSearch] Unsplash failed:', error);
   }
 
-  // Priority 3: City/category-based fallback with title detection
+  // Priority 3: Try Pexels (FREE)
+  try {
+    const pexelsImages = await pexelsService.getSuggestedBackdrops(category, activityTitle, 'landscape', 1);
+    if (pexelsImages.length > 0 && pexelsImages[0].url) {
+      console.log('[WebImageSearch] Using Pexels image');
+      return pexelsImages[0].url;
+    }
+  } catch (error) {
+    console.error('[WebImageSearch] Pexels failed:', error);
+  }
+
+  // Priority 4: Tavily as last resort (PAID) - only if location detected
+  const hasLocation = detectLocationCheap(activityTitle);
+  if (hasLocation && process.env.TAVILY_API_KEY) {
+    console.log('[WebImageSearch] Free providers failed, trying Tavily as last resort');
+    const searchedImage = await searchActivityImage(activityTitle, category);
+    if (searchedImage) {
+      return searchedImage;
+    }
+  }
+
+  // Priority 5: City/category-based fallback with title detection
   console.log('[WebImageSearch] Using category/city fallback image');
   return getCategoryFallbackImage(category, activityTitle);
 }
