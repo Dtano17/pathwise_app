@@ -111,148 +111,20 @@ export class PexelsService {
 
   /**
    * Build search query from category and activity title
-   * Enhanced to extract locations, events, and meaningful keywords
    */
   private buildSearchQuery(category: string, activityTitle?: string): string {
-    if (!activityTitle) {
-      return this.getCategoryQuery(category);
-    }
+    // Extract meaningful words from title
+    const titleKeywords = activityTitle
+      ? activityTitle
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, '')
+          .split(' ')
+          .filter(word => word.length > 3)
+          .slice(0, 2)
+          .join(' ')
+      : '';
 
-    const titleLower = activityTitle.toLowerCase();
-
-    // 1. Extract location if present
-    const location = this.extractLocation(titleLower);
-
-    // 2. Extract event/occasion type
-    const event = this.extractEvent(titleLower);
-
-    // 3. Extract activity keywords
-    const activityKeywords = this.extractActivityKeywords(titleLower);
-
-    // Build contextual query
-    let query = '';
-
-    if (location) {
-      query = location;
-      if (event) {
-        query += ` ${event}`;
-      } else if (activityKeywords) {
-        query += ` ${activityKeywords}`;
-      }
-      query += ' scenic';
-    } else if (event) {
-      query = `${event} celebration`;
-      if (activityKeywords) {
-        query += ` ${activityKeywords}`;
-      }
-    } else if (activityKeywords) {
-      query = `${activityKeywords} ${this.getCategoryQuery(category)}`;
-    } else {
-      query = this.getCategoryQuery(category);
-    }
-
-    console.log(`[PexelsService] Built query: "${query}" from title: "${activityTitle}"`);
-    return query;
-  }
-
-  /**
-   * Extract location/city from title
-   */
-  private extractLocation(text: string): string | null {
-    const locations: Record<string, string> = {
-      'los angeles': 'Los Angeles city skyline',
-      'la': 'Los Angeles California',
-      'new york': 'New York City skyline',
-      'nyc': 'New York City',
-      'manhattan': 'Manhattan New York',
-      'paris': 'Paris France Eiffel',
-      'london': 'London England',
-      'tokyo': 'Tokyo Japan',
-      'miami': 'Miami Florida beach',
-      'las vegas': 'Las Vegas Nevada',
-      'vegas': 'Las Vegas lights',
-      'san francisco': 'San Francisco bridge',
-      'chicago': 'Chicago skyline',
-      'hawaii': 'Hawaii beach tropical',
-      'cancun': 'Cancun beach Mexico',
-      'dubai': 'Dubai skyline',
-      'barcelona': 'Barcelona Spain',
-      'rome': 'Rome Italy',
-      'big bear': 'mountain snow cabin',
-      'lake tahoe': 'Lake Tahoe snow',
-      'aspen': 'Aspen Colorado ski',
-      'malibu': 'Malibu beach sunset',
-      'santa monica': 'Santa Monica pier beach',
-      'hollywood': 'Hollywood Los Angeles',
-      'times square': 'Times Square New York lights',
-    };
-
-    for (const [key, value] of Object.entries(locations)) {
-      const regex = new RegExp(`\\b${key}\\b`, 'i');
-      if (regex.test(text)) {
-        return value;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Extract event/occasion type from title
-   */
-  private extractEvent(text: string): string | null {
-    const events: Record<string, string> = {
-      'new year': 'New Years Eve fireworks',
-      'nye': 'New Years party celebration',
-      'christmas': 'Christmas holiday lights',
-      'halloween': 'Halloween party',
-      'thanksgiving': 'Thanksgiving dinner',
-      'valentine': 'Valentine romantic',
-      'birthday': 'birthday party celebration',
-      'wedding': 'wedding elegant',
-      'anniversary': 'anniversary celebration',
-      'party': 'party celebration nightlife',
-      'club': 'nightclub party lights',
-      'concert': 'concert music live',
-      'festival': 'festival crowd celebration',
-      'brunch': 'brunch restaurant',
-      'dinner': 'dinner restaurant elegant',
-      'date night': 'romantic dinner date',
-    };
-
-    for (const [key, value] of Object.entries(events)) {
-      if (text.includes(key)) {
-        return value;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Extract meaningful activity keywords from title
-   */
-  private extractActivityKeywords(text: string): string | null {
-    const stopWords = new Set([
-      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-      'of', 'with', 'from', 'by', 'my', 'your', 'our', 'their', 'this',
-      'that', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has',
-      'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may',
-      'best', 'top', 'most', 'how', 'what', 'why', 'when', 'where',
-      '10', '5', '7', '20', 'moves', 'things', 'ideas', 'ways', 'tips'
-    ]);
-
-    const words = text
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter(word => word.length > 2 && !stopWords.has(word))
-      .slice(0, 3);
-
-    return words.length > 0 ? words.join(' ') : null;
-  }
-
-  /**
-   * Get category-specific search query
-   */
-  private getCategoryQuery(category: string): string {
+    // Category-to-search mapping (similar to Unsplash)
     const categoryQueries: Record<string, string> = {
       travel: 'travel destination landscape scenery',
       fitness: 'fitness gym workout exercise sports',
@@ -272,7 +144,8 @@ export class PexelsService {
       other: 'lifestyle modern aesthetic nature',
     };
 
-    return categoryQueries[category?.toLowerCase()] || categoryQueries.other;
+    const baseQuery = categoryQueries[category.toLowerCase()] || categoryQueries.other;
+    return titleKeywords ? `${titleKeywords} ${baseQuery}` : baseQuery;
   }
 
   /**
