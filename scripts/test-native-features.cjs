@@ -29,30 +29,26 @@ const ADB = getAdbPath();
 const PACKAGE = 'ai.journalmate.app';
 
 /**
- * Execute a command safely using spawnSync
- * @param {string} command - The command to run
- * @param {string[]} args - Array of arguments
- * @param {object} options - spawnSync options
+ * Execute an ADB command safely using spawnSync
+ * Note: Uses shell: false for security (no shell injection possible)
+ * The ADB path is validated to exist before execution
+ * @param {string[]} args - ADB command arguments
  */
-function execCommand(command, args = [], options = {}) {
+function adbExec(...args) {
   try {
-    const result = spawnSync(command, args, {
+    // Validate ADB path doesn't contain shell metacharacters
+    if (/[;&|`$]/.test(ADB)) {
+      throw new Error('Invalid ADB path detected');
+    }
+    const result = spawnSync(ADB, args, {
       encoding: 'utf8',
-      shell: os.platform() === 'win32', // Use shell on Windows for better compatibility
-      ...options
+      shell: false, // Never use shell - prevents command injection
+      windowsHide: true,
     });
     return result.stdout || result.stderr || '';
   } catch (e) {
     return e.message || '';
   }
-}
-
-/**
- * Execute an ADB command safely
- * @param {string[]} args - ADB command arguments
- */
-function adb(...args) {
-  return execCommand(ADB, args);
 }
 
 function sleep(ms) {
@@ -61,11 +57,11 @@ function sleep(ms) {
 
 async function clearLogcat() {
   console.log('Clearing logcat...');
-  adb('logcat', '-c');
+  adbExec('logcat', '-c');
 }
 
 async function getLogcat(filter = '') {
-  const logs = adb('logcat', '-d', '-t', '200');
+  const logs = adbExec('logcat', '-d', '-t', '200');
   if (filter) {
     // Filter logs locally instead of using shell pipes
     const filterTerms = filter.toLowerCase().split(' ');
@@ -78,40 +74,40 @@ async function getLogcat(filter = '') {
 
 async function launchApp() {
   console.log('Launching JournalMate app...');
-  adb('shell', 'am', 'start', '-n', `${PACKAGE}/.MainActivity`);
+  adbExec('shell', 'am', 'start', '-n', `${PACKAGE}/.MainActivity`);
   await sleep(3000); // Wait for app to load
 }
 
 async function forceStopApp() {
   console.log('Force stopping app...');
-  adb('shell', 'am', 'force-stop', PACKAGE);
+  adbExec('shell', 'am', 'force-stop', PACKAGE);
 }
 
 async function grantCalendarPermissions() {
   console.log('Granting calendar permissions via ADB...');
-  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.READ_CALENDAR');
-  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.WRITE_CALENDAR');
+  adbExec('shell', 'pm', 'grant', PACKAGE, 'android.permission.READ_CALENDAR');
+  adbExec('shell', 'pm', 'grant', PACKAGE, 'android.permission.WRITE_CALENDAR');
   console.log('Calendar permissions granted!');
 }
 
 async function grantContactsPermissions() {
   console.log('Granting contacts permissions via ADB...');
-  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.READ_CONTACTS');
-  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.WRITE_CONTACTS');
+  adbExec('shell', 'pm', 'grant', PACKAGE, 'android.permission.READ_CONTACTS');
+  adbExec('shell', 'pm', 'grant', PACKAGE, 'android.permission.WRITE_CONTACTS');
   console.log('Contacts permissions granted!');
 }
 
 async function grantNotificationPermissions() {
   console.log('Granting notification permissions via ADB...');
-  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.POST_NOTIFICATIONS');
-  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.FOREGROUND_SERVICE');
-  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.FOREGROUND_SERVICE_DATA_SYNC');
+  adbExec('shell', 'pm', 'grant', PACKAGE, 'android.permission.POST_NOTIFICATIONS');
+  adbExec('shell', 'pm', 'grant', PACKAGE, 'android.permission.FOREGROUND_SERVICE');
+  adbExec('shell', 'pm', 'grant', PACKAGE, 'android.permission.FOREGROUND_SERVICE_DATA_SYNC');
   console.log('Notification permissions granted!');
 }
 
 async function checkPermissions() {
   console.log('\n=== Checking App Permissions ===');
-  const result = adb('shell', 'dumpsys', 'package', PACKAGE);
+  const result = adbExec('shell', 'dumpsys', 'package', PACKAGE);
 
   const importantPerms = [
     'READ_CALENDAR',
@@ -223,7 +219,7 @@ async function main() {
   console.log('========================================\n');
 
   // Check ADB connection
-  const devices = adb('devices');
+  const devices = adbExec('devices');
   if (!devices.includes('device')) {
     console.error('ERROR: No Android device connected!');
     console.log('Connect your device and enable USB debugging.');
@@ -260,7 +256,7 @@ async function main() {
 
   // Show full recent logs for the app
   console.log('\n=== Recent App Logs ===');
-  const rawLogs = adb('logcat', '-d', '-t', '100');
+  const rawLogs = adbExec('logcat', '-d', '-t', '100');
   // Filter logs locally instead of using shell pipes
   const appLogs = rawLogs.split('\n')
     .filter(line => {

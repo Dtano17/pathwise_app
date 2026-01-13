@@ -6,7 +6,11 @@
     <string name="share_target_label">Planner</string>
     <string name="package_name">ai.journalmate.app</string>
     <string name="custom_url_scheme">ai.journalmate.app</string>
-    <!-- Google OAuth Web Client ID from Google Cloud Console -->
+    <!-- Google OAuth Web Client ID from Google Cloud Console
+         SECURITY NOTE: This is intentionally a PUBLIC credential (not a secret).
+         OAuth Client IDs are designed to be embedded in client apps per Google's docs:
+         https://developers.google.com/identity/protocols/oauth2
+         The Client SECRET (which IS sensitive) is stored server-side only. -->
     <string name="server_client_id">481740120979-76fs0ru0uikj5o33mr87vhua8c54657f.apps.googleusercontent.com</string>
     <!-- Widget -->
     <string name="widget_description">Quick access to JournalMate - tap to plan your day</string>

@@ -42,7 +42,10 @@ const config: CapacitorConfig = {
       sound: 'default',
     },
     GoogleAuth: {
-      // Web client ID from Google Cloud Console (pathwise-gcp project)
+      // Web Client ID from Google Cloud Console (pathwise-gcp project)
+      // SECURITY NOTE: This is intentionally a PUBLIC credential (not a secret).
+      // OAuth Client IDs are designed to be embedded in client apps per Google's docs.
+      // The Client SECRET (which IS sensitive) is stored server-side only.
       scopes: ['profile', 'email'],
       serverClientId: '481740120979-76fs0ru0uikj5o33mr87vhua8c54657f.apps.googleusercontent.com',
       forceCodeForRefreshToken: true,
