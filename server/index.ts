@@ -75,6 +75,34 @@ app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), handl
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
+// CORS configuration for Capacitor native apps
+// Native apps load from https://localhost (Android) or capacitor://localhost (iOS)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://localhost',           // Android Capacitor
+    'capacitor://localhost',       // iOS Capacitor
+    'http://localhost:5000',       // Local development
+    'http://localhost:3000',       // Vite dev server
+    'https://journalmate.ai',      // Production web
+    process.env.CLIENT_URL,        // Configured client URL
+  ].filter(Boolean);
+
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  }
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+
+  next();
+});
+
 // Serve static files from attached_assets directory
 app.use('/attached_assets', express.static('attached_assets'));
 
