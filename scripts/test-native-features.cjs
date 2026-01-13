@@ -10,18 +10,49 @@
  * Usage: node scripts/test-native-features.js
  */
 
-const { execSync, spawn } = require('child_process');
+const { spawnSync } = require('child_process');
 const path = require('path');
+const os = require('os');
 
-const ADB = 'C:\\Users\\tanar\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe';
+// Dynamically detect ADB path from ANDROID_HOME or ANDROID_SDK_ROOT
+function getAdbPath() {
+  const androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
+  if (androidHome) {
+    const adbName = os.platform() === 'win32' ? 'adb.exe' : 'adb';
+    return path.join(androidHome, 'platform-tools', adbName);
+  }
+  // Fallback to PATH
+  return 'adb';
+}
+
+const ADB = getAdbPath();
 const PACKAGE = 'ai.journalmate.app';
 
-function exec(cmd, options = {}) {
+/**
+ * Execute a command safely using spawnSync
+ * @param {string} command - The command to run
+ * @param {string[]} args - Array of arguments
+ * @param {object} options - spawnSync options
+ */
+function execCommand(command, args = [], options = {}) {
   try {
-    return execSync(cmd, { encoding: 'utf8', ...options });
+    const result = spawnSync(command, args, {
+      encoding: 'utf8',
+      shell: os.platform() === 'win32', // Use shell on Windows for better compatibility
+      ...options
+    });
+    return result.stdout || result.stderr || '';
   } catch (e) {
-    return e.stdout || e.message;
+    return e.message || '';
   }
+}
+
+/**
+ * Execute an ADB command safely
+ * @param {string[]} args - ADB command arguments
+ */
+function adb(...args) {
+  return execCommand(ADB, args);
 }
 
 function sleep(ms) {
@@ -30,52 +61,57 @@ function sleep(ms) {
 
 async function clearLogcat() {
   console.log('Clearing logcat...');
-  exec(`"${ADB}" logcat -c`);
+  adb('logcat', '-c');
 }
 
 async function getLogcat(filter = '') {
-  const cmd = filter
-    ? `"${ADB}" logcat -d | findstr /I "${filter}"`
-    : `"${ADB}" logcat -d -t 200`;
-  return exec(cmd);
+  const logs = adb('logcat', '-d', '-t', '200');
+  if (filter) {
+    // Filter logs locally instead of using shell pipes
+    const filterTerms = filter.toLowerCase().split(' ');
+    return logs.split('\n')
+      .filter(line => filterTerms.some(term => line.toLowerCase().includes(term)))
+      .join('\n');
+  }
+  return logs;
 }
 
 async function launchApp() {
   console.log('Launching JournalMate app...');
-  exec(`"${ADB}" shell am start -n ${PACKAGE}/.MainActivity`);
+  adb('shell', 'am', 'start', '-n', `${PACKAGE}/.MainActivity`);
   await sleep(3000); // Wait for app to load
 }
 
 async function forceStopApp() {
   console.log('Force stopping app...');
-  exec(`"${ADB}" shell am force-stop ${PACKAGE}`);
+  adb('shell', 'am', 'force-stop', PACKAGE);
 }
 
 async function grantCalendarPermissions() {
   console.log('Granting calendar permissions via ADB...');
-  exec(`"${ADB}" shell pm grant ${PACKAGE} android.permission.READ_CALENDAR`);
-  exec(`"${ADB}" shell pm grant ${PACKAGE} android.permission.WRITE_CALENDAR`);
+  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.READ_CALENDAR');
+  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.WRITE_CALENDAR');
   console.log('Calendar permissions granted!');
 }
 
 async function grantContactsPermissions() {
   console.log('Granting contacts permissions via ADB...');
-  exec(`"${ADB}" shell pm grant ${PACKAGE} android.permission.READ_CONTACTS`);
-  exec(`"${ADB}" shell pm grant ${PACKAGE} android.permission.WRITE_CONTACTS`);
+  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.READ_CONTACTS');
+  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.WRITE_CONTACTS');
   console.log('Contacts permissions granted!');
 }
 
 async function grantNotificationPermissions() {
   console.log('Granting notification permissions via ADB...');
-  exec(`"${ADB}" shell pm grant ${PACKAGE} android.permission.POST_NOTIFICATIONS`);
-  exec(`"${ADB}" shell pm grant ${PACKAGE} android.permission.FOREGROUND_SERVICE`);
-  exec(`"${ADB}" shell pm grant ${PACKAGE} android.permission.FOREGROUND_SERVICE_DATA_SYNC`);
+  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.POST_NOTIFICATIONS');
+  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.FOREGROUND_SERVICE');
+  adb('shell', 'pm', 'grant', PACKAGE, 'android.permission.FOREGROUND_SERVICE_DATA_SYNC');
   console.log('Notification permissions granted!');
 }
 
 async function checkPermissions() {
   console.log('\n=== Checking App Permissions ===');
-  const result = exec(`"${ADB}" shell dumpsys package ${PACKAGE} | findstr "permission"`);
+  const result = adb('shell', 'dumpsys', 'package', PACKAGE);
 
   const importantPerms = [
     'READ_CALENDAR',
@@ -187,7 +223,7 @@ async function main() {
   console.log('========================================\n');
 
   // Check ADB connection
-  const devices = exec(`"${ADB}" devices`);
+  const devices = adb('devices');
   if (!devices.includes('device')) {
     console.error('ERROR: No Android device connected!');
     console.log('Connect your device and enable USB debugging.');
@@ -224,7 +260,17 @@ async function main() {
 
   // Show full recent logs for the app
   console.log('\n=== Recent App Logs ===');
-  const appLogs = exec(`"${ADB}" logcat -d -t 100 | findstr /I "journalmate Capacitor CALENDAR BACKGROUND"`);
+  const rawLogs = adb('logcat', '-d', '-t', '100');
+  // Filter logs locally instead of using shell pipes
+  const appLogs = rawLogs.split('\n')
+    .filter(line => {
+      const lower = line.toLowerCase();
+      return lower.includes('journalmate') ||
+             lower.includes('capacitor') ||
+             lower.includes('calendar') ||
+             lower.includes('background');
+    })
+    .join('\n');
   console.log(appLogs || 'No app-specific logs found');
 
   console.log('\n========================================');
