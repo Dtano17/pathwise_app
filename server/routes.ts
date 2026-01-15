@@ -981,6 +981,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Multi-provider OAuth setup (Google, Facebook)
   await setupMultiProviderAuth(app);
 
+  // ========== ANDROID APP LINKS ==========
+  // Digital Asset Links for Android App Links verification
+  // Allows HTTPS links to journalmate.ai to open directly in the Android app
+  app.get('/.well-known/assetlinks.json', (_req, res) => {
+    res.type('application/json').json([
+      {
+        relation: ["delegate_permission/common.handle_all_urls"],
+        target: {
+          namespace: "android_app",
+          package_name: "ai.journalmate.app",
+          sha256_cert_fingerprints: [
+            "3D:B8:A4:E9:42:6F:4C:33:97:01:0D:24:46:40:1A:39:2C:84:53:72:DC:E7:F4:FC:D4:5A:8B:02:FE:53:D5:20"
+          ]
+        }
+      }
+    ]);
+  });
+
   // ========== SITEMAP FOR SEO ==========
   // Dynamic sitemap.xml for search engines and AI crawlers
   // Supports both journalmate.ai and planmate360.ai domains
@@ -3361,13 +3379,15 @@ ${sitemaps.map(sitemap => `  <sitemap>
           
           let venuesSavedCount = 0;
           // Map venues to journal entries with importId
+          // IMPORTANT: text field is ONLY the venue name (clean) for journal display
+          // Context is stored separately for enrichment
           for (const venue of result.allExtractedVenues) {
             const category = venue.category || 'restaurants';
             const entries = currentJournalData[category] || [];
-            
+
             entries.push({
               id: `journal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              text: `${venue.venueName}${venue.description ? ` - ${venue.description}` : ''}`,
+              text: venue.venueName,  // CLEAN: Just the venue name, no description
               timestamp: new Date().toISOString(),
               venueName: venue.venueName,
               venueType: venue.venueType || category,
@@ -3376,9 +3396,16 @@ ${sitemaps.map(sitemap => `  <sitemap>
               priceRange: venue.priceRange,
               estimatedCost: venue.estimatedCost,
               sourceUrl: sourceUrl,
-              importId: importId
+              importId: importId,
+              creator: venue.creator,  // Author/director/artist for enrichment
+              // Store planContext for smarter journal enrichment
+              enrichmentContext: result.planContext ? {
+                theme: result.planContext.theme,
+                contentType: result.planContext.contentType,
+                sourceDescription: result.planContext.sourceDescription,
+              } : undefined,
             });
-            
+
             currentJournalData[category] = entries;
             venuesSavedCount++;
           }
@@ -15262,16 +15289,20 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
               const venuesByCategory: Record<string, any[]> = {};
               const timestamp = new Date().toISOString();
               
+              // Get planContext for enrichment context
+              const planContext = (planResult as any).planContext;
+
               for (const venue of allExtractedVenues) {
                 const category = venue.category || 'restaurants';
                 if (!venuesByCategory[category]) {
                   venuesByCategory[category] = [];
                 }
-                
+
                 // Create structured journal entry with all venue data
+                // IMPORTANT: text is ONLY venue name (clean) for journal display
                 venuesByCategory[category].push({
                   id: `venue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                  text: venue.description || `${venue.venueName} - ${venue.venueType || 'venue'}`,
+                  text: venue.venueName,  // CLEAN: Just the venue name, no description
                   timestamp,
                   venueName: venue.venueName,
                   venueType: venue.venueType,
@@ -15285,6 +15316,13 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
                   activityId: activity.id,
                   linkedActivityTitle: activity.title,
                   aiConfidence: 0.9,
+                  creator: venue.creator,  // Author/director/artist for enrichment
+                  // Store planContext for smarter journal enrichment
+                  enrichmentContext: planContext ? {
+                    theme: planContext.theme,
+                    contentType: planContext.contentType,
+                    sourceDescription: planContext.sourceDescription,
+                  } : undefined,
                 });
               }
               

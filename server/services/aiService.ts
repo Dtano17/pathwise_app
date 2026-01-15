@@ -30,8 +30,8 @@ const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
 interface ExtractedVenue {
   venueName: string;
-  venueType: string; // restaurant, bar, cafe, hotel, attraction, club, spa, etc.
-  category: string; // restaurants, travel, activities, etc. (journal category)
+  venueType: string; // restaurant, bar, cafe, hotel, attraction, club, spa, movie, book, music, exercise, etc.
+  category: string; // restaurants, travel, activities, movies, books, music, fitness, etc. (journal category)
   location?: {
     city?: string;
     country?: string;
@@ -42,6 +42,7 @@ interface ExtractedVenue {
   budgetTier?: 'budget' | 'moderate' | 'luxury' | 'ultra_luxury';
   estimatedCost?: number;
   description?: string;
+  creator?: string; // Author (books), director (movies), artist (music), chef (restaurants)
   selectedForPlan?: boolean; // True if this venue was selected for a task
 }
 
@@ -57,6 +58,13 @@ interface GoalProcessingResult {
   planLocation?: {
     city?: string;
     country?: string;
+  };
+  // NEW: Context for journal categorization and enrichment
+  planContext?: {
+    category: string;           // Primary category: movies, books, restaurants, etc.
+    theme: string;              // Contextual theme: "top nonfiction 2025", "best brunch LA"
+    contentType: string;        // movie, book, restaurant, exercise, travel, etc.
+    sourceDescription: string;  // Original description from URL for enrichment context
   };
 }
 
@@ -1594,16 +1602,23 @@ NEVER use generic titles like "Generated Plan", "Plan from URL", "New Activity",
   ],${hasSocialMediaContent ? `
   "allExtractedVenues": [
     {
-      "venueName": "EXACT name of each venue/restaurant/place mentioned",
-      "venueType": "restaurant|bar|cafe|hotel|spa|activity|attraction|shopping|book|course|class",
-      "category": "restaurants|bars|cafes|hotels|activities|shopping|wellness|books|learning",
+      "venueName": "EXACT name of each venue/restaurant/place/movie/book mentioned",
+      "venueType": "restaurant|bar|cafe|hotel|spa|activity|attraction|shopping|book|movie|music|course|class|exercise",
+      "category": "restaurants|bars|cafes|hotels|activities|shopping|wellness|books|movies|music|learning|fitness",
       "location": { "city": "City name", "neighborhood": "Area if mentioned" },
       "priceRange": "Exact price or range mentioned (e.g., '₦50,000' or '$80-120')",
       "budgetTier": "budget|moderate|luxury|ultra_luxury",
       "estimatedCost": 50000,
-      "description": "Brief description from the content"
+      "description": "Brief description from the content",
+      "creator": "Author/director/artist name if mentioned"
     }
-  ],` : ''}
+  ],
+  "planContext": {
+    "category": "Primary journal category: restaurants|movies|books|music|travel|fitness|hobbies",
+    "theme": "Contextual theme from source (e.g., 'top nonfiction 2025', 'best brunch spots LA', 'sci-fi movies')",
+    "contentType": "Specific content type: movie|book|restaurant|cafe|exercise|travel|music|event",
+    "sourceDescription": "One-line summary of what the source content is about for enrichment context"
+  },` : ''}
   "goalCategory": "Overall category for the goal",
   "goalPriority": "high|medium|low", 
   "estimatedTimeframe": "Overall time to complete all tasks (e.g., '2 hours', '1 day', '3 days', '1 week')",
@@ -1723,6 +1738,7 @@ Time Estimate Examples:
           budgetTier: venue.budgetTier,
           estimatedCost: venue.estimatedCost,
           description: venue.description,
+          creator: venue.creator, // Author/director/artist for enrichment
           selectedForPlan: false, // These are all extracted, not just selected ones
         })) || [],
         // Parse planLocation for geographic context (only if at least city or country is present)
@@ -1730,12 +1746,22 @@ Time Estimate Examples:
           city: result.planLocation.city,
           country: result.planLocation.country,
         } : undefined,
+        // Parse planContext for journal categorization and enrichment
+        planContext: result.planContext ? {
+          category: result.planContext.category || result.goalCategory || 'personal',
+          theme: result.planContext.theme || result.planTitle || '',
+          contentType: result.planContext.contentType || 'general',
+          sourceDescription: result.planContext.sourceDescription || result.summary || '',
+        } : undefined,
       };
       
       if (processedResult.allExtractedVenues && processedResult.allExtractedVenues.length > 0) {
         console.log(`[AISERVICE] Extracted ${processedResult.allExtractedVenues.length} venues from social media content`);
         if (processedResult.planLocation) {
           console.log(`[AISERVICE] Plan location: ${processedResult.planLocation.city || 'Unknown'}, ${processedResult.planLocation.country || 'Unknown'}`);
+        }
+        if (processedResult.planContext) {
+          console.log(`[AISERVICE] Plan context: category=${processedResult.planContext.category}, theme="${processedResult.planContext.theme}", contentType=${processedResult.planContext.contentType}`);
         }
         
         // VALIDATION: Estimate expected venue count from content and compare

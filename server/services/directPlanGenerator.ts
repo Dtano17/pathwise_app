@@ -28,6 +28,8 @@ export interface DirectPlanResult {
     title: string;
     description: string;
     category: string;
+    startDate?: string | null;  // ISO 8601 date: "YYYY-MM-DD"
+    endDate?: string | null;    // ISO 8601 date: "YYYY-MM-DD"
   };
   tasks: Array<{
     title: string;
@@ -36,6 +38,9 @@ export interface DirectPlanResult {
     priority: 'high' | 'medium' | 'low';
     contentItemId?: string;
     estimatedCost?: number;
+    scheduledDate?: string | null;  // ISO 8601 date: "YYYY-MM-DD"
+    startTime?: string | null;      // 24-hour time: "HH:MM"
+    endTime?: string | null;        // 24-hour time: "HH:MM"
   }>;
   importId?: string;
   sourceUrl?: string;
@@ -1200,17 +1205,104 @@ OUTPUT FORMAT (JSON only, no markdown):
   "activity": {
     "title": "SPECIFIC, CLEAR TITLE HERE",
     "description": "Brief description of the overall plan",
-    "category": "Work|Personal|Health|Learning|Finance|Social|Other"
+    "category": "Work|Personal|Health|Learning|Finance|Social|Other",
+    "startDate": "YYYY-MM-DD or null if no date mentioned",
+    "endDate": "YYYY-MM-DD or null if no date mentioned"
   },
   "tasks": [
     {
       "title": "Specific, actionable task title with concrete details",
       "description": "Detailed description including specific prices ($X-Y), named recommendations, quantities, and actionable steps",
       "category": "Same as activity or more specific",
-      "priority": "high|medium|low"
+      "priority": "high|medium|low",
+      "scheduledDate": "YYYY-MM-DD or null if no date",
+      "startTime": "HH:MM (24-hour) or null if no time",
+      "endTime": "HH:MM (24-hour) or null if no time"
     }
   ]
 }
+
+## DATETIME EXTRACTION RULES (IMPORTANT!)
+
+Today's date is: ${new Date().toISOString().split('T')[0]}
+
+**PARSE ALL DATES AND TIMES into structured fields. Accept MULTIPLE input formats:**
+
+### 1. RELATIVE DATES - Calculate actual dates from today:
+- "today", "tonight" → ${new Date().toISOString().split('T')[0]}
+- "tomorrow", "tmrw" → next day from today
+- "next Friday", "this Friday" → calculate actual Friday date
+- "in 2 weeks", "2 weeks from now" → today + 14 days
+- "Day 1, Day 2, Day 3" → sequential days starting from tomorrow
+- "this weekend" → upcoming Saturday/Sunday
+- "next week", "next month" → calculate appropriately
+
+### 2. SPECIFIC DATE FORMATS - Recognize and convert ALL these to YYYY-MM-DD:
+**US formats:**
+- "January 20th", "January 20, 2025" → 2025-01-20
+- "Jan 20", "Jan 20th" → YYYY-01-20
+- "1/20/25", "01/20/2025" → 2025-01-20
+- "1-20-25", "01-20-2025" → 2025-01-20
+
+**International formats:**
+- "20 January 2025", "20 Jan 2025" → 2025-01-20
+- "20/01/25", "20/01/2025" → 2025-01-20
+- "20-01-25", "20-01-2025" → 2025-01-20
+- "20.01.2025" → 2025-01-20
+
+**ISO format (already correct):**
+- "2025-01-20" → 2025-01-20
+
+**Date ranges:**
+- "Jan 20-22", "January 20-22" → startDate: Jan 20, endDate: Jan 22
+- "Jan 20 - Jan 25" → startDate: Jan 20, endDate: Jan 25
+- "20th-22nd January" → startDate: Jan 20, endDate: Jan 22
+
+### 3. TIME FORMATS - Recognize and convert ALL these to HH:MM (24-hour):
+**12-hour formats:**
+- "2:30 PM", "2:30pm", "2:30 pm" → "14:30"
+- "9 AM", "9am", "9:00 AM" → "09:00"
+- "12 PM", "12:00 PM" → "12:00" (noon)
+- "12 AM", "12:00 AM" → "00:00" (midnight)
+
+**24-hour formats:**
+- "14:30", "1430" → "14:30"
+- "09:00", "0900" → "09:00"
+
+**Natural language times:**
+- "morning", "in the morning" → "09:00"
+- "afternoon" → "14:00"
+- "evening" → "18:00"
+- "night", "at night" → "20:00"
+- "noon", "midday" → "12:00"
+- "midnight" → "00:00"
+
+**Time ranges:**
+- "9 AM - 5 PM", "9am-5pm" → startTime: "09:00", endTime: "17:00"
+- "09:00-17:00" → startTime: "09:00", endTime: "17:00"
+- "2-4 PM" → startTime: "14:00", endTime: "16:00"
+
+**Combined datetime formats:**
+- "Jan 20 at 2:30 PM" → scheduledDate: "2025-01-20", startTime: "14:30"
+- "2025-01-20T14:30:00" → scheduledDate: "2025-01-20", startTime: "14:30"
+- "January 20, 2025 2:30 PM" → scheduledDate: "2025-01-20", startTime: "14:30"
+
+### 4. MULTI-DAY ACTIVITIES - Create ONE task per day:
+- "3-day hiking trip" → 3 separate tasks, each with its own scheduledDate
+- "Weekend trip to Paris" → Saturday task + Sunday task
+- "Week-long vacation" → 7 separate daily tasks
+
+### 5. OUTPUT FORMAT (always output in these formats):
+- scheduledDate: "YYYY-MM-DD" (ISO 8601 date only)
+- startTime: "HH:MM" or null (24-hour format, no seconds)
+- endTime: "HH:MM" or null
+- Activity startDate/endDate: "YYYY-MM-DD" for multi-day plans
+
+### 6. IMPORTANT RULES:
+- If NO time is mentioned → leave startTime as null (date only)
+- If date is ambiguous (e.g., "next week") → calculate best estimate from today
+- If year is not specified → use current year (or next year if date has passed)
+- Always output dates in ISO format regardless of input format
 
 ## TASK SPECIFICITY REQUIREMENTS
 
@@ -1378,7 +1470,9 @@ OUTPUT FORMAT (JSON only):
   "activity": {
     "title": "Updated title (if changed)",
     "description": "Updated description (if changed)",
-    "category": "Updated category (if changed)"
+    "category": "Updated category (if changed)",
+    "startDate": "YYYY-MM-DD or null",
+    "endDate": "YYYY-MM-DD or null"
   },
   "tasks": [
     // All tasks (existing + new, minus removed)
@@ -1386,7 +1480,10 @@ OUTPUT FORMAT (JSON only):
       "title": "Task title",
       "description": "Task description",
       "category": "Category",
-      "priority": "high|medium|low"
+      "priority": "high|medium|low",
+      "scheduledDate": "YYYY-MM-DD or null",
+      "startTime": "HH:MM or null",
+      "endTime": "HH:MM or null"
     }
   ]
 }

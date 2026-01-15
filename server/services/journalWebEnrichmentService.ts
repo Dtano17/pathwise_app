@@ -116,6 +116,13 @@ export interface JournalEntryForEnrichment {
   venueName?: string;
   location?: { city?: string; country?: string };
   existingEnrichment?: WebEnrichedData;
+  // NEW: Context from plan extraction for smarter enrichment
+  creator?: string;  // Author/director/artist
+  enrichmentContext?: {
+    theme?: string;           // e.g., "top nonfiction 2025", "best brunch LA"
+    contentType?: string;     // e.g., "movie", "book", "restaurant"
+    sourceDescription?: string; // Original source context
+  };
 }
 
 /**
@@ -777,10 +784,20 @@ Respond with ONLY a JSON object in this format:
       // Let AI intelligently decide which enrichment API to use based on entry content
       console.log(`[JOURNAL_WEB_ENRICH] Using AI to determine best enrichment API for: "${venueName}"`);
 
+      // Build enrichment context from entry data (passed from plan extraction Step 1)
+      const enrichmentContext = entry.enrichmentContext ? {
+        theme: entry.enrichmentContext.theme,
+        contentType: entry.enrichmentContext.contentType,
+        sourceDescription: entry.enrichmentContext.sourceDescription,
+        creator: entry.creator,
+        location: entry.location
+      } : undefined;
+
       const aiRecommendation = await generateSmartImageQueryCached(
         entry.text,
         effectiveCategory || entry.category,
-        venueName
+        venueName,
+        enrichmentContext
       );
 
       console.log(`[JOURNAL_WEB_ENRICH] AI recommendation:`, {

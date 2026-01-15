@@ -26,7 +26,11 @@
       "Bash(npx cap:*)",
       "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat -d -t 300)",
       "Bash(npm run build:*)",
-      "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat -c)"
+      "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat -c)",
+      "Bash(git push:*)",
+      "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" logcat -d -t 200)",
+      "Bash(\"C:\\\\Users\\\\tanar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" uninstall ai.journalmate.app)",
+      "Bash(JAVA_HOME=\"/c/Program Files/Android/Android Studio/jbr\" ./gradlew bundleRelease:*)"
     ],
     "deny": [],
     "ask": []

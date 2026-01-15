@@ -6,7 +6,8 @@ const config: CapacitorConfig = {
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',
-    // Native app with bundled assets - no external URL
+    // Load from production web app - enables session-based auth
+    url: 'https://journalmate.ai',
     cleartext: false,
   },
   plugins: {

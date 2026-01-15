@@ -732,13 +732,16 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   // Create activity from direct plan
   const createActivityFromPlan = useMutation({
     mutationFn: async (plan: any) => {
-      // Create activity
+      // Create activity with datetime fields
       const activityResponse = await apiRequest('POST', '/api/activities', {
         title: plan.activity.title,
         description: plan.activity.description,
         category: plan.activity.category,
         status: 'planning',
-        tags: [plan.activity.category]
+        tags: [plan.activity.category],
+        // Pass datetime fields from AI extraction
+        startDate: plan.activity.startDate || null,
+        endDate: plan.activity.endDate || null,
       });
       const activity = await activityResponse.json();
 
@@ -747,11 +750,24 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       for (let i = 0; i < plan.tasks.length; i++) {
         const taskData = plan.tasks[i];
 
+        // Build dueDate from scheduledDate + startTime if available
+        let dueDate = null;
+        if (taskData.scheduledDate) {
+          if (taskData.startTime) {
+            // Combine date and time: "2025-01-20" + "14:30" → "2025-01-20T14:30:00"
+            dueDate = `${taskData.scheduledDate}T${taskData.startTime}:00`;
+          } else {
+            // Date only, set to start of day
+            dueDate = `${taskData.scheduledDate}T00:00:00`;
+          }
+        }
+
         const taskResponse = await apiRequest('POST', '/api/tasks', {
           title: taskData.title,
           description: taskData.description,
           category: taskData.category,
           priority: taskData.priority || 'medium',
+          dueDate: dueDate, // Pass parsed datetime
         });
         const task = await taskResponse.json();
 
@@ -797,6 +813,9 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
         const activityResponse = await apiRequest('PUT', `/api/activities/${activityId}`, {
           title: parsedLLMContent.activity.title,
           description: parsedLLMContent.activity.description,
+          // Pass datetime fields from AI extraction
+          startDate: parsedLLMContent.activity.startDate || null,
+          endDate: parsedLLMContent.activity.endDate || null,
         });
         activity = await activityResponse.json();
       } else {
@@ -804,7 +823,10 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
         const activityResponse = await apiRequest('POST', '/api/activities', {
           ...parsedLLMContent.activity,
           status: 'planning',
-          tags: [parsedLLMContent.activity.category]
+          tags: [parsedLLMContent.activity.category],
+          // Pass datetime fields from AI extraction
+          startDate: parsedLLMContent.activity.startDate || null,
+          endDate: parsedLLMContent.activity.endDate || null,
         });
         activity = await activityResponse.json();
         activityId = activity.id;
@@ -815,13 +837,26 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
       for (let i = 0; i < parsedLLMContent.tasks.length; i++) {
         const taskData = parsedLLMContent.tasks[i];
 
+        // Build dueDate from scheduledDate + startTime if available
+        let dueDate = null;
+        if (taskData.scheduledDate) {
+          if (taskData.startTime) {
+            // Combine date and time: "2025-01-20" + "14:30" → "2025-01-20T14:30:00"
+            dueDate = `${taskData.scheduledDate}T${taskData.startTime}:00`;
+          } else {
+            // Date only, set to start of day
+            dueDate = `${taskData.scheduledDate}T00:00:00`;
+          }
+        }
+
         // Create the task
         const taskResponse = await apiRequest('POST', '/api/tasks', {
           title: taskData.title,
           description: taskData.description,
           category: taskData.category || parsedLLMContent.activity.category,
           priority: taskData.priority || 'medium',
-          timeEstimate: taskData.timeEstimate
+          timeEstimate: taskData.timeEstimate,
+          dueDate: dueDate, // Pass parsed datetime
         });
         const task = await taskResponse.json();
 

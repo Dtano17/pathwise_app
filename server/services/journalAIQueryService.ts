@@ -16,21 +16,51 @@ export interface AIQueryResult {
   extractedDetails?: string;       // Author/artist/director (if applicable)
 }
 
+// NEW: Context passed from plan extraction for smarter enrichment
+export interface EnrichmentContext {
+  theme?: string;           // e.g., "top nonfiction 2025", "best brunch LA"
+  contentType?: string;     // e.g., "movie", "book", "restaurant"
+  sourceDescription?: string; // Original source context
+  creator?: string;         // Author/director/artist
+  location?: { city?: string; country?: string };
+}
+
 /**
  * Uses AI to analyze journal entry and generate optimal image search query
  * Replaces static keyword-based queries with context-aware queries
+ *
+ * @param entryText - The journal entry text
+ * @param category - The journal category
+ * @param venueName - Optional venue/item name
+ * @param enrichmentContext - Optional context from plan extraction for smarter queries
  */
 export async function generateSmartImageQuery(
   entryText: string,
   category: string,
-  venueName?: string
+  venueName?: string,
+  enrichmentContext?: EnrichmentContext
 ): Promise<AIQueryResult> {
+  // Build context hints from enrichmentContext
+  const contextHints = enrichmentContext ? `
+IMPORTANT CONTEXT FROM SOURCE (use this to improve search accuracy):
+- Theme: ${enrichmentContext.theme || 'unknown'}
+- Content Type: ${enrichmentContext.contentType || 'unknown'}
+- Source Description: ${enrichmentContext.sourceDescription || 'not provided'}
+- Creator (Author/Director/Artist): ${enrichmentContext.creator || 'not provided'}
+- Location: ${enrichmentContext.location?.city || 'not specified'}${enrichmentContext.location?.country ? `, ${enrichmentContext.location.country}` : ''}
+
+USE THIS CONTEXT to:
+1. Add location context for restaurants/venues (e.g., search "Blue Bottle Coffee LA" not just "Blue Bottle Coffee")
+2. Add theme context for media (e.g., search "Sapiens nonfiction book" not just "Sapiens")
+3. Include creator when available (e.g., "Dune Denis Villeneuve" for movies)
+` : '';
+
   const prompt = `You are an expert at analyzing journal entries and recommending the best data source for finding relevant images.
 
 Journal Entry: "${entryText}"
 Category: ${category}
 ${venueName ? `Detected Venue/Title: "${venueName}"` : ''}
-
+${contextHints}
 Available APIs:
 1. TMDB (The Movie Database) - For movies, TV shows, documentaries
 2. Google Books - For books, novels, textbooks, magazines
@@ -121,7 +151,8 @@ const queryCache = new Map<string, AIQueryResult>();
 export async function generateSmartImageQueryCached(
   entryText: string,
   category: string,
-  venueName?: string
+  venueName?: string,
+  enrichmentContext?: EnrichmentContext
 ): Promise<AIQueryResult> {
   const cacheKey = `${entryText.substring(0, 100)}_${category}`;
 
@@ -130,7 +161,7 @@ export async function generateSmartImageQueryCached(
     return queryCache.get(cacheKey)!;
   }
 
-  const result = await generateSmartImageQuery(entryText, category, venueName);
+  const result = await generateSmartImageQuery(entryText, category, venueName, enrichmentContext);
   queryCache.set(cacheKey, result);
 
   // Limit cache size to 1000 entries
