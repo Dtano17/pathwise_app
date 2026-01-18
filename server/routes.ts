@@ -11573,11 +11573,26 @@ You can find these tasks in your task list and start working on them right away!
       const journalData = (user.preferences as any)?.journalData || {};
       const entriesToEnrich: any[] = [];
 
+      // DEDUPLICATION: Track seen entries by normalized title + date to prevent duplicates
+      const seenTitles = new Set<string>();
+
       // Flatten journal entries for batch processing
       Object.entries(journalData).forEach(([category, entries]: [string, any]) => {
         entries.forEach((entry: any) => {
           // If it's a rich entry and doesn't have webEnrichment, or we want to force refresh
           if (typeof entry !== 'string' && (!entry.webEnrichment || req.body.force)) {
+            // Create deduplication key from normalized title + date
+            const title = (entry.webEnrichment?.venueName || entry.text || '').toLowerCase().trim();
+            const date = entry.date || '';
+            const dedupKey = `${title}|${date}`;
+
+            // Skip if we've already seen this title+date combination
+            if (seenTitles.has(dedupKey)) {
+              console.log(`[JOURNAL] Skipping duplicate entry: "${title.substring(0, 40)}" on ${date}`);
+              return;
+            }
+            seenTitles.add(dedupKey);
+
             entriesToEnrich.push({
               id: entry.id,
               text: entry.text,
@@ -12420,11 +12435,28 @@ You can find these tasks in your task list and start working on them right away!
         const entries = journalData[category] || [];
         if (entries.length === 0) continue;
 
+        // DEDUPLICATION: Track seen entries by normalized title + date to prevent duplicates
+        // This fixes the issue where the same show (e.g., "Westworld") appears multiple times
+        const seenTitles = new Set<string>();
+
         // Filter entries needing enrichment and track their original indices
         // CRITICAL: We must use positional mapping because entries may have duplicate IDs
         const entriesWithIndices: { entry: any; originalIndex: number }[] = [];
         entries.forEach((item: any, index: number) => {
           if (!item.text) return;
+
+          // Create deduplication key from normalized title + date
+          const title = (item.webEnrichment?.venueName || item.text || '').toLowerCase().trim();
+          const date = item.date || '';
+          const dedupKey = `${title}|${date}`;
+
+          // Skip if we've already seen this title+date combination in this batch
+          if (seenTitles.has(dedupKey)) {
+            console.log(`[JOURNAL] Skipping duplicate entry: "${title.substring(0, 40)}" on ${date}`);
+            return;
+          }
+          seenTitles.add(dedupKey);
+
           if (!forceRefresh && item.webEnrichment?.venueVerified) return;
           entriesWithIndices.push({ entry: item, originalIndex: index });
         });

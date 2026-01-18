@@ -24,6 +24,7 @@ import {
   validateEnrichment,
   getDynamicThreshold,
 } from './dynamicCategorizationService';
+import { storage } from '../storage';
 
 // ============================================================================
 // TYPES
@@ -105,8 +106,11 @@ export interface WebEnrichedData {
 
   // Metadata
   enrichedAt: string;
-  enrichmentSource: 'tavily' | 'claude' | 'google' | 'manual';
+  enrichmentSource: 'tavily' | 'claude' | 'google' | 'manual' | 'tmdb' | 'spotify' | 'google_books' | 'placeholder';
   rawSearchResults?: any;
+
+  // Placeholder flag for unreleased content
+  isComingSoon?: boolean;
 }
 
 export interface JournalEntryForEnrichment {
@@ -753,15 +757,32 @@ Respond with ONLY a JSON object in this format:
       const cacheKey = this.generateCacheKeyFromVenue(venueName || '', city || '');
       
       if (!forceRefresh) {
+        // STEP 1: Check in-memory cache first (fastest)
         const cached = this.cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-          console.log(`[JOURNAL_WEB_ENRICH] Cache hit for "${venueName}"`);
+          console.log(`[JOURNAL_WEB_ENRICH] Memory cache hit for "${venueName}"`);
           return { entryId: entry.id, success: true, enrichedData: cached.data };
         }
+
+        // STEP 2: Check persistent database cache (survives server restarts)
+        try {
+          const dbCached = await storage.getJournalEnrichmentCache(cacheKey);
+          if (dbCached) {
+            const enrichedData = dbCached.enrichedData as WebEnrichedData;
+            // Populate in-memory cache for faster subsequent lookups
+            this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+            console.log(`[JOURNAL_WEB_ENRICH] DB cache hit for "${venueName}" (source: ${dbCached.enrichmentSource})`);
+            return { entryId: entry.id, success: true, enrichedData };
+          }
+        } catch (dbError) {
+          console.warn(`[JOURNAL_WEB_ENRICH] DB cache lookup failed for "${venueName}":`, dbError);
+          // Continue with fresh enrichment if DB lookup fails
+        }
       } else {
-        // Clear cache for this entry on force refresh
+        // Clear in-memory cache for this entry on force refresh
         this.cache.delete(cacheKey);
-        console.log(`[JOURNAL_WEB_ENRICH] Cache cleared for forced refresh of "${venueName}"`);
+        console.log(`[JOURNAL_WEB_ENRICH] Memory cache cleared for forced refresh of "${venueName}"`);
+        // Note: We don't delete DB cache on force refresh - allows selective refresh
       }
 
       if (!venueName) {
@@ -836,7 +857,7 @@ Respond with ONLY a JSON object in this format:
             suggestedCategory: 'Movies & TV Shows',
             categoryConfidence: aiRecommendation.confidence,
             enrichedAt: new Date().toISOString(),
-            enrichmentSource: 'google',
+            enrichmentSource: 'tmdb',
             streamingLinks: [
               { platform: 'TMDB', url: `https://www.themoviedb.org/${tmdbResult.mediaType}/${tmdbResult.tmdbId}` },
               { platform: 'JustWatch', url: `https://www.justwatch.com/us/search?q=${encodeURIComponent(tmdbResult.title)}` },
@@ -844,13 +865,72 @@ Respond with ONLY a JSON object in this format:
             ]
           };
 
+          // Save to both in-memory and persistent DB cache
           this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+          try {
+            await storage.saveJournalEnrichmentCache({
+              cacheKey,
+              enrichedData: enrichedData as any,
+              imageUrl: enrichedData.primaryImageUrl,
+              verified: enrichedData.venueVerified,
+              enrichmentSource: 'tmdb',
+              isComingSoon: false,
+            });
+          } catch (saveError) {
+            console.warn(`[JOURNAL_WEB_ENRICH] Failed to save TMDB result to DB cache:`, saveError);
+          }
+
           const elapsed = Date.now() - startTime;
           console.log(`[JOURNAL_WEB_ENRICH] AI-recommended TMDB enrichment successful in ${elapsed}ms: "${tmdbResult.title}"`);
 
           return { entryId: entry.id, success: true, enrichedData };
         }
-        console.log(`[JOURNAL_WEB_ENRICH] TMDB search failed, falling back to Tavily`);
+
+        // TMDB FAILED - Use "Coming Soon" placeholder for movies/TV instead of falling back to Tavily
+        // This prevents wrong images from news articles (e.g., "Blade Runner 2099" showing "GMA3" image)
+        console.log(`[JOURNAL_WEB_ENRICH] TMDB search failed for "${venueName}" - using Coming Soon placeholder`);
+
+        const comingSoonData: WebEnrichedData = {
+          venueVerified: false, // NOT verified - it's a placeholder
+          venueType: 'movie',
+          venueName: venueName,
+          venueDescription: `"${venueName}" - Coming Soon. This title may be unreleased or not yet in our database.`,
+          primaryImageUrl: '/images/coming-soon-movie.svg',
+          mediaUrls: [{
+            url: '/images/coming-soon-movie.svg',
+            type: 'image' as const,
+            source: 'placeholder'
+          }],
+          suggestedCategory: 'Movies & TV Shows',
+          categoryConfidence: 0.5,
+          enrichedAt: new Date().toISOString(),
+          enrichmentSource: 'placeholder',
+          isComingSoon: true,
+          streamingLinks: [
+            { platform: 'JustWatch', url: `https://www.justwatch.com/us/search?q=${encodeURIComponent(venueName)}` },
+            { platform: 'IMDB', url: `https://www.imdb.com/find?q=${encodeURIComponent(venueName)}` }
+          ]
+        };
+
+        // Save Coming Soon placeholder to both caches
+        this.cache.set(cacheKey, { data: comingSoonData, timestamp: Date.now() });
+        try {
+          await storage.saveJournalEnrichmentCache({
+            cacheKey,
+            enrichedData: comingSoonData as any,
+            imageUrl: comingSoonData.primaryImageUrl,
+            verified: false,
+            enrichmentSource: 'placeholder',
+            isComingSoon: true,
+          });
+        } catch (saveError) {
+          console.warn(`[JOURNAL_WEB_ENRICH] Failed to save Coming Soon placeholder to DB cache:`, saveError);
+        }
+
+        const elapsed = Date.now() - startTime;
+        console.log(`[JOURNAL_WEB_ENRICH] Using Coming Soon placeholder for "${venueName}" in ${elapsed}ms`);
+
+        return { entryId: entry.id, success: true, enrichedData: comingSoonData };
       }
 
       else if (aiRecommendation.recommendedAPI === 'google_books') {
@@ -883,7 +963,21 @@ Respond with ONLY a JSON object in this format:
             ]
           };
 
+          // Save to both in-memory and persistent DB cache
           this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+          try {
+            await storage.saveJournalEnrichmentCache({
+              cacheKey,
+              enrichedData: enrichedData as any,
+              imageUrl: enrichedData.primaryImageUrl,
+              verified: enrichedData.venueVerified,
+              enrichmentSource: 'google_books',
+              isComingSoon: false,
+            });
+          } catch (saveError) {
+            console.warn(`[JOURNAL_WEB_ENRICH] Failed to save Google Books result to DB cache:`, saveError);
+          }
+
           const elapsed = Date.now() - startTime;
           console.log(`[JOURNAL_WEB_ENRICH] AI-recommended Google Books enrichment successful in ${elapsed}ms`);
 
@@ -917,14 +1011,28 @@ Respond with ONLY a JSON object in this format:
               suggestedCategory: 'music',
               categoryConfidence: aiRecommendation.confidence,
               enrichedAt: new Date().toISOString(),
-              enrichmentSource: 'google',
+              enrichmentSource: 'spotify',
               streamingLinks: [
                 { platform: 'Spotify', url: spotifyResult.spotifyUrl },
                 { platform: 'Apple Music', url: `https://music.apple.com/search?term=${encodeURIComponent(spotifyResult.name)}` }
               ]
             };
 
+            // Save to both in-memory and persistent DB cache
             this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+            try {
+              await storage.saveJournalEnrichmentCache({
+                cacheKey,
+                enrichedData: enrichedData as any,
+                imageUrl: enrichedData.primaryImageUrl,
+                verified: enrichedData.venueVerified,
+                enrichmentSource: 'spotify',
+                isComingSoon: false,
+              });
+            } catch (saveError) {
+              console.warn(`[JOURNAL_WEB_ENRICH] Failed to save Spotify result to DB cache:`, saveError);
+            }
+
             const elapsed = Date.now() - startTime;
             console.log(`[JOURNAL_WEB_ENRICH] AI-recommended Spotify enrichment successful in ${elapsed}ms: "${spotifyResult.name}"`);
 
@@ -959,8 +1067,28 @@ Respond with ONLY a JSON object in this format:
         validation.confidence // Pass validation confidence
       );
 
-      // Cache the result
+      // Ensure Tavily results for movies/shows are NOT marked as verified
+      // (only authoritative sources like TMDB, Google Books, Spotify should be verified)
+      const isMovieCategory = ['movies', 'tv shows', 'Movies & TV Shows', 'movie', 'tv show', 'entertainment']
+        .some(c => effectiveCategory.toLowerCase().includes(c.toLowerCase()));
+      if (isMovieCategory) {
+        enrichedData.venueVerified = false;
+      }
+
+      // Save to both in-memory and persistent DB cache
       this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+      try {
+        await storage.saveJournalEnrichmentCache({
+          cacheKey,
+          enrichedData: enrichedData as any,
+          imageUrl: enrichedData.primaryImageUrl,
+          verified: enrichedData.venueVerified,
+          enrichmentSource: 'tavily',
+          isComingSoon: false,
+        });
+      } catch (saveError) {
+        console.warn(`[JOURNAL_WEB_ENRICH] Failed to save Tavily result to DB cache:`, saveError);
+      }
 
       const elapsed = Date.now() - startTime;
       console.log(`[JOURNAL_WEB_ENRICH] AI-recommended Tavily enrichment successful in ${elapsed}ms - venue type: ${enrichedData.venueType}, category: ${enrichedData.suggestedCategory}`);
