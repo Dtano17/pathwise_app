@@ -91,27 +91,50 @@ const anthropic = new Anthropic({
 });
 
 /**
- * AI-powered location extraction using Claude Haiku
- * Detects cities, states, countries, landmarks from text
- * Returns the most relevant location for image search
+ * AI-powered search context extraction using Claude Haiku
+ * Intelligently analyzes title, description, and category to generate optimal search terms
+ * Returns a comprehensive search query that captures location, event type, mood, and aesthetics
  */
-async function extractLocationWithAI(title: string, description?: string): Promise<string | null> {
+async function extractSearchContextWithAI(
+  title: string,
+  description?: string,
+  category?: string
+): Promise<{ searchQuery: string; hasLocation: boolean } | null> {
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.log('[WebImageSearch] ANTHROPIC_API_KEY not configured - skipping AI location extraction');
+    console.log('[WebImageSearch] ANTHROPIC_API_KEY not configured - skipping AI context extraction');
     return null;
   }
-  
-  const combinedText = `Title: ${title}\nDescription: ${description || 'None'}`;
-  const prompt = `Extract the primary city, location, or landmark from this activity. Return ONLY the location name (e.g., "Los Angeles", "Paris", "Grand Canyon") or "NONE" if no specific location is mentioned.
+
+  const combinedText = `Title: ${title}
+Description: ${description || 'None'}
+Category: ${category || 'general'}`;
+
+  const prompt = `Analyze this activity and generate the best image search query for finding a beautiful, relevant backdrop photo.
 
 ${combinedText}
 
-Location:`;
-  
+Consider:
+1. If there's a specific location (city, landmark, country), include it prominently
+2. If there's an event or occasion (New Year's Eve, wedding, birthday), include the celebration/event context
+3. Include mood/aesthetic keywords (scenic, beautiful, cinematic, elegant, vibrant, etc.)
+4. Exclude people-focused terms (we want landscapes/scenes, not portraits)
+
+Respond in this exact format:
+SEARCH_QUERY: [your optimized search query, 5-12 words]
+HAS_LOCATION: [YES or NO]
+
+Examples:
+- "NYE in NYC" → SEARCH_QUERY: New York City Times Square New Years Eve celebration fireworks scenic
+HAS_LOCATION: YES
+- "Morning yoga routine" → SEARCH_QUERY: yoga meditation peaceful sunrise nature scenic wellness
+HAS_LOCATION: NO
+- "Trip to Tokyo" → SEARCH_QUERY: Tokyo Japan cityscape scenic beautiful travel destination
+HAS_LOCATION: YES`;
+
   try {
     const response = await anthropic.messages.create({
       model: CLAUDE_HAIKU,
-      max_tokens: 100,
+      max_tokens: 150,
       messages: [
         {
           role: "user",
@@ -119,21 +142,27 @@ Location:`;
         }
       ]
     });
-    
+
     const content = response.content[0];
     if (content && content.type === 'text') {
-      const location = content.text.trim();
-      // Clean up any quotes or extra formatting
-      const cleanLocation = location.replace(/^["']|["']$/g, '').trim();
-      if (cleanLocation && cleanLocation.toUpperCase() !== 'NONE' && cleanLocation.length > 1) {
-        console.log(`[WebImageSearch] AI extracted location: "${cleanLocation}"`);
-        return cleanLocation;
+      const text = content.text.trim();
+
+      // Parse the response
+      const searchQueryMatch = text.match(/SEARCH_QUERY:\s*(.+)/i);
+      const hasLocationMatch = text.match(/HAS_LOCATION:\s*(YES|NO)/i);
+
+      if (searchQueryMatch) {
+        const searchQuery = searchQueryMatch[1].trim();
+        const hasLocation = hasLocationMatch ? hasLocationMatch[1].toUpperCase() === 'YES' : false;
+
+        console.log(`[WebImageSearch] AI extracted search context: "${searchQuery}" (hasLocation: ${hasLocation})`);
+        return { searchQuery, hasLocation };
       }
     }
-    console.log('[WebImageSearch] AI found no location in activity');
+    console.log('[WebImageSearch] AI could not extract search context');
     return null;
   } catch (error) {
-    console.error('[WebImageSearch] AI location extraction failed:', error);
+    console.error('[WebImageSearch] AI context extraction failed:', error);
     return null;
   }
 }
@@ -186,53 +215,8 @@ function extractDescriptionKeywords(description: string, maxKeywords: number = 8
   return keywords;
 }
 
-/**
- * Determines if the activity is location-dependent based on title and description
- * Returns true if the activity is about visiting/exploring a specific place
- */
-function isLocationDependent(title: string, description: string): boolean {
-  const combinedText = `${title} ${description}`.toLowerCase();
-
-  // Location-dependent keywords (visiting, exploring specific places)
-  const locationKeywords = [
-    'visit', 'explore', 'tour', 'travel', 'trip', 'sightseeing',
-    'landmark', 'museum', 'monument', 'palace', 'temple', 'church',
-    'beach', 'mountain', 'park', 'garden', 'city', 'town', 'country',
-    'destination', 'attraction', 'viewpoint', 'observatory'
-  ];
-
-  // Check if any location-dependent keywords are present
-  return locationKeywords.some(keyword => combinedText.includes(keyword));
-}
-
-// ============================================
-// CHEAP LOCATION DETECTION - No API calls, just pattern matching
-// ============================================
-
-/**
- * CHEAP location detection using keyword matching (NO API CALLS)
- * This runs BEFORE calling Claude Haiku to save costs
- * Returns true if location signals are detected, meaning we should use Tavily
- */
-function detectLocationCheap(title: string, description?: string): boolean {
-  const combinedText = `${title} ${description || ''}`.toLowerCase();
-
-  // First check: Known location keywords (fast regex match)
-  const locationKeywords = extractLocationKeywords(combinedText);
-  if (locationKeywords.length > 0) {
-    console.log(`[WebImageSearch] Cheap detection: Found known location "${locationKeywords[0]}"`);
-    return true;
-  }
-
-  // Second check: Location-dependent activity patterns
-  if (isLocationDependent(title, description || '')) {
-    console.log('[WebImageSearch] Cheap detection: Found location-dependent keywords');
-    return true;
-  }
-
-  console.log('[WebImageSearch] Cheap detection: No location signals found');
-  return false;
-}
+// Note: Removed hardcoded isLocationDependent() and detectLocationCheap() functions
+// Now using AI-powered extractSearchContextWithAI() for intelligent context analysis
 
 // ============================================
 // FREE PROVIDER IMAGES - Unsplash + Pexels round-robin
@@ -377,44 +361,8 @@ export async function searchActivityImage(
   }
 }
 
-/**
- * Extract location keywords from text (cities, countries, landmarks)
- * Uses word boundary matching to avoid false positives (e.g., "la" in "Daily")
- */
-function extractLocationKeywords(text: string): string[] {
-  const locations: string[] = [];
-  
-  // Common cities and landmarks with word boundary matching
-  // Note: Short abbreviations like 'la' removed (matches inside "daily", "formula")
-  // But 'nyc' is safe (no common words contain 'nyc')
-  const knownLocations = [
-    'new york city', 'new york', 'nyc', 'manhattan', 'brooklyn', 'times square', 'central park',
-    'los angeles', 'hollywood', 'santa monica', 'venice beach', 'sf', 'san fran',
-    'paris', 'eiffel tower', 'louvre', 'champs elysees',
-    'london', 'big ben', 'tower bridge', 'buckingham palace',
-    'tokyo', 'shibuya', 'shinjuku', 'kyoto', 'osaka',
-    'rome', 'colosseum', 'vatican', 'venice', 'florence',
-    'barcelona', 'madrid', 'lisbon', 'amsterdam', 'berlin',
-    'dubai', 'abu dhabi', 'singapore', 'hong kong', 'bangkok',
-    'sydney', 'melbourne', 'auckland', 'bali', 'phuket',
-    'miami', 'san francisco', 'chicago', 'boston', 'seattle',
-    'hawaii', 'maui', 'cancun', 'caribbean', 'bahamas',
-    'big bear', 'lake tahoe', 'aspen', 'colorado', 'yellowstone',
-    'grand canyon', 'yosemite', 'zion', 'glacier', 'acadia',
-    'maldives', 'santorini', 'amalfi', 'capri', 'monaco',
-    'mexico city', 'lagos', 'cairo', 'marrakech', 'cape town'
-  ];
-  
-  // Use word boundary regex to avoid false positives like "la" matching in "Daily"
-  for (const loc of knownLocations) {
-    const regex = new RegExp(`\\b${loc}\\b`, 'i');
-    if (regex.test(text)) {
-      locations.push(loc);
-    }
-  }
-  
-  return locations;
-}
+// Note: Removed hardcoded extractLocationKeywords() with static city list
+// Location detection is now handled by AI in extractSearchContextWithAI()
 
 /**
  * Extract event/occasion keywords from text for more specific image searches
@@ -524,14 +472,14 @@ function getVariationModifiers(variation: number): { suffix: string; offset: num
 /**
  * Search for multiple backdrop options (for image picker UI)
  *
- * HYBRID PROVIDER SELECTION STRATEGY (Cost Optimized):
+ * TAVILY-FIRST PROVIDER STRATEGY:
  * 1. Check cache first (FREE, instant)
- * 2. Run CHEAP location detection (regex, no API calls)
- * 3. IF location signals found → Use Tavily (expensive but contextual)
- * 4. IF no location → Use Unsplash/Pexels round-robin (FREE)
+ * 2. Use AI to extract intelligent search context from title + description
+ * 3. Try Tavily with AI-generated search query (PRIMARY)
+ * 4. IF Tavily fails/unavailable → Fall back to Unsplash/Pexels (SECONDARY)
  * 5. Cache results with appropriate TTL
  *
- * This reduces costs by ~85-90% compared to always using Tavily
+ * This prioritizes contextually relevant images over cost optimization
  */
 export async function searchBackdropOptions(
   activityTitle: string,
@@ -558,52 +506,27 @@ export async function searchBackdropOptions(
   let hasLocation = false;
 
   // ========================================
-  // STEP 2: CHEAP location detection (NO API calls)
+  // STEP 2: Try Tavily FIRST (PRIMARY provider)
   // ========================================
-  const cheapLocationDetected = detectLocationCheap(activityTitle, description);
-
-  // ========================================
-  // STEP 3: Provider selection based on location detection
-  // ========================================
-  if (cheapLocationDetected && process.env.TAVILY_API_KEY) {
-    // Location signals found → Use AI + Tavily for contextual images
-    console.log('[WebImageSearch] 🌍 Location detected, using Tavily for contextual search');
+  if (process.env.TAVILY_API_KEY) {
+    console.log('[WebImageSearch] 🔍 Using Tavily as primary image provider');
 
     try {
-      // Only call Claude Haiku if we detected location signals (saves money)
-      const aiLocation = await extractLocationWithAI(activityTitle, description);
-      hasLocation = !!aiLocation;
+      // Use AI to extract intelligent search context
+      const searchContext = await extractSearchContextWithAI(activityTitle, description, category);
 
-      if (hasLocation) {
-        // Extract title keywords
-        const titleKeywords = activityTitle
-          .substring(0, 60)
-          .replace(/[^\w\s]/g, ' ')
-          .replace(/\b(the|a|an|of|to|for|and|or|in|on|at|by|with|from|how|what|why|my|your|our)\b/gi, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-
-        // Extract description keywords
-        const descriptionKeywords = extractDescriptionKeywords(description || '', 8);
-        const aestheticKeywords = getCategoryAestheticKeywords(category);
+      if (searchContext) {
+        hasLocation = searchContext.hasLocation;
         const variationMod = getVariationModifiers(variation);
-        const shuffledDescKeywords = shuffleWithSeed(descriptionKeywords, variation + 1);
 
-        // Build location-first query
-        let searchQuery = `${aiLocation} ${titleKeywords}`;
-        if (shuffledDescKeywords.length > 0) {
-          searchQuery += ` ${shuffledDescKeywords.join(' ')}`;
-        }
-        if (shuffledDescKeywords.length < 3 && aestheticKeywords) {
-          searchQuery += ` ${aestheticKeywords}`;
-        }
-        searchQuery += ` ${variationMod.suffix} -people -faces -crowd -portrait`;
+        // Build the final search query with variation modifiers
+        let searchQuery = `${searchContext.searchQuery} ${variationMod.suffix} -people -faces -crowd -portrait`;
 
         console.log('🔍 Tavily Search Query:', searchQuery);
 
         const response = await tavilyClient.search(searchQuery, {
           searchDepth: 'advanced',
-          maxResults: 8,
+          maxResults: maxOptions,
           includeImages: true,
           includeAnswer: false,
         });
@@ -613,17 +536,13 @@ export async function searchBackdropOptions(
 
         for (const img of images.slice(0, maxOptions)) {
           if (img.url) {
-            const allKeywords = titleKeywords.split(' ').concat(shuffledDescKeywords.slice(0, 2));
-            const labelWords = allKeywords.filter((w: string) => w.length > 2).slice(0, 3);
-            let label = labelWords.length > 0
-              ? labelWords.map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+            // Create a meaningful label from the search query
+            const queryWords = searchContext.searchQuery.split(' ')
+              .filter((w: string) => w.length > 2)
+              .slice(0, 3);
+            const label = queryWords.length > 0
+              ? queryWords.map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
               : 'Web Result';
-
-            if (aiLocation) {
-              const locationLabel = aiLocation.split(' ')
-                .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-              label = `${label} - ${locationLabel}`;
-            }
 
             options.push({
               url: img.url,
@@ -632,29 +551,58 @@ export async function searchBackdropOptions(
             });
           }
         }
+      } else {
+        // AI extraction failed, try basic Tavily search
+        console.log('[WebImageSearch] AI context extraction failed, trying basic Tavily search');
+        const basicQuery = `${activityTitle} ${category} beautiful scenic backdrop photography`;
+
+        const response = await tavilyClient.search(basicQuery, {
+          searchDepth: 'advanced',
+          maxResults: maxOptions,
+          includeImages: true,
+          includeAnswer: false,
+        });
+
+        const images = response.images || [];
+        console.log(`[WebImageSearch] Basic Tavily returned ${images.length} images`);
+
+        for (const img of images.slice(0, maxOptions)) {
+          if (img.url) {
+            options.push({
+              url: img.url,
+              source: 'tavily',
+              label: 'Web Result'
+            });
+          }
+        }
       }
     } catch (error) {
       console.error('[WebImageSearch] Tavily search failed:', error);
       // Will fall through to free providers below
     }
-  } else if (!cheapLocationDetected) {
-    // No location signals → Skip Tavily entirely, use FREE providers
-    console.log('[WebImageSearch] 💰 No location detected, using FREE providers (Unsplash/Pexels)');
   } else {
-    console.log('[WebImageSearch] TAVILY_API_KEY not configured, using FREE providers');
+    console.log('[WebImageSearch] TAVILY_API_KEY not configured, using free providers as fallback');
   }
 
   // ========================================
-  // STEP 4: Fill remaining slots with FREE providers
+  // STEP 3: Fall back to FREE providers if Tavily didn't provide enough results
   // ========================================
   const remainingSlots = maxOptions - options.length;
   if (remainingSlots > 0) {
-    const freeOptions = await getFreeProviderImages(category, activityTitle, remainingSlots, variation);
-    options.push(...freeOptions);
+    console.log(`[WebImageSearch] 📷 Tavily returned ${options.length} images, filling ${remainingSlots} slots with Unsplash/Pexels fallback`);
+    try {
+      const freeOptions = await getFreeProviderImages(category, activityTitle, remainingSlots, variation);
+      options.push(...freeOptions);
+    } catch (error) {
+      console.error('[WebImageSearch] Free providers failed:', error);
+      // Fall back to curated fallback images
+      const fallbacks = getMultipleFallbackImages(category, activityTitle, remainingSlots);
+      options.push(...fallbacks);
+    }
   }
 
   // ========================================
-  // STEP 5: Cache results with appropriate TTL
+  // STEP 4: Cache results with appropriate TTL
   // ========================================
   if (activityId && options.length > 0) {
     backdropCache.set(activityId, variation, options, hasLocation);
@@ -663,7 +611,7 @@ export async function searchBackdropOptions(
 
   const tavilyCount = options.filter(o => o.source === 'tavily').length;
   const freeCount = options.filter(o => o.source === 'unsplash' || o.source === 'pexels').length;
-  console.log(`[WebImageSearch] Returning ${options.length} options (${tavilyCount} Tavily, ${freeCount} free)`);
+  console.log(`[WebImageSearch] Returning ${options.length} options (${tavilyCount} Tavily, ${freeCount} fallback)`);
 
   return options.slice(0, maxOptions);
 }
@@ -810,7 +758,7 @@ export function getCategoryFallbackImage(category: string, activityTitle?: strin
 
 /**
  * Get the best available image for an activity
- * Priority: 1) User's custom backdrop, 2) Web search, 3) Category fallback
+ * Priority: 1) User's custom backdrop, 2) Tavily search, 3) Unsplash/Pexels fallback, 4) Category fallback
  */
 export async function getActivityImage(
   activityTitle: string,
@@ -821,7 +769,7 @@ export async function getActivityImage(
   // Priority 1: User's custom backdrop
   if (userBackdrop) {
     console.log('[WebImageSearch] Using user-provided backdrop');
-    
+
     // If backdrop starts with /community-backdrops/, convert to absolute URL
     if (userBackdrop.startsWith('/community-backdrops/')) {
       const publicBaseUrl = baseUrl || process.env.PUBLIC_BASE_URL || 'http://localhost:5000';
@@ -829,17 +777,29 @@ export async function getActivityImage(
       console.log('[WebImageSearch] Converting community backdrop to absolute URL:', absoluteUrl);
       return absoluteUrl;
     }
-    
+
     return userBackdrop;
   }
 
-  // Priority 2: Search for relevant image via Tavily
+  // Priority 2: Search for relevant image via Tavily (PRIMARY)
   const searchedImage = await searchActivityImage(activityTitle, category);
   if (searchedImage) {
     return searchedImage;
   }
 
-  // Priority 3: City/category-based fallback with title detection
+  // Priority 3: Fallback to Unsplash/Pexels if Tavily fails
+  console.log('[WebImageSearch] Tavily failed, trying Unsplash/Pexels fallback');
+  try {
+    const freeOptions = await getFreeProviderImages(category, activityTitle, 1, 0);
+    if (freeOptions.length > 0 && freeOptions[0].url) {
+      console.log('[WebImageSearch] Using fallback image from:', freeOptions[0].source);
+      return freeOptions[0].url;
+    }
+  } catch (error) {
+    console.error('[WebImageSearch] Free providers fallback failed:', error);
+  }
+
+  // Priority 4: City/category-based fallback with title detection
   console.log('[WebImageSearch] Using category/city fallback image');
   return getCategoryFallbackImage(category, activityTitle);
 }
