@@ -63,7 +63,7 @@ import path from 'path';
 import fs from 'fs';
 import Stripe from 'stripe';
 import { sendGroupNotification, sendUserNotification } from './services/notificationService';
-import { tavily } from '@tavily/core';
+import { tavilyExtract, isTavilyConfigured, getTavilyStatus } from './services/tavilyProvider';
 import { getActivityImage, searchBackdropOptions } from './services/webImageSearch';
 import { socialMediaVideoService } from './services/socialMediaVideoService';
 import { apifyService } from './services/apifyService';
@@ -73,7 +73,7 @@ import { findSimilarCategory, findSimilarSubcategory, findDuplicateVenue, checkD
 import { scheduleRemindersForActivity, cancelRemindersForActivity } from './services/reminderProcessor';
 import { seedGroupsForUser } from './seedSampleGroups';
 
-const tavilyClient = process.env.TAVILY_API_KEY ? tavily({ apiKey: process.env.TAVILY_API_KEY }) : null;
+// Tavily client is now managed by tavilyProvider.ts with automatic key rotation
 
 // Helper function to format plan preview for Smart mode
 function formatPlanPreview(plan: any): string {
@@ -1287,12 +1287,10 @@ ${sitemaps.map(sitemap => `  <sitemap>
   // ========== INTEGRATION STATUS ENDPOINT ==========
   // Shows status of content extraction integrations (Apify, Tavily)
   app.get("/api/integrations/status", async (_req, res) => {
+    const tavilyStatus = getTavilyStatus();
     const status = {
       apify: apifyService.getStatus(),
-      tavily: {
-        configured: !!process.env.TAVILY_API_KEY,
-        message: process.env.TAVILY_API_KEY ? 'Tavily integration ready' : 'TAVILY_API_KEY not set'
-      },
+      tavily: tavilyStatus,
       openai: {
         configured: !!process.env.OPENAI_API_KEY,
         message: process.env.OPENAI_API_KEY ? 'OpenAI integration ready (Whisper + OCR)' : 'OPENAI_API_KEY not set'
@@ -1301,11 +1299,11 @@ ${sitemaps.map(sitemap => `  <sitemap>
         instagramReels: apifyService.isAvailable() ? 'Apify → Whisper → OCR' : 'Direct extraction → yt-dlp → Whisper → OCR',
         tiktokVideos: apifyService.isAvailable() ? 'Apify → Whisper → OCR' : 'Direct extraction → yt-dlp → Whisper → OCR',
         youtube: 'yt-dlp → Whisper',
-        webContent: process.env.TAVILY_API_KEY ? 'Tavily Extract (advanced)' : 'Basic fetch',
+        webContent: tavilyStatus.configured ? 'Tavily Extract (advanced)' : 'Basic fetch',
         documents: 'PDF/DOCX/Image parsing → OpenAI'
       }
     };
-    
+
     res.json(status);
   });
   
@@ -14707,13 +14705,13 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         }
         
         // Fallback to Tavily for other video platforms or if social media extraction failed
-        if (tavilyClient) {
+        if (isTavilyConfigured()) {
           try {
             console.log(`[PARSE-URL] Attempting to extract ${videoCheck.platform} metadata with Tavily...`);
-            const tavilyResponse = await tavilyClient.extract([resolvedUrl], {
+            const tavilyResponse = await tavilyExtract([resolvedUrl], {
               extractDepth: "advanced"
             });
-            
+
             if (tavilyResponse.results && tavilyResponse.results.length > 0 && tavilyResponse.results[0].rawContent) {
               extractedContent = tavilyResponse.results[0].rawContent;
               console.log(`[PARSE-URL] Extracted ${extractedContent.length} chars from ${videoCheck.platform}`);
@@ -14738,13 +14736,13 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
       }
 
       // Try Tavily Extract first (handles JavaScript-rendered pages like Copilot, SPAs, etc.)
-      if (!extractedContent && tavilyClient) {
+      if (!extractedContent && isTavilyConfigured()) {
         try {
           console.log(`[PARSE-URL] Using Tavily Extract with advanced depth...`);
-          const tavilyResponse = await tavilyClient.extract([resolvedUrl], {
+          const tavilyResponse = await tavilyExtract([resolvedUrl], {
             extractDepth: "advanced" // Execute JavaScript, handle anti-bot measures
           });
-          
+
           if (tavilyResponse.results && tavilyResponse.results.length > 0 && tavilyResponse.results[0].rawContent) {
             extractedContent = tavilyResponse.results[0].rawContent;
             console.log(`[PARSE-URL] Tavily extracted ${extractedContent.length} chars successfully`);

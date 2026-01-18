@@ -1,4 +1,4 @@
-import { tavily } from '@tavily/core';
+import { tavilySearch, isTavilyConfigured } from './tavilyProvider';
 import Anthropic from '@anthropic-ai/sdk';
 import { UnsplashService } from './unsplashService';
 import { pexelsService } from './pexelsService';
@@ -14,7 +14,7 @@ export interface BackdropOption {
   label?: string;
 }
 
-const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
+// Tavily client is now managed by tavilyProvider.ts with automatic key rotation
 const unsplashService = new UnsplashService();
 
 // ============================================
@@ -322,8 +322,8 @@ export async function searchActivityImage(
 ): Promise<string | null> {
   try {
     // Skip if no API key configured
-    if (!process.env.TAVILY_API_KEY) {
-      console.warn('TAVILY_API_KEY not configured - skipping web image search');
+    if (!isTavilyConfigured()) {
+      console.warn('Tavily not configured - skipping web image search');
       return null;
     }
 
@@ -334,12 +334,10 @@ export async function searchActivityImage(
     console.log(`[WebImageSearch] Searching for: "${searchQuery}"`);
 
     // Search using Tavily with image search enabled and advanced depth
-    const response = await tavilyClient.search(searchQuery, {
+    const response = await tavilySearch(searchQuery, {
       searchDepth: 'advanced',
       maxResults: 8,
       includeImages: true,
-      includeImageDescriptions: true,
-      includeAnswer: false,
     });
 
     // Extract images from response
@@ -508,7 +506,7 @@ export async function searchBackdropOptions(
   // ========================================
   // STEP 2: Try Tavily FIRST (PRIMARY provider)
   // ========================================
-  if (process.env.TAVILY_API_KEY) {
+  if (isTavilyConfigured()) {
     console.log('[WebImageSearch] 🔍 Using Tavily as primary image provider');
 
     try {
@@ -524,11 +522,10 @@ export async function searchBackdropOptions(
 
         console.log('🔍 Tavily Search Query:', searchQuery);
 
-        const response = await tavilyClient.search(searchQuery, {
+        const response = await tavilySearch(searchQuery, {
           searchDepth: 'advanced',
           maxResults: maxOptions,
           includeImages: true,
-          includeAnswer: false,
         });
 
         const images = response.images || [];
@@ -556,11 +553,10 @@ export async function searchBackdropOptions(
         console.log('[WebImageSearch] AI context extraction failed, trying basic Tavily search');
         const basicQuery = `${activityTitle} ${category} beautiful scenic backdrop photography`;
 
-        const response = await tavilyClient.search(basicQuery, {
+        const response = await tavilySearch(basicQuery, {
           searchDepth: 'advanced',
           maxResults: maxOptions,
           includeImages: true,
-          includeAnswer: false,
         });
 
         const images = response.images || [];
@@ -581,7 +577,7 @@ export async function searchBackdropOptions(
       // Will fall through to free providers below
     }
   } else {
-    console.log('[WebImageSearch] TAVILY_API_KEY not configured, using free providers as fallback');
+    console.log('[WebImageSearch] Tavily not configured, using free providers as fallback');
   }
 
   // ========================================

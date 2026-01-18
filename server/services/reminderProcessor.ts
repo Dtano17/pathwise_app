@@ -456,18 +456,15 @@ async function getContextualEnrichment(
 
   try {
     // Use Tavily to search for relevant local info
-    const { tavily } = await import('@tavily/core');
-    const tavilyApiKey = process.env.TAVILY_API_KEY;
-    
-    if (!tavilyApiKey) {
+    const { tavilySearch, isTavilyConfigured } = await import('./tavilyProvider');
+
+    if (!isTavilyConfigured()) {
       return null;
     }
 
-    const client = tavily({ apiKey: tavilyApiKey });
-
     // Search for weather and local news
     const query = `${location} weather forecast this week AND local events news`;
-    const result = await client.search(query, {
+    const result = await tavilySearch(query, {
       searchDepth: 'basic',
       maxResults: 3,
     });

@@ -13,7 +13,7 @@
  * - Reservation/booking link detection
  */
 
-import { tavily } from '@tavily/core';
+import { tavilySearch, isTavilyConfigured } from './tavilyProvider';
 import Anthropic from '@anthropic-ai/sdk';
 import { tmdbService, TMDBSearchResult } from './tmdbService';
 import { spotifyEnrichmentService } from './spotifyEnrichmentService';
@@ -271,15 +271,12 @@ const VALID_VENUE_TYPES = [
 // ============================================================================
 
 class JournalWebEnrichmentService {
-  private tavilyClient: ReturnType<typeof tavily> | null = null;
   private anthropic: Anthropic | null = null;
   private cache: Map<string, { data: WebEnrichedData; timestamp: number }> = new Map();
   private readonly CACHE_TTL = 5 * 60 * 60 * 1000; // 5 hours
 
   constructor() {
-    if (process.env.TAVILY_API_KEY) {
-      this.tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
-    }
+    // Tavily client is now managed by tavilyProvider.ts with automatic key rotation
     if (process.env.ANTHROPIC_API_KEY) {
       this.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     }
@@ -663,7 +660,7 @@ Respond ONLY with valid JSON:
     }
 
     // LOW CONFIDENCE: Use Tavily + AI for validation
-    if (venueName && context.confidence < 0.6 && this.tavilyClient) {
+    if (venueName && context.confidence < 0.6 && isTavilyConfigured()) {
       try {
         console.log(`[CATEGORY_VALIDATOR] Low confidence (${context.confidence}), using Tavily + AI for validation`);
 
@@ -673,7 +670,7 @@ Respond ONLY with valid JSON:
         if (context.cuisine) searchQuery += ` ${context.cuisine} restaurant`;
         if (context.location) searchQuery += ` ${context.location}`;
 
-        const searchResponse = await this.tavilyClient.search(searchQuery, {
+        const searchResponse = await tavilySearch(searchQuery, {
           maxResults: 3,
           searchDepth: 'basic'
         });
@@ -1695,8 +1692,8 @@ Respond with ONLY a JSON object in this format:
   // ==========================================================================
 
   private async searchWeb(query: string, category?: string): Promise<{ results: any[]; images: string[] }> {
-    if (!this.tavilyClient) {
-      console.warn('[JOURNAL_WEB_ENRICH] Tavily client not initialized');
+    if (!isTavilyConfigured()) {
+      console.warn('[JOURNAL_WEB_ENRICH] Tavily not configured');
       return { results: [], images: [] };
     }
 
@@ -1755,7 +1752,7 @@ Respond with ONLY a JSON object in this format:
         console.log(`[JOURNAL_WEB_ENRICH] Searching with domain filter: ${includeDomains.join(', ')}`);
       }
 
-      const response = await this.tavilyClient.search(query, searchOptions);
+      const response = await tavilySearch(query, searchOptions);
 
       // CRITICAL FIX: Tavily returns images at response.images, NOT in individual results
       // Images can be either strings or objects with url property

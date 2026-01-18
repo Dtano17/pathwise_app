@@ -21,7 +21,7 @@
 
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import { tavily } from '@tavily/core';
+import { tavilySearch, isTavilyConfigured } from './tavilyProvider';
 import type { IStorage } from '../storage';
 import type { User, UserProfile, UserPreferences, JournalEntry } from '@shared/schema';
 import { DOMAIN_TO_JOURNAL_CATEGORIES } from '../config/journalTags';
@@ -553,19 +553,12 @@ interface LLMProvider {
 
 class OpenAIProvider implements LLMProvider {
   private client: OpenAI;
-  private tavilyClient: any;
 
   constructor() {
     this.client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
-
-    // Initialize Tavily for web search (optional - only if API key provided)
-    if (process.env.TAVILY_API_KEY) {
-      this.tavilyClient = tavily({
-        apiKey: process.env.TAVILY_API_KEY
-      });
-    }
+    // Tavily client is now managed by tavilyProvider.ts with automatic key rotation
   }
 
   /**
@@ -574,7 +567,7 @@ class OpenAIProvider implements LLMProvider {
    * Fire-and-forget pattern - don't block the Turn 1 response
    */
   private prewarmSafetySearches(userMessage: string): void {
-    if (!this.tavilyClient) return;
+    if (!isTavilyConfigured()) return;
 
     // Extract potential destination keywords - improved patterns for edge cases
     // Handles lowercase, multiword destinations (new york, san francisco, big bear), etc.
@@ -649,7 +642,7 @@ class OpenAIProvider implements LLMProvider {
             return;
           }
 
-          const searchResults = await this.tavilyClient.search(query, {
+          const searchResults = await tavilySearch(query, {
             maxResults: 3,
             searchDepth: 'basic' // Use 'basic' for speed in pre-warming
           });
@@ -705,7 +698,7 @@ class OpenAIProvider implements LLMProvider {
       const model = isPreviewTurn ? 'gpt-4o' : 'gpt-4o-mini';
       console.log(`[SIMPLE_PLANNER] Turn ${currentTurn}: Using ${model} (${isPreviewTurn ? 'preview' : 'question gathering'})`);
       
-      if (this.tavilyClient && isPreviewTurn) {
+      if (isTavilyConfigured() && isPreviewTurn) {
         console.log(`[SIMPLE_PLANNER] Turn ${currentTurn}: web_search enabled for preview enrichment`);
         enhancedTools.push({
           type: 'function',
@@ -797,7 +790,7 @@ class OpenAIProvider implements LLMProvider {
                 if (!formattedResults) {
                   // Cache miss - perform actual search
                   console.log(`[SIMPLE_PLANNER] Cache miss - querying Tavily`);
-                  const searchResults = await this.tavilyClient.search(query, {
+                  const searchResults = await tavilySearch(query, {
                     maxResults: 3,
                     searchDepth: 'advanced'
                   });
@@ -908,7 +901,7 @@ class OpenAIProvider implements LLMProvider {
       const model = isPreviewTurn ? 'gpt-4o' : 'gpt-4o-mini';
       console.log(`[SIMPLE_PLANNER_STREAM] Turn ${currentTurn}: Using ${model} (${isPreviewTurn ? 'preview' : 'question gathering'})`);
       
-      if (this.tavilyClient && isPreviewTurn) {
+      if (isTavilyConfigured() && isPreviewTurn) {
         console.log(`[SIMPLE_PLANNER_STREAM] Turn ${currentTurn}: web_search enabled`);
         enhancedTools.push({
           type: 'function',

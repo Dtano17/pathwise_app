@@ -1,15 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { User, InsertUrlContentCache, InsertContentImport, ContentImport } from '@shared/schema';
 import axios from 'axios';
-import { tavily } from '@tavily/core';
+import { tavilySearch, tavilyExtract } from './tavilyProvider';
 import { storage } from '../storage';
 import { socialMediaVideoService } from './socialMediaVideoService';
 import crypto from 'crypto';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// Initialize Tavily client for advanced URL content extraction
-const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
+// Tavily client is now managed by tavilyProvider.ts with automatic key rotation
 
 // Patterns to detect social media content
 const SOCIAL_MEDIA_PATTERNS = [
@@ -598,7 +597,7 @@ export class DirectPlanGenerator {
 
     try {
       const searchQuery = `best hotels accommodations near ${areaList} ${destination} prices 2024`;
-      const response = await tavilyClient.search(searchQuery, {
+      const response = await tavilySearch(searchQuery, {
         maxResults: 5,
         searchDepth: 'basic'
       });
@@ -627,10 +626,8 @@ export class DirectPlanGenerator {
     try {
       console.log(`[DIRECT PLAN] Extracting URL with Tavily (advanced mode): ${url}`);
       
-      const response = await tavilyClient.extract([url], {
-        extractDepth: 'advanced', // Handles JS rendering, CAPTCHAs, anti-bot
-        format: 'markdown', // Get clean markdown format
-        timeout: 30 // 30 second timeout for advanced extraction
+      const response = await tavilyExtract([url], {
+        extractDepth: 'advanced' // Handles JS rendering, CAPTCHAs, anti-bot
       });
 
       if (response.results && response.results.length > 0) {

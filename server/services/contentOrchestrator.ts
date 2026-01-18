@@ -1,11 +1,11 @@
 import { documentParser, ParsedDocument } from './documentParser';
 import { socialMediaVideoService } from './socialMediaVideoService';
-import { tavily } from '@tavily/core';
+import { tavilyExtract, isTavilyConfigured } from './tavilyProvider';
 import OpenAI from 'openai';
 import { storage } from '../storage';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const tavilyClient = process.env.TAVILY_API_KEY ? tavily({ apiKey: process.env.TAVILY_API_KEY }) : null;
+// Tavily client is now managed by tavilyProvider.ts with automatic key rotation
 
 function normalizeUrlForCache(urlString: string): string {
   try {
@@ -248,12 +248,12 @@ class ContentOrchestrator {
       }
     }
 
-    if (tavilyClient) {
+    if (isTavilyConfigured()) {
       try {
-        const response = await tavilyClient.extract([source.source], {
+        const response = await tavilyExtract([source.source], {
           extractDepth: 'advanced'
         });
-        
+
         if (response.results?.[0]?.rawContent) {
           content = response.results[0].rawContent;
         }

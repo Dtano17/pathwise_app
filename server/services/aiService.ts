@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { type InsertTask, type InsertChatImport, type InsertUrlContentCache } from "@shared/schema";
-import { tavily } from '@tavily/core';
+import { tavilyExtract } from './tavilyProvider';
 import axios from 'axios';
 import { socialMediaVideoService } from './socialMediaVideoService';
 import { storage } from '../storage';
@@ -25,8 +25,7 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// Initialize Tavily client for URL content extraction
-const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
+// Tavily client is now managed by tavilyProvider.ts with automatic key rotation
 
 interface ExtractedVenue {
   venueName: string;
@@ -187,10 +186,8 @@ export class AIService {
   private async extractUrlContentWithTavily(url: string): Promise<string> {
     try {
       console.log(`[AISERVICE] Extracting URL with Tavily: ${url}`);
-      const response = await tavilyClient.extract([url], {
-        extractDepth: 'advanced',
-        format: 'markdown',
-        timeout: 30
+      const response = await tavilyExtract([url], {
+        extractDepth: 'advanced'
       });
       if (response.results?.length > 0) {
         const content = response.results[0].rawContent;
