@@ -12521,7 +12521,48 @@ You can find these tasks in your task list and start working on them right away!
 
       // Get existing preferences
       const prefs = await storage.getUserPreferences(userId);
-      const journalData = prefs?.preferences?.journalData || {};
+      const originalJournalData = prefs?.preferences?.journalData || {};
+
+      // STEP 1: Deduplicate entries BEFORE enrichment
+      // This removes duplicate entries (same name) within each category
+      let totalDuplicatesRemoved = 0;
+      const journalData: Record<string, any[]> = {};
+
+      for (const [category, entries] of Object.entries(originalJournalData)) {
+        if (!Array.isArray(entries)) {
+          journalData[category] = entries as any;
+          continue;
+        }
+
+        const seenNames = new Set<string>();
+        const uniqueEntries: any[] = [];
+
+        for (const entry of entries) {
+          const entryName = (
+            entry.venueName || entry.text || entry.title || entry.name || ''
+          ).toLowerCase().trim();
+
+          if (!entryName || !seenNames.has(entryName)) {
+            if (entryName) seenNames.add(entryName);
+            uniqueEntries.push(entry);
+          } else {
+            totalDuplicatesRemoved++;
+            console.log(`[JOURNAL WEB ENRICH] Removing duplicate: "${entry.venueName || entry.text}" in ${category}`);
+          }
+        }
+        journalData[category] = uniqueEntries;
+      }
+
+      if (totalDuplicatesRemoved > 0) {
+        console.log(`[JOURNAL WEB ENRICH] Removed ${totalDuplicatesRemoved} duplicates before enrichment`);
+        // Save deduplicated data immediately
+        await storage.upsertUserPreferences(userId, {
+          preferences: {
+            ...prefs?.preferences,
+            journalData
+          }
+        });
+      }
 
       // Determine which categories to enrich (extended list with custom categories)
       const webEnrichableCategories = [
@@ -12682,12 +12723,13 @@ You can find these tasks in your task list and start working on them right away!
         }
       }
 
-      console.log(`[JOURNAL WEB ENRICH] Complete: ${totalEnriched} enriched, ${totalFailed} failed`);
+      console.log(`[JOURNAL WEB ENRICH] Complete: ${totalEnriched} enriched, ${totalFailed} failed, ${totalDuplicatesRemoved} duplicates removed`);
 
       res.json({
         success: true,
         enriched: totalEnriched,
         failed: totalFailed,
+        duplicatesRemoved: totalDuplicatesRemoved,
         categories: categoriesToEnrich
       });
     } catch (error) {
