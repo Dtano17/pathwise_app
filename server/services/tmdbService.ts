@@ -675,7 +675,13 @@ Respond ONLY with valid JSON (no explanation):
       .trim();
   }
 
-  async searchMovie(query: string): Promise<TMDBSearchResult | null> {
+  /**
+   * Search for a movie on TMDB
+   * @param query - The movie title to search for
+   * @param yearHint - Optional year hint from batch context (e.g., "2024 movies" batch)
+   *                   This helps filter results when the same title exists across multiple years
+   */
+  async searchMovie(query: string, yearHint?: number | null): Promise<TMDBSearchResult | null> {
     if (!this.apiKey) {
       console.warn('[TMDB] Cannot search - no API key configured');
       return null;
@@ -693,10 +699,13 @@ Respond ONLY with valid JSON (no explanation):
 
       // Extract year from query for more accurate matching
       const { title: titleWithoutYear, year: extractedYear } = this.extractYearFromQuery(cleanQuery);
-      console.log(`[TMDB] Searching for movie: "${titleWithoutYear}"${extractedYear ? ` (year: ${extractedYear})` : ''}`);
+
+      // Use yearHint (from batch context) if provided, otherwise use extracted year from query
+      const targetYear = yearHint || extractedYear;
+      console.log(`[TMDB] Searching for movie: "${titleWithoutYear}"${targetYear ? ` (year: ${targetYear}${yearHint ? ' from batch context' : ''})` : ''}`);
 
       // Try primary search with year if available
-      let result = await this.searchMovieByTitle(titleWithoutYear, extractedYear);
+      let result = await this.searchMovieByTitle(titleWithoutYear, targetYear);
 
       // If no result and the query was transformed, try original title too
       if (!result && titleWithoutYear !== query) {
@@ -704,12 +713,13 @@ Respond ONLY with valid JSON (no explanation):
         const { title: origWithoutYear, year: origYear } = this.extractYearFromQuery(originalTitle);
         if (origWithoutYear !== titleWithoutYear) {
           console.log(`[TMDB] Trying fallback search with original: "${origWithoutYear}"`);
-          result = await this.searchMovieByTitle(origWithoutYear, origYear || extractedYear);
+          result = await this.searchMovieByTitle(origWithoutYear, origYear || targetYear);
         }
       }
 
-      // If still no result, try without year constraint
-      if (!result && extractedYear) {
+      // If still no result WITH year constraint, try without year - but only if yearHint wasn't provided
+      // If yearHint was provided (from batch context), we should respect it and not return a random year match
+      if (!result && targetYear && !yearHint) {
         console.log(`[TMDB] Trying search without year constraint: "${titleWithoutYear}"`);
         result = await this.searchMovieByTitle(titleWithoutYear, null);
       }

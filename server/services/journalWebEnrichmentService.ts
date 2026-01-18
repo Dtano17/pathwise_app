@@ -592,7 +592,7 @@ Respond ONLY with valid JSON:
       if (context.entityType === 'tv_show') {
         // For TV shows, search TV directly with year if available
         console.log(`[CATEGORY_VALIDATOR] TV show detected, searching TMDB TV: "${searchName}" (year: ${context.year || 'any'})`);
-        tmdbResult = await tmdbService.searchTV(searchName, context.year?.toString() || null);
+        tmdbResult = await tmdbService.searchTV(searchName, context.year || null);
       } else {
         // For movies, use searchMovie which handles year extraction
         console.log(`[CATEGORY_VALIDATOR] Movie detected, searching TMDB: "${searchName}" (year: ${context.year || 'any'})`);
@@ -833,7 +833,29 @@ Respond with ONLY a JSON object in this format:
       if (aiRecommendation.recommendedAPI === 'tmdb' && tmdbService.isAvailable()) {
         // AI recommends TMDB (movies/TV)
         const searchTitle = aiRecommendation.extractedTitle || venueName;
-        const tmdbResult = validation.tmdbResult || await tmdbService.searchMovie(searchTitle);
+
+        // Get batch context for year-aware searching
+        // This prevents returning "The Secret Agent (1943)" when batch is "best 2024 movies"
+        const batchCtx = this.getBatchContext();
+        const yearHint = batchCtx?.yearRange?.min || null;
+
+        if (yearHint) {
+          console.log(`[JOURNAL_WEB_ENRICH] Using batch context year hint: ${yearHint} for "${searchTitle}"`);
+        }
+
+        let tmdbResult = validation.tmdbResult || await tmdbService.searchMovie(searchTitle, yearHint);
+
+        // YEAR VALIDATION: If batch context has yearRange, validate the result year
+        // Reject results that are way off from expected year (e.g., 1943 when expecting 2024)
+        if (tmdbResult && batchCtx?.yearRange && tmdbResult.releaseYear) {
+          const resultYear = parseInt(tmdbResult.releaseYear);
+          const { min, max } = batchCtx.yearRange;
+          // Allow 2-year tolerance (e.g., 2024 batch could match 2022-2026)
+          if (resultYear < min - 2 || resultYear > max + 2) {
+            console.log(`[JOURNAL_WEB_ENRICH] TMDB result year ${resultYear} outside expected range ${min}-${max}, rejecting match`);
+            tmdbResult = null; // Reject this match, will trigger Coming Soon placeholder
+          }
+        }
 
         if (tmdbResult) {
           const enrichedData: WebEnrichedData = {
