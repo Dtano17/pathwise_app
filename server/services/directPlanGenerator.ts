@@ -1222,6 +1222,34 @@ OUTPUT FORMAT (JSON only, no markdown):
   ]
 }
 
+## CRITICAL STEP 1 REQUIREMENT - COMPLETE LIST TASK
+
+When content contains a LIST of items (books, restaurants, movies, exercises, etc.):
+Your FIRST task (tasks[0]) MUST be a "Complete List" summary that:
+1. Lists EVERY SINGLE item mentioned in the source content by name
+2. Title format: "Complete list of [N] [items] from this post"
+3. Description format: Numbered list with ALL items and their authors/creators if known
+4. Include ALL items even if there are 20, 50, or 100+ of them
+5. This task is for journaling - it captures the complete curated content
+
+Example for 20 books:
+{
+  "title": "Complete list of 20 business books from this post",
+  "description": "1. Atomic Habits by James Clear\\n2. Start With Why by Simon Sinek\\n3. $100M Offers by Alex Hormozi\\n4. The Psychology of Money by Morgan Housel\\n5. Deep Work by Cal Newport\\n... (continue for ALL 20 books)",
+  "priority": "high",
+  "category": "reference"
+}
+
+Example for 15 restaurants:
+{
+  "title": "Complete list of 15 restaurants from this post",
+  "description": "1. Blue Bottle Coffee - Arts District LA\\n2. Verve Coffee - Santa Monica\\n3. Intelligentsia - Silver Lake\\n... (continue for ALL 15 restaurants)",
+  "priority": "high",
+  "category": "reference"
+}
+
+Tasks 2-N are supplementary action plans (reading schedule, visit itinerary, purchase strategy, etc.)
+
 ## DATETIME EXTRACTION RULES (IMPORTANT!)
 
 Today's date is: ${new Date().toISOString().split('T')[0]}

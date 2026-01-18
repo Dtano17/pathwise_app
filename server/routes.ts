@@ -14440,9 +14440,24 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           
           // Step 2: Extract fresh content via Apify/Whisper/OCR
           console.log(`[PARSE-URL] Using socialMediaVideoService for ${platform} (Apify → Whisper → OCR)`);
-          
+
+          // Strip query parameters from Instagram URLs (e.g., ?igsh=) before extraction
+          let cleanUrl = resolvedUrl;
+          if (resolvedUrl.includes('instagram.com')) {
+            try {
+              const urlObj = new URL(resolvedUrl);
+              urlObj.search = ''; // Remove all query parameters like ?igsh=
+              cleanUrl = urlObj.toString();
+              if (cleanUrl !== resolvedUrl) {
+                console.log(`[PARSE-URL] Stripped Instagram query params: ${resolvedUrl} → ${cleanUrl}`);
+              }
+            } catch (e) {
+              // Keep original URL if parsing fails
+            }
+          }
+
           try {
-            const socialResult = await socialMediaVideoService.extractContent(resolvedUrl);
+            const socialResult = await socialMediaVideoService.extractContent(cleanUrl);
             
             if (socialResult.success) {
               const combinedContent = socialMediaVideoService.combineExtractedContent(socialResult);
