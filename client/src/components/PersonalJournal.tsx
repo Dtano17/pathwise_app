@@ -842,9 +842,13 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      const parts = [];
+      if (data.enriched) parts.push(`${data.enriched} enriched`);
+      if (data.duplicatesRemoved) parts.push(`${data.duplicatesRemoved} duplicates removed`);
+      if (data.failed) parts.push(`${data.failed} failed`);
       toast({
         title: "AI Enrichment Complete!",
-        description: `Successfully enriched ${data.enriched || 0} journal entries with AI-powered images.${data.failed ? ` (${data.failed} failed)` : ''}`,
+        description: parts.length > 0 ? parts.join(', ') : 'Journal entries processed.',
       });
     },
     onError: (error) => {
@@ -961,11 +965,14 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
       return data;
     },
     onSuccess: (data) => {
-      console.log('[ENRICH] Success - enriched:', data.enriched);
+      console.log('[ENRICH] Success - enriched:', data.enriched, 'duplicates removed:', data.duplicatesRemoved);
       queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
+      const parts = [];
+      if (data.enriched) parts.push(`${data.enriched} enriched`);
+      if (data.duplicatesRemoved) parts.push(`${data.duplicatesRemoved} duplicates removed`);
       toast({
         title: "Details loaded!",
-        description: `Enriched ${data.enriched || 0} entries with web data.`,
+        description: parts.length > 0 ? parts.join(', ') : 'Entries processed.',
       });
     },
     onError: (error) => {
