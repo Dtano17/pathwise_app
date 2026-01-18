@@ -1659,36 +1659,67 @@ For carousel posts with movies, books, music:
 - Summarizing multiple venues into one entry
 - Missing movies just because they're formatted as descriptions instead of titles` : ''}
 
-## CRITICAL STEP 1 REQUIREMENT - COMPLETE LIST TASK
+## ⚠️ MANDATORY STEP 1 - JOURNAL CATEGORIZATION SOURCE ⚠️
 
-Your FIRST task (tasks[0]) MUST be a "Complete List" summary that:
-1. Lists EVERY SINGLE item mentioned in the source content by name
-2. Title format: "Complete list of [N] [items] from this post"
-3. Description format: Numbered list with ALL items and their authors/creators if known
-4. Include ALL items even if there are 20, 50, or 100+ of them
-5. This task is for journaling - it captures the complete curated content
+THIS IS NON-NEGOTIABLE. When content contains a LIST of items (books, movies, restaurants, exercises, etc.):
 
-Example for 20 books:
+tasks[0] MUST be a "Complete List" task with rich metadata for journal categorization:
+
+{
+  "title": "Complete list of [N] [item type] from this post",
+  "description": "CATEGORY: [books|movies|restaurants|fitness|travel|etc]\\nLOCATION: [city/area if applicable]\\nTHEME: [context from source]\\n\\n1. [Item] | [Metadata]\\n2. [Item] | [Metadata]\\n... (ALL items)",
+  "priority": "high",
+  "category": "reference",
+  "timeEstimate": "5 min"
+}
+
+METADATA FORMAT BY CATEGORY (use pipe | separator):
+- Books: "Title | Author: [name] | Genre: [genre]"
+- Movies: "Title | Director: [name] | Year: [year] | Genre: [genre]"
+- Restaurants: "Name | Type: [cuisine] | Location: [area] | Price: [$-$$$$]"
+- Exercises: "Name | Type: [cardio/strength] | Duration: [time] | Equipment: [none/gym]"
+- Travel: "Destination | Type: [city/beach/mountain] | Best for: [context]"
+
+EXAMPLE for 20 books:
 {
   "title": "Complete list of 20 business books from this post",
-  "description": "1. Atomic Habits by James Clear\\n2. Start With Why by Simon Sinek\\n3. $100M Offers by Alex Hormozi\\n4. The Psychology of Money by Morgan Housel\\n5. Deep Work by Cal Newport\\n... (continue for ALL 20 books)",
+  "description": "CATEGORY: books\\nTHEME: business education / MBA curriculum\\n\\n1. $100M Offers | Author: Alex Hormozi | Genre: business/sales\\n2. Atomic Habits | Author: James Clear | Genre: self-help/habits\\n3. Never Split the Difference | Author: Chris Voss | Genre: negotiation\\n4. Start with Why | Author: Simon Sinek | Genre: leadership\\n5. The E-Myth Revisited | Author: Michael Gerber | Genre: entrepreneurship\\n... (ALL 20 books with author and genre)",
   "priority": "high",
   "category": "reference",
   "timeEstimate": "5 min"
 }
 
-Example for 15 restaurants:
+EXAMPLE for 15 restaurants:
 {
   "title": "Complete list of 15 restaurants from this post",
-  "description": "1. Blue Bottle Coffee - Arts District LA\\n2. Verve Coffee - Santa Monica\\n3. Intelligentsia - Silver Lake\\n... (continue for ALL 15 restaurants)",
+  "description": "CATEGORY: restaurants\\nLOCATION: Los Angeles, CA\\nTHEME: top brunch spots 2025\\n\\n1. Blue Bottle Coffee | Type: cafe | Location: Arts District | Price: $$\\n2. Verve Coffee | Type: cafe | Location: Santa Monica | Price: $$\\n3. Gjusta | Type: bakery | Location: Venice | Price: $$$\\n... (ALL 15 with type, location, price)",
   "priority": "high",
   "category": "reference",
   "timeEstimate": "5 min"
 }
 
-Tasks 2-N are supplementary action plans (reading schedule, visit itinerary, purchase strategy, etc.)
+WHY THIS MATTERS:
+- This task feeds directly into journal categorization
+- Rich metadata enables smart image search and correct category matching
+- The journal parser uses this to create individual entries with proper enrichment
 
-CRITICAL - Generate 6-9 specific, actionable tasks (occasionally 5 for very simple goals):
+ENFORCEMENT (STRICT):
+- If content has 20 books → Step 1 MUST list all 20 with authors/genres
+- If content has 50 restaurants → Step 1 MUST list all 50 with locations/types
+- NEVER summarize or skip items
+- NEVER say "and more" or "etc." - list EVERY SINGLE item
+
+## TASK GENERATION RULES
+
+1. IF content contains a LIST of items:
+   - tasks[0] = MANDATORY journal-optimized complete list (format above)
+   - tasks[1-8] = supplementary action plans (reading schedule, purchase strategy, etc.)
+   - Total: 7-9 tasks (1 complete list + 6-8 action plans)
+
+2. IF content is NOT a list (single goal, event, project):
+   - Generate 6-9 specific, actionable tasks normally
+
+For ALL tasks (including tasks[1-8]):
 - ALWAYS include a "timeEstimate" for every single task - never omit this field
 - Each task MUST include SPECIFIC details - real prices, budgets, named recommendations
 - Time estimates should be realistic and based on the average time it would take to complete the task well

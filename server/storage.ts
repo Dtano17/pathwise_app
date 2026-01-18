@@ -88,6 +88,8 @@ import {
   type InsertContentImport,
   type MobilePreferences,
   type InsertMobilePreferences,
+  type JournalEnrichmentCache,
+  type InsertJournalEnrichmentCache,
   users,
   goals,
   tasks,
@@ -129,7 +131,8 @@ import {
   urlContentCache,
   userSavedContent,
   contentImports,
-  mobilePreferences
+  mobilePreferences,
+  journalEnrichmentCache
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -4365,6 +4368,49 @@ export class DatabaseStorage implements IStorage {
       return existing;
     }
     return this.createMobilePreferences({ userId });
+  }
+
+  // Journal Enrichment Cache - Persistent storage for web enrichment data
+  async getJournalEnrichmentCache(cacheKey: string): Promise<JournalEnrichmentCache | undefined> {
+    const [result] = await db
+      .select()
+      .from(journalEnrichmentCache)
+      .where(eq(journalEnrichmentCache.cacheKey, cacheKey));
+    return result;
+  }
+
+  async saveJournalEnrichmentCache(data: InsertJournalEnrichmentCache): Promise<JournalEnrichmentCache> {
+    // Use upsert to handle both insert and update
+    const [result] = await db
+      .insert(journalEnrichmentCache)
+      .values(data)
+      .onConflictDoUpdate({
+        target: journalEnrichmentCache.cacheKey,
+        set: {
+          enrichedData: data.enrichedData,
+          imageUrl: data.imageUrl,
+          verified: data.verified,
+          enrichmentSource: data.enrichmentSource,
+          isComingSoon: data.isComingSoon,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+
+  async deleteJournalEnrichmentCache(cacheKey: string): Promise<void> {
+    await db
+      .delete(journalEnrichmentCache)
+      .where(eq(journalEnrichmentCache.cacheKey, cacheKey));
+  }
+
+  async getMultipleJournalEnrichmentCache(cacheKeys: string[]): Promise<JournalEnrichmentCache[]> {
+    if (cacheKeys.length === 0) return [];
+    return db
+      .select()
+      .from(journalEnrichmentCache)
+      .where(inArray(journalEnrichmentCache.cacheKey, cacheKeys));
   }
 }
 

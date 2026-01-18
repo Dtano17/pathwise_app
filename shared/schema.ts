@@ -2204,3 +2204,29 @@ export const insertMobilePreferencesSchema = createInsertSchema(mobilePreference
 
 export type MobilePreferences = typeof mobilePreferences.$inferSelect;
 export type InsertMobilePreferences = z.infer<typeof insertMobilePreferencesSchema>;
+
+// Journal enrichment cache for persistent storage of web enrichment data
+// This avoids re-fetching images and metadata every time the user views their journal
+export const journalEnrichmentCache = pgTable("journal_enrichment_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cacheKey: varchar("cache_key", { length: 512 }).notNull().unique(), // "title|category" normalized key
+  enrichedData: jsonb("enriched_data").notNull(), // Full WebEnrichedData object
+  imageUrl: text("image_url"), // Primary image URL for quick access
+  verified: boolean("verified").default(false), // Whether the source was authoritative (TMDB, Spotify, etc.)
+  enrichmentSource: varchar("enrichment_source", { length: 50 }), // 'tmdb' | 'tavily' | 'spotify' | 'google_books' | 'placeholder'
+  isComingSoon: boolean("is_coming_soon").default(false), // True if using placeholder for unreleased content
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  cacheKeyIndex: uniqueIndex("journal_enrichment_cache_key_idx").on(table.cacheKey),
+}));
+
+// Zod schema for journal enrichment cache
+export const insertJournalEnrichmentCacheSchema = createInsertSchema(journalEnrichmentCache).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type JournalEnrichmentCache = typeof journalEnrichmentCache.$inferSelect;
+export type InsertJournalEnrichmentCache = z.infer<typeof insertJournalEnrichmentCacheSchema>;
