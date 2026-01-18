@@ -3027,6 +3027,109 @@ ${sitemaps.map(sitemap => `  <sitemap>
     }
   });
 
+  // POST /api/journal/entries/deduplicate - Remove duplicate entries within each category
+  app.post("/api/journal/entries/deduplicate", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { dryRun = false } = req.body;
+
+      console.log(`[JOURNAL DEDUP] Starting deduplication for user ${userId} (dryRun: ${dryRun})`);
+
+      // Get user preferences containing journal data
+      const preferences = await storage.getUserPreferences(userId);
+      const journalData = (preferences?.preferences as any)?.journalData || {};
+
+      const stats: {
+        category: string;
+        originalCount: number;
+        uniqueCount: number;
+        duplicatesRemoved: number;
+        duplicateNames: string[];
+      }[] = [];
+
+      let totalDuplicatesRemoved = 0;
+      const cleanedJournalData: Record<string, any[]> = {};
+
+      // Process each category
+      for (const [category, entries] of Object.entries(journalData)) {
+        if (!Array.isArray(entries)) {
+          cleanedJournalData[category] = entries as any;
+          continue;
+        }
+
+        const originalCount = entries.length;
+        const seenNames = new Set<string>();
+        const uniqueEntries: any[] = [];
+        const duplicateNames: string[] = [];
+
+        for (const entry of entries) {
+          // Get the name to check - try multiple fields for different entry types
+          const entryName = (
+            entry.venueName ||
+            entry.text ||
+            entry.title ||
+            entry.name ||
+            ''
+          ).toLowerCase().trim();
+
+          if (!entryName) {
+            // Keep entries without names (shouldn't happen but be safe)
+            uniqueEntries.push(entry);
+            continue;
+          }
+
+          if (seenNames.has(entryName)) {
+            // This is a duplicate - skip it
+            duplicateNames.push(entry.venueName || entry.text || entry.title || entry.name);
+            totalDuplicatesRemoved++;
+          } else {
+            // First occurrence - keep it
+            seenNames.add(entryName);
+            uniqueEntries.push(entry);
+          }
+        }
+
+        cleanedJournalData[category] = uniqueEntries;
+
+        stats.push({
+          category,
+          originalCount,
+          uniqueCount: uniqueEntries.length,
+          duplicatesRemoved: originalCount - uniqueEntries.length,
+          duplicateNames
+        });
+
+        if (duplicateNames.length > 0) {
+          console.log(`[JOURNAL DEDUP] ${category}: removed ${duplicateNames.length} duplicates: ${duplicateNames.slice(0, 5).join(', ')}${duplicateNames.length > 5 ? '...' : ''}`);
+        }
+      }
+
+      // Save the cleaned data (unless dry run)
+      if (!dryRun && totalDuplicatesRemoved > 0) {
+        await storage.upsertUserPreferences(userId, {
+          preferences: {
+            ...preferences?.preferences,
+            journalData: cleanedJournalData
+          }
+        });
+        console.log(`[JOURNAL DEDUP] Saved cleaned journal data - removed ${totalDuplicatesRemoved} total duplicates`);
+      }
+
+      res.json({
+        success: true,
+        dryRun,
+        totalDuplicatesRemoved,
+        stats,
+        message: dryRun
+          ? `Found ${totalDuplicatesRemoved} duplicates across all categories (dry run - no changes made)`
+          : `Removed ${totalDuplicatesRemoved} duplicate entries from journal`
+      });
+    } catch (error) {
+      console.error('Journal deduplication error:', error);
+      res.status(500).json({ error: 'Failed to deduplicate journal entries' });
+    }
+  });
+
   // GET /api/journal/entries/confidence-stats - Get confidence score statistics
   app.get("/api/journal/entries/confidence-stats", async (req: any, res) => {
     try {
@@ -3378,12 +3481,31 @@ ${sitemaps.map(sitemap => `  <sitemap>
           const currentJournalData = (preferences?.preferences as any)?.journalData || {};
           
           let venuesSavedCount = 0;
+          let duplicatesSkipped = 0;
           // Map venues to journal entries with importId
           // IMPORTANT: text field is ONLY the venue name (clean) for journal display
           // Context is stored separately for enrichment
           for (const venue of result.allExtractedVenues) {
             const category = venue.category || 'restaurants';
             const entries = currentJournalData[category] || [];
+
+            // DUPLICATE CHECK: Skip if same item already exists in this category
+            // Works for all categories: books, movies, restaurants, exercises, travel destinations, etc.
+            const normalizedItemName = venue.venueName?.toLowerCase().trim() || '';
+            const isDuplicate = entries.some((existing: any) => {
+              const existingName = (existing.venueName || existing.text || existing.title || existing.name || '').toLowerCase().trim();
+              // Check for exact name match (case-insensitive)
+              if (existingName === normalizedItemName && normalizedItemName.length > 0) {
+                return true;
+              }
+              return false;
+            });
+
+            if (isDuplicate) {
+              console.log(`[GOALS/PROCESS DEDUP] Skipping duplicate: "${venue.venueName}" in category "${category}"`);
+              duplicatesSkipped++;
+              continue;
+            }
 
             entries.push({
               id: `journal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -3417,7 +3539,7 @@ ${sitemaps.map(sitemap => `  <sitemap>
             }
           });
           
-          console.log(`[GOALS/PROCESS] SUMMARY: ${result.allExtractedVenues.length} venues extracted → ${venuesSavedCount} saved with importId ${importId}`);
+          console.log(`[GOALS/PROCESS] SUMMARY: ${result.allExtractedVenues.length} venues extracted → ${venuesSavedCount} saved, ${duplicatesSkipped} duplicates skipped (importId: ${importId})`);
         } catch (venueError) {
           console.error('[GOALS/PROCESS] Error saving venues:', venueError);
         }
