@@ -44,7 +44,8 @@ import {
   startForegroundService,
   stopForegroundService,
   getBackgroundServiceStatus,
-  isBackgroundServiceAvailable
+  isBackgroundServiceAvailable,
+  showAlertNotification
 } from '@/lib/backgroundService';
 import {
   checkBiometricAvailability,
@@ -197,6 +198,21 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
     enabled: isAuthenticated && !!user?.id,
   });
 
+  // Get notification preferences (for General Notifications and Smart Scheduler toggles)
+  const { data: notificationPrefs } = useQuery<{
+    enableBrowserNotifications: boolean;
+    enableTaskReminders: boolean;
+    enableDeadlineWarnings: boolean;
+    enableDailyPlanning: boolean;
+    enableGroupNotifications: boolean;
+    reminderLeadTime: number;
+    quietHoursStart: string;
+    quietHoursEnd: string;
+  }>({
+    queryKey: ['/api/notifications/preferences'],
+    enabled: isAuthenticated,
+  });
+
   // Get subscription status
   const { data: subscriptionStatus } = useQuery<SubscriptionStatus>({
     queryKey: ['/api/subscription/status'],
@@ -205,7 +221,7 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
 
   // Update preferences mutation
   const updatePreferencesMutation = useMutation({
-    mutationFn: (updates: Partial<UserPreferences>) => 
+    mutationFn: (updates: Partial<UserPreferences>) =>
       apiRequest('PUT', '/api/user/preferences', updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user/preferences'] });
@@ -223,10 +239,38 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
     },
   });
 
+  // Update notification preferences mutation (for General Notifications and Smart Scheduler)
+  const updateNotificationPrefsMutation = useMutation({
+    mutationFn: (updates: Partial<{
+      enableBrowserNotifications: boolean;
+      enableTaskReminders: boolean;
+      enableDeadlineWarnings: boolean;
+      enableDailyPlanning: boolean;
+      enableGroupNotifications: boolean;
+      reminderLeadTime: number;
+      quietHoursStart: string;
+      quietHoursEnd: string;
+    }>) => apiRequest('PATCH', '/api/notifications/preferences', updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/preferences'] });
+      toast({
+        title: "Settings updated",
+        description: "Your notification preferences have been saved.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to update notification settings.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Generate schedule mutation
   const generateScheduleMutation = useMutation({
-    mutationFn: () => 
-      apiRequest('POST', `/api/scheduling/generate/${user?.id}/${selectedDate}`),
+    mutationFn: () =>
+      apiRequest('POST', '/api/scheduling/generate', { targetDate: selectedDate }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/scheduling/suggestions', user?.id, selectedDate] });
       toast({
@@ -323,6 +367,23 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       setBrowserNotificationsEnabled(Notification.permission === 'granted');
     }
   }, []);
+
+  // Reset invite loading state when app becomes visible (handles pickContact() hang on cancel)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Small delay to let any pending operations complete
+        setTimeout(() => {
+          if (contactsLoading) {
+            console.log('[SETTINGS] App became visible, resetting contacts loading state');
+            setContactsLoading(false);
+          }
+        }, 500);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [contactsLoading]);
 
   // Tier display label mapping
   const getTierLabel = (tier: string | undefined) => {
@@ -474,35 +535,63 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
 
   const handleTestNotification = async () => {
     try {
-      await showLocalNotification({
+      // Use showAlertNotification from BackgroundService for reliable notifications
+      // This uses the same method as the working foreground service notification
+      const result = await showAlertNotification({
         title: 'Test Notification',
-        body: 'Push notifications are working!',
+        body: 'Push notifications are working! 🎉',
         id: Date.now()
       });
-      toast({ title: 'Notification Sent', description: 'Check your notification shade' });
-    } catch (error) {
+
+      if (result.success) {
+        toast({ title: 'Notification Sent', description: 'Check your notification shade' });
+      } else {
+        toast({
+          title: 'Failed',
+          description: result.error || 'Could not send test notification',
+          variant: 'destructive'
+        });
+      }
+    } catch (error: any) {
+      console.error('[SETTINGS] Test notification error:', error);
       toast({
         title: 'Failed',
-        description: 'Could not send test notification',
+        description: error?.message || 'Could not send test notification',
         variant: 'destructive'
       });
     }
   };
 
   // Invite a friend by picking from contacts
+  // Note: pickContact() can hang forever on Android when user cancels without selecting
+  // We use Promise.race with a timeout to handle this case
   const handleInviteFromContacts = async () => {
     setContactsLoading(true);
     try {
       console.log('[SETTINGS] Opening contact picker for invite...');
-      const contact = await pickContact();
+
+      // Wrap pickContact with a timeout since it can hang on cancel (Android bug)
+      const contactPromise = pickContact();
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => {
+          console.log('[SETTINGS] Contact picker timeout - treating as cancel');
+          resolve(null);
+        }, 30000); // 30 second timeout
+      });
+
+      const contact = await Promise.race([contactPromise, timeoutPromise]);
 
       if (!contact) {
-        // User cancelled - not an error
+        // User cancelled or timeout - not an error
+        console.log('[SETTINGS] Contact picker cancelled or timed out');
         setContactsLoading(false);
         return;
       }
 
       console.log('[SETTINGS] Contact selected:', contact.displayName);
+
+      // Reset loading before navigating away to SMS/email app
+      setContactsLoading(false);
 
       // Open SMS/email to invite the contact
       const success = await shareInviteWithContact(contact);
@@ -1121,11 +1210,11 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
             <div className="ml-6 sm:ml-0">
               <Switch
                 id="general-notifications"
-                checked={preferences?.notifications ?? true}
+                checked={notificationPrefs?.enableTaskReminders ?? true}
                 onCheckedChange={(checked) =>
-                  updatePreferencesMutation.mutate({ notifications: checked })
+                  updateNotificationPrefsMutation.mutate({ enableTaskReminders: checked })
                 }
-                disabled={updatePreferencesMutation.isPending}
+                disabled={updateNotificationPrefsMutation.isPending}
                 data-testid="switch-general-notifications"
               />
             </div>
@@ -1195,10 +1284,11 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
             </div>
             <Switch
               id="smart-scheduler-enabled"
-              checked={preferences?.smartScheduler ?? true}
-              onCheckedChange={(checked) => 
-                updatePreferencesMutation.mutate({ smartScheduler: checked })
+              checked={notificationPrefs?.enableDailyPlanning ?? false}
+              onCheckedChange={(checked) =>
+                updateNotificationPrefsMutation.mutate({ enableDailyPlanning: checked })
               }
+              disabled={updateNotificationPrefsMutation.isPending}
               data-testid="switch-smart-scheduler"
             />
           </div>

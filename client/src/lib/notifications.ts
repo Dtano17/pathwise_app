@@ -21,35 +21,28 @@ const getLocalNotifications = async () => {
 };
 
 // =============================================================================
-// LEGACY: Custom NativeNotifications plugin (commented out - kept for reference)
-// This was used before switching to @capacitor/local-notifications
+// Custom NativeNotifications plugin - uses direct bridge access
+// This works with remote URLs (unlike @capacitor/local-notifications)
 // =============================================================================
-/*
+
 // Define interface for our custom NativeNotifications plugin
 interface NativeNotificationsPlugin {
   checkPermission(): Promise<{ granted: boolean; platform: string }>;
   requestPermission(): Promise<{ granted: boolean; platform: string }>;
   show(options: { title: string; body: string; id?: number }): Promise<{ success: boolean; id?: number; error?: string }>;
+  schedule(options: { title: string; body: string; id?: number; triggerAt: number }): Promise<{ success: boolean; id?: number; scheduledAt?: number; error?: string }>;
   cancel(options: { id: number }): Promise<{ success: boolean }>;
   cancelAll(): Promise<{ success: boolean }>;
+  getPending(): Promise<{ notifications: Record<string, any>; count: number }>;
 }
 
-// Get the custom NativeNotifications plugin from the Capacitor bridge
-// Uses direct bridge access which works with remote URLs (unlike registerPlugin)
+/**
+ * Get the custom NativeNotifications plugin from the Capacitor bridge
+ * Uses direct bridge access which works with remote URLs (unlike registerPlugin)
+ */
 function getNativeNotificationsPlugin(): NativeNotificationsPlugin | null {
   try {
     const capacitor = (window as any).Capacitor;
-
-    // Enhanced diagnostic logging for debugging Android notification issues
-    console.log('[NOTIFICATIONS] Plugin lookup:', {
-      hasCapacitor: !!capacitor,
-      hasPlugins: !!capacitor?.Plugins,
-      hasNativeNotifications: !!capacitor?.Plugins?.NativeNotifications,
-      allPlugins: capacitor?.Plugins ? Object.keys(capacitor.Plugins) : [],
-      isNativePlatform: capacitor?.isNativePlatform?.() ?? false,
-      platform: capacitor?.getPlatform?.() ?? 'unknown'
-    });
-
     if (capacitor?.Plugins?.NativeNotifications) {
       return capacitor.Plugins.NativeNotifications as NativeNotificationsPlugin;
     }
@@ -59,7 +52,6 @@ function getNativeNotificationsPlugin(): NativeNotificationsPlugin | null {
     return null;
   }
 }
-*/
 // =============================================================================
 
 export interface NotificationPermissionStatus {
@@ -389,51 +381,8 @@ export async function showLocalNotification(options: {
   const notificationId = options.id || Date.now();
 
   if (isAndroid()) {
-    // On Android with remote URLs, @capacitor/local-notifications doesn't work
-    // Fall back to web notification API for in-app/foreground notifications
-    // FCM push notifications will appear in notification shade automatically
-    console.log('[NOTIFICATIONS] Android: Using web notification fallback (local-notifications not supported with remote URLs)');
-    showWebNotification(options);
-
-    /* LEGACY: @capacitor/local-notifications approach (doesn't work with remote URLs)
-    try {
-      console.log('[NOTIFICATIONS] Showing Android notification via @capacitor/local-notifications:', options.title);
-      const LocalNotifications = await getLocalNotifications();
-
-      // Check permission first
-      const permResult = await LocalNotifications.checkPermissions();
-      if (permResult.display !== 'granted') {
-        console.warn('[NOTIFICATIONS] Android notification permission not granted, requesting...');
-        const requestResult = await LocalNotifications.requestPermissions();
-        if (requestResult.display !== 'granted') {
-          console.error('[NOTIFICATIONS] Android notification permission denied');
-          showWebNotification(options);
-          return;
-        }
-      }
-
-      // Schedule the notification (immediate if no scheduleAt)
-      await LocalNotifications.schedule({
-        notifications: [{
-          title: options.title,
-          body: options.body,
-          id: notificationId,
-          extra: options.data,
-          schedule: options.scheduleAt ? { at: options.scheduleAt } : undefined,
-          // Android-specific options for notification shade appearance
-          smallIcon: 'ic_stat_notification',
-          largeIcon: 'ic_launcher',
-          sound: 'default',
-        }],
-      });
-      console.log('[NOTIFICATIONS] Android notification scheduled successfully, id:', notificationId);
-    } catch (error: any) {
-      console.error('[NOTIFICATIONS] Failed to show Android notification:', error);
-      showWebNotification(options);
-    }
-    */
-
-    /* LEGACY: Custom NativeNotifications plugin approach (commented out)
+    // Use custom NativeNotifications plugin for Android
+    // This works with remote URLs (unlike @capacitor/local-notifications)
     try {
       const plugin = getNativeNotificationsPlugin();
       if (!plugin) {
@@ -441,23 +390,43 @@ export async function showLocalNotification(options: {
         showWebNotification(options);
         return;
       }
-      console.log('[NOTIFICATIONS] Showing Android notification:', options.title);
-      const result = await plugin.show({
-        title: options.title,
-        body: options.body,
-        id: notificationId,
-      });
-      console.log('[NOTIFICATIONS] Android notification result:', result);
+
+      let result;
+      if (options.scheduleAt) {
+        // Schedule for future - uses AlarmManager for reliable delivery
+        const triggerAt = options.scheduleAt.getTime();
+        console.log('[NOTIFICATIONS] Scheduling Android notification for:', new Date(triggerAt).toISOString());
+        result = await plugin.schedule({
+          title: options.title,
+          body: options.body,
+          id: notificationId,
+          triggerAt: triggerAt,
+        });
+        console.log('[NOTIFICATIONS] Android notification scheduled:', result);
+      } else {
+        // Show immediately
+        console.log('[NOTIFICATIONS] Showing Android notification via custom plugin:', options.title);
+        result = await plugin.show({
+          title: options.title,
+          body: options.body,
+          id: notificationId,
+        });
+        console.log('[NOTIFICATIONS] Android notification result:', result);
+      }
 
       if (!result.success) {
         console.error('[NOTIFICATIONS] Android notification failed:', result.error);
-        showWebNotification(options);
+        // Fallback to web notification (only for immediate notifications)
+        if (!options.scheduleAt) {
+          showWebNotification(options);
+        }
       }
     } catch (error: any) {
       console.error('[NOTIFICATIONS] Failed to show Android notification:', error);
-      showWebNotification(options);
+      if (!options.scheduleAt) {
+        showWebNotification(options);
+      }
     }
-    */
   } else if (isIOS()) {
     // Use Capacitor LocalNotifications for iOS
     try {
@@ -553,30 +522,16 @@ export async function scheduleReminder(options: {
  */
 export async function cancelNotification(id: number) {
   if (isAndroid()) {
-    // On Android with remote URLs, @capacitor/local-notifications doesn't work
-    // Since we use web notifications as fallback, there's no way to cancel them
-    console.log('[NOTIFICATIONS] Android: Cancel not supported with remote URLs (using web notifications)');
-
-    /* LEGACY: @capacitor/local-notifications approach (doesn't work with remote URLs)
-    try {
-      const LocalNotifications = await getLocalNotifications();
-      await LocalNotifications.cancel({ notifications: [{ id }] });
-      console.log('[NOTIFICATIONS] Android notification cancelled, id:', id);
-    } catch (error) {
-      console.error('[NOTIFICATIONS] Failed to cancel Android notification:', error);
-    }
-    */
-
-    /* LEGACY: Custom NativeNotifications plugin approach (commented out)
+    // Use custom NativeNotifications plugin for Android
     try {
       const plugin = getNativeNotificationsPlugin();
       if (plugin) {
         await plugin.cancel({ id });
+        console.log('[NOTIFICATIONS] Android notification cancelled, id:', id);
       }
     } catch (error) {
       console.error('[NOTIFICATIONS] Failed to cancel Android notification:', error);
     }
-    */
   } else if (isIOS()) {
     try {
       const LocalNotifications = await getLocalNotifications();
@@ -593,9 +548,18 @@ export async function cancelNotification(id: number) {
  */
 export async function getPendingNotifications() {
   if (isAndroid()) {
-    // On Android with remote URLs, @capacitor/local-notifications doesn't work
-    // We use web notifications which don't support pending queries
-    console.log('[NOTIFICATIONS] Android: getPending not supported with remote URLs');
+    // Use custom NativeNotifications plugin for Android
+    try {
+      const plugin = getNativeNotificationsPlugin();
+      if (plugin) {
+        const result = await plugin.getPending();
+        console.log('[NOTIFICATIONS] Pending Android notifications:', result.count);
+        // Convert to array format
+        return Object.values(result.notifications || {});
+      }
+    } catch (error) {
+      console.error('[NOTIFICATIONS] Failed to get pending Android notifications:', error);
+    }
     return [];
   }
 

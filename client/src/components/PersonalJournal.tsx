@@ -871,12 +871,45 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
         entryIndex,
         entryId
       });
-      return response.json();
+      const result = await response.json();
+      // Return the category and entryIndex along with the result for use in onSuccess
+      return { ...result, _category: category, _entryIndex: entryIndex };
     },
     onSuccess: (data) => {
       setRefreshingEntryId(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/user-preferences'] });
-      if (data.success) {
+
+      if (data.success && data.enrichedData) {
+        // INSTANT UI UPDATE: Directly update local state for immediate feedback
+        // This ensures the image updates immediately without waiting for refetch
+        const category = data.categoryChanged ? data.oldCategory : data._category;
+        const entryIndex = data._entryIndex;
+
+        setJournalData(prev => {
+          const updated = { ...prev };
+          const entries = [...(updated[category] || [])];
+
+          if (entries[entryIndex] && typeof entries[entryIndex] === 'object') {
+            entries[entryIndex] = {
+              ...entries[entryIndex],
+              webEnrichment: data.enrichedData,
+              primaryImageUrl: data.enrichedData.primaryImageUrl,
+            };
+            updated[category] = entries;
+          }
+
+          // If category changed, also handle moving the entry
+          if (data.categoryChanged && data.newCategory) {
+            const movedEntry = entries.splice(entryIndex, 1)[0];
+            updated[category] = entries;
+            if (!updated[data.newCategory]) {
+              updated[data.newCategory] = [];
+            }
+            updated[data.newCategory] = [...updated[data.newCategory], movedEntry];
+          }
+
+          return updated;
+        });
+
         toast({
           title: "Entry Refreshed!",
           description: data.categoryChanged
@@ -885,7 +918,7 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
         });
       } else {
         // Show specific error message from the backend
-        const errorMessage = data.error?.includes('No venue name') 
+        const errorMessage = data.error?.includes('No venue name')
           ? "Could not identify what to search for. Try adding more details to your entry."
           : data.error?.includes('No web results')
           ? "No matching information found online. Try editing the entry title."
@@ -896,6 +929,9 @@ export default function PersonalJournal({ onClose }: PersonalJournalProps) {
           variant: "destructive",
         });
       }
+
+      // Also refetch to ensure server sync (use refetchQueries for immediate update)
+      queryClient.refetchQueries({ queryKey: ['/api/user-preferences'] });
     },
     onError: (error) => {
       setRefreshingEntryId(null);

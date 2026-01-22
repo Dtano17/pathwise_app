@@ -275,6 +275,7 @@ export interface IStorage {
   createNotificationPreferences(prefs: InsertNotificationPreferences & { userId: string }): Promise<NotificationPreferences>;
   updateNotificationPreferences(userId: string, updates: Partial<NotificationPreferences>): Promise<NotificationPreferences | undefined>;
   getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>; // Alias for getUserNotificationPreferences
+  getUsersWithDailyPlanningEnabled(): Promise<Array<{ userId: string; dailyPlanningTime: string | null }>>;
   
   // User Notifications (in-app notifications)
   createUserNotification(notification: { userId: string; sourceGroupId: string | null; actorUserId: string | null; type: string; title: string; body: string | null; metadata: any }): Promise<any>;
@@ -288,7 +289,9 @@ export interface IStorage {
   createTaskReminder(reminder: InsertTaskReminder & { userId: string }): Promise<TaskReminder>;
   getUserTaskReminders(userId: string): Promise<TaskReminder[]>;
   getPendingReminders(): Promise<TaskReminder[]>;
+  getPendingTaskReminders(beforeTime: Date): Promise<TaskReminder[]>;
   markReminderSent(reminderId: string): Promise<void>;
+  markTaskReminderSent(reminderId: string): Promise<void>;
   deleteTaskReminder(reminderId: string, userId: string): Promise<void>;
 
   // Activity Reminders (for plan notifications)
@@ -1667,6 +1670,16 @@ export class DatabaseStorage implements IStorage {
     return this.getUserNotificationPreferences(userId);
   }
 
+  async getUsersWithDailyPlanningEnabled(): Promise<Array<{ userId: string; dailyPlanningTime: string | null }>> {
+    const results = await db.select({
+      userId: notificationPreferences.userId,
+      dailyPlanningTime: notificationPreferences.dailyPlanningTime,
+    })
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.enableDailyPlanning, true));
+    return results;
+  }
+
   // User Notifications (in-app notifications)
   async createUserNotification(notification: { userId: string; sourceGroupId: string | null; actorUserId: string | null; type: string; title: string; body: string | null; metadata: any }): Promise<any> {
     const [result] = await db.insert(userNotifications).values(notification).returning();
@@ -1725,13 +1738,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPendingReminders(): Promise<TaskReminder[]> {
-    const now = new Date();
+    return await db.select().from(taskReminders)
+      .where(eq(taskReminders.isSent, false))
+      .orderBy(taskReminders.scheduledAt);
+  }
+
+  async getPendingTaskReminders(beforeTime: Date): Promise<TaskReminder[]> {
     return await db.select().from(taskReminders)
       .where(and(
-        eq(taskReminders.isSent, false)
-        // We'll add proper time filtering later when we implement the reminder processor
+        eq(taskReminders.isSent, false),
+        lte(taskReminders.scheduledAt, beforeTime)
       ))
       .orderBy(taskReminders.scheduledAt);
+  }
+
+  async markTaskReminderSent(reminderId: string): Promise<void> {
+    await db.update(taskReminders)
+      .set({ isSent: true, sentAt: new Date() })
+      .where(eq(taskReminders.id, reminderId));
   }
 
   async markReminderSent(reminderId: string): Promise<void> {

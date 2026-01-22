@@ -467,10 +467,14 @@ interface PlanningResponse {
 interface GeneratedPlan {
   title: string;
   description: string;
+  startDate?: string;  // Activity start date in ISO format (YYYY-MM-DD)
+  endDate?: string;    // Activity end date in ISO format (YYYY-MM-DD)
   tasks: Array<{
     taskName: string;
     duration: number;
-    startDate?: string;
+    scheduledDate?: string;  // Task date in ISO format (YYYY-MM-DD)
+    startTime?: string;      // Task time in HH:MM format (24-hour)
+    startDate?: string;      // Deprecated - use scheduledDate
     notes?: string;
     category?: string;
     priority?: 'high' | 'medium' | 'low';
@@ -1348,6 +1352,33 @@ ${user.lifestyleContext?.budgetRange ? `- Reference range: "${user.lifestyleCont
 
 **If budget irrelevant:** Skip entirely, focus on timing/location/difficulty/duration
 
+### 1b. Date & Time Extraction 📅⏰
+
+**CRITICAL: Extract and include dates/times in the plan structure!**
+
+When user mentions dates or times, convert to ISO format:
+- "next Friday" → Calculate actual date (YYYY-MM-DD)
+- "January 20th" → "2025-01-20"
+- "tomorrow at 3pm" → scheduledDate: "YYYY-MM-DD", startTime: "15:00"
+- "morning" → startTime: "09:00"
+- "afternoon" → startTime: "14:00"
+- "evening" → startTime: "18:00"
+- "2pm" → startTime: "14:00"
+- "Nov 10-24" → startDate: "2025-11-10", endDate: "2025-11-24"
+
+**In the plan output:**
+- \`plan.startDate\` = Activity start date (YYYY-MM-DD)
+- \`plan.endDate\` = Activity end date (YYYY-MM-DD) for multi-day
+- \`task.scheduledDate\` = When this task happens (YYYY-MM-DD)
+- \`task.startTime\` = Time of day (HH:MM in 24-hour format)
+
+**This enables:**
+- Calendar integration (users can add tasks to their calendar)
+- Reminders and notifications
+- Timeline view in the app
+
+**Always ask about dates if not provided** - include in your questions: "When are you planning this?" or "What dates work for you?"
+
 ### 2. Domain Expertise
 Plan ANYTHING: Travel, Events, Dining, Wellness, Learning, Social, Entertainment, Work, Shopping
 **YOU decide** priority questions per domain.
@@ -2058,36 +2089,40 @@ Use respond_with_structure tool:
   "plan": {  // ONLY if readyToGenerate = true
     "title": "...",
     "description": "...",
+    "startDate": "2025-01-20",  // ISO date - extract from conversation (e.g., "next Friday", "January 20th")
+    "endDate": "2025-01-22",    // ISO date - for multi-day activities
     "tasks": [
       // CREATE 8-12 DETAILED tasks like professional assistant
       // Each MUST include: budget, transportation, dress code, logistics
-      
+      // IMPORTANT: Include scheduledDate and startTime for time-specific tasks!
+
       // TRAVEL EXAMPLE:
-      {"taskName": "Book flights Austin→Paris (Nov 10-24)", "duration": 45,
+      {"taskName": "Book flights Austin→Paris (Nov 10-24)", "duration": 45, "scheduledDate": "2025-11-10", "startTime": "06:00",
        "notes": "$540×2=$1,080 (11% budget, $8,920 left). Delta/United/Air France. Book via Google Flights. Seats together, 1 bag each ($70). Total $1,150.",
        "category": "Travel", "priority": "high"},
       
-      {"taskName": "Reserve Hôtel (14 nights)", "duration": 30,
+      {"taskName": "Reserve Hôtel (14 nights)", "duration": 30, "scheduledDate": "2025-11-10",
        "notes": "$320×14=$4,480 (45% budget, $4,440 left). Booking.com. Request honeymoon package, high floor, quiet. Free cancel until Nov 1.",
        "category": "Travel", "priority": "high"},
-      
-      {"taskName": "Airport shuttle CDG→hotel", "duration": 15,
+
+      {"taskName": "Airport shuttle CDG→hotel", "duration": 15, "scheduledDate": "2025-11-10", "startTime": "14:00",
        "notes": "$35/person Welcome Pickups. Book 48hrs ahead. Alt: RER train $12/person 45min or taxi $60.",
        "category": "Travel", "priority": "high"},
-      
-      {"taskName": "Pack for 50°F + umbrella", "duration": 60,
+
+      {"taskName": "Pack for 50°F + umbrella", "duration": 60, "scheduledDate": "2025-11-09", "startTime": "19:00",
        "notes": "Layers, rain jacket, umbrella, walking shoes (5+ miles/day), 1-2 dressy outfits. Metro has stairs - pack light!",
        "category": "Travel", "priority": "medium"},
-      
-      {"taskName": "Buy Navigo Metro pass", "duration": 10,
+
+      {"taskName": "Buy Navigo Metro pass", "duration": 10, "scheduledDate": "2025-11-10", "startTime": "15:00",
        "notes": "€30/person at airport/station. Unlimited 7 days. Saves vs €2.10 singles. Use 10+/day. Line 1→Eiffel, Line 4→Notre-Dame.",
        "category": "Travel", "priority": "medium"},
-      
-      {"taskName": "Reserve Le George (romantic dinner)", "duration": 20,
-       "notes": "€150/person=$320 total. Book 2-3 weeks ahead, OpenTable/direct. Window table, mention honeymoon. Dress: business casual. 10min walk. 8pm.",
+
+      {"taskName": "Reserve Le George (romantic dinner)", "duration": 120, "scheduledDate": "2025-11-12", "startTime": "20:00",
+       "notes": "€150/person=$320 total. Book 2-3 weeks ahead, OpenTable/direct. Window table, mention honeymoon. Dress: business casual. 10min walk.",
        "category": "Dining", "priority": "high"}
-      
+
       // Continue for 8-12 tasks with THIS detail level
+      // ALWAYS include scheduledDate (YYYY-MM-DD) and startTime (HH:MM) when user mentions specific times
     ],
     "budget": {  // If user provided budget
       "total": amount,
@@ -2166,6 +2201,14 @@ function getPlanningTool(mode: 'quick' | 'smart') {
           properties: {
             title: { type: 'string' },
             description: { type: 'string' },
+            startDate: {
+              type: 'string',
+              description: 'Activity start date in ISO format (YYYY-MM-DD). Extract from user mentions like "next Friday", "January 20", "tomorrow".'
+            },
+            endDate: {
+              type: 'string',
+              description: 'Activity end date in ISO format (YYYY-MM-DD). For multi-day activities or trips.'
+            },
             tasks: {
               type: 'array',
               items: {
@@ -2173,7 +2216,15 @@ function getPlanningTool(mode: 'quick' | 'smart') {
                 properties: {
                   taskName: { type: 'string' },
                   duration: { type: 'number', description: 'Duration in minutes' },
-                  startDate: { type: 'string' },
+                  scheduledDate: {
+                    type: 'string',
+                    description: 'Task scheduled date in ISO format (YYYY-MM-DD). Extract from conversation context.'
+                  },
+                  startTime: {
+                    type: 'string',
+                    description: 'Task start time in HH:MM format (24-hour). Extract from mentions like "2pm", "9:30 AM", "morning".'
+                  },
+                  startDate: { type: 'string', description: 'Deprecated - use scheduledDate instead' },
                   notes: { type: 'string' },
                   category: { type: 'string' },
                   priority: { type: 'string', enum: ['high', 'medium', 'low'] }

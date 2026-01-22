@@ -151,7 +151,7 @@ public class JournalMateService extends Service {
         customView.setTextViewText(R.id.progress_percentage, percentage + "%");
 
         // Update title
-        String title = totalTasks > 0 ? "Today's Progress" : "Ready to Start";
+        String title = totalTasks > 0 ? "Today's Progress" : "JournalMate Active";
         customView.setTextViewText(R.id.notification_title, title);
 
         // Update task count
@@ -159,7 +159,7 @@ public class JournalMateService extends Service {
         if (totalTasks > 0) {
             taskText = String.format("%d/%d tasks completed", completedTasks, totalTasks);
         } else {
-            taskText = "No tasks for today";
+            taskText = "Tap to add your first task";
         }
         customView.setTextViewText(R.id.task_count, taskText);
 

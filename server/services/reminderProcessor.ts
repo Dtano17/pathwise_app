@@ -229,7 +229,8 @@ export async function scheduleRemindersForActivity(
  * Main processing loop
  * 1. Find activities with upcoming dates that need reminders scheduled
  * 2. Create reminders for those activities
- * 3. Process pending reminders that are due
+ * 3. Process pending activity reminders that are due
+ * 4. Process pending task reminders that are due (from Smart Scheduler)
  */
 async function processReminders(storage: IStorage): Promise<void> {
   if (isProcessing) {
@@ -246,8 +247,14 @@ async function processReminders(storage: IStorage): Promise<void> {
     // Step 1: Find activities with upcoming dates and schedule reminders
     await scheduleActivityReminders(storage);
 
-    // Step 2: Process pending reminders that are due
+    // Step 2: Process pending activity reminders that are due
     await dispatchPendingReminders(storage);
+
+    // Step 3: Process pending task reminders that are due (from Smart Scheduler)
+    await dispatchPendingTaskReminders(storage);
+
+    // Step 4: Process auto-scheduling for users with daily planning enabled
+    await processAutoScheduling(storage);
 
     const duration = Date.now() - startTime;
     console.log(`[REMINDER] Processing cycle complete (${duration}ms)`);
@@ -432,6 +439,71 @@ async function dispatchPendingReminders(storage: IStorage): Promise<void> {
 }
 
 /**
+ * Process pending task reminders (from Smart Scheduler)
+ * These are reminders for individual tasks with scheduled times
+ */
+async function dispatchPendingTaskReminders(storage: IStorage): Promise<void> {
+  const now = new Date();
+
+  try {
+    // Get all pending task reminders that are due
+    const pendingTaskReminders = await storage.getPendingTaskReminders(now);
+
+    console.log(`[REMINDER] Found ${pendingTaskReminders.length} pending task reminders to dispatch`);
+
+    for (const reminder of pendingTaskReminders) {
+      try {
+        // Check user's notification preferences and quiet hours
+        const preferences = await storage.getNotificationPreferences(reminder.userId);
+
+        if (preferences) {
+          // Check quiet hours
+          if (preferences.quietHoursStart && preferences.quietHoursEnd) {
+            const currentHour = now.getHours();
+            const quietStart = parseInt(preferences.quietHoursStart.split(':')[0]);
+            const quietEnd = parseInt(preferences.quietHoursEnd.split(':')[0]);
+
+            if (isInQuietHours(currentHour, quietStart, quietEnd)) {
+              console.log(`[REMINDER] Skipping task reminder ${reminder.id} - user in quiet hours`);
+              continue;
+            }
+          }
+
+          // Check if task reminders are enabled
+          if (!preferences.enableTaskReminders) {
+            console.log(`[REMINDER] Skipping task reminder ${reminder.id} - task reminders disabled`);
+            await storage.markTaskReminderSent(reminder.id);
+            continue;
+          }
+        }
+
+        // Send the notification
+        const payload: NotificationPayload = {
+          title: reminder.title,
+          body: reminder.message || `Your scheduled task is coming up.`,
+          data: {
+            taskId: reminder.taskId,
+            reminderType: reminder.reminderType,
+          },
+          route: `/tasks`, // Navigate to tasks page
+        };
+
+        await sendUserNotification(storage, reminder.userId, payload);
+
+        // Mark as sent
+        await storage.markTaskReminderSent(reminder.id);
+        console.log(`[REMINDER] Dispatched task reminder ${reminder.id} to user ${reminder.userId}`);
+
+      } catch (error) {
+        console.error(`[REMINDER] Error dispatching task reminder ${reminder.id}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('[REMINDER] Error processing pending task reminders:', error);
+  }
+}
+
+/**
  * Check if current time is within quiet hours
  */
 function isInQuietHours(currentHour: number, quietStart: number, quietEnd: number): boolean {
@@ -495,6 +567,157 @@ async function getContextualEnrichment(
   }
 }
 
+
+/**
+ * Process auto-scheduling for users who have daily planning enabled
+ * Generates scheduling suggestions at the user's configured dailyPlanningTime
+ */
+async function processAutoScheduling(storage: IStorage): Promise<void> {
+  try {
+    // Get all users with daily planning enabled
+    const usersWithDailyPlanning = await storage.getUsersWithDailyPlanningEnabled();
+
+    if (usersWithDailyPlanning.length === 0) {
+      return;
+    }
+
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    console.log(`[SCHEDULER] Checking ${usersWithDailyPlanning.length} users for auto-scheduling`);
+
+    for (const { userId, dailyPlanningTime } of usersWithDailyPlanning) {
+      try {
+        // Parse the daily planning time (default to 09:00 if not set)
+        const planningTime = dailyPlanningTime || '09:00';
+        const [planHour, planMinute] = planningTime.split(':').map(Number);
+        const planTimeInMinutes = planHour * 60 + planMinute;
+
+        // Check if we're within the planning window (within 10 minutes of planning time)
+        // This ensures we don't miss the window due to the 5-minute processing interval
+        const timeDiff = Math.abs(currentTimeInMinutes - planTimeInMinutes);
+        if (timeDiff > 10) {
+          continue; // Not time for this user's daily planning yet
+        }
+
+        // Check if we already generated suggestions for today
+        const existingSuggestions = await storage.getUserSchedulingSuggestions(userId);
+        const todaySuggestion = existingSuggestions.find(s => s.targetDate === today);
+        if (todaySuggestion) {
+          console.log(`[SCHEDULER] User ${userId} already has suggestions for today, skipping`);
+          continue;
+        }
+
+        // Get user's pending tasks
+        const tasks = await storage.getUserTasks(userId);
+        const pendingTasks = tasks.filter(task => !task.completed);
+
+        if (pendingTasks.length === 0) {
+          console.log(`[SCHEDULER] User ${userId} has no pending tasks, skipping`);
+          continue;
+        }
+
+        // Get user's notification preferences
+        const preferences = await storage.getUserNotificationPreferences(userId);
+
+        // Generate priority-based schedule
+        const prioritySchedule = createAutoSchedule(pendingTasks, preferences);
+        if (prioritySchedule.suggestedTasks.length > 0) {
+          await storage.createSchedulingSuggestion({
+            userId,
+            suggestionType: 'daily',
+            targetDate: today,
+            suggestedTasks: prioritySchedule.suggestedTasks,
+            score: prioritySchedule.score,
+          });
+
+          // Send notification about new scheduling suggestion
+          const payload: NotificationPayload = {
+            title: '📅 Daily Schedule Ready',
+            body: `Your personalized schedule for today is ready! ${prioritySchedule.suggestedTasks.length} tasks have been organized.`,
+            data: {
+              type: 'daily_schedule',
+              targetDate: today,
+            },
+            route: '/settings', // Navigate to settings where scheduler is
+          };
+
+          await sendUserNotification(storage, userId, payload);
+          console.log(`[SCHEDULER] Generated daily schedule for user ${userId} with ${prioritySchedule.suggestedTasks.length} tasks`);
+        }
+      } catch (error) {
+        console.error(`[SCHEDULER] Error processing auto-schedule for user ${userId}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('[SCHEDULER] Error in auto-scheduling:', error);
+  }
+}
+
+/**
+ * Create an auto-generated schedule based on task priorities
+ */
+function createAutoSchedule(tasks: any[], preferences?: any) {
+  const priorityOrder = { high: 3, medium: 2, low: 1 };
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] || 1;
+    const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] || 1;
+    return bPriority - aPriority;
+  });
+
+  let currentTime = '09:00'; // Start at 9 AM
+  const suggestedTasks = [];
+
+  for (const task of sortedTasks.slice(0, 6)) { // Limit to 6 tasks per day
+    const timeInMinutes = getTaskTimeEstimate(task.timeEstimate || '30 min');
+
+    suggestedTasks.push({
+      taskId: task.id,
+      title: task.title,
+      priority: task.priority,
+      estimatedTime: task.timeEstimate || '30 min',
+      suggestedStartTime: currentTime,
+      reason: `${task.priority} priority task - tackle important work early`,
+    });
+
+    // Add task duration + 15 min buffer
+    currentTime = addMinutes(currentTime, timeInMinutes + 15);
+
+    // Don't schedule past 6 PM
+    if (timeToMins(currentTime) > timeToMins('18:00')) {
+      break;
+    }
+  }
+
+  return {
+    suggestedTasks,
+    score: Math.min(95, 70 + suggestedTasks.length * 5),
+  };
+}
+
+// Helper functions for auto-scheduling
+function getTaskTimeEstimate(timeEstimate: string): number {
+  if (timeEstimate.includes('hour')) {
+    const hours = parseFloat(timeEstimate);
+    return hours * 60;
+  }
+  return parseInt(timeEstimate) || 30;
+}
+
+function timeToMins(timeString: string): number {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+function addMinutes(timeString: string, minutesToAdd: number): string {
+  const totalMinutes = timeToMins(timeString) + minutesToAdd;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
 
 /**
  * Cancel all reminders for an activity

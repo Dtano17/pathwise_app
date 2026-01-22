@@ -431,6 +431,22 @@ Respond ONLY with valid JSON:
     this.currentBatchContext = null;
   }
 
+  /**
+   * Manually set batch context for single entry refresh
+   * This enables year-aware searching even for individual refreshes
+   */
+  setBatchContext(context: Partial<UniversalBatchContext>): void {
+    this.currentBatchContext = {
+      contentType: context.contentType || 'unknown',
+      collectionDescription: context.collectionDescription || null,
+      yearRange: context.yearRange || null,
+      inferredRegion: context.inferredRegion || null,
+      inferredPriceRange: context.inferredPriceRange || null,
+      inferredCuisine: context.inferredCuisine || null,
+      confidence: context.confidence || 0.5,
+    };
+  }
+
   // ==========================================================================
   // GOOGLE BOOKS API - For reliable book cover and metadata
   // ==========================================================================

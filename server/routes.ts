@@ -10542,6 +10542,10 @@ Return ONLY valid JSON, no markdown or explanation.`;
         if (existingActivityId) {
           // UPDATE existing activity
           console.log(`♻️ [ACTIVITY UPDATE] Updating existing activity: ${existingActivityId}`);
+          // Extract dates from either nested activity or flat structure
+          const updateStartDate = generatedPlan.activity?.startDate || generatedPlan.startDate;
+          const updateEndDate = generatedPlan.activity?.endDate || generatedPlan.endDate;
+
           activity = await storage.updateActivity(existingActivityId, {
             title: generatedPlan.title,
             description: generatedPlan.description,
@@ -10549,12 +10553,18 @@ Return ONLY valid JSON, no markdown or explanation.`;
             status: 'planning',
             budget: Math.round(generatedPlan.budget.total * 100),
             budgetBreakdown: generatedPlan.budget.breakdown,
-            budgetBuffer: generatedPlan.budget.buffer ? Math.round(generatedPlan.budget.buffer * 100) : 0
+            budgetBuffer: generatedPlan.budget.buffer ? Math.round(generatedPlan.budget.buffer * 100) : 0,
+            startDate: updateStartDate || undefined,
+            endDate: updateEndDate || undefined
           }, userId);
           
           if (!activity) {
             // Activity was deleted or doesn't exist - create new one instead
             console.log(`⚠️ [ACTIVITY UPDATE] Activity ${existingActivityId} not found, creating new one`);
+            // Extract dates from either nested activity or flat structure
+            const activityStartDate = generatedPlan.activity?.startDate || generatedPlan.startDate;
+            const activityEndDate = generatedPlan.activity?.endDate || generatedPlan.endDate;
+
             activity = await storage.createActivity({
               title: generatedPlan.title,
               description: generatedPlan.description,
@@ -10563,6 +10573,8 @@ Return ONLY valid JSON, no markdown or explanation.`;
               budget: Math.round(generatedPlan.budget.total * 100),
               budgetBreakdown: generatedPlan.budget.breakdown,
               budgetBuffer: generatedPlan.budget.buffer ? Math.round(generatedPlan.budget.buffer * 100) : 0,
+              startDate: activityStartDate || undefined,
+              endDate: activityEndDate || undefined,
               userId
             });
           } else {
@@ -10576,6 +10588,10 @@ Return ONLY valid JSON, no markdown or explanation.`;
         } else {
           // CREATE new activity
           console.log('✨ [ACTIVITY CREATE] Creating new activity');
+          // Extract dates from either nested activity or flat structure
+          const activityStartDate = generatedPlan.activity?.startDate || generatedPlan.startDate;
+          const activityEndDate = generatedPlan.activity?.endDate || generatedPlan.endDate;
+
           activity = await storage.createActivity({
             title: generatedPlan.title,
             description: generatedPlan.description,
@@ -10584,6 +10600,8 @@ Return ONLY valid JSON, no markdown or explanation.`;
             budget: Math.round(generatedPlan.budget.total * 100),
             budgetBreakdown: generatedPlan.budget.breakdown,
             budgetBuffer: generatedPlan.budget.buffer ? Math.round(generatedPlan.budget.buffer * 100) : 0,
+            startDate: activityStartDate || undefined,
+            endDate: activityEndDate || undefined,
             userId
           });
         }
@@ -10600,6 +10618,19 @@ Return ONLY valid JSON, no markdown or explanation.`;
                              (taskData.taskName || taskData.title)?.toLowerCase().includes(item.category.toLowerCase())
             );
 
+            // Build dueDate from scheduledDate and startTime if available
+            let taskDueDateStr: string | undefined = undefined;
+            if (taskData.scheduledDate) {
+              taskDueDateStr = taskData.startTime
+                ? `${taskData.scheduledDate}T${taskData.startTime}:00`
+                : `${taskData.scheduledDate}T00:00:00`;
+            } else if (taskData.startDate) {
+              // Fallback to startDate if scheduledDate not available
+              taskDueDateStr = taskData.startDate;
+            }
+            // Convert string to Date object for database
+            const taskDueDate = taskDueDateStr ? new Date(taskDueDateStr) : undefined;
+
             const task = await storage.createTask({
               title: taskData.taskName || taskData.title,
               description: taskData.notes || taskData.description || '',
@@ -10608,10 +10639,21 @@ Return ONLY valid JSON, no markdown or explanation.`;
               timeEstimate: `${taskData.duration || 30} min`,
               cost: budgetItem?.amount ? Math.round(budgetItem.amount * 100) : undefined,
               costNotes: budgetItem?.notes,
+              dueDate: taskDueDate,
               userId
             });
             await storage.addTaskToActivity(activity.id, task.id, i);
             createdTasks.push(task);
+          }
+        }
+
+        // Schedule reminders if activity has a start date
+        if (activity.startDate) {
+          try {
+            const reminderResult = await scheduleRemindersForActivity(storage, activity.id, userId);
+            console.log(`[CONFIRMATION] Scheduled ${reminderResult.created} reminders for activity ${activity.id}`);
+          } catch (reminderError) {
+            console.error('[CONFIRMATION] Failed to schedule reminders:', reminderError);
           }
         }
 
@@ -11467,6 +11509,10 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
               const streamCategory = planToUse.category || planToUse.domain || 'personal';
               const streamBackdropUrl = await getActivityImage(streamTitle, streamCategory);
 
+              // Extract dates from plan (could be nested or flat structure)
+              const streamStartDate = planToUse.activity?.startDate || planToUse.startDate;
+              const streamEndDate = planToUse.activity?.endDate || planToUse.endDate;
+
               // Create activity from the structured plan (use planToUse which may be from session)
               const activity = await storage.createActivity({
                 title: streamTitle,
@@ -11474,7 +11520,9 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
                 category: streamCategory,
                 status: 'planning',
                 userId,
-                backdrop: streamBackdropUrl
+                backdrop: streamBackdropUrl,
+                startDate: streamStartDate || undefined,
+                endDate: streamEndDate || undefined
               });
 
               // Create tasks and link them to the activity
@@ -11482,16 +11530,40 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
               if (planToUse.tasks && Array.isArray(planToUse.tasks)) {
                 for (let i = 0; i < planToUse.tasks.length; i++) {
                   const taskData = planToUse.tasks[i];
+
+                  // Build dueDate from scheduledDate and startTime if available
+                  let streamTaskDueDateStr: string | undefined = undefined;
+                  if (taskData.scheduledDate) {
+                    streamTaskDueDateStr = taskData.startTime
+                      ? `${taskData.scheduledDate}T${taskData.startTime}:00`
+                      : `${taskData.scheduledDate}T00:00:00`;
+                  } else if (taskData.startDate) {
+                    streamTaskDueDateStr = taskData.startDate;
+                  }
+                  // Convert string to Date object for database
+                  const streamTaskDueDate = streamTaskDueDateStr ? new Date(streamTaskDueDateStr) : undefined;
+
                   const task = await storage.createTask({
                     title: taskData.title || taskData.taskName,
                     description: taskData.description || taskData.notes || '',
                     category: taskData.category || planToUse.domain || 'personal',
                     priority: taskData.priority || 'medium',
                     timeEstimate: taskData.timeEstimate || `${taskData.duration || 30} min`,
+                    dueDate: streamTaskDueDate,
                     userId
                   });
                   await storage.addTaskToActivity(activity.id, task.id, i);
                   createdTasks.push(task);
+                }
+              }
+
+              // Schedule reminders if activity has a start date
+              if (activity.startDate) {
+                try {
+                  const reminderResult = await scheduleRemindersForActivity(storage, activity.id, userId);
+                  console.log(`[STREAM] Scheduled ${reminderResult.created} reminders for activity ${activity.id}`);
+                } catch (reminderError) {
+                  console.error('[STREAM] Failed to schedule reminders:', reminderError);
                 }
               }
 
@@ -12792,6 +12864,21 @@ You can find these tasks in your task list and start working on them right away!
       const targetEntry = entries[targetIndex];
       console.log(`[JOURNAL SINGLE ENRICH] Found entry at index ${targetIndex}: "${targetEntry.text?.substring(0, 50)}..."`);
 
+      // For single entry refresh, try to infer year context from entry text
+      // This enables year-aware TMDB searching even for individual refreshes
+      const targetEntryText = targetEntry.text || '';
+      const yearMatch = targetEntryText.match(/\b(19|20)\d{2}\b/);
+      if (yearMatch) {
+        const yearHint = parseInt(yearMatch[0]);
+        console.log(`[JOURNAL SINGLE ENRICH] Extracted year hint: ${yearHint} from entry text`);
+        journalWebEnrichmentService.setBatchContext({
+          contentType: category.toLowerCase().includes('movie') ? 'movie' :
+                       category.toLowerCase().includes('tv') ? 'tv_show' : 'unknown',
+          collectionDescription: targetEntryText,
+          yearRange: { min: yearHint, max: yearHint },
+        });
+      }
+
       // Prepare entry for enrichment
       const entryForEnrichment = {
         id: targetEntry.id || `${category}-${targetIndex}`,
@@ -12804,6 +12891,9 @@ You can find these tasks in your task list and start working on them right away!
 
       // Enrich this single entry (forceRefresh = true)
       const result = await journalWebEnrichmentService.enrichJournalEntry(entryForEnrichment, true);
+
+      // Clear batch context after single entry refresh
+      journalWebEnrichmentService.clearBatchContext();
 
       if (result.success && result.enrichedData) {
         // Update the entry with new enrichment data
@@ -15844,20 +15934,38 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
       const { suggestionId } = req.params;
-      
+
       const suggestion = await storage.acceptSchedulingSuggestion(suggestionId, userId);
-      
+
       if (!suggestion) {
         return res.status(404).json({ error: 'Scheduling suggestion not found' });
       }
-      
+
+      // Update task dueDates based on the accepted schedule
+      if (suggestion.suggestedTasks && Array.isArray(suggestion.suggestedTasks)) {
+        for (const taskSuggestion of suggestion.suggestedTasks) {
+          if (taskSuggestion.taskId && taskSuggestion.suggestedStartTime) {
+            // Construct the full datetime from targetDate + suggestedStartTime
+            const taskDateTime = new Date(`${suggestion.targetDate}T${taskSuggestion.suggestedStartTime}:00`);
+
+            // Update the task's dueDate
+            await storage.updateTask(
+              taskSuggestion.taskId,
+              { dueDate: taskDateTime },
+              userId
+            );
+            console.log(`[SCHEDULER] Updated task ${taskSuggestion.taskId} dueDate to ${taskDateTime.toISOString()}`);
+          }
+        }
+      }
+
       // Create reminders for each task in the accepted schedule
       await createRemindersFromSchedule(suggestion, userId);
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         suggestion,
-        message: 'Schedule accepted and reminders created!' 
+        message: 'Schedule accepted, task dates updated, and reminders created!'
       });
     } catch (error) {
       console.error('Error accepting scheduling suggestion:', error);

@@ -397,7 +397,18 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
           {task.dueDate && (
             <Badge variant="outline" className="flex items-center gap-1" data-testid={`task-due-date-${task.id}`}>
               <Calendar className="w-3 h-3" />
-              {new Date(task.dueDate).toLocaleDateString()}
+              {(() => {
+                const date = new Date(task.dueDate);
+                const dateStr = date.toLocaleDateString();
+                // Show time if not midnight (indicating time was extracted)
+                const hours = date.getHours();
+                const minutes = date.getMinutes();
+                if (hours !== 0 || minutes !== 0) {
+                  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  return `${dateStr} at ${timeStr}`;
+                }
+                return dateStr;
+              })()}
             </Badge>
           )}
         </div>
@@ -469,8 +480,8 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
               <span className="truncate">Snooze</span>
             </Button>
 
-            {/* Calendar button - only show on native mobile */}
-            {isNative() && (
+            {/* Calendar button - show on native mobile, or when task has a due date */}
+            {(isNative() || task.dueDate) && (
               <Button
                 onClick={handleAddToCalendar}
                 disabled={isProcessing || isAddingToCalendar}

@@ -203,6 +203,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- Notification Alarm Receiver (scheduled notifications from JS/Capacitor) -->
+        <receiver
+            android:name=".NotificationAlarmReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="SCHEDULED_NOTIFICATION" />
+            </intent-filter>
+        </receiver>
+
         <!-- Task Action Receiver (notification button actions) -->
         <receiver
             android:name=".TaskActionReceiver"

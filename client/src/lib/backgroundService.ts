@@ -43,6 +43,9 @@ interface BackgroundServicePlugin {
     reminderMinutesBefore: number;
     hasCredentials: boolean;
   }>;
+  // One-time notifications (uses same reliable method as foreground service)
+  showNotification(options: { title: string; body: string; id?: number }): Promise<{ success: boolean; id?: number; error?: string }>;
+  cancelNotification(options: { id: number }): Promise<{ success: boolean }>;
 }
 
 // Register the plugin
@@ -361,6 +364,66 @@ export async function cleanupBackgroundServices(): Promise<void> {
   console.log('[BACKGROUND] Background services cleaned up');
 }
 
+/**
+ * Show a one-time notification (for test, reminders, alerts)
+ * Uses the same reliable method as the foreground service notification
+ * This works reliably even with remote URL apps
+ */
+export async function showAlertNotification(options: {
+  title: string;
+  body: string;
+  id?: number;
+}): Promise<{ success: boolean; id?: number; error?: string }> {
+  if (!isAndroid()) {
+    console.log('[BACKGROUND] showAlertNotification: not Android, using web notification');
+    // Fallback to web notification
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(options.title, {
+          body: options.body,
+          icon: '/icons/pwa/icon-192x192.png',
+        });
+        return { success: true, id: options.id || Date.now() };
+      } catch (error) {
+        console.error('[BACKGROUND] Web notification failed:', error);
+        return { success: false, error: 'Web notification failed' };
+      }
+    }
+    return { success: false, error: 'Notifications not available' };
+  }
+
+  try {
+    console.log('[BACKGROUND] showAlertNotification called:', options);
+    const result = await BackgroundService.showNotification({
+      title: options.title,
+      body: options.body,
+      id: options.id || Date.now(),
+    });
+    console.log('[BACKGROUND] showAlertNotification result:', result);
+    return result;
+  } catch (error: any) {
+    console.error('[BACKGROUND] showAlertNotification failed:', error);
+    return { success: false, error: error?.message || 'Failed to show notification' };
+  }
+}
+
+/**
+ * Cancel a notification by ID
+ */
+export async function cancelAlertNotification(id: number): Promise<boolean> {
+  if (!isAndroid()) {
+    return false;
+  }
+
+  try {
+    const result = await BackgroundService.cancelNotification({ id });
+    return result.success;
+  } catch (error) {
+    console.error('[BACKGROUND] Failed to cancel notification:', error);
+    return false;
+  }
+}
+
 export default {
   isBackgroundServiceAvailable,
   startForegroundService,
@@ -376,4 +439,6 @@ export default {
   getBackgroundServiceStatus,
   initializeBackgroundServices,
   cleanupBackgroundServices,
+  showAlertNotification,
+  cancelAlertNotification,
 };

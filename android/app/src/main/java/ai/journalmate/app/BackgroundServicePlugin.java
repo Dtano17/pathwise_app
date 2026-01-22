@@ -1,10 +1,14 @@
 package ai.journalmate.app;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.util.Log;
 
@@ -12,6 +16,9 @@ import ai.journalmate.app.widgets.JournalMateWidget2x2;
 import ai.journalmate.app.widgets.JournalMateWidget4x1;
 import ai.journalmate.app.widgets.JournalMateWidget4x2;
 
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.ContextCompat;
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.NetworkType;
@@ -40,6 +47,38 @@ public class BackgroundServicePlugin extends Plugin {
     private static final String TAG = "BackgroundServicePlugin";
     private static final String PREFS_NAME = "journalmate_prefs";
     private static final String WORK_NAME = "task_sync_work";
+    private static final String ALERT_CHANNEL_ID = "journalmate_alerts";
+    private static final String ALERT_CHANNEL_NAME = "JournalMate Alerts";
+
+    @Override
+    public void load() {
+        super.load();
+        createAlertNotificationChannel();
+    }
+
+    /**
+     * Create the alert notification channel for one-time notifications
+     */
+    private void createAlertNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                ALERT_CHANNEL_ID,
+                ALERT_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Important alerts and reminders from JournalMate");
+            channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{0, 400, 200, 400});
+            channel.setShowBadge(true);
+            channel.enableLights(true);
+
+            NotificationManager manager = getContext().getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+                Log.d(TAG, "Alert notification channel created: " + ALERT_CHANNEL_ID);
+            }
+        }
+    }
 
     /**
      * Start the foreground service (persistent notification at top)
@@ -394,6 +433,104 @@ public class BackgroundServicePlugin extends Plugin {
         } catch (Exception e) {
             Log.e(TAG, "Failed to get status: " + e.getMessage());
             call.reject("Failed to get status: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Show a one-time notification (for test notifications, reminders, alerts)
+     * Uses the same reliable method as the foreground service notification
+     */
+    @PluginMethod
+    public void showNotification(PluginCall call) {
+        String title = call.getString("title", "JournalMate");
+        String body = call.getString("body", "");
+        Integer id = call.getInt("id", (int) System.currentTimeMillis());
+
+        Log.d(TAG, "=== showNotification called ===");
+        Log.d(TAG, "Title: " + title);
+        Log.d(TAG, "Body: " + body);
+        Log.d(TAG, "ID: " + id);
+
+        try {
+            Context context = getContext();
+
+            // Check permission on Android 13+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ContextCompat.checkSelfPermission(context, "android.permission.POST_NOTIFICATIONS")
+                        != PackageManager.PERMISSION_GRANTED) {
+                    Log.w(TAG, "Notification permission not granted");
+                    JSObject result = new JSObject();
+                    result.put("success", false);
+                    result.put("error", "Notification permission not granted. Please enable in Settings.");
+                    call.resolve(result);
+                    return;
+                }
+            }
+
+            // Create intent to open app when notification is tapped
+            Intent intent = new Intent(context, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                context, id, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+
+            // Build notification with HIGH priority for visibility
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setAutoCancel(true)
+                .setVibrate(new long[]{0, 400, 200, 400})
+                .setContentIntent(pendingIntent);
+
+            // Show the notification
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
+            notificationManager.notify(id, builder.build());
+
+            Log.d(TAG, "=== Notification shown successfully with ID: " + id + " ===");
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            result.put("id", id);
+            call.resolve(result);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to show notification: " + e.getMessage(), e);
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
+
+    /**
+     * Cancel a notification by ID
+     */
+    @PluginMethod
+    public void cancelNotification(PluginCall call) {
+        Integer id = call.getInt("id");
+        if (id == null) {
+            call.reject("Notification ID is required");
+            return;
+        }
+
+        Log.d(TAG, "Cancelling notification with ID: " + id);
+
+        try {
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(getContext());
+            notificationManager.cancel(id);
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to cancel notification: " + e.getMessage());
+            call.reject("Failed to cancel notification: " + e.getMessage());
         }
     }
 }
