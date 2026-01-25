@@ -11028,6 +11028,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
         // Use AI-provided emoji from the generated plan, fallback to 📝 if not provided
         const activityEmoji = generatedPlan.emoji || '📝';
+        const activityUrl = `/app?activity=${activity.id}&tab=Activities`;
 
         return res.json({
           message: formatActivitySuccessMessage(activity, activityEmoji, isUpdate),
@@ -11037,7 +11038,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
           activityId: activity.id,
           activityTitle: activity.title,
           taskCount: createdTasks.length,
-          activityUrl: activityUrl,
+          activityUrl,
           createdTasks,
           planComplete: true
         });
