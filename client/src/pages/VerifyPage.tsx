@@ -25,8 +25,11 @@ import {
   CheckCircle,
   ExternalLink,
   Share2,
+  Home,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
+import { onIncomingShare, consumePendingShareData, hasPendingShareData, type IncomingShareData } from '@/lib/shareSheet';
+import { isNative } from '@/lib/platform';
 
 interface VerificationQuota {
   used: number;
@@ -109,7 +112,7 @@ export default function VerifyPage() {
     },
   });
 
-  // Handle URL from query params (share sheet)
+  // Handle URL from query params (web share sheet / PWA)
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const sharedUrl = searchParams.get('url');
@@ -123,6 +126,52 @@ export default function VerifyPage() {
       setActiveTab('text');
     }
   }, []);
+
+  // Handle incoming shares from native share sheet (iOS/Android)
+  useEffect(() => {
+    // Check for pending share data on mount (cold start)
+    if (hasPendingShareData()) {
+      const shareData = consumePendingShareData();
+      if (shareData) {
+        handleIncomingShare(shareData);
+      }
+    }
+
+    // Listen for new shares (hot start / app already open)
+    const cleanup = onIncomingShare((data: IncomingShareData) => {
+      handleIncomingShare(data);
+    });
+
+    return cleanup;
+  }, []);
+
+  // Process incoming share data
+  const handleIncomingShare = (data: IncomingShareData) => {
+    console.log('[VERIFY] Received share data:', data);
+
+    if (data.url) {
+      setUrlInput(data.url);
+      setActiveTab('url');
+      toast({
+        title: "Content received",
+        description: "URL ready to verify",
+      });
+    } else if (data.text) {
+      // Check if text contains a URL
+      const urlMatch = data.text.match(/https?:\/\/[^\s]+/);
+      if (urlMatch) {
+        setUrlInput(urlMatch[0]);
+        setActiveTab('url');
+      } else {
+        setTextInput(data.text);
+        setActiveTab('text');
+      }
+      toast({
+        title: "Content received",
+        description: "Ready to verify",
+      });
+    }
+  };
 
   // If viewing a shared result
   useEffect(() => {
