@@ -2624,6 +2624,16 @@ export class SimpleConversationalPlanner {
         mode
       );
 
+      // Add clickable title and icon to response message if a plan was generated
+      if (response.readyToGenerate && response.plan && response.plan.title) {
+        const activityIcon = "🎯"; // Target/concentric circles icon
+        const activityLink = `[${activityIcon} ${response.plan.title}](https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(response.plan.title)})`;
+        
+        if (!response.message.includes(response.plan.title)) {
+          response.message = `${activityLink}\n\n${response.message}`;
+        }
+      }
+
       // Debug logging for preview troubleshooting
       console.log('[SIMPLE_PLANNER] LLM Response Debug:', {
         messageLength: response.message?.length,
@@ -2669,6 +2679,22 @@ export class SimpleConversationalPlanner {
       const createPlanTrigger = /\b(create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready)\b/i.test(latestUserMessage.toLowerCase());
       const previewTrigger = /\b(preview|show preview|preview plan|show me the plan|what does the plan look like)\b/i.test(latestUserMessage.toLowerCase());
       const continueTrigger = /\b(continue|go on|next|keep going|next question|more questions)\b/i.test(latestUserMessage.toLowerCase());
+
+      // Date parsing fix: Ensure dates are valid Date objects
+      if (response.plan) {
+        if (response.plan.startDate && typeof response.plan.startDate === 'string') {
+          const parsedStart = new Date(response.plan.startDate);
+          if (!isNaN(parsedStart.getTime())) {
+            response.plan.startDate = parsedStart;
+          }
+        }
+        if (response.plan.endDate && typeof response.plan.endDate === 'string') {
+          const parsedEnd = new Date(response.plan.endDate);
+          if (!isNaN(parsedEnd.getTime())) {
+            response.plan.endDate = parsedEnd;
+          }
+        }
+      }
 
       // Handle preview request - show plan preview WITHOUT creating activity
       // This triggers early plan generation with web search enrichment
@@ -2904,6 +2930,16 @@ export class SimpleConversationalPlanner {
         );
       }
 
+      // Add clickable title and icon to response message if a plan was generated
+      if (response.readyToGenerate && response.plan && response.plan.title) {
+        const activityIcon = "🎯"; // Target/concentric circles icon
+        const activityLink = `[${activityIcon} ${response.plan.title}](https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(response.plan.title)})`;
+        
+        if (!response.message.includes(response.plan.title)) {
+          response.message = `${activityLink}\n\n${response.message}`;
+        }
+      }
+
       // Use AI's reported questionCount directly (same as non-streaming version)
       // AI is instructed to track cumulative questions across all batches in extractedInfo
       const minimum = mode === 'quick' ? 5 : 10;
@@ -2914,6 +2950,22 @@ export class SimpleConversationalPlanner {
       const createPlanTrigger = /\b(create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready)\b/i.test(latestUserMessage.toLowerCase());
       const previewTrigger = /\b(preview|show preview|preview plan|show me the plan|what does the plan look like)\b/i.test(latestUserMessage.toLowerCase());
       const continueTrigger = /\b(continue|go on|next|keep going|next question|more questions)\b/i.test(latestUserMessage.toLowerCase());
+
+      // Date parsing fix: Ensure dates are valid Date objects
+      if (response.plan) {
+        if (response.plan.startDate && typeof response.plan.startDate === 'string') {
+          const parsedStart = new Date(response.plan.startDate);
+          if (!isNaN(parsedStart.getTime())) {
+            response.plan.startDate = parsedStart;
+          }
+        }
+        if (response.plan.endDate && typeof response.plan.endDate === 'string') {
+          const parsedEnd = new Date(response.plan.endDate);
+          if (!isNaN(parsedEnd.getTime())) {
+            response.plan.endDate = parsedEnd;
+          }
+        }
+      }
 
       // Handle preview request - show plan preview WITHOUT creating activity
       if (previewTrigger && !response.readyToGenerate) {
