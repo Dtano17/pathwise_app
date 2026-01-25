@@ -35,6 +35,7 @@ import { DOMAIN_TO_JOURNAL_CATEGORIES } from '../config/journalTags';
 import { transcriptFilterService, FilteredContent } from './transcriptFilterService';
 import { socialMediaVideoService } from './socialMediaVideoService';
 import { parseDateReference, type DateReference } from './dateReferenceParser';
+import { getWeatherForecast, checkWeatherAlerts, getWeatherSummary } from './weatherService';
 
 // ============================================================================
 // SEARCH CACHE
@@ -543,6 +544,12 @@ interface PlanningContext {
     latitude: number;
     longitude: number;
     city?: string;
+  };
+  // Weather data (auto-fetched when location is detected)
+  weather?: {
+    summary: string | null;
+    alerts: Array<{ type: string; description: string }>;
+    hasAlerts: boolean;
   };
 }
 
@@ -1295,7 +1302,7 @@ IMPORTANT for destinationUrl:
 // ============================================================================
 
 function buildSystemPrompt(context: PlanningContext, mode: 'quick' | 'smart', isPreviewTurn: boolean = false): string {
-  const { user, profile, preferences, recentJournal, journalInsights, detectedDomain, extractedUrlContent, dateReference, todaysTheme } = context;
+  const { user, profile, preferences, recentJournal, journalInsights, detectedDomain, extractedUrlContent, dateReference, todaysTheme, weather } = context;
 
   const modeDescription = mode === 'smart'
     ? 'comprehensive planning with detailed research, real-time data, and enrichment'
@@ -1477,11 +1484,42 @@ When generating plans and suggestions for TODAY:
 `
     : '';
 
+  // Build weather & safety section (CRITICAL - shown from Turn 1)
+  let weatherSection = '';
+  if (weather) {
+    const hasAlerts = weather.hasAlerts && weather.alerts.length > 0;
+
+    weatherSection = `
+
+## ⚠️ REAL-TIME WEATHER & SAFETY CONDITIONS
+**THIS DATA WAS JUST FETCHED - YOU MUST USE IT!**
+
+${hasAlerts ? `### 🚨 ACTIVE WEATHER ALERTS:
+${weather.alerts.map(a => `- **${a.type}**: ${a.description}`).join('\n')}
+
+**⚠️ CRITICAL INSTRUCTIONS FOR ALERTS:**
+1. **MENTION THIS IMMEDIATELY** in your FIRST response - BEFORE asking planning questions
+2. **Factor into ALL questions** (e.g., "Given the extreme cold, would you prefer indoor-only options?")
+3. **Include prominently at TOP** of any plan preview
+4. **Adjust recommendations** based on conditions (indoor vs outdoor, transportation safety)
+` : ''}
+### Current & Forecast Conditions:
+${weather.summary || 'Weather data available but summary not generated'}
+
+**Weather Integration Instructions:**
+- ${hasAlerts ? '**LEAD WITH WEATHER WARNING** before asking any planning questions' : 'Mention weather naturally when relevant to the plan'}
+- Factor weather into all outdoor/transportation recommendations
+- Include packing/preparation tips based on conditions
+- If severe weather, strongly recommend indoor alternatives and safe transportation
+
+`;
+  }
+
   // COMPRESSED BUDGET-FIRST SYSTEM PROMPT
   return `You are JournalMate Planning Agent - an expert planner specializing in budget-conscious, personalized plans.
 
 ${userContext}
-${themeBiasSection}
+${themeBiasSection}${weatherSection}
 ## Mission
 Help ${user.firstName || 'the user'} plan ANY activity via smart questions and actionable plans. **${mode.toUpperCase()} MODE** - ${modeDescription}.
 
@@ -2599,6 +2637,31 @@ export class SimpleConversationalPlanner {
         console.log(`[SIMPLE_PLANNER] 🎯 Today's theme: ${options.todaysTheme.themeName} (will apply: ${context.dateReference?.isTodayPlan !== false})`);
       }
 
+      // Add GPS location to context (if provided) - used for weather fetch
+      if (options?.userLocation) {
+        context.userLocation = options.userLocation;
+        console.log(`[SIMPLE_PLANNER] 📍 GPS location: ${options.userLocation.city || `${options.userLocation.latitude}, ${options.userLocation.longitude}`}`);
+
+        // If we have GPS location but no weather yet (no detectedLocation in message), fetch weather now
+        if (!context.weather && options.userLocation.city) {
+          try {
+            console.log(`[SIMPLE_PLANNER] 🌤️ Fetching weather for GPS city: ${options.userLocation.city}`);
+            const [summary, alerts] = await Promise.all([
+              getWeatherSummary(options.userLocation.city, new Date()),
+              checkWeatherAlerts(options.userLocation.city, new Date(), new Date())
+            ]);
+            context.weather = {
+              summary,
+              alerts: alerts || [],
+              hasAlerts: (alerts && alerts.length > 0) || false
+            };
+            console.log(`[SIMPLE_PLANNER] 🌤️ Weather from GPS: ${context.weather.hasAlerts ? `⚠️ ${alerts?.length} alerts` : 'No alerts'}`);
+          } catch (weatherError) {
+            console.warn('[SIMPLE_PLANNER] GPS weather fetch failed (non-blocking):', weatherError);
+          }
+        }
+      }
+
       // Add user GPS location for Gemini Maps grounding
       if (options?.userLocation) {
         context.userLocation = options.userLocation;
@@ -2887,6 +2950,7 @@ export class SimpleConversationalPlanner {
     onProgress?: (phase: string, message: string) => void,
     options?: {
       todaysTheme?: { themeId: string; themeName: string; } | null;
+      userLocation?: { latitude: number; longitude: number; city?: string; };
     }
   ): Promise<PlanningResponse> {
     console.log(`[SIMPLE_PLANNER] Processing message with streaming for user ${userId} in ${mode} mode`);
@@ -2899,6 +2963,31 @@ export class SimpleConversationalPlanner {
       if (options?.todaysTheme) {
         context.todaysTheme = options.todaysTheme;
         console.log(`[SIMPLE_PLANNER] 🎯 Today's theme (stream): ${options.todaysTheme.themeName}`);
+      }
+
+      // Add GPS location to context (if provided) - used for weather fetch
+      if (options?.userLocation) {
+        context.userLocation = options.userLocation;
+        console.log(`[SIMPLE_PLANNER] 📍 GPS location (stream): ${options.userLocation.city || `${options.userLocation.latitude}, ${options.userLocation.longitude}`}`);
+
+        // If we have GPS location but no weather yet, fetch weather now
+        if (!context.weather && options.userLocation.city) {
+          try {
+            console.log(`[SIMPLE_PLANNER] 🌤️ Fetching weather for GPS city (stream): ${options.userLocation.city}`);
+            const [summary, alerts] = await Promise.all([
+              getWeatherSummary(options.userLocation.city, new Date()),
+              checkWeatherAlerts(options.userLocation.city, new Date(), new Date())
+            ]);
+            context.weather = {
+              summary,
+              alerts: alerts || [],
+              hasAlerts: (alerts && alerts.length > 0) || false
+            };
+            console.log(`[SIMPLE_PLANNER] 🌤️ Weather from GPS (stream): ${context.weather.hasAlerts ? `⚠️ ${alerts?.length} alerts` : 'No alerts'}`);
+          } catch (weatherError) {
+            console.warn('[SIMPLE_PLANNER] GPS weather fetch failed (non-blocking):', weatherError);
+          }
+        }
       }
 
       // 2. Build conversation history
@@ -3443,6 +3532,31 @@ export class SimpleConversationalPlanner {
       // Determine fallback location from profile
       const fallbackLocation = user.location || (profile as any)?.location;
 
+      // AUTO-FETCH WEATHER: Get weather data for detected location or user's location
+      let weather: PlanningContext['weather'] = undefined;
+      const weatherLocation = detectedLocation || fallbackLocation;
+
+      if (weatherLocation) {
+        try {
+          console.log(`[SIMPLE_PLANNER] 🌤️ Fetching weather for: ${weatherLocation}`);
+          const [summary, alerts] = await Promise.all([
+            getWeatherSummary(weatherLocation, new Date()),
+            checkWeatherAlerts(weatherLocation, new Date(), new Date())
+          ]);
+
+          weather = {
+            summary,
+            alerts: alerts || [],
+            hasAlerts: (alerts && alerts.length > 0) || false
+          };
+
+          console.log(`[SIMPLE_PLANNER] 🌤️ Weather fetched: ${weather.hasAlerts ? `⚠️ ${alerts?.length} alerts` : 'No alerts'}`);
+        } catch (weatherError) {
+          console.warn('[SIMPLE_PLANNER] Weather fetch failed (non-blocking):', weatherError);
+          // Don't fail the whole context - weather is optional enhancement
+        }
+      }
+
       return {
         user,
         profile: profile || undefined,
@@ -3454,6 +3568,7 @@ export class SimpleConversationalPlanner {
         detectedDomain,
         fallbackLocation,
         dateReference,
+        weather,
       };
     } catch (error) {
       console.error('[SIMPLE_PLANNER] Error gathering user context:', error);

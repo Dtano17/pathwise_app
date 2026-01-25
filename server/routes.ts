@@ -10857,6 +10857,17 @@ Return ONLY valid JSON, no markdown or explanation.`;
         externalContext: session.externalContext
       });
 
+      // Helper to safely parse dates from JSON-serialized plan data
+      const parseDate = (value: any): Date | undefined => {
+        if (!value) return undefined;
+        if (value instanceof Date) return value;
+        if (typeof value === 'string') {
+          const parsed = new Date(value);
+          return !isNaN(parsed.getTime()) ? parsed : undefined;
+        }
+        return undefined;
+      };
+
       if (session.externalContext?.awaitingPlanConfirmation && hasAffirmative && generatedPlan) {
         console.log('✅ [CONFIRMATION DETECTED] Creating/updating activity from confirmed plan');
 
@@ -10868,9 +10879,9 @@ Return ONLY valid JSON, no markdown or explanation.`;
         if (existingActivityId) {
           // UPDATE existing activity
           console.log(`♻️ [ACTIVITY UPDATE] Updating existing activity: ${existingActivityId}`);
-          // Extract dates from either nested activity or flat structure
-          const updateStartDate = generatedPlan.activity?.startDate || generatedPlan.startDate;
-          const updateEndDate = generatedPlan.activity?.endDate || generatedPlan.endDate;
+          // Extract and parse dates from either nested activity or flat structure
+          const updateStartDate = parseDate(generatedPlan.activity?.startDate || generatedPlan.startDate);
+          const updateEndDate = parseDate(generatedPlan.activity?.endDate || generatedPlan.endDate);
 
           activity = await storage.updateActivity(existingActivityId, {
             title: generatedPlan.title,
@@ -10887,9 +10898,9 @@ Return ONLY valid JSON, no markdown or explanation.`;
           if (!activity) {
             // Activity was deleted or doesn't exist - create new one instead
             console.log(`⚠️ [ACTIVITY UPDATE] Activity ${existingActivityId} not found, creating new one`);
-            // Extract dates from either nested activity or flat structure
-            const activityStartDate = generatedPlan.activity?.startDate || generatedPlan.startDate;
-            const activityEndDate = generatedPlan.activity?.endDate || generatedPlan.endDate;
+            // Extract and parse dates from either nested activity or flat structure
+            const activityStartDate = parseDate(generatedPlan.activity?.startDate || generatedPlan.startDate);
+            const activityEndDate = parseDate(generatedPlan.activity?.endDate || generatedPlan.endDate);
 
             activity = await storage.createActivity({
               title: generatedPlan.title,
@@ -10914,9 +10925,9 @@ Return ONLY valid JSON, no markdown or explanation.`;
         } else {
           // CREATE new activity
           console.log('✨ [ACTIVITY CREATE] Creating new activity');
-          // Extract dates from either nested activity or flat structure
-          const activityStartDate = generatedPlan.activity?.startDate || generatedPlan.startDate;
-          const activityEndDate = generatedPlan.activity?.endDate || generatedPlan.endDate;
+          // Extract and parse dates from either nested activity or flat structure
+          const activityStartDate = parseDate(generatedPlan.activity?.startDate || generatedPlan.startDate);
+          const activityEndDate = parseDate(generatedPlan.activity?.endDate || generatedPlan.endDate);
 
           activity = await storage.createActivity({
             title: generatedPlan.title,
