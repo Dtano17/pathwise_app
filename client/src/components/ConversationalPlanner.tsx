@@ -2447,7 +2447,8 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                                             setLocation(href || '/');
                                           }
                                         }}
-                                        className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline cursor-pointer font-medium"
+                                        className="!text-blue-500 hover:!text-blue-700 dark:!text-blue-400 dark:hover:!text-blue-300 !underline cursor-pointer font-medium !no-underline-offset"
+                                        style={{ color: '#3b82f6', textDecoration: 'underline' }}
                                         target={!isInternal ? '_blank' : undefined}
                                         rel={!isInternal ? 'noopener noreferrer' : undefined}
                                         {...props}

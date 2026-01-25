@@ -164,6 +164,14 @@ function formatPlanPreview(plan: any): string {
   return preview;
 }
 
+// Helper function to format activity success message with clickable link
+function formatActivitySuccessMessage(activity: { id: string; title: string }, emoji: string = '📝', isUpdate: boolean = false): string {
+  const activityLink = `[${emoji} ${activity.title}](/app?activity=${activity.id}&tab=Activities)`;
+  return isUpdate
+    ? `${activityLink}\n\n♻️ Your plan has been updated!`
+    : `${activityLink}\n\n✨ Your plan is ready!`;
+}
+
 // Configure multer for media uploads
 const uploadDir = path.join(process.cwd(), 'attached_assets', 'journal_media');
 if (!fs.existsSync(uploadDir)) {
@@ -447,7 +455,7 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
           }
         }
 
-        // Mark session as completed  
+        // Mark session as completed
         await storage.updateLifestylePlannerSession(session.id, {
           sessionState: 'completed',
           isComplete: true,
@@ -456,13 +464,11 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
 
         const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
 
-        // Construct full URL for activity link
-        const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
-        const host = req.get('host') || 'journalmate.replit.app';
-        const activityUrl = `${protocol}://${host}/activities/${activity.id}`;
+        // Get emoji from generated plan or use default
+        const activityEmoji = generatedPlan.emoji || '📝';
 
         return res.json({
-          message: `✨ Your plan is ready!`,
+          message: formatActivitySuccessMessage(activity, activityEmoji),
           activityCreated: true,
           activityId: activity.id,
           activityTitle: activity.title,
@@ -536,7 +542,7 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
             }
           }
 
-          // Mark session as completed  
+          // Mark session as completed
           await storage.updateLifestylePlannerSession(session.id, {
             sessionState: 'completed',
             isComplete: true,
@@ -550,8 +556,11 @@ async function handleSmartPlanConversation(req: any, res: any, message: string, 
 
           const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
 
+          // Get emoji from generated plan or use default
+          const activityEmoji = generatedPlan.emoji || '📝';
+
           return res.json({
-            message: `✨ Your plan is ready!`,
+            message: formatActivitySuccessMessage(activity, activityEmoji),
             activityCreated: true,
             activityId: activity.id,
             activityTitle: activity.title,
@@ -714,7 +723,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
 
       return res.json({
-        message: `✨ Your plan is ready!`,
+        message: formatActivitySuccessMessage(activity, '📝'),
         activityCreated: true,
         activityId: activity.id,
         activityTitle: activity.title,
@@ -914,7 +923,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
         tasks: createdTasks
       };
 
-      // Mark session as completed  
+      // Mark session as completed
       await storage.updateLifestylePlannerSession(session.id, {
         sessionState: 'completed',
         isComplete: true,
@@ -924,8 +933,11 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       // Get updated session for consistent response shape
       const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
 
+      // Get emoji from generated plan or use default
+      const activityEmoji = planData.emoji || response.generatedPlan?.emoji || '📝';
+
       return res.json({
-        message: `✨ Your plan is ready!`,
+        message: formatActivitySuccessMessage(activity, activityEmoji),
         activityCreated: true,
         activityId: activity.id,
         activityTitle: activity.title,
@@ -11014,21 +11026,11 @@ Return ONLY valid JSON, no markdown or explanation.`;
           }
         }, userId);
 
-        // Construct full URL for activity link
-        const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
-        const host = req.get('host') || 'journalmate.replit.app';
-        const activityUrl = `${protocol}://${host}/activities/${activity.id}`;
-
         // Use AI-provided emoji from the generated plan, fallback to 📝 if not provided
         const activityEmoji = generatedPlan.emoji || '📝';
 
-        // Create clickable activity title link that navigates to the activity in the app
-        const activityLink = `[${activityEmoji} ${activity.title}](/app?activity=${activity.id}&tab=Activities)`;
-
         return res.json({
-          message: isUpdate
-            ? `${activityLink}\n\n♻️ Your plan has been updated!`
-            : `${activityLink}\n\n✨ Your plan is ready!`,
+          message: formatActivitySuccessMessage(activity, activityEmoji, isUpdate),
           activityCreated: !isUpdate,
           activityUpdated: isUpdate,
           activity,
@@ -11317,7 +11319,7 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
           }
         }
 
-        // Mark session as completed  
+        // Mark session as completed
         await storage.updateLifestylePlannerSession(session.id, {
           sessionState: 'completed',
           isComplete: true,
@@ -11326,13 +11328,11 @@ async function handleQuickPlanConversation(req: any, res: any, message: string, 
 
         const updatedSession = await storage.getLifestylePlannerSession(session.id, userId);
 
-        // Construct full URL for activity link
-        const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
-        const host = req.get('host') || 'journalmate.replit.app';
-        const activityUrl = `${protocol}://${host}/activities/${activity.id}`;
+        // Get emoji from generated plan or use default
+        const activityEmoji = generatedPlan.emoji || '📝';
 
         return res.json({
-          message: `✨ Your plan is ready!`,
+          message: formatActivitySuccessMessage(activity, activityEmoji),
           activityCreated: true,
           activityId: activity.id,
           activityTitle: activity.title,
@@ -11963,12 +11963,13 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           const updatedSession = activityData ? await storage.getLifestylePlannerSession(session?.id || '', userId) : session;
 
           // Build the final message
-          // - If activity was created, show success message (card will render the details)
+          // - If activity was created, show success message with clickable link
           // - If response.message is empty/generic but we have stored plan content, use that
           // - Otherwise use response.message
           let finalMessage = response.message;
-          if (activityData) {
-            finalMessage = `✨ Your plan is ready!`;
+          if (activityData && activityData.activity) {
+            const activityEmoji = response.plan?.emoji || planToUse?.emoji || '📝';
+            finalMessage = formatActivitySuccessMessage(activityData.activity, activityEmoji);
           } else if ((!finalMessage || finalMessage.length < 100) && lastAssistantMessage && lastAssistantMessage.length > 200) {
             // If current response is too short but we have the previous plan preview, use it
             finalMessage = lastAssistantMessage;
@@ -14710,7 +14711,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
         tasks: createdTasks,
         session: updatedSession,
         generatedPlan,
-        message: "Your plan is ready! Activity and tasks have been added to your dashboard."
+        message: formatActivitySuccessMessage(activity, '📝')
       });
     } catch (error) {
       console.error('Error generating plan:', error);
