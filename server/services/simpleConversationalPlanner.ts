@@ -3492,10 +3492,12 @@ export class SimpleConversationalPlanner {
   /**
    * Switch LLM provider
    */
-  setProvider(provider: 'openai' | 'claude') {
+  setProvider(provider: 'openai' | 'claude' | 'gemini') {
     this.llmProvider = provider === 'claude'
       ? new AnthropicProvider()
-      : new OpenAIProvider();
+      : provider === 'gemini'
+        ? new GeminiProvider()
+        : new OpenAIProvider();
     console.log(`[SIMPLE_PLANNER] Switched to ${provider} provider`);
   }
 }
@@ -3504,7 +3506,7 @@ export class SimpleConversationalPlanner {
 // SINGLETON EXPORT
 // ============================================================================
 
-const provider = (process.env.LLM_PROVIDER || 'openai') as 'openai' | 'claude';
+const provider = (process.env.LLM_PROVIDER || (isGeminiConfigured() ? 'gemini' : 'openai')) as 'openai' | 'claude' | 'gemini';
 export const simpleConversationalPlanner = new SimpleConversationalPlanner(provider);
 export { globalSearchCache };
 
