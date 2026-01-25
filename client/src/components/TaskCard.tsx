@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, memo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Calendar, CalendarPlus, X, Pause, Undo, Archive, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
+import { CheckCircle, Clock, Calendar, CalendarPlus, X, Pause, Undo, Archive, ThumbsUp, ThumbsDown, Loader2, Edit3 } from 'lucide-react';
 import Confetti from 'react-confetti';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -29,10 +29,11 @@ interface TaskCardProps {
   onSnooze: (taskId: string, hours: number) => void;
   onArchive?: (taskId: string) => void;
   onUncomplete?: (taskId: string) => void;
+  onEdit?: (task: Task) => void;
   showConfetti?: boolean;
 }
 
-const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive, onUncomplete, showConfetti = false }: TaskCardProps) {
+const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, onArchive, onUncomplete, onEdit, showConfetti = false }: TaskCardProps) {
   const [isCompleted, setIsCompleted] = useState(task.completed || false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [pendingAction, setPendingAction] = useState<'complete' | 'skip' | 'snooze' | 'archive' | null>(null);
@@ -354,19 +355,35 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
         pendingAction === 'archive' ? 'ring-2 ring-blue-500 border-blue-200' : ''
       }`} data-testid={`task-card-${task.id}`}>
 
-        {/* Undo button in upper-right corner for completed tasks */}
-        {isCompleted && onUncomplete && (
-          <Button
-            onClick={handleUncomplete}
-            disabled={isProcessing}
-            variant="ghost"
-            size="icon"
-            className="absolute top-2 right-2 h-8 w-8 text-muted-foreground hover:text-foreground"
-            data-testid={`button-uncomplete-${task.id}`}
-          >
-            <Undo className="w-4 h-4" />
-          </Button>
-        )}
+        {/* Top-right buttons */}
+        <div className="absolute top-2 right-2 flex items-center gap-1">
+          {/* Edit button */}
+          {onEdit && !isCompleted && (
+            <Button
+              onClick={() => onEdit(task)}
+              disabled={isProcessing}
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              data-testid={`button-edit-${task.id}`}
+            >
+              <Edit3 className="w-4 h-4" />
+            </Button>
+          )}
+          {/* Undo button for completed tasks */}
+          {isCompleted && onUncomplete && (
+            <Button
+              onClick={handleUncomplete}
+              disabled={isProcessing}
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              data-testid={`button-uncomplete-${task.id}`}
+            >
+              <Undo className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
 
         {/* Header */}
         <div className="flex items-start justify-between mb-3">

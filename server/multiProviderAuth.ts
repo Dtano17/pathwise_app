@@ -102,7 +102,7 @@ export async function setupMultiProviderAuth(app: Express) {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL: "/api/auth/google/callback",
-      scope: ['profile', 'email']
+      scope: ['profile', 'email', 'https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/calendar.events']
     },
     async (accessToken, refreshToken, profile: GoogleProfile, done) => {
       try {
@@ -161,7 +161,7 @@ export async function setupMultiProviderAuth(app: Express) {
             accessToken,
             refreshToken: refreshToken || undefined,
             expiresAt: null, // Google tokens don't have explicit expiry in this format
-            scope: 'profile email',
+            scope: 'profile email calendar calendar.events',
           });
 
           // Send welcome email for new users (don't wait for it)

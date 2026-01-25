@@ -71,7 +71,32 @@ import { categorizeContent, detectPlatform, isSocialMediaUrl, formatCategoryForD
 import { mapToStandardCategoryId } from './services/categorySynonyms';
 import { findSimilarCategory, findSimilarSubcategory, findDuplicateVenue, checkDuplicateURL, generatePrimaryCategoryId, generateSubcategoryId, generateColorGradient, type DeduplicationConfig, DEFAULT_DEDUP_CONFIG } from './services/categoryMatcher';
 import { scheduleRemindersForActivity, cancelRemindersForActivity } from './services/reminderProcessor';
+import {
+  isGoogleCalendarConfigured,
+  hasCalendarAccess,
+  pushActivityToCalendar,
+  deleteCalendarEvent,
+  pullCalendarEvents,
+  getUserCalendars,
+  syncAllActivitiesToCalendar,
+} from './services/googleCalendarService';
 import { seedGroupsForUser } from './seedSampleGroups';
+import {
+  onTaskCreated,
+  onTaskUpdated,
+  onTaskCompleted,
+  onTaskDeleted,
+  onActivityCreated,
+  onActivityUpdated,
+  onActivityDeleted,
+  onGoalCreated,
+  onGoalUpdated,
+  onGoalDeleted,
+  onGroupInviteSent,
+  onGroupMemberJoined,
+  onActivitySharedToGroup,
+  onJournalEntryCreated,
+} from './services/notificationEventHooks';
 
 // Tavily client is now managed by tavilyProvider.ts with automatic key rotation
 
@@ -1306,7 +1331,188 @@ ${sitemaps.map(sitemap => `  <sitemap>
 
     res.json(status);
   });
-  
+
+  // ========== GOOGLE CALENDAR INTEGRATION ==========
+  // Check if Google Calendar is configured (API key exists)
+  app.get("/api/calendar/configured", async (_req, res) => {
+    res.json({
+      configured: isGoogleCalendarConfigured(),
+      message: isGoogleCalendarConfigured()
+        ? 'Google Calendar API configured'
+        : 'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET not set'
+    });
+  });
+
+  // Check if user has Calendar access (valid OAuth tokens with calendar scope)
+  app.get("/api/calendar/status", isAuthenticatedGeneric, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const hasAccess = await hasCalendarAccess(userId);
+
+      res.json({
+        hasAccess,
+        configured: isGoogleCalendarConfigured(),
+        message: hasAccess
+          ? 'Calendar access granted'
+          : 'Please connect your Google Calendar in Settings'
+      });
+    } catch (error: any) {
+      console.error('[CALENDAR] Error checking status:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get user's calendars list
+  app.get("/api/calendar/list", isAuthenticatedGeneric, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const result = await getUserCalendars(userId);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      res.json({ calendars: result.calendars });
+    } catch (error: any) {
+      console.error('[CALENDAR] Error getting calendars:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Pull events from Google Calendar
+  app.get("/api/calendar/events", isAuthenticatedGeneric, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { timeMin, timeMax, maxResults } = req.query;
+
+      const result = await pullCalendarEvents(userId, {
+        timeMin: timeMin ? new Date(timeMin as string) : undefined,
+        timeMax: timeMax ? new Date(timeMax as string) : undefined,
+        maxResults: maxResults ? parseInt(maxResults as string) : undefined,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      res.json({ events: result.events });
+    } catch (error: any) {
+      console.error('[CALENDAR] Error pulling events:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Push an activity to Google Calendar
+  app.post("/api/calendar/sync/:activityId", isAuthenticatedGeneric, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const activityId = req.params.activityId;
+
+      // Get the activity
+      const activity = await storage.getActivity(activityId, userId);
+      if (!activity) {
+        return res.status(404).json({ error: 'Activity not found' });
+      }
+
+      // Push to calendar - use startDate and endDate from activity
+      const result = await pushActivityToCalendar(userId, {
+        id: activity.id,
+        title: activity.title,
+        description: activity.description || undefined,
+        startDate: activity.startDate?.toISOString() || undefined,
+        endDate: activity.endDate?.toISOString() || activity.startDate?.toISOString() || undefined,
+        location: activity.location || undefined,
+        category: activity.category || undefined,
+        googleCalendarEventId: activity.googleCalendarEventId || undefined,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      // Update activity with the calendar event ID
+      if (result.eventId && result.eventId !== activity.googleCalendarEventId) {
+        await storage.updateActivity(activityId, {
+          googleCalendarEventId: result.eventId,
+        }, userId);
+      }
+
+      res.json({
+        success: true,
+        eventId: result.eventId,
+        message: 'Activity synced to Google Calendar'
+      });
+    } catch (error: any) {
+      console.error('[CALENDAR] Error syncing activity:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete a calendar event
+  app.delete("/api/calendar/event/:eventId", isAuthenticatedGeneric, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const eventId = req.params.eventId;
+
+      const result = await deleteCalendarEvent(userId, eventId);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      res.json({ success: true, message: 'Event deleted from Google Calendar' });
+    } catch (error: any) {
+      console.error('[CALENDAR] Error deleting event:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Sync all activities to Google Calendar (batch operation)
+  app.post("/api/calendar/sync-all", isAuthenticatedGeneric, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+
+      // Get all activities for the user that have start dates
+      const allActivities = await storage.getActivitiesByUserId(userId);
+      const activitiesWithDates = allActivities.filter(a => a.startDate);
+
+      if (activitiesWithDates.length === 0) {
+        return res.json({
+          success: 0,
+          failed: 0,
+          message: 'No activities with dates to sync'
+        });
+      }
+
+      // Map to calendar format
+      const activitiesForCalendar = activitiesWithDates.map(a => ({
+        id: a.id,
+        title: a.title,
+        description: a.description || undefined,
+        startDate: a.startDate?.toISOString() || undefined,
+        endDate: a.endDate?.toISOString() || a.startDate?.toISOString() || undefined,
+        location: a.location || undefined,
+        category: a.category || undefined,
+        googleCalendarEventId: a.googleCalendarEventId || undefined,
+      }));
+
+      const result = await syncAllActivitiesToCalendar(userId, activitiesForCalendar);
+
+      // Update activities with new event IDs (would need to return eventIds from sync)
+      // For now, just return the result
+
+      res.json({
+        success: result.success,
+        failed: result.failed,
+        errors: result.errors,
+        message: `Synced ${result.success} activities to Google Calendar`
+      });
+    } catch (error: any) {
+      console.error('[CALENDAR] Error syncing all activities:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ========== DYNAMIC OPEN GRAPH IMAGE GENERATOR ==========
   // Serve dynamically generated OG images for share previews
   app.get("/api/og-image/:activityId", async (req, res) => {
@@ -3980,8 +4186,13 @@ ${sitemaps.map(sitemap => `  <sitemap>
         // Don't fail the request if sharing fails
       }
 
-      res.json({ 
-        task, 
+      // Trigger smart notification: cancel pending reminders and update streak
+      onTaskCompleted(storage, task, userId).catch(err =>
+        console.error('[NOTIFICATION] Task completed hook error:', err)
+      );
+
+      res.json({
+        task,
         message: 'Task completed! 🎉',
         achievement: {
           title: 'Task Master!',
@@ -4103,15 +4314,106 @@ ${sitemaps.map(sitemap => `  <sitemap>
   app.post("/api/tasks", async (req, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
-      const taskData = insertTaskSchema.parse(req.body);
+      const { reminders, ...taskBody } = req.body;
+      const taskData = insertTaskSchema.parse(taskBody);
       const task = await storage.createTask({
         ...taskData,
         userId
       });
-      
+
+      // Create task reminders if provided and task has a due date
+      if (task.dueDate && reminders && Array.isArray(reminders)) {
+        const dueDate = new Date(task.dueDate);
+        for (const reminder of reminders) {
+          const scheduledAt = new Date(dueDate.getTime() - (reminder.minutesBefore || 30) * 60 * 1000);
+          // Only create reminder if it's in the future
+          if (scheduledAt > new Date()) {
+            await storage.createTaskReminder({
+              taskId: task.id,
+              userId,
+              reminderType: reminder.type || 'custom',
+              scheduledAt,
+              title: `Task Due: ${task.title}`,
+              message: reminder.minutesBefore === 0
+                ? `Your task "${task.title}" is due now!`
+                : `Your task "${task.title}" is due in ${reminder.minutesBefore} minutes.`,
+            });
+          }
+        }
+      }
+
+      // Trigger smart notification scheduling if task has a due date
+      if (task.dueDate) {
+        onTaskCreated(storage, task, userId).catch(err =>
+          console.error('[NOTIFICATION] Task created hook error:', err)
+        );
+      }
+
       res.json(task);
     } catch (error) {
       console.error('Create task error:', error);
+      res.status(400).json({ error: 'Invalid task data' });
+    }
+  });
+
+  // Update a task
+  app.patch("/api/tasks/:taskId", async (req: any, res) => {
+    try {
+      const { taskId } = req.params;
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { reminders, ...updates } = req.body;
+
+      // Validate task exists and belongs to user
+      const existingTask = await storage.getTask(taskId, userId);
+      if (!existingTask) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+
+      // Update the task
+      const result = await storage.updateTask(taskId, updates, userId);
+      const task = result.task;
+      if (!task) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+
+      // Handle reminders if task has a due date
+      if (task.dueDate && reminders && Array.isArray(reminders)) {
+        // Delete existing reminders for this task
+        const existingReminders = await storage.getTaskReminders(taskId);
+        for (const existing of existingReminders) {
+          await storage.deleteTaskReminder(existing.id, userId);
+        }
+
+        // Create new reminders
+        const dueDate = new Date(task.dueDate);
+        for (const reminder of reminders) {
+          const scheduledAt = new Date(dueDate.getTime() - (reminder.minutesBefore || 30) * 60 * 1000);
+          // Only create reminder if it's in the future
+          if (scheduledAt > new Date()) {
+            await storage.createTaskReminder({
+              taskId: task.id,
+              userId,
+              reminderType: reminder.type || 'custom',
+              scheduledAt,
+              title: `Task Due: ${task.title}`,
+              message: reminder.minutesBefore === 0
+                ? `Your task "${task.title}" is due now!`
+                : `Your task "${task.title}" is due in ${reminder.minutesBefore} minutes.`,
+            });
+          }
+        }
+      }
+
+      // Trigger smart notification update if task has a due date
+      if (task.dueDate) {
+        onTaskUpdated(storage, task, updates, userId).catch(err =>
+          console.error('[NOTIFICATION] Task updated hook error:', err)
+        );
+      }
+
+      res.json(task);
+    } catch (error) {
+      console.error('Update task error:', error);
       res.status(400).json({ error: 'Invalid task data' });
     }
   });
@@ -5737,7 +6039,7 @@ ${sitemaps.map(sitemap => `  <sitemap>
         ...activityData,
         userId
       });
-      
+
       // Schedule reminders if the activity has a start date
       if (activity.startDate) {
         try {
@@ -5747,7 +6049,12 @@ ${sitemaps.map(sitemap => `  <sitemap>
           console.error('[ACTIVITY] Failed to schedule reminders:', reminderError);
         }
       }
-      
+
+      // Trigger smart notification scheduling for the new activity
+      onActivityCreated(storage, activity, userId).catch(err =>
+        console.error('[NOTIFICATION] Activity created hook error:', err)
+      );
+
       res.json(activity);
     } catch (error) {
       console.error('Create activity error:', error);
@@ -5856,14 +6163,19 @@ ${sitemaps.map(sitemap => `  <sitemap>
     try {
       const { activityId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
-      
+
       // Cancel reminders when activity is deleted
       try {
         await cancelRemindersForActivity(storage, activityId);
       } catch (err) {
         console.error('[ACTIVITY] Failed to cancel reminders on delete:', err);
       }
-      
+
+      // Cancel smart notifications for this activity
+      onActivityDeleted(storage, activityId).catch(err =>
+        console.error('[NOTIFICATION] Activity deleted hook error:', err)
+      );
+
       await storage.deleteActivity(activityId, userId);
       res.json({ success: true });
     } catch (error) {
@@ -9526,6 +9838,12 @@ ${emoji} ${progressLine}
         ...entryData,
         userId
       });
+
+      // Update streak for journaling activity
+      onJournalEntryCreated(storage, entry, userId).catch(err =>
+        console.error('[NOTIFICATION] Journal entry created hook error:', err)
+      );
+
       res.json(entry);
     } catch (error) {
       console.error('Create journal error:', error);
@@ -10457,7 +10775,15 @@ Return ONLY valid JSON, no markdown or explanation.`;
   });
 
   // NEW: Simple Plan Conversation Handler (replaces complex LangGraph)
-  async function handleSimplePlanConversation(req: any, res: any, message: string, conversationHistory: any[], userId: string, mode: 'quick' | 'smart') {
+  async function handleSimplePlanConversation(
+    req: any,
+    res: any,
+    message: string,
+    conversationHistory: any[],
+    userId: string,
+    mode: 'quick' | 'smart',
+    location?: { latitude: number; longitude: number; city?: string }
+  ) {
     try {
       console.log(`✨ [SIMPLE PLANNER - ${mode.toUpperCase()} MODE] Processing message for user ${userId}`);
       console.log(`📝 [SIMPLE PLANNER] Message: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}}"`);
@@ -10714,14 +11040,17 @@ Return ONLY valid JSON, no markdown or explanation.`;
         console.warn('[SIMPLE PLAN] Failed to fetch daily theme:', err);
       }
 
-      // Process message with simple planner
+      // Process message with simple planner (Gemini with grounding by default)
       const plannerResponse = await simpleConversationalPlanner.processMessage(
         userId,
         message,
         session.conversationHistory || conversationHistory,
         storage,
         mode,
-        { todaysTheme }
+        {
+          todaysTheme,
+          userLocation: location  // Pass GPS for Gemini Maps grounding
+        }
       );
 
       // Log what was extracted
@@ -14027,7 +14356,8 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
   app.post("/api/planner/message", async (req, res) => {
     try {
       const userId = getDemoUserId(req);
-      const { sessionId, message, mode } = req.body;
+      const { sessionId, message, mode, location } = req.body;
+      // location: { latitude: number, longitude: number, city?: string } - optional GPS from device
 
       if (!sessionId || !message) {
         return res.status(400).json({ error: 'Session ID and message are required' });
@@ -14054,7 +14384,8 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           message,
           session.conversationHistory || [],
           userId,
-          mode
+          mode,
+          location  // Pass GPS location for Gemini Maps grounding
         );
       }
 

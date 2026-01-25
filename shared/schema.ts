@@ -519,6 +519,35 @@ export const notificationPreferences = pgTable("notification_preferences", {
   dailyPlanningTime: text("daily_planning_time").default("09:00"), // HH:MM format
   quietHoursStart: text("quiet_hours_start").default("22:00"), // HH:MM format
   quietHoursEnd: text("quiet_hours_end").default("08:00"), // HH:MM format
+
+  // Smart notification system additions
+  enableAccountabilityReminders: boolean("enable_accountability_reminders").default(true),
+  enableStreakReminders: boolean("enable_streak_reminders").default(true),
+  enableMediaReleaseAlerts: boolean("enable_media_release_alerts").default(true),
+  enableTripPrepReminders: boolean("enable_trip_prep_reminders").default(true),
+  weeklyCheckinDay: text("weekly_checkin_day").default("sunday"), // day of week
+  weeklyCheckinTime: text("weekly_checkin_time").default("10:00"), // HH:MM format
+  streakReminderTime: text("streak_reminder_time").default("18:00"), // HH:MM format
+  enableVibration: boolean("enable_vibration").default(true),
+  enableSound: boolean("enable_sound").default(true),
+
+  // Per-channel settings (granular control)
+  channelSettings: jsonb("channel_settings").$type<{
+    tasks?: { enabled: boolean; sound: boolean; vibrate: boolean; priority: string };
+    activities?: { enabled: boolean; sound: boolean; vibrate: boolean; priority: string };
+    groups?: { enabled: boolean; sound: boolean; vibrate: boolean; priority: string };
+    streaks?: { enabled: boolean; sound: boolean; vibrate: boolean; priority: string };
+    achievements?: { enabled: boolean; sound: boolean; vibrate: boolean; priority: string };
+    assistant?: { enabled: boolean; sound: boolean; vibrate: boolean; priority: string };
+  }>().default({
+    tasks: { enabled: true, sound: true, vibrate: true, priority: "high" },
+    activities: { enabled: true, sound: true, vibrate: true, priority: "high" },
+    groups: { enabled: true, sound: true, vibrate: true, priority: "high" },
+    streaks: { enabled: true, sound: true, vibrate: true, priority: "default" },
+    achievements: { enabled: true, sound: true, vibrate: true, priority: "default" },
+    assistant: { enabled: true, sound: false, vibrate: false, priority: "low" },
+  }),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -1070,7 +1099,10 @@ export const activities = pgTable("activities", {
     email?: string;
     userId?: string;
   }>>().default([]),
-  
+
+  // Google Calendar integration
+  googleCalendarEventId: varchar("google_calendar_event_id"), // ID of the corresponding Google Calendar event
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -2230,3 +2262,173 @@ export const insertJournalEnrichmentCacheSchema = createInsertSchema(journalEnri
 
 export type JournalEnrichmentCache = typeof journalEnrichmentCache.$inferSelect;
 export type InsertJournalEnrichmentCache = z.infer<typeof insertJournalEnrichmentCacheSchema>;
+
+// ==========================================
+// SMART NOTIFICATION SYSTEM
+// ==========================================
+
+// Smart notifications queue - all scheduled notifications
+export const smartNotifications = pgTable("smart_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+
+  // Event source
+  sourceType: text("source_type").notNull(), // 'activity' | 'task' | 'goal' | 'streak' | 'media' | 'accountability' | 'group'
+  sourceId: varchar("source_id"), // activity_id, task_id, goal_id, etc.
+
+  // Notification content
+  notificationType: text("notification_type").notNull(), // 'task_due_soon', 'activity_one_week', 'streak_milestone', etc.
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+
+  // Scheduling
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  timezone: text("timezone").default("UTC"),
+
+  // Context for smart messaging
+  metadata: jsonb("metadata").$type<{
+    location?: string;
+    weather?: string;
+    contextualTips?: string[];
+    firstTask?: string;
+    streakCount?: number;
+    goalCount?: number;
+    movieTitle?: string;
+    releaseDate?: string;
+    groupName?: string;
+    inviterName?: string;
+    haptic?: 'light' | 'medium' | 'heavy' | 'celebration' | 'urgent';
+    channel?: string;
+    actions?: Array<{ id: string; title: string; action: string }>;
+  }>().default({}),
+
+  // Deep link
+  route: text("route"),
+
+  // Status
+  status: text("status").notNull().default("pending"), // 'pending' | 'sent' | 'cancelled' | 'failed'
+  sentAt: timestamp("sent_at"),
+  failureReason: text("failure_reason"),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userScheduledIndex: index("smart_notifications_user_scheduled_idx").on(table.userId, table.scheduledAt),
+  pendingIndex: index("smart_notifications_pending_idx").on(table.status, table.scheduledAt),
+  sourceIndex: index("smart_notifications_source_idx").on(table.sourceType, table.sourceId),
+}));
+
+// User streaks tracking
+export const userStreaks = pgTable("user_streaks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull().unique(),
+  currentStreak: integer("current_streak").default(0),
+  longestStreak: integer("longest_streak").default(0),
+  lastActivityDate: text("last_activity_date"), // YYYY-MM-DD format
+  streakStartDate: text("streak_start_date"), // YYYY-MM-DD format
+  totalActiveDays: integer("total_active_days").default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: uniqueIndex("user_streaks_user_id_idx").on(table.userId),
+}));
+
+// Accountability check-ins
+export const accountabilityCheckins = pgTable("accountability_checkins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  checkinType: text("checkin_type").notNull(), // 'weekly' | 'monthly' | 'quarterly'
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+
+  // Metrics at time of check-in
+  goalsCount: integer("goals_count").default(0),
+  tasksCompleted: integer("tasks_completed").default(0),
+  tasksTotal: integer("tasks_total").default(0),
+  streakDays: integer("streak_days").default(0),
+
+  // User response
+  status: text("status").notNull().default("pending"), // 'pending' | 'completed' | 'skipped'
+  userNotes: text("user_notes"),
+  respondedAt: timestamp("responded_at"),
+
+  // Notification tracking
+  notificationSentAt: timestamp("notification_sent_at"),
+  notificationId: varchar("notification_id"),
+
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userTypeIndex: index("accountability_checkins_user_type_idx").on(table.userId, table.checkinType),
+}));
+
+// Notification history for analytics
+export const notificationHistory = pgTable("notification_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  notificationType: text("notification_type").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  channel: text("channel"),
+  hapticType: text("haptic_type"),
+
+  // Delivery tracking
+  sentAt: timestamp("sent_at").notNull(),
+  deliveredAt: timestamp("delivered_at"),
+  openedAt: timestamp("opened_at"),
+  actionTaken: text("action_taken"), // 'view' | 'complete' | 'snooze' | 'dismiss' | 'ignore'
+  actionTakenAt: timestamp("action_taken_at"),
+
+  // Context
+  sourceType: text("source_type"),
+  sourceId: varchar("source_id"),
+  metadata: jsonb("metadata").default({}),
+
+  // Analytics
+  deliveryLatencyMs: integer("delivery_latency_ms"),
+  engagementLatencyMs: integer("engagement_latency_ms"),
+
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userSentIndex: index("notification_history_user_sent_idx").on(table.userId, table.sentAt),
+  analyticsIndex: index("notification_history_analytics_idx").on(table.notificationType, table.actionTaken),
+}));
+
+// Zod schemas for new tables
+export const insertSmartNotificationSchema = createInsertSchema(smartNotifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  sentAt: true,
+});
+
+export const insertUserStreakSchema = createInsertSchema(userStreaks).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export const insertAccountabilityCheckinSchema = createInsertSchema(accountabilityCheckins).omit({
+  id: true,
+  createdAt: true,
+  respondedAt: true,
+  notificationSentAt: true,
+});
+
+export const insertNotificationHistorySchema = createInsertSchema(notificationHistory).omit({
+  id: true,
+  createdAt: true,
+  deliveredAt: true,
+  openedAt: true,
+  actionTakenAt: true,
+});
+
+// Types for new tables
+export type SmartNotification = typeof smartNotifications.$inferSelect;
+export type InsertSmartNotification = z.infer<typeof insertSmartNotificationSchema>;
+
+export type UserStreak = typeof userStreaks.$inferSelect;
+export type InsertUserStreak = z.infer<typeof insertUserStreakSchema>;
+
+export type AccountabilityCheckin = typeof accountabilityCheckins.$inferSelect;
+export type InsertAccountabilityCheckin = z.infer<typeof insertAccountabilityCheckinSchema>;
+
+export type NotificationHistoryEntry = typeof notificationHistory.$inferSelect;
+export type InsertNotificationHistory = z.infer<typeof insertNotificationHistorySchema>;

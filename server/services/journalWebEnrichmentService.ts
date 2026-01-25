@@ -25,6 +25,11 @@ import {
   getDynamicThreshold,
 } from './dynamicCategorizationService';
 import { storage } from '../storage';
+import {
+  searchPlaceWithPhotos,
+  isGooglePlacesConfigured,
+  priceLevelToSymbol,
+} from './googlePlacesService';
 
 // ============================================================================
 // TYPES
@@ -1075,6 +1080,88 @@ Respond with ONLY a JSON object in this format:
           }
         }
         console.log(`[JOURNAL_WEB_ENRICH] Spotify search failed or unavailable, falling back to Tavily`);
+      }
+
+      // ========================================================================
+      // GOOGLE PLACES: For restaurants, bars, cafes - accurate venue photos
+      // ========================================================================
+      else if (aiRecommendation.recommendedAPI === 'google_places' ||
+               (effectiveCategory.toLowerCase().includes('restaurant') ||
+                effectiveCategory.toLowerCase().includes('food') ||
+                effectiveCategory.toLowerCase().includes('bar') ||
+                effectiveCategory.toLowerCase().includes('cafe'))) {
+
+        if (isGooglePlacesConfigured()) {
+          console.log(`[JOURNAL_WEB_ENRICH] Using Google Places for restaurant/venue: "${venueName}"`);
+
+          const searchTitle = aiRecommendation.extractedTitle || venueName;
+          // Add location context if available
+          const locationContext = city || (extractedInfo as any).city || (extractedInfo as any).location;
+          const searchQuery = locationContext ? `${searchTitle} ${locationContext}` : searchTitle;
+
+          const placeResult = await searchPlaceWithPhotos(searchQuery, {
+            type: effectiveCategory.toLowerCase().includes('bar') ? 'bar' :
+                  effectiveCategory.toLowerCase().includes('cafe') ? 'cafe' : 'restaurant',
+          });
+
+          if (placeResult && placeResult.photos.length > 0) {
+            const enrichedData: WebEnrichedData = {
+              venueVerified: true,
+              venueType: effectiveCategory.toLowerCase().includes('bar') ? 'bar' : 'restaurant',
+              venueName: placeResult.name,
+              venueDescription: placeResult.address || `${placeResult.name} - ${priceLevelToSymbol(placeResult.priceLevel)} - ${placeResult.rating ? `${placeResult.rating}⭐` : ''}`,
+              primaryImageUrl: placeResult.photos[0].url,
+              mediaUrls: placeResult.photos.map(photo => ({
+                url: photo.url,
+                type: 'image' as const,
+                source: 'google_places'
+              })),
+              location: {
+                address: placeResult.address,
+                directionsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeResult.name + (placeResult.address ? ' ' + placeResult.address : ''))}`,
+              },
+              rating: placeResult.rating,
+              reviewCount: placeResult.userRatingsTotal,
+              priceRange: priceLevelToSymbol(placeResult.priceLevel) || undefined,
+              website: placeResult.website,
+              phoneNumber: placeResult.phoneNumber,
+              suggestedCategory: effectiveCategory.toLowerCase().includes('bar') ? 'Bars & Nightlife' : 'Restaurants & Food',
+              categoryConfidence: aiRecommendation.confidence,
+              enrichedAt: new Date().toISOString(),
+              enrichmentSource: 'google',
+              reservationLinks: placeResult.website ? [
+                { platform: 'Website', url: placeResult.website },
+                { platform: 'Google Maps', url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeResult.name)}` },
+              ] : [
+                { platform: 'Google Maps', url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeResult.name)}` },
+                { platform: 'Yelp', url: `https://www.yelp.com/search?find_desc=${encodeURIComponent(placeResult.name)}` },
+              ],
+            };
+
+            // Save to both in-memory and persistent DB cache
+            this.cache.set(cacheKey, { data: enrichedData, timestamp: Date.now() });
+            try {
+              await storage.saveJournalEnrichmentCache({
+                cacheKey,
+                enrichedData: enrichedData as any,
+                imageUrl: enrichedData.primaryImageUrl,
+                verified: enrichedData.venueVerified,
+                enrichmentSource: 'google',
+                isComingSoon: false,
+              });
+            } catch (saveError) {
+              console.warn(`[JOURNAL_WEB_ENRICH] Failed to save Google Places result to DB cache:`, saveError);
+            }
+
+            const elapsed = Date.now() - startTime;
+            console.log(`[JOURNAL_WEB_ENRICH] Google Places enrichment successful in ${elapsed}ms: "${placeResult.name}" (${placeResult.photos.length} photos)`);
+
+            return { entryId: entry.id, success: true, enrichedData };
+          }
+          console.log(`[JOURNAL_WEB_ENRICH] Google Places search failed for "${venueName}", falling back to Tavily`);
+        } else {
+          console.log(`[JOURNAL_WEB_ENRICH] Google Places not configured, using Tavily for restaurant`);
+        }
       }
 
       // Default: Use Tavily or AI-generated query for all other content

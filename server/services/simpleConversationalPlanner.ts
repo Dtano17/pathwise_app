@@ -22,6 +22,13 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { tavilySearch, isTavilyConfigured } from './tavilyProvider';
+import {
+  generateWithGrounding,
+  isGeminiConfigured,
+  formatGroundingSources,
+  type GeminiMessage,
+  type GeminiGroundingConfig,
+} from './geminiProvider';
 import type { IStorage } from '../storage';
 import type { User, UserProfile, UserPreferences, JournalEntry } from '@shared/schema';
 import { DOMAIN_TO_JOURNAL_CATEGORIES } from '../config/journalTags';
@@ -469,6 +476,7 @@ interface GeneratedPlan {
   description: string;
   startDate?: string;  // Activity start date in ISO format (YYYY-MM-DD)
   endDate?: string;    // Activity end date in ISO format (YYYY-MM-DD)
+  destinationUrl?: string;  // Google Maps URL for main destination (clickable link)
   tasks: Array<{
     taskName: string;
     duration: number;
@@ -530,6 +538,12 @@ interface PlanningContext {
     themeId: string;
     themeName: string;
   } | null;
+  // GPS location from device (for Gemini Maps grounding)
+  userLocation?: {
+    latitude: number;
+    longitude: number;
+    city?: string;
+  };
 }
 
 // ============================================================================
@@ -1086,6 +1100,191 @@ class AnthropicProvider implements LLMProvider {
       return result;
     } catch (error) {
       console.error('[SIMPLE_PLANNER] Anthropic error:', error);
+      throw error;
+    }
+  }
+}
+
+// ============================================================================
+// GEMINI PROVIDER (with Google Search & Maps Grounding)
+// ============================================================================
+
+class GeminiProvider implements LLMProvider {
+  async generate(
+    messages: ConversationMessage[],
+    systemPrompt: string,
+    tools: any[],
+    context: PlanningContext,
+    mode: 'quick' | 'smart'
+  ): Promise<PlanningResponse> {
+    try {
+      // Count assistant messages to determine turn
+      const assistantMessageCount = messages.filter(m => m.role === 'assistant').length;
+      const currentTurn = assistantMessageCount + 1;
+      const isPreviewTurn = mode === 'quick' ? currentTurn >= 3 : currentTurn >= 4;
+
+      console.log(`[GEMINI_PROVIDER] Turn ${currentTurn}: ${isPreviewTurn ? 'preview with grounding' : 'question gathering'}`);
+
+      // Configure grounding based on turn and context
+      const groundingConfig: GeminiGroundingConfig = {
+        // Enable Google Search on preview turns for real-time data
+        enableGoogleSearch: isPreviewTurn,
+        // Enable Google Maps if we have user location
+        enableGoogleMaps: isPreviewTurn && !!context.userLocation,
+        userLocation: context.userLocation,
+      };
+
+      if (context.userLocation) {
+        console.log(`[GEMINI_PROVIDER] Using location: ${context.userLocation.city || `${context.userLocation.latitude}, ${context.userLocation.longitude}`}`);
+      }
+
+      // Convert messages to Gemini format
+      const geminiMessages: GeminiMessage[] = messages.map(m => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        content: m.content,
+      }));
+
+      // Build enhanced system prompt with grounding instructions
+      let enhancedSystemPrompt = systemPrompt;
+      if (isPreviewTurn) {
+        enhancedSystemPrompt += `
+
+## Real-Time Data via Google Grounding
+
+You have access to LIVE data through Google Search and Maps grounding:
+1. Weather forecasts are REAL-TIME - always include current conditions
+2. Restaurant/venue data includes real ratings, hours, and addresses
+3. Prices and availability are current
+4. ${context.userLocation ? `User is located in ${context.userLocation.city || 'their current location'} - use this for "near me" queries` : 'No GPS location provided'}
+
+IMPORTANT:
+- Use REAL venue names from grounding, not placeholders
+- Include specific addresses and ratings
+- Show actual prices when available
+- DO NOT include "Activity Link" or "🔗 Activity Link" sections in the message
+- The destinationUrl goes in the JSON plan object, NOT in the message text
+`;
+      }
+
+      // Add JSON response format instruction
+      enhancedSystemPrompt += `
+
+## Response Format (CRITICAL)
+You MUST respond with a valid JSON object with this exact structure:
+{
+  "message": "Your conversational response here (markdown formatted)",
+  "extractedInfo": {
+    "activityType": "string or null",
+    "location": "string or null",
+    "timing": "string or null",
+    "budget": "number or null",
+    "preferences": ["array of strings"],
+    "questionCount": number
+  },
+  "readyToGenerate": boolean,
+  "plan": null or {
+    "title": "Activity Title",
+    "description": "Brief overview of the plan",
+    "destinationUrl": "https://www.google.com/maps/search/?api=1&query=Main+Destination+Name",
+    "tasks": [
+      {
+        "title": "Task/Step title",
+        "description": "Detailed description with real venue names, times, costs",
+        "duration": "e.g., 2 hours",
+        "tips": ["practical tips"]
+      }
+    ],
+    "budget": {
+      "estimated": number,
+      "breakdown": [
+        { "item": "Item name", "cost": number, "notes": "e.g., $50 × 2 people = $100" }
+      ]
+    },
+    "tips": ["General tips for the activity"]
+  },
+  "conversationHints": ["array of suggested follow-ups"]
+}
+
+IMPORTANT for destinationUrl:
+- When generating a plan, ALWAYS include "destinationUrl" in the plan JSON object
+- Format: https://www.google.com/maps/search/?api=1&query=URL_ENCODED_DESTINATION
+- Example: For "San Diego trip" → "https://www.google.com/maps/search/?api=1&query=San+Diego+CA"
+- Example: For "Pizzeria Mozza" → "https://www.google.com/maps/search/?api=1&query=Pizzeria+Mozza+Los+Angeles"
+- DO NOT include "Activity Link" section in the message - put the URL ONLY in plan.destinationUrl
+- The frontend will render the title as a clickable link using plan.destinationUrl
+`;
+
+      const response = await generateWithGrounding(
+        geminiMessages,
+        enhancedSystemPrompt,
+        groundingConfig,
+        'gemini-2.5-flash'
+      );
+
+      // Parse the JSON response
+      let result: PlanningResponse;
+      try {
+        // Try to extract JSON from the response
+        const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          result = JSON.parse(jsonMatch[0]);
+        } else {
+          // If no JSON found, wrap the response as a message
+          result = {
+            message: response.content,
+            extractedInfo: { questionCount: currentTurn },
+            readyToGenerate: false,
+          };
+        }
+      } catch (parseError) {
+        console.log('[GEMINI_PROVIDER] Response not JSON, using as message');
+        result = {
+          message: response.content,
+          extractedInfo: { questionCount: currentTurn },
+          readyToGenerate: false,
+        };
+      }
+
+      // Append grounding sources if available
+      if (response.groundingMetadata) {
+        const sources = formatGroundingSources(response.groundingMetadata);
+        if (sources && result.message) {
+          // Don't duplicate sources if already in message
+          if (!result.message.includes('**Sources:**') && !result.message.includes('**Venues from Google Maps:**')) {
+            result.message += sources;
+          }
+        }
+        console.log(`[GEMINI_PROVIDER] Grounding: ${response.groundingMetadata.sources?.length || 0} web sources, ${response.groundingMetadata.mapsResults?.length || 0} maps results`);
+      }
+
+      // Post-process: Extract destinationUrl from message if Gemini put it there instead of in plan
+      if (result.plan && !result.plan.destinationUrl && result.message) {
+        // Look for Google Maps URLs in the message
+        const mapsUrlMatch = result.message.match(/https:\/\/www\.google\.com\/maps\/search\/[^\s\)]+/);
+        if (mapsUrlMatch) {
+          result.plan.destinationUrl = mapsUrlMatch[0];
+          console.log(`[GEMINI_PROVIDER] Extracted destinationUrl from message: ${result.plan.destinationUrl}`);
+        }
+      }
+
+      // Clean up message: Remove "Activity Link" section since we have destinationUrl in plan
+      if (result.message && result.plan?.destinationUrl) {
+        // Remove various formats of Activity Link section
+        result.message = result.message
+          .replace(/##\s*🔗?\s*Activity Link[\s\S]*?(?=\n##|\n\*\*Sources|\n\*\*Venues|$)/gi, '')
+          .replace(/\*\*🔗?\s*Activity Link[:\*]*[\s\S]*?(?=\n\*\*|\n##|$)/gi, '')
+          .replace(/Explore.*on Google Maps:.*\n?/gi, '')
+          .trim();
+      }
+
+      // Validate budget if plan exists
+      if (result.plan) {
+        validateBudgetBreakdown(result.plan);
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error('[GEMINI_PROVIDER] Error:', error.message);
       throw error;
     }
   }
@@ -2089,6 +2288,7 @@ Use respond_with_structure tool:
   "plan": {  // ONLY if readyToGenerate = true
     "title": "...",
     "description": "...",
+    "destinationUrl": "https://www.google.com/maps/search/?api=1&query=Main+Destination",  // REQUIRED: Google Maps URL
     "startDate": "2025-01-20",  // ISO date - extract from conversation (e.g., "next Friday", "January 20th")
     "endDate": "2025-01-22",    // ISO date - for multi-day activities
     "tasks": [
@@ -2136,7 +2336,8 @@ Use respond_with_structure tool:
       "buffer": 1440
     },
     "weather": {"forecast": "...", "recommendations": ["..."]},
-    "tips": ["..."]
+    "tips": ["..."],
+    "destinationUrl": "https://www.google.com/maps/search/?api=1&query=Paris+France"  // REQUIRED: Google Maps URL for main destination
   }
 }
 \`\`\`
@@ -2292,9 +2493,13 @@ function getPlanningTool(mode: 'quick' | 'smart') {
             tips: {
               type: 'array',
               items: { type: 'string' }
+            },
+            destinationUrl: {
+              type: 'string',
+              description: 'Google Maps URL for the main destination. Format: https://www.google.com/maps/search/?api=1&query=URL_ENCODED_DESTINATION. Example: For San Diego trip use https://www.google.com/maps/search/?api=1&query=San+Diego+CA'
             }
           },
-          required: ['title', 'description', 'tasks', 'budget']
+          required: ['title', 'description', 'tasks', 'budget', 'destinationUrl']
         },
         redirectToPlanning: {
           type: 'boolean',
@@ -2313,11 +2518,23 @@ function getPlanningTool(mode: 'quick' | 'smart') {
 
 export class SimpleConversationalPlanner {
   private llmProvider: LLMProvider;
+  private providerName: 'openai' | 'claude' | 'gemini';
 
-  constructor(provider: 'openai' | 'claude' = 'openai') {
-    this.llmProvider = provider === 'claude'
-      ? new AnthropicProvider()
-      : new OpenAIProvider();
+  constructor(provider: 'openai' | 'claude' | 'gemini' = 'gemini') {
+    this.providerName = provider;
+
+    // Default to Gemini for real-time grounding capabilities
+    // Falls back to OpenAI if Gemini is not configured
+    if (provider === 'gemini' && isGeminiConfigured()) {
+      this.llmProvider = new GeminiProvider();
+      console.log('[SIMPLE_PLANNER] Using Gemini provider with Google Search + Maps grounding');
+    } else if (provider === 'claude') {
+      this.llmProvider = new AnthropicProvider();
+      console.log('[SIMPLE_PLANNER] Using Claude/Anthropic provider');
+    } else {
+      this.llmProvider = new OpenAIProvider();
+      console.log('[SIMPLE_PLANNER] Using OpenAI provider');
+    }
   }
 
   /**
@@ -2331,6 +2548,7 @@ export class SimpleConversationalPlanner {
     mode: 'quick' | 'smart' = 'quick',
     options?: {
       todaysTheme?: { themeId: string; themeName: string; } | null;
+      userLocation?: { latitude: number; longitude: number; city?: string; };
     }
   ): Promise<PlanningResponse> {
     console.log(`[SIMPLE_PLANNER] Processing message for user ${userId} in ${mode} mode`);
@@ -2375,6 +2593,12 @@ export class SimpleConversationalPlanner {
       if (options?.todaysTheme) {
         context.todaysTheme = options.todaysTheme;
         console.log(`[SIMPLE_PLANNER] 🎯 Today's theme: ${options.todaysTheme.themeName} (will apply: ${context.dateReference?.isTodayPlan !== false})`);
+      }
+
+      // Add user GPS location for Gemini Maps grounding
+      if (options?.userLocation) {
+        context.userLocation = options.userLocation;
+        console.log(`[SIMPLE_PLANNER] 📍 User GPS location: ${options.userLocation.city || `${options.userLocation.latitude}, ${options.userLocation.longitude}`}`);
       }
 
       // 2. Build conversation history

@@ -12,6 +12,7 @@ import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCir
 import { useToast } from '@/hooks/use-toast';
 import { useKeywordDetection, getCategoryColor } from '@/hooks/useKeywordDetection';
 import { useLocation } from 'wouter';
+import { useDeviceLocation } from '@/hooks/useDeviceLocation';
 import TemplateSelector from './TemplateSelector';
 import JournalTimeline from './JournalTimeline';
 import JournalOnboarding from './JournalOnboarding';
@@ -69,6 +70,7 @@ interface ConversationalPlannerProps {
 export default function ConversationalPlanner({ onClose, initialMode, activityId, activityTitle, user, onSignInRequired }: ConversationalPlannerProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { location: deviceLocation, requestLocation, isGranted: hasLocationPermission } = useDeviceLocation();
   const [currentSession, setCurrentSession] = useState<PlannerSession | null>(null);
   const [message, setMessage] = useState('');
   const [contextChips, setContextChips] = useState<ContextChip[]>([]);
@@ -182,6 +184,17 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     localStorage.removeItem('planner_mode');
     localStorage.removeItem('planner_chips');
   }, []);
+
+  // Request location permission for quick/smart planning modes (enables Gemini Maps grounding)
+  useEffect(() => {
+    if ((planningMode === 'quick' || planningMode === 'smart') && !hasLocationPermission) {
+      // Silently request location - the hook handles errors gracefully
+      requestLocation().catch(() => {
+        // Location not available is fine - planner will work without it
+        console.log('[Planner] Location not available, proceeding without GPS grounding');
+      });
+    }
+  }, [planningMode, hasLocationPermission, requestLocation]);
 
   // Pre-fill journal when activity context is provided
   useEffect(() => {
@@ -401,7 +414,13 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
           message: messageData.message,
           conversationHistory: messageData.conversationHistory,
           mode: messageData.mode,
-          sessionId: currentSession?.id // Send session ID for plan retrieval
+          sessionId: currentSession?.id, // Send session ID for plan retrieval
+          // Pass GPS location for Gemini Maps grounding (real-time venue recommendations)
+          location: deviceLocation ? {
+            latitude: deviceLocation.latitude,
+            longitude: deviceLocation.longitude,
+            city: deviceLocation.city
+          } : undefined
         })
       });
 
@@ -2849,10 +2868,22 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                 {/* Activity info overlay */}
                 <div className="absolute bottom-4 left-4 right-4 text-white">
                   <div className="flex items-center gap-2 mb-2">
-                    <Target className="h-5 w-5 drop-shadow-lg" />
-                    <h2 className="text-xl font-bold drop-shadow-lg">
-                      {pendingPlan.activity?.title || "Your Activity"}
-                    </h2>
+                    <Crosshair className="h-5 w-5 drop-shadow-lg animate-pulse" />
+                    {pendingPlan.destinationUrl ? (
+                      <a
+                        href={pendingPlan.destinationUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xl font-bold drop-shadow-lg hover:underline flex items-center gap-2"
+                      >
+                        {pendingPlan.activity?.title || "Your Activity"}
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    ) : (
+                      <h2 className="text-xl font-bold drop-shadow-lg">
+                        {pendingPlan.activity?.title || "Your Activity"}
+                      </h2>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
@@ -3237,8 +3268,20 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-lg flex items-center gap-2">
-                        <Target className="h-5 w-5 text-emerald-500" />
-                        {parsedLLMContent.activity?.title || "New Activity"}
+                        <Crosshair className="h-5 w-5 text-emerald-500 animate-pulse" />
+                        {parsedLLMContent.destinationUrl ? (
+                          <a
+                            href={parsedLLMContent.destinationUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline hover:text-emerald-600 flex items-center gap-2"
+                          >
+                            {parsedLLMContent.activity?.title || "New Activity"}
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        ) : (
+                          parsedLLMContent.activity?.title || "New Activity"
+                        )}
                       </CardTitle>
                       <Badge variant="outline" className="mt-2">
                         {parsedLLMContent.activity?.category || "General"}

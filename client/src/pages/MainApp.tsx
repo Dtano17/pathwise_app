@@ -171,6 +171,8 @@ import { NotificationBell } from "@/components/NotificationBell";
 import NotificationManager from "@/components/NotificationManager";
 import SmartScheduler from "@/components/SmartScheduler";
 import CelebrationModal from "@/components/CelebrationModal";
+import AddTaskDialog from "@/components/AddTaskDialog";
+import EditTaskDialog from "@/components/EditTaskDialog";
 import { initializeSocket, disconnectSocket } from "@/lib/socket";
 import OnboardingTutorial from "@/components/OnboardingTutorial";
 import { UpgradeModal } from "@/components/UpgradeModal";
@@ -407,6 +409,10 @@ export default function MainApp({
   const [selectedPriority, setSelectedPriority] = useState("all");
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Task dialog state
+  const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // Activity completion celebration state
   const [completedActivities, setCompletedActivities] = useState(
@@ -3471,6 +3477,14 @@ export default function MainApp({
                         Manage and track all your tasks. Use filters to find
                         specific tasks.
                       </p>
+                      <Button
+                        onClick={() => setShowAddTaskDialog(true)}
+                        className="mt-4 gap-2"
+                        data-testid="button-add-task"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Task
+                      </Button>
                     </>
                   )}
                 </div>
@@ -3500,16 +3514,25 @@ export default function MainApp({
                       No Tasks Yet
                     </h3>
                     <p className="text-muted-foreground mb-6">
-                      Create activities with goals to generate tasks
-                      automatically
+                      Create a task manually or generate tasks from activities.
                     </p>
-                    <Button
-                      onClick={() => setActiveTab("input")}
-                      className="gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Create Your First Goal
-                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <Button
+                        onClick={() => setShowAddTaskDialog(true)}
+                        className="gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Task
+                      </Button>
+                      <Button
+                        onClick={() => setActiveTab("input")}
+                        variant="outline"
+                        className="gap-2"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Create a Plan
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4 max-w-4xl mx-auto">
@@ -3670,6 +3693,13 @@ export default function MainApp({
                             handleArchiveTask.mutate(taskId)
                           }
                           onUncomplete={handleUncompleteTask}
+                          onEdit={(taskData) => {
+                            // Find the full task from the tasks array
+                            const fullTask = tasks.find(t => t.id === taskData.id);
+                            if (fullTask) {
+                              setEditingTask(fullTask);
+                            }
+                          }}
                           showConfetti={true}
                           data-testid={`task-card-${task.id}`}
                         />
@@ -5235,6 +5265,22 @@ export default function MainApp({
         onOpenChange={setShowDiscoverSignIn}
         title="Sign In to Use This Plan"
         description="Sign in to use this plan and track your progress"
+      />
+
+      {/* Add Task Dialog */}
+      <AddTaskDialog
+        open={showAddTaskDialog}
+        onOpenChange={setShowAddTaskDialog}
+        activityId={selectedActivityId || undefined}
+      />
+
+      {/* Edit Task Dialog */}
+      <EditTaskDialog
+        task={editingTask}
+        open={!!editingTask}
+        onOpenChange={(open) => {
+          if (!open) setEditingTask(null);
+        }}
       />
     </div>
   );

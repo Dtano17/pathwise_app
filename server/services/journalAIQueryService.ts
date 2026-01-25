@@ -4,7 +4,7 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 });
 
-export type EnrichmentAPI = 'tmdb' | 'google_books' | 'spotify' | 'tavily' | 'ai_query';
+export type EnrichmentAPI = 'tmdb' | 'google_books' | 'spotify' | 'google_places' | 'tavily' | 'ai_query';
 
 export interface AIQueryResult {
   recommendedAPI: EnrichmentAPI;  // Which API/approach to use
@@ -65,8 +65,9 @@ Available APIs:
 1. TMDB (The Movie Database) - For movies, TV shows, documentaries
 2. Google Books - For books, novels, textbooks, magazines
 3. Spotify - For music, albums, songs, concerts, music events
-4. Tavily - General web search for any other content
-5. AI Query - Custom AI-generated query for web search when content is ambiguous
+4. Google Places - For restaurants, cafes, bars, venues with official photos
+5. Tavily - General web search for any other content
+6. AI Query - Custom AI-generated query for web search when content is ambiguous
 
 Analyze this entry and determine:
 1. What is the PRIMARY subject? (movie, book, music, restaurant, outdoor event, fitness, etc.)
@@ -78,7 +79,8 @@ Decision Guidelines:
 - Choose TMDB if: Entry clearly mentions watching/seeing a movie, TV show, or documentary
 - Choose Google Books if: Entry clearly mentions reading a book, novel, or publication
 - Choose Spotify if: Entry mentions listening to music, attending a concert, or specific songs/albums
-- Choose Tavily if: Entry is about restaurants, travel, activities, events, fitness, or general experiences
+- Choose Google Places if: Entry mentions a specific restaurant, cafe, bar, or food venue by name
+- Choose Tavily if: Entry is about travel, activities, events, fitness, or general experiences
 - Choose AI Query if: Content is ambiguous and needs custom intelligent query generation
 
 For TMDB/Books/Spotify:
@@ -93,7 +95,7 @@ For Tavily/AI Query:
 
 Return JSON:
 {
-  "recommendedAPI": "tmdb" | "google_books" | "spotify" | "tavily" | "ai_query",
+  "recommendedAPI": "tmdb" | "google_books" | "spotify" | "google_places" | "tavily" | "ai_query",
   "searchQuery": "optimized query for the recommended API",
   "contentType": "movie|book|music|restaurant|outdoor_event|fitness|etc",
   "confidence": 0.0-1.0,
