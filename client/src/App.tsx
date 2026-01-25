@@ -37,6 +37,7 @@ const PerplexityPlans = lazy(() => import("@/pages/PerplexityPlans"));
 const WeekendPlans = lazy(() => import("@/pages/WeekendPlans"));
 const ImportPlan = lazy(() => import("@/pages/ImportPlan"));
 const MobileAuthCallback = lazy(() => import("@/pages/MobileAuthCallback"));
+const VerifyPage = lazy(() => import("@/pages/VerifyPage"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -132,6 +133,14 @@ function AppContent() {
 
           {/* Import Plan Page (publicly accessible with sign-in wall) */}
           <Route path="/import-plan" component={ImportPlan} />
+
+          {/* VerifyMate - Content Verification Page */}
+          <Route path="/verify">
+            <ProtectedRoute>
+              <VerifyPage />
+            </ProtectedRoute>
+          </Route>
+          <Route path="/verify/result/:shareToken" component={VerifyPage} />
 
           {/* Main App Route - Protected with Sidebar */}
           <Route path="/app">

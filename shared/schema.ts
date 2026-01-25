@@ -2230,3 +2230,104 @@ export const insertJournalEnrichmentCacheSchema = createInsertSchema(journalEnri
 
 export type JournalEnrichmentCache = typeof journalEnrichmentCache.$inferSelect;
 export type InsertJournalEnrichmentCache = z.infer<typeof insertJournalEnrichmentCacheSchema>;
+
+// VerifyMate: Content verifications table for fact-checking and trust scores
+export const verifications = pgTable("verifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+
+  // Source content
+  sourceUrl: text("source_url"), // Original URL of the post
+  sourcePlatform: varchar("source_platform", { length: 50 }), // 'instagram' | 'tiktok' | 'youtube' | 'x' | 'facebook' | 'threads' | 'linkedin' | 'news' | 'screenshot'
+  sourceContent: text("source_content"), // Extracted text content
+  sourceMediaUrls: jsonb("source_media_urls").$type<string[]>().default([]), // Images/videos from the post
+  sourceAuthor: jsonb("source_author").$type<{
+    username?: string;
+    displayName?: string;
+    followers?: number;
+    verified?: boolean;
+    accountAge?: string;
+  }>(),
+
+  // Overall verdict
+  trustScore: integer("trust_score").notNull(), // 0-100 overall trust score
+  verdict: varchar("verdict", { length: 20 }).notNull(), // 'verified' | 'mostly_true' | 'mixed' | 'misleading' | 'false' | 'unverifiable'
+  verdictSummary: text("verdict_summary").notNull(), // AI-generated summary of the verdict
+
+  // Claims analysis
+  claims: jsonb("claims").$type<Array<{
+    id: string;
+    text: string;
+    type: 'factual' | 'opinion' | 'speculation' | 'exaggeration' | 'misleading';
+    verdict: 'verified' | 'partially_true' | 'unverified' | 'false' | 'opinion';
+    confidence: number; // 0-100
+    evidence?: string;
+    sources?: Array<{ title: string; url: string; credibility?: number }>;
+  }>>().default([]),
+
+  // AI content detection
+  aiDetection: jsonb("ai_detection").$type<{
+    isAiGenerated: boolean;
+    confidence: number;
+    textAiScore?: number; // 0-100 likelihood text is AI-generated
+    imageAiScore?: number; // 0-100 likelihood images are AI-generated
+    videoAiScore?: number; // 0-100 likelihood video is AI-generated/deepfake
+    synthIdDetected?: boolean; // Google SynthID watermark detected
+    detectionMethod?: string; // 'synthid' | 'hive' | 'pattern_analysis'
+  }>(),
+
+  // Account/Bot analysis
+  accountAnalysis: jsonb("account_analysis").$type<{
+    isSuspectedBot: boolean;
+    botScore: number; // 0-100 likelihood of being a bot
+    redFlags?: string[]; // List of suspicious patterns
+    accountCredibility: number; // 0-100 account credibility score
+  }>(),
+
+  // Business verification (if applicable)
+  businessVerification: jsonb("business_verification").$type<{
+    businessName?: string;
+    isVerified: boolean;
+    bbbRating?: string;
+    bbbAccredited?: boolean;
+    trustpilotScore?: number;
+    domainAge?: string;
+    domainRegistrar?: string;
+    scamAdviserScore?: number;
+    redFlags?: string[];
+    recommendations?: string[];
+  }>(),
+
+  // Bias and source analysis
+  biasAnalysis: jsonb("bias_analysis").$type<{
+    politicalBias?: 'left' | 'center-left' | 'center' | 'center-right' | 'right' | 'unknown';
+    sensationalism: number; // 0-100
+    emotionalLanguage: number; // 0-100
+    clickbait: boolean;
+  }>(),
+
+  // Processing metadata
+  processingTimeMs: integer("processing_time_ms"),
+  geminiModel: varchar("gemini_model", { length: 50 }),
+  webGroundingUsed: boolean("web_grounding_used").default(false),
+
+  // Share functionality
+  isPublic: boolean("is_public").default(false),
+  shareToken: varchar("share_token").unique(),
+
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIndex: index("verifications_user_id_idx").on(table.userId),
+  trustScoreIndex: index("verifications_trust_score_idx").on(table.trustScore),
+  verdictIndex: index("verifications_verdict_idx").on(table.verdict),
+  shareTokenIndex: uniqueIndex("verifications_share_token_idx").on(table.shareToken),
+}));
+
+// Zod schema for verifications
+export const insertVerificationSchema = createInsertSchema(verifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Verification = typeof verifications.$inferSelect;
+export type InsertVerification = z.infer<typeof insertVerificationSchema>;

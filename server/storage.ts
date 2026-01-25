@@ -90,6 +90,8 @@ import {
   type InsertMobilePreferences,
   type JournalEnrichmentCache,
   type InsertJournalEnrichmentCache,
+  type Verification,
+  type InsertVerification,
   users,
   goals,
   tasks,
@@ -132,7 +134,8 @@ import {
   userSavedContent,
   contentImports,
   mobilePreferences,
-  journalEnrichmentCache
+  journalEnrichmentCache,
+  verifications
 } from "@shared/schema";
 
 const pool = new Pool({
@@ -4435,6 +4438,77 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(journalEnrichmentCache)
       .where(inArray(journalEnrichmentCache.cacheKey, cacheKeys));
+  }
+
+  // VerifyMate: Content Verification Methods
+  async createVerification(data: InsertVerification & { userId: string }): Promise<Verification> {
+    const [result] = await db
+      .insert(verifications)
+      .values(data)
+      .returning();
+    return result;
+  }
+
+  async getVerification(id: string): Promise<Verification | undefined> {
+    const [result] = await db
+      .select()
+      .from(verifications)
+      .where(eq(verifications.id, id));
+    return result;
+  }
+
+  async getVerificationByShareToken(shareToken: string): Promise<Verification | undefined> {
+    const [result] = await db
+      .select()
+      .from(verifications)
+      .where(eq(verifications.shareToken, shareToken));
+    return result;
+  }
+
+  async getUserVerifications(userId: string): Promise<Verification[]> {
+    return db
+      .select()
+      .from(verifications)
+      .where(eq(verifications.userId, userId))
+      .orderBy(desc(verifications.createdAt));
+  }
+
+  async getUserVerificationsThisMonth(userId: string): Promise<number> {
+    // Get the start of the current month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const result = await db
+      .select()
+      .from(verifications)
+      .where(
+        and(
+          eq(verifications.userId, userId),
+          sql`${verifications.createdAt} >= ${startOfMonth}`
+        )
+      );
+
+    return result.length;
+  }
+
+  async updateVerificationVisibility(id: string, isPublic: boolean): Promise<Verification | undefined> {
+    const [result] = await db
+      .update(verifications)
+      .set({ isPublic })
+      .where(eq(verifications.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteVerification(id: string, userId: string): Promise<void> {
+    await db
+      .delete(verifications)
+      .where(
+        and(
+          eq(verifications.id, id),
+          eq(verifications.userId, userId)
+        )
+      );
   }
 }
 
