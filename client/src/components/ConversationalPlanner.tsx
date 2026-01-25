@@ -666,15 +666,31 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
   const handleSendMessage = () => {
     if (!message.trim()) return;
     if (!planningMode || (planningMode !== 'quick' && planningMode !== 'smart')) return;
-    
-    // ✅ CRITICAL FIX: Compute conversation history BEFORE clearing session
-    // If session is complete, send empty history to trigger fresh session creation on backend
-    const conversationHistory = currentSession?.isComplete ? [] : (currentSession?.conversationHistory || []);
-    
-    if (currentSession?.isComplete) {
-      console.log('[PLANNER] Detected completed session, sending empty history for fresh start');
+
+    // ✅ CRITICAL FIX: Determine if this is a fresh conversation
+    // A fresh conversation is when:
+    // 1. Session is marked as complete (plan was created)
+    // 2. Session has no history yet (just created via handleModeSelect)
+    // 3. Session ID starts with 'temp-' (not yet confirmed by backend)
+    const isSessionComplete = currentSession?.isComplete === true;
+    const isNewTempSession = currentSession?.id?.startsWith('temp-');
+    const hasNoHistory = !currentSession?.conversationHistory || currentSession.conversationHistory.length === 0;
+    const isFreshConversation = isSessionComplete || isNewTempSession || hasNoHistory;
+
+    // For fresh conversations, ALWAYS send empty history to trigger backend session creation
+    const conversationHistory = isFreshConversation ? [] : (currentSession?.conversationHistory || []);
+
+    if (isFreshConversation) {
+      console.log('[PLANNER] Starting fresh conversation - sending empty history', {
+        isSessionComplete,
+        isNewTempSession,
+        hasNoHistory,
+        existingHistoryLength: currentSession?.conversationHistory?.length || 0
+      });
+    } else {
+      console.log('[PLANNER] Continuing conversation with', conversationHistory.length, 'messages');
     }
-    
+
     sendMessageMutation.mutate({
       message: message.trim(),
       mode: planningMode,

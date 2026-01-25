@@ -1191,21 +1191,28 @@ You MUST respond with a valid JSON object with this exact structure:
   "readyToGenerate": boolean,
   "plan": null or {
     "title": "Activity Title",
+    "emoji": "Single emoji representing the activity (🍽️ for dining, ✈️ for travel, 💪 for fitness, 🎬 for movies, etc.)",
     "description": "Brief overview of the plan",
     "destinationUrl": "https://www.google.com/maps/search/?api=1&query=Main+Destination+Name",
+    "startDate": "YYYY-MM-DD format if user mentioned dates",
+    "endDate": "YYYY-MM-DD format for multi-day activities",
     "tasks": [
       {
-        "title": "Task/Step title",
-        "description": "Detailed description with real venue names, times, costs",
-        "duration": "e.g., 2 hours",
-        "tips": ["practical tips"]
+        "taskName": "Task/Step title",
+        "duration": 60,
+        "scheduledDate": "YYYY-MM-DD",
+        "startTime": "HH:MM (24-hour format)",
+        "notes": "Detailed description with real venue names, times, costs",
+        "category": "dining/travel/activity/etc",
+        "priority": "high/medium/low"
       }
     ],
     "budget": {
-      "estimated": number,
+      "total": number,
       "breakdown": [
-        { "item": "Item name", "cost": number, "notes": "e.g., $50 × 2 people = $100" }
-      ]
+        { "category": "Item name", "amount": number, "notes": "e.g., $50 × 2 people = $100" }
+      ],
+      "buffer": number
     },
     "tips": ["General tips for the activity"]
   },
@@ -1219,6 +1226,10 @@ IMPORTANT for destinationUrl:
 - Example: For "Pizzeria Mozza" → "https://www.google.com/maps/search/?api=1&query=Pizzeria+Mozza+Los+Angeles"
 - DO NOT include "Activity Link" section in the message - put the URL ONLY in plan.destinationUrl
 - The frontend will render the title as a clickable link using plan.destinationUrl
+
+IMPORTANT for emoji:
+- Always include an "emoji" field in your plan with a SINGLE emoji character
+- Choose the most fitting emoji for the activity type (🍽️ dining, ✈️ travel, 💪 fitness, 🎬 movies, 🎉 parties, etc.)
 `;
 
       const response = await generateWithGrounding(
@@ -1284,8 +1295,53 @@ IMPORTANT for destinationUrl:
           .trim();
       }
 
-      // Validate budget if plan exists
+      // Normalize plan fields for consistency with OpenAI provider format
       if (result.plan) {
+        // Ensure emoji field exists
+        if (!result.plan.emoji) {
+          // Try to infer emoji from category or domain
+          const domain = result.extractedInfo?.domain || result.plan.category || '';
+          result.plan.emoji =
+            domain.includes('dining') || domain.includes('restaurant') || domain.includes('food') ? '🍽️' :
+            domain.includes('travel') || domain.includes('trip') ? '✈️' :
+            domain.includes('fitness') || domain.includes('workout') || domain.includes('gym') ? '💪' :
+            domain.includes('movie') || domain.includes('film') || domain.includes('cinema') ? '🎬' :
+            domain.includes('shop') ? '🛍️' :
+            domain.includes('party') || domain.includes('celebration') ? '🎉' :
+            domain.includes('wellness') || domain.includes('spa') ? '💆' :
+            '📝';
+        }
+
+        // Normalize task fields (Gemini might use title/description vs taskName/notes)
+        if (result.plan.tasks && Array.isArray(result.plan.tasks)) {
+          result.plan.tasks = result.plan.tasks.map((task: any) => ({
+            ...task,
+            taskName: task.taskName || task.title || 'Untitled Task',
+            notes: task.notes || task.description || '',
+            duration: typeof task.duration === 'number' ? task.duration : 60,
+            priority: task.priority || 'medium'
+          }));
+        }
+
+        // Normalize budget fields (Gemini might use estimated vs total)
+        if (result.plan.budget) {
+          if (result.plan.budget.estimated !== undefined && result.plan.budget.total === undefined) {
+            result.plan.budget.total = result.plan.budget.estimated;
+          }
+          if (!result.plan.budget.breakdown) {
+            result.plan.budget.breakdown = [];
+          }
+          if (result.plan.budget.buffer === undefined) {
+            result.plan.budget.buffer = Math.round((result.plan.budget.total || 0) * 0.1);
+          }
+          // Normalize breakdown items
+          result.plan.budget.breakdown = result.plan.budget.breakdown.map((item: any) => ({
+            category: item.category || item.item || 'Other',
+            amount: item.amount || item.cost || 0,
+            notes: item.notes || ''
+          }));
+        }
+
         validateBudgetBreakdown(result.plan);
       }
 
