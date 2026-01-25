@@ -10876,6 +10876,12 @@ Return ONLY valid JSON, no markdown or explanation.`;
         let activity;
         let isUpdate = false;
 
+        // Normalize budget with null safety
+        const planBudget = generatedPlan.budget || { total: 0, breakdown: [], buffer: 0 };
+        const budgetTotal = planBudget.total || planBudget.estimated || 0;
+        const budgetBreakdown = planBudget.breakdown || [];
+        const budgetBuffer = planBudget.buffer || 0;
+
         if (existingActivityId) {
           // UPDATE existing activity
           console.log(`♻️ [ACTIVITY UPDATE] Updating existing activity: ${existingActivityId}`);
@@ -10884,13 +10890,13 @@ Return ONLY valid JSON, no markdown or explanation.`;
           const updateEndDate = parseDate(generatedPlan.activity?.endDate || generatedPlan.endDate);
 
           activity = await storage.updateActivity(existingActivityId, {
-            title: generatedPlan.title,
-            description: generatedPlan.description,
+            title: generatedPlan.title || 'Untitled Plan',
+            description: generatedPlan.description || '',
             category: generatedPlan.domain || generatedPlan.category || 'personal',
             status: 'planning',
-            budget: Math.round(generatedPlan.budget.total * 100),
-            budgetBreakdown: generatedPlan.budget.breakdown,
-            budgetBuffer: generatedPlan.budget.buffer ? Math.round(generatedPlan.budget.buffer * 100) : 0,
+            budget: Math.round(budgetTotal * 100),
+            budgetBreakdown: budgetBreakdown,
+            budgetBuffer: Math.round(budgetBuffer * 100),
             startDate: updateStartDate || undefined,
             endDate: updateEndDate || undefined
           }, userId);
@@ -10903,13 +10909,13 @@ Return ONLY valid JSON, no markdown or explanation.`;
             const activityEndDate = parseDate(generatedPlan.activity?.endDate || generatedPlan.endDate);
 
             activity = await storage.createActivity({
-              title: generatedPlan.title,
-              description: generatedPlan.description,
+              title: generatedPlan.title || 'Untitled Plan',
+              description: generatedPlan.description || '',
               category: generatedPlan.domain || generatedPlan.category || 'personal',
               status: 'planning',
-              budget: Math.round(generatedPlan.budget.total * 100),
-              budgetBreakdown: generatedPlan.budget.breakdown,
-              budgetBuffer: generatedPlan.budget.buffer ? Math.round(generatedPlan.budget.buffer * 100) : 0,
+              budget: Math.round(budgetTotal * 100),
+              budgetBreakdown: budgetBreakdown,
+              budgetBuffer: Math.round(budgetBuffer * 100),
               startDate: activityStartDate || undefined,
               endDate: activityEndDate || undefined,
               userId
@@ -10930,13 +10936,13 @@ Return ONLY valid JSON, no markdown or explanation.`;
           const activityEndDate = parseDate(generatedPlan.activity?.endDate || generatedPlan.endDate);
 
           activity = await storage.createActivity({
-            title: generatedPlan.title,
-            description: generatedPlan.description,
+            title: generatedPlan.title || 'Untitled Plan',
+            description: generatedPlan.description || '',
             category: generatedPlan.domain || generatedPlan.category || 'personal',
             status: 'planning',
-            budget: Math.round(generatedPlan.budget.total * 100),
-            budgetBreakdown: generatedPlan.budget.breakdown,
-            budgetBuffer: generatedPlan.budget.buffer ? Math.round(generatedPlan.budget.buffer * 100) : 0,
+            budget: Math.round(budgetTotal * 100),
+            budgetBreakdown: budgetBreakdown,
+            budgetBuffer: Math.round(budgetBuffer * 100),
             startDate: activityStartDate || undefined,
             endDate: activityEndDate || undefined,
             userId
@@ -10949,10 +10955,14 @@ Return ONLY valid JSON, no markdown or explanation.`;
           for (let i = 0; i < generatedPlan.tasks.length; i++) {
             const taskData = generatedPlan.tasks[i];
 
-            // Match budget breakdown to task category
-            const budgetItem = generatedPlan.budget.breakdown.find(
-              (item: any) => item.category.toLowerCase().includes(taskData.category?.toLowerCase() || '') ||
-                             (taskData.taskName || taskData.title)?.toLowerCase().includes(item.category.toLowerCase())
+            // Match budget breakdown to task category (with null safety)
+            const budgetItem = generatedPlan.budget?.breakdown?.find(
+              (item: any) => {
+                const itemCategory = (item.category || item.item || '').toLowerCase();
+                const taskCategory = (taskData.category || '').toLowerCase();
+                const taskName = (taskData.taskName || taskData.title || '').toLowerCase();
+                return itemCategory.includes(taskCategory) || taskName.includes(itemCategory);
+              }
             );
 
             // Build dueDate from scheduledDate and startTime if available
