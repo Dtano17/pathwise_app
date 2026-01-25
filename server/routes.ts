@@ -10998,8 +10998,16 @@ Return ONLY valid JSON, no markdown or explanation.`;
         const host = req.get('host') || 'journalmate.replit.app';
         const activityUrl = `${protocol}://${host}/activities/${activity.id}`;
 
+        // Use AI-provided emoji from the generated plan, fallback to 📝 if not provided
+        const activityEmoji = generatedPlan.emoji || '📝';
+
+        // Create clickable activity title link that navigates to the activity in the app
+        const activityLink = `[${activityEmoji} ${activity.title}](/app?activity=${activity.id}&tab=Activities)`;
+
         return res.json({
-          message: isUpdate ? `♻️ Your plan has been updated!` : `✨ Your plan is ready!`,
+          message: isUpdate
+            ? `${activityLink}\n\n♻️ Your plan has been updated!`
+            : `${activityLink}\n\n✨ Your plan is ready!`,
           activityCreated: !isUpdate,
           activityUpdated: isUpdate,
           activity,

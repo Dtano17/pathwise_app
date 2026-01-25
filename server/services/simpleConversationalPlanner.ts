@@ -2401,6 +2401,10 @@ function getPlanningTool(mode: 'quick' | 'smart') {
           description: 'The generated plan (ONLY include if readyToGenerate is true)',
           properties: {
             title: { type: 'string' },
+            emoji: {
+              type: 'string',
+              description: 'A single emoji that best represents this activity (e.g., 🍽️ for dining, ✈️ for travel, 💪 for fitness, 🎬 for movies, 🎉 for parties, 🏖️ for beach, 🎿 for skiing, 💆 for spa, 🎭 for theater, etc.). Choose the most fitting emoji based on the actual activity content.'
+            },
             description: { type: 'string' },
             startDate: {
               type: 'string',
@@ -2624,13 +2628,17 @@ export class SimpleConversationalPlanner {
         mode
       );
 
-      // Add clickable title and icon to response message if a plan was generated
+      // Add title with AI-determined emoji to response message if a plan was generated
+      // Note: No link here because activity doesn't exist yet - link is added after confirmation in routes.ts
       if (response.readyToGenerate && response.plan && response.plan.title) {
-        const activityIcon = "🎯"; // Target/concentric circles icon
-        const activityLink = `[${activityIcon} ${response.plan.title}](https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(response.plan.title)})`;
-        
+        // Use AI-provided emoji, fallback to 📝 if not provided
+        const activityEmoji = response.plan.emoji || '📝';
+
+        // Just show the title with emoji and bold, no link (activity doesn't exist yet)
+        const activityHeader = `${activityEmoji} **${response.plan.title}**`;
+
         if (!response.message.includes(response.plan.title)) {
-          response.message = `${activityLink}\n\n${response.message}`;
+          response.message = `${activityHeader}\n\n${response.message}`;
         }
       }
 
@@ -2930,13 +2938,17 @@ export class SimpleConversationalPlanner {
         );
       }
 
-      // Add clickable title and icon to response message if a plan was generated
+      // Add title with AI-determined emoji to response message if a plan was generated
+      // Note: No link here because activity doesn't exist yet - link is added after confirmation in routes.ts
       if (response.readyToGenerate && response.plan && response.plan.title) {
-        const activityIcon = "🎯"; // Target/concentric circles icon
-        const activityLink = `[${activityIcon} ${response.plan.title}](https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(response.plan.title)})`;
-        
+        // Use AI-provided emoji, fallback to 📝 if not provided
+        const activityEmoji = response.plan.emoji || '📝';
+
+        // Just show the title with emoji and bold, no link (activity doesn't exist yet)
+        const activityHeader = `${activityEmoji} **${response.plan.title}**`;
+
         if (!response.message.includes(response.plan.title)) {
-          response.message = `${activityLink}\n\n${response.message}`;
+          response.message = `${activityHeader}\n\n${response.message}`;
         }
       }
 
