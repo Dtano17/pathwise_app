@@ -1596,7 +1596,7 @@ Thanks for the details! Let's proceed with a few more questions to refine your t
 
 **6. 🎯 Any specific activities or attractions you want to include?** (e.g., sightseeing, shopping, dining)
 
-(Say 'create plan' anytime!)
+(💡 Say "preview", "yes/generate", or "continue")
 \`\`\`
 
 **❌ Bad (Plain numbered list):**
@@ -1686,7 +1686,7 @@ ${mode === 'quick' ? `
 **Quick Mode - STRICT 2-Batch System (5 total questions):**
 
 **🚨 CRITICAL BATCHING RULES:**
-- **Batch 1 (Turn 1):** Ask EXACTLY 3 questions together in a numbered list. End: "(Say 'create plan' anytime!)"
+- **Batch 1 (Turn 1):** Ask EXACTLY 3 questions together in a numbered list. End: "(💡 Say "preview", "yes/generate", or "continue")"
 - **Batch 2 (Turn 2):** Ask EXACTLY 2 MORE questions together in a numbered list. NO preview yet!
 - **Turn 3+:** Show COMPLETE PLAN PREVIEW with real-time data from web_search. Wait for confirmation.
 
@@ -1707,8 +1707,8 @@ User: "Help plan romantic anniversary trip to Paris"
 - Keep batches conversational but structured
 ` : `
 **Smart Mode - 3 Batches (10 total):**
-- **Batch 1:** Ask 3 questions. Skip already-answered. End: "(Say 'create plan' anytime!)"
-- **Batch 2:** Ask 3 MORE. End: "(Remember, 'create plan' anytime!)"
+- **Batch 1:** Ask 3 questions. Skip already-answered. End: "(💡 Say "preview", "yes/generate", or "continue")"
+- **Batch 2:** Ask 3 MORE. End: "(💡 Say "preview", "yes/generate", or "continue")"
 - **Batch 3:** Ask 4 MORE, then show PLAN PREVIEW. Wait for confirmation.
 
 **Organic Inference:** Extract from user's message, skip those questions, ask next priority
@@ -2802,10 +2802,11 @@ export class SimpleConversationalPlanner {
       console.log(`[SIMPLE_PLANNER] Question count: AI reported ${aiReportedCount}, enforced ${questionCount} (based on ${userResponseCount} user responses)`);
 
       // Check if user requested early generation, preview, or continue
+      // Standard commands: "yes/generate" = create plan, "preview" = show preview, "continue" = next question
       const latestUserMessage = messages[messages.length - 1]?.content || '';
-      const createPlanTrigger = /\b(create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready)\b/i.test(latestUserMessage.toLowerCase());
-      const previewTrigger = /\b(preview|show preview|preview plan|show me the plan|what does the plan look like)\b/i.test(latestUserMessage.toLowerCase());
-      const continueTrigger = /\b(continue|go on|next|keep going|next question|more questions)\b/i.test(latestUserMessage.toLowerCase());
+      const createPlanTrigger = /\b(yes|yeah|yep|generate|create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready|do it|confirm)\b/i.test(latestUserMessage.toLowerCase());
+      const previewTrigger = /\b(preview|show preview|preview plan|show me the plan|what does the plan look like|show plan)\b/i.test(latestUserMessage.toLowerCase());
+      const continueTrigger = /\b(continue|go on|next|keep going|next question|more questions|skip)\b/i.test(latestUserMessage.toLowerCase());
 
       // Date parsing fix: Ensure dates are valid Date objects
       if (response.plan) {
@@ -2932,11 +2933,11 @@ export class SimpleConversationalPlanner {
                 ? (questionCount < 6 ? '4-6' : '7-10')
                 : '4-5';
               
-              cleanMessage = `Let me ask you a few more questions to create the best plan:\n\n(You can say 'create plan' anytime if you'd like me to work with what we have!)`;
+              cleanMessage = `Let me ask you a few more questions to create the best plan:\n\n💡 **Pro tip:** Type **preview** to see your plan, **yes** or **generate** to create it, or **continue** for more questions.`;
               console.log(`[SIMPLE_PLANNER] ✅ Entire message was plan content - replaced with question prompt`);
             } else {
               // There was some question content before the plan - keep it and add continuation
-              cleanMessage += `\n\nThese details will help us build a comprehensive plan for your goal.\n\n(You can say 'create plan' anytime if you'd like me to work with what we have!)`;
+              cleanMessage += `\n\nThese details will help us build a comprehensive plan for your goal.\n\n💡 **Pro tip:** Type **preview** to see your plan, **yes** or **generate** to create it, or **continue** for more questions.`;
               console.log(`[SIMPLE_PLANNER] ✅ Stripped plan content, kept questions`);
             }
             
@@ -3103,10 +3104,11 @@ export class SimpleConversationalPlanner {
       const questionCount = response.extractedInfo.questionCount || 0;
 
       // Check if user requested early generation, preview, or continue
+      // Standard commands: "yes/generate" = create plan, "preview" = show preview, "continue" = next question
       const latestUserMessage = messages[messages.length - 1]?.content || '';
-      const createPlanTrigger = /\b(create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready)\b/i.test(latestUserMessage.toLowerCase());
-      const previewTrigger = /\b(preview|show preview|preview plan|show me the plan|what does the plan look like)\b/i.test(latestUserMessage.toLowerCase());
-      const continueTrigger = /\b(continue|go on|next|keep going|next question|more questions)\b/i.test(latestUserMessage.toLowerCase());
+      const createPlanTrigger = /\b(yes|yeah|yep|generate|create plan|generate plan|make plan|make the plan|that's enough|let's do it|good to go|ready to generate|proceed|i'm ready|do it|confirm)\b/i.test(latestUserMessage.toLowerCase());
+      const previewTrigger = /\b(preview|show preview|preview plan|show me the plan|what does the plan look like|show plan)\b/i.test(latestUserMessage.toLowerCase());
+      const continueTrigger = /\b(continue|go on|next|keep going|next question|more questions|skip)\b/i.test(latestUserMessage.toLowerCase());
 
       // Date parsing fix: Ensure dates are valid Date objects
       if (response.plan) {
@@ -3220,11 +3222,11 @@ export class SimpleConversationalPlanner {
                 ? (questionCount < 6 ? '4-6' : '7-10')
                 : '4-5';
               
-              cleanMessage = `Let me ask you a few more questions to create the best plan:\n\n(You can say 'create plan' anytime if you'd like me to work with what we have!)`;
+              cleanMessage = `Let me ask you a few more questions to create the best plan:\n\n💡 **Pro tip:** Type **preview** to see your plan, **yes** or **generate** to create it, or **continue** for more questions.`;
               console.log(`[SIMPLE_PLANNER] ✅ Entire message was plan content - replaced with question prompt`);
             } else {
               // There was some question content before the plan - keep it and add continuation
-              cleanMessage += `\n\nThese details will help us build a comprehensive plan for your goal.\n\n(You can say 'create plan' anytime if you'd like me to work with what we have!)`;
+              cleanMessage += `\n\nThese details will help us build a comprehensive plan for your goal.\n\n💡 **Pro tip:** Type **preview** to see your plan, **yes** or **generate** to create it, or **continue** for more questions.`;
               console.log(`[SIMPLE_PLANNER] ✅ Stripped plan content, kept questions`);
             }
             
@@ -3363,6 +3365,7 @@ export class SimpleConversationalPlanner {
 
   /**
    * Generate contextual conversation hints to guide user
+   * Standard commands: "preview", "yes/generate", "continue"
    */
   private generateConversationHints(
     extractedInfo: Record<string, any>,
@@ -3372,11 +3375,14 @@ export class SimpleConversationalPlanner {
   ): string[] {
     const hints: string[] = [];
 
-    // If plan is ready to generate
+    // STANDARD PRO TIPS - Always show these command hints
+    // Format: 💡 Pro tip: Say "command" to action
+
+    // If plan is ready to generate (confirmation phase)
     if (readyToGenerate) {
-      hints.push("Yes, create it!");
-      hints.push("Make some changes");
-      hints.push("Start over");
+      hints.push("✅ Yes"); // or "generate" to create plan
+      hints.push("📝 Make changes");
+      hints.push("🔄 Start over");
       return hints;
     }
 
@@ -3384,32 +3390,34 @@ export class SimpleConversationalPlanner {
     const hasLocation = extractedInfo.location || extractedInfo.destination;
     const hasBudget = extractedInfo.budget;
     const hasDate = extractedInfo.date || extractedInfo.startDate || extractedInfo.when;
+    const hasEnoughInfo = questionCount >= 2 && (hasLocation || hasBudget || hasDate);
 
-    // Early stage hints
-    if (questionCount < 3) {
-      hints.push("Continue");
-      hints.push("I don't know");
-      hints.push("Skip this question");
-    } else {
-      // Mid-stage hints
-      hints.push("Continue");
-      hints.push("That's all I know");
-      if (mode === 'quick') {
-        hints.push("Create plan now");
+    // Standard command hints for every stage
+    if (hasEnoughInfo) {
+      // User has provided some info - offer preview option
+      hints.push("👁️ Preview"); // See plan preview
+      hints.push("➡️ Continue"); // Continue answering questions
+      if (mode === 'quick' || questionCount >= 3) {
+        hints.push("✅ Generate"); // Create plan now
       }
+    } else {
+      // Early stage - basic navigation
+      hints.push("➡️ Continue");
+      hints.push("⏭️ Skip");
+      hints.push("❓ Help");
     }
 
-    // Context-specific suggestions
+    // Context-specific suggestions (secondary hints)
     if (!hasLocation && questionCount > 1) {
-      hints.push("Use my current location");
+      hints.push("📍 Use my location");
     }
 
     if (!hasBudget && questionCount > 2) {
-      hints.push("Flexible budget");
+      hints.push("💰 Flexible budget");
     }
 
     if (!hasDate && questionCount > 2) {
-      hints.push("This weekend");
+      hints.push("📅 This weekend");
     }
 
     return hints.slice(0, 5); // Limit to 5 hints for clean UI

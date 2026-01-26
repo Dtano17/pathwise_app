@@ -166,7 +166,10 @@ function formatPlanPreview(plan: any): string {
 
 // Helper function to format activity success message with clickable link
 function formatActivitySuccessMessage(activity: { id: string; title: string }, emoji: string = '📝', isUpdate: boolean = false): string {
-  const activityLink = `[${emoji} ${activity.title}](/app?activity=${activity.id}&tab=Activities)`;
+  // Use full URL for better compatibility with markdown rendering
+  const baseUrl = process.env.APP_URL || 'https://journalmate.ai';
+  const activityUrl = `${baseUrl}/app?activity=${activity.id}&tab=Activities`;
+  const activityLink = `[${emoji} ${activity.title}](${activityUrl})`;
   return isUpdate
     ? `${activityLink}\n\n♻️ Your plan has been updated!`
     : `${activityLink}\n\n✨ Your plan is ready!`;
