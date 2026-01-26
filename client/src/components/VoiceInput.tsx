@@ -900,7 +900,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
               localStorage.removeItem('planner_chips');
               localStorage.removeItem('voice_input_draft');
               // Clear input
-              setInput('');
+              setText('');
               toast({
                 title: "New Chat",
                 description: "Starting fresh conversation!",
