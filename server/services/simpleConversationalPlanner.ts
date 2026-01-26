@@ -1551,7 +1551,7 @@ When generating plans and suggestions for TODAY:
 **THIS DATA WAS JUST FETCHED - YOU MUST USE IT!**
 
 ${hasAlerts ? `### 🚨 ACTIVE WEATHER ALERTS:
-${weather.alerts.map(a => `- **${a.type}**: ${a.description}`).join('\n')}
+${weather.alerts.map(a => `- ${a}`).join('\n')}
 
 **⚠️ CRITICAL INSTRUCTIONS FOR ALERTS:**
 1. **MENTION THIS IMMEDIATELY** in your FIRST response - BEFORE asking planning questions
