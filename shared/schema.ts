@@ -44,6 +44,9 @@ export const users = pgTable("users", {
   primaryGoalCategories: jsonb("primary_goal_categories").$type<string[]>().default([]), // ['health', 'work', 'personal', etc.]
   motivationStyle: text("motivation_style"), // 'achievement' | 'progress' | 'social' | 'rewards'
   difficultyPreference: text("difficulty_preference").default("medium"), // 'easy' | 'medium' | 'challenging'
+
+  // Legacy/discovery fields (keep for production compatibility)
+  hasDiscoveryBonus: boolean("has_discovery_bonus").default(false),
   
   // Personality insights
   interests: jsonb("interests").$type<string[]>().default([]),
@@ -1441,8 +1444,11 @@ export const userProfiles = pgTable("user_profiles", {
   nickname: text("nickname"), // Display name / preferred name
   publicBio: text("public_bio"), // Public bio visible to others
   privateBio: text("private_bio"), // Private notes only visible to the user
+  bio: text("bio"), // Legacy bio field (keep for production compatibility)
   height: text("height"), // Height as string (e.g., "5'10" or "178cm")
   weight: text("weight"), // Weight as string (e.g., "170 lbs" or "77kg")
+  heightCm: integer("height_cm"), // Legacy height in cm (keep for production compatibility)
+  weightKg: integer("weight_kg"), // Legacy weight in kg (keep for production compatibility)
   birthDate: text("birth_date"), // YYYY-MM-DD format for age calculation
   sex: text("sex"), // 'male' | 'female' | 'other' | 'prefer_not_to_say'
   ethnicity: text("ethnicity"), // Self-identified ethnicity
