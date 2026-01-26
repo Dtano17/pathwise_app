@@ -893,14 +893,21 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
             variant="ghost"
             size="sm"
             onClick={() => {
-              // Clear all conversation state
-              setChatMessages([]);
               // Clear any localStorage cache for planner
               localStorage.removeItem('planner_session');
               localStorage.removeItem('planner_chips');
               localStorage.removeItem('voice_input_draft');
               // Clear input
               setText('');
+              // Reset to welcome message (keeps chat view open)
+              const welcomeMessage = currentMode === 'quick'
+                ? "**Quick Plan activated!** Let's create your action plan quickly. What would you like to accomplish? You can also paste a URL to get personalized questions!"
+                : "**Smart Plan activated!** I'll help you create a comprehensive action plan. What's your goal? You can also paste a URL for a personalized experience!";
+              setChatMessages([{
+                role: 'assistant',
+                content: welcomeMessage,
+                timestamp: new Date()
+              }]);
               toast({
                 title: "New Chat",
                 description: "Starting fresh conversation!",
