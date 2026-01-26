@@ -168,7 +168,7 @@ function formatPlanPreview(plan: any): string {
 function formatActivitySuccessMessage(activity: { id: string; title: string }, emoji: string = '📝', isUpdate: boolean = false): string {
   // Use full URL for better compatibility with markdown rendering
   const baseUrl = process.env.APP_URL || 'https://journalmate.ai';
-  const activityUrl = `${baseUrl}/app?activity=${activity.id}&tab=Activities`;
+  const activityUrl = `${baseUrl}/app?activity=${activity.id}&tab=activities`;
   const activityLink = `[${emoji} ${activity.title}](${activityUrl})`;
   return isUpdate
     ? `${activityLink}\n\n♻️ Your plan has been updated!`
@@ -11031,7 +11031,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
 
         // Use AI-provided emoji from the generated plan, fallback to 📝 if not provided
         const activityEmoji = generatedPlan.emoji || '📝';
-        const activityUrl = `/app?activity=${activity.id}&tab=Activities`;
+        const activityUrl = `/app?activity=${activity.id}&tab=activities`;
 
         return res.json({
           message: formatActivitySuccessMessage(activity, activityEmoji, isUpdate),
