@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen, FileText } from 'lucide-react';
+import { Mic, MicOff, Send, Sparkles, Copy, Plus, Upload, Image, MessageCircle, NotebookPen, User, Zap, Brain, ArrowLeft, CheckCircle, Target, ListTodo, Clock, BookOpen, FileText, RotateCcw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { invalidateActivitiesCache } from '@/lib/cacheInvalidation';
 
@@ -884,12 +884,27 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <Badge variant="secondary" className={`text-xs font-medium ${currentMode === 'quick' 
-            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' 
+          <Badge variant="secondary" className={`text-xs font-medium ${currentMode === 'quick'
+            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
             : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'}`}>
             {currentMode === 'quick' ? 'Quick Plan' : 'Smart Plan'}
           </Badge>
-          <div className="w-9" />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setChatMessages([]);
+              toast({
+                title: "New Chat",
+                description: "Starting fresh conversation!",
+              });
+            }}
+            className="h-9 w-9"
+            data-testid="button-new-chat"
+            title="Start new chat"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </Button>
         </div>
 
         {/* Chat Messages - Claude Style */}

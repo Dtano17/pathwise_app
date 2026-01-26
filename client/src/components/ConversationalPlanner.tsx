@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb, Calendar, ExternalLink, Check, Loader2, Link, Crosshair } from 'lucide-react';
+import { Send, Sparkles, Clock, MapPin, Car, Shirt, Zap, MessageCircle, CheckCircle, ArrowRight, Brain, ArrowLeft, RefreshCcw, Target, ListTodo, Eye, FileText, Camera, Upload, Image as ImageIcon, BookOpen, Tag, Lightbulb, Calendar, ExternalLink, Check, Loader2, Link, Crosshair, MessageSquarePlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useKeywordDetection, getCategoryColor } from '@/hooks/useKeywordDetection';
 import { useLocation } from 'wouter';
@@ -1373,6 +1373,29 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
     });
   };
 
+  // Start a new chat session - clears conversation but keeps mode
+  const handleNewChat = () => {
+    // Clear conversation-related localStorage
+    localStorage.removeItem('planner_session');
+    localStorage.removeItem('planner_chips');
+    // Clear conversation state but keep the mode
+    setCurrentSession(null);
+    setContextChips([]);
+    setPendingPlan(null);
+    setGeneratedPlan(null);
+    setShowPlanConfirmation(false);
+    setShowPlanDetails(false);
+    setShowAgreementPrompt(false);
+    setJournalContextInfo(null);
+    setCreatedActivityInfo(null);
+    setMessage('');
+    setMessageActivities(new Map());
+    toast({
+      title: "New Chat Started",
+      description: "Ready for a fresh conversation!",
+    });
+  };
+
   const handleHardRefresh = () => {
     // Clear all localStorage for planner
     localStorage.removeItem('planner_session');
@@ -2273,13 +2296,15 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
             </div>
             <div className="flex gap-2">
               <Button
-                onClick={handleHardRefresh}
-                variant="outline"
+                onClick={handleNewChat}
+                variant="default"
                 size="sm"
-                data-testid="button-hard-refresh"
-                title="Hard refresh - clears all state and cache"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                data-testid="button-new-chat"
+                title="Start a new chat session"
               >
-                <RefreshCcw className="h-4 w-4" />
+                <MessageSquarePlus className="h-4 w-4 mr-2" />
+                New Chat
               </Button>
               <Button
                 onClick={() => {
