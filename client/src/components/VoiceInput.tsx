@@ -893,7 +893,14 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onSubmit, isGenerating = false,
             variant="ghost"
             size="sm"
             onClick={() => {
+              // Clear all conversation state
               setChatMessages([]);
+              // Clear any localStorage cache for planner
+              localStorage.removeItem('planner_session');
+              localStorage.removeItem('planner_chips');
+              localStorage.removeItem('voice_input_draft');
+              // Clear input
+              setInput('');
               toast({
                 title: "New Chat",
                 description: "Starting fresh conversation!",
