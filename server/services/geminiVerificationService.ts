@@ -55,6 +55,62 @@ export interface BiasAnalysis {
   clickbait: boolean;
 }
 
+// NEW: Source Tracing - Find the original source of content
+export interface SourceTracing {
+  originalSourceFound: boolean;
+  originalSource?: {
+    url: string;
+    platform: string;
+    author?: string;
+    publishedAt?: string;
+    title?: string;
+  };
+  spreadTimeline?: Array<{
+    platform: string;
+    url?: string;
+    date: string;
+    reach?: number;
+  }>;
+  viralityScore?: number;
+  firstAppearance?: string;
+  isOriginalPoster: boolean;
+  sourceConfidence: number;
+}
+
+// NEW: Event Correlation - Match posts to real-world events/incidents
+export interface EventCorrelation {
+  correlatedEventFound: boolean;
+  event?: {
+    title: string;
+    description: string;
+    date: string;
+    location?: string;
+    category: 'news' | 'incident' | 'announcement' | 'disaster' | 'political' | 'entertainment' | 'sports' | 'other';
+    verifiedSources: Array<{ title: string; url: string; credibility: number }>;
+  };
+  eventMatch: 'exact' | 'related' | 'misattributed' | 'fabricated' | 'not_found';
+  discrepancies?: string[];
+  manipulationIndicators?: string[];
+  noCorrelationReason?: string;
+}
+
+// NEW: Timeline Analysis - When things happened vs when posted
+export interface TimelineAnalysis {
+  postDate: string;
+  contentCreationDate?: string;
+  eventDate?: string;
+  timelineMismatch: boolean;
+  mismatchSeverity?: 'none' | 'minor' | 'significant' | 'critical';
+  mismatchExplanation?: string;
+  isRecycledContent: boolean;
+  recycledFromDate?: string;
+  ageAnalysis: {
+    contentAge: string;
+    relevanceToday: 'current' | 'recent' | 'dated' | 'outdated' | 'historical';
+    recommendation: string;
+  };
+}
+
 export interface VerificationResult {
   trustScore: number;
   verdict: 'verified' | 'mostly_true' | 'mixed' | 'misleading' | 'false' | 'unverifiable';
@@ -64,6 +120,10 @@ export interface VerificationResult {
   accountAnalysis?: AccountAnalysis;
   businessVerification?: BusinessVerification;
   biasAnalysis?: BiasAnalysis;
+  // NEW: Enhanced analysis features
+  sourceTracing?: SourceTracing;
+  eventCorrelation?: EventCorrelation;
+  timelineAnalysis?: TimelineAnalysis;
   processingTimeMs: number;
   geminiModel: string;
   webGroundingUsed: boolean;
@@ -180,7 +240,11 @@ Author Information:
 `
       : '';
 
-    return `You are VerifyMate, an AI fact-checker and content verification assistant. Analyze the following social media post and provide a comprehensive verification report.
+    const currentDate = new Date().toISOString();
+
+    return `You are VerifyMate, an advanced AI fact-checker and content verification assistant. Analyze the following social media post and provide a comprehensive verification report with SOURCE TRACING, EVENT CORRELATION, and TIMELINE ANALYSIS.
+
+CURRENT DATE/TIME: ${currentDate}
 
 CONTENT TO VERIFY:
 Platform: ${input.platform || 'Unknown'}
@@ -227,6 +291,33 @@ Analyze the content for:
 - Emotional language usage (0-100)
 - Clickbait indicators
 
+6. SOURCE TRACING (CRITICAL - Find the original source)
+Search the internet to find the ORIGINAL source of this content:
+- Is this the original poster or is it reshared/copied content?
+- Find the earliest appearance of this content online
+- Track how the content has spread across platforms
+- Identify the original author if different from current poster
+- Calculate virality score (how widely shared)
+- If content appears to be from a video/incident/fight, find the original video source
+
+7. EVENT CORRELATION (CRITICAL - Match to real-world events)
+Search news and reliable sources to correlate this post with real-world events:
+- Does this post describe or reference an actual event/incident?
+- If it's a fight video, accident, disaster, or news event - find the actual reported incident
+- Verify when and where the event actually occurred
+- Compare the post's claims to verified news reports
+- Identify any discrepancies between the post and actual events
+- If NO correlating event found online, clearly state "No correlating event found"
+- Look for manipulation indicators (wrong date, wrong location, misattributed, fabricated)
+
+8. TIMELINE ANALYSIS (CRITICAL - When things actually happened)
+Analyze the temporal aspects:
+- When was the content likely created vs when was it posted?
+- If referencing an event, when did that event actually occur?
+- Is this old content being recycled as new?
+- Calculate content age and relevance
+- Flag significant timeline mismatches (e.g., old video presented as recent)
+
 RESPONSE FORMAT (respond in valid JSON):
 {
   "trustScore": <0-100>,
@@ -266,15 +357,65 @@ RESPONSE FORMAT (respond in valid JSON):
     "sensationalism": <0-100>,
     "emotionalLanguage": <0-100>,
     "clickbait": <true|false>
+  },
+  "sourceTracing": {
+    "originalSourceFound": <true|false>,
+    "originalSource": {
+      "url": "<original source URL if found>",
+      "platform": "<platform where first appeared>",
+      "author": "<original author if different>",
+      "publishedAt": "<ISO date of first appearance>",
+      "title": "<title if applicable>"
+    },
+    "spreadTimeline": [
+      {"platform": "<platform>", "url": "<url>", "date": "<ISO date>", "reach": <estimated views>}
+    ],
+    "viralityScore": <0-100>,
+    "firstAppearance": "<ISO date>",
+    "isOriginalPoster": <true|false>,
+    "sourceConfidence": <0-100>
+  },
+  "eventCorrelation": {
+    "correlatedEventFound": <true|false>,
+    "event": {
+      "title": "<event title>",
+      "description": "<what actually happened>",
+      "date": "<when event occurred - ISO date>",
+      "location": "<where it happened>",
+      "category": "<news|incident|announcement|disaster|political|entertainment|sports|other>",
+      "verifiedSources": [{"title": "<news source>", "url": "<url>", "credibility": <0-100>}]
+    },
+    "eventMatch": "<exact|related|misattributed|fabricated|not_found>",
+    "discrepancies": ["<difference between post and actual event>"],
+    "manipulationIndicators": ["<signs of manipulation>"],
+    "noCorrelationReason": "<why no event found - only if correlatedEventFound is false>"
+  },
+  "timelineAnalysis": {
+    "postDate": "${currentDate}",
+    "contentCreationDate": "<estimated creation date - ISO>",
+    "eventDate": "<when actual event occurred - ISO>",
+    "timelineMismatch": <true|false>,
+    "mismatchSeverity": "<none|minor|significant|critical>",
+    "mismatchExplanation": "<explanation if mismatch>",
+    "isRecycledContent": <true|false>,
+    "recycledFromDate": "<original date if recycled>",
+    "ageAnalysis": {
+      "contentAge": "<human readable age like '2 hours ago' or '3 months old'>",
+      "relevanceToday": "<current|recent|dated|outdated|historical>",
+      "recommendation": "<advice about the content's timeliness>"
+    }
   }
 }
 
 IMPORTANT:
-- Use web search to verify claims against current, reliable sources
+- Use web search EXTENSIVELY to verify claims, find original sources, and correlate events
 - Be objective and evidence-based
-- Clearly distinguish between facts, opinions, and unverifiable claims
-- Consider the source's credibility and potential biases
-- If unable to verify a claim, mark it as "unverified" rather than making assumptions`;
+- For incidents/fights/events: ALWAYS search for news reports to verify what actually happened
+- If content shows an incident but no news reports exist, note "No correlating event found online"
+- Clearly flag if content is being recycled or misattributed
+- Timeline accuracy is CRITICAL - verify when events actually occurred
+- If unable to verify a claim, mark it as "unverified" rather than making assumptions
+- SOURCE TRACING: Find where content originated, not just where it was shared`;
   }
 
   private parseVerificationResponse(text: string): Omit<VerificationResult, 'processingTimeMs' | 'geminiModel' | 'webGroundingUsed'> {
@@ -334,11 +475,84 @@ IMPORTANT:
           emotionalLanguage: Math.min(100, Math.max(0, parsed.biasAnalysis.emotionalLanguage || 0)),
           clickbait: !!parsed.biasAnalysis.clickbait,
         } : undefined,
+        // NEW: Source Tracing
+        sourceTracing: parsed.sourceTracing ? {
+          originalSourceFound: !!parsed.sourceTracing.originalSourceFound,
+          originalSource: parsed.sourceTracing.originalSource ? {
+            url: parsed.sourceTracing.originalSource.url || '',
+            platform: parsed.sourceTracing.originalSource.platform || 'unknown',
+            author: parsed.sourceTracing.originalSource.author,
+            publishedAt: parsed.sourceTracing.originalSource.publishedAt,
+            title: parsed.sourceTracing.originalSource.title,
+          } : undefined,
+          spreadTimeline: parsed.sourceTracing.spreadTimeline || [],
+          viralityScore: parsed.sourceTracing.viralityScore ? Math.min(100, Math.max(0, parsed.sourceTracing.viralityScore)) : undefined,
+          firstAppearance: parsed.sourceTracing.firstAppearance,
+          isOriginalPoster: !!parsed.sourceTracing.isOriginalPoster,
+          sourceConfidence: Math.min(100, Math.max(0, parsed.sourceTracing.sourceConfidence || 50)),
+        } : undefined,
+        // NEW: Event Correlation
+        eventCorrelation: parsed.eventCorrelation ? {
+          correlatedEventFound: !!parsed.eventCorrelation.correlatedEventFound,
+          event: parsed.eventCorrelation.event ? {
+            title: parsed.eventCorrelation.event.title || '',
+            description: parsed.eventCorrelation.event.description || '',
+            date: parsed.eventCorrelation.event.date || '',
+            location: parsed.eventCorrelation.event.location,
+            category: this.validateEventCategory(parsed.eventCorrelation.event.category),
+            verifiedSources: parsed.eventCorrelation.event.verifiedSources || [],
+          } : undefined,
+          eventMatch: this.validateEventMatch(parsed.eventCorrelation.eventMatch),
+          discrepancies: parsed.eventCorrelation.discrepancies || [],
+          manipulationIndicators: parsed.eventCorrelation.manipulationIndicators || [],
+          noCorrelationReason: parsed.eventCorrelation.noCorrelationReason,
+        } : undefined,
+        // NEW: Timeline Analysis
+        timelineAnalysis: parsed.timelineAnalysis ? {
+          postDate: parsed.timelineAnalysis.postDate || new Date().toISOString(),
+          contentCreationDate: parsed.timelineAnalysis.contentCreationDate,
+          eventDate: parsed.timelineAnalysis.eventDate,
+          timelineMismatch: !!parsed.timelineAnalysis.timelineMismatch,
+          mismatchSeverity: this.validateMismatchSeverity(parsed.timelineAnalysis.mismatchSeverity),
+          mismatchExplanation: parsed.timelineAnalysis.mismatchExplanation,
+          isRecycledContent: !!parsed.timelineAnalysis.isRecycledContent,
+          recycledFromDate: parsed.timelineAnalysis.recycledFromDate,
+          ageAnalysis: parsed.timelineAnalysis.ageAnalysis ? {
+            contentAge: parsed.timelineAnalysis.ageAnalysis.contentAge || 'Unknown',
+            relevanceToday: this.validateRelevance(parsed.timelineAnalysis.ageAnalysis.relevanceToday),
+            recommendation: parsed.timelineAnalysis.ageAnalysis.recommendation || '',
+          } : {
+            contentAge: 'Unknown',
+            relevanceToday: 'current',
+            recommendation: 'Unable to determine content age',
+          },
+        } : undefined,
       };
     } catch (error) {
       console.error(`[GEMINI-VERIFY] Failed to parse response:`, error);
       return this.getDefaultResult();
     }
+  }
+
+  // Validation helpers for new fields
+  private validateEventCategory(category: string): 'news' | 'incident' | 'announcement' | 'disaster' | 'political' | 'entertainment' | 'sports' | 'other' {
+    const valid = ['news', 'incident', 'announcement', 'disaster', 'political', 'entertainment', 'sports', 'other'];
+    return valid.includes(category) ? category as any : 'other';
+  }
+
+  private validateEventMatch(match: string): 'exact' | 'related' | 'misattributed' | 'fabricated' | 'not_found' {
+    const valid = ['exact', 'related', 'misattributed', 'fabricated', 'not_found'];
+    return valid.includes(match) ? match as any : 'not_found';
+  }
+
+  private validateMismatchSeverity(severity: string): 'none' | 'minor' | 'significant' | 'critical' {
+    const valid = ['none', 'minor', 'significant', 'critical'];
+    return valid.includes(severity) ? severity as any : 'none';
+  }
+
+  private validateRelevance(relevance: string): 'current' | 'recent' | 'dated' | 'outdated' | 'historical' {
+    const valid = ['current', 'recent', 'dated', 'outdated', 'historical'];
+    return valid.includes(relevance) ? relevance as any : 'current';
   }
 
   private async fallbackVerification(input: VerificationInput, startTime: number): Promise<VerificationResult> {

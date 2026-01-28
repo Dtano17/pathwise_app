@@ -25,7 +25,18 @@ import {
   CheckCircle,
   XCircle,
   HelpCircle,
-  Loader2
+  Loader2,
+  // NEW: Icons for enhanced analysis
+  Search,
+  MapPin,
+  Calendar,
+  History,
+  Newspaper,
+  Link2,
+  AlertOctagon,
+  RefreshCw,
+  Globe,
+  FileWarning
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -76,6 +87,62 @@ interface BiasAnalysis {
   clickbait: boolean;
 }
 
+// NEW: Source Tracing - Find original source of content
+interface SourceTracing {
+  originalSourceFound: boolean;
+  originalSource?: {
+    url: string;
+    platform: string;
+    author?: string;
+    publishedAt?: string;
+    title?: string;
+  };
+  spreadTimeline?: Array<{
+    platform: string;
+    url?: string;
+    date: string;
+    reach?: number;
+  }>;
+  viralityScore?: number;
+  firstAppearance?: string;
+  isOriginalPoster: boolean;
+  sourceConfidence: number;
+}
+
+// NEW: Event Correlation - Match posts to real-world events
+interface EventCorrelation {
+  correlatedEventFound: boolean;
+  event?: {
+    title: string;
+    description: string;
+    date: string;
+    location?: string;
+    category: 'news' | 'incident' | 'announcement' | 'disaster' | 'political' | 'entertainment' | 'sports' | 'other';
+    verifiedSources: Array<{ title: string; url: string; credibility: number }>;
+  };
+  eventMatch: 'exact' | 'related' | 'misattributed' | 'fabricated' | 'not_found';
+  discrepancies?: string[];
+  manipulationIndicators?: string[];
+  noCorrelationReason?: string;
+}
+
+// NEW: Timeline Analysis - When things happened vs when posted
+interface TimelineAnalysis {
+  postDate: string;
+  contentCreationDate?: string;
+  eventDate?: string;
+  timelineMismatch: boolean;
+  mismatchSeverity?: 'none' | 'minor' | 'significant' | 'critical';
+  mismatchExplanation?: string;
+  isRecycledContent: boolean;
+  recycledFromDate?: string;
+  ageAnalysis: {
+    contentAge: string;
+    relevanceToday: 'current' | 'recent' | 'dated' | 'outdated' | 'historical';
+    recommendation: string;
+  };
+}
+
 interface VerificationResult {
   id: string;
   trustScore: number;
@@ -86,6 +153,10 @@ interface VerificationResult {
   accountAnalysis?: AccountAnalysis;
   businessVerification?: BusinessVerification;
   biasAnalysis?: BiasAnalysis;
+  // NEW: Enhanced analysis
+  sourceTracing?: SourceTracing;
+  eventCorrelation?: EventCorrelation;
+  timelineAnalysis?: TimelineAnalysis;
   sourceUrl?: string;
   sourcePlatform?: string;
   processingTimeMs?: number;
@@ -510,6 +581,312 @@ export function VerdictCard({ result, onShare, isLoading, compact = false }: Ver
                       <span className="text-sm">{result.biasAnalysis.emotionalLanguage}%</span>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* SOURCE TRACING - Find original source */}
+            {result.sourceTracing && (
+              <div className={`p-4 rounded-lg border ${result.sourceTracing.isOriginalPoster ? 'border-green-500/30 bg-green-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Search className="w-5 h-5 text-cyan-500" />
+                  <h4 className="font-semibold">Source Tracing</h4>
+                  {result.sourceTracing.originalSourceFound && (
+                    <Badge variant={result.sourceTracing.isOriginalPoster ? "default" : "secondary"} className="ml-auto">
+                      {result.sourceTracing.isOriginalPoster ? 'Original Source' : 'Reshared Content'}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  {/* Original Source */}
+                  {result.sourceTracing.originalSource && !result.sourceTracing.isOriginalPoster && (
+                    <div className="p-3 bg-background/50 rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-1">Original Source Found:</p>
+                      <a
+                        href={result.sourceTracing.originalSource.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline flex items-center gap-1 font-medium"
+                      >
+                        <Link2 className="w-4 h-4" />
+                        {result.sourceTracing.originalSource.title || result.sourceTracing.originalSource.platform}
+                      </a>
+                      {result.sourceTracing.originalSource.author && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Original author: <span className="font-medium">{result.sourceTracing.originalSource.author}</span>
+                        </p>
+                      )}
+                      {result.sourceTracing.originalSource.publishedAt && (
+                        <p className="text-sm text-muted-foreground">
+                          First appeared: {new Date(result.sourceTracing.originalSource.publishedAt).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Source Confidence</p>
+                      <div className="flex items-center gap-2">
+                        <Progress value={result.sourceTracing.sourceConfidence} className="h-2" />
+                        <span className="text-sm font-medium">{result.sourceTracing.sourceConfidence}%</span>
+                      </div>
+                    </div>
+                    {result.sourceTracing.viralityScore !== undefined && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Virality Score</p>
+                        <div className="flex items-center gap-2">
+                          <Progress value={result.sourceTracing.viralityScore} className="h-2" />
+                          <span className="text-sm font-medium">{result.sourceTracing.viralityScore}%</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Spread Timeline */}
+                  {result.sourceTracing.spreadTimeline && result.sourceTracing.spreadTimeline.length > 0 && (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Spread Timeline:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {result.sourceTracing.spreadTimeline.slice(0, 5).map((spread, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {spread.platform} • {new Date(spread.date).toLocaleDateString()}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* EVENT CORRELATION - Match to real-world events */}
+            {result.eventCorrelation && (
+              <div className={`p-4 rounded-lg border ${
+                result.eventCorrelation.eventMatch === 'exact' ? 'border-green-500/30 bg-green-500/5' :
+                result.eventCorrelation.eventMatch === 'related' ? 'border-blue-500/30 bg-blue-500/5' :
+                result.eventCorrelation.eventMatch === 'misattributed' || result.eventCorrelation.eventMatch === 'fabricated' ? 'border-red-500/30 bg-red-500/5' :
+                'border-muted'
+              }`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Newspaper className="w-5 h-5 text-indigo-500" />
+                  <h4 className="font-semibold">Event Correlation</h4>
+                  <Badge
+                    variant={
+                      result.eventCorrelation.eventMatch === 'exact' ? 'default' :
+                      result.eventCorrelation.eventMatch === 'related' ? 'secondary' :
+                      result.eventCorrelation.eventMatch === 'fabricated' || result.eventCorrelation.eventMatch === 'misattributed' ? 'destructive' :
+                      'outline'
+                    }
+                    className="ml-auto"
+                  >
+                    {result.eventCorrelation.eventMatch === 'exact' ? 'Verified Event' :
+                     result.eventCorrelation.eventMatch === 'related' ? 'Related Event' :
+                     result.eventCorrelation.eventMatch === 'misattributed' ? 'Misattributed' :
+                     result.eventCorrelation.eventMatch === 'fabricated' ? 'Fabricated' :
+                     'No Event Found'}
+                  </Badge>
+                </div>
+
+                {result.eventCorrelation.correlatedEventFound && result.eventCorrelation.event ? (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-background/50 rounded-lg">
+                      <h5 className="font-semibold text-lg">{result.eventCorrelation.event.title}</h5>
+                      <p className="text-sm text-muted-foreground mt-1">{result.eventCorrelation.event.description}</p>
+                      <div className="flex flex-wrap gap-4 mt-2 text-sm">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {new Date(result.eventCorrelation.event.date).toLocaleDateString()}
+                        </span>
+                        {result.eventCorrelation.event.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-4 h-4" />
+                            {result.eventCorrelation.event.location}
+                          </span>
+                        )}
+                        <Badge variant="outline" className="capitalize">
+                          {result.eventCorrelation.event.category}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Verified Sources */}
+                    {result.eventCorrelation.event.verifiedSources && result.eventCorrelation.event.verifiedSources.length > 0 && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-2">Verified News Sources:</p>
+                        <div className="space-y-1">
+                          {result.eventCorrelation.event.verifiedSources.slice(0, 3).map((source, idx) => (
+                            <a
+                              key={idx}
+                              href={source.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              <Globe className="w-3 h-3" />
+                              {source.title}
+                              <span className="text-muted-foreground ml-1">({source.credibility}% credible)</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Discrepancies */}
+                    {result.eventCorrelation.discrepancies && result.eventCorrelation.discrepancies.length > 0 && (
+                      <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertOctagon className="w-4 h-4 text-amber-500" />
+                          <p className="text-sm font-medium text-amber-500">Discrepancies Found:</p>
+                        </div>
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          {result.eventCorrelation.discrepancies.map((d, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <span>•</span>
+                              <span>{d}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Manipulation Indicators */}
+                    {result.eventCorrelation.manipulationIndicators && result.eventCorrelation.manipulationIndicators.length > 0 && (
+                      <div className="p-3 bg-red-500/10 rounded-lg border border-red-500/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileWarning className="w-4 h-4 text-red-500" />
+                          <p className="text-sm font-medium text-red-500">Manipulation Indicators:</p>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {result.eventCorrelation.manipulationIndicators.map((indicator, idx) => (
+                            <Badge key={idx} variant="destructive" className="text-xs">
+                              {indicator}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium">No correlating event found online.</span>
+                      {result.eventCorrelation.noCorrelationReason && (
+                        <span className="block mt-1">{result.eventCorrelation.noCorrelationReason}</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TIMELINE ANALYSIS - When things happened */}
+            {result.timelineAnalysis && (
+              <div className={`p-4 rounded-lg border ${
+                result.timelineAnalysis.isRecycledContent || result.timelineAnalysis.mismatchSeverity === 'critical' || result.timelineAnalysis.mismatchSeverity === 'significant'
+                  ? 'border-amber-500/30 bg-amber-500/5'
+                  : 'border-muted'
+              }`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <History className="w-5 h-5 text-teal-500" />
+                  <h4 className="font-semibold">Timeline Analysis</h4>
+                  {result.timelineAnalysis.isRecycledContent && (
+                    <Badge variant="secondary" className="ml-auto flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3" />
+                      Recycled Content
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  {/* Age Analysis */}
+                  <div className="p-3 bg-background/50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Content Age</p>
+                        <p className="font-semibold text-lg">{result.timelineAnalysis.ageAnalysis.contentAge}</p>
+                      </div>
+                      <Badge
+                        variant={
+                          result.timelineAnalysis.ageAnalysis.relevanceToday === 'current' ? 'default' :
+                          result.timelineAnalysis.ageAnalysis.relevanceToday === 'recent' ? 'secondary' :
+                          result.timelineAnalysis.ageAnalysis.relevanceToday === 'dated' ? 'outline' :
+                          'destructive'
+                        }
+                        className="capitalize"
+                      >
+                        {result.timelineAnalysis.ageAnalysis.relevanceToday}
+                      </Badge>
+                    </div>
+                    {result.timelineAnalysis.ageAnalysis.recommendation && (
+                      <p className="text-sm text-muted-foreground mt-2 p-2 bg-muted/50 rounded">
+                        {result.timelineAnalysis.ageAnalysis.recommendation}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Timeline Dates */}
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    {result.timelineAnalysis.eventDate && (
+                      <div className="p-2 bg-muted/30 rounded">
+                        <p className="text-xs text-muted-foreground">Event Date</p>
+                        <p className="text-sm font-medium">{new Date(result.timelineAnalysis.eventDate).toLocaleDateString()}</p>
+                      </div>
+                    )}
+                    {result.timelineAnalysis.contentCreationDate && (
+                      <div className="p-2 bg-muted/30 rounded">
+                        <p className="text-xs text-muted-foreground">Content Created</p>
+                        <p className="text-sm font-medium">{new Date(result.timelineAnalysis.contentCreationDate).toLocaleDateString()}</p>
+                      </div>
+                    )}
+                    <div className="p-2 bg-muted/30 rounded">
+                      <p className="text-xs text-muted-foreground">Analyzed</p>
+                      <p className="text-sm font-medium">{new Date(result.timelineAnalysis.postDate).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+
+                  {/* Timeline Mismatch Warning */}
+                  {result.timelineAnalysis.timelineMismatch && result.timelineAnalysis.mismatchSeverity !== 'none' && (
+                    <div className={`p-3 rounded-lg ${
+                      result.timelineAnalysis.mismatchSeverity === 'critical' ? 'bg-red-500/10 border border-red-500/30' :
+                      result.timelineAnalysis.mismatchSeverity === 'significant' ? 'bg-amber-500/10 border border-amber-500/30' :
+                      'bg-yellow-500/10 border border-yellow-500/30'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Clock className={`w-4 h-4 ${
+                          result.timelineAnalysis.mismatchSeverity === 'critical' ? 'text-red-500' :
+                          result.timelineAnalysis.mismatchSeverity === 'significant' ? 'text-amber-500' :
+                          'text-yellow-500'
+                        }`} />
+                        <p className={`text-sm font-medium ${
+                          result.timelineAnalysis.mismatchSeverity === 'critical' ? 'text-red-500' :
+                          result.timelineAnalysis.mismatchSeverity === 'significant' ? 'text-amber-500' :
+                          'text-yellow-500'
+                        }`}>
+                          Timeline Mismatch ({result.timelineAnalysis.mismatchSeverity})
+                        </p>
+                      </div>
+                      {result.timelineAnalysis.mismatchExplanation && (
+                        <p className="text-sm text-muted-foreground">{result.timelineAnalysis.mismatchExplanation}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Recycled Content Warning */}
+                  {result.timelineAnalysis.isRecycledContent && (
+                    <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                      <div className="flex items-center gap-2">
+                        <RefreshCw className="w-4 h-4 text-amber-500" />
+                        <p className="text-sm font-medium text-amber-500">
+                          This content appears to be recycled from an earlier time
+                          {result.timelineAnalysis.recycledFromDate && (
+                            <span> (originally from {new Date(result.timelineAnalysis.recycledFromDate).toLocaleDateString()})</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

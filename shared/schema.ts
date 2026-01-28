@@ -2306,6 +2306,62 @@ export const verifications = pgTable("verifications", {
     clickbait: boolean;
   }>(),
 
+  // SOURCE TRACING - Track original source of content
+  sourceTracing: jsonb("source_tracing").$type<{
+    originalSourceFound: boolean;
+    originalSource?: {
+      url: string;
+      platform: string;
+      author?: string;
+      publishedAt?: string; // ISO date when first appeared
+      title?: string;
+    };
+    spreadTimeline?: Array<{
+      platform: string;
+      url?: string;
+      date: string;
+      reach?: number; // estimated views/shares
+    }>;
+    viralityScore?: number; // 0-100 how viral the content has become
+    firstAppearance?: string; // ISO date of earliest known appearance
+    isOriginalPoster: boolean; // Is the shared post the original source?
+    sourceConfidence: number; // 0-100 confidence in source tracing
+  }>(),
+
+  // EVENT CORRELATION - Match content to real-world events
+  eventCorrelation: jsonb("event_correlation").$type<{
+    correlatedEventFound: boolean;
+    event?: {
+      title: string;
+      description: string;
+      date: string; // When the event actually occurred
+      location?: string;
+      category: 'news' | 'incident' | 'announcement' | 'disaster' | 'political' | 'entertainment' | 'sports' | 'other';
+      verifiedSources: Array<{ title: string; url: string; credibility: number }>;
+    };
+    eventMatch: 'exact' | 'related' | 'misattributed' | 'fabricated' | 'not_found';
+    discrepancies?: string[]; // Differences between post and actual event
+    manipulationIndicators?: string[]; // Signs the event was misrepresented
+    noCorrelationReason?: string; // Why no event was found (if applicable)
+  }>(),
+
+  // TIMELINE ANALYSIS - When things happened vs when posted
+  timelineAnalysis: jsonb("timeline_analysis").$type<{
+    postDate: string; // When user received/shared this
+    contentCreationDate?: string; // When content was likely created
+    eventDate?: string; // When the actual event occurred (if applicable)
+    timelineMismatch: boolean; // Does posting date not match event date?
+    mismatchSeverity?: 'none' | 'minor' | 'significant' | 'critical';
+    mismatchExplanation?: string;
+    isRecycledContent: boolean; // Old content being reshared as new
+    recycledFromDate?: string; // Original date if recycled
+    ageAnalysis: {
+      contentAge: string; // "2 hours ago", "3 months old", etc.
+      relevanceToday: 'current' | 'recent' | 'dated' | 'outdated' | 'historical';
+      recommendation: string; // "This content is current" or "This is old news being recirculated"
+    };
+  }>(),
+
   // Processing metadata
   processingTimeMs: integer("processing_time_ms"),
   geminiModel: varchar("gemini_model", { length: 50 }),
