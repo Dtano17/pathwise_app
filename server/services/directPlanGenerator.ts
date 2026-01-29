@@ -118,6 +118,26 @@ export class DirectPlanGenerator {
   }
 
   /**
+   * Strip markdown syntax from text (UI displays as plain text)
+   * Removes: ** (bold), ## (headers), ### (subheaders), __ (underline)
+   */
+  private stripMarkdown(text: string): string {
+    return text
+      // Remove headers (##, ###, ####)
+      .replace(/^#{1,6}\s+/gm, '')
+      // Remove bold/italic markers (**text**, *text*, __text__, _text_)
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/__([^_]+)__/g, '$1')
+      .replace(/_([^_]+)_/g, '$1')
+      // Remove inline code backticks
+      .replace(/`([^`]+)`/g, '$1')
+      // Clean up any double spaces
+      .replace(/  +/g, ' ')
+      .trim();
+  }
+
+  /**
    * Extract location/destination info from content using comprehensive patterns
    * Supports major cities worldwide plus user input location detection
    */
@@ -998,7 +1018,14 @@ export class DirectPlanGenerator {
         system: [
           {
             type: "text",
-            text: `You are a plan generation expert. Your job is to convert user requests into actionable activity plans with specific tasks. Be direct, clear, and actionable. Format everything as proper activities and tasks that can be tracked.`,
+            text: `You are a plan generation expert. Your job is to convert user requests into actionable activity plans with specific tasks. Be direct, clear, and actionable. Format everything as proper activities and tasks that can be tracked.
+
+⛔ CRITICAL FORMATTING RULE - NO MARKDOWN ⛔
+The UI displays descriptions as PLAIN TEXT. Markdown syntax will show as raw characters.
+NEVER use: ** (bold), ## (headers), ### (subheaders), * (bullets), __ (underline)
+INSTEAD use: Line breaks (\\n), emojis (📺📚🍽️), plain numbered lists (1. 2. 3.), dashes (-)
+
+For the "category" field in tasks[0], use the EXACT display name like "Movies & TV Shows", "Books & Reading", "Restaurants & Food" - NOT "reference" or "movies".`,
             cache_control: { type: "ephemeral" as any }
           }
         ],
@@ -1017,6 +1044,39 @@ export class DirectPlanGenerator {
       }
 
       const result: DirectPlanResult = JSON.parse(jsonMatch[0]);
+
+      // Post-process: Strip markdown syntax from descriptions (UI displays as plain text)
+      for (const task of result.tasks) {
+        if (task.description) {
+          task.description = this.stripMarkdown(task.description);
+        }
+      }
+      if (result.activity.description) {
+        result.activity.description = this.stripMarkdown(result.activity.description);
+      }
+
+      // Post-process: Fix category for tasks[0] if it's "reference" - map to proper category
+      if (result.tasks[0] && result.tasks[0].category === 'reference') {
+        // Try to detect category from description
+        const desc = result.tasks[0].description?.toLowerCase() || '';
+        if (desc.includes('movies') || desc.includes('tv shows') || desc.includes('📺')) {
+          result.tasks[0].category = 'Movies & TV Shows';
+        } else if (desc.includes('books') || desc.includes('reading') || desc.includes('📚')) {
+          result.tasks[0].category = 'Books & Reading';
+        } else if (desc.includes('restaurant') || desc.includes('food') || desc.includes('🍽️')) {
+          result.tasks[0].category = 'Restaurants & Food';
+        } else if (desc.includes('music') || desc.includes('artist') || desc.includes('🎵')) {
+          result.tasks[0].category = 'Music & Artists';
+        } else if (desc.includes('travel') || desc.includes('places') || desc.includes('✈️')) {
+          result.tasks[0].category = 'Travel & Places';
+        } else if (desc.includes('fitness') || desc.includes('health') || desc.includes('💪')) {
+          result.tasks[0].category = 'Health & Fitness';
+        } else if (desc.includes('podcast') || desc.includes('🎙️')) {
+          result.tasks[0].category = 'Podcasts';
+        } else if (desc.includes('gaming') || desc.includes('game') || desc.includes('🎮')) {
+          result.tasks[0].category = 'Gaming';
+        }
+      }
 
       // Add import info to result
       result.importId = contentImportId;

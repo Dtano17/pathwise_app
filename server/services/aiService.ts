@@ -1839,7 +1839,15 @@ Time Estimate Examples:
           sourceDescription: result.planContext.sourceDescription || result.summary || '',
         } : undefined,
       };
-      
+
+      // Post-process: Strip markdown syntax and fix categories
+      for (const task of processedResult.tasks) {
+        if (task.description) {
+          task.description = this.stripMarkdown(task.description);
+        }
+        task.category = this.fixTaskCategory(task);
+      }
+
       if (processedResult.allExtractedVenues && processedResult.allExtractedVenues.length > 0) {
         console.log(`[AISERVICE] Extracted ${processedResult.allExtractedVenues.length} venues from social media content`);
         if (processedResult.planLocation) {
@@ -1977,6 +1985,55 @@ Examples: "Try a 10-minute morning meditation", "Take a walk after lunch", "Sche
       return priority;
     }
     return "medium"; // Default fallback
+  }
+
+  /**
+   * Strip markdown syntax from text (UI displays as plain text)
+   * Removes: ** (bold), ## (headers), ### (subheaders), __ (underline)
+   */
+  private stripMarkdown(text: string): string {
+    return text
+      // Remove headers (##, ###, ####)
+      .replace(/^#{1,6}\s+/gm, '')
+      // Remove bold/italic markers (**text**, *text*, __text__, _text_)
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/__([^_]+)__/g, '$1')
+      .replace(/_([^_]+)_/g, '$1')
+      // Remove inline code backticks
+      .replace(/`([^`]+)`/g, '$1')
+      // Clean up any double spaces
+      .replace(/  +/g, ' ')
+      .trim();
+  }
+
+  /**
+   * Fix category for tasks[0] if it's "reference" - detect proper category from description
+   */
+  private fixTaskCategory(task: any): string {
+    if (task.category && task.category !== 'reference') {
+      return task.category;
+    }
+
+    const desc = (task.description || '').toLowerCase();
+    if (desc.includes('movies') || desc.includes('tv shows') || desc.includes('📺')) {
+      return 'Movies & TV Shows';
+    } else if (desc.includes('books') || desc.includes('reading') || desc.includes('📚')) {
+      return 'Books & Reading';
+    } else if (desc.includes('restaurant') || desc.includes('food') || desc.includes('🍽️')) {
+      return 'Restaurants & Food';
+    } else if (desc.includes('music') || desc.includes('artist') || desc.includes('🎵')) {
+      return 'Music & Artists';
+    } else if (desc.includes('travel') || desc.includes('places') || desc.includes('✈️')) {
+      return 'Travel & Places';
+    } else if (desc.includes('fitness') || desc.includes('health') || desc.includes('💪')) {
+      return 'Health & Fitness';
+    } else if (desc.includes('podcast') || desc.includes('🎙️')) {
+      return 'Podcasts';
+    } else if (desc.includes('gaming') || desc.includes('game') || desc.includes('🎮')) {
+      return 'Gaming';
+    }
+    return task.category || 'Personal';
   }
 
   /**
