@@ -662,7 +662,51 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
   const handleTestCalendar = async () => {
     setCalendarLoading(true);
     try {
-      console.log('[SETTINGS] Testing calendar - requesting permission...');
+      console.log('[SETTINGS] Testing calendar - trying Google Calendar API first...');
+
+      // Try Google Calendar API backend first (uses existing Google auth)
+      try {
+        const statusResponse = await apiRequest('GET', '/api/calendar/status');
+        const statusData = await statusResponse.json();
+        console.log('[SETTINGS] Google Calendar status:', statusData);
+
+        if (statusData.hasAccess) {
+          // User has Google Calendar access via their Google login
+          console.log('[SETTINGS] Using Google Calendar API...');
+          const listResponse = await apiRequest('GET', '/api/calendar/list');
+          const listData = await listResponse.json();
+
+          if (listData.calendars && listData.calendars.length > 0) {
+            console.log('[SETTINGS] Found Google calendars:', listData.calendars.length);
+
+            // Convert Google calendars to our format for the picker
+            const googleCalendars: DeviceCalendar[] = listData.calendars.map((cal: any) => ({
+              id: cal.id,
+              title: cal.summary || cal.id,
+              color: cal.backgroundColor || '#4285F4',
+              isDefault: cal.primary || false,
+              isReadOnly: cal.accessRole === 'reader',
+              source: 'google'
+            }));
+
+            setPendingCalendarEvent({
+              title: 'JournalMate Test Event',
+              startDate: new Date(),
+              endDate: new Date(Date.now() + 60 * 60 * 1000),
+              notes: 'This is a test event from JournalMate'
+            });
+            setAvailableCalendars(googleCalendars);
+            setShowCalendarPicker(true);
+            setCalendarLoading(false);
+            return;
+          }
+        }
+      } catch (apiError: any) {
+        console.log('[SETTINGS] Google Calendar API not available, falling back to native:', apiError.message);
+      }
+
+      // Fall back to Capacitor native calendar
+      console.log('[SETTINGS] Falling back to native calendar - requesting permission...');
       const permission = await requestCalendarPermission();
       console.log('[SETTINGS] Permission result:', permission);
 
@@ -677,28 +721,14 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       }
 
       // After permission granted, fetch available calendars and show picker
-      console.log('[SETTINGS] Permission granted, fetching calendars...');
+      console.log('[SETTINGS] Permission granted, fetching native calendars...');
       const calendars = await getCalendars();
       console.log('[SETTINGS] Found calendars:', calendars.length);
-      console.log('[SETTINGS] Calendars raw data:', JSON.stringify(calendars));
-
-      // Log each calendar for debugging
-      if (calendars.length > 0) {
-        calendars.forEach((cal, i) => {
-          console.log(`[SETTINGS] Calendar #${i + 1}:`, JSON.stringify(cal));
-        });
-      } else {
-        console.warn('[SETTINGS] No calendars returned from getCalendars()');
-        console.warn('[SETTINGS] This could mean:');
-        console.warn('[SETTINGS] - Samsung Calendar is not using CalendarContract API');
-        console.warn('[SETTINGS] - No Google Calendar account is synced to device');
-        console.warn('[SETTINGS] - Calendar provider permissions issue');
-      }
 
       if (calendars.length === 0) {
         toast({
           title: 'No Calendars Found',
-          description: 'Samsung Calendar is not compatible with this feature. Please add a Google account and sync Google Calendar to your device.',
+          description: 'Please sign in with Google to use calendar features, or add a Google account to your device.',
           variant: 'destructive',
           duration: 8000,
         });
@@ -735,12 +765,40 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
 
     setCalendarLoading(true);
     try {
-      const result = await addActivityToCalendar({
-        ...pendingCalendarEvent,
-        calendarId
-      });
-
       const selectedCalendar = availableCalendars.find(c => c.id === calendarId);
+      let result: { success: boolean; error?: string } = { success: false };
+
+      // Check if this is a Google Calendar (from API) or native calendar
+      if ((selectedCalendar as any)?.source === 'google') {
+        // Use Google Calendar API to create event
+        console.log('[SETTINGS] Creating event via Google Calendar API...');
+        try {
+          const response = await apiRequest('POST', '/api/calendar/event', {
+            calendarId,
+            summary: pendingCalendarEvent.title,
+            description: pendingCalendarEvent.notes || '',
+            start: {
+              dateTime: pendingCalendarEvent.startDate.toISOString(),
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            },
+            end: {
+              dateTime: pendingCalendarEvent.endDate.toISOString(),
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            },
+          });
+          const data = await response.json();
+          result = { success: !data.error, error: data.error };
+        } catch (apiError: any) {
+          console.error('[SETTINGS] Google Calendar API error:', apiError);
+          result = { success: false, error: apiError.message };
+        }
+      } else {
+        // Use native calendar
+        result = await addActivityToCalendar({
+          ...pendingCalendarEvent,
+          calendarId
+        });
+      }
 
       toast({
         title: result.success ? 'Event Added' : 'Failed',
@@ -891,34 +949,60 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
     setCalendarSyncLoading(true);
     try {
       const today = new Date();
-      console.log('[SETTINGS] today (raw):', today);
-      console.log('[SETTINGS] today.toISOString():', today.toISOString());
-      console.log('[SETTINGS] today.getTime():', today.getTime());
-
       const weekEnd = new Date(today);
       weekEnd.setDate(weekEnd.getDate() + 7);
-      console.log('[SETTINGS] weekEnd (raw):', weekEnd);
-      console.log('[SETTINGS] weekEnd.toISOString():', weekEnd.toISOString());
-      console.log('[SETTINGS] weekEnd.getTime():', weekEnd.getTime());
 
-      console.log('[SETTINGS] Calling syncCalendarToTasks...');
-      const result = await syncCalendarToTasks(today, weekEnd);
-      console.log('[SETTINGS] syncCalendarToTasks result:', JSON.stringify({
-        success: result.success,
-        taskCount: result.tasks?.length ?? 0,
-        error: result.error
-      }));
+      let events: Array<{ title: string; description?: string; priority: string; dueDate: Date }> = [];
+      let useGoogleAPI = false;
 
-      if (!result.success) {
-        toast({
-          title: 'Import Failed',
-          description: result.error || 'Could not import calendar events',
-          variant: 'destructive'
-        });
-        return;
+      // Try Google Calendar API backend first
+      try {
+        const statusResponse = await apiRequest('GET', '/api/calendar/status');
+        const statusData = await statusResponse.json();
+        console.log('[SETTINGS] Google Calendar status:', statusData);
+
+        if (statusData.hasAccess) {
+          console.log('[SETTINGS] Using Google Calendar API for import...');
+          const eventsResponse = await apiRequest('GET', `/api/calendar/events?timeMin=${today.toISOString()}&timeMax=${weekEnd.toISOString()}&maxResults=50`);
+          const eventsData = await eventsResponse.json();
+
+          if (eventsData.events && eventsData.events.length > 0) {
+            console.log('[SETTINGS] Found Google Calendar events:', eventsData.events.length);
+            useGoogleAPI = true;
+            events = eventsData.events.map((event: any) => ({
+              title: event.summary || 'Untitled Event',
+              description: event.description || '',
+              priority: 'medium',
+              dueDate: new Date(event.start?.dateTime || event.start?.date || today),
+            }));
+          }
+        }
+      } catch (apiError: any) {
+        console.log('[SETTINGS] Google Calendar API not available, falling back to native:', apiError.message);
       }
 
-      if (result.tasks.length === 0) {
+      // Fall back to native calendar if Google API didn't work
+      if (!useGoogleAPI) {
+        console.log('[SETTINGS] Calling native syncCalendarToTasks...');
+        const result = await syncCalendarToTasks(today, weekEnd);
+        console.log('[SETTINGS] syncCalendarToTasks result:', JSON.stringify({
+          success: result.success,
+          taskCount: result.tasks?.length ?? 0,
+          error: result.error
+        }));
+
+        if (!result.success) {
+          toast({
+            title: 'Import Failed',
+            description: result.error || 'Please sign in with Google to use calendar features.',
+            variant: 'destructive'
+          });
+          return;
+        }
+        events = result.tasks;
+      }
+
+      if (events.length === 0) {
         toast({
           title: 'No Events Found',
           description: 'No calendar events found for the next 7 days',
@@ -928,14 +1012,14 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
 
       // Create tasks from calendar events
       let imported = 0;
-      for (const task of result.tasks) {
+      for (const task of events) {
         try {
           await apiRequest('POST', '/api/tasks', {
             title: task.title,
             description: task.description,
             category: 'calendar',
             priority: task.priority,
-            dueDate: task.dueDate.toISOString(),
+            dueDate: task.dueDate instanceof Date ? task.dueDate.toISOString() : task.dueDate,
           });
           imported++;
         } catch (e) {
@@ -949,13 +1033,10 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       await hapticsCelebrate();
       toast({
         title: 'Calendar Imported',
-        description: `${imported} events imported as tasks`,
+        description: `${imported} events imported as tasks${useGoogleAPI ? ' from Google Calendar' : ''}`,
       });
     } catch (error: any) {
       console.error('[SETTINGS] Import error:', error);
-      console.error('[SETTINGS] Error name:', error?.name);
-      console.error('[SETTINGS] Error message:', error?.message);
-      console.error('[SETTINGS] Error stack:', error?.stack);
       toast({
         title: 'Import Error',
         description: error.message || 'Failed to import calendar events',

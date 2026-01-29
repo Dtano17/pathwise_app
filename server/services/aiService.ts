@@ -1660,27 +1660,36 @@ For carousel posts with movies, books, music:
 
 THIS IS NON-NEGOTIABLE. When content contains a LIST of items (books, movies, restaurants, exercises, etc.):
 
-tasks[0] MUST be a "Complete List" task with rich metadata for journal categorization:
+tasks[0] MUST be a "Complete List" task with PROPERLY FORMATTED MARKDOWN for display:
 
 {
   "title": "Complete list of [N] [item type] from this post",
-  "description": "CATEGORY: [books|movies|restaurants|fitness|travel|etc]\\nLOCATION: [city/area if applicable]\\nTHEME: [context from source]\\n\\n1. [Item] | [Metadata]\\n2. [Item] | [Metadata]\\n... (ALL items)",
+  "description": "## 📋 Complete Collection\\n\\n**Category:** [books|movies|restaurants|fitness|travel|etc]\\n**Location:** [city/area if applicable]\\n**Theme:** [context from source]\\n\\n### Items\\n1. **[Item]** - [Metadata]\\n2. **[Item]** - [Metadata]\\n... (ALL items)",
   "priority": "high",
   "category": "reference",
   "timeEstimate": "5 min"
 }
 
-METADATA FORMAT BY CATEGORY (use pipe | separator):
-- Books: "Title | Author: [name] | Genre: [genre]"
-- Movies: "Title | Director: [name] | Year: [year] | Genre: [genre]"
-- Restaurants: "Name | Type: [cuisine] | Location: [area] | Price: [$-$$$$]"
-- Exercises: "Name | Type: [cardio/strength] | Duration: [time] | Equipment: [none/gym]"
-- Travel: "Destination | Type: [city/beach/mountain] | Best for: [context]"
+MARKDOWN FORMAT BY CATEGORY (use **bold** for item names, dash for metadata):
+- Books: "1. **[Title]** - Author: [name] | Genre: [genre]"
+- Movies/TV Shows: "1. **[Title]** - Platform: [service] | Genre: [genre]"
+- Restaurants: "1. **[Name]** - Type: [cuisine] | Location: [area] | Price: [$-$$$$]"
+- Exercises: "1. **[Name]** - Type: [cardio/strength] | Duration: [time] | Equipment: [none/gym]"
+- Travel: "1. **[Destination]** - Type: [city/beach/mountain] | Best for: [context]"
 
 EXAMPLE for 20 books:
 {
   "title": "Complete list of 20 business books from this post",
-  "description": "CATEGORY: books\\nTHEME: business education / MBA curriculum\\n\\n1. $100M Offers | Author: Alex Hormozi | Genre: business/sales\\n2. Atomic Habits | Author: James Clear | Genre: self-help/habits\\n3. Never Split the Difference | Author: Chris Voss | Genre: negotiation\\n4. Start with Why | Author: Simon Sinek | Genre: leadership\\n5. The E-Myth Revisited | Author: Michael Gerber | Genre: entrepreneurship\\n... (ALL 20 books with author and genre)",
+  "description": "## 📋 Complete Collection\\n\\n**Category:** Books\\n**Theme:** Business education / MBA curriculum\\n\\n### Items\\n1. **$100M Offers** - Author: Alex Hormozi | Genre: business/sales\\n2. **Atomic Habits** - Author: James Clear | Genre: self-help/habits\\n3. **Never Split the Difference** - Author: Chris Voss | Genre: negotiation\\n4. **Start with Why** - Author: Simon Sinek | Genre: leadership\\n5. **The E-Myth Revisited** - Author: Michael Gerber | Genre: entrepreneurship\\n... (ALL 20 books)",
+  "priority": "high",
+  "category": "reference",
+  "timeEstimate": "5 min"
+}
+
+EXAMPLE for 10 TV shows:
+{
+  "title": "Complete list of 10 TV shows from this post",
+  "description": "## 📋 Complete Collection\\n\\n**Category:** Movies\\n**Theme:** Trending TV shows recommendations 2024\\n\\n### Items\\n1. **STEAL** - Platform: Prime Video | Genre: thriller\\n2. **The RIP** - Platform: Netflix | Genre: drama\\n3. **RUN AWAY** - Platform: Netflix | Genre: thriller\\n4. **The Running Man** - Platform: Paramount+ | Genre: action\\n5. **THE BEAST IN ME** - Platform: Netflix | Genre: drama\\n... (ALL 10 shows)",
   "priority": "high",
   "category": "reference",
   "timeEstimate": "5 min"
@@ -1689,15 +1698,15 @@ EXAMPLE for 20 books:
 EXAMPLE for 15 restaurants:
 {
   "title": "Complete list of 15 restaurants from this post",
-  "description": "CATEGORY: restaurants\\nLOCATION: Los Angeles, CA\\nTHEME: top brunch spots 2025\\n\\n1. Blue Bottle Coffee | Type: cafe | Location: Arts District | Price: $$\\n2. Verve Coffee | Type: cafe | Location: Santa Monica | Price: $$\\n3. Gjusta | Type: bakery | Location: Venice | Price: $$$\\n... (ALL 15 with type, location, price)",
+  "description": "## 📋 Complete Collection\\n\\n**Category:** Restaurants\\n**Location:** Los Angeles, CA\\n**Theme:** Top brunch spots 2025\\n\\n### Items\\n1. **Blue Bottle Coffee** - Type: cafe | Location: Arts District | Price: $$\\n2. **Verve Coffee** - Type: cafe | Location: Santa Monica | Price: $$\\n3. **Gjusta** - Type: bakery | Location: Venice | Price: $$$\\n... (ALL 15 with details)",
   "priority": "high",
   "category": "reference",
   "timeEstimate": "5 min"
 }
 
 WHY THIS MATTERS:
-- This task feeds directly into journal categorization
-- Rich metadata enables smart image search and correct category matching
+- This task is displayed in the UI and needs proper markdown formatting
+- Use ## for headers, **bold** for item names, and clean structure
 - The journal parser uses this to create individual entries with proper enrichment
 
 ENFORCEMENT (STRICT):
@@ -1705,6 +1714,7 @@ ENFORCEMENT (STRICT):
 - If content has 50 restaurants → Step 1 MUST list all 50 with locations/types
 - NEVER summarize or skip items
 - NEVER say "and more" or "etc." - list EVERY SINGLE item
+- ALWAYS use proper markdown formatting with ## headers and **bold** item names
 
 ## TASK GENERATION RULES
 

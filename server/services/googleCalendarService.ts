@@ -195,6 +195,55 @@ export async function pushActivityToCalendar(
 }
 
 /**
+ * Create a generic event on Google Calendar (not tied to an activity)
+ */
+export async function createCalendarEvent(
+  userId: number,
+  eventData: {
+    calendarId?: string;
+    summary: string;
+    description?: string;
+    start: { dateTime: string; timeZone?: string };
+    end: { dateTime: string; timeZone?: string };
+    location?: string;
+  }
+): Promise<{ success: boolean; eventId?: string; error?: string }> {
+  const calendar = await getCalendarClient(userId);
+  if (!calendar) {
+    return { success: false, error: 'Calendar not available. Please reconnect your Google account.' };
+  }
+
+  try {
+    const response = await calendar.events.insert({
+      calendarId: eventData.calendarId || PRIMARY_CALENDAR,
+      requestBody: {
+        summary: eventData.summary,
+        description: eventData.description,
+        location: eventData.location,
+        start: eventData.start,
+        end: eventData.end,
+        extendedProperties: {
+          private: {
+            source: APP_EVENT_SOURCE,
+          },
+        },
+      },
+    });
+
+    console.log(`[GOOGLE_CALENDAR] Created generic event ${response.data.id}`);
+    return { success: true, eventId: response.data.id || undefined };
+  } catch (error: any) {
+    console.error(`[GOOGLE_CALENDAR] Error creating event:`, error.message);
+
+    if (error.code === 401 || error.code === 403) {
+      return { success: false, error: 'Calendar access expired. Please reconnect your Google account.' };
+    }
+
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Delete an event from Google Calendar
  */
 export async function deleteCalendarEvent(

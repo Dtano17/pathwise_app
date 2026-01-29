@@ -498,7 +498,8 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
       // Get location from planMetadata or extract from title
       const location = planMetadata?.location || extractLocationFromTitle(planTitle);
       
-      const entries = tasks.map(task => ({
+      // Only save the first task (Step 1 - the complete list) to journal
+      const entries = tasks.slice(0, 1).map(task => ({
         category: mapCategoryToJournalCategory(task.category),
         entry: {
           id: `journal-${task.id}-${Date.now()}`,

@@ -400,6 +400,48 @@ export async function onActivitySharedToGroup(
 }
 
 // ============================================
+// ACTIVITY PROCESSING COMPLETE (Event-driven)
+// ============================================
+
+/**
+ * Called when an activity finishes AI generation/processing
+ * Sends immediate push notification to user (works even when app is locked)
+ */
+export async function onActivityProcessingComplete(
+  storage: IStorage,
+  activity: { id: number; title: string },
+  userId: number,
+  taskCount: number = 0,
+  source?: string // e.g., 'url', 'paste', 'quick_plan', 'smart_plan'
+): Promise<void> {
+  try {
+    const sourceLabel = source === 'url' ? 'from your link' :
+                        source === 'paste' ? 'from your content' : '';
+
+    const truncatedTitle = activity.title.length > 35
+      ? activity.title.slice(0, 35) + '...'
+      : activity.title;
+
+    await sendImmediateNotification(storage, userId.toString(), {
+      type: 'activity_ready',
+      title: `${truncatedTitle} is ready!`,
+      body: taskCount > 0
+        ? `Your plan ${sourceLabel} has ${taskCount} tasks. Tap to view!`.trim()
+        : `Your activity plan ${sourceLabel} is ready. Tap to start!`.trim(),
+      route: `/app?tab=activities&activity=${activity.id}`,
+      haptic: 'celebration',
+      channel: 'journalmate_activities',
+      sourceType: 'activity',
+      sourceId: activity.id.toString(),
+    });
+
+    console.log(`[NOTIFICATION] Sent activity ready notification for activity ${activity.id}`);
+  } catch (error) {
+    console.error('[NOTIFICATION] Error in onActivityProcessingComplete:', error);
+  }
+}
+
+// ============================================
 // ACTIVITY TASK EVENTS (Timeline items)
 // ============================================
 

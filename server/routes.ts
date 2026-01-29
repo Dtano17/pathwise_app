@@ -120,6 +120,7 @@ import {
   pullCalendarEvents,
   getUserCalendars,
   syncAllActivitiesToCalendar,
+  createCalendarEvent,
 } from "./services/googleCalendarService";
 import { seedGroupsForUser } from "./seedSampleGroups";
 import {
@@ -137,6 +138,7 @@ import {
   onGroupMemberJoined,
   onActivitySharedToGroup,
   onJournalEntryCreated,
+  onActivityProcessingComplete,
 } from "./services/notificationEventHooks";
 
 // Tavily client is now managed by tavilyProvider.ts with automatic key rotation
@@ -569,6 +571,10 @@ async function handleSmartPlanConversation(
           }
         }
 
+        // Send notification that activity is ready (works even when app is locked)
+        onActivityProcessingComplete(storage, activity, parseInt(userId), createdTasks.length, 'smart_plan')
+          .catch(err => console.error("[NOTIFICATION] Activity ready hook error:", err));
+
         // Mark session as completed
         await storage.updateLifestylePlannerSession(
           session.id,
@@ -678,6 +684,10 @@ async function handleSmartPlanConversation(
               createdTasks.push(task);
             }
           }
+
+          // Send notification that activity is ready (works even when app is locked)
+          onActivityProcessingComplete(storage, activity, parseInt(userId), createdTasks.length, 'smart_plan')
+            .catch(err => console.error("[NOTIFICATION] Activity ready hook error:", err));
 
           // Mark session as completed
           await storage.updateLifestylePlannerSession(
@@ -1745,6 +1755,44 @@ ${sitemaps
         res.json({ events: result.events });
       } catch (error: any) {
         console.error("[CALENDAR] Error pulling events:", error);
+        res.status(500).json({ error: error.message });
+      }
+    },
+  );
+
+  // Create a generic event on Google Calendar (for test events, etc.)
+  app.post(
+    "/api/calendar/event",
+    isAuthenticatedGeneric,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.id;
+        const { calendarId, summary, description, start, end, location } = req.body;
+
+        if (!summary || !start || !end) {
+          return res.status(400).json({ error: "Missing required fields: summary, start, end" });
+        }
+
+        const result = await createCalendarEvent(userId, {
+          calendarId,
+          summary,
+          description,
+          start,
+          end,
+          location,
+        });
+
+        if (!result.success) {
+          return res.status(400).json({ error: result.error });
+        }
+
+        res.json({
+          success: true,
+          eventId: result.eventId,
+          message: "Event created on Google Calendar",
+        });
+      } catch (error: any) {
+        console.error("[CALENDAR] Error creating event:", error);
         res.status(500).json({ error: error.message });
       }
     },
@@ -13404,6 +13452,10 @@ Return ONLY valid JSON, no markdown or explanation.`;
             }
           }
 
+          // Send notification that activity is ready (works even when app is locked)
+          onActivityProcessingComplete(storage, activity, parseInt(userId), createdTasks.length, 'quick_plan')
+            .catch(err => console.error("[NOTIFICATION] Activity ready hook error:", err));
+
           // Mark session as completed
           await storage.updateLifestylePlannerSession(
             session.id,
@@ -13495,6 +13547,10 @@ Return ONLY valid JSON, no markdown or explanation.`;
                 createdTasks.push(task);
               }
             }
+
+            // Send notification that activity is ready (works even when app is locked)
+            onActivityProcessingComplete(storage, activity, parseInt(userId), createdTasks.length, 'quick_plan')
+              .catch(err => console.error("[NOTIFICATION] Activity ready hook error:", err));
 
             // Mark session as completed
             await storage.updateLifestylePlannerSession(
@@ -14215,6 +14271,10 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
                   );
                 }
               }
+
+              // Send notification that activity is ready (works even when app is locked)
+              onActivityProcessingComplete(storage, activity, parseInt(userId), createdTasks.length, mode === 'quick' ? 'quick_plan' : 'smart_plan')
+                .catch(err => console.error("[NOTIFICATION] Activity ready hook error:", err));
 
               // Mark session as complete
               if (session?.id) {
@@ -19147,6 +19207,11 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           // Don't fail the whole request if journaling fails
         }
       }
+
+      // Send notification that activity is ready (works even when app is locked)
+      const sourceType = isSocialMedia ? 'url' : 'paste';
+      onActivityProcessingComplete(storage, activity, parseInt(userId), createdTasks.length, sourceType)
+        .catch(err => console.error("[NOTIFICATION] Activity ready hook error:", err));
 
       res.json({
         success: true,
