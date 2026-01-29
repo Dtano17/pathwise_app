@@ -1222,14 +1222,29 @@ OUTPUT FORMAT (JSON only, no markdown):
 
 THIS IS NON-NEGOTIABLE. When content contains a LIST of items (books, movies, restaurants, exercises, etc.):
 
-tasks[0] MUST be a "Complete List" task with CLEAN PLAIN-TEXT formatting (NO markdown syntax):
+tasks[0] MUST be a "Complete List" task with CLEAN PLAIN-TEXT formatting (NO markdown syntax).
+Use CATEGORY-SPECIFIC EMOJI HEADERS instead of generic headers.
 
 {
   "title": "Complete list of [N] [item type] from this post",
-  "description": "📋 COMPLETE COLLECTION\\n\\nCategory: [books|movies|restaurants|fitness|travel|etc]\\nTheme: [context from source]\\nLocation: [city/area if applicable]\\n\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. [ITEM NAME]\\n   [Metadata line]\\n\\n2. [ITEM NAME]\\n   [Metadata line]\\n\\n... (ALL items with blank line between each)",
+  "description": "[EMOJI] [CATEGORY NAME]\\n\\nTheme: [context from source]\\nLocation: [city/area if applicable]\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. [ITEM NAME]\\n   [Metadata line]\\n\\n2. [ITEM NAME]\\n   [Metadata line]\\n\\n... (ALL items with blank line between each)",
   "priority": "high",
-  "category": "reference"
+  "category": "[category-id]"
 }
+
+CATEGORY EMOJI HEADERS (use these EXACTLY):
+- 📺 MOVIES & TV SHOWS (category: "Movies & TV Shows")
+- 📚 BOOKS & READING (category: "Books & Reading")
+- 🎵 MUSIC & ARTISTS (category: "Music & Artists")
+- 🍽️ RESTAURANTS & FOOD (category: "Restaurants & Food")
+- ✈️ TRAVEL & PLACES (category: "Travel & Places")
+- 💪 HEALTH & FITNESS (category: "Health & Fitness")
+- 🎮 GAMING (category: "Gaming")
+- 🎙️ PODCASTS (category: "Podcasts")
+- 🛍️ SHOPPING (category: "Shopping & Purchases")
+- 🎨 HOBBIES & INTERESTS (category: "Hobbies & Interests")
+- 👗 PERSONAL STYLE (category: "Personal Style")
+- ⭐ FAVORITES (category: "Favorite Things")
 
 PLAIN-TEXT FORMAT BY CATEGORY (item name on first line, metadata indented on second line):
 - Books: "1. [Title]\\n   Author: [name] | Genre: [genre]"
@@ -1241,31 +1256,32 @@ PLAIN-TEXT FORMAT BY CATEGORY (item name on first line, metadata indented on sec
 EXAMPLE for 20 books:
 {
   "title": "Complete list of 20 business books from this post",
-  "description": "📋 COMPLETE COLLECTION\\n\\nCategory: Books\\nTheme: Business education / MBA curriculum\\n\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. $100M Offers\\n   Author: Alex Hormozi | Genre: business/sales\\n\\n2. Atomic Habits\\n   Author: James Clear | Genre: self-help/habits\\n\\n3. Never Split the Difference\\n   Author: Chris Voss | Genre: negotiation\\n\\n4. Start with Why\\n   Author: Simon Sinek | Genre: leadership\\n\\n5. The E-Myth Revisited\\n   Author: Michael Gerber | Genre: entrepreneurship\\n\\n... (ALL 20 books)",
+  "description": "📚 BOOKS & READING\\n\\nTheme: Business education / MBA curriculum\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. $100M Offers\\n   Author: Alex Hormozi | Genre: business/sales\\n\\n2. Atomic Habits\\n   Author: James Clear | Genre: self-help/habits\\n\\n3. Never Split the Difference\\n   Author: Chris Voss | Genre: negotiation\\n\\n4. Start with Why\\n   Author: Simon Sinek | Genre: leadership\\n\\n5. The E-Myth Revisited\\n   Author: Michael Gerber | Genre: entrepreneurship\\n\\n... (ALL 20 books)",
   "priority": "high",
-  "category": "reference"
+  "category": "Books & Reading"
 }
 
 EXAMPLE for 10 TV shows:
 {
   "title": "Complete list of 10 TV shows from this post",
-  "description": "📋 COMPLETE COLLECTION\\n\\nCategory: TV Shows\\nTheme: Trending streaming recommendations 2024\\n\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. STEAL\\n   Platform: Prime Video | Genre: thriller\\n\\n2. The RIP\\n   Platform: Netflix | Genre: drama\\n\\n3. RUN AWAY\\n   Platform: Netflix | Genre: thriller\\n\\n4. The Running Man\\n   Platform: Paramount+ | Genre: action\\n\\n5. THE BEAST IN ME\\n   Platform: Netflix | Genre: drama\\n\\n... (ALL 10 shows)",
+  "description": "📺 MOVIES & TV SHOWS\\n\\nTheme: Trending streaming recommendations 2025\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. STEAL\\n   Platform: Prime Video | Genre: thriller\\n\\n2. The RIP\\n   Platform: Netflix | Genre: drama\\n\\n3. RUN AWAY\\n   Platform: Netflix | Genre: thriller\\n\\n4. The Running Man\\n   Platform: Paramount+ | Genre: action\\n\\n5. THE BEAST IN ME\\n   Platform: Netflix | Genre: drama\\n\\n... (ALL 10 shows)",
   "priority": "high",
-  "category": "reference"
+  "category": "Movies & TV Shows"
 }
 
 EXAMPLE for 15 restaurants:
 {
   "title": "Complete list of 15 restaurants from this post",
-  "description": "📋 COMPLETE COLLECTION\\n\\nCategory: Restaurants\\nLocation: Los Angeles, CA\\nTheme: Top brunch spots 2025\\n\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. Blue Bottle Coffee\\n   Type: cafe | Location: Arts District | Price: $$\\n\\n2. Verve Coffee\\n   Type: cafe | Location: Santa Monica | Price: $$\\n\\n3. Gjusta\\n   Type: bakery | Location: Venice | Price: $$$\\n\\n... (ALL 15 restaurants)",
+  "description": "🍽️ RESTAURANTS & FOOD\\n\\nLocation: Los Angeles, CA\\nTheme: Top brunch spots 2025\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. Blue Bottle Coffee\\n   Type: cafe | Location: Arts District | Price: $$\\n\\n2. Verve Coffee\\n   Type: cafe | Location: Santa Monica | Price: $$\\n\\n3. Gjusta\\n   Type: bakery | Location: Venice | Price: $$$\\n\\n... (ALL 15 restaurants)",
   "priority": "high",
-  "category": "reference"
+  "category": "Restaurants & Food"
 }
 
 WHY THIS MATTERS:
-- This task is displayed in the UI as plain text (no markdown rendering)
-- Use line breaks, spacing, and emojis for visual structure
-- The journal parser uses Category/Theme/Location labels for categorization
+- The category field determines which journal section the entry is saved to
+- The description emoji header (📺, 📚, etc.) provides visual clarity in the UI
+- Backend categorization uses the category field with synonym matching
+- If category doesn't match a standard journal category, a NEW dynamic category is created
 
 ENFORCEMENT (STRICT):
 - If content has 20 books → Step 1 MUST list all 20 with authors/genres
@@ -1273,6 +1289,8 @@ ENFORCEMENT (STRICT):
 - NEVER summarize or skip items
 - NEVER say "and more" or "etc." - list EVERY SINGLE item
 - NEVER use markdown syntax like ** or ## - use plain text only
+- ALWAYS use the category-specific emoji header format
+- Use the EXACT category name from the list above (e.g., "Movies & TV Shows" not "movies")
 
 ## TASK GENERATION RULES
 

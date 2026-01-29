@@ -499,14 +499,17 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
       const location = planMetadata?.location || extractLocationFromTitle(planTitle);
       
       // Only save the first task (Step 1 - the complete list) to journal
+      // Always send category: 'notes' to trigger backend smart categorization
+      // Backend will use venueType to determine the actual category via synonym matching
+      // If no standard match, backend creates a dynamic category automatically
       const entries = tasks.slice(0, 1).map(task => ({
-        category: mapCategoryToJournalCategory(task.category),
+        category: 'notes',  // Let backend handle categorization via venueType
         entry: {
           id: `journal-${task.id}-${Date.now()}`,
           text: `${task.title}${task.description ? ` - ${task.description}` : ''}`,
           timestamp: new Date().toISOString(),
           venueName: task.title,
-          venueType: task.category,
+          venueType: task.category,  // AI's category - backend uses this for smart categorization
           location: location,
           budgetTier: planMetadata?.budgetTier,
           estimatedCost: planMetadata?.estimatedCost,
@@ -923,13 +926,13 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
                         onSaveToJournal={(alternative) => {
                           const location = planMetadata?.location || extractLocationFromTitle(planTitle);
                           const entry = {
-                            category: mapCategoryToJournalCategory(alternative.category),
+                            category: 'notes',  // Let backend handle categorization via venueType
                             entry: {
                               id: `journal-${alternative.id}-${Date.now()}`,
                               text: `${alternative.venueName}${alternative.venueType ? ` - ${alternative.venueType}` : ''}`,
                               timestamp: new Date().toISOString(),
                               venueName: alternative.venueName,
-                              venueType: alternative.venueType,
+                              venueType: alternative.venueType,  // Backend uses this for smart categorization
                               location: alternative.location || location,
                               budgetTier: alternative.budgetTier,
                               priceRange: alternative.priceRange,
