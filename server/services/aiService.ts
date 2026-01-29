@@ -1660,27 +1660,27 @@ For carousel posts with movies, books, music:
 
 THIS IS NON-NEGOTIABLE. When content contains a LIST of items (books, movies, restaurants, exercises, etc.):
 
-tasks[0] MUST be a "Complete List" task with PROPERLY FORMATTED MARKDOWN for display:
+tasks[0] MUST be a "Complete List" task with CLEAN PLAIN-TEXT formatting (NO markdown syntax):
 
 {
   "title": "Complete list of [N] [item type] from this post",
-  "description": "## 📋 Complete Collection\\n\\n**Category:** [books|movies|restaurants|fitness|travel|etc]\\n**Location:** [city/area if applicable]\\n**Theme:** [context from source]\\n\\n### Items\\n1. **[Item]** - [Metadata]\\n2. **[Item]** - [Metadata]\\n... (ALL items)",
+  "description": "📋 COMPLETE COLLECTION\\n\\nCategory: [books|movies|restaurants|fitness|travel|etc]\\nTheme: [context from source]\\nLocation: [city/area if applicable]\\n\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. [ITEM NAME]\\n   [Metadata line]\\n\\n2. [ITEM NAME]\\n   [Metadata line]\\n\\n... (ALL items with blank line between each)",
   "priority": "high",
   "category": "reference",
   "timeEstimate": "5 min"
 }
 
-MARKDOWN FORMAT BY CATEGORY (use **bold** for item names, dash for metadata):
-- Books: "1. **[Title]** - Author: [name] | Genre: [genre]"
-- Movies/TV Shows: "1. **[Title]** - Platform: [service] | Genre: [genre]"
-- Restaurants: "1. **[Name]** - Type: [cuisine] | Location: [area] | Price: [$-$$$$]"
-- Exercises: "1. **[Name]** - Type: [cardio/strength] | Duration: [time] | Equipment: [none/gym]"
-- Travel: "1. **[Destination]** - Type: [city/beach/mountain] | Best for: [context]"
+PLAIN-TEXT FORMAT BY CATEGORY (item name on first line, metadata indented on second line):
+- Books: "1. [Title]\\n   Author: [name] | Genre: [genre]"
+- Movies/TV Shows: "1. [Title]\\n   Platform: [service] | Genre: [genre]"
+- Restaurants: "1. [Name]\\n   Type: [cuisine] | Location: [area] | Price: [$-$$$$]"
+- Exercises: "1. [Name]\\n   Type: [cardio/strength] | Duration: [time] | Equipment: [none/gym]"
+- Travel: "1. [Destination]\\n   Type: [city/beach/mountain] | Best for: [context]"
 
 EXAMPLE for 20 books:
 {
   "title": "Complete list of 20 business books from this post",
-  "description": "## 📋 Complete Collection\\n\\n**Category:** Books\\n**Theme:** Business education / MBA curriculum\\n\\n### Items\\n1. **$100M Offers** - Author: Alex Hormozi | Genre: business/sales\\n2. **Atomic Habits** - Author: James Clear | Genre: self-help/habits\\n3. **Never Split the Difference** - Author: Chris Voss | Genre: negotiation\\n4. **Start with Why** - Author: Simon Sinek | Genre: leadership\\n5. **The E-Myth Revisited** - Author: Michael Gerber | Genre: entrepreneurship\\n... (ALL 20 books)",
+  "description": "📋 COMPLETE COLLECTION\\n\\nCategory: Books\\nTheme: Business education / MBA curriculum\\n\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. $100M Offers\\n   Author: Alex Hormozi | Genre: business/sales\\n\\n2. Atomic Habits\\n   Author: James Clear | Genre: self-help/habits\\n\\n3. Never Split the Difference\\n   Author: Chris Voss | Genre: negotiation\\n\\n4. Start with Why\\n   Author: Simon Sinek | Genre: leadership\\n\\n5. The E-Myth Revisited\\n   Author: Michael Gerber | Genre: entrepreneurship\\n\\n... (ALL 20 books)",
   "priority": "high",
   "category": "reference",
   "timeEstimate": "5 min"
@@ -1689,7 +1689,7 @@ EXAMPLE for 20 books:
 EXAMPLE for 10 TV shows:
 {
   "title": "Complete list of 10 TV shows from this post",
-  "description": "## 📋 Complete Collection\\n\\n**Category:** Movies\\n**Theme:** Trending TV shows recommendations 2024\\n\\n### Items\\n1. **STEAL** - Platform: Prime Video | Genre: thriller\\n2. **The RIP** - Platform: Netflix | Genre: drama\\n3. **RUN AWAY** - Platform: Netflix | Genre: thriller\\n4. **The Running Man** - Platform: Paramount+ | Genre: action\\n5. **THE BEAST IN ME** - Platform: Netflix | Genre: drama\\n... (ALL 10 shows)",
+  "description": "📋 COMPLETE COLLECTION\\n\\nCategory: TV Shows\\nTheme: Trending streaming recommendations 2024\\n\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. STEAL\\n   Platform: Prime Video | Genre: thriller\\n\\n2. The RIP\\n   Platform: Netflix | Genre: drama\\n\\n3. RUN AWAY\\n   Platform: Netflix | Genre: thriller\\n\\n4. The Running Man\\n   Platform: Paramount+ | Genre: action\\n\\n5. THE BEAST IN ME\\n   Platform: Netflix | Genre: drama\\n\\n... (ALL 10 shows)",
   "priority": "high",
   "category": "reference",
   "timeEstimate": "5 min"
@@ -1698,23 +1698,23 @@ EXAMPLE for 10 TV shows:
 EXAMPLE for 15 restaurants:
 {
   "title": "Complete list of 15 restaurants from this post",
-  "description": "## 📋 Complete Collection\\n\\n**Category:** Restaurants\\n**Location:** Los Angeles, CA\\n**Theme:** Top brunch spots 2025\\n\\n### Items\\n1. **Blue Bottle Coffee** - Type: cafe | Location: Arts District | Price: $$\\n2. **Verve Coffee** - Type: cafe | Location: Santa Monica | Price: $$\\n3. **Gjusta** - Type: bakery | Location: Venice | Price: $$$\\n... (ALL 15 with details)",
+  "description": "📋 COMPLETE COLLECTION\\n\\nCategory: Restaurants\\nLocation: Los Angeles, CA\\nTheme: Top brunch spots 2025\\n\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n1. Blue Bottle Coffee\\n   Type: cafe | Location: Arts District | Price: $$\\n\\n2. Verve Coffee\\n   Type: cafe | Location: Santa Monica | Price: $$\\n\\n3. Gjusta\\n   Type: bakery | Location: Venice | Price: $$$\\n\\n... (ALL 15 restaurants)",
   "priority": "high",
   "category": "reference",
   "timeEstimate": "5 min"
 }
 
 WHY THIS MATTERS:
-- This task is displayed in the UI and needs proper markdown formatting
-- Use ## for headers, **bold** for item names, and clean structure
-- The journal parser uses this to create individual entries with proper enrichment
+- This task is displayed in the UI as plain text (no markdown rendering)
+- Use line breaks, spacing, and emojis for visual structure
+- The journal parser uses Category/Theme/Location labels for categorization
 
 ENFORCEMENT (STRICT):
 - If content has 20 books → Step 1 MUST list all 20 with authors/genres
 - If content has 50 restaurants → Step 1 MUST list all 50 with locations/types
 - NEVER summarize or skip items
 - NEVER say "and more" or "etc." - list EVERY SINGLE item
-- ALWAYS use proper markdown formatting with ## headers and **bold** item names
+- NEVER use markdown syntax like ** or ## - use plain text only
 
 ## TASK GENERATION RULES
 

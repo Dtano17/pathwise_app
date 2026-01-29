@@ -2970,7 +2970,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                               </Badge>
                             </div>
                             {task.description && (
-                              <p className="text-xs text-slate-600 dark:text-slate-400">
+                              <p className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
                                 {task.description}
                               </p>
                             )}
@@ -3362,7 +3362,7 @@ export default function ConversationalPlanner({ onClose, initialMode, activityId
                               </Badge>
                             </div>
                             {task.description && (
-                              <p className="text-xs text-slate-600 dark:text-slate-400">
+                              <p className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
                                 {task.description}
                               </p>
                             )}

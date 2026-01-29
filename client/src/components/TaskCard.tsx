@@ -391,7 +391,7 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
             <h3 className="font-semibold text-base sm:text-lg text-foreground mb-2 break-words" data-testid={`task-title-${task.id}`}>
               {task.title}
             </h3>
-            <p className="text-sm text-muted-foreground mb-3 break-words" data-testid={`task-description-${task.id}`}>
+            <p className="text-sm text-muted-foreground mb-3 break-words whitespace-pre-wrap" data-testid={`task-description-${task.id}`}>
               {task.description}
             </p>
           </div>

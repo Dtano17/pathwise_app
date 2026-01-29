@@ -859,7 +859,7 @@ const ClaudePlanOutput = forwardRef<ClaudePlanCommandRef, ClaudePlanOutputProps>
 
                   {/* Task Details */}
                   <div className="ml-9 sm:ml-11 space-y-2 sm:space-y-3">
-                    <p className={`text-xs sm:text-sm text-muted-foreground leading-relaxed break-words ${
+                    <p className={`text-xs sm:text-sm text-muted-foreground leading-relaxed break-words whitespace-pre-wrap ${
                       isCompleted ? 'line-through decoration-1 decoration-gray-400 opacity-70' : ''
                     }`} data-testid={`text-task-description-${index}`}>
                       {displayTask.description}
