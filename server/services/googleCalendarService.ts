@@ -417,3 +417,114 @@ export async function syncAllActivitiesToCalendar(
   console.log(`[GOOGLE_CALENDAR] Synced ${results.success} activities, ${results.failed} failed`);
   return results;
 }
+
+/**
+ * Auto-sync activity to calendar if user has enabled calendar sync
+ * Called automatically when activities are created/updated
+ */
+export async function autoSyncActivityToCalendar(
+  userId: number,
+  activity: ActivityForCalendar
+): Promise<{ synced: boolean; eventId?: string; error?: string }> {
+  try {
+    // Check if user has calendar sync enabled
+    const mobilePrefs = await storage.getMobilePreferences(userId);
+
+    if (!mobilePrefs?.enableCalendarSync) {
+      console.log(`[GOOGLE_CALENDAR] Auto-sync disabled for user ${userId}`);
+      return { synced: false };
+    }
+
+    // Only sync activities with start dates
+    if (!activity.startDate) {
+      console.log(`[GOOGLE_CALENDAR] Activity ${activity.id} has no start date, skipping auto-sync`);
+      return { synced: false };
+    }
+
+    // Check if user has Google Calendar access
+    const hasAccess = await hasCalendarAccess(userId);
+    if (!hasAccess) {
+      console.log(`[GOOGLE_CALENDAR] User ${userId} doesn't have calendar access for auto-sync`);
+      return { synced: false, error: 'No calendar access' };
+    }
+
+    // Push to calendar
+    console.log(`[GOOGLE_CALENDAR] Auto-syncing activity ${activity.id} to calendar for user ${userId}`);
+    const result = await pushActivityToCalendar(userId, activity);
+
+    if (result.success && result.eventId) {
+      // Update activity with calendar event ID using existing updateActivity method
+      await storage.updateActivity(activity.id.toString(), {
+        googleCalendarEventId: result.eventId,
+      }, userId.toString());
+      console.log(`[GOOGLE_CALENDAR] Auto-sync successful for activity ${activity.id}, eventId: ${result.eventId}`);
+    }
+
+    return { synced: result.success, eventId: result.eventId, error: result.error };
+  } catch (error: any) {
+    console.error(`[GOOGLE_CALENDAR] Auto-sync error for activity ${activity.id}:`, error.message);
+    return { synced: false, error: error.message };
+  }
+}
+
+/**
+ * Auto-sync task to calendar if user has enabled calendar sync
+ * Called automatically when tasks with due dates are created
+ */
+export async function autoSyncTaskToCalendar(
+  userId: number,
+  task: { id: string; title: string; description?: string; dueDate?: string | Date }
+): Promise<{ synced: boolean; eventId?: string; error?: string }> {
+  try {
+    // Check if user has calendar sync enabled
+    const mobilePrefs = await storage.getMobilePreferences(userId);
+
+    if (!mobilePrefs?.enableCalendarSync) {
+      return { synced: false };
+    }
+
+    // Only sync tasks with due dates
+    if (!task.dueDate) {
+      return { synced: false };
+    }
+
+    // Check if user has Google Calendar access
+    const hasAccess = await hasCalendarAccess(userId);
+    if (!hasAccess) {
+      return { synced: false, error: 'No calendar access' };
+    }
+
+    // Convert due date to string if needed
+    const dueDateStr = task.dueDate instanceof Date
+      ? task.dueDate.toISOString()
+      : task.dueDate;
+
+    // Calculate start time (30 minutes before due date for the event)
+    const dueDate = new Date(dueDateStr);
+    const startDate = new Date(dueDate.getTime() - 30 * 60 * 1000);
+
+    // Create calendar event
+    console.log(`[GOOGLE_CALENDAR] Auto-syncing task ${task.id} to calendar for user ${userId}`);
+    const result = await createCalendarEvent(userId, {
+      summary: `📝 ${task.title}`,
+      description: task.description || `Task from JournalMate`,
+      start: {
+        dateTime: startDate.toISOString(),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      },
+      end: {
+        dateTime: dueDate.toISOString(),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      },
+    });
+
+    if (result.success) {
+      console.log(`[GOOGLE_CALENDAR] Auto-sync successful for task ${task.id}, eventId: ${result.eventId}`);
+    }
+
+    return { synced: result.success, eventId: result.eventId, error: result.error };
+  } catch (error: any) {
+    console.error(`[GOOGLE_CALENDAR] Auto-sync error for task ${task.id}:`, error.message);
+    return { synced: false, error: error.message };
+  }
+}
