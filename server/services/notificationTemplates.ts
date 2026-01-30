@@ -59,6 +59,33 @@ export const TaskTemplates: Record<string, NotificationTemplate> = {
 // ============================================
 
 export const ActivityTemplates: Record<string, NotificationTemplate> = {
+  // Activity ready - fired when AI generation completes
+  activity_ready: {
+    title: (ctx) => {
+      const emoji = ctx.source === 'url' ? '✨' : ctx.source === 'paste' ? '📋' : '🎯';
+      return `${emoji} ${truncate(ctx.title, 30)}`;
+    },
+    body: (ctx) => {
+      if (ctx.source === 'url') {
+        return ctx.taskCount > 0
+          ? `We turned your link into ${ctx.taskCount} actionable steps. Ready when you are!`
+          : `Your link has been transformed into an action plan. Take a look!`;
+      }
+      if (ctx.source === 'paste') {
+        return ctx.taskCount > 0
+          ? `${ctx.taskCount} steps created from your content. Let's make it happen!`
+          : `Your content is now an organized plan. Check it out!`;
+      }
+      return ctx.taskCount > 0
+        ? `Your plan with ${ctx.taskCount} steps is ready. Time to take action!`
+        : `Your activity plan is ready. Let's get started!`;
+    },
+    category: 'ACTIVITY READY',
+    haptic: 'celebration',
+    channel: 'journalmate_activities',
+    priority: 'high',
+  },
+
   activity_one_week: {
     title: (ctx) => `✈️ ${truncate(ctx.title, 35)} in 1 week`,
     body: (ctx) => {
@@ -308,12 +335,15 @@ export const StreakTemplates: Record<string, NotificationTemplate> = {
 
 export const AccountabilityTemplates: Record<string, NotificationTemplate> = {
   weekly_checkin: {
-    title: () => `📊 Weekly Check-in`,
+    title: () => `📊 Your Week in Review`,
     body: (ctx) => {
-      if (ctx.tasksCompleted && ctx.streakDays) {
-        return `${ctx.tasksCompleted} tasks completed, ${ctx.streakDays} day streak. Review your progress?`;
+      if (ctx.tasksCompleted && ctx.tasksCompleted > 5) {
+        return `Impressive! ${ctx.tasksCompleted} tasks done${ctx.streakDays ? ` and a ${ctx.streakDays}-day streak` : ''}. Keep the momentum going! 🔥`;
       }
-      return `How are your goals progressing this week?`;
+      if (ctx.tasksCompleted && ctx.tasksCompleted > 0) {
+        return `${ctx.tasksCompleted} tasks completed this week. Every step counts! What's next?`;
+      }
+      return `Sunday reflection time — how did your week go? Let's plan the next one!`;
     },
     category: 'WEEKLY REVIEW',
     haptic: 'light',
@@ -322,12 +352,15 @@ export const AccountabilityTemplates: Record<string, NotificationTemplate> = {
   },
 
   monthly_review: {
-    title: (ctx) => `📈 ${ctx.monthName} Review`,
+    title: (ctx) => `📈 ${ctx.monthName || 'Monthly'} Wrap-Up`,
     body: (ctx) => {
-      if (ctx.tasksCompleted && ctx.activitiesPlanned) {
-        return `You crushed ${ctx.tasksCompleted} tasks and planned ${ctx.activitiesPlanned} adventures!`;
+      if (ctx.tasksCompleted && ctx.tasksCompleted > 20) {
+        return `What a month! ${ctx.tasksCompleted} tasks completed${ctx.activitiesPlanned ? `, ${ctx.activitiesPlanned} plans made` : ''}. You're crushing it! 🏆`;
       }
-      return `Let's look back at what you accomplished this month.`;
+      if (ctx.tasksCompleted && ctx.tasksCompleted > 0) {
+        return `${ctx.tasksCompleted} tasks done this month. Take a moment to celebrate your wins!`;
+      }
+      return `New month, fresh start! Let's review your progress and set new goals.`;
     },
     category: 'MONTHLY REVIEW',
     haptic: 'medium',
@@ -336,8 +369,13 @@ export const AccountabilityTemplates: Record<string, NotificationTemplate> = {
   },
 
   quarterly_review: {
-    title: () => `📅 Quarterly Goals Review`,
-    body: () => `Time to reflect on the past 3 months and plan ahead`,
+    title: () => `🎯 Quarter in Review`,
+    body: (ctx) => {
+      if (ctx.goalsCompleted && ctx.goalsCompleted > 0) {
+        return `You've achieved ${ctx.goalsCompleted} goals this quarter! Time to dream bigger for the next 3 months.`;
+      }
+      return `90 days down — let's reflect on your journey and plan your next big moves!`;
+    },
     category: 'QUARTERLY REVIEW',
     haptic: 'medium',
     channel: 'journalmate_assistant',

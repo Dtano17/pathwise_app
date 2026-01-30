@@ -415,19 +415,35 @@ export async function onActivityProcessingComplete(
   source?: string // e.g., 'url', 'paste', 'quick_plan', 'smart_plan'
 ): Promise<void> {
   try {
-    const sourceLabel = source === 'url' ? 'from your link' :
-                        source === 'paste' ? 'from your content' : '';
-
-    const truncatedTitle = activity.title.length > 35
-      ? activity.title.slice(0, 35) + '...'
+    const truncatedTitle = activity.title.length > 30
+      ? activity.title.slice(0, 30) + '...'
       : activity.title;
+
+    // Build intuitive message based on source and content
+    let title: string;
+    let body: string;
+
+    if (source === 'url') {
+      title = `✨ ${truncatedTitle}`;
+      body = taskCount > 0
+        ? `We turned your link into ${taskCount} actionable steps. Ready when you are!`
+        : `Your link has been transformed into an action plan. Take a look!`;
+    } else if (source === 'paste') {
+      title = `📋 ${truncatedTitle}`;
+      body = taskCount > 0
+        ? `${taskCount} steps created from your content. Let's make it happen!`
+        : `Your content is now an organized plan. Check it out!`;
+    } else {
+      title = `🎯 ${truncatedTitle}`;
+      body = taskCount > 0
+        ? `Your plan with ${taskCount} steps is ready. Time to take action!`
+        : `Your activity plan is ready. Let's get started!`;
+    }
 
     await sendImmediateNotification(storage, userId.toString(), {
       type: 'activity_ready',
-      title: `${truncatedTitle} is ready!`,
-      body: taskCount > 0
-        ? `Your plan ${sourceLabel} has ${taskCount} tasks. Tap to view!`.trim()
-        : `Your activity plan ${sourceLabel} is ready. Tap to start!`.trim(),
+      title,
+      body,
       route: `/app?tab=activities&activity=${activity.id}`,
       haptic: 'celebration',
       channel: 'journalmate_activities',

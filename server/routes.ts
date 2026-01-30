@@ -12715,6 +12715,152 @@ Return ONLY valid JSON, no markdown or explanation.`;
     }
   });
 
+  // Test notification endpoint - sends various notification types for testing
+  app.post("/api/notifications/test", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { notificationType } = req.body;
+      const { sendImmediateNotification } = await import('./services/smartNotificationScheduler');
+
+      // Different notification types for testing with different haptics
+      const notificationPresets: Record<string, {
+        type: string;
+        title: string;
+        body: string;
+        haptic: string;
+        channel: string;
+        route: string;
+      }> = {
+        activity_ready: {
+          type: 'activity_ready',
+          title: '✨ Top 10 Restaurants in Lagos',
+          body: 'We turned your link into 10 actionable steps. Ready when you are!',
+          haptic: 'celebration',
+          channel: 'journalmate_activities',
+          route: '/app?tab=activities',
+        },
+        streak_warning: {
+          type: 'streak_at_risk',
+          title: '🔥 7-day streak at risk!',
+          body: 'Complete any task before midnight to keep it going',
+          haptic: 'heavy',
+          channel: 'journalmate_streaks',
+          route: '/app?tab=tasks',
+        },
+        streak_milestone: {
+          type: 'streak_milestone',
+          title: '🏆 30 Day Streak!',
+          body: 'A full month of consistency! You\'re unstoppable.',
+          haptic: 'celebration',
+          channel: 'journalmate_achievements',
+          route: '/app?tab=tasks',
+        },
+        weekly_checkin: {
+          type: 'weekly_checkin',
+          title: '📊 Your Week in Review',
+          body: 'Impressive! 15 tasks done and a 7-day streak. Keep the momentum going! 🔥',
+          haptic: 'light',
+          channel: 'journalmate_assistant',
+          route: '/app?tab=goals',
+        },
+        monthly_review: {
+          type: 'monthly_review',
+          title: '📈 January Wrap-Up',
+          body: 'What a month! 45 tasks completed, 8 plans made. You\'re crushing it! 🏆',
+          haptic: 'medium',
+          channel: 'journalmate_assistant',
+          route: '/app?tab=goals',
+        },
+        task_reminder: {
+          type: 'task_due_soon',
+          title: '⏰ Task Due in 30 Minutes',
+          body: 'Review quarterly report - deadline approaching!',
+          haptic: 'medium',
+          channel: 'journalmate_tasks',
+          route: '/app?tab=tasks',
+        },
+        badge_unlocked: {
+          type: 'badge_unlocked',
+          title: '🎖️ Badge Unlocked!',
+          body: 'You earned "Centurion" - Complete 100 tasks',
+          haptic: 'celebration',
+          channel: 'journalmate_achievements',
+          route: '/app?tab=profile',
+        },
+        activity_tomorrow: {
+          type: 'activity_one_day',
+          title: '🎯 Lagos Food Tour is tomorrow!',
+          body: 'Final checks time. Everything ready?',
+          haptic: 'heavy',
+          channel: 'journalmate_activities',
+          route: '/app?tab=activities',
+        },
+        group_invite: {
+          type: 'group_invite',
+          title: '👥 Group Invite',
+          body: 'Sarah invited you to join "Weekend Adventurers"',
+          haptic: 'medium',
+          channel: 'journalmate_groups',
+          route: '/app?tab=groups',
+        },
+        default: {
+          type: 'test_notification',
+          title: '🔔 Push Notifications Working!',
+          body: 'If you see this with haptic vibration, notifications are set up correctly!',
+          haptic: 'medium',
+          channel: 'journalmate_general',
+          route: '/app',
+        },
+      };
+
+      const preset = notificationPresets[notificationType || 'default'] || notificationPresets.default;
+
+      console.log(`[PUSH] Sending ${notificationType || 'default'} test notification to user ${userId}`);
+
+      await sendImmediateNotification(storage, userId.toString(), {
+        type: preset.type,
+        title: preset.title,
+        body: preset.body,
+        route: preset.route,
+        haptic: preset.haptic,
+        channel: preset.channel,
+        sourceType: 'test',
+        sourceId: `test-${Date.now()}`,
+      });
+
+      res.json({
+        success: true,
+        message: `${notificationType || 'default'} notification sent`,
+        notificationType: notificationType || 'default',
+      });
+    } catch (error: any) {
+      console.error("Error sending test notification:", error);
+      res.status(500).json({ error: error.message || "Failed to send test notification" });
+    }
+  });
+
+  // Get available notification test types
+  app.get("/api/notifications/test/types", async (_req: any, res) => {
+    res.json({
+      types: [
+        { id: 'activity_ready', name: 'Activity Ready', haptic: 'celebration' },
+        { id: 'streak_warning', name: 'Streak Warning', haptic: 'heavy' },
+        { id: 'streak_milestone', name: 'Streak Milestone', haptic: 'celebration' },
+        { id: 'weekly_checkin', name: 'Weekly Check-in', haptic: 'light' },
+        { id: 'monthly_review', name: 'Monthly Review', haptic: 'medium' },
+        { id: 'task_reminder', name: 'Task Reminder', haptic: 'medium' },
+        { id: 'badge_unlocked', name: 'Badge Unlocked', haptic: 'celebration' },
+        { id: 'activity_tomorrow', name: 'Activity Tomorrow', haptic: 'heavy' },
+        { id: 'group_invite', name: 'Group Invite', haptic: 'medium' },
+        { id: 'default', name: 'Default Test', haptic: 'medium' },
+      ],
+    });
+  });
+
   // Get user notifications
   app.get("/api/user/notifications", async (req: any, res) => {
     try {
