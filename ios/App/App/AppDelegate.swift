@@ -3,6 +3,8 @@ import Capacitor
 import Firebase
 import FirebaseMessaging
 import UserNotifications
+import BackgroundTasks
+import WidgetKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
@@ -11,6 +13,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     private let apiBaseURL = "https://journalmate.ai"
     private let prefsName = "journalmate_prefs"
+
+    // Background task identifiers
+    private let reminderSyncTaskId = "ai.journalmate.app.reminderSync"
+    private let widgetRefreshTaskId = "ai.journalmate.app.widgetRefresh"
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Configure Firebase
@@ -31,7 +37,205 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Trigger launch haptic feedback (immediate, native)
         triggerLaunchHaptic()
 
+        // Register background tasks for reminder sync and widget refresh
+        registerBackgroundTasks()
+
+        // Reschedule any pending reminders on app launch (handles device restart)
+        rescheduleRemindersOnLaunch()
+
         return true
+    }
+
+    // MARK: - Background Tasks (iOS 13+)
+
+    private func registerBackgroundTasks() {
+        // Register reminder sync task
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: reminderSyncTaskId, using: nil) { task in
+            self.handleReminderSyncTask(task as! BGAppRefreshTask)
+        }
+
+        // Register widget refresh task
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: widgetRefreshTaskId, using: nil) { task in
+            self.handleWidgetRefreshTask(task as! BGAppRefreshTask)
+        }
+
+        print("[JournalMate] Background tasks registered")
+    }
+
+    private func scheduleBackgroundTasks() {
+        // Schedule reminder sync (every 15 minutes minimum)
+        let reminderRequest = BGAppRefreshTaskRequest(identifier: reminderSyncTaskId)
+        reminderRequest.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60) // 15 minutes
+
+        // Schedule widget refresh (every 30 minutes minimum)
+        let widgetRequest = BGAppRefreshTaskRequest(identifier: widgetRefreshTaskId)
+        widgetRequest.earliestBeginDate = Date(timeIntervalSinceNow: 30 * 60) // 30 minutes
+
+        do {
+            try BGTaskScheduler.shared.submit(reminderRequest)
+            try BGTaskScheduler.shared.submit(widgetRequest)
+            print("[JournalMate] Background tasks scheduled")
+        } catch {
+            print("[JournalMate] Failed to schedule background tasks: \(error)")
+        }
+    }
+
+    private func handleReminderSyncTask(_ task: BGAppRefreshTask) {
+        print("[JournalMate] Background reminder sync started")
+
+        // Schedule the next sync
+        scheduleBackgroundTasks()
+
+        // Set expiration handler
+        task.expirationHandler = {
+            task.setTaskCompleted(success: false)
+        }
+
+        // Fetch upcoming reminders and reschedule local notifications
+        fetchAndRescheduleReminders { success in
+            task.setTaskCompleted(success: success)
+        }
+    }
+
+    private func handleWidgetRefreshTask(_ task: BGAppRefreshTask) {
+        print("[JournalMate] Background widget refresh started")
+
+        // Schedule the next refresh
+        scheduleBackgroundTasks()
+
+        task.expirationHandler = {
+            task.setTaskCompleted(success: false)
+        }
+
+        // Refresh widget data
+        refreshWidgetData { success in
+            task.setTaskCompleted(success: success)
+        }
+    }
+
+    private func fetchAndRescheduleReminders(completion: @escaping (Bool) -> Void) {
+        guard let authToken = UserDefaults.standard.string(forKey: "auth_token") else {
+            print("[JournalMate] No auth token for background sync")
+            completion(false)
+            return
+        }
+
+        let url = URL(string: "\(apiBaseURL)/api/tasks/upcoming?limit=20")!
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, error == nil else {
+                print("[JournalMate] Failed to fetch reminders: \(error?.localizedDescription ?? "unknown")")
+                completion(false)
+                return
+            }
+
+            do {
+                if let tasks = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                    self.scheduleLocalNotifications(for: tasks)
+                    completion(true)
+                } else {
+                    completion(false)
+                }
+            } catch {
+                print("[JournalMate] Failed to parse reminders: \(error)")
+                completion(false)
+            }
+        }.resume()
+    }
+
+    private func scheduleLocalNotifications(for tasks: [[String: Any]]) {
+        let center = UNUserNotificationCenter.current()
+
+        // Get user's reminder lead time preference (default 30 min)
+        let leadTimeMinutes = UserDefaults.standard.integer(forKey: "reminder_lead_time")
+        let leadTime = leadTimeMinutes > 0 ? TimeInterval(leadTimeMinutes * 60) : 30 * 60
+
+        for task in tasks {
+            guard let taskId = task["id"] as? String,
+                  let title = task["title"] as? String,
+                  let dueDateString = task["dueDate"] as? String else { continue }
+
+            // Parse ISO 8601 date
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            guard let dueDate = formatter.date(from: dueDateString) else { continue }
+
+            // Schedule notification for lead time before due date
+            let notificationDate = dueDate.addingTimeInterval(-leadTime)
+
+            // Skip if notification time is in the past
+            guard notificationDate > Date() else { continue }
+
+            let content = UNMutableNotificationContent()
+            content.title = "📋 Task Reminder"
+            content.body = title
+            content.sound = .default
+            content.categoryIdentifier = "TASK_REMINDER"
+            content.userInfo = ["taskId": taskId, "route": "/tasks"]
+
+            let triggerDate = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: notificationDate)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: triggerDate, repeats: false)
+
+            let request = UNNotificationRequest(identifier: "task_\(taskId)", content: content, trigger: trigger)
+
+            center.add(request) { error in
+                if let error = error {
+                    print("[JournalMate] Failed to schedule notification for task \(taskId): \(error)")
+                } else {
+                    print("[JournalMate] Scheduled notification for task: \(title)")
+                }
+            }
+        }
+    }
+
+    private func refreshWidgetData(completion: @escaping (Bool) -> Void) {
+        guard let authToken = UserDefaults.standard.string(forKey: "auth_token") else {
+            completion(false)
+            return
+        }
+
+        let url = URL(string: "\(apiBaseURL)/api/tasks/widget")!
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, error == nil else {
+                completion(false)
+                return
+            }
+
+            // Store in shared container for widgets
+            if let sharedDefaults = UserDefaults(suiteName: "group.com.journalmate.app") {
+                sharedDefaults.set(data, forKey: "widget_data")
+                sharedDefaults.set(Date(), forKey: "widget_data_timestamp")
+                print("[JournalMate] Widget data refreshed in background")
+            }
+
+            // Trigger widget timeline reload
+            if #available(iOS 14.0, *) {
+                WidgetCenter.shared.reloadAllTimelines()
+            }
+
+            completion(true)
+        }.resume()
+    }
+
+    private func rescheduleRemindersOnLaunch() {
+        // Check if we need to reschedule (e.g., after device restart)
+        let lastSyncKey = "last_reminder_sync"
+        let lastSync = UserDefaults.standard.object(forKey: lastSyncKey) as? Date ?? Date.distantPast
+
+        // If last sync was more than 1 hour ago, reschedule
+        if Date().timeIntervalSince(lastSync) > 3600 {
+            print("[JournalMate] Rescheduling reminders on launch (last sync: \(lastSync))")
+            fetchAndRescheduleReminders { success in
+                if success {
+                    UserDefaults.standard.set(Date(), forKey: lastSyncKey)
+                }
+            }
+        }
     }
 
     // MARK: - Launch Haptic Feedback
@@ -374,7 +578,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     func applicationDidEnterBackground(_ application: UIApplication) {
-        // Use this method to release shared resources, save user data, invalidate timers.
+        // Schedule background tasks for reminder sync and widget refresh
+        scheduleBackgroundTasks()
+
+        // Save current state for restart recovery
+        UserDefaults.standard.set(Date(), forKey: "app_background_time")
     }
 
     func applicationWillEnterForeground(_ application: UIApplication) {

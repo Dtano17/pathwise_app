@@ -123,7 +123,19 @@ export const goals = pgTable("goals", {
   description: text("description"),
   category: text("category").notNull(),
   priority: text("priority").notNull(), // 'low' | 'medium' | 'high'
+  // Goal tracking fields
+  deadline: timestamp("deadline"), // Target completion date for goal
+  completed: boolean("completed").default(false),
+  completedAt: timestamp("completed_at"),
+  progress: integer("progress").default(0), // 0-100 percentage
+  // Notification settings
+  enableReminders: boolean("enable_reminders").default(true),
+  reminderFrequency: text("reminder_frequency").default("weekly"), // 'daily' | 'weekly' | 'monthly'
+  lastReminderSent: timestamp("last_reminder_sent"),
+  // Calendar sync
+  googleCalendarEventId: varchar("google_calendar_event_id"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 

@@ -14588,6 +14588,13 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
             priority: goalResult.goalPriority,
           });
 
+          // Trigger goal notification hook if goal has a deadline
+          if (createdGoal.deadline) {
+            onGoalCreated(storage, createdGoal, userId).catch((err) =>
+              console.error("[NOTIFICATION] Goal created hook error:", err),
+            );
+          }
+
           // Create the tasks in the database
           createdTasks = await Promise.all(
             goalResult.tasks.map((task) =>
