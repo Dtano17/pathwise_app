@@ -51,6 +51,14 @@
 	<array>
 		<string>fetch</string>
 		<string>remote-notification</string>
+		<string>processing</string>
+	</array>
+
+	<!-- Background Task Identifiers for BGTaskScheduler -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>ai.journalmate.app.reminderSync</string>
+		<string>ai.journalmate.app.widgetRefresh</string>
 	</array>
 
 	<!-- Privacy - Camera Usage Description -->

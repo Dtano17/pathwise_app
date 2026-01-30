@@ -281,15 +281,73 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
             return tomorrow;
           })();
 
-      const result = await addTaskToCalendar(
-        task.title,
-        dueDate,
-        task.description,
-        30 // 30 minutes reminder
-      );
+      // Calculate start date (30 minutes before due date for reminder)
+      const reminderMinutes = 30;
+      const startDate = new Date(dueDate.getTime() - (reminderMinutes * 60 * 1000));
+
+      let result: { success: boolean; error?: string } = { success: false, error: 'No calendar method available' };
+
+      // Try Google Calendar API first (works on web and native)
+      try {
+        console.log('[TASK CARD] Trying Google Calendar API first...');
+        const statusResponse = await apiRequest('GET', '/api/calendar/status');
+        const statusData = await statusResponse.json();
+        console.log('[TASK CARD] Google Calendar status:', statusData);
+
+        if (statusData.hasAccess) {
+          // User has Google Calendar access - use Google Calendar API
+          console.log('[TASK CARD] Using Google Calendar API...');
+
+          // Get the default/primary calendar
+          const listResponse = await apiRequest('GET', '/api/calendar/list');
+          const listData = await listResponse.json();
+
+          if (listData.calendars && listData.calendars.length > 0) {
+            // Use primary calendar or first available
+            const primaryCalendar = listData.calendars.find((cal: any) => cal.primary) || listData.calendars[0];
+            console.log('[TASK CARD] Using Google Calendar:', primaryCalendar.summary);
+
+            const eventResponse = await apiRequest('POST', '/api/calendar/event', {
+              calendarId: primaryCalendar.id,
+              summary: `📝 ${task.title}`,
+              description: task.description || '',
+              start: {
+                dateTime: startDate.toISOString(),
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              },
+              end: {
+                dateTime: dueDate.toISOString(),
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              },
+            });
+            const eventData = await eventResponse.json();
+
+            if (eventData.id || eventData.eventId) {
+              result = { success: true };
+              console.log('[TASK CARD] Event created via Google Calendar API:', eventData.id || eventData.eventId);
+            } else {
+              result = { success: false, error: eventData.error || 'Failed to create event' };
+            }
+          }
+        }
+      } catch (apiError: any) {
+        console.log('[TASK CARD] Google Calendar API not available, will try native:', apiError.message);
+      }
+
+      // Fall back to native Capacitor calendar if Google API didn't work
+      if (!result.success && isNative()) {
+        console.log('[TASK CARD] Trying native Capacitor calendar...');
+        const nativeResult = await addTaskToCalendar(
+          task.title,
+          dueDate,
+          task.description,
+          reminderMinutes
+        );
+        result = nativeResult;
+      }
 
       if (result.success) {
-        triggerHapticFeedback('heavy');
+        triggerHapticFeedback('success');
         toast({
           title: 'Added to Calendar',
           description: 'Task has been added to your calendar with a reminder',
@@ -497,24 +555,22 @@ const TaskCard = memo(function TaskCard({ task, onComplete, onSkip, onSnooze, on
               <span className="truncate">Snooze</span>
             </Button>
 
-            {/* Calendar button - show on native mobile, or when task has a due date */}
-            {(isNative() || task.dueDate) && (
-              <Button
-                onClick={handleAddToCalendar}
-                disabled={isProcessing || isAddingToCalendar}
-                variant="outline"
-                size="default"
-                className="w-full min-h-[44px]"
-                data-testid={`button-calendar-${task.id}`}
-              >
-                {isAddingToCalendar ? (
-                  <Loader2 className="w-4 h-4 mr-2 flex-shrink-0 animate-spin" />
-                ) : (
-                  <CalendarPlus className="w-4 h-4 mr-2 flex-shrink-0" />
-                )}
-                <span className="truncate">Calendar</span>
-              </Button>
-            )}
+            {/* Calendar button - always show (Google Calendar API works on web, native calendar on mobile) */}
+            <Button
+              onClick={handleAddToCalendar}
+              disabled={isProcessing || isAddingToCalendar}
+              variant="outline"
+              size="default"
+              className="w-full min-h-[44px]"
+              data-testid={`button-calendar-${task.id}`}
+            >
+              {isAddingToCalendar ? (
+                <Loader2 className="w-4 h-4 mr-2 flex-shrink-0 animate-spin" />
+              ) : (
+                <CalendarPlus className="w-4 h-4 mr-2 flex-shrink-0" />
+              )}
+              <span className="truncate">Calendar</span>
+            </Button>
 
             {onArchive && (
               <Button

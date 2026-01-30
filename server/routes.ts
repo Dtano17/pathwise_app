@@ -121,6 +121,8 @@ import {
   getUserCalendars,
   syncAllActivitiesToCalendar,
   createCalendarEvent,
+  autoSyncActivityToCalendar,
+  autoSyncTaskToCalendar,
 } from "./services/googleCalendarService";
 import { seedGroupsForUser } from "./seedSampleGroups";
 import {
@@ -5202,6 +5204,16 @@ ${sitemaps
         onTaskCreated(storage, task, userId).catch((err) =>
           console.error("[NOTIFICATION] Task created hook error:", err),
         );
+
+        // Auto-sync task to Google Calendar if user has it enabled
+        autoSyncTaskToCalendar(parseInt(userId), {
+          id: task.id,
+          title: task.title,
+          description: task.description || undefined,
+          dueDate: task.dueDate,
+        }).catch((err) =>
+          console.error("[CALENDAR] Task auto-sync error:", err),
+        );
       }
 
       res.json(task);
@@ -5267,6 +5279,18 @@ ${sitemaps
         onTaskUpdated(storage, task, updates, userId).catch((err) =>
           console.error("[NOTIFICATION] Task updated hook error:", err),
         );
+
+        // Auto-sync task to Google Calendar if dueDate was updated and user has sync enabled
+        if ("dueDate" in updates) {
+          autoSyncTaskToCalendar(parseInt(userId), {
+            id: task.id,
+            title: task.title,
+            description: task.description || undefined,
+            dueDate: task.dueDate,
+          }).catch((err) =>
+            console.error("[CALENDAR] Task auto-sync error:", err),
+          );
+        }
       }
 
       res.json(task);
@@ -7237,6 +7261,20 @@ ${sitemaps
             );
             console.log(
               `[ACTIVITY] Rescheduled ${reminderResult.created} reminders for activity ${result.activity.id}`,
+            );
+
+            // Auto-sync to Google Calendar if user has it enabled
+            autoSyncActivityToCalendar(parseInt(userId), {
+              id: parseInt(result.activity.id),
+              title: result.activity.title,
+              description: result.activity.description || undefined,
+              startDate: result.activity.startDate?.toISOString(),
+              endDate: result.activity.endDate?.toISOString() || undefined,
+              location: result.activity.location || undefined,
+              category: result.activity.category || undefined,
+              googleCalendarEventId: result.activity.googleCalendarEventId || undefined,
+            }).catch((err) =>
+              console.error("[CALENDAR] Auto-sync error:", err),
             );
           } else {
             await cancelRemindersForActivity(storage, activityId);
@@ -14587,6 +14625,13 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
             category: goalResult.goalCategory,
             priority: goalResult.goalPriority,
           });
+
+          // Trigger goal notification hook if goal has a deadline
+          if (createdGoal.deadline) {
+            onGoalCreated(storage, createdGoal, userId).catch((err) =>
+              console.error("[NOTIFICATION] Goal created hook error:", err),
+            );
+          }
 
           // Create the tasks in the database
           createdTasks = await Promise.all(
