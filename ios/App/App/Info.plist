@@ -46,6 +46,13 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 
+	<!-- Background Modes for Push Notifications and Background Fetch -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+
 	<!-- Privacy - Camera Usage Description -->
 	<key>NSCameraUsageDescription</key>
 	<string>JournalMate needs access to your camera to capture photos for your journal entries and activities.</string>
@@ -105,6 +112,15 @@
 				<string>journalmate</string>
 			</array>
 		</dict>
+		<!-- Google Sign-In URL Scheme (reversed client ID) -->
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.google.sign-in</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.481740120979-76fs0ru0uikj5o33mr87vhua8c54657f</string>
+			</array>
+		</dict>
 	</array>
 
 	<!-- Allow Universal Links -->
@@ -113,5 +129,9 @@
 		<string>applinks:journalmate.ai</string>
 		<string>applinks:journalmate.replit.app</string>
 	</array>
+
+	<!-- Live Activities Support -->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 </dict>
 </plist>

@@ -700,6 +700,18 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
             setCalendarLoading(false);
             return;
           }
+        } else if (statusData.configured) {
+          // Google Calendar is configured but user doesn't have access
+          // This means they need to re-login with Google to get calendar permission
+          console.log('[SETTINGS] Google Calendar configured but no access - user needs to reconnect');
+          toast({
+            title: 'Calendar Access Required',
+            description: 'Please log out and sign in again with Google to grant calendar access.',
+            variant: 'destructive',
+            duration: 8000,
+          });
+          setCalendarLoading(false);
+          return;
         }
       } catch (apiError: any) {
         console.log('[SETTINGS] Google Calendar API not available, falling back to native:', apiError.message);
@@ -728,9 +740,9 @@ export default function Settings({ onOpenUpgradeModal }: SettingsProps = {}) {
       if (calendars.length === 0) {
         toast({
           title: 'No Calendars Found',
-          description: 'Please sign in with Google to use calendar features, or add a Google account to your device.',
+          description: 'To use calendar features: 1) Log out of JournalMate, 2) Sign back in with Google, 3) Grant calendar access when prompted.',
           variant: 'destructive',
-          duration: 8000,
+          duration: 10000,
         });
         setCalendarLoading(false);
         return;

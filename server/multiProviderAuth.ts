@@ -668,9 +668,9 @@ export async function setupMultiProviderAuth(app: Express) {
   // This bypasses WebView OAuth restrictions by verifying native SDK tokens
   app.post('/api/auth/google/native', async (req, res) => {
     try {
-      const { idToken, email, name, givenName, familyName, imageUrl, id: googleId } = req.body;
+      const { idToken, accessToken, email, name, givenName, familyName, imageUrl, id: googleId } = req.body;
 
-      console.log('[Native Google Auth] Request received:', { email, name, googleId });
+      console.log('[Native Google Auth] Request received:', { email, name, googleId, hasAccessToken: !!accessToken });
 
       if (!email || !googleId) {
         console.error('[Native Google Auth] Missing required fields');
@@ -761,6 +761,22 @@ export async function setupMultiProviderAuth(app: Express) {
         expiresAt: tokenExpiry,
         scope: 'native_auth',
       });
+
+      // Also store the Google access token for API access (calendar, etc.)
+      // The native SDK provides an access token that can be used for Google APIs
+      if (accessToken) {
+        await storage.upsertOAuthToken({
+          userId: user.id,
+          provider: 'google',
+          accessToken: accessToken, // Real access token from native SDK
+          refreshToken: undefined,
+          expiresAt: tokenExpiry,
+          scope: 'profile email calendar calendar.events',
+        });
+        console.log('[Native Google Auth] Google access token stored for user:', user.id);
+      } else {
+        console.log('[Native Google Auth] No access token provided - calendar API will not be available');
+      }
 
       console.log('[Native Google Auth] Auth token generated for user:', user.id);
 

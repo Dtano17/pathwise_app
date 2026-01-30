@@ -95,7 +95,12 @@ export async function initializeGoogleAuth(): Promise<void> {
   try {
     console.log('[GOOGLE_AUTH] Initializing native Google Sign-In');
     await GoogleAuth.initialize({
-      scopes: ['profile', 'email'],
+      scopes: [
+        'profile',
+        'email',
+        'https://www.googleapis.com/auth/calendar',
+        'https://www.googleapis.com/auth/calendar.events'
+      ],
       grantOfflineAccess: true,
     });
     console.log('[GOOGLE_AUTH] Native Google Sign-In initialized successfully');
