@@ -1769,7 +1769,7 @@ ${sitemaps
     async (req: any, res) => {
       try {
         const userId = req.user.id;
-        const { calendarId, summary, description, start, end, location } = req.body;
+        const { calendarId, summary, description, start, end, location, reminders } = req.body;
 
         if (!summary || !start || !end) {
           return res.status(400).json({ error: "Missing required fields: summary, start, end" });
@@ -1782,6 +1782,7 @@ ${sitemaps
           start,
           end,
           location,
+          reminders,
         });
 
         if (!result.success) {
@@ -7058,10 +7059,28 @@ ${sitemaps
     try {
       const { taskId } = req.params;
       const userId = getUserId(req) || DEMO_USER_ID;
+
+      // Get the task first to check for calendar event ID
+      const existingTask = await storage.getTask(taskId, userId);
+
       const task = await storage.archiveTask(taskId, userId);
 
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
+      }
+
+      // Delete from Google Calendar if event was synced
+      if (existingTask?.googleCalendarEventId) {
+        try {
+          const numericUserId = typeof userId === "string" ? parseInt(userId, 10) : userId;
+          if (!isNaN(numericUserId)) {
+            const deleteResult = await deleteCalendarEvent(numericUserId, existingTask.googleCalendarEventId);
+            console.log("[TASK ARCHIVE] Calendar event deleted:", deleteResult.success);
+          }
+        } catch (calendarError) {
+          console.error("[TASK ARCHIVE] Failed to delete calendar event:", calendarError);
+          // Continue with archive even if calendar delete fails
+        }
       }
 
       res.json(task);

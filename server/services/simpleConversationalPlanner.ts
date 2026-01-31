@@ -26,6 +26,7 @@ import {
   generateWithGrounding,
   isGeminiConfigured,
   formatGroundingSources,
+  injectGroundingUrlsIntoTasks,
   type GeminiMessage,
   type GeminiGroundingConfig,
 } from './geminiProvider';
@@ -1273,6 +1274,12 @@ IMPORTANT for emoji:
           }
         }
         console.log(`[GEMINI_PROVIDER] Grounding: ${response.groundingMetadata.sources?.length || 0} web sources, ${response.groundingMetadata.mapsResults?.length || 0} maps results`);
+
+        // Inject grounding URLs into task descriptions for actionable calendar events
+        if (result.plan?.tasks && result.plan.tasks.length > 0) {
+          result.plan.tasks = injectGroundingUrlsIntoTasks(result.plan.tasks, response.groundingMetadata);
+          console.log(`[GEMINI_PROVIDER] Injected grounding URLs into ${result.plan.tasks.length} tasks`);
+        }
       }
 
       // Post-process: Extract destinationUrl from message if Gemini put it there instead of in plan
