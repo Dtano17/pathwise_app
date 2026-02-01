@@ -797,10 +797,15 @@ Respond with ONLY a JSON object in this format:
           // Continue with fresh enrichment if DB lookup fails
         }
       } else {
-        // Clear in-memory cache for this entry on force refresh
+        // Clear BOTH in-memory cache and DB cache on force refresh
+        // This ensures stale "Coming Soon" placeholders are re-evaluated with updated matching logic
         this.cache.delete(cacheKey);
-        console.log(`[JOURNAL_WEB_ENRICH] Memory cache cleared for forced refresh of "${venueName}"`);
-        // Note: We don't delete DB cache on force refresh - allows selective refresh
+        try {
+          await storage.deleteJournalEnrichmentCache(cacheKey);
+          console.log(`[JOURNAL_WEB_ENRICH] Memory + DB cache cleared for forced refresh of "${venueName}"`);
+        } catch (dbError) {
+          console.warn(`[JOURNAL_WEB_ENRICH] Failed to clear DB cache for "${venueName}":`, dbError);
+        }
       }
 
       if (!venueName) {

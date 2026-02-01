@@ -839,19 +839,22 @@ Respond ONLY with valid JSON (no explanation):
         }
 
         // Also check batch context year range if no explicit year
+        // RELAXED: Allow ±3 years back (user might add 2022 classic to 2025 watchlist)
         const ctx = this.batchContext;
         if (!targetYear && ctx && ctx.confidence > 0.5 && ctx.inferredYearRange && movieYear) {
           const { min, max } = ctx.inferredYearRange;
-          if (movieYear < min - 1 || movieYear > max + 1) {
-            console.log(`[TMDB] TIER 2 FAIL: "${movie.title}" year ${movieYear} outside batch range ${min}-${max}`);
+          if (movieYear < min - 3 || movieYear > max + 1) {
+            console.log(`[TMDB] TIER 2 FAIL: "${movie.title}" year ${movieYear} outside batch range ${min - 3}-${max + 1}`);
             continue; // FAIL - skip to next candidate
           }
           tierResults.push(`T2:batch-year=${movieYear}`);
         }
 
         // ========== TIER 3: Popularity/Engagement Gate ==========
-        // Prevent knockoff/spam movies from being matched
-        if (movie.popularity < 5 && movie.vote_count < 50) {
+        // RELAXED: Only reject truly obscure/spam movies
+        // Previous: popularity < 5 && vote_count < 50 (too strict for indie films)
+        // Now: popularity < 2 && vote_count < 15 (allows films like "On Becoming a Guinea Fowl" with 30 votes)
+        if (movie.popularity < 2 && movie.vote_count < 15) {
           console.log(`[TMDB] TIER 3 FAIL: "${movie.title}" too obscure (popularity=${movie.popularity}, votes=${movie.vote_count})`);
           continue; // FAIL - skip to next candidate
         }
@@ -1008,11 +1011,12 @@ Respond ONLY with valid JSON (no explanation):
           }
         }
 
-        // For short titles (1-2 words), require exact match
+        // For short titles (1-2 words), use same threshold as TIER 1
+        // RELAXED: From 95% to 80% - allows "F1", "Sinners" with slight variations
         if (isShortTitle) {
           const normalizedSearch = searchTitle.toLowerCase().trim();
           const normalizedShow = show.name.toLowerCase().trim();
-          if (normalizedSearch !== normalizedShow && titleScore < 0.95) {
+          if (normalizedSearch !== normalizedShow && titleScore < 0.80) {
             console.log(`[TMDB] TIER 1 FAIL (short title): "${show.name}" not exact match for "${searchTitle}"`);
             continue; // FAIL - skip to next candidate
           }
@@ -1035,33 +1039,37 @@ Respond ONLY with valid JSON (no explanation):
         }
 
         // Also check batch context year range if no explicit year
+        // RELAXED: Allow ±3 years back (user might add older show to current watchlist)
         const ctx = this.batchContext;
         if (!searchYear && ctx && ctx.confidence > 0.5 && ctx.inferredYearRange && showYear) {
           const { min, max } = ctx.inferredYearRange;
-          if (showYear < min - 1 || showYear > max + 1) {
-            console.log(`[TMDB] TIER 2 FAIL: "${show.name}" year ${showYear} outside batch range ${min}-${max}`);
+          if (showYear < min - 3 || showYear > max + 1) {
+            console.log(`[TMDB] TIER 2 FAIL: "${show.name}" year ${showYear} outside batch range ${min - 3}-${max + 1}`);
             continue; // FAIL - skip to next candidate
           }
           tierResults.push(`T2:batch-year=${showYear}`);
         }
 
         // ========== TIER 3: Popularity/Engagement Gate ==========
-        // Prevent knockoff/spam shows from being matched
-        if (show.popularity < 5 && show.vote_count < 50) {
+        // RELAXED: Only reject truly obscure/spam shows
+        // Previous: popularity < 5 && vote_count < 50 (too strict)
+        // Now: popularity < 2 && vote_count < 15 (allows indie/international shows)
+        if (show.popularity < 2 && show.vote_count < 15) {
           console.log(`[TMDB] TIER 3 FAIL: "${show.name}" too obscure (popularity=${show.popularity}, votes=${show.vote_count})`);
           continue; // FAIL - skip to next candidate
         }
         tierResults.push(`T3:pop=${show.popularity.toFixed(0)}`);
 
         // ========== TIER 4: Language/Region Gate (if batch context indicates) ==========
+        // RELAXED: Allow non-English films with good title match (85% instead of 95%)
         if (ctx && ctx.confidence > 0.5) {
           // If batch expects English content, reject non-English with low title match
-          if (ctx.inferredRegion === 'US' && show.original_language !== 'en' && titleScore < 0.95) {
+          if (ctx.inferredRegion === 'US' && show.original_language !== 'en' && titleScore < 0.85) {
             console.log(`[TMDB] TIER 4 FAIL: "${show.name}" non-English (${show.original_language}) for US batch`);
             continue; // FAIL - skip to next candidate
           }
           // If batch expects Korean content, reject non-Korean
-          if (ctx.inferredRegion === 'Korea' && show.original_language !== 'ko' && titleScore < 0.95) {
+          if (ctx.inferredRegion === 'Korea' && show.original_language !== 'ko' && titleScore < 0.85) {
             console.log(`[TMDB] TIER 4 FAIL: "${show.name}" non-Korean (${show.original_language}) for Korean batch`);
             continue; // FAIL - skip to next candidate
           }
