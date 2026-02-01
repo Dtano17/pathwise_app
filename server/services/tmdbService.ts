@@ -91,10 +91,27 @@ export interface BatchContext {
 class TMDBService {
   private apiKey: string | null = null;
 
-  // Minimum similarity threshold for accepting a TMDB result
+  // Base similarity threshold for accepting a TMDB result
   // 0.6 = at least 60% of query words must match the result title
   // Increased from 0.4 to prevent "The Pitt" matching "Pittsburgh Steelers"
   private readonly SIMILARITY_THRESHOLD = 0.6;
+
+  // Major franchises that require higher similarity or popularity to prevent false positives
+  // e.g., "Spider-Man: Brand New Day" should NOT match low-budget "Spider Man" knockoffs
+  private readonly PROTECTED_FRANCHISES = [
+    'spider-man', 'spiderman', 'spider man',
+    'batman', 'superman', 'wonder woman',
+    'marvel', 'avengers', 'iron man', 'captain america', 'thor',
+    'star wars', 'star trek',
+    'harry potter', 'lord of the rings', 'hobbit',
+    'james bond', '007',
+    'fast and furious', 'fast & furious',
+    'jurassic park', 'jurassic world',
+    'transformers', 'mission impossible',
+    'indiana jones', 'pirates of the caribbean',
+    'x-men', 'deadpool', 'wolverine',
+    'dc', 'dceu', 'mcu'
+  ];
 
   // Current batch context for collective inference
   private batchContext: BatchContext | null = null;
@@ -386,6 +403,26 @@ Respond ONLY with valid JSON (no explanation):
    */
   getBatchContext(): BatchContext | null {
     return this.batchContext;
+  }
+
+  /**
+   * Set batch context from external source (e.g., journalWebEnrichmentService).
+   * This allows the tiered validation to use year/region context when searching.
+   */
+  setBatchContext(context: Partial<BatchContext>): void {
+    this.batchContext = {
+      inferredYear: context.inferredYear || null,
+      inferredYearRange: context.inferredYearRange || null,
+      inferredLanguage: context.inferredLanguage || null,
+      inferredMediaType: context.inferredMediaType || null,
+      inferredGenre: context.inferredGenre || null,
+      inferredRegion: context.inferredRegion || null,
+      collectionDescription: context.collectionDescription || null,
+      isUpcoming: context.isUpcoming || false,
+      isClassic: context.isClassic || false,
+      confidence: context.confidence || 0.5
+    };
+    console.log(`[TMDB] Batch context set externally: year=${this.batchContext.inferredYear}, range=${this.batchContext.inferredYearRange?.min}-${this.batchContext.inferredYearRange?.max}, region=${this.batchContext.inferredRegion}, type=${this.batchContext.inferredMediaType}`);
   }
 
   /**
@@ -757,174 +794,125 @@ Respond ONLY with valid JSON (no explanation):
         return null;
       }
 
-      // SMART MULTI-SIGNAL SCORING with context inference
-      let bestMatch: TMDBMovie | null = null;
-      let bestScore = 0;
+      // ============================================================
+      // STRICT TIERED VALIDATION SYSTEM
+      // Each tier is a hard gate - candidate must pass ALL tiers
+      // ============================================================
+      let passedCandidate: TMDBMovie | null = null;
+      let passedScore = 0;
 
-      // Check top 10 results for best match using multiple signals
+      // Extract director/actor from query if provided (e.g., "Inception by Christopher Nolan")
+      const { title: titleWithoutCreator, director: queryDirector, actor: queryActor } = this.extractCreatorFromQuery(cleanQuery);
+      const effectiveQuery = titleWithoutCreator || cleanQuery;
+
+      console.log(`[TMDB] Starting TIERED validation for "${effectiveQuery}"${targetYear ? ` (year: ${targetYear})` : ''}${queryDirector ? ` (director: ${queryDirector})` : ''}${queryActor ? ` (actor: ${queryActor})` : ''}`);
+
       for (const movie of data.results.slice(0, 10) as TMDBMovie[]) {
-        // === SIGNAL 1: Title similarity (primary) ===
-        let score = this.calculateTitleSimilarity(cleanQuery, movie.title);
         const movieYear = movie.release_date ? parseInt(movie.release_date.substring(0, 4), 10) : null;
-        const signals: string[] = [];
+        const tierResults: string[] = [];
 
-        // Also check original_title if different (e.g., foreign films with English release titles)
+        // ========== TIER 1: Title Similarity ≥ 80% ==========
+        let titleScore = this.calculateTitleSimilarity(effectiveQuery, movie.title);
+
+        // Also check original_title if different
         if (movie.original_title && movie.original_title !== movie.title) {
-          const originalScore = this.calculateTitleSimilarity(cleanQuery, movie.original_title);
-          if (originalScore > score) {
-            score = originalScore;
-            signals.push('matched original_title');
+          const originalScore = this.calculateTitleSimilarity(effectiveQuery, movie.original_title);
+          if (originalScore > titleScore) {
+            titleScore = originalScore;
           }
         }
 
-        // === SIGNAL 2: Year matching ===
+        if (titleScore < 0.80) {
+          console.log(`[TMDB] TIER 1 FAIL: "${movie.title}" (${(titleScore * 100).toFixed(0)}% < 80%)`);
+          continue; // FAIL - skip to next candidate
+        }
+        tierResults.push(`T1:${(titleScore * 100).toFixed(0)}%`);
+
+        // ========== TIER 2: Year Match ±1 (if year provided) ==========
         if (targetYear && movieYear) {
-          if (movieYear === targetYear) {
-            score += 0.2;
-            signals.push('year match');
-          } else if (Math.abs(movieYear - targetYear) <= 1) {
-            score += 0.1;
-            signals.push('year close');
-          } else {
-            score -= 0.15;
-            signals.push(`year mismatch: wanted ${targetYear}`);
+          const yearDiff = Math.abs(movieYear - targetYear);
+          if (yearDiff > 1) {
+            console.log(`[TMDB] TIER 2 FAIL: "${movie.title}" year ${movieYear} vs expected ${targetYear} (diff: ${yearDiff})`);
+            continue; // FAIL - skip to next candidate
           }
+          tierResults.push(`T2:year=${movieYear}`);
         }
 
-        // === SIGNAL 3: Language context inference ===
-        // For English searches, prefer English-original content
-        // This prevents "The Secret Agent" matching Russian films
-        if (movie.original_language === 'en') {
-          score += 0.1;
-          signals.push('English original');
-        } else if (movie.original_language && movie.original_language !== 'en') {
-          // Foreign language content - penalize unless title is exact match
-          const titleExact = cleanQuery.toLowerCase().trim() === movie.title.toLowerCase().trim();
-          if (!titleExact) {
-            score -= 0.15;
-            signals.push(`foreign (${movie.original_language})`);
-          }
-        }
-
-        // === SIGNAL 4: Popularity context inference ===
-        // More popular content is more likely what user is searching for
-        if (movie.popularity > 50) {
-          score += 0.1;
-          signals.push('high popularity');
-        } else if (movie.popularity > 20) {
-          score += 0.05;
-          signals.push('moderate popularity');
-        } else if (movie.popularity < 5) {
-          score -= 0.05;
-          signals.push('low popularity');
-        }
-
-        // === SIGNAL 5: Vote count (audience engagement) ===
-        if (movie.vote_count > 1000) {
-          score += 0.05;
-          signals.push('high engagement');
-        } else if (movie.vote_count < 10) {
-          score -= 0.1;
-          signals.push('minimal engagement');
-        }
-
-        // === SIGNAL 6: AI-Powered Batch Context Inference ===
-        // Use the rich context inferred from the collection (year range, region, genre, etc.)
+        // Also check batch context year range if no explicit year
         const ctx = this.batchContext;
-        if (ctx && ctx.confidence > 0.5) {
-          // Year range inference (e.g., "2025-2026 upcoming movies")
-          if (movieYear && ctx.inferredYearRange) {
-            const { min, max } = ctx.inferredYearRange;
-            if (movieYear >= min && movieYear <= max) {
-              score += 0.2;
-              signals.push(`batch year range match (${min}-${max})`);
-            } else if (movieYear < min - 2 || movieYear > max + 2) {
-              score -= 0.15;
-              signals.push(`batch year range mismatch`);
+        if (!targetYear && ctx && ctx.confidence > 0.5 && ctx.inferredYearRange && movieYear) {
+          const { min, max } = ctx.inferredYearRange;
+          if (movieYear < min - 1 || movieYear > max + 1) {
+            console.log(`[TMDB] TIER 2 FAIL: "${movie.title}" year ${movieYear} outside batch range ${min}-${max}`);
+            continue; // FAIL - skip to next candidate
+          }
+          tierResults.push(`T2:batch-year=${movieYear}`);
+        }
+
+        // ========== TIER 3: Popularity/Engagement Gate ==========
+        // Prevent knockoff/spam movies from being matched
+        if (movie.popularity < 5 && movie.vote_count < 50) {
+          console.log(`[TMDB] TIER 3 FAIL: "${movie.title}" too obscure (popularity=${movie.popularity}, votes=${movie.vote_count})`);
+          continue; // FAIL - skip to next candidate
+        }
+        tierResults.push(`T3:pop=${movie.popularity.toFixed(0)}`);
+
+        // ========== TIER 4: Director/Cast Match (if provided) ==========
+        if (queryDirector || queryActor) {
+          const details = await this.getMovieDetails(movie.id);
+          const actualDirector = details?.credits?.crew?.find((c: any) => c.job === 'Director')?.name;
+          const actualCast = details?.credits?.cast?.slice(0, 10).map((c: any) => c.name) || [];
+
+          if (queryDirector) {
+            const directorMatches = actualDirector &&
+              actualDirector.toLowerCase().includes(queryDirector.toLowerCase());
+            if (!directorMatches) {
+              console.log(`[TMDB] TIER 4 FAIL: "${movie.title}" director mismatch - expected "${queryDirector}", got "${actualDirector || 'unknown'}"`);
+              continue; // FAIL - skip to next candidate
             }
-          } else if (!targetYear && ctx.inferredYear && movieYear) {
-            // Fallback to single year if no range
-            if (movieYear === ctx.inferredYear) {
-              score += 0.15;
-              signals.push(`batch year match (${ctx.inferredYear})`);
-            } else if (Math.abs(movieYear - ctx.inferredYear) > 2) {
-              score -= 0.1;
-              signals.push(`batch year mismatch`);
-            }
+            tierResults.push(`T4:director=${actualDirector}`);
           }
 
-          // Upcoming content bonus (if batch is upcoming releases)
-          if (ctx.isUpcoming && movieYear) {
-            const currentYear = new Date().getFullYear();
-            if (movieYear >= currentYear) {
-              score += 0.1;
-              signals.push('upcoming release');
-            } else if (movieYear < currentYear - 1) {
-              score -= 0.1;
-              signals.push('not upcoming');
+          if (queryActor) {
+            const actorMatches = actualCast.some((name: string) =>
+              name.toLowerCase().includes(queryActor.toLowerCase())
+            );
+            if (!actorMatches) {
+              console.log(`[TMDB] TIER 4 FAIL: "${movie.title}" actor "${queryActor}" not in cast: [${actualCast.slice(0, 5).join(', ')}]`);
+              continue; // FAIL - skip to next candidate
             }
-          }
-
-          // Region/Language inference
-          if (ctx.inferredLanguage && movie.original_language) {
-            if (movie.original_language === ctx.inferredLanguage) {
-              score += 0.1;
-              signals.push(`batch lang match (${ctx.inferredLanguage})`);
-            } else if (ctx.inferredLanguage === 'en' && movie.original_language !== 'en') {
-              score -= 0.15;
-              signals.push('batch expects English');
-            }
-          }
-
-          // Region inference (US, UK, Korea, etc.)
-          if (ctx.inferredRegion === 'US' && movie.original_language !== 'en') {
-            score -= 0.1;
-            signals.push('batch expects US content');
-          } else if (ctx.inferredRegion === 'Korea' && movie.original_language !== 'ko') {
-            score -= 0.1;
-            signals.push('batch expects Korean content');
-          }
-
-          // Collection description logging for debugging
-          if (ctx.collectionDescription) {
-            signals.push(`ctx: "${ctx.collectionDescription}"`);
+            tierResults.push(`T4:cast-verified`);
           }
         }
 
-        console.log(`[TMDB] Title match: "${movie.title}" (${movieYear || '?'}) = ${(score * 100).toFixed(0)}% [${signals.join(', ')}]`);
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = movie;
-        }
-
-        // Perfect or near-perfect match - stop searching
-        if (score >= 1.0) break;
+        // ========== ALL TIERS PASSED ==========
+        console.log(`[TMDB] ALL TIERS PASSED: "${movie.title}" (${movieYear || '?'}) [${tierResults.join(', ')}]`);
+        passedCandidate = movie;
+        passedScore = titleScore;
+        break; // Take first passing candidate (TMDB returns by relevance)
       }
 
-      // Reject if no result meets the similarity threshold
-      // DO NOT fall back to TV automatically - this caused wrong matches
-      // TV search should only happen when explicitly detected as TV content
-      if (!bestMatch || bestScore < this.SIMILARITY_THRESHOLD) {
-        console.log(`[TMDB] No good movie match for "${cleanQuery}" (best score: ${(bestScore * 100).toFixed(0)}%, threshold: ${this.SIMILARITY_THRESHOLD * 100}%)`);
+      // No candidate passed all tiers
+      if (!passedCandidate) {
+        console.log(`[TMDB] No candidate passed all tiers for "${cleanQuery}"`);
         return null;
       }
 
-      console.log(`[TMDB] Best match: "${bestMatch.title}" (${bestMatch.release_date?.substring(0, 4)}) with ${(bestScore * 100).toFixed(0)}% similarity`);
+      console.log(`[TMDB] VERIFIED match: "${passedCandidate.title}" (${passedCandidate.release_date?.substring(0, 4)}) with ${(passedScore * 100).toFixed(0)}% title similarity`);
 
-      const details = await this.getMovieDetails(bestMatch.id);
+      const details = await this.getMovieDetails(passedCandidate.id);
 
       // PRIORITY: Use BACKDROP (landscape) images for better display on cards
       // Fetch English backdrop from images endpoint for best quality
-      let backdropPath = await this.getEnglishBackdrop(bestMatch.id, 'movie');
+      let backdropPath = await this.getEnglishBackdrop(passedCandidate.id, 'movie');
       if (!backdropPath) {
-        backdropPath = bestMatch.backdrop_path || details?.backdrop_path || null;
+        backdropPath = passedCandidate.backdrop_path || details?.backdrop_path || null;
       }
 
       // Poster as fallback
-      let posterPath = bestMatch.poster_path || details?.poster_path;
+      let posterPath = passedCandidate.poster_path || details?.poster_path;
       if (!posterPath) {
-        posterPath = await this.getMovieImages(bestMatch.id);
+        posterPath = await this.getMovieImages(passedCandidate.id);
       }
 
       // Primary image is now BACKDROP (landscape), with poster as fallback
@@ -932,25 +920,25 @@ Respond ONLY with valid JSON (no explanation):
       const posterUrl = this.getImageUrl(posterPath, 'w500');
 
       if (!backdropUrl && !posterUrl) {
-        console.log(`[TMDB] WARNING: No backdrop or poster found for "${bestMatch.title}"`);
+        console.log(`[TMDB] WARNING: No backdrop or poster found for "${passedCandidate.title}"`);
       } else {
-        console.log(`[TMDB] Got images for "${bestMatch.title}": backdrop=${backdropUrl ? 'yes' : 'no'}, poster=${posterUrl ? 'yes' : 'no'}`);
+        console.log(`[TMDB] Got images for "${passedCandidate.title}": backdrop=${backdropUrl ? 'yes' : 'no'}, poster=${posterUrl ? 'yes' : 'no'}`);
       }
 
       return {
         // Return backdrop as primary for landscape display
         posterUrl: backdropUrl || posterUrl,
         backdropUrl: backdropUrl,
-        title: bestMatch.title,
-        overview: bestMatch.overview,
-        releaseYear: bestMatch.release_date?.substring(0, 4) || '',
-        rating: Math.round(bestMatch.vote_average * 10) / 10,
-        ratingCount: bestMatch.vote_count,
+        title: passedCandidate.title,
+        overview: passedCandidate.overview,
+        releaseYear: passedCandidate.release_date?.substring(0, 4) || '',
+        rating: Math.round(passedCandidate.vote_average * 10) / 10,
+        ratingCount: passedCandidate.vote_count,
         genres: details?.genres?.map(g => g.name) || [],
-        director: details?.credits?.crew?.find(c => c.job === 'Director')?.name,
-        cast: details?.credits?.cast?.slice(0, 5).map(c => c.name),
+        director: details?.credits?.crew?.find((c: any) => c.job === 'Director')?.name,
+        cast: details?.credits?.cast?.slice(0, 5).map((c: any) => c.name),
         runtime: details?.runtime ? `${details.runtime} min` : undefined,
-        tmdbId: bestMatch.id,
+        tmdbId: passedCandidate.id,
         mediaType: 'movie'
       };
     } catch (error) {
@@ -996,186 +984,112 @@ Respond ONLY with valid JSON (no explanation):
         return null;
       }
 
-      // SMART MULTI-SIGNAL SCORING with context inference for TV
-      let bestMatch: TMDBTVShow | null = null;
-      let bestScore = 0;
+      // ============================================================
+      // STRICT TIERED VALIDATION SYSTEM FOR TV
+      // Each tier is a hard gate - candidate must pass ALL tiers
+      // ============================================================
+      let passedCandidate: TMDBTVShow | null = null;
+      let passedScore = 0;
+
+      console.log(`[TMDB] Starting TIERED validation for TV "${searchTitle}"${searchYear ? ` (year: ${searchYear})` : ''}`);
 
       for (const show of data.results.slice(0, 15) as TMDBTVShow[]) {
-        // === SIGNAL 1: Title similarity (primary) ===
-        let score = this.calculateTitleSimilarity(searchTitle, show.name);
         const showYear = show.first_air_date ? parseInt(show.first_air_date.substring(0, 4), 10) : null;
-        const signals: string[] = [];
+        const tierResults: string[] = [];
+
+        // ========== TIER 1: Title Similarity ≥ 80% ==========
+        let titleScore = this.calculateTitleSimilarity(searchTitle, show.name);
 
         // Also check original_name if different
         if (show.original_name && show.original_name !== show.name) {
           const originalScore = this.calculateTitleSimilarity(searchTitle, show.original_name);
-          if (originalScore > score) {
-            score = originalScore;
-            signals.push('matched original_name');
+          if (originalScore > titleScore) {
+            titleScore = originalScore;
           }
         }
 
-        // For short titles (1-2 words), require stricter matching
+        // For short titles (1-2 words), require exact match
         if (isShortTitle) {
           const normalizedSearch = searchTitle.toLowerCase().trim();
           const normalizedShow = show.name.toLowerCase().trim();
-          if (normalizedSearch !== normalizedShow) {
-            score -= 0.3;
-            signals.push('short title mismatch');
-            if (score < 0.5) continue;
+          if (normalizedSearch !== normalizedShow && titleScore < 0.95) {
+            console.log(`[TMDB] TIER 1 FAIL (short title): "${show.name}" not exact match for "${searchTitle}"`);
+            continue; // FAIL - skip to next candidate
           }
         }
 
-        // === SIGNAL 2: Year matching ===
+        if (titleScore < 0.80) {
+          console.log(`[TMDB] TIER 1 FAIL: "${show.name}" (${(titleScore * 100).toFixed(0)}% < 80%)`);
+          continue; // FAIL - skip to next candidate
+        }
+        tierResults.push(`T1:${(titleScore * 100).toFixed(0)}%`);
+
+        // ========== TIER 2: Year Match ±1 (if year provided) ==========
         if (searchYear && showYear) {
-          if (showYear === searchYear) {
-            score += 0.25;
-            signals.push('year match');
-          } else if (Math.abs(showYear - searchYear) <= 1) {
-            score += 0.1;
-            signals.push('year close');
-          } else {
-            score -= 0.2;
-            signals.push(`year mismatch: wanted ${searchYear}`);
+          const yearDiff = Math.abs(showYear - searchYear);
+          if (yearDiff > 1) {
+            console.log(`[TMDB] TIER 2 FAIL: "${show.name}" year ${showYear} vs expected ${searchYear} (diff: ${yearDiff})`);
+            continue; // FAIL - skip to next candidate
           }
-        } else if (showYear) {
-          // No target year - prefer recent content
-          if (showYear >= 2015) {
-            score += 0.15;
-            signals.push('recent content');
-          } else if (showYear < 2000) {
-            score -= 0.25;
-            signals.push('old content');
-          }
+          tierResults.push(`T2:year=${showYear}`);
         }
 
-        // === SIGNAL 3: Language context inference ===
-        if (show.original_language === 'en') {
-          score += 0.1;
-          signals.push('English original');
-        } else if (show.original_language && show.original_language !== 'en') {
-          const titleExact = searchTitle.toLowerCase().trim() === show.name.toLowerCase().trim();
-          if (!titleExact) {
-            score -= 0.15;
-            signals.push(`foreign (${show.original_language})`);
-          }
-        }
-
-        // === SIGNAL 4: Popularity context inference ===
-        if (show.popularity > 50) {
-          score += 0.1;
-          signals.push('high popularity');
-        } else if (show.popularity > 20) {
-          score += 0.05;
-          signals.push('moderate popularity');
-        } else if (show.popularity < 5) {
-          score -= 0.05;
-          signals.push('low popularity');
-        }
-
-        // === SIGNAL 5: Vote count (audience engagement) ===
-        if (show.vote_count > 500) {
-          score += 0.1;
-          signals.push('high engagement');
-        } else if (show.vote_count > 100) {
-          score += 0.05;
-          signals.push('moderate engagement');
-        } else if (show.vote_count < 10) {
-          score -= 0.1;
-          signals.push('minimal engagement');
-        }
-
-        // === SIGNAL 6: AI-Powered Batch Context Inference ===
+        // Also check batch context year range if no explicit year
         const ctx = this.batchContext;
+        if (!searchYear && ctx && ctx.confidence > 0.5 && ctx.inferredYearRange && showYear) {
+          const { min, max } = ctx.inferredYearRange;
+          if (showYear < min - 1 || showYear > max + 1) {
+            console.log(`[TMDB] TIER 2 FAIL: "${show.name}" year ${showYear} outside batch range ${min}-${max}`);
+            continue; // FAIL - skip to next candidate
+          }
+          tierResults.push(`T2:batch-year=${showYear}`);
+        }
+
+        // ========== TIER 3: Popularity/Engagement Gate ==========
+        // Prevent knockoff/spam shows from being matched
+        if (show.popularity < 5 && show.vote_count < 50) {
+          console.log(`[TMDB] TIER 3 FAIL: "${show.name}" too obscure (popularity=${show.popularity}, votes=${show.vote_count})`);
+          continue; // FAIL - skip to next candidate
+        }
+        tierResults.push(`T3:pop=${show.popularity.toFixed(0)}`);
+
+        // ========== TIER 4: Language/Region Gate (if batch context indicates) ==========
         if (ctx && ctx.confidence > 0.5) {
-          // Year range inference
-          if (showYear && ctx.inferredYearRange) {
-            const { min, max } = ctx.inferredYearRange;
-            if (showYear >= min && showYear <= max) {
-              score += 0.2;
-              signals.push(`batch year range match (${min}-${max})`);
-            } else if (showYear < min - 2 || showYear > max + 2) {
-              score -= 0.15;
-              signals.push('batch year range mismatch');
-            }
-          } else if (!searchYear && ctx.inferredYear && showYear) {
-            if (showYear === ctx.inferredYear) {
-              score += 0.15;
-              signals.push(`batch year match (${ctx.inferredYear})`);
-            } else if (Math.abs(showYear - ctx.inferredYear) > 2) {
-              score -= 0.1;
-              signals.push('batch year mismatch');
-            }
+          // If batch expects English content, reject non-English with low title match
+          if (ctx.inferredRegion === 'US' && show.original_language !== 'en' && titleScore < 0.95) {
+            console.log(`[TMDB] TIER 4 FAIL: "${show.name}" non-English (${show.original_language}) for US batch`);
+            continue; // FAIL - skip to next candidate
           }
-
-          // Upcoming content bonus
-          if (ctx.isUpcoming && showYear) {
-            const currentYear = new Date().getFullYear();
-            if (showYear >= currentYear) {
-              score += 0.1;
-              signals.push('upcoming release');
-            } else if (showYear < currentYear - 1) {
-              score -= 0.1;
-              signals.push('not upcoming');
-            }
+          // If batch expects Korean content, reject non-Korean
+          if (ctx.inferredRegion === 'Korea' && show.original_language !== 'ko' && titleScore < 0.95) {
+            console.log(`[TMDB] TIER 4 FAIL: "${show.name}" non-Korean (${show.original_language}) for Korean batch`);
+            continue; // FAIL - skip to next candidate
           }
-
-          // Language inference
-          if (ctx.inferredLanguage && show.original_language) {
-            if (show.original_language === ctx.inferredLanguage) {
-              score += 0.1;
-              signals.push(`batch lang match (${ctx.inferredLanguage})`);
-            } else if (ctx.inferredLanguage === 'en' && show.original_language !== 'en') {
-              score -= 0.15;
-              signals.push('batch expects English');
-            }
-          }
-
-          // Region inference
-          if (ctx.inferredRegion === 'US' && show.original_language !== 'en') {
-            score -= 0.1;
-            signals.push('batch expects US content');
-          } else if (ctx.inferredRegion === 'Korea' && show.original_language !== 'ko') {
-            score -= 0.1;
-            signals.push('batch expects Korean content');
-          }
-
-          // Media type inference (prefer movies if batch is mostly movies)
-          if (ctx.inferredMediaType === 'movie') {
-            score -= 0.15;
-            signals.push('batch prefers movies');
-          }
+          tierResults.push(`T4:lang=${show.original_language}`);
         }
 
-        console.log(`[TMDB] TV match: "${show.name}" (${showYear || '?'}) = ${(score * 100).toFixed(0)}% [${signals.join(', ')}]`);
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = show;
-        }
-
-        // Perfect match - stop searching
-        if (score >= 1.2) break;
+        // ========== ALL TIERS PASSED ==========
+        console.log(`[TMDB] ALL TIERS PASSED: "${show.name}" (${showYear || '?'}) [${tierResults.join(', ')}]`);
+        passedCandidate = show;
+        passedScore = titleScore;
+        break; // Take first passing candidate (TMDB returns by relevance)
       }
 
-      // For short titles, require even higher threshold
-      const effectiveThreshold = isShortTitle ? 0.75 : this.SIMILARITY_THRESHOLD;
-
-      // Reject if no result meets threshold
-      if (!bestMatch || bestScore < effectiveThreshold) {
-        console.log(`[TMDB] No good TV match for "${searchTitle}" (best score: ${(bestScore * 100).toFixed(0)}%, threshold: ${(effectiveThreshold * 100).toFixed(0)}%)`);
+      // No candidate passed all tiers
+      if (!passedCandidate) {
+        console.log(`[TMDB] No TV candidate passed all tiers for "${searchTitle}"`);
         return null;
       }
 
-      console.log(`[TMDB] Best TV match: "${bestMatch.name}" (${bestMatch.first_air_date?.substring(0, 4)}) with ${(bestScore * 100).toFixed(0)}% similarity`);
+      console.log(`[TMDB] VERIFIED TV match: "${passedCandidate.name}" (${passedCandidate.first_air_date?.substring(0, 4)}) with ${(passedScore * 100).toFixed(0)}% title similarity`);
 
       // PRIORITY: Use BACKDROP (landscape) images for better display on cards
-      let backdropPath = await this.getEnglishBackdrop(bestMatch.id, 'tv');
+      let backdropPath = await this.getEnglishBackdrop(passedCandidate.id, 'tv');
       if (!backdropPath) {
-        backdropPath = bestMatch.backdrop_path;
+        backdropPath = passedCandidate.backdrop_path;
       }
 
-      const posterPath = bestMatch.poster_path;
+      const posterPath = passedCandidate.poster_path;
 
       // Primary image is now BACKDROP (landscape), with poster as fallback
       const backdropUrl = this.getImageUrl(backdropPath, 'w780');
@@ -1185,13 +1099,13 @@ Respond ONLY with valid JSON (no explanation):
         // Return backdrop as primary for landscape display
         posterUrl: backdropUrl || posterUrl,
         backdropUrl: backdropUrl,
-        title: bestMatch.name,
-        overview: bestMatch.overview,
-        releaseYear: bestMatch.first_air_date?.substring(0, 4) || '',
-        rating: Math.round(bestMatch.vote_average * 10) / 10,
-        ratingCount: bestMatch.vote_count,
+        title: passedCandidate.name,
+        overview: passedCandidate.overview,
+        releaseYear: passedCandidate.first_air_date?.substring(0, 4) || '',
+        rating: Math.round(passedCandidate.vote_average * 10) / 10,
+        ratingCount: passedCandidate.vote_count,
         genres: [],
-        tmdbId: bestMatch.id,
+        tmdbId: passedCandidate.id,
         mediaType: 'tv'
       };
     } catch (error) {
@@ -1336,6 +1250,290 @@ Respond ONLY with valid JSON (no explanation):
       .trim();
 
     return title || text;
+  }
+
+  /**
+   * Extract director or cast member from query string.
+   * Patterns: "Inception by Christopher Nolan", "Movie directed by X", "with Leonardo DiCaprio"
+   */
+  extractCreatorFromQuery(query: string): { title: string; director?: string; actor?: string } {
+    let title = query;
+    let director: string | undefined;
+    let actor: string | undefined;
+
+    // Director patterns
+    const directorPatterns = [
+      /\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*$/i,           // "by Christopher Nolan"
+      /\s+directed\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*$/i, // "directed by Christopher Nolan"
+      /\s+-\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s+film\s*$/i,      // "- Christopher Nolan film"
+    ];
+
+    for (const pattern of directorPatterns) {
+      const match = query.match(pattern);
+      if (match) {
+        director = match[1].trim();
+        title = query.replace(pattern, '').trim();
+        console.log(`[TMDB] Extracted director "${director}" from query`);
+        break;
+      }
+    }
+
+    // Actor patterns
+    const actorPatterns = [
+      /\s+with\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*$/i,          // "with Leonardo DiCaprio"
+      /\s+starring\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*$/i,      // "starring Leonardo DiCaprio"
+    ];
+
+    for (const pattern of actorPatterns) {
+      const match = title.match(pattern);
+      if (match) {
+        actor = match[1].trim();
+        title = title.replace(pattern, '').trim();
+        console.log(`[TMDB] Extracted actor "${actor}" from query`);
+        break;
+      }
+    }
+
+    return { title, director, actor };
+  }
+
+  /**
+   * Verify if a TMDB result matches the expected director/cast.
+   * Returns true if the director or any cast member matches.
+   */
+  async verifyCreatorMatch(
+    tmdbId: number,
+    mediaType: 'movie' | 'tv',
+    expectedDirector?: string,
+    expectedActor?: string
+  ): Promise<{ matches: boolean; actualDirector?: string; actualCast?: string[] }> {
+    if (!expectedDirector && !expectedActor) {
+      return { matches: true }; // Nothing to verify
+    }
+
+    try {
+      const details = mediaType === 'movie'
+        ? await this.getMovieDetails(tmdbId)
+        : await this.getTVDetails(tmdbId);
+
+      if (!details) return { matches: true }; // Can't verify, assume match
+
+      const actualDirector = details.credits?.crew?.find((c: any) => c.job === 'Director')?.name;
+      const actualCast = details.credits?.cast?.slice(0, 10).map((c: any) => c.name) || [];
+
+      const normalize = (name: string) => name.toLowerCase().replace(/[^a-z]/g, '');
+
+      let matches = true;
+
+      if (expectedDirector) {
+        const directorMatches = actualDirector &&
+          normalize(actualDirector).includes(normalize(expectedDirector));
+        if (!directorMatches) {
+          console.log(`[TMDB] Director mismatch: expected "${expectedDirector}", got "${actualDirector}"`);
+          matches = false;
+        }
+      }
+
+      if (expectedActor) {
+        const actorMatches = actualCast.some((name: string) =>
+          normalize(name).includes(normalize(expectedActor))
+        );
+        if (!actorMatches) {
+          console.log(`[TMDB] Actor mismatch: expected "${expectedActor}", not found in cast`);
+          matches = false;
+        }
+      }
+
+      return { matches, actualDirector, actualCast };
+    } catch (error) {
+      console.error('[TMDB] Creator verification error:', error);
+      return { matches: true }; // Can't verify, assume match
+    }
+  }
+
+  /**
+   * Search and return multiple candidates with confidence scores.
+   * Used when we want to let the user pick from multiple options.
+   */
+  async searchWithCandidates(
+    query: string,
+    maxCandidates: number = 5
+  ): Promise<{
+    bestMatch: TMDBSearchResult | null;
+    candidates: Array<{
+      result: TMDBSearchResult;
+      confidence: number;
+      confidenceLevel: 'high' | 'medium' | 'low';
+      matchReasons: string[];
+    }>;
+    needsUserConfirmation: boolean;
+  }> {
+    if (!this.apiKey) {
+      return { bestMatch: null, candidates: [], needsUserConfirmation: false };
+    }
+
+    try {
+      const { title: cleanTitle, director, actor } = this.extractCreatorFromQuery(query);
+      const { title: titleWithoutYear, year: extractedYear } = this.extractYearFromQuery(cleanTitle);
+      const searchTitle = titleWithoutYear || cleanTitle;
+
+      console.log(`[TMDB] Searching with candidates: "${searchTitle}"${extractedYear ? ` (${extractedYear})` : ''}${director ? ` by ${director}` : ''}${actor ? ` with ${actor}` : ''}`);
+
+      // Search both movies and TV
+      let url = `${TMDB_BASE_URL}/search/multi?api_key=${this.apiKey}&query=${encodeURIComponent(searchTitle)}&include_adult=false&language=en-US`;
+      if (extractedYear) {
+        url += `&year=${extractedYear}`;
+      }
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        return { bestMatch: null, candidates: [], needsUserConfirmation: false };
+      }
+
+      const data = await response.json();
+      if (!data.results || data.results.length === 0) {
+        return { bestMatch: null, candidates: [], needsUserConfirmation: false };
+      }
+
+      // Filter to only movies and TV shows
+      const mediaResults = data.results.filter((r: any) =>
+        r.media_type === 'movie' || r.media_type === 'tv'
+      ).slice(0, 10);
+
+      const candidates: Array<{
+        result: TMDBSearchResult;
+        confidence: number;
+        confidenceLevel: 'high' | 'medium' | 'low';
+        matchReasons: string[];
+      }> = [];
+
+      for (const item of mediaResults) {
+        const isMovie = item.media_type === 'movie';
+        const title = isMovie ? item.title : item.name;
+        const releaseDate = isMovie ? item.release_date : item.first_air_date;
+        const releaseYear = releaseDate ? parseInt(releaseDate.substring(0, 4), 10) : null;
+
+        // Calculate confidence score
+        let confidence = this.calculateTitleSimilarity(searchTitle, title);
+        const matchReasons: string[] = [];
+
+        // Year matching bonus/penalty
+        if (extractedYear && releaseYear) {
+          if (releaseYear === extractedYear) {
+            confidence += 0.2;
+            matchReasons.push(`Year matches (${extractedYear})`);
+          } else if (Math.abs(releaseYear - extractedYear) === 1) {
+            confidence += 0.1;
+            matchReasons.push(`Year close (${releaseYear} vs ${extractedYear})`);
+          } else {
+            confidence -= 0.15;
+            matchReasons.push(`Year mismatch (${releaseYear} vs ${extractedYear})`);
+          }
+        }
+
+        // Popularity bonus
+        if (item.popularity > 50) {
+          confidence += 0.1;
+          matchReasons.push('High popularity');
+        } else if (item.popularity < 5) {
+          confidence -= 0.1;
+          matchReasons.push('Low popularity');
+        }
+
+        // Vote count bonus
+        if (item.vote_count > 1000) {
+          confidence += 0.05;
+          matchReasons.push('Many reviews');
+        }
+
+        // Director/cast verification (if provided)
+        if (director || actor) {
+          const verification = await this.verifyCreatorMatch(
+            item.id,
+            isMovie ? 'movie' : 'tv',
+            director,
+            actor
+          );
+          if (verification.matches) {
+            confidence += 0.25;
+            if (director) matchReasons.push(`Director: ${verification.actualDirector || director}`);
+            if (actor) matchReasons.push(`Cast verified`);
+          } else {
+            confidence -= 0.3;
+            matchReasons.push('Creator mismatch');
+          }
+        }
+
+        // Determine confidence level
+        const confidenceLevel: 'high' | 'medium' | 'low' =
+          confidence >= 0.85 ? 'high' :
+          confidence >= 0.65 ? 'medium' : 'low';
+
+        // Get poster/backdrop
+        const backdropUrl = this.getImageUrl(item.backdrop_path, 'w780');
+        const posterUrl = this.getImageUrl(item.poster_path, 'w500');
+
+        candidates.push({
+          result: {
+            posterUrl: backdropUrl || posterUrl,
+            backdropUrl,
+            title,
+            overview: item.overview,
+            releaseYear: releaseYear?.toString() || '',
+            rating: Math.round(item.vote_average * 10) / 10,
+            ratingCount: item.vote_count,
+            genres: [],
+            tmdbId: item.id,
+            mediaType: isMovie ? 'movie' : 'tv'
+          },
+          confidence,
+          confidenceLevel,
+          matchReasons
+        });
+      }
+
+      // Sort by confidence
+      candidates.sort((a, b) => b.confidence - a.confidence);
+
+      // Take top N candidates
+      const topCandidates = candidates.slice(0, maxCandidates);
+
+      // Determine if we need user confirmation
+      const bestCandidate = topCandidates[0];
+      const needsUserConfirmation =
+        !bestCandidate ||
+        bestCandidate.confidenceLevel !== 'high' ||
+        (topCandidates.length > 1 &&
+          topCandidates[1].confidence > bestCandidate.confidence - 0.15);
+
+      console.log(`[TMDB] Found ${topCandidates.length} candidates, best: "${bestCandidate?.result.title}" (${(bestCandidate?.confidence * 100).toFixed(0)}%), needs confirmation: ${needsUserConfirmation}`);
+
+      return {
+        bestMatch: bestCandidate?.confidenceLevel === 'high' ? bestCandidate.result : null,
+        candidates: topCandidates,
+        needsUserConfirmation
+      };
+    } catch (error) {
+      console.error('[TMDB] Search with candidates error:', error);
+      return { bestMatch: null, candidates: [], needsUserConfirmation: false };
+    }
+  }
+
+  /**
+   * Get TV show details including credits
+   */
+  private async getTVDetails(tvId: number): Promise<any> {
+    if (!this.apiKey) return null;
+
+    try {
+      const url = `${TMDB_BASE_URL}/tv/${tvId}?api_key=${this.apiKey}&append_to_response=credits`;
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      return response.json();
+    } catch (error) {
+      console.error('[TMDB] TV details error:', error);
+      return null;
+    }
   }
 }
 

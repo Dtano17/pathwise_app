@@ -56,14 +56,61 @@ interface CalendarEventEdit {
 
 interface AddToCalendarButtonProps {
   event: CalendarEvent;
+  taskId?: string;
+  activityId?: string;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   showLabel?: boolean;
   onEventCreated?: (eventId: string) => void;
 }
 
+// Helper to get emoji for task/activity category
+const getCategoryEmoji = (category?: string): string => {
+  if (!category) return '📅';
+  const emojiMap: Record<string, string> = {
+    fitness: '💪',
+    health: '🏥',
+    wellness: '🧘',
+    work: '💼',
+    business: '💼',
+    social: '👥',
+    friends: '👥',
+    study: '📚',
+    education: '📚',
+    learning: '📚',
+    travel: '✈️',
+    vacation: '🏖️',
+    food: '🍽️',
+    dining: '🍽️',
+    restaurant: '🍽️',
+    entertainment: '🎬',
+    movie: '🎬',
+    music: '🎵',
+    shopping: '🛍️',
+    personal: '📝',
+    finance: '💰',
+    home: '🏠',
+    family: '👨‍👩‍👧‍👦',
+    sports: '⚽',
+    outdoor: '🌲',
+    creative: '🎨',
+    art: '🎨',
+    tech: '💻',
+    coding: '💻',
+    meeting: '📊',
+    appointment: '📆',
+    medical: '🏥',
+    beauty: '💅',
+    relaxation: '😌',
+    rest: '😴',
+  };
+  return emojiMap[category.toLowerCase()] || '📅';
+};
+
 export function AddToCalendarButton({
   event,
+  taskId,
+  activityId,
   variant = 'outline',
   size = 'default',
   showLabel = true,
@@ -102,7 +149,7 @@ export function AddToCalendarButton({
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
-  // Build rich description for calendar event
+  // Build rich description for calendar event with deep link
   const buildCalendarDescription = (desc: string): string => {
     const parts: string[] = [];
 
@@ -123,6 +170,15 @@ export function AddToCalendarButton({
     if (urls.length > 0) {
       parts.push(`\n📎 Links:`);
       urls.forEach(url => parts.push(`• ${url}`));
+    }
+
+    // Add JournalMate deep link
+    if (taskId) {
+      const taskUrl = `https://journalmate.ai/app?task=${taskId}`;
+      parts.push(`\n📱 Open in JournalMate: ${taskUrl}`);
+    } else if (activityId) {
+      const activityUrl = `https://journalmate.ai/app?activity=${activityId}`;
+      parts.push(`\n📱 Open in JournalMate: ${activityUrl}`);
     }
 
     parts.push(`\n---\nAdded from JournalMate`);
@@ -228,8 +284,12 @@ export function AddToCalendarButton({
     hapticsLight();
 
     // Prepare event edit state with current event data
+    // Add category emoji to title for better visual identification in calendar
+    const emoji = getCategoryEmoji(event.category);
+    const titleWithEmoji = event.title.startsWith(emoji) ? event.title : `${emoji} ${event.title}`;
+
     setEventEdit({
-      title: event.title,
+      title: titleWithEmoji,
       description: event.description || '',
       location: event.location || extractLocation(event.description || '') || '',
       startDate: event.startDate,
@@ -574,4 +634,298 @@ function createGoogleCalendarUrl(event: CalendarEvent): string {
   }
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+/**
+ * Interface for activity calendar sync
+ */
+interface ActivityTask {
+  id: string;
+  title: string;
+  description?: string;
+  category?: string;
+  priority?: string;
+  dueDate: Date;
+  timeEstimate?: string;
+}
+
+interface AddActivityToCalendarButtonProps {
+  activity: {
+    id: string;
+    title: string;
+    description?: string;
+    category?: string;
+  };
+  tasks: ActivityTask[];
+  variant?: 'default' | 'outline' | 'ghost';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  showLabel?: boolean;
+  onEventsCreated?: (eventIds: string[]) => void;
+}
+
+/**
+ * Helper to calculate end date from start date and time estimate
+ */
+function calculateEndDate(startDate: Date, timeEstimate?: string): Date {
+  const endDate = new Date(startDate);
+
+  if (!timeEstimate) {
+    // Default to 1 hour
+    endDate.setHours(endDate.getHours() + 1);
+    return endDate;
+  }
+
+  // Parse time estimate like "30 min", "1 hour", "2 hours", "1.5 hours"
+  const hourMatch = timeEstimate.match(/(\d+(?:\.\d+)?)\s*h/i);
+  const minMatch = timeEstimate.match(/(\d+)\s*m/i);
+
+  if (hourMatch) {
+    const hours = parseFloat(hourMatch[1]);
+    endDate.setMinutes(endDate.getMinutes() + Math.round(hours * 60));
+  } else if (minMatch) {
+    const minutes = parseInt(minMatch[1], 10);
+    endDate.setMinutes(endDate.getMinutes() + minutes);
+  } else {
+    // Default to 1 hour
+    endDate.setHours(endDate.getHours() + 1);
+  }
+
+  return endDate;
+}
+
+/**
+ * Add Activity to Calendar Button Component
+ *
+ * Creates separate calendar events for each task in an activity
+ */
+export function AddActivityToCalendarButton({
+  activity,
+  tasks,
+  variant = 'outline',
+  size = 'default',
+  showLabel = true,
+  onEventsCreated,
+}: AddActivityToCalendarButtonProps) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
+  const [availableCalendars, setAvailableCalendars] = useState<DeviceCalendar[]>([]);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const { toast } = useToast();
+
+  const handleAddToCalendar = async () => {
+    if (isAdding) return;
+
+    try {
+      // Check for calendar permission
+      const hasPermission = await requestCalendarPermission();
+      if (!hasPermission) {
+        toast({
+          title: 'Calendar Permission Required',
+          description: 'Please allow access to your calendar to add events.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Get available calendars
+      const calendars = await getCalendars();
+      if (calendars.length === 0) {
+        toast({
+          title: 'No Calendars Found',
+          description: 'Please sign in with Google Calendar in Settings.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setAvailableCalendars(calendars as unknown as DeviceCalendar[]);
+      setShowCalendarPicker(true);
+    } catch (error) {
+      console.error('[ACTIVITY_CALENDAR] Error getting calendars:', error);
+      toast({
+        title: 'Calendar Error',
+        description: 'Could not access calendars. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCalendarSelect = async (calendarId: string) => {
+    setShowCalendarPicker(false);
+    setIsAdding(true);
+    setProgress({ current: 0, total: tasks.length });
+    hapticsLight();
+
+    const selectedCalendar = availableCalendars.find(c => c.id === calendarId);
+    const createdEventIds: string[] = [];
+
+    try {
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
+        setProgress({ current: i + 1, total: tasks.length });
+
+        // Build event details
+        const emoji = getCategoryEmoji(task.category || activity.category);
+        const title = `${emoji} ${task.title}`;
+        const startDate = task.dueDate;
+        const endDate = calculateEndDate(startDate, task.timeEstimate);
+
+        // Build description with deep link
+        const descParts: string[] = [];
+        if (task.description) descParts.push(task.description);
+        descParts.push(`\n📋 Activity: ${activity.title}`);
+        if (task.category) descParts.push(`Category: ${task.category}`);
+        if (task.priority) descParts.push(`Priority: ${task.priority}`);
+        if (task.timeEstimate) descParts.push(`Duration: ${task.timeEstimate}`);
+        descParts.push(`\n📱 Open in JournalMate: https://journalmate.ai/app?task=${task.id}`);
+        descParts.push(`\n---\nAdded from JournalMate`);
+        const description = descParts.join('\n');
+
+        if (selectedCalendar?.source === 'google') {
+          const response = await apiRequest('POST', '/api/calendar/event', {
+            calendarId,
+            summary: title,
+            description,
+            start: {
+              dateTime: startDate.toISOString(),
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            },
+            end: {
+              dateTime: endDate.toISOString(),
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            },
+            reminders: {
+              useDefault: false,
+              overrides: [
+                { method: 'popup', minutes: 30 },
+              ],
+            },
+          });
+
+          const data = await response.json();
+          if (data.eventId) {
+            createdEventIds.push(data.eventId);
+          }
+        } else {
+          // Use native Capacitor calendar
+          try {
+            const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
+            const result = await CapacitorCalendar.createEvent({
+              calendarId,
+              title,
+              notes: description,
+              startDate: startDate.getTime(),
+              endDate: endDate.getTime(),
+              isAllDay: false,
+            } as any);
+            if (result) {
+              createdEventIds.push(result.toString());
+            }
+          } catch (nativeError) {
+            console.error('[ACTIVITY_CALENDAR] Native calendar error:', nativeError);
+          }
+        }
+      }
+
+      hapticsSuccess();
+      toast({
+        title: 'Added to Calendar',
+        description: `${createdEventIds.length} events added for "${activity.title}"`,
+      });
+
+      if (onEventsCreated && createdEventIds.length > 0) {
+        onEventsCreated(createdEventIds);
+      }
+    } catch (error) {
+      console.error('[ACTIVITY_CALENDAR] Error adding events:', error);
+      toast({
+        title: 'Calendar Error',
+        description: `Added ${createdEventIds.length}/${tasks.length} events. Some may have failed.`,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAdding(false);
+      setProgress({ current: 0, total: 0 });
+    }
+  };
+
+  // Don't show if no tasks with dates
+  const tasksWithDates = tasks.filter(t => t.dueDate);
+  if (tasksWithDates.length === 0) {
+    return null;
+  }
+
+  return (
+    <>
+      <Button
+        variant={variant}
+        size={size}
+        onClick={handleAddToCalendar}
+        disabled={isAdding}
+        className="gap-2"
+      >
+        {isAdding ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            {showLabel && size !== 'icon' && (
+              <span>Adding {progress.current}/{progress.total}...</span>
+            )}
+          </>
+        ) : (
+          <>
+            <CalendarPlus className="w-4 h-4" />
+            {showLabel && size !== 'icon' && (
+              <span>Add All Tasks ({tasksWithDates.length})</span>
+            )}
+          </>
+        )}
+      </Button>
+
+      {/* Calendar Picker Dialog */}
+      <Dialog open={showCalendarPicker} onOpenChange={setShowCalendarPicker}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Select Calendar
+            </DialogTitle>
+            <DialogDescription>
+              Add {tasksWithDates.length} tasks from "{activity.title}" to calendar
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 max-h-[300px] overflow-y-auto">
+            {availableCalendars.map((cal) => (
+              <button
+                key={cal.id}
+                onClick={() => handleCalendarSelect(cal.id)}
+                disabled={cal.isReadOnly}
+                className={`w-full p-3 rounded-lg border text-left flex items-center gap-3 transition-colors
+                  ${cal.isReadOnly
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'hover:bg-accent hover:border-primary cursor-pointer'
+                  }`}
+              >
+                <div
+                  className="w-4 h-4 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: cal.color || '#4285F4' }}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{cal.title}</div>
+                  {cal.source && (
+                    <div className="text-xs text-muted-foreground">
+                      {cal.source === 'google' ? 'Google Calendar' : 'Device Calendar'}
+                    </div>
+                  )}
+                </div>
+                {cal.isPrimary && (
+                  <Badge variant="secondary" className="flex-shrink-0">Primary</Badge>
+                )}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }

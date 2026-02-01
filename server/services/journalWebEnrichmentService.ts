@@ -1262,6 +1262,24 @@ Respond with ONLY a JSON object in this format:
         const batchContext = await this.inferUniversalBatchContext(needsEnrichment);
         if (batchContext && batchContext.confidence > 0.5) {
           console.log(`[JOURNAL_WEB_ENRICH] Batch context established: ${batchContext.contentType} - "${batchContext.collectionDescription}"`);
+
+          // PROPAGATE to TMDB service for tiered validation
+          // This ensures TMDB's strict tiers use the year range from batch context
+          if ((batchContext.contentType === 'movie' || batchContext.contentType === 'tv_show') && tmdbService.isAvailable()) {
+            tmdbService.setBatchContext({
+              inferredYear: batchContext.yearRange?.min || null,
+              inferredYearRange: batchContext.yearRange || null,
+              inferredLanguage: batchContext.inferredRegion === 'US' ? 'en' : (batchContext.inferredRegion === 'Korea' ? 'ko' : null),
+              inferredMediaType: batchContext.contentType === 'movie' ? 'movie' : 'tv',
+              inferredGenre: batchContext.inferredGenre || null,
+              inferredRegion: batchContext.inferredRegion || null,
+              collectionDescription: batchContext.collectionDescription,
+              isUpcoming: batchContext.isUpcoming || false,
+              isClassic: batchContext.isClassic || false,
+              confidence: batchContext.confidence
+            });
+            console.log(`[JOURNAL_WEB_ENRICH] TMDB batch context propagated: year=${batchContext.yearRange?.min}-${batchContext.yearRange?.max}, region=${batchContext.inferredRegion}`);
+          }
         }
       } catch (error) {
         console.warn(`[JOURNAL_WEB_ENRICH] Batch context inference failed, continuing without context:`, error);
@@ -1293,6 +1311,7 @@ Respond with ONLY a JSON object in this format:
     // Clean up after batch processing is complete
     // =========================================================================
     this.clearBatchContext();
+    tmdbService.clearBatchContext(); // Also clear TMDB's propagated context
 
     const successCount = results.filter(r => r.success).length;
     console.log(`[JOURNAL_WEB_ENRICH] Batch complete: ${successCount}/${results.length} successful`);

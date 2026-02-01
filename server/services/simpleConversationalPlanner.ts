@@ -2757,8 +2757,9 @@ export class SimpleConversationalPlanner {
       // Add title with AI-determined emoji to response message if a plan was generated
       // Note: No link here because activity doesn't exist yet - link is added after confirmation in routes.ts
       if (response.readyToGenerate && response.plan && response.plan.title) {
-        // Use AI-provided emoji, fallback to 📝 if not provided
-        const activityEmoji = response.plan.emoji || '📝';
+        // Use AI-provided emoji, fallback to [TARGET_ICON] marker if not provided
+        // The client will replace [TARGET_ICON] with styled <Target /> icon
+        const activityEmoji = response.plan.emoji || '[TARGET_ICON]';
 
         // Just show the title with emoji and bold, no link (activity doesn't exist yet)
         const activityHeader = `${activityEmoji} **${response.plan.title}**`;
@@ -3094,8 +3095,9 @@ export class SimpleConversationalPlanner {
       // Add title with AI-determined emoji to response message if a plan was generated
       // Note: No link here because activity doesn't exist yet - link is added after confirmation in routes.ts
       if (response.readyToGenerate && response.plan && response.plan.title) {
-        // Use AI-provided emoji, fallback to 📝 if not provided
-        const activityEmoji = response.plan.emoji || '📝';
+        // Use AI-provided emoji, fallback to [TARGET_ICON] marker if not provided
+        // The client will replace [TARGET_ICON] with styled <Target /> icon
+        const activityEmoji = response.plan.emoji || '[TARGET_ICON]';
 
         // Just show the title with emoji and bold, no link (activity doesn't exist yet)
         const activityHeader = `${activityEmoji} **${response.plan.title}**`;

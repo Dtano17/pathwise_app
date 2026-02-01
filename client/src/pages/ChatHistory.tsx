@@ -98,7 +98,7 @@ export default function ChatHistory({ onLoadSession }: ChatHistoryProps) {
       <div className="space-y-3">
         {sessions.map((session) => {
           const firstMessage = session.conversationHistory[0]?.content || 'No messages';
-          const planTitle = session.generatedPlan?.title || 'Untitled Plan';
+          const planTitle = session.generatedPlan?.title || (session.generatedPlan as any)?.planTitle || 'Untitled Plan';
           const exchangeCount = session.conversationHistory.length;
           
           return (

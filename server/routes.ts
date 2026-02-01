@@ -13,6 +13,7 @@ import { langGraphPlanningAgent } from "./services/langgraphPlanningAgent";
 import { simpleConversationalPlanner } from "./services/simpleConversationalPlanner";
 import { enrichJournalEntry } from "./services/journalEnrichmentService";
 import { journalWebEnrichmentService } from "./services/journalWebEnrichmentService";
+import { tmdbService } from "./services/tmdbService";
 import { contactSyncService } from "./contactSync";
 import { getProvider } from "./services/llmProvider";
 import { socketService } from "./services/socketService";
@@ -213,15 +214,19 @@ function formatPlanPreview(plan: any): string {
 }
 
 // Helper function to format activity success message with clickable link
+// Uses [TARGET_ICON] marker that the client will replace with styled <Target /> icon
+// Falls back to ◎ (bullseye unicode) if client doesn't support the marker
 function formatActivitySuccessMessage(
   activity: { id: string; title: string },
-  emoji: string = "🎯",
+  emoji: string = "[TARGET_ICON]",
   isUpdate: boolean = false,
 ): string {
   // Use full URL - just go to Activities tab (new activity will be at top)
   const baseUrl = process.env.APP_URL || "https://journalmate.ai";
   const activityUrl = `${baseUrl}/app?tab=activities`;
-  const activityLink = `[${emoji} ${activity.title}](${activityUrl})`;
+  // If emoji is a standard emoji (not our marker), use it; otherwise use our marker
+  const displayEmoji = emoji === "[TARGET_ICON]" || !emoji ? "[TARGET_ICON]" : emoji;
+  const activityLink = `[${displayEmoji} ${activity.title}](${activityUrl})`;
   return isUpdate
     ? `${activityLink}\n\n♻️ Your plan has been updated!`
     : `${activityLink}\n\n✨ Your plan is ready!`;
@@ -368,6 +373,75 @@ function getDemoUserId(req: any): string {
     req.session.demoUserId = `demo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
   return req.session.demoUserId;
+}
+
+// Helper function to extract time from task descriptions like "before 12 PM", "morning", etc.
+function extractTimeFromDescription(
+  text: string | undefined,
+): string | undefined {
+  if (!text) return undefined;
+
+  const lowerText = text.toLowerCase();
+
+  // Pattern: "before X AM/PM" or "by X AM/PM" - use 1-2 hours before as reasonable start
+  const beforeByMatch = lowerText.match(
+    /(?:before|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
+  );
+  if (beforeByMatch) {
+    let hour = parseInt(beforeByMatch[1], 10);
+    const minutes = beforeByMatch[2] ? parseInt(beforeByMatch[2], 10) : 0;
+    const period = beforeByMatch[3].toLowerCase();
+
+    // Convert to 24-hour
+    if (period === "pm" && hour !== 12) hour += 12;
+    if (period === "am" && hour === 12) hour = 0;
+
+    // Start 2 hours before the deadline (reasonable buffer)
+    hour = Math.max(0, hour - 2);
+    return `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+  }
+
+  // Pattern: explicit time "at X AM/PM" or just "X AM/PM" or "X:XX AM/PM"
+  const explicitTimeMatch = lowerText.match(
+    /(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
+  );
+  if (explicitTimeMatch) {
+    let hour = parseInt(explicitTimeMatch[1], 10);
+    const minutes = explicitTimeMatch[2] ? parseInt(explicitTimeMatch[2], 10) : 0;
+    const period = explicitTimeMatch[3].toLowerCase();
+
+    // Convert to 24-hour
+    if (period === "pm" && hour !== 12) hour += 12;
+    if (period === "am" && hour === 12) hour = 0;
+
+    return `${hour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+  }
+
+  // Pattern: natural language time periods
+  if (/\b(early\s+)?morning\b/i.test(lowerText)) return "09:00";
+  if (/\blate\s+morning\b/i.test(lowerText)) return "11:00";
+  if (/\bnoon\b|\bmidday\b/i.test(lowerText)) return "12:00";
+  if (/\b(early\s+)?afternoon\b/i.test(lowerText)) return "14:00";
+  if (/\blate\s+afternoon\b/i.test(lowerText)) return "16:00";
+  if (/\b(early\s+)?evening\b/i.test(lowerText)) return "18:00";
+  if (/\blate\s+evening\b/i.test(lowerText)) return "20:00";
+  if (/\bnight\b/i.test(lowerText)) return "20:00";
+
+  return undefined;
+}
+
+// Helper function to get smart default time based on task index and context
+function getSmartDefaultTime(taskIndex: number, totalTasks: number): string {
+  // Distribute tasks across a reasonable day (9 AM to 8 PM = 11 hours)
+  const startHour = 9; // 9 AM
+  const endHour = 20; // 8 PM
+  const hourSpan = endHour - startHour;
+
+  // Calculate hour based on task position
+  const hourOffset = Math.floor((taskIndex / Math.max(1, totalTasks - 1)) * hourSpan);
+  const hour = Math.min(startHour + hourOffset, endHour);
+
+  return `${hour.toString().padStart(2, "0")}:00`;
 }
 
 // Helper function for Smart Plan structured conversation
@@ -594,7 +668,7 @@ async function handleSmartPlanConversation(
         );
 
         // Get emoji from generated plan or use default
-        const activityEmoji = generatedPlan.emoji || "📝";
+        const activityEmoji = generatedPlan.emoji || "[TARGET_ICON]";
 
         return res.json({
           message: formatActivitySuccessMessage(activity, activityEmoji),
@@ -713,7 +787,7 @@ async function handleSmartPlanConversation(
           );
 
           // Get emoji from generated plan or use default
-          const activityEmoji = generatedPlan.emoji || "📝";
+          const activityEmoji = generatedPlan.emoji || "[TARGET_ICON]";
 
           return res.json({
             message: formatActivitySuccessMessage(activity, activityEmoji),
@@ -912,7 +986,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
       );
 
       return res.json({
-        message: formatActivitySuccessMessage(activity, "📝"),
+        message: formatActivitySuccessMessage(activity, "[TARGET_ICON]"),
         activityCreated: true,
         activityId: activity.id,
         activityTitle: activity.title,
@@ -1220,7 +1294,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
 
       // Get emoji from generated plan or use default
       const activityEmoji =
-        planData.emoji || response.generatedPlan?.emoji || "📝";
+        planData.emoji || response.generatedPlan?.emoji || "[TARGET_ICON]";
 
       return res.json({
         message: formatActivitySuccessMessage(activity, activityEmoji),
@@ -4469,19 +4543,27 @@ ${sitemaps
 
             // DUPLICATE CHECK: Skip if same item already exists in this category
             // Works for all categories: books, movies, restaurants, exercises, travel destinations, etc.
-            const normalizedItemName =
-              venue.venueName?.toLowerCase().trim() || "";
+            // Uses normalized comparison to catch variations like "The Dark Knight" vs "Dark Knight, The"
+            const normalizeTitle = (title: string): string => {
+              return title
+                .toLowerCase()
+                .replace(/^(the|a|an)\s+/i, '')        // Remove leading articles
+                .replace(/,\s*(the|a|an)$/i, '')       // Remove trailing ", The" etc.
+                .replace(/[^\w\s]/g, '')               // Remove punctuation
+                .replace(/\s+/g, ' ')                  // Normalize whitespace
+                .trim();
+            };
+
+            const normalizedItemName = normalizeTitle(venue.venueName || "");
             const isDuplicate = entries.some((existing: any) => {
-              const existingName = (
+              const existingName = normalizeTitle(
                 existing.venueName ||
                 existing.text ||
                 existing.title ||
                 existing.name ||
                 ""
-              )
-                .toLowerCase()
-                .trim();
-              // Check for exact name match (case-insensitive)
+              );
+              // Check for normalized name match (catches "The Dark Knight" vs "Dark Knight, The")
               if (
                 existingName === normalizedItemName &&
                 normalizedItemName.length > 0
@@ -4621,15 +4703,26 @@ ${sitemaps
   app.post("/api/conversations", async (req, res) => {
     try {
       const userId = getUserId(req) || DEMO_USER_ID;
-      const { conversationHistory, generatedPlan } = req.body;
+      const { conversationHistory, generatedPlan, planningMode } = req.body;
+
+      // Normalize planTitle to title for schema consistency
+      const normalizedPlan = generatedPlan
+        ? {
+            ...generatedPlan,
+            title: generatedPlan.title || generatedPlan.planTitle,
+          }
+        : {};
 
       const session = await storage.createLifestylePlannerSession({
         userId,
         sessionState: "completed",
         conversationHistory: conversationHistory || [],
-        generatedPlan: generatedPlan || {},
+        generatedPlan: normalizedPlan,
         slots: {},
-        externalContext: {},
+        externalContext: {
+          currentMode: planningMode || "direct",
+          savedFromMainApp: true,
+        },
       });
 
       res.json(session);
@@ -4672,6 +4765,53 @@ ${sitemaps
     } catch (error) {
       console.error("Get conversation error:", error);
       res.status(500).json({ error: "Failed to fetch conversation" });
+    }
+  });
+
+  // Update existing conversation session
+  app.put("/api/conversations/:sessionId", async (req, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { sessionId } = req.params;
+      const { conversationHistory, generatedPlan, planningMode } = req.body;
+
+      // Verify session exists and belongs to user
+      const existingSession = await storage.getLifestylePlannerSession(
+        sessionId,
+        userId,
+      );
+      if (!existingSession) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      // Normalize planTitle to title for consistency with schema
+      const normalizedPlan = generatedPlan
+        ? {
+            ...generatedPlan,
+            title: generatedPlan.title || generatedPlan.planTitle,
+          }
+        : existingSession.generatedPlan;
+
+      // Update session
+      const updatedSession = await storage.updateLifestylePlannerSession(
+        sessionId,
+        {
+          conversationHistory:
+            conversationHistory || existingSession.conversationHistory,
+          generatedPlan: normalizedPlan,
+          externalContext: {
+            ...existingSession.externalContext,
+            currentMode:
+              planningMode || existingSession.externalContext?.currentMode,
+          },
+        },
+        userId,
+      );
+
+      res.json(updatedSession);
+    } catch (error) {
+      console.error("Update conversation error:", error);
+      res.status(500).json({ error: "Failed to update conversation" });
     }
   });
 
@@ -13218,11 +13358,21 @@ Return ONLY valid JSON, no markdown or explanation.`;
             );
 
             // Build dueDate from scheduledDate and startTime if available
+            // Use intelligent time extraction if startTime is missing
             let taskDueDateStr: string | undefined = undefined;
             if (taskData.scheduledDate) {
-              taskDueDateStr = taskData.startTime
-                ? `${taskData.scheduledDate}T${taskData.startTime}:00`
-                : `${taskData.scheduledDate}T00:00:00`;
+              // Get startTime from task data, or extract from description/title
+              let effectiveStartTime = taskData.startTime;
+              if (!effectiveStartTime) {
+                // Try to extract time from task description or title
+                const taskDescription = taskData.notes || taskData.description || "";
+                const taskTitle = taskData.taskName || taskData.title || "";
+                effectiveStartTime =
+                  extractTimeFromDescription(taskDescription) ||
+                  extractTimeFromDescription(taskTitle) ||
+                  getSmartDefaultTime(i, generatedPlan.tasks.length);
+              }
+              taskDueDateStr = `${taskData.scheduledDate}T${effectiveStartTime}:00`;
             } else if (taskData.startDate) {
               // Fallback to startDate if scheduledDate not available
               taskDueDateStr = taskData.startDate;
@@ -13284,7 +13434,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
         );
 
         // Use AI-provided emoji from the generated plan, fallback to 📝 if not provided
-        const activityEmoji = generatedPlan.emoji || "📝";
+        const activityEmoji = generatedPlan.emoji || "[TARGET_ICON]";
         const activityUrl = `/app?activity=${activity.id}&tab=activities`;
 
         return res.json({
@@ -13676,7 +13826,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
           );
 
           // Get emoji from generated plan or use default
-          const activityEmoji = generatedPlan.emoji || "📝";
+          const activityEmoji = generatedPlan.emoji || "[TARGET_ICON]";
 
           return res.json({
             message: formatActivitySuccessMessage(activity, activityEmoji),
@@ -14427,11 +14577,20 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
                   const taskData = planToUse.tasks[i];
 
                   // Build dueDate from scheduledDate and startTime if available
+                  // Use intelligent time extraction if startTime is missing
                   let streamTaskDueDateStr: string | undefined = undefined;
                   if (taskData.scheduledDate) {
-                    streamTaskDueDateStr = taskData.startTime
-                      ? `${taskData.scheduledDate}T${taskData.startTime}:00`
-                      : `${taskData.scheduledDate}T00:00:00`;
+                    // Get startTime from task data, or extract from description/title
+                    let effectiveStartTime = taskData.startTime;
+                    if (!effectiveStartTime) {
+                      const taskDescription = taskData.description || taskData.notes || "";
+                      const taskTitle = taskData.title || taskData.taskName || "";
+                      effectiveStartTime =
+                        extractTimeFromDescription(taskDescription) ||
+                        extractTimeFromDescription(taskTitle) ||
+                        getSmartDefaultTime(i, planToUse.tasks.length);
+                    }
+                    streamTaskDueDateStr = `${taskData.scheduledDate}T${effectiveStartTime}:00`;
                   } else if (taskData.startDate) {
                     streamTaskDueDateStr = taskData.startDate;
                   }
@@ -14534,7 +14693,7 @@ Try saying "help me plan dinner" in either mode to see the difference! 😊`,
           let finalMessage = response.message;
           if (activityData && activityData.activity) {
             const activityEmoji =
-              response.plan?.emoji || planToUse?.emoji || "📝";
+              response.plan?.emoji || planToUse?.emoji || "[TARGET_ICON]";
             finalMessage = formatActivitySuccessMessage(
               activityData.activity,
               activityEmoji,
@@ -15739,9 +15898,22 @@ You can find these tasks in your task list and start working on them right away!
       const originalJournalData = prefs?.preferences?.journalData || {};
 
       // STEP 1: Deduplicate entries BEFORE enrichment
-      // This removes duplicate entries (same name) within each category
+      // This removes duplicate entries (same normalized name) within each category
+      // Uses normalized comparison to catch "The Dark Knight" vs "Dark Knight, The"
       let totalDuplicatesRemoved = 0;
+      const duplicateNames: string[] = []; // Track names of removed duplicates for user feedback
       const journalData: Record<string, any[]> = {};
+
+      // Title normalization function for better duplicate detection
+      const normalizeTitle = (title: string): string => {
+        return title
+          .toLowerCase()
+          .replace(/^(the|a|an)\s+/i, '')        // Remove leading articles
+          .replace(/,\s*(the|a|an)$/i, '')       // Remove trailing ", The" etc.
+          .replace(/[^\w\s]/g, '')               // Remove punctuation
+          .replace(/\s+/g, ' ')                  // Normalize whitespace
+          .trim();
+      };
 
       for (const [category, entries] of Object.entries(originalJournalData)) {
         if (!Array.isArray(entries)) {
@@ -15749,7 +15921,7 @@ You can find these tasks in your task list and start working on them right away!
           continue;
         }
 
-        const seenNames = new Set<string>();
+        const seenNormalizedNames = new Set<string>();
         const uniqueEntries: any[] = [];
 
         for (const entry of entries) {
@@ -15759,17 +15931,17 @@ You can find these tasks in your task list and start working on them right away!
             entry.title ||
             entry.name ||
             ""
-          )
-            .toLowerCase()
-            .trim();
+          );
+          const normalizedName = normalizeTitle(entryName);
 
-          if (!entryName || !seenNames.has(entryName)) {
-            if (entryName) seenNames.add(entryName);
+          if (!normalizedName || !seenNormalizedNames.has(normalizedName)) {
+            if (normalizedName) seenNormalizedNames.add(normalizedName);
             uniqueEntries.push(entry);
           } else {
             totalDuplicatesRemoved++;
+            duplicateNames.push(entryName.substring(0, 50));
             console.log(
-              `[JOURNAL WEB ENRICH] Removing duplicate: "${entry.venueName || entry.text}" in ${category}`,
+              `[JOURNAL WEB ENRICH] Removing duplicate: "${entryName}" (normalized: "${normalizedName}") in ${category}`,
             );
           }
         }
@@ -16016,11 +16188,132 @@ You can find these tasks in your task list and start working on them right away!
         enriched: totalEnriched,
         failed: totalFailed,
         duplicatesRemoved: totalDuplicatesRemoved,
+        duplicateNames: duplicateNames.slice(0, 10), // Show up to 10 duplicate names
         categories: categoriesToEnrich,
       });
     } catch (error) {
       console.error("Journal web enrichment error:", error);
       res.status(500).json({ error: "Failed to enrich journal entries" });
+    }
+  });
+
+  // ==========================================================================
+  // MOVIE/TV VERIFICATION - Get multiple candidates for user to pick from
+  // Used when TMDB match is uncertain and we want user confirmation
+  // ==========================================================================
+  app.post("/api/journal/verify-media", async (req: any, res) => {
+    try {
+      const { query, category, entryId } = req.body;
+
+      if (!query) {
+        return res.status(400).json({ error: "Query is required" });
+      }
+
+      console.log(`[VERIFY MEDIA] Searching candidates for: "${query}"`);
+
+      const { bestMatch, candidates, needsUserConfirmation } =
+        await tmdbService.searchWithCandidates(query, 5);
+
+      res.json({
+        success: true,
+        query,
+        bestMatch,
+        candidates: candidates.map(c => ({
+          ...c.result,
+          confidence: Math.round(c.confidence * 100),
+          confidenceLevel: c.confidenceLevel,
+          matchReasons: c.matchReasons,
+        })),
+        needsUserConfirmation,
+        entryId,
+        category,
+      });
+    } catch (error) {
+      console.error("[VERIFY MEDIA] Error:", error);
+      res.status(500).json({ error: "Failed to search for media" });
+    }
+  });
+
+  // ==========================================================================
+  // CONFIRM MEDIA SELECTION - User picks the correct movie/show from candidates
+  // ==========================================================================
+  app.post("/api/journal/confirm-media", async (req: any, res) => {
+    try {
+      const userId = getUserId(req) || DEMO_USER_ID;
+      const { category, entryId, selectedTmdbId, mediaType } = req.body;
+
+      if (!category || !entryId || !selectedTmdbId) {
+        return res.status(400).json({ error: "category, entryId, and selectedTmdbId are required" });
+      }
+
+      console.log(`[CONFIRM MEDIA] User selected TMDB ID ${selectedTmdbId} for entry ${entryId}`);
+
+      // Fetch full details for the selected movie/TV show
+      const result = mediaType === 'tv'
+        ? await tmdbService.searchTV(selectedTmdbId.toString())
+        : await tmdbService.searchMovie(selectedTmdbId.toString());
+
+      if (!result) {
+        return res.status(404).json({ error: "Could not fetch details for selected media" });
+      }
+
+      // Update the journal entry with verified enrichment
+      const prefs = await storage.getUserPreferences(userId);
+      const journalData = prefs?.preferences?.journalData || {};
+      const entries = journalData[category] || [];
+
+      const entryIndex = entries.findIndex((e: any) => e.id === entryId);
+      if (entryIndex === -1) {
+        return res.status(404).json({ error: "Journal entry not found" });
+      }
+
+      // Create enrichment data
+      const enrichment = {
+        venueVerified: true,
+        userConfirmed: true, // Mark as user-confirmed
+        venueType: mediaType === 'tv' ? 'tv_show' : 'movie',
+        venueName: result.title,
+        venueDescription: result.overview,
+        primaryImageUrl: result.posterUrl || result.backdropUrl,
+        mediaUrls: result.posterUrl ? [{ url: result.posterUrl, type: 'image', source: 'tmdb' }] : [],
+        rating: result.rating,
+        releaseYear: result.releaseYear,
+        director: result.director,
+        cast: result.cast,
+        genre: result.genres?.join(', '),
+        runtime: result.runtime,
+        enrichmentSource: 'tmdb',
+        tmdbId: result.tmdbId,
+        confirmedAt: new Date().toISOString(),
+        streamingLinks: [
+          { platform: 'TMDB', url: `https://www.themoviedb.org/${mediaType}/${result.tmdbId}` },
+          { platform: 'JustWatch', url: `https://www.justwatch.com/us/search?q=${encodeURIComponent(result.title)}` },
+          { platform: 'IMDB', url: `https://www.imdb.com/find?q=${encodeURIComponent(result.title)}` },
+        ],
+      };
+
+      // Update entry
+      entries[entryIndex] = {
+        ...entries[entryIndex],
+        webEnrichment: enrichment,
+      };
+
+      journalData[category] = entries;
+
+      await storage.upsertUserPreferences(userId, {
+        preferences: { ...prefs?.preferences, journalData },
+      });
+
+      console.log(`[CONFIRM MEDIA] Updated entry ${entryId} with user-confirmed TMDB data`);
+
+      res.json({
+        success: true,
+        entry: entries[entryIndex],
+        enrichment,
+      });
+    } catch (error) {
+      console.error("[CONFIRM MEDIA] Error:", error);
+      res.status(500).json({ error: "Failed to confirm media selection" });
     }
   });
 
@@ -17870,7 +18163,7 @@ Respond with JSON: { "category": "Category Name", "confidence": 0.0-1.0, "keywor
           tasks: createdTasks,
           session: updatedSession,
           generatedPlan,
-          message: formatActivitySuccessMessage(activity, "📝"),
+          message: formatActivitySuccessMessage(activity, "[TARGET_ICON]"),
         });
       } catch (error) {
         console.error("Error generating plan:", error);

@@ -1410,12 +1410,24 @@ Today's date is: ${new Date().toISOString().split('T')[0]}
 - "09:00", "0900" → "09:00"
 
 **Natural language times:**
-- "morning", "in the morning" → "09:00"
-- "afternoon" → "14:00"
-- "evening" → "18:00"
+- "morning", "in the morning", "early morning" → "09:00"
+- "late morning" → "11:00"
+- "afternoon", "in the afternoon" → "14:00"
+- "late afternoon" → "16:00"
+- "evening", "in the evening" → "18:00"
+- "late evening" → "20:00"
 - "night", "at night" → "20:00"
 - "noon", "midday" → "12:00"
 - "midnight" → "00:00"
+
+**Time constraints (IMPORTANT - extract from task descriptions):**
+- "before 12 PM", "before noon" → startTime: "10:00" (reasonable time before deadline)
+- "before 3 PM" → startTime: "13:00"
+- "by 5 PM" → startTime: "15:00" (2 hours before deadline)
+- "no later than 8 AM" → startTime: "07:00"
+- "complete workout before 12 PM" → startTime: "10:00"
+- "afternoon study session" → startTime: "14:00"
+- "evening drinks" → startTime: "18:00"
 
 **Time ranges:**
 - "9 AM - 5 PM", "9am-5pm" → startTime: "09:00", endTime: "17:00"
@@ -1439,7 +1451,12 @@ Today's date is: ${new Date().toISOString().split('T')[0]}
 - Activity startDate/endDate: "YYYY-MM-DD" for multi-day plans
 
 ### 6. IMPORTANT RULES:
-- If NO time is mentioned → leave startTime as null (date only)
+- **ALWAYS** extract times from task descriptions if they contain time hints (morning, afternoon, evening, before X, by X)
+- If task description says "before 12 PM" or "by noon" → set appropriate startTime (don't leave null)
+- If task mentions "morning workout" → startTime: "09:00"
+- If task mentions "afternoon study" → startTime: "14:00"
+- If task mentions "evening drinks" → startTime: "18:00"
+- If absolutely NO time hint is present → distribute tasks reasonably across the day (9 AM to 8 PM)
 - If date is ambiguous (e.g., "next week") → calculate best estimate from today
 - If year is not specified → use current year (or next year if date has passed)
 - Always output dates in ISO format regardless of input format

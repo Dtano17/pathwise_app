@@ -291,6 +291,14 @@ export default function MainApp({
 
   // Conversation history for contextual plan regeneration
   const [conversationHistory, setConversationHistory] = useState<string[]>([]);
+  // Full conversation messages with roles for proper session storage
+  const [conversationMessages, setConversationMessages] = useState<
+    Array<{
+      role: "user" | "assistant";
+      content: string;
+      timestamp: string;
+    }>
+  >([]);
   const [planVersion, setPlanVersion] = useState(0);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
@@ -547,11 +555,20 @@ export default function MainApp({
 
       const session = await response.json();
 
-      // Extract conversation history
+      // Extract conversation history content for string-based state
       const history = session.conversationHistory.map(
         (msg: any) => msg.content,
       );
       setConversationHistory(history);
+
+      // Restore full conversation messages with roles for proper session storage
+      setConversationMessages(
+        session.conversationHistory.map((msg: any) => ({
+          role: msg.role || "user",
+          content: msg.content,
+          timestamp: msg.timestamp || new Date().toISOString(),
+        })),
+      );
 
       // Set plan output if available
       if (session.generatedPlan) {
@@ -563,8 +580,12 @@ export default function MainApp({
           console.log("📥 Loaded session with activityId:", activityId);
         }
 
+        // Handle both 'title' and 'planTitle' keys for backwards compatibility
+        const planTitle =
+          session.generatedPlan.title || session.generatedPlan.planTitle;
+
         setCurrentPlanOutput({
-          planTitle: session.generatedPlan.title,
+          planTitle: planTitle,
           summary: session.generatedPlan.summary,
           tasks: session.generatedPlan.tasks || [],
           estimatedTimeframe: session.generatedPlan.estimatedTimeframe,
@@ -581,7 +602,11 @@ export default function MainApp({
       // Set plan version based on conversation length
       setPlanVersion(history.length);
 
-      // Navigate to input tab
+      // Log the planning mode from the session for debugging
+      const savedMode = session.externalContext?.currentMode;
+      console.log("📥 Resumed session with planning mode:", savedMode);
+
+      // Navigate to input tab to show the loaded plan
       setActiveTab("input");
     } catch (error) {
       console.error("Failed to load conversation:", error);
@@ -1352,12 +1377,25 @@ export default function MainApp({
 
       // Auto-save conversation session
       try {
-        const conversationMessages = updatedHistory.map((msg, idx) => ({
+        // Build proper conversation with user/assistant roles
+        const newUserMessage = {
           role: "user" as const,
-          content: msg,
+          content: variables,
           timestamp: new Date().toISOString(),
-          type: "question" as const,
-        }));
+        };
+        const newAssistantMessage = {
+          role: "assistant" as const,
+          content: `Created plan "${data.planTitle}" with ${data.tasks?.length || 0} tasks. ${data.summary || ""}`,
+          timestamp: new Date().toISOString(),
+        };
+
+        // Update the full conversation messages state
+        const updatedConversationMessages = [
+          ...conversationMessages,
+          newUserMessage,
+          newAssistantMessage,
+        ];
+        setConversationMessages(updatedConversationMessages);
 
         // Use the same plan data with preserved activityId
         const planToSave = {
@@ -1374,8 +1412,9 @@ export default function MainApp({
         if (currentSessionId) {
           // Update existing session
           await apiRequest("PUT", `/api/conversations/${currentSessionId}`, {
-            conversationHistory: conversationMessages,
+            conversationHistory: updatedConversationMessages,
             generatedPlan: planToSave,
+            planningMode: "direct",
           });
         } else {
           // Create new session
@@ -1383,8 +1422,9 @@ export default function MainApp({
             "POST",
             "/api/conversations",
             {
-              conversationHistory: conversationMessages,
+              conversationHistory: updatedConversationMessages,
               generatedPlan: planToSave,
+              planningMode: "direct",
             },
           );
           const session = await sessionResponse.json();
@@ -3694,8 +3734,10 @@ export default function MainApp({
                           }
                           onUncomplete={handleUncompleteTask}
                           onEdit={(taskData) => {
-                            // Find the full task from the tasks array
-                            const fullTask = tasks.find(t => t.id === taskData.id);
+                            // Find the full task from the appropriate tasks array
+                            // (activityTasks when viewing an activity, or all tasks otherwise)
+                            const searchArray = selectedActivityId ? activityTasks : tasks;
+                            const fullTask = searchArray?.find(t => t.id === taskData.id);
                             if (fullTask) {
                               setEditingTask(fullTask);
                             }

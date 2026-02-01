@@ -152,6 +152,33 @@ const pool = new Pool({
 });
 export const db = drizzle(pool);
 
+/**
+ * Normalize a title for deduplication comparison.
+ * Removes leading articles (the, a, an), punctuation, and normalizes whitespace.
+ * This allows "The Dark Knight" and "Dark Knight, The" to be detected as duplicates.
+ */
+function normalizeJournalTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/^(the|a|an)\s+/i, '')        // Remove leading articles
+    .replace(/,\s*(the|a|an)$/i, '')       // Remove trailing ", The" etc.
+    .replace(/[^\w\s]/g, '')               // Remove punctuation
+    .replace(/\s+/g, ' ')                  // Normalize whitespace
+    .trim();
+}
+
+/**
+ * Check if two titles are effectively the same (for deduplication).
+ * Uses normalized comparison to catch variations like:
+ * - "The Dark Knight" vs "Dark Knight, The"
+ * - "Spider-Man: No Way Home" vs "Spider Man No Way Home"
+ */
+function titlesMatch(title1: string, title2: string): boolean {
+  const norm1 = normalizeJournalTitle(title1);
+  const norm2 = normalizeJournalTitle(title2);
+  return norm1 === norm2 && norm1.length > 0;
+}
+
 // In-memory storage for mobile auth tokens (one-time use, expire in 5 min)
 // Used for OAuth deep link flow when session cookies can't be shared between browser and WebView
 const mobileAuthTokens = new Map<string, { userId: number; expiresAt: Date }>();
@@ -2409,8 +2436,42 @@ export class DatabaseStorage implements IStorage {
     const currentPrefs = prefs?.preferences || {};
     const currentJournal = currentPrefs.journalData || {};
     const categoryEntries = currentJournal[category] || [];
-    
-    // Check if there's already an entry from today in this category
+
+    // CROSS-DAY DEDUPLICATION: Check if this item already exists in ANY day (not just today)
+    // Uses normalized title comparison to catch variations like "The Dark Knight" vs "Dark Knight, The"
+    const newEntryTitle = entry.text.trim();
+    const existingDuplicateIndex = categoryEntries.findIndex((e: any) => {
+      const existingTitle = e.text || e.venueName || '';
+      return titlesMatch(newEntryTitle, existingTitle);
+    });
+
+    if (existingDuplicateIndex !== -1) {
+      // Found an existing entry with the same title (on any day)
+      const existingEntry = categoryEntries[existingDuplicateIndex];
+      console.log(`[JOURNAL DEDUP] Skipping duplicate: "${newEntryTitle}" matches existing "${existingEntry.text || existingEntry.venueName}" (normalized match)`);
+
+      // Return the existing preferences without adding a duplicate
+      // But update the existing entry's timestamp if it's being re-added
+      categoryEntries[existingDuplicateIndex] = {
+        ...existingEntry,
+        // Optionally update with new media/keywords if provided
+        media: entry.media || existingEntry.media,
+        keywords: entry.keywords?.length
+          ? Array.from(new Set([...(existingEntry.keywords || []), ...entry.keywords]))
+          : existingEntry.keywords,
+        // Keep the original timestamp, but log the re-add attempt
+      };
+      currentJournal[category] = categoryEntries;
+
+      return this.upsertUserPreferences(userId, {
+        preferences: {
+          ...currentPrefs,
+          journalData: currentJournal,
+        },
+      });
+    }
+
+    // Check if there's already an entry from today in this category (for same-day text merging)
     const today = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD
     const todayEntryIndex = categoryEntries.findIndex((e: any) => {
       // Safely handle invalid/missing timestamps
@@ -2423,31 +2484,31 @@ export class DatabaseStorage implements IStorage {
         return false;
       }
     });
-    
+
     if (todayEntryIndex !== -1) {
       // Merge with existing entry from today
       const existingEntry = categoryEntries[todayEntryIndex];
-      
-      // Check if the new text is already in the existing entry (duplicate detection)
+
+      // Check if the new text is already in the existing entry (exact substring check)
       const trimmedNewText = entry.text.trim();
       const existingText = existingEntry.text || '';
       const isDuplicate = existingText.includes(trimmedNewText) || trimmedNewText === existingText.trim();
-      
+
       // Combine text with newline (skip if duplicate)
-      const combinedText = isDuplicate 
-        ? existingEntry.text 
+      const combinedText = isDuplicate
+        ? existingEntry.text
         : existingEntry.text ? `${existingEntry.text}\n${entry.text}` : entry.text;
-      
+
       // Merge media arrays
       const existingMedia = existingEntry.media || [];
       const newMedia = entry.media || [];
       const combinedMedia = [...existingMedia, ...newMedia];
-      
+
       // Merge keywords (unique)
       const existingKeywords = existingEntry.keywords || [];
       const newKeywords = entry.keywords || [];
       const combinedKeywords = Array.from(new Set([...existingKeywords, ...newKeywords]));
-      
+
       // Update the existing entry
       categoryEntries[todayEntryIndex] = {
         ...existingEntry,
@@ -2473,7 +2534,7 @@ export class DatabaseStorage implements IStorage {
         linkedActivityTitle: entry.linkedActivityTitle,
         mood: entry.mood,
       };
-      
+
       categoryEntries.push(newEntry);
     }
     currentJournal[category] = categoryEntries;
