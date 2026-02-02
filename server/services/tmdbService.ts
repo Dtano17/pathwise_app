@@ -734,6 +734,111 @@ Respond ONLY with valid JSON (no explanation):
    * @param yearHint - Optional year hint from batch context (e.g., "2024 movies" batch)
    *                   This helps filter results when the same title exists across multiple years
    */
+  async searchTV(query: string, year?: string | number | null): Promise<TMDBSearchResult | null> {
+    if (!this.apiKey) return null;
+    try {
+      const { title: cleanQuery, year: extractedYear } = this.extractYearFromQuery(query);
+      const searchYear = year || extractedYear;
+
+      const url = new URL(`${TMDB_BASE_URL}/search/tv`);
+      url.searchParams.append('api_key', this.apiKey);
+      url.searchParams.append('query', cleanQuery);
+      if (searchYear) url.searchParams.append('first_air_date_year', searchYear.toString());
+      
+      const response = await fetch(url.toString());
+      const data = await response.json();
+      
+      if (!data.results || data.results.length === 0) return null;
+      
+      const r = data.results[0];
+      return {
+        posterUrl: this.getImageUrl(r.poster_path),
+        backdropUrl: this.getImageUrl(r.backdrop_path),
+        title: r.name,
+        overview: r.overview,
+        releaseYear: r.first_air_date ? r.first_air_date.substring(0, 4) : '',
+        rating: r.vote_average,
+        ratingCount: r.vote_count,
+        genres: [],
+        tmdbId: r.id,
+        mediaType: 'tv'
+      };
+    } catch (error) {
+      console.error('[TMDB] Search TV failed:', error);
+      return null;
+    }
+  }
+
+  async searchTV(query: string, year?: string | number | null): Promise<TMDBSearchResult | null> {
+    if (!this.apiKey) return null;
+    try {
+      const { title: cleanQuery, year: extractedYear } = this.extractYearFromQuery(query);
+      const searchYear = year || extractedYear;
+
+      const url = new URL(`${TMDB_BASE_URL}/search/tv`);
+      url.searchParams.append('api_key', this.apiKey);
+      url.searchParams.append('query', cleanQuery);
+      if (searchYear) url.searchParams.append('first_air_date_year', searchYear.toString());
+      
+      const response = await fetch(url.toString());
+      const data = await response.json();
+      
+      if (!data.results || data.results.length === 0) return null;
+      
+      const r = data.results[0];
+      return {
+        posterUrl: this.getImageUrl(r.poster_path),
+        backdropUrl: this.getImageUrl(r.backdrop_path),
+        title: r.name,
+        overview: r.overview,
+        releaseYear: r.first_air_date ? r.first_air_date.substring(0, 4) : '',
+        rating: r.vote_average,
+        ratingCount: r.vote_count,
+        genres: [],
+        tmdbId: r.id,
+        mediaType: 'tv'
+      };
+    } catch (error) {
+      console.error('[TMDB] Search TV failed:', error);
+      return null;
+    }
+  }
+
+  async searchTV(query: string, year?: string | number | null): Promise<TMDBSearchResult | null> {
+    if (!this.apiKey) return null;
+    try {
+      const { title: cleanQuery, year: extractedYear } = this.extractYearFromQuery(query);
+      const searchYear = year || extractedYear;
+
+      const url = new URL(`${TMDB_BASE_URL}/search/tv`);
+      url.searchParams.append('api_key', this.apiKey);
+      url.searchParams.append('query', cleanQuery);
+      if (searchYear) url.searchParams.append('first_air_date_year', searchYear.toString());
+      
+      const response = await fetch(url.toString());
+      const data = await response.json();
+      
+      if (!data.results || data.results.length === 0) return null;
+      
+      const r = data.results[0];
+      return {
+        posterUrl: this.getImageUrl(r.poster_path),
+        backdropUrl: this.getImageUrl(r.backdrop_path),
+        title: r.name,
+        overview: r.overview,
+        releaseYear: r.first_air_date ? r.first_air_date.substring(0, 4) : '',
+        rating: r.vote_average,
+        ratingCount: r.vote_count,
+        genres: [],
+        tmdbId: r.id,
+        mediaType: 'tv'
+      };
+    } catch (error) {
+      console.error('[TMDB] Search TV failed:', error);
+      return null;
+    }
+  }
+
   async searchMovie(query: string, yearHint?: number | null): Promise<TMDBSearchResult | null> {
     if (!this.apiKey) {
       console.warn('[TMDB] Cannot search - no API key configured');
