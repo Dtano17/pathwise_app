@@ -94,6 +94,10 @@ export async function sendGroupNotification(
 
 /**
  * Send notification to a specific user
+ *
+ * This function:
+ * 1. ALWAYS creates an in-app notification record (for the bell icon)
+ * 2. Optionally sends a push notification if the user has enabled them and has devices
  */
 export async function sendUserNotification(
   storage: IStorage,
@@ -101,33 +105,39 @@ export async function sendUserNotification(
   payload: NotificationPayload
 ): Promise<void> {
   try {
-    // Check user's notification preferences
-    const prefs = await storage.getNotificationPreferences(userId);
-    
-    if (!prefs?.enableBrowserNotifications) {
-      console.log(`[NOTIFICATION] User ${userId} has notifications disabled`);
-      return;
-    }
-
-    // Get active device tokens
-    const devices = await storage.getUserDeviceTokens(userId);
-    const activeDevices = devices.filter(d => d.isActive);
-
-    if (activeDevices.length === 0) {
-      console.log(`[NOTIFICATION] No active devices for user ${userId}`);
-      return;
-    }
-
-    // Create in-app notification record
+    // ALWAYS create in-app notification record first (for the bell icon)
+    // This should happen regardless of push notification settings
     await storage.createUserNotification({
       userId,
       sourceGroupId: null,
       actorUserId: null,
-      type: 'general',
+      type: payload.data?.notificationType || 'general',
       title: payload.title,
       body: payload.body || null,
       metadata: payload.data || {},
     });
+
+    console.log(`[NOTIFICATION] Created in-app notification for user ${userId}:`, {
+      title: payload.title,
+      body: payload.body,
+    });
+
+    // Check user's notification preferences for PUSH notifications
+    const prefs = await storage.getNotificationPreferences(userId);
+
+    if (!prefs?.enableBrowserNotifications) {
+      console.log(`[NOTIFICATION] User ${userId} has push notifications disabled, skipping push`);
+      return;
+    }
+
+    // Get active device tokens for push notifications
+    const devices = await storage.getUserDeviceTokens(userId);
+    const activeDevices = devices.filter(d => d.isActive);
+
+    if (activeDevices.length === 0) {
+      console.log(`[NOTIFICATION] No active devices for user ${userId}, skipping push`);
+      return;
+    }
 
     // Send push notification via FCM/APNs
     const pushService = new PushNotificationService(storage);
@@ -139,7 +149,7 @@ export async function sendUserNotification(
       ) : undefined,
     });
 
-    console.log(`[NOTIFICATION] Sent to user ${userId}:`, {
+    console.log(`[NOTIFICATION] Push sent to user ${userId}:`, {
       title: payload.title,
       body: payload.body,
       devices: activeDevices.length,
