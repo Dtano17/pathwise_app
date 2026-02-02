@@ -1,0 +1,49 @@
+# Google App Engine configuration
+runtime: nodejs22
+
+env_variables:
+  NODE_ENV: production
+  # Database configuration
+  DATABASE_URL: # Set in Google Cloud Console
+  SESSION_SECRET: # Set in Google Cloud Console
+
+  # Supabase configuration
+  VITE_SUPABASE_URL: # Set in Google Cloud Console
+  VITE_SUPABASE_ANON_KEY: # Set in Google Cloud Console
+  SUPABASE_SERVICE_ROLE_KEY: # Set in Google Cloud Console (server-side only)
+
+  # AI Service configuration
+  OPENAI_API_KEY: # Set in Google Cloud Console
+  ANTHROPIC_API_KEY: # Set in Google Cloud Console
+
+  # OAuth configuration (if keeping some legacy providers)
+  GOOGLE_CLIENT_ID: # Set in Google Cloud Console
+  GOOGLE_CLIENT_SECRET: # Set in Google Cloud Console
+  FACEBOOK_APP_ID: # Set in Google Cloud Console
+  FACEBOOK_APP_SECRET: # Set in Google Cloud Console
+
+# Automatic scaling configuration
+automatic_scaling:
+  min_instances: 0
+  max_instances: 10
+  target_cpu_utilization: 0.6
+
+# Network configuration
+network:
+  forwarded_ports:
+    - 8080
+
+# Health check configuration
+readiness_check:
+  path: "/health"
+  check_interval_sec: 5
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
+
+liveness_check:
+  path: "/health"
+  check_interval_sec: 30
+  timeout_sec: 4
+  failure_threshold: 4
+  success_threshold: 2

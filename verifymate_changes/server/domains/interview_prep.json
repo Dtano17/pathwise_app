@@ -1,0 +1,170 @@
+{
+  "domain": "interview_prep",
+  "aliases": ["interview", "job interview", "interview preparation", "job prep", "hiring"],
+  "description": "Preparing for job interviews with study plans, practice schedules, and company research",
+
+  "questions": {
+    "quick_plan": [
+      {
+        "id": "company",
+        "question": "Which company is the interview with?",
+        "why_matters": "Helps research company culture, products, and interview style",
+        "type": "text",
+        "required": true,
+        "slot_path": "company"
+      },
+      {
+        "id": "role",
+        "question": "What role/position are you interviewing for?",
+        "why_matters": "Determines which skills and knowledge to focus on",
+        "type": "text",
+        "required": true,
+        "slot_path": "role"
+      },
+      {
+        "id": "interview_date",
+        "question": "When is the interview scheduled?",
+        "why_matters": "Determines how much time we have to prepare",
+        "type": "text",
+        "required": true,
+        "slot_path": "timing.date"
+      },
+      {
+        "id": "interview_type",
+        "question": "What type of interview is it? (technical coding, system design, behavioral, or mixed?)",
+        "why_matters": "Each type requires different preparation strategies",
+        "type": "choice",
+        "options": ["technical_coding", "system_design", "behavioral", "mixed"],
+        "required": true,
+        "slot_path": "interviewType"
+      },
+      {
+        "id": "tech_stack",
+        "question": "Are there specific technologies or languages you need to focus on?",
+        "why_matters": "Helps recommend targeted study materials and practice problems",
+        "type": "text",
+        "required": false,
+        "slot_path": "techStack"
+      }
+    ],
+
+    "smart_plan": [
+      {
+        "id": "company",
+        "question": "Which company is the interview with?",
+        "why_matters": "Helps research company culture, products, and interview style",
+        "type": "text",
+        "required": true,
+        "slot_path": "company"
+      },
+      {
+        "id": "role",
+        "question": "What role/position are you interviewing for?",
+        "why_matters": "Determines which skills and knowledge to focus on",
+        "type": "text",
+        "required": true,
+        "slot_path": "role"
+      },
+      {
+        "id": "interview_date",
+        "question": "When is the interview scheduled?",
+        "why_matters": "Determines how much time we have to prepare",
+        "type": "text",
+        "required": true,
+        "slot_path": "timing.date"
+      },
+      {
+        "id": "interview_type",
+        "question": "What type of interview is it? (technical coding, system design, behavioral, or mixed?)",
+        "why_matters": "Each type requires different preparation strategies",
+        "type": "choice",
+        "options": ["technical_coding", "system_design", "behavioral", "mixed"],
+        "required": true,
+        "slot_path": "interviewType"
+      },
+      {
+        "id": "tech_stack",
+        "question": "Are there specific technologies or languages you need to focus on?",
+        "why_matters": "Helps recommend targeted study materials and practice problems",
+        "type": "text",
+        "required": false,
+        "slot_path": "techStack"
+      },
+      {
+        "id": "experience_level",
+        "question": "What's your current experience level with the required technologies?",
+        "why_matters": "Helps tailor the difficulty and depth of study materials",
+        "type": "choice",
+        "options": ["beginner", "intermediate", "advanced"],
+        "required": false,
+        "slot_path": "experienceLevel"
+      },
+      {
+        "id": "previous_interviews",
+        "question": "Have you interviewed with this company or similar companies before?",
+        "why_matters": "Can leverage past experience to focus preparation",
+        "type": "text",
+        "required": false,
+        "slot_path": "previousInterviews"
+      }
+    ]
+  },
+
+  "enrichment_rules": [
+    {
+      "condition": "has_company",
+      "web_searches": [
+        "{company} interview process",
+        "{company} {role} interview questions",
+        "{company} company culture and values"
+      ]
+    },
+    {
+      "condition": "has_techStack",
+      "web_searches": [
+        "{techStack} interview questions",
+        "{techStack} best practices",
+        "learn {techStack} quickly"
+      ]
+    }
+  ],
+
+  "plan_template": {
+    "sections": [
+      {
+        "title": "⏰ Time Available & Strategy",
+        "required_data": ["time_analysis"]
+      },
+      {
+        "title": "🎯 Interview Focus Areas",
+        "required_data": ["focus_areas"]
+      },
+      {
+        "title": "📚 Study Plan (Day-by-Day)",
+        "required_data": ["study_schedule"]
+      },
+      {
+        "title": "💻 Practice Problems & Resources",
+        "required_data": ["practice_materials"]
+      },
+      {
+        "title": "🏢 Company Research",
+        "required_data": ["company_info"]
+      },
+      {
+        "title": "🗣️ Behavioral Question Prep",
+        "required_data": ["behavioral_prep"]
+      },
+      {
+        "title": "🧘 Wellness & Day-Of Prep",
+        "required_data": ["wellness_schedule"]
+      },
+      {
+        "title": "💡 Pro Tips",
+        "required_data": ["interview_tips"]
+      }
+    ]
+  },
+
+  "safety_checks": []
+}

@@ -1,0 +1,35 @@
+node_modules
+dist
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Exclude development workspace assets from deployment
+attached_assets/
+
+# Intellectual Property Documentation (Keep Private)
+IP_DOCUMENTATION/
+*.patent
+*.trademark
+*_Deposit.pdf
+*_NDA.pdf
+
+# Firebase configuration files (contain sensitive data)
+android/app/google-services.json
+ios/App/App/GoogleService-Info.plist
+
+# Android signing keys (NEVER commit these!)
+*.keystore
+*.jks
+
+# IDE configuration
+.idea/
+
+# Windows temp files
+nul
