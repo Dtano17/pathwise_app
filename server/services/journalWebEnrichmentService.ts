@@ -915,13 +915,23 @@ Respond with ONLY a JSON object in this format:
 
         // YEAR VALIDATION: If batch context has yearRange, validate the result year
         // Reject results that are way off from expected year (e.g., 1943 when expecting 2024)
+        // BUT skip this for well-known classics with high vote counts
         if (tmdbResult && batchCtx?.yearRange && tmdbResult.releaseYear) {
           const resultYear = parseInt(tmdbResult.releaseYear);
           const { min, max } = batchCtx.yearRange;
-          // Allow 2-year tolerance (e.g., 2024 batch could match 2022-2026)
-          if (resultYear < min - 2 || resultYear > max + 2) {
-            console.log(`[JOURNAL_WEB_ENRICH] TMDB result year ${resultYear} outside expected range ${min}-${max}, rejecting match`);
-            tmdbResult = null; // Reject this match, will trigger Coming Soon placeholder
+
+          // Check if this is a well-known classic (high vote count from older years)
+          // Classics like "12 Monkeys" (1995), "Blade Runner" (1982) should pass
+          const isWellKnownClassic = resultYear < 2010 && (tmdbResult.ratingCount || 0) > 500;
+
+          if (!isWellKnownClassic) {
+            // Allow 2-year tolerance (e.g., 2024 batch could match 2022-2026)
+            if (resultYear < min - 2 || resultYear > max + 2) {
+              console.log(`[JOURNAL_WEB_ENRICH] TMDB result year ${resultYear} outside expected range ${min}-${max}, rejecting match`);
+              tmdbResult = null; // Reject this match, will trigger Coming Soon placeholder
+            }
+          } else {
+            console.log(`[JOURNAL_WEB_ENRICH] TMDB result "${tmdbResult.title}" (${resultYear}) is well-known classic with ${tmdbResult.ratingCount} votes, bypassing year filter`);
           }
         }
 

@@ -855,15 +855,27 @@ Respond ONLY with valid JSON (no explanation):
         }
 
         // Also check batch context year range if no explicit year
-        // RELAXED: Allow ±3 years back (user might add 2022 classic to 2025 watchlist)
+        // SKIP year validation for classic collections or mixed batches
+        // RELAXED: Allow ±3 years back for recent collections (user might add 2022 film to 2025 watchlist)
         const ctx = this.batchContext;
         if (!targetYear && ctx && ctx.confidence > 0.5 && ctx.inferredYearRange && movieYear) {
-          const { min, max } = ctx.inferredYearRange;
-          if (movieYear < min - 3 || movieYear > max + 1) {
-            console.log(`[TMDB] TIER 2 FAIL: "${movie.title}" year ${movieYear} outside batch range ${min - 3}-${max + 1}`);
-            continue; // FAIL - skip to next candidate
+          // SKIP year validation if:
+          // 1. Batch is marked as classic (e.g., "classic sci-fi movies")
+          // 2. Movie is a well-known classic (high vote count from older years)
+          const isClassicCollection = ctx.isClassic;
+          const isWellKnownClassic = movieYear < 2010 && movie.vote_count > 500; // High-vote classics bypass year filter
+
+          if (!isClassicCollection && !isWellKnownClassic) {
+            const { min, max } = ctx.inferredYearRange;
+            if (movieYear < min - 3 || movieYear > max + 1) {
+              console.log(`[TMDB] TIER 2 FAIL: "${movie.title}" year ${movieYear} outside batch range ${min - 3}-${max + 1}`);
+              continue; // FAIL - skip to next candidate
+            }
+            tierResults.push(`T2:batch-year=${movieYear}`);
+          } else {
+            console.log(`[TMDB] TIER 2 SKIP: "${movie.title}" (${movieYear}) is ${isClassicCollection ? 'in classic collection' : 'well-known classic'}, bypassing year filter`);
+            tierResults.push(`T2:classic-bypass`);
           }
-          tierResults.push(`T2:batch-year=${movieYear}`);
         }
 
         // ========== TIER 3: Popularity/Engagement Gate ==========
@@ -1092,15 +1104,27 @@ Respond ONLY with valid JSON (no explanation):
         }
 
         // Also check batch context year range if no explicit year
-        // RELAXED: Allow ±3 years back (user might add older show to current watchlist)
+        // SKIP year validation for classic collections or mixed batches
+        // RELAXED: Allow ±3 years back for recent collections (user might add older show to watchlist)
         const ctx = this.batchContext;
         if (!searchYear && ctx && ctx.confidence > 0.5 && ctx.inferredYearRange && showYear) {
-          const { min, max } = ctx.inferredYearRange;
-          if (showYear < min - 3 || showYear > max + 1) {
-            console.log(`[TMDB] TIER 2 FAIL: "${show.name}" year ${showYear} outside batch range ${min - 3}-${max + 1}`);
-            continue; // FAIL - skip to next candidate
+          // SKIP year validation if:
+          // 1. Batch is marked as classic (e.g., "classic sci-fi shows")
+          // 2. Show is a well-known classic (high vote count from older years)
+          const isClassicCollection = ctx.isClassic;
+          const isWellKnownClassic = showYear < 2010 && show.vote_count > 500; // High-vote classics bypass year filter
+
+          if (!isClassicCollection && !isWellKnownClassic) {
+            const { min, max } = ctx.inferredYearRange;
+            if (showYear < min - 3 || showYear > max + 1) {
+              console.log(`[TMDB] TIER 2 FAIL: "${show.name}" year ${showYear} outside batch range ${min - 3}-${max + 1}`);
+              continue; // FAIL - skip to next candidate
+            }
+            tierResults.push(`T2:batch-year=${showYear}`);
+          } else {
+            console.log(`[TMDB] TIER 2 SKIP: "${show.name}" (${showYear}) is ${isClassicCollection ? 'in classic collection' : 'well-known classic'}, bypassing year filter`);
+            tierResults.push(`T2:classic-bypass`);
           }
-          tierResults.push(`T2:batch-year=${showYear}`);
         }
 
         // ========== TIER 3: Popularity/Engagement Gate ==========
