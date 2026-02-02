@@ -482,7 +482,7 @@ Respond ONLY with valid JSON (no explanation):
     return !!this.apiKey;
   }
 
-  private getImageUrl(path: string | null, size: 'w92' | 'w154' | 'w185' | 'w342' | 'w500' | 'w780' | 'original' = 'w500'): string | null {
+  private getImageUrl(path: string | null, size: 'w92' | 'w154' | 'w185' | 'w342' | 'w500' | 'w780' | 'w1280' | 'original' = 'w500'): string | null {
     if (!path) return null;
     return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
   }
@@ -956,15 +956,19 @@ Respond ONLY with valid JSON (no explanation):
         backdropPath = passedCandidate.backdrop_path || details?.backdrop_path || null;
       }
 
-      // Poster as fallback
-      let posterPath = passedCandidate.poster_path || details?.poster_path;
+      // Poster as fallback - prioritize English posters
+      let posterPath: string | null = await this.getEnglishPoster(passedCandidate.id, 'movie');
+      if (!posterPath) {
+        posterPath = passedCandidate.poster_path || details?.poster_path || null;
+      }
       if (!posterPath) {
         posterPath = await this.getMovieImages(passedCandidate.id);
       }
 
       // Primary image is now BACKDROP (landscape), with poster as fallback
-      const backdropUrl = this.getImageUrl(backdropPath, 'w780') || this.getImageUrl(backdropPath, 'original');
-      const posterUrl = this.getImageUrl(posterPath, 'w500');
+      // Use w1280 for HD quality, fallback to w780, then original
+      const backdropUrl = this.getImageUrl(backdropPath, 'w1280') || this.getImageUrl(backdropPath, 'w780') || this.getImageUrl(backdropPath, 'original');
+      const posterUrl = this.getImageUrl(posterPath, 'w780') || this.getImageUrl(posterPath, 'w500');
 
       // CRITICAL: Reject match if no images exist - prevents broken/placeholder images
       if (!backdropUrl && !posterUrl) {
@@ -1174,11 +1178,16 @@ Respond ONLY with valid JSON (no explanation):
         backdropPath = passedCandidate.backdrop_path;
       }
 
-      const posterPath = passedCandidate.poster_path;
+      // Poster as fallback - prioritize English posters
+      let posterPath: string | null = await this.getEnglishPoster(passedCandidate.id, 'tv');
+      if (!posterPath) {
+        posterPath = passedCandidate.poster_path || null;
+      }
 
       // Primary image is now BACKDROP (landscape), with poster as fallback
-      const backdropUrl = this.getImageUrl(backdropPath, 'w780');
-      const posterUrl = this.getImageUrl(posterPath, 'w500');
+      // Use w1280 for HD quality, fallback to w780, then original
+      const backdropUrl = this.getImageUrl(backdropPath, 'w1280') || this.getImageUrl(backdropPath, 'w780') || this.getImageUrl(backdropPath, 'original');
+      const posterUrl = this.getImageUrl(posterPath, 'w780') || this.getImageUrl(posterPath, 'w500');
 
       // CRITICAL: Reject match if no images exist - prevents broken/placeholder images
       if (!backdropUrl && !posterUrl) {
@@ -1254,19 +1263,80 @@ Respond ONLY with valid JSON (no explanation):
         (b.vote_average || 0) - (a.vote_average || 0)
       );
 
-      // Prefer English backdrops, then language-neutral (null), then any
+      // STRICT PRIORITY: English > Neutral > Highest-voted
+      // Only fall back to non-English if no English/neutral exists
       const englishBackdrop = sortedBackdrops.find((b: { iso_639_1: string | null }) => b.iso_639_1 === 'en');
       const neutralBackdrop = sortedBackdrops.find((b: { iso_639_1: string | null }) => b.iso_639_1 === null);
-      const bestBackdrop = englishBackdrop || neutralBackdrop || sortedBackdrops[0];
 
-      if (bestBackdrop?.file_path) {
-        console.log(`[TMDB] Found English/neutral backdrop for ${mediaType} ${id}: ${bestBackdrop.iso_639_1 || 'neutral'}`);
-        return bestBackdrop.file_path;
+      if (englishBackdrop?.file_path) {
+        console.log(`[TMDB] Using English backdrop for ${mediaType} ${id}`);
+        return englishBackdrop.file_path;
+      }
+      if (neutralBackdrop?.file_path) {
+        console.log(`[TMDB] Using neutral backdrop for ${mediaType} ${id}`);
+        return neutralBackdrop.file_path;
+      }
+      // Last resort: use highest-voted (may be non-English)
+      if (sortedBackdrops[0]?.file_path) {
+        console.log(`[TMDB] No English/neutral backdrop, using highest-voted for ${mediaType} ${id} (lang: ${sortedBackdrops[0].iso_639_1})`);
+        return sortedBackdrops[0].file_path;
       }
 
       return null;
     } catch (error) {
       console.error(`[TMDB] Get ${mediaType} backdrops error:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch English poster image from the images endpoint.
+   * Prioritizes English posters, then language-neutral posters.
+   */
+  private async getEnglishPoster(id: number, mediaType: 'movie' | 'tv'): Promise<string | null> {
+    if (!this.apiKey) return null;
+
+    try {
+      const endpoint = mediaType === 'movie' ? 'movie' : 'tv';
+      const url = `${TMDB_BASE_URL}/${endpoint}/${id}/images?api_key=${this.apiKey}&include_image_language=en,null`;
+      const response = await fetch(url);
+
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      const posters = data.posters || [];
+
+      if (posters.length === 0) {
+        console.log(`[TMDB] No posters found for ${mediaType} ${id}`);
+        return null;
+      }
+
+      // Sort by vote_average to get best quality poster
+      const sortedPosters = posters.sort((a: { vote_average: number }, b: { vote_average: number }) =>
+        (b.vote_average || 0) - (a.vote_average || 0)
+      );
+
+      // STRICT PRIORITY: English > Neutral > Highest-voted
+      const englishPoster = sortedPosters.find((p: { iso_639_1: string | null }) => p.iso_639_1 === 'en');
+      const neutralPoster = sortedPosters.find((p: { iso_639_1: string | null }) => p.iso_639_1 === null);
+
+      if (englishPoster?.file_path) {
+        console.log(`[TMDB] Using English poster for ${mediaType} ${id}`);
+        return englishPoster.file_path;
+      }
+      if (neutralPoster?.file_path) {
+        console.log(`[TMDB] Using neutral poster for ${mediaType} ${id}`);
+        return neutralPoster.file_path;
+      }
+      // Last resort: use highest-voted (may be non-English)
+      if (sortedPosters[0]?.file_path) {
+        console.log(`[TMDB] No English/neutral poster, using highest-voted for ${mediaType} ${id} (lang: ${sortedPosters[0].iso_639_1})`);
+        return sortedPosters[0].file_path;
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`[TMDB] Get ${mediaType} posters error:`, error);
       return null;
     }
   }

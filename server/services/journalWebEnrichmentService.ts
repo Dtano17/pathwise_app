@@ -896,6 +896,23 @@ Respond with ONLY a JSON object in this format:
 
         let tmdbResult = validation.tmdbResult || await tmdbService.searchMovie(searchTitle, yearHint);
 
+        // CRITICAL: If movie search fails, try TV search as fallback
+        // Many shows like "12 Monkeys", "Counterpart", "The OA" are TV series not movies
+        if (!tmdbResult) {
+          console.log(`[JOURNAL_WEB_ENRICH] Movie search failed for "${searchTitle}", trying TV search...`);
+          tmdbResult = await tmdbService.searchTV(searchTitle, yearHint);
+        }
+
+        // Also try TV if movie search returned null AND entry text suggests TV content
+        // (e.g., "Counterpart TV series" or entry mentions "season", "episode", "series")
+        if (!tmdbResult) {
+          const tvSignals = /\b(series|season|episode|tv\s*show|netflix|hbo|amazon|hulu|apple\s*tv|streaming|miniseries)\b/i;
+          if (tvSignals.test(entry.text) || tvSignals.test(aiRecommendation.searchQuery || '')) {
+            console.log(`[JOURNAL_WEB_ENRICH] TV signals detected in text, trying TV search for "${searchTitle}"...`);
+            tmdbResult = await tmdbService.searchTV(searchTitle, yearHint);
+          }
+        }
+
         // YEAR VALIDATION: If batch context has yearRange, validate the result year
         // Reject results that are way off from expected year (e.g., 1943 when expecting 2024)
         if (tmdbResult && batchCtx?.yearRange && tmdbResult.releaseYear) {
