@@ -8,6 +8,7 @@
  * Used by Quick Plan and Smart Plan for hallucination-free planning.
  */
 
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GoogleGenAI, Type } from '@google/genai';
 
 // Types
