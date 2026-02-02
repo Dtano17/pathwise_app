@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Activities Icon: Concentric circles/target (Pink #f472b6) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Outer circle -->
+    <path
+        android:strokeColor="#f472b6"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M12,2a10,10 0,1 0,10 10A10,10 0,0 0,12 2z"/>
+    <!-- Middle circle -->
+    <path
+        android:strokeColor="#f472b6"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M12,6a6,6 0,1 0,6 6A6,6 0,0 0,12 6z"/>
+    <!-- Center dot (filled) -->
+    <path
+        android:fillColor="#f472b6"
+        android:pathData="M12,10a2,2 0,1 0,2 2A2,2 0,0 0,12 10z"/>
+</vector>

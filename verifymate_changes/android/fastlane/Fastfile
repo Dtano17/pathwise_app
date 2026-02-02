@@ -1,0 +1,149 @@
+# Fastlane configuration for JournalMate Android
+# This file automates building, signing, and deploying to Google Play
+
+default_platform(:android)
+
+platform :android do
+  # Before all lanes
+  before_all do
+    # Ensure we're on the latest version of Fastlane
+    # update_fastlane
+  end
+
+  # ==================== BETA LANE (Internal Testing) ====================
+  desc "Deploy a new Beta Build to Google Play Internal Testing"
+  lane :beta do
+    # Ensure clean git status
+    ensure_git_status_clean
+
+    # Increment version code
+    increment_version_code(
+      gradle_file_path: "app/build.gradle"
+    )
+
+    # Build the app bundle (AAB)
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      properties: {
+        "android.injected.signing.store.file" => ENV['ANDROID_KEYSTORE_PATH'],
+        "android.injected.signing.store.password" => ENV['ANDROID_KEYSTORE_PASSWORD'],
+        "android.injected.signing.key.alias" => ENV['ANDROID_KEY_ALIAS'],
+        "android.injected.signing.key.password" => ENV['ANDROID_KEY_PASSWORD']
+      }
+    )
+
+    # Upload to Google Play Internal Testing
+    upload_to_play_store(
+      track: 'internal',
+      release_status: 'completed',
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    # Commit version bump
+    git_commit(
+      path: ["app/build.gradle"],
+      message: "Version bump to #{get_version_name} (#{get_version_code})"
+    )
+
+    # Add git tag
+    add_git_tag(
+      tag: "android-v#{get_version_name}-#{get_version_code}"
+    )
+
+    # Push to remote
+    push_to_git_remote
+  end
+
+  # ==================== PRODUCTION LANE ====================
+  desc "Deploy a new version to Google Play Production"
+  lane :production do
+    # Ensure clean git status
+    ensure_git_status_clean
+
+    # Increment version code
+    increment_version_code(
+      gradle_file_path: "app/build.gradle"
+    )
+
+    # Build the app bundle
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      properties: {
+        "android.injected.signing.store.file" => ENV['ANDROID_KEYSTORE_PATH'],
+        "android.injected.signing.store.password" => ENV['ANDROID_KEYSTORE_PASSWORD'],
+        "android.injected.signing.key.alias" => ENV['ANDROID_KEY_ALIAS'],
+        "android.injected.signing.key.password" => ENV['ANDROID_KEY_PASSWORD']
+      }
+    )
+
+    # Upload to Google Play Production
+    upload_to_play_store(
+      track: 'production',
+      release_status: 'completed', # Use 'draft' for manual review
+      skip_upload_apk: true,
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false
+    )
+
+    # Commit version bump
+    git_commit(
+      path: ["app/build.gradle"],
+      message: "Release version #{get_version_name}"
+    )
+
+    # Add git tag
+    add_git_tag(
+      tag: "android-release-v#{get_version_name}"
+    )
+
+    # Push to remote
+    push_to_git_remote
+  end
+
+  # ==================== PROMOTE LANE ====================
+  desc "Promote Internal Testing to Beta or Production"
+  lane :promote do |options|
+    from_track = options[:from] || 'internal'
+    to_track = options[:to] || 'beta'
+
+    upload_to_play_store(
+      track: from_track,
+      track_promote_to: to_track,
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  # ==================== HELPER FUNCTIONS ====================
+  def get_version_name
+    # Extract version name from build.gradle
+    gradle_file = File.read("../app/build.gradle")
+    version_match = gradle_file.match(/versionName\s+"(.+)"/)
+    version_match ? version_match[1] : "1.0.0"
+  end
+
+  def get_version_code
+    # Extract version code from build.gradle
+    gradle_file = File.read("../app/build.gradle")
+    code_match = gradle_file.match(/versionCode\s+(\d+)/)
+    code_match ? code_match[1].to_i : 1
+  end
+
+  # ==================== ERROR HANDLING ====================
+  error do |lane, exception|
+    # This block is called if there was an error
+    slack(
+      message: exception.message,
+      success: false
+    ) if ENV['SLACK_URL']
+  end
+end

@@ -1,0 +1,35 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="url(#bgGradient)" />
+
+  <!-- Shield shape -->
+  <path d="M100 25 L160 50 L160 105 Q160 150 100 175 Q40 150 40 105 L40 50 Z"
+        fill="url(#shieldGradient)"
+        stroke="white"
+        stroke-width="4"/>
+
+  <!-- Magnifying glass circle -->
+  <circle cx="95" cy="90" r="35" stroke="white" stroke-width="8" fill="none"/>
+
+  <!-- Magnifying glass handle -->
+  <line x1="120" y1="115" x2="150" y2="145" stroke="white" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Checkmark inside magnifying glass -->
+  <path d="M75 90 L90 105 L115 75"
+        stroke="#10B981"
+        stroke-width="8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
+
+  <defs>
+    <linearGradient id="bgGradient" x1="0" y1="0" x2="200" y2="200">
+      <stop offset="0%" stop-color="#0EA5E9"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="shieldGradient" x1="40" y1="25" x2="160" y2="175">
+      <stop offset="0%" stop-color="#0284C7"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+</svg>

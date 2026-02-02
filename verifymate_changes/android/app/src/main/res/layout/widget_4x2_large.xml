@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 4x2 Large Widget - Dark Navy Design with Cards -->
+<!-- Layout: Header (logo 48dp + "JournalMate") + 4 data cards -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:paddingHorizontal="24dp"
+    android:paddingVertical="20dp"
+    android:background="@drawable/widget_background">
+
+    <!-- Header with Logo and App Name -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:layout_marginBottom="16dp">
+
+        <!-- App Logo with Glow -->
+        <FrameLayout
+            android:layout_width="80dp"
+            android:layout_height="80dp">
+
+            <!-- Glow effect behind logo (ImageView allowed in RemoteViews, View is not) -->
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_gravity="center"
+                android:src="@drawable/widget_logo_glow"
+                android:contentDescription="@null" />
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="center"
+                android:src="@mipmap/ic_launcher"
+                android:contentDescription="JournalMate" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="JournalMate"
+            android:textColor="#ffffff"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.01" />
+    </LinearLayout>
+
+    <!-- Data Cards Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <!-- Tasks Card -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="10dp"
+            android:paddingHorizontal="8dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/widget_card_background">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_widget_tasks"
+                android:contentDescription="Tasks" />
+
+            <TextView
+                android:id="@+id/widget_tasks_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="0/0"
+                android:textColor="#3b82f6"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="TASKS"
+                android:textColor="#6b7280"
+                android:textSize="9sp"
+                android:letterSpacing="0.05"
+                android:textAllCaps="true" />
+        </LinearLayout>
+
+        <!-- Streak Card -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="10dp"
+            android:paddingHorizontal="8dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/widget_card_background">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_widget_goals"
+                android:contentDescription="Streak" />
+
+            <TextView
+                android:id="@+id/widget_streak_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="0"
+                android:textColor="#10b981"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="STREAK"
+                android:textColor="#6b7280"
+                android:textSize="9sp"
+                android:letterSpacing="0.05"
+                android:textAllCaps="true" />
+        </LinearLayout>
+
+        <!-- Total Card -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="10dp"
+            android:paddingHorizontal="8dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/widget_card_background">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_widget_activities"
+                android:contentDescription="Total" />
+
+            <TextView
+                android:id="@+id/widget_total_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="0"
+                android:textColor="#f472b6"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="TOTAL"
+                android:textColor="#6b7280"
+                android:textSize="9sp"
+                android:letterSpacing="0.05"
+                android:textAllCaps="true" />
+        </LinearLayout>
+
+        <!-- Notifications Card -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="10dp"
+            android:paddingHorizontal="8dp"
+            android:background="@drawable/widget_card_background">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_widget_groups"
+                android:contentDescription="Notifications" />
+
+            <TextView
+                android:id="@+id/widget_notifications_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="0"
+                android:textColor="#f59e0b"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="NOTIFS"
+                android:textColor="#6b7280"
+                android:textSize="9sp"
+                android:letterSpacing="0.05"
+                android:textAllCaps="true" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,0 +1,311 @@
+/**
+ * Platform Detection Utility for Capacitor Mobile Apps
+ *
+ * Provides utilities to detect the current platform (web, iOS, Android)
+ * and conditionally execute platform-specific code.
+ *
+ * Includes fallback detection for cases where Capacitor bridge
+ * initialization is delayed (race condition in WebView).
+ */
+
+import { Capacitor } from '@capacitor/core';
+
+/**
+ * Fallback detection for Android WebView
+ * Used when Capacitor.isNativePlatform() returns false due to timing issues
+ * or when loading a remote URL in the WebView
+ */
+const isAndroidWebView = (): boolean => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+  const ua = navigator.userAgent.toLowerCase();
+  // Check for Android WebView indicators
+  // Note: When loading remote URLs (like journalmate.ai), we detect via user agent
+  // Android WebView includes "wv" marker. Some WebViews also have specific patterns.
+  const isAndroid = ua.includes('android');
+  const hasWvMarker = ua.includes('wv');                    // Standard WebView marker
+  const hasWebViewMarker = ua.includes('webview');          // Alternative WebView marker
+  const hasCapacitor = ua.includes('capacitor');            // Capacitor user agent
+  const isLocalhost = document.URL.startsWith('https://localhost') ||
+                      document.URL.startsWith('http://localhost') ||
+                      document.URL.startsWith('capacitor://');
+
+  // Check for production app URL loaded in WebView
+  const isProductionApp = document.URL.includes('journalmate.ai');
+
+  // Check if Capacitor bridge is injected (works even with remote URLs)
+  // Call the function to verify it's actually a native platform
+  const hasCapacitorBridge = !!(window as any).Capacitor?.isNativePlatform?.();
+
+  // Also check if running inside a mobile app by looking at window properties
+  // Capacitor sets window.Capacitor when injected
+  const hasCapacitorWindow = typeof (window as any).Capacitor !== 'undefined';
+
+  // If we detect Android AND any WebView/Capacitor indicator, we're in native
+  return isAndroid && (hasWvMarker || hasWebViewMarker || hasCapacitor || isLocalhost || isProductionApp || hasCapacitorBridge || hasCapacitorWindow);
+};
+
+/**
+ * Fallback detection for iOS WebView
+ */
+const isIOSWebView = (): boolean => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+  const ua = navigator.userAgent.toLowerCase();
+  // Check for iOS WebView indicators
+  const isIOS = /iphone|ipad|ipod/.test(ua);
+
+  // Check for production app URL loaded in WebView
+  const isProductionApp = document.URL.includes('journalmate.ai');
+
+  // Check if Capacitor window object exists
+  const hasCapacitorWindow = typeof (window as any).Capacitor !== 'undefined';
+
+  return isIOS && (
+    document.URL.startsWith('capacitor://') ||
+    document.URL.startsWith('ionic://') ||
+    // Standalone mode (added to home screen)
+    (window.navigator as any).standalone === true ||
+    // Production app in WebView
+    (isProductionApp && hasCapacitorWindow)
+  );
+};
+
+/**
+ * Check if the app is running as a native mobile app (via Capacitor)
+ * Includes fallback detection for WebView environments
+ */
+export const isNative = (): boolean => {
+  // Try Capacitor's native detection first
+  try {
+    if (Capacitor.isNativePlatform()) {
+      console.log('[PLATFORM] isNative: true (Capacitor.isNativePlatform)');
+      return true;
+    }
+  } catch (e) {
+    // Capacitor not available or errored
+  }
+
+  // Fallback: Check for WebView environment
+  const androidWebView = isAndroidWebView();
+  const iosWebView = isIOSWebView();
+  const result = androidWebView || iosWebView;
+
+  console.log('[PLATFORM] isNative debug:', {
+    capacitorExists: typeof (window as any).Capacitor !== 'undefined',
+    capacitorIsNative: (window as any).Capacitor?.isNativePlatform?.(),
+    userAgent: navigator.userAgent,
+    documentURL: document.URL,
+    isAndroidWebView: androidWebView,
+    isIOSWebView: iosWebView,
+    result
+  });
+
+  return result;
+};
+
+/**
+ * Check if the app is running on iOS
+ * Includes fallback detection for WebView environments
+ */
+export const isIOS = (): boolean => {
+  try {
+    if (Capacitor.getPlatform() === 'ios') {
+      return true;
+    }
+  } catch (e) {
+    // Capacitor not available
+  }
+  return isIOSWebView();
+};
+
+/**
+ * Check if the app is running on Android
+ * Includes fallback detection for WebView environments
+ */
+export const isAndroid = (): boolean => {
+  try {
+    if (Capacitor.getPlatform() === 'android') {
+      return true;
+    }
+  } catch (e) {
+    // Capacitor not available
+  }
+  return isAndroidWebView();
+};
+
+/**
+ * Check if the app is running in a web browser
+ */
+export const isWeb = (): boolean => {
+  return !isNative();
+};
+
+/**
+ * Get the current platform name
+ * @returns 'web' | 'ios' | 'android'
+ * Includes fallback detection for WebView environments
+ */
+export const getPlatform = (): 'web' | 'ios' | 'android' => {
+  try {
+    const platform = Capacitor.getPlatform();
+    if (platform === 'ios' || platform === 'android') {
+      return platform;
+    }
+  } catch (e) {
+    // Capacitor not available
+  }
+
+  // Fallback detection
+  if (isAndroidWebView()) return 'android';
+  if (isIOSWebView()) return 'ios';
+  return 'web';
+};
+
+/**
+ * Check if the device is a mobile device (iOS or Android)
+ */
+export const isMobile = (): boolean => {
+  return isIOS() || isAndroid();
+};
+
+/**
+ * Execute platform-specific code
+ * @example
+ * platformSwitch({
+ *   ios: () => console.log('Running on iOS'),
+ *   android: () => console.log('Running on Android'),
+ *   web: () => console.log('Running on web')
+ * });
+ */
+export const platformSwitch = <T>(options: {
+  ios?: () => T;
+  android?: () => T;
+  web?: () => T;
+  native?: () => T;
+  default?: () => T;
+}): T | undefined => {
+  const platform = getPlatform();
+
+  // Check for native-specific handler first
+  if (isNative() && options.native) {
+    return options.native();
+  }
+
+  // Then check platform-specific handlers
+  if (platform === 'ios' && options.ios) {
+    return options.ios();
+  }
+
+  if (platform === 'android' && options.android) {
+    return options.android();
+  }
+
+  if (platform === 'web' && options.web) {
+    return options.web();
+  }
+
+  // Fall back to default if provided
+  if (options.default) {
+    return options.default();
+  }
+
+  return undefined;
+};
+
+/**
+ * Check if a specific Capacitor plugin is available
+ * @param pluginName - The name of the plugin (e.g., 'Camera', 'PushNotifications')
+ */
+export const isPluginAvailable = (pluginName: string): boolean => {
+  return Capacitor.isPluginAvailable(pluginName);
+};
+
+/**
+ * Wait for a Capacitor plugin to be available
+ * Useful when loading from remote URLs where bridge initialization is async
+ * @param pluginName - The name of the plugin to wait for
+ * @param timeoutMs - Maximum time to wait in milliseconds (default: 2000ms)
+ * @returns true if plugin became available, false if timeout
+ */
+export const waitForCapacitorPlugin = async (
+  pluginName: string,
+  timeoutMs: number = 2000
+): Promise<boolean> => {
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeoutMs) {
+    const capacitor = (window as any).Capacitor;
+    if (capacitor?.Plugins?.[pluginName]) {
+      console.log(`[PLATFORM] Plugin ${pluginName} became available after ${Date.now() - startTime}ms`);
+      return true;
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  console.log(`[PLATFORM] Plugin ${pluginName} not available after ${timeoutMs}ms timeout`);
+  return false;
+};
+
+/**
+ * Get platform-specific configuration values
+ */
+export const getPlatformConfig = () => {
+  return {
+    platform: getPlatform(),
+    isNative: isNative(),
+    isIOS: isIOS(),
+    isAndroid: isAndroid(),
+    isWeb: isWeb(),
+    isMobile: isMobile(),
+  };
+};
+
+/**
+ * Convert platform to a human-readable name
+ */
+export const getPlatformName = (): string => {
+  const platform = getPlatform();
+  switch (platform) {
+    case 'ios':
+      return 'iOS';
+    case 'android':
+      return 'Android';
+    case 'web':
+      return 'Web';
+    default:
+      return platform;
+  }
+};
+
+/**
+ * Check if running on a tablet (iPad or Android tablet)
+ * Note: This is a best-effort detection based on screen size
+ */
+export const isTablet = (): boolean => {
+  if (!isNative()) {
+    // For web, use screen size heuristic
+    const minDimension = Math.min(window.screen.width, window.screen.height);
+    const maxDimension = Math.max(window.screen.width, window.screen.height);
+    return minDimension >= 768 && maxDimension >= 1024;
+  }
+
+  // For native, check device info (would need Device plugin)
+  // This is a placeholder - implement with @capacitor/device if needed
+  return false;
+};
+
+export default {
+  isNative,
+  isIOS,
+  isAndroid,
+  isWeb,
+  isMobile,
+  isTablet,
+  getPlatform,
+  getPlatformName,
+  getPlatformConfig,
+  platformSwitch,
+  isPluginAvailable,
+  waitForCapacitorPlugin,
+};
