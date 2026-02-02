@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
-import { v4 as uuidv4 } from "crypto";
+import { v4 as uuidv4 } from "uuid";
 import type { InsertVerification } from "@shared/schema";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;

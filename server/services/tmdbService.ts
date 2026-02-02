@@ -771,7 +771,6 @@ Respond ONLY with valid JSON (no explanation):
       }
 
       // If still no result WITH year constraint, try without year - but only if yearHint wasn't provided
-      // If yearHint was provided (from batch context), we should respect it and not return a random year match
       if (!result && targetYear && !yearHint) {
         console.log(`[TMDB] Trying search without year constraint: "${titleWithoutYear}"`);
         result = await this.searchMovieByTitle(titleWithoutYear, null);
@@ -789,7 +788,6 @@ Respond ONLY with valid JSON (no explanation):
       // Build URL with year filter if available
       let url = `${TMDB_BASE_URL}/search/movie?api_key=${this.apiKey}&query=${encodeURIComponent(cleanQuery)}&include_adult=false&language=en-US`;
       if (targetYear) {
-        // Use primary_release_year for exact year matching
         url += `&primary_release_year=${targetYear}`;
       }
 
@@ -805,8 +803,6 @@ Respond ONLY with valid JSON (no explanation):
 
       if (!data.results || data.results.length === 0) {
         console.log(`[TMDB] No movies found for: "${cleanQuery}"`);
-        // DON'T automatically fall back to TV - return null instead
-        // This prevents "Rental Family" → "Rent-a-Girlfriend" wrong matches
         return null;
       }
 
