@@ -756,14 +756,17 @@ Respond with ONLY a JSON object in this format:
       // FIRST: Extract venue name and location from text
       // This MUST happen BEFORE cache key generation to avoid cache collisions
       // when multiple entries have the same ID but different content
-      const extractedInfo = this.extractVenueInfo(entry.text);
-      
+      // CRITICAL: Pass category so extractVenueInfo can use movie patterns for entries
+      // in "Movies & TV Shows" category even without text signals
+      const extractedInfo = this.extractVenueInfo(entry.text, entry.category);
+
       // For movies, ALWAYS use extracted title (not the full venue name with parentheses)
-      // This ensures "Watch Mission Impossible: The Final Reckoning (#1 ranked movie)" 
+      // This ensures "Watch Mission Impossible: The Final Reckoning (#1 ranked movie)"
       // becomes just "Mission Impossible: The Final Reckoning" for TMDB search
       const contentType = this.detectContentType(entry.text);
       const isMovieContent = contentType === 'movie' || contentType === 'movies' ||
-                             entry.category === 'custom-entertainment' || entry.category === 'Entertainment';
+                             entry.category === 'custom-entertainment' || entry.category === 'Entertainment' ||
+                             entry.category === 'Movies & TV Shows' || entry.category === 'movies';
       
       const venueName = isMovieContent && extractedInfo.venueName 
         ? extractedInfo.venueName  // Use extracted clean title for movies
@@ -1349,12 +1352,21 @@ Respond with ONLY a JSON object in this format:
    * Extract EXACT title/venue name from entry text.
    * CRITICAL: Must extract the precise title to prevent content mismatches.
    * For "Watch Wicked for Good" - must extract "Wicked for Good", not something else.
+   *
+   * @param text - The entry text to extract from
+   * @param category - Optional category hint (e.g., "Movies & TV Shows") to help detection
    */
-  private extractVenueInfo(text: string): { venueName?: string; city?: string; author?: string; exactTitle?: string } {
+  private extractVenueInfo(text: string, category?: string): { venueName?: string; city?: string; author?: string; exactTitle?: string } {
     const contentType = this.detectContentType(text);
 
+    // CRITICAL: Check if category indicates movie/TV even without text signals
+    // This handles simple entries like "Dark", "Interstellar", "Tenet" in Movies & TV Shows category
+    const isMovieCategory = category === 'Movies & TV Shows' || category === 'movies' ||
+                            category === 'custom-entertainment' || category === 'Entertainment';
+
     // MOVIE-specific extraction - CRITICAL for preventing mismatches
-    if (contentType === 'movie' || contentType === 'movies') {
+    // Run movie patterns if: detected as movie OR category indicates movie
+    if (contentType === 'movie' || contentType === 'movies' || isMovieCategory) {
       const moviePatterns = [
         // PRIORITY 1: Single-quoted titles - e.g., "Stream or rent 'Die My Love'" -> "Die My Love"
         // These are very reliable because they have explicit delimiters
